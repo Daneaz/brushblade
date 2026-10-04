@@ -37,6 +37,41 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.ScaleEffectValue(kind, 100, 5), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5)));
         }
 
+        // 全枚举守卫:新增 EffectKind 必须在下面两个集合里显式归类(离散 / 连续),
+        // 否则漏归类会悄悄落进 ScalesWithCardLevel 的 `_ => true` 而被等级放大。
+        private static readonly HashSet<EffectKind> Discrete = new()
+        {
+            EffectKind.Freeze, EffectKind.Slow, EffectKind.BurnSingle, EffectKind.BurnAll,
+            EffectKind.Morale, EffectKind.Immunity, EffectKind.Revive, EffectKind.Block,
+            EffectKind.Dispel, EffectKind.ApBoost, EffectKind.Charm,
+        };
+
+        private static readonly HashSet<EffectKind> Continuous = new()
+        {
+            EffectKind.DamageSingle, EffectKind.Shield, EffectKind.ShieldAll, EffectKind.BurnPotency,
+            EffectKind.HealSelf, EffectKind.Summon, EffectKind.Bleed, EffectKind.HealAll,
+            EffectKind.HealOverTime, EffectKind.DefenseBuff, EffectKind.ArmorBreak, EffectKind.Cleanse,
+            EffectKind.Blind, EffectKind.Silence, EffectKind.Reflect, EffectKind.BurnNoDecay,
+            EffectKind.BurnSettleNow, EffectKind.Detonate, EffectKind.Empower, EffectKind.CritBuff,
+            EffectKind.PierceBuff, EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.Quench,
+            EffectKind.Haste, EffectKind.Unseal,
+        };
+
+        [Test]
+        public void EveryEffectKind_IsClassified_AndDiscreteSetMatchesRule()
+        {
+            var discreteByRule = new HashSet<EffectKind>();
+            foreach (EffectKind kind in Enum.GetValues(typeof(EffectKind)))
+            {
+                Assert.That(Discrete.Contains(kind) || Continuous.Contains(kind), Is.True,
+                    $"EffectKind.{kind} 未归类:新增 kind 必须加进本测试的 Discrete 或 Continuous 集合,并核对 MetaRules.ScalesWithCardLevel");
+                if (!MetaRules.ScalesWithCardLevel(kind)) discreteByRule.Add(kind);
+            }
+            Assert.That(Discrete.Overlaps(Continuous), Is.False, "同一 kind 不能同时算离散与连续");
+            Assert.That(discreteByRule.SetEquals(Discrete), Is.True,
+                "离散集合必须与 ScalesWithCardLevel 为 false 的集合一致");
+        }
+
         [Test]
         public void Freeze_AtLevel10_StillOneTurn()
         {

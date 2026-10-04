@@ -630,6 +630,15 @@ namespace Brushblade.Data
                 // 悄悄退化成单体——正是上面那条 player 侧校验存在的理由,这里补齐 summon 侧。
                 if (effect.Passive != null && !Enum.IsDefined(typeof(TargetArea), effect.Passive.Shape))
                     throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
+                // spec v7 §3.2:All 只对玩家出字的 DamageSingle 有定义;别处写 All 引擎会静默忽略或语义错乱。
+                if (shape == TargetArea.All && kind != EffectKind.DamageSingle)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能用全体(All)形状,只有 DamageSingle 可以");
+                if (effect.Passive != null && effect.Passive.Shape == TargetArea.All)
+                    throw new ConfigException($"字「{dto.Id}」的召唤被动不能用全体(All)形状");
+                if (shape == TargetArea.All && effect.ArmorStrikePercent > 0)
+                    throw new ConfigException($"字「{dto.Id}」的全体(All)伤害不能同时配镇压(armorStrikePercent)");
+                if (kind == EffectKind.Block && effect.Value < 1)
+                    throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
