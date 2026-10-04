@@ -31,6 +31,35 @@ namespace Brushblade.Core.Tests
         public void TierForLevel_Bands(int level, ChestTier expected) =>
             Assert.That(LevelRewardRules.TierForLevel(level), Is.EqualTo(expected));
 
+        /// <summary>升级弹窗的档位 chip「Lv.11–20」读这里,必须与 TierForLevel 同源。</summary>
+        [TestCase(ChestTier.Bamboo, 1, 5)]
+        [TestCase(ChestTier.Celadon, 6, 10)]
+        [TestCase(ChestTier.Rosewood, 11, 20)]
+        [TestCase(ChestTier.Gilded, 21, 30)]
+        [TestCase(ChestTier.Vermilion, 31, 40)]
+        [TestCase(ChestTier.Crimson, 41, int.MaxValue)]
+        public void TryGetLevelBand_Bands(ChestTier tier, int min, int max)
+        {
+            Assert.That(LevelRewardRules.TryGetLevelBand(tier, out int gotMin, out int gotMax), Is.True);
+            Assert.That(gotMin, Is.EqualTo(min));
+            Assert.That(gotMax, Is.EqualTo(max));
+        }
+
+        [Test]
+        public void TryGetLevelBand_PaperIsNeverALevelReward() =>
+            Assert.That(LevelRewardRules.TryGetLevelBand(ChestTier.Paper, out _, out _), Is.False);
+
+        [Test]
+        public void TryGetLevelBand_AgreesWithTierForLevel()
+        {
+            for (int lv = 1; lv <= 200; lv++)
+            {
+                var tier = LevelRewardRules.TierForLevel(lv);
+                Assert.That(LevelRewardRules.TryGetLevelBand(tier, out int min, out int max), Is.True, $"Lv.{lv}");
+                Assert.That(lv >= min && lv <= max, Is.True, $"Lv.{lv} 不在 {tier} 的区间 {min}–{max}");
+            }
+        }
+
         [Test]
         public void XpToReach_MatchesCharacterLevel()
         {
