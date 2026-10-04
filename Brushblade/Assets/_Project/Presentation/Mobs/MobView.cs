@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>分层字怪(《敌人形象关键词包》§2/§4):三层各跑各的周期、相位错开,
+    /// <summary>分层字怪(原《敌人形象关键词包》(已删,见 git 349c3cf5^)§2/§4):三层各跑各的周期、相位错开,
     /// 所以它看着像一个活物而不是一坨在缩放——这正是选分层方案的理由。
     /// 第 12 章戒律:不做骨骼/帧动画,动效全靠程序 tween。</summary>
     public sealed class MobView : MonoBehaviour

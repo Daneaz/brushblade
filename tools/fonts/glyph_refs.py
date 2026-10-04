@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """字形底稿:把字怪用到的汉字渲染成居中等大的 SVG,作为出图 AI 的 ControlNet / 参考图输入。
 
-为什么需要这一步:图像模型画汉字会画歪、缺笔、造出不存在的字,而《敌人形象关键词包》
+为什么需要这一步:图像模型画汉字会画歪、缺笔、造出不存在的字,而原《敌人形象关键词包》(已删,见 git 349c3cf5^)
 的「字为骨」方案全靠字形准确。所以字形由字体供给,模型只负责在底稿上生长墨肉。
 
 用法:
@@ -9,7 +9,9 @@
     python3 tools/fonts/glyph_refs.py --char 焦   # 只看一个字
 
 前置: tools/fonts/raw/NotoSerifSC[wght].ttf(google/fonts, OFL)。
-产出: docs/design/glyph-refs/(入 git —— 它是设计输入,别的 agent 要直接取用)。
+产出: tools/fonts/out/glyph-refs/(不入 git)。原先产出 docs/design/glyph-refs/ 入 git 给出图用,
+字怪立绘都已落进 tools/design/mobs/svg/ 后于 2026-10-03 删除;现在本脚本主要作为库被
+tools/design/build_boss_art.py 引用(render_svg / BOSS_WEIGHT),命令行只在临时要看字形底稿时用。
 """
 import argparse
 import json
@@ -28,7 +30,7 @@ from fontTools.ttLib import TTFont
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW_FONT = Path(__file__).parent / "raw" / "NotoSerifSC[wght].ttf"
-OUT_DIR = ROOT / "docs/design/glyph-refs"
+OUT_DIR = ROOT / "tools/fonts/out/glyph-refs"
 SVG_DIR = OUT_DIR / "svg"   # 矢量底稿(给 Claude Design:它读 path 数据)
 PNG_DIR = OUT_DIR / "png"   # 位图底稿(给只吃位图的出图工具/ControlNet)
 
@@ -49,7 +51,7 @@ class Job:
     note: str = ""
 
 
-# 杂兵 9 只(《敌人形象关键词包》§5)
+# 杂兵 9 只(原《敌人形象关键词包》(已删,见 git 349c3cf5^)§5)
 _MINIONS = [
     Job("minion", "错字鬼", "错", "cuozigui", note="炮灰教学首怪,笔画松散欲散架"),
     Job("minion", "缺笔妖", "缺", "quebiyao", note="右半缺失,断口渗墨;L4=补全笔画"),

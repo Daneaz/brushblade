@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字牌边框素材(《字牌形象关键词包》§2/§3):七档稀有度各一张框(2026-08-04 接入金卡素材后
+    /// <summary>字牌边框素材(原《字牌形象关键词包》(已删,见 git 349c3cf5^)§2/§3):七档稀有度各一张框(2026-08-04 接入金卡素材后
     /// 由六档增至七档)+ 蓝级以上一张光效层。素材画布 192×240(0.8 竖版),牌面按同比例整体缩放,**不做 9-slice**。</summary>
     public static class CardFrames
     {

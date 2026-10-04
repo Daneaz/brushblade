@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字怪形象资产的查找与加载(《敌人形象关键词包》§2 分层规范)。
+    /// <summary>字怪形象资产的查找与加载(原《敌人形象关键词包》(已删,见 git 349c3cf5^)§2 分层规范)。
     /// 战斗代码里 EnemyDef.Id 是中文,资产名是拼音——这里是唯一的对照表,
     /// 与 tools/design/rasterize_mobs.py 的同名表保持一致。</summary>
     public static class MobAssets
@@ -116,7 +116,7 @@ namespace Brushblade.Presentation
         /// 焦痕自燃没有层数上限,4 层之后 <see cref="Mathf.Clamp01"/> 按满亮画。</summary>
         private const int ScorchFullStacks = 4;
 
-        /// <summary>L4 状态层的强度 = 该怪的战斗状态(《敌人形象关键词包》§2)。
+        /// <summary>L4 状态层的强度 = 该怪的战斗状态(原《敌人形象关键词包》(已删,见 git 349c3cf5^)§2)。
         /// 这四只的机制本来就有状态字段,配一张层就把「颜色 = 状态」兑现了。</summary>
         public static float StateAmountFor(EnemyState enemy) => enemy.Def.Ability switch
         {

@@ -3042,7 +3042,7 @@ namespace Brushblade.Presentation
                 // 会等比压窄每格,不会溢出到左右两栏底下——别为这个再改牌宽。
                 var tile = Ui.GlyphTile(_libraryRow, def, selected, tap,
                     new Vector2(HandTileW, HandTileH));
-                // AP 不够就去饱和压暗、属性动效停(《字牌形象关键词包》§4.4):
+                // AP 不够就去饱和压暗、属性动效停(原《字牌形象关键词包》(已删,见 git 349c3cf5^)§4.4):
                 // 「用不了」要在点下去之前就看得出来,不能等弹窗告诉你
                 if (!rewardPhase)
                     tile.GetComponent<CardFrameView>()?.SetPlayable(def.ApCost <= Battle.Ap);
