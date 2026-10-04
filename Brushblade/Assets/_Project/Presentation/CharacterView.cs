@@ -21,6 +21,9 @@ namespace Brushblade.Presentation
         private IReadOnlyList<string> _cardPool;
         private Action _save, _onBack;
         private Tab _tab = Tab.Chest;
+        /// <summary>右栏横向滚动的位置(Content.anchoredPosition.x)。切页签、领里程碑都会整页重建,
+        /// 不记下来的话每点一次就弹回最左。null = 本次打开还没定过位(首次按可领那格定)。</summary>
+        private float? _rightScrollX;
 
         private const float TopBarH = 80f;     // 与 PerkView 同
         private const float ProfW = 419f;      // 稿 200pt
@@ -28,6 +31,11 @@ namespace Brushblade.Presentation
         private const float Gap = 21f;         // 稿 10pt
         private const int PanelPad = 21;       // 稿 10pt
         private const int WindowSize = 10;     // 轨道格数
+        /// <summary>右栏(里程碑 + 统计)排版的最小宽:932×430pt 基准机上右栏的实际宽
+        /// (画布 900×2796/1290 ≈ 1951 − 两侧安全区 123×2 − 左栏 419 − 栏距 21)。全部间距都按这个宽验算过;
+        /// 16:9(画布宽 1600)下右栏只剩约 914,里程碑卡与统计栏都会溢出,所以右栏改成横向滚动区,
+        /// 不足这个宽时按它排、横向滚出来(2026-10-04 用户拍板)。</summary>
+        private const float RightMinW = 1265f;
 
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -41,6 +49,8 @@ namespace Brushblade.Presentation
 
         private void Rebuild()
         {
+            var oldScroll = transform.GetComponentInChildren<ScrollRect>();
+            if (oldScroll != null) _rightScrollX = oldScroll.content.anchoredPosition.x;
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
             var (padSide, padBottom) = SafeArea.MissingInset();
@@ -59,13 +69,36 @@ namespace Brushblade.Presentation
 
             BuildProfile(body.transform);
 
-            var right = Ui.VStack(body.transform, "Right", Gap);
-            right.AddComponent<LayoutElement>().flexibleWidth = 1;
+            var rightScroll = Ui.HScrollFill(body.transform, "RightScroll", RightMinW, out var rightContent);
+            rightScroll.AddComponent<LayoutElement>().flexibleWidth = 1;
+            var right = Ui.VStack(rightContent, "Right", Gap);
+            Ui.Stretch((RectTransform)right.transform);
             var rightLayout = right.GetComponent<VerticalLayoutGroup>();
             rightLayout.childForceExpandWidth = true;
             rightLayout.childForceExpandHeight = false;
             BuildMilestones(right.transform);
             BuildStats(right.transform);
+
+            var scroll = rightScroll.GetComponent<ScrollRect>();
+            if (_rightScrollX is float x)
+                rightContent.anchoredPosition = new Vector2(x, 0f);   // Clamped 会在越界时自己收回
+            else
+                StartCoroutine(ScrollToClaimable(scroll));
+        }
+
+        /// <summary>首次打开:有可领的里程碑就把它滚进视野(16:9 下轨道右端约三格在视口外)。
+        /// 等一帧 —— Content 的宽要布局算完、<see cref="FillViewportWidth"/> 改过之后才定。</summary>
+        private System.Collections.IEnumerator ScrollToClaimable(ScrollRect scroll)
+        {
+            var window = Window(_meta);
+            int target = window.FindIndex(lv => !_meta.ClaimedMilestones.Contains(lv)
+                && MilestoneRules.IsClaimable(_meta, lv));
+            _rightScrollX = 0f;
+            if (target <= 0 || window.Count < 2) yield break;
+            yield return null;
+            if (scroll == null) yield break;
+            scroll.horizontalNormalizedPosition = (float)target / (window.Count - 1);
+            _rightScrollX = scroll.content.anchoredPosition.x;
         }
 
         // ================= 顶栏 =================
