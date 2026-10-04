@@ -18,15 +18,11 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .homebar > span { width: 128px; border-radius: 2px; background: rgba(255,255,255,.4); }
 .mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 300px; font-weight: 600; line-height: 1; color: rgba(94,74,49,.075); }
 .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
-.pop { position: absolute; left: 166px; top: 26px; width: 600px; height: 356px; box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px; padding: 14px 18px 14px; box-shadow: 0 12px 38px rgba(22,27,34,.42); display: flex; flex-direction: column; gap: 10px; z-index: 51; }
+.pop { position: absolute; left: 166px; top: 37px; width: 600px; height: 356px; box-sizing: border-box; background: #FBF8F1; border: 0.72px solid #DED7C9; border-radius: 8.6px; padding: 14px 18px 14px; display: flex; flex-direction: column; gap: 10px; z-index: 51; }
 .hd { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.kick { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; letter-spacing: 8px; color: #9B1E22; }
+.kick { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; color: #9B1E22; }
 .kick::before, .kick::after { content: ""; width: 34px; height: 1px; background: #DED7C9; }
-.lvrow { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
-.lvrow .was { font-size: 18px; font-weight: 600; color: #696151; }
-.lvrow .arw { font-size: 14px; color: #7A3F5C; }
-.lvrow .now { font-size: 38px; font-weight: 700; line-height: 1; }
-.lvrow .now i { font-style: normal; font-size: 16px; font-weight: 600; color: #5D646F; margin-right: 2px; }
+.lvrow { font-size: 24px; font-weight: 600; line-height: 1.4; color: #161B22; font-variant-numeric: tabular-nums; }
 .mods { flex: 1; min-height: 0; display: flex; gap: 14px; }
 .mod { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .ttl { display: flex; align-items: center; gap: 6px; }
@@ -54,7 +50,7 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .mile b { font-family: "Noto Serif SC", serif; font-size: 11px; color: #8A6600; }
 .mile span { margin-left: auto; font-size: 9px; color: #8A6600; }
 .foot { display: flex; justify-content: center; }
-.pill { height: 40px; width: 160px; border: none; border-radius: 20px; background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px; }
+.pill { height: 40px; width: 160px; border: none; border-radius: 20px; background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); font-family: "Noto Sans SC", sans-serif; font-size: 15px; font-weight: 500; }
 </style>
 </helmet>
 <div class="dev">
@@ -63,11 +59,11 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="pop">
 <div class="hd">
 <div class="kick serif">升 级</div>
-<div class="lvrow serif"><span class="was">Lv.19</span><span class="arw">→</span><span class="now"><i>Lv.</i>20</span></div>
+<div class="lvrow serif">Lv.19 → Lv.20</div>
 </div>
 <div class="mods">
 <div class="mod" style="flex: 1;">
-<div class="ttl"><b>属性</b><span>下一段开打时生效</span><span class="rule"></span></div>
+<div class="ttl"><b>属性 · 下一段开打时生效</b></div>
 <div class="num hp"><span class="k">生命</span><span class="was">860</span><span class="arw">→</span><span class="now">880</span><span class="dlt">+20</span></div>
 <div class="num"><span class="k">攻击</span><span class="was">136</span><span class="arw">→</span><span class="now">138</span><span class="dlt">+2</span></div>
 <div class="num"><span class="k">护甲</span><span class="was">9</span><span class="arw">→</span><span class="now">12</span><span class="dlt">+3</span></div>
@@ -84,7 +80,7 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 </svg>
 <div class="nm serif"><i class="dot"></i>紫檀匣</div>
 <span class="band">Lv.11–20</span>
-<div class="yield">5 捆 · 120 墨 · 4 小时</div>
+<div class="yield">8 种 40 张 · 120 墨 · 4 小时</div>
 <div class="slot">已放进箱位 <b>3 / 4</b></div>
 </div>
 </div>

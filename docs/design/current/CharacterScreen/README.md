@@ -55,27 +55,16 @@
 
 ## 与拍板稿的差异（`drafts/character/Character.dc.html`，按代码画）
 
-1. **顶栏排布**：稿是「返回」钮在最左、标题其后、墨锭在最右；代码按全站惯例「标题在左，墨锭 + 返回在右」，钮文案是「返回地图」（`CharacterView.BuildTopBar`，`CharacterView.cs:74–97`，类注释自认这一条）。
-2. **墨锭数**：千分位与稿一致（「2,480」，`Ui.InkText`）；稿的墨锭图标带金色内框、数字粗体，代码是纯 `ingot-dark` 六边形、常规字重（`BuildTopBar`）。
-3. **字距**：稿标题、头像名、页签、「领 取」都有 `letter-spacing`；代码 Unity `Text` 没有字距，间隔只靠字符串里的空格。
-4. **经验条**：稿轨道 `quiet`（#E4DDCE）、填充 `rarity-gold`（#C9A94A）、高 5；代码 `Ui.Bar` 轨道 `paper-dim`、填充 `gold`（#CA9D33）、高 4.78（`BuildProfile`，`CharacterView.cs:129`）。
-5. **属性行**：稿底色 #F2EEE4、生命值 `fire-glyph`（#B02D2E）；代码底色 `panel-inset`（#F1EBDE）、生命值 `cinnabar`（`AttrRow`，`CharacterView.cs:140, 168`）。
-6. **封顶说明**：稿把「Lv.50」挑出来加深；代码一整条 `text-faint` 标签（`BuildProfile`，`CharacterView.cs:155`）。代码另有稿上没有的欠箱 chip（`CharacterView.cs:159–161`，来自 spec §5.1）。
-7. **里程碑标题**：稿「等级里程碑」`text-quiet` 12 加字距；代码 `text-main` 11.94、无字距（`TitleRow`，`CharacterView.cs:557–563`）。
-8. **里程碑卡**：
-   - 未达卡稿用 `card-face` + `box-border`（#E7E1D4）描边；代码 `CardWhite` + `panel-border`（`MilestoneNode`，`CharacterView.cs:262–264`）。
-   - 已领卡稿把 Lv 与墨锭都压成 `text-warm`；代码 Lv 用 `text-dim`、墨锭数仍是 `text-main`（`CharacterView.cs:273–275`）。
-   - 可领钉稿外套一圈 3pt `gold-soft` 光环；代码只有金色实心圆（`CharacterView.cs:244`）。
-   - 墨锭：稿是带金色内框的小墨锭 + 粗体数；代码 `Ui.IngotLabel` 纯墨锭 + 常规字重（`CharacterView.cs:275`）。
-   - 色点：稿 7×7 圆角 2；代码 13 → 6.21、圆角 6 → 2.87（`Dot`，`CharacterView.cs:277`）。
-   - 「领 取」：稿宋体 700、高 20、圆角 10；代码 `Ui.PillButton` 黑体 500、高 21.02、圆角 11.47（`CharacterView.cs:286–289`）。
-   - 轨道底线：稿横跨 4%–96%、高 3；代码 5%–95%、高 2.87（`BuildMilestones`，`CharacterView.cs:218–224`）。
-   - 格距：稿 6；代码 3.82（`space-4`）。稿的 6 下每格卡内净宽只有约 47pt，而「色点 + 间距 +『金字 3 选 1』」按 Noto 字宽实算 47.7pt，Unity `Text` 不折行会探出卡边；收窄格距换出约 2pt。
-9. **宝箱页**：
-   - 表头：稿把总数挑出来加粗 `text-main`；代码一整条 `text-faint` 标签（`Column`，`CharacterView.cs:573`）。
-   - 清单行：稿数值加粗，零值行字压成 `text-mute`、色点保留稀有度色；代码数值常规字重，零值行字与色点一起压成 `text-faint`（`ListRow`，`CharacterView.cs:578–587`）。
-   - 红保底：稿写「红字 · 赤霄匣」；代码模板统一是「{rarity}字 · {tierName}及以上」→「赤霄匣及以上」（`PityBlock`，`CharacterView.cs:430–431`）。
-   - 保底栏：稿竖排 7；代码 3.82（`space-4`），「3 / 5」的布局盒压到同行正文行高。按 uGUI 实算，原值下三块首选高合计 333 > 页面区 304（逻辑单位），竖排会按比例把各行压扁；现在 287，放得下。
-   - 金保底提示：稿「再开 2 只鎏金匣及以上,下一只必出金字」；代码三条同一模板「再开 2 只鎏金匣及以上必出金字」（`character.pity.hint`）。
-10. **登塔 / 经济页**：稿每格数值带单位（次 / 层 / 只）并有一行说明（「含断点续爬算一次」「弃塔不算阵亡」「登塔 · 宝箱 · 图鉴 · 里程碑 · 广告」…）；代码 `StatTile` 只有标签 + 数字（`StatTile`，`CharacterView.cs:508–520`）。
-11. **战斗页 Top10**：稿小牌是「五行淡底 + 2pt 稀有度框」的 30×38 方块，次数下有一行「次」；代码是 `Ui.MiniGlyphTile`（稀有度牌框素材 30.58×38.22），只写次数（`BuildBattlePane`，`CharacterView.cs:478–482`）。名次圆标 13 / 探出 5 / 8 号字与稿一致（`Ui.RankBadge(tile, i + 1, 27f, 10f, 17)`，`CharacterView.cs:479`，37e70f97）。合成 / 拆解 / 最高伤害三格同第 10 条，没有单位。
+A / B / D 类差异已于 2026-10-04 回填进稿（字距、分段着色 / 局部加粗、弹窗居中无投影、按钮黑体 500、颜色与细节、文案），逐条见 `drafts/character/README.md`「回填」。已回填的有：顶栏排布（标题左、墨锭 +「返回地图」右）、墨锭图标与字重、字距、经验条、属性行底色与生命值色、封顶说明、
+里程碑标题色、里程碑卡（未达描边 / 已领字色 / 色点 / 「领 取」/ 轨道底线 / 格距）、宝箱页（表头、清单行与零值行、红保底文案、
+保底栏行距、金保底提示）。剩下的都是实现待补（C 类）或尚未分类的：
+
+1. **可领钉光环**（C，待实现）：稿可领钉外套一圈 3pt `gold-soft` 光环；代码只有金色实心圆（`CharacterView.cs:244`）。
+2. **登塔 / 经济 / 战斗页单位与说明**（C，待实现）：稿每格数值带单位（次 / 层 / 只）并有一行说明（「含断点续爬算一次」「弃塔不算阵亡」
+   「登塔 · 宝箱 · 图鉴 · 里程碑 · 广告」…）；代码 `StatTile` 只有标签 + 数字（`StatTile`，`CharacterView.cs:508–520`）。
+   战斗页合成 / 拆解 / 最高伤害三格同此。
+3. **战斗页 Top10 小牌**（未分类）：稿小牌是「五行淡底 + 2pt 稀有度框」的 30×38 方块，次数下有一行「次」；代码是 `Ui.MiniGlyphTile`
+   （稀有度牌框素材 30.58×38.22），只写次数（`BuildBattlePane`，`CharacterView.cs:478–482`）。名次圆标 13 / 探出 5 / 8 号字与稿一致
+   （`Ui.RankBadge(tile, i + 1, 27f, 10f, 17)`，`CharacterView.cs:479`，37e70f97）。
+4. **欠箱 chip**（代码独有）：档案栏封顶说明下的「待发 N 只每级宝箱 · 箱位已满」chip 来自 spec §5.1，稿上没画（本页示例也没有欠箱）
+   （`CharacterView.cs:159–161`）。
