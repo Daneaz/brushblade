@@ -82,7 +82,7 @@
 ## 形状、阴影与动效
 
 - 圆角按物件分档：进度条 `radius-bar` · 迷你牌 `radius-mini` · 小字牌 `radius-tile` · 宝箱格 `radius-box` · 大字牌/页签 `radius-card` · 面板 `radius-panel` · 宣纸卡 `radius-sheet`；所有按钮、chip 用 `radius-pill`。
-- 以描边立物，阴影极轻：大字牌 `shadow-card`，朱砂主钮 `shadow-cta` / `shadow-cta-lg`，选中 `ring-selected`，新字 `halo-new`。
+- 以描边立物，阴影极轻：大字牌 `shadow-card`，石青主钮 `shadow-cta` / `shadow-cta-lg`，选中 `ring-selected`，新字 `halo-new`。
 - 字牌始终按 **0.8 竖版比例**定尺（框素材 192×240），富余宽度让给间距，不拉伸牌框。
 - 不做骨骼与帧动画，打击感全靠程序：墨迹飞溅、墨晕、字形辉光、震屏、字「一笔一划写出来」。立绘只做轻微浮动、受击抖动、缩放。
 - 常驻动效只有两种呼吸：新字赭金光 2.6s；宝箱「已就绪」光晕 + 箱身起伏 2.5pt + 盖缝透光 1.6s，三段同相。拖拽期间不重绘。
