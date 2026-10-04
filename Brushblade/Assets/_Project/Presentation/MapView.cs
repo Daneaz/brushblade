@@ -30,6 +30,8 @@ namespace Brushblade.Presentation
         // 箱位里的立绘 40pt(2026-08-30 接立绘:原先是 33×25pt 的色块,方图塞进 4:3 会压扁)
         private const float ChestArtSize = 84f;
         private const float ResultArtSize = 201f;  // 开箱结果面板左栏 96pt
+        private const float TowerPadX = 34f;       // 书塔面板左右内边距 16pt
+        private const float RunGap = 25f;          // 本趟三项账目的横向间距 12pt
 
         private RecipeGraph _graph;
         private CampaignConfig _campaign;
@@ -321,6 +323,9 @@ namespace Brushblade.Presentation
 
             var panel = Ui.OutlinedPanel(parent, "Tower", Theme.PanelPaper, Theme.PanelBorder, 21);
             panel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+            // 水印字号 500 不随栏宽变:基准机书塔栏 771 宽装得下,16:9 只有 434(见 TowerInnerWidth),
+            // 字面会探出栏边压到两侧栏上。裁在栏内即可 —— 宽屏上本来就在栏内,裁不到任何东西。
+            panel.gameObject.AddComponent<RectMask2D>();
 
             // 内衬当前层段的巨字水印(林/渊/山/海)
             var bandName = endless.Bands[bandIndex].Name;
@@ -333,7 +338,7 @@ namespace Brushblade.Presentation
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
             layout.childAlignment = TextAnchor.MiddleCenter; // 整块内容在面板里居中(2026-08-28 反馈)
-            layout.padding = new RectOffset(34, 34, 25, 29);
+            layout.padding = new RectOffset((int)TowerPadX, (int)TowerPadX, 25, 29);
             Ui.Stretch((RectTransform)stack.transform);
 
             // 结算提示(2026-08-28 拍板:落在书塔面板顶部);有内容才占位
@@ -384,15 +389,36 @@ namespace Brushblade.Presentation
             Ui.Bar(hpRow.transform, maxHp > 0 ? (float)snapshot.PlayerHp / maxHp : 0f,
                 Theme.CinnabarDark, new Vector2(523, 10));
 
-            var run = Ui.Row(stack.transform, "RunState", 25);
-            Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_hp", ("hp", snapshot.PlayerHp), ("maxHp", maxHp)), 21, Theme.TextDim);
-            Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_ink", ("ink", Ui.InkText(snapshot.EarnedInk))), 21, Theme.TextDim);
+            var run = Ui.Row(stack.transform, "RunState", RunGap);
+            var hpText = Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_hp", ("hp", snapshot.PlayerHp), ("maxHp", maxHp)), 21, Theme.TextDim);
+            var inkText = Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_ink", ("ink", Ui.InkText(snapshot.EarnedInk))), 21, Theme.TextDim);
             int capacity = MetaRules.LibraryCapacityFor(_meta) + (snapshot.LibraryExpanded ? RunEngine.ExpandBonus : 0);
-            Ui.ThemedLabel(run.transform,
+            var libraryText = Ui.ThemedLabel(run.transform,
                 Strings.T("map.tower.run_library", ("count", snapshot.Library.Count), ("capacity", capacity)), 21, Theme.TextDim);
+            // 一行放不下就把墨锭那条挪到第二行(2026-10-04 屏比验算)。三条连排 ≈ 136+169+112+2×25 = 467
+            // (上限 9999 血 / 99,999 墨 ≈ 503),基准机栏内 703 放得下,16:9 只有 366 —— Text 不折行,
+            // 不拆就三条叠字。拆后「生命 + 字库」≤ 160+25+112 = 297、墨锭 ≤ 181,都在 366 内。
+            // 竖向:有结算提示 + 断点存档的最满态多一行后约 638,书塔栏高 663,仍放得下。
+            float runWidth = hpText.preferredWidth + inkText.preferredWidth + libraryText.preferredWidth + 2 * RunGap;
+            if (runWidth > TowerInnerWidth())
+                inkText.transform.SetParent(Ui.Row(stack.transform, "RunState2", RunGap).transform, false);
 
             Ui.ThemedLabel(stack.transform, Strings.T("map.tower.resume_hint"), 21, Theme.LockGray);
         }
+
+        /// <summary>根节点(已在 SafeAreaFitter 之内)的逻辑宽。CanvasScaler 1600×900 按高匹配,
+        /// 1 逻辑单位 = Screen.height/900 像素 —— 与 <see cref="SafeArea.MissingInset"/> 同一个换算。
+        /// 基准机 932×430pt(两侧刘海各让 62pt)≈ 1691;16:9 无刘海机 = 1600。</summary>
+        private static float RootWidth()
+        {
+            float scale = Screen.height / 900f;
+            return scale > 0f ? Screen.safeArea.width / scale : 1600f;
+        }
+
+        /// <summary>书塔栏内容区宽 = 根宽 − 两侧 .safe 补边 − 角色栏 − 宝箱栏 − 两道栏距 − 栏内左右边距。
+        /// 基准机 1691 − 0 − 392 − 486 − 42 − 68 = 703;16:9 1600 − 246 − … = 366。</summary>
+        private static float TowerInnerWidth() =>
+            RootWidth() - 2 * SafeArea.MissingInset().side - HeroW - ChestW - 2 * Gap - 2 * TowerPadX;
 
         /// <summary>层段进度:已过的段填满灰蓝,当前段按层数在段内的占比填朱砂,未至的段留空。</summary>
         private static void BuildBands(Transform parent, EndlessConfig endless, int depthNow, int bandIndex)
@@ -703,9 +729,10 @@ namespace Brushblade.Presentation
         private const float ResultPad = 33f;      // 面板内边距 16pt
 
         // 牌按张数在两档之间取(稿:12 张走 6 列 96 宽,16 张走 8 列 70 宽)。
-        // 这两个尺寸是**上限**不是定值:格子在行里可被压窄(HorizontalLayoutGroup 在
-        // 总预期宽超过可用宽时按比例收),所以比 16:9 更「方」的屏(iPad 4:3)上牌会一起变小
-        // 而不是溢出屏外。牌与牌脚同缩,靠的是格内 VStack 的 childForceExpandWidth。
+        // 这几个尺寸是**上限**不是定值:BuildResultGrid 按右栏实宽**等比**缩(见 ResultRightWidth)。
+        // 2026-10-04 屏比验算:右栏 = 根宽 − 511,基准机 1180、16:9 1089;一排要 6×174+5×17 = 1129、
+        // 8×126+7×17 = 1127、10×104+9×17 = 1193 —— 16:9 三档全超,十列档连基准机也超。此前靠
+        // HorizontalLayoutGroup 只压宽不压高,牌被挤成 0.72~0.77 的瘦条;现在宽高同比缩,牌形不变。
         private const int ResultWideColumns = 6;
         private const int ResultNarrowColumns = 8;
         private static readonly Vector2 ResultWideCard = new(174f, 218f);
@@ -713,6 +740,11 @@ namespace Brushblade.Presentation
         // 2026-10-01 宝箱成捆:赤霄 20 捆 > 两排 8 列,再加一档十列两排
         private const int ResultDenseColumns = 10;
         private static readonly Vector2 ResultDenseCard = new(104f, 130f);
+        private const float ResultGridGap = 17f;  // 牌行内列距 8pt
+
+        /// <summary>开箱结果右栏宽 = 根宽 − 左右内边距 2×33 − 左栏 377 − 两道栏距 2×33 − 竖线 2。
+        /// 浮层挂在根节点上、左右吃满安全区,不扣 .safe 补边。</summary>
+        private static float ResultRightWidth() => RootWidth() - 4 * ResultPad - ResultLeftW - 2f;
 
         private void ShowChestResult(ChestTier tier, ChestRewards rewards,
             System.Collections.Generic.HashSet<string> ownedBefore)
@@ -831,12 +863,17 @@ namespace Brushblade.Presentation
             bool narrow = ids.Count > ResultWideColumns * 2;
             int columns = dense ? ResultDenseColumns : narrow ? ResultNarrowColumns : ResultWideColumns;
             var cardSize = dense ? ResultDenseCard : narrow ? ResultNarrowCard : ResultWideCard;
+            // 等比缩到一排放得下(16:9:6 列 ×0.962 → 167×209、8 列 → 121×152、10 列 ×0.90 → 93×117;
+            // 基准机只有 10 列缩 ×0.988 → 102×128)。牌脚最宽「升级 99/999」82,93 宽的牌脚仍装得下。
+            float fit = (ResultRightWidth() - (columns - 1) * ResultGridGap) / (columns * cardSize.x);
+            if (fit < 1f)
+                cardSize = new Vector2(Mathf.Floor(cardSize.x * fit), Mathf.Floor(cardSize.y * fit));
 
             var tiles = new System.Collections.Generic.List<ResultTile>();
             Transform row = null;
             for (int i = 0; i < ids.Count; i++)
             {
-                if (i % columns == 0) row = Ui.Row(right.transform, $"CardRow{i / columns}", 17).transform;
+                if (i % columns == 0) row = Ui.Row(right.transform, $"CardRow{i / columns}", ResultGridGap).transform;
                 string cardId = ids[i];
                 var def = _graph.Get(cardId);
                 bool isNew = seen.Add(cardId);
