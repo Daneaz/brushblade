@@ -43,6 +43,7 @@ namespace Brushblade.Presentation
         }
 
         // ---- 稿上的骨架尺寸(pt → 逻辑单位,1pt = 2.093) ----
+        // 宽是**上限**(基准机的稿宽),实际宽 = min(SheetW, SafeArea.FrameWidth()),见 Show。
         private const float SheetW = 1591f;     // 760pt
         private const float SheetH = 670f;      // 320pt
         private const float SheetLift = 90f;    // 卡心比屏心高 43pt:底下要留出手牌行
@@ -67,7 +68,6 @@ namespace Brushblade.Presentation
         private const float WxRowH = 46f;       // 22pt
         private const float FootH = 31f;        // 15pt
         private const float ActionsH = 100f;    // 卡组入口的操作钮带(同右栏底原来那条 48pt)
-        private const float ContentW = SheetW - 2f * 1.5f - 2f * 24f;  // 扣描边与内边距
 
         /// <param name="meta">养成外层存档。给了就画「等级(含升级成本)」或「怎么获得」那一段
         /// —— 战斗里传 null:局内不能升级、也不谈获取,那一处的等级靠头上的角标交代。</param>
@@ -82,7 +82,22 @@ namespace Brushblade.Presentation
             // 战斗里保持稿上那张矮卡:长按的那张牌得留在浮层下面看得见(「我按的是哪张」
             // 与「这张字什么用」要能对上)。其余三处底下没有这层关系,铺满。
             bool tall = battle == null;
-            var overlay = Ui.Sheet(root, "CharSheet", SheetW, tall ? TallSheetH : SheetH,
+            // 宽按屏比夹(2026-10-04 屏比验算):CanvasScaler 按高匹配,画布宽随屏比变。
+            //   基准机 932×430pt:.safe 框 ≈ 1705 → 1591 原样,两侧各留 ~57;
+            //   16:9 无刘海机:画布 1600、.safe 框 1354 → 1591 比框宽 237、两侧各探进安全区 ~118,
+            //     几乎贴屏边 —— 收到 1354,刚好落在稿上的 .safe 框里(同 BattleView 换字面板
+            //     min(1633, FrameWidth()) 的口径,不另留边距:.safe 那 123 本身就是边距)。
+            // 内部全是弹性/按 contentW 反算的,收窄后逐行的账(两档宽都算过,字宽用子集字体实量):
+            //   contentW = 1591/1354 − 3 − 48 = 1540/1303;两栏各 (contentW − 27)/2 = 757/638;
+            //   部件两栏 0.46/0.54 = 696·817 / 587·689。
+            //   · 名字行最挤的是部件(名 40 + 拼音 ≤64 + 「部件」「X系」「AP n」「部件池 · 不入字库」
+            //     四 chip 58/58/98/218 + 关闭 46 + 间距 15×7)≈ 690,头右侧 infoW = 1138(16:9)放得下;
+            //   · 等级行三段 118+216+304 + 间距 ≈ 668 ≤ 1138;脚注最长(foot.dual)693 ≤ 1303;
+            //   · 段落按卡组页侧栏 485 宽排过,两栏 638 都比它宽;生克两格各 312,「被 X 克 ×0.5」
+            //     连色点约 264;「能凑出什么」一行(两料 + 产物 + 「池里就有 · 可合」)约 404 ≤ 689。
+            float sheetW = Mathf.Min(SheetW, SafeArea.FrameWidth());
+            float contentW = sheetW - 2f * Ui.SheetBorder - 2f * Ui.SheetPad;  // 扣描边与内边距
+            var overlay = Ui.Sheet(root, "CharSheet", sheetW, tall ? TallSheetH : SheetH,
                 dismissable: true, replaceSameName: true, Theme.Scrim,
                 tall ? TallSheetLift : SheetLift, out var content);
             var layout = content.GetComponent<VerticalLayoutGroup>();
@@ -90,9 +105,9 @@ namespace Brushblade.Presentation
             layout.childForceExpandWidth = true;
 
             bool dual = def.AttackEffects.Count > 0;
-            BuildHeader(content, def, cardLevel, dual, battle, overlay);
+            BuildHeader(content, def, cardLevel, dual, battle, overlay, contentW);
 
-            float bodyW = ContentW - ColGap;
+            float bodyW = contentW - ColGap;
             if (def.IsComponent)
             {
                 // 部件那两栏是**填满**式的:左栏效果整句、右栏「能凑出什么」各自带内滚动
@@ -156,7 +171,7 @@ namespace Brushblade.Presentation
         // ================= 头 =================
 
         private static void BuildHeader(Transform parent, CharDef def, int cardLevel,
-            bool dual, BattleContext battle, GameObject overlay)
+            bool dual, BattleContext battle, GameObject overlay, float contentW)
         {
             var header = Ui.Row(parent, "Header", 23);
             header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
@@ -175,7 +190,7 @@ namespace Brushblade.Presentation
             var info = Ui.VStack(header.transform, "Info", 11);
             info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(info, flexWidth: 1, flexHeight: 1);
-            float infoW = ContentW - TileSize.x - 23;
+            float infoW = contentW - TileSize.x - 23;
 
             var nameRow = Ui.Row(info.transform, "Name", 15);
             nameRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;

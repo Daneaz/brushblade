@@ -65,10 +65,18 @@ namespace Brushblade.Presentation
                     new Vector2(-pad - Ui.ChipWidth(spec.QuantityText, font), pad), new Vector2(-pad, pad + chipH));
             }
 
+            // 左上角标的上沿。挂了折扣价签时**等级角标让位、往下挪到价签底下**(2026-10-04):
+            // 价签骑在上沿正中、下半截压进牌里 tagH/2,而等级角标从 pad 起、宽 = ChipWidth,
+            // 两者在商城三档牌宽上横竖都交叠 —— 144:横 24 × 竖 6.7;117:26 × 5.4;96:36 × 4.5
+            // (横向躲不开:96 档价签左缘 27、右缘 69,右边还有色点,没有空位)。
+            // 改成上沿 = 价签底 + pad/2,竖向留出 3.5 / 2.9 / 2.3 的缝,字号不动。
+            // 锁标同在左上但窄得多(右缘 31.3 / 25.5 / 20.9 < 价签左缘 49 / 37.6 / 27),不让位。
+            float levelTop = pad;
             if (!string.IsNullOrEmpty(spec.DiscountText))
             {
                 int tagFont = Mathf.RoundToInt(font * 1.2f);
                 float tagH = chipH * 1.3f;
+                levelTop = tagH / 2f + pad / 2f;
                 float half = Ui.ChipWidth(spec.DiscountText, tagFont) / 2f;
                 var tag = Badge(tile.transform, "Discount", spec.DiscountText, tagFont, tagH,
                     Theme.Cinnabar, Color.white, radius: 4);
@@ -88,7 +96,7 @@ namespace Brushblade.Presentation
             var level = Badge(tile.transform, "Level", levelText, font, chipH,
                 spec.Maxed ? Theme.Gold : Theme.Ink, spec.Maxed ? Theme.GoldText : Color.white);
             Ui.Anchor(level, new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(pad, -pad - chipH), new Vector2(pad + Ui.ChipWidth(levelText, font), -pad));
+                new Vector2(pad, -levelTop - chipH), new Vector2(pad + Ui.ChipWidth(levelText, font), -levelTop));
 
             RarityDot(tile.transform, spec.Rarity, pad, size.x * DotRatio, dimmed: false);
 
