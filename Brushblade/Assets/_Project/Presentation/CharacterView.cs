@@ -235,7 +235,7 @@ namespace Brushblade.Presentation
                 19, Theme.LockGray);
             Rule(ttl);
             var after = MilestoneRules.ForLevel(MilestoneRules.TableEnd + MilestoneRules.AfterStep).Value;
-            Ui.ThemedLabel(ttl, Strings.T("character.ms_after", ("ink", after.Ink.ToString("N0", Inv)),
+            Ui.ThemedLabel(ttl, Strings.T("character.ms_after", ("ink", Ui.InkText(after.Ink)),
                     ("rarity", CharInfo.RarityName(after.Rarity))),
                 19, Theme.LockGray);
 
@@ -308,7 +308,7 @@ namespace Brushblade.Presentation
 
             Ui.ThemedLabel(cell, Strings.T("character.ms_level", ("level", lv)), 27,
                 ready ? Theme.TextMain : Theme.TextDim, Theme.TitleFont);
-            Ui.IngotLabel(cell, def.Ink.ToString("N0", Inv), 20);
+            Ui.IngotLabel(cell, Ui.InkText(def.Ink), 20);
             var pick = Ui.Row(cell, "Pick", 5);
             Dot(pick.transform, Theme.RarityColor(def.Rarity), 13);
             var pickLabel = Ui.ThemedLabel(pick.transform,
