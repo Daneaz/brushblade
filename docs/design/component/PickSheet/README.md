@@ -7,8 +7,8 @@
 - 外壳 `Ui.Sheet`：1298×520（620×248pt），圆角 18、描边 1.5 `panel-border`、面 `panel-paper`，内边距 24、行距 14；遮罩 `scrim-soft`（42%），`dismissable: false`。内容自上而下排（`UpperCenter`）。
 - 自上而下：标题 33（15.8pt 宋体 `text-main`）→ hint 21（10pt 黑体 `text-dim`）→ 候选行 → **定高 63 的 detail 横条** → foot 行。
 - 候选行：gap 21（10pt）。每张是 `GlyphTile` 130×163（62×78pt），牌下 8 的间距再接一行「{属性} · {稀有度}」19（9pt）`text-dim`。选中的那张是墨色镶边（`selected: true`）。
-- 候选张数 = `BattleConfig.RewardOptionCount` = **5**，点了技能「慧眼」L1 是 **6**（`MetaRules` 组战斗配置时 `5 + PerkRules.Bonus(RewardOptions)`）。6 张也排得下：6×130 + 5×21 = 885 < 1250。
-- detail 横条：`Ui.OutlinedPanel(PanelInset, PanelBorder, 17, 2)`，宽 `PickSheetW − 48` = 1250，**定高 63（30pt）**，内部横排 gap 12、padding 左右 23 / 上下 0、`MiddleLeft`。选中后放：效果一行 21 `text-main` → `flexWidth:1` 的 spacer → 「再点一次收下」19 `cinnabar-dark`。
+- 候选张数 = `BattleConfig.RewardOptionCount` = **5**，点了技能「慧眼」L1 是 **6**（`MetaRules` 组战斗配置时 `5 + PerkRules.Bonus(RewardOptions)`）。6 张也排得下：6×130 + 5×21 = 885 < 1247。
+- detail 横条：`Ui.OutlinedPanel(PanelInset, PanelBorder, 17, 2)`，宽 = 内容区净宽 `PickSheetW − Ui.SheetBorder×2 − Ui.SheetPad×2` = 1298 − 3 − 48 = **1247**（贴平内容区左右缘），**定高 63（30pt）**，内部横排 gap 12、padding 左右 23 / 上下 0、`MiddleLeft`。选中后放：效果一行 21 `text-main` → `flexWidth:1` 的 spacer → 「再点一次收下」19 `cinnabar-dark`。
 - foot 行：gap 21，宽同 detail，`MiddleLeft`，依次是：
   1. 「看广告 · 字库 +2」`Ui.AdBadge` 280×63（字号 21 宋体，圆角 31，播放三角 15×17）—— 已扩容（`LibraryExpanded`）时不画；
   2. `flexWidth:1` 的 spacer；
@@ -51,5 +51,4 @@
 
 ## 与实现的差异（本系统记录，未改代码）
 - 画稿 `Reward.dc.html` 画的是 **3 张**候选，实现是 5 张（慧眼 L1 后 6 张）。稿的张数过时。
-- detail 与 foot 的宽按 `PickSheetW − 48` 算，只扣了内边距，没扣 `Ui.Sheet` 两侧各 1.5 的描边内缩：比内容区（1247）宽 3 个逻辑单位。肉眼看不出，记一笔。
 - 面板高 520 是估的容器高，内容约 474（24+33+14+21+14+190+14+63+14+63+24），底下留白；此卡按定高画。

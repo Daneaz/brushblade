@@ -4,7 +4,8 @@
 这是局内**唯一一处永久删除**。四个入口（回合掉字、战利品、奇遇成交、广告复活补给）都走这一个方法，改一处等于改四处；而它的版面规矩（告警条必现、一横排不折行、牌宽按张数反算）不写下来，下一个人接手时会各写各的。
 
 ## 版面（逻辑单位 → 稿面 pt，1pt = 2.093）
-- 外壳 `Ui.Sheet`：1633×460（780×220pt），圆角 18、描边 1.5、内边距 24、行距 14，内容 `UpperCenter`；遮罩 `scrim-soft`（42%，要看得见底下的战场），`dismissable: false`。
+- 外壳 `Ui.Sheet`：1633×500（780×239pt），圆角 18、描边 1.5、内边距 24、行距 14，内容 `UpperCenter`；遮罩 `scrim-soft`（42%，要看得见底下的战场），`dismissable: false`。
+- 面板高 500 是按内容逐项加出来的：内边距 24 + 标题 48（33 号宋体，按字体行高约 1.44 倍字号）+ 告警条 46 + 牌行 163 + 取消钮 63 + 广告徽章 63 + 内边距 24 + 5 道行距 70 = 487，加描边上下各 1.5 = 490，留 10 余量。
 - 自上而下（一列居中）：标题 33（15.8pt，宋体 `text-main`）→ **告警条** → 一横排「来牌 → `→` → 字库 N 张」→ 取消钮 → **「看广告 · 字库 +2」徽章**（未扩容时）。
 - 告警条：`Ui.Chip`，`warn-bg` 底 `warn-text` 字，字号 21（10pt，黑体、不加粗）、padX 23（**两侧合计**，宽 = 字数×21 + 23）、padY 12，再用 `Ui.Sized` **定高 46（22pt）**；圆角 14。
 - 来牌与字库牌之间：gap 19（9pt），箭头「→」字号 40、`text-faint`（`Theme.LockGray`），占 46×29。
@@ -29,7 +30,7 @@
 | 入口 | 方法 | 标题 key · 原文 | 取消钮 key · 原文 |
 | --- | --- | --- | --- |
 | 回合掉字 | `DrawDropChoiceStep` | `battle.drop.replace_title` · `字库已满 · 用掉落的「{charId}」换掉哪一张?` | `battle.btn.drop_skip` · `不要,跳过` |
-| 战利品 | `DrawRewardReplaceStep` | `battle.reward.replace_title` · `字库已满 · 用「{charId}」换掉哪一个?` | `battle.btn.replace_cancel` · `算了,不换` |
+| 战利品 | `DrawRewardReplaceStep` | `battle.reward.replace_title` · `字库已满 · 用「{charId}」换掉哪一张?` | `battle.btn.replace_cancel` · `算了,不换` |
 | 奇遇成交 | `DrawEventReplaceStep` | `battle.event.replace_title` · `字库已满 · 用「{charId}」换掉哪一张?` | `battle.btn.replace_cancel` · `算了,不换` |
 | 广告复活补给 | `DrawReviveReplaceStep` | `battle.revive.replace_title` · `字库已满 · 用补给的「{charId}」换掉哪一张?` | `battle.btn.revive_replace_cancel` · `算了,换个字` |
 
@@ -37,7 +38,3 @@
 
 ## 使用方提供
 换进来的那张字、当前字库全表、选中回调、取消回调与取消钮文案（容量读 `Battle.LibraryCapacity`）。
-
-## 已知问题
-- 标题文案四家不齐：战利品那条写「换掉哪一**个**」，其余三条写「换掉哪一**张**」。共用一版的面板，文案也该共用。
-- 内容总高约 472（24 + 33 + 14 + 46 + 14 + 163 + 14 + 63 + 14 + 63 + 24），比面板 460 多 12：徽章出现时会吃掉底部内边距的一半。不压缩、也不溢出卡外，此卡照此画。
