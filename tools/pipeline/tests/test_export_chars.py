@@ -7,7 +7,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from export_chars import STACK_RECIPES, build_chars
+from export_chars import STACK_RECIPES, build_all, build_chars
+from extract_traits import load_trait_tables
 from extract_values import extract
 
 SPEC = Path(__file__).resolve().parents[3] / "docs/design/字选型/技能机制详表.md"
@@ -394,8 +395,8 @@ def test_shipped_chars_json_is_regenerable_from_spec():
 
     ids.txt 为此破例入 git(.gitignore 有说明)——同目录的 xinhua_*.json 仍不入。
     """
-    rebuilt = build_chars(IDS.read_text(encoding="utf-8"),
-                          extract(SPEC.read_text(encoding="utf-8")))
+    rebuilt = build_all(IDS.read_text(encoding="utf-8"), SPEC.read_text(encoding="utf-8"),
+                        load_trait_tables(Path(__file__).resolve().parents[3]))
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     assert rebuilt == shipped, "chars.json 与详表不同步 —— 跑 python3 tools/pipeline/export_chars.py"
 

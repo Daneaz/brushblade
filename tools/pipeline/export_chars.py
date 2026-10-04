@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from decompose import build_index, split_once
+from extract_traits import load_trait_tables
 from extract_values import extract
 from fetch_ids import parse_ids_text
 from filter_chars import attr_of
@@ -174,6 +175,9 @@ def build_chars(ids_text, values):
             entry["effects"] = [_output_effect(e) for e in spec["effects"]]
         if spec.get("attackEffects"):
             entry["attackEffects"] = [_output_effect(e) for e in spec["attackEffects"]]
+        if spec.get("traits"):
+            entry["traits"] = [dict(t, effects=[_output_effect(e) for e in t["effects"]])
+                               for t in spec["traits"]]
         entries.append(entry)
 
     # 部件条目:先做闭包 —— 部件自己也可能有配方(COMPONENT_RECIPES),它的原料同样要落地。
@@ -202,15 +206,26 @@ def build_chars(ids_text, values):
     return {"chars": entries}
 
 
+def build_all(ids_text, spec_markdown, traits):
+    """详表 + 特性表 → chars.json 结构。main() 与 regenerable 测试共用这一个入口。"""
+    values = extract(spec_markdown)
+    unknown = sorted(set(traits) - set(values))
+    if unknown:
+        raise ValueError(f"特性表里的字不在详表 ✅ 行中:{unknown}")
+    for char, char_traits in traits.items():
+        values[char]["traits"] = char_traits
+    return build_chars(ids_text, values)
+
+
 def main():
     here = Path(__file__).parent
     ids_text = (here / "data" / "raw" / "ids.txt").read_text(encoding="utf-8")
     spec = here.parent.parent / "docs/design/字选型/技能机制详表.md"
-    values = extract(spec.read_text(encoding="utf-8"))
-    out = build_chars(ids_text, values)
+    out = build_all(ids_text, spec.read_text(encoding="utf-8"),
+                    load_trait_tables(here.parent.parent))
     dest = here.parent.parent / "Brushblade/Assets/StreamingAssets/config/chars.json"
     dest.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"已写入 {dest}: {len(out['chars'])} 条(字 {len(values)})")
+    print(f"已写入 {dest}: {len(out['chars'])} 条")
 
 
 if __name__ == "__main__":
