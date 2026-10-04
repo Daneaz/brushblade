@@ -242,8 +242,8 @@ namespace Brushblade.Core
         /// 作用在 <c>EffectiveEnemyDefense</c> 算完(含破甲 / 穿透)之后:剩下的甲再打 (100 − N)% 折。</summary>
         public int ArmorIgnorePercent { get; }
 
-        /// <summary>按我方当前护盾加伤(D1 Task 3,崩岩 40):主目标第一段额外 + 玩家护盾(两桶之和)× N%。
-        /// 0 = 不启用。</summary>
+        /// <summary>按我方当前护盾加伤(D1 Task 3,崩岩 40):加在**每个主目标的第一段**上,
+        /// 额外 + 玩家护盾(两桶之和,出手那一刻)× N%;全体(All)时每个目标都是主目标。0 = 不启用。</summary>
         public int ShieldStrikePercent { get; }
 
         /// <summary>Fold 挂上来的加成项:(百分点, 条件)。字表对象恒为空表;只有 Fold 产出的副本非空。

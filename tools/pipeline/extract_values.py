@@ -184,6 +184,9 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         if not found:
             continue
         consumed.add(token)
+        # 同格多个 scope / if:只认第一个会让后面的静默消失 —— 一格一条 Amplify 一个条件,多了就拆格
+        if len(re.findall(rf"`{token} \w+`", config)) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{token}`,只能有一个(多条加成请分开写)")
         if found.group(1) not in allowed:
             raise ValueError(f"{char}:`{token} {found.group(1)}` 的取值未知,只认 {sorted(allowed)}")
         need(amps, token, " Amplify")

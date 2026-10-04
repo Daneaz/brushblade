@@ -376,6 +376,132 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("试", -1), Is.EqualTo(BattleError.None));
         }
 
+        // ---------------- 修复第 1 轮:同轴相加(spec v7 §6.1.3,Ruling 5)与 scope 正例 ----------------
+
+        [Test]
+        public void Amplify_Shield_AddsIntoShieldPercent_NotMultiplied()
+        {
+            // 土系字护盾 100,筑垒 ShieldPercent = 20,Amplify Shield +30(Lv4 被动;Lv1 不解锁,这里用 Lv4 并按卡等级手算)
+            CharDef Def(params TraitDef[] traits) => new("试", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Shield, 100) }, traits: traits);
+            var config = new BattleConfig { PlayerMaxHp = 1000, PlayerAttack = 100, ShieldPercent = 20 };
+            var plain = Battle(Def(), 4, config);
+            plain.Cast("试", -1);
+            // 100 × 1.18(Lv4)= 118;× 120/100 = 141.6 → 141(专精整数除向下)
+            Assert.That(plain.PlayerShield, Is.EqualTo(141));
+
+            var amp = Battle(Def(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30, AmpScope.Shield))), 4, config);
+            amp.Cast("试", -1);
+            // 同轴:141 × (100+20+30)/(100+20) = 176.25 → 177 ≈ 118 × 1.50 = 177(不是 ×1.2×1.3 = 1.56 → 184)
+            Assert.That(amp.PlayerShield, Is.EqualTo(177));
+        }
+
+        [Test]
+        public void Amplify_Heal_AddsIntoHealPercent_NotMultiplied()
+        {
+            // 水系字治疗 100,甘霖 HealPercent = 20,Amplify Heal +30;Lv4
+            CharDef Def(params TraitDef[] traits) => new("试", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 100) }, traits: traits);
+            var config = new BattleConfig { PlayerMaxHp = 1000, PlayerAttack = 100, HealPercent = 20 };
+            int Healed(CharDef def)
+            {
+                var b = Battle(def, 4, config);
+                b.DamagePlayerForTest(800);
+                int before = b.PlayerHp;
+                b.Cast("试", -1);
+                return b.PlayerHp - before;
+            }
+            // 118 × 120/100 = 141(泉 0 层,不放大)
+            Assert.That(Healed(Def()), Is.EqualTo(141));
+            // 141 × 150/120 = 176.25 → 177 ≈ 118 × 1.50(连乘会是 ⌈141 × 1.3⌉ = 184)
+            Assert.That(Healed(Def(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30, AmpScope.Heal)))), Is.EqualTo(177));
+        }
+
+        [Test]
+        public void Amplify_Damage_HasNoSpecialtyAxis_PlainPercent()
+        {
+            // 伤害当前没有技能树专精项(SpecialtyPercentOf 对 DamageSingle 恒 0):即便配了 Heal/ShieldPercent,
+            // 伤害 Amplify 仍是 (100+Σ)/100 —— 118 × 130/100 = 153.4 → 154
+            var config = new BattleConfig
+            {
+                PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, HealPercent = 20, ShieldPercent = 20,
+            };
+            var b = Battle(Dmg(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30))), 4, config);
+            b.Cast("试", 0);
+            Assert.That(Hp - b.Enemies[0].Hp, Is.EqualTo(154));
+        }
+
+        [Test]
+        public void Amplify_HealScope_Positive_And_AllScope_Positive()
+        {
+            // 心系治疗(无专精):HealSelf 100 Lv4 = 118;Heal +50 → 118 × 150/100 = 177
+            var heal = Battle(new CharDef("试", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 100) },
+                traits: new[] { Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(50, AmpScope.Heal)) }), 4);
+            heal.DamagePlayerForTest(400);
+            int before = heal.PlayerHp;
+            heal.Cast("试", -1);
+            Assert.That(heal.PlayerHp - before, Is.EqualTo(177));
+
+            // All +50:伤害 118 → 177;护盾 50 × 1.18 = 59 → 59 × 150/100 = 88.5 → 89
+            var all = Battle(new CharDef("试", Element.Heart, effects: new[]
+            {
+                new EffectDef(EffectKind.DamageSingle, 100),
+                new EffectDef(EffectKind.Shield, 50),
+            }, traits: new[] { Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(50, AmpScope.All)) }), 4);
+            all.Cast("试", 0);
+            Assert.That(Hp - all.Enemies[0].Hp, Is.EqualTo(177));
+            Assert.That(all.PlayerShield, Is.EqualTo(89));
+        }
+
+        [Test]
+        public void Amplify_Heal_TargetCondition_UsesSelectedEnemy()
+        {
+            // 攻 + 治同面:伤害选中的敌人生命 < 30% 时治疗 +100%。Lv5:治疗 100 × 1.24 = 124 → 248
+            CharDef Def() => new("试", Element.Heart, effects: new[]
+            {
+                new EffectDef(EffectKind.DamageSingle, 10),
+                new EffectDef(EffectKind.HealSelf, 100),
+            }, traits: new[] { Trait(TraitSlot.Lv5, TraitForm.Active, Amp(100, AmpScope.Heal, DamageCondition.TargetHpBelow30)) });
+            int Healed(int enemyHp)
+            {
+                var b = Battle(Def(), 5);
+                b.Enemies[0].Hp = enemyHp;
+                b.DamagePlayerForTest(400);
+                int before = b.PlayerHp;
+                b.Cast("试", 0);
+                return b.PlayerHp - before;
+            }
+            Assert.That(Healed(20000), Is.EqualTo(248), "目标 20% < 30%:治疗吃加成");
+            Assert.That(Healed(Hp), Is.EqualTo(124), "目标满血:不吃");
+
+            // 本面不选敌方目标(纯治疗):目标相关条件无从判定,视为不满足
+            var noTarget = Battle(new CharDef("试", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 100) },
+                traits: new[] { Trait(TraitSlot.Lv5, TraitForm.Active, Amp(100, AmpScope.Heal, DamageCondition.TargetHpBelow30)) }), 5);
+            noTarget.Enemies[0].Hp = 20000;
+            noTarget.DamagePlayerForTest(400);
+            int b0 = noTarget.PlayerHp;
+            noTarget.Cast("试", -1);
+            Assert.That(noTarget.PlayerHp - b0, Is.EqualTo(124));
+        }
+
+        [Test]
+        public void Reshape_ToAllWithoutPercent_ResetsToFull()
+        {
+            // 本体横扫 50;Reshape 只写 shape All、没写 shapePercent → 全体各 100%,不沿用横扫的 50
+            var def = new CharDef("试", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.Row, shapePercent: 50) },
+                traits: new[] { Trait(TraitSlot.Lv5, TraitForm.Active, new EffectDef(EffectKind.Reshape, 0, shape: TargetArea.All)) });
+            var folded = TraitRules.Fold(def.Effects, def, CardFace.Feature, 5);
+            Assert.That(folded[0].Shape, Is.EqualTo(TargetArea.All));
+            Assert.That(folded[0].ShapePercent, Is.EqualTo(100));
+            var b = Battle(def, 5, null, FrontRowAndBack());
+            b.Cast("试", -1);
+            foreach (var e in b.Enemies)
+                Assert.That(Hp - e.Hp, Is.EqualTo(124), "Lv5 124,全体每个目标全额");
+        }
+
         // ---------------- 字表加载 ----------------
 
         private static Brushblade.Data.ConfigException LoadThrows(string traitEffects) =>

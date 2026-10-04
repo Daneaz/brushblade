@@ -389,6 +389,17 @@ def test_modifier_token_errors(config, needle):
     assert needle in str(err.value)
 
 
+@pytest.mark.parametrize("config, needle", [
+    ("`Amplify 30` + `scope Damage` + `scope Heal`", "scope"),
+    ("`Amplify 30` + `if Burning` + `if Slowed`", "if"),
+])
+def test_multiple_scope_or_if_in_one_cell_raises(config, needle):
+    """同格写两个 scope / if 时不能静默共用第一个 —— 第二个会无声消失。"""
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert f"`{needle}`" in str(err.value)
+
+
 def test_unknown_lowercase_modifier_token_raises():
     """拼错的无数值修饰 token(`forcecrit`)落进消费记账,不能静默过关。"""
     with pytest.raises(Exception) as err:
