@@ -33,12 +33,14 @@ namespace Brushblade.Presentation
         // 定宽 144 × 6 会溢出(2026-09-30 并入广告位、铺满 6 列时发现)
         private const float CardMaxW = 144f, CardMinW = 96f, CardAspect = 1.25f;
         private Vector2 CardSize = new(CardMaxW, CardMaxW * CardAspect);
+        private float _columnW = CardMaxW; // 货架一列的实宽(未夹取):宽屏上比字牌宽,预告行可借用
         private const float SlotGap = 21f;
         // 一格竖排 = 字牌 180 + 牌脚 16.9(牌高 × 12/128)+ 预告 ≈27.5(19 号 Noto Sans SC 行高 1.448)
         // + 钮 46 + 3 段间距 = 270.4 + 3 × CellGap。2026-10-04 实算:原先间距 8、行高 280 时
         // 需要 ≈294.4,超出的那截被竖排布局按比例压扁(字牌连带变矮)。行高又不能单独加 ——
         // 两行 + 订阅条在 900 高下只剩 600(行 0 顶 67 → 订阅条顶 667),行高 ≤ 287。
         // 所以间距收到 4、行高 284(留 ≈1.6 余量):行 1 底 648,离订阅条 19。
+        // 以上是牌宽 144 的账;牌变窄时省下的高让给预告行折行(FitCaption)。
         private const float CellGap = 4f;
         private const float SlotRowH = 284f;
         private const float BuyH = 46f;        // 价格钮高(宝箱格同款)
@@ -95,9 +97,13 @@ namespace Brushblade.Presentation
 
             // 安全区内缩与其余外层页同一条(SafeArea 只有这一份,别另抄)
             var (padSide, padBottom) = SafeArea.MissingInset();
-            float canvasW = Screen.height > 0 ? 900f * Screen.width / Screen.height : 1600f;
-            float shelfW = canvasW - 2f * padSide - SideW - MainGap;
-            float cardW = Mathf.Clamp((shelfW - (ShelfColumns - 1) * SlotGap) / ShelfColumns, CardMinW, CardMaxW);
+            // 宽取**安全区**宽:SafeAreaFitter 已在父级让掉了 Screen.safeArea 之外那段,这里只再扣
+            // MissingInset 补的差额。2026-10-04 前拿整屏宽算,刘海机(基准机 932×430pt:整屏 1951、
+            // 安全区 ≈1705)上左栏多算 246 —— 字牌宽被 144 上限夹住没露馅,但预告行按列距排字要真宽。
+            float safeW = Screen.height > 0 ? 900f * Screen.safeArea.width / Screen.height : 1600f;
+            float shelfW = safeW - 2f * padSide - SideW - MainGap;
+            _columnW = (shelfW - (ShelfColumns - 1) * SlotGap) / ShelfColumns;
+            float cardW = Mathf.Clamp(_columnW, CardMinW, CardMaxW);
             CardSize = new Vector2(cardW, cardW * CardAspect);
             var content = Ui.Panel(transform, "Content");
             Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
@@ -251,8 +257,44 @@ namespace Brushblade.Presentation
                 forecast = Strings.T("shop.slot.copies_after", ("copies", copies + bundle), ("needed", needed));
                 forecastColor = Theme.TextDim;
             }
-            Ui.ThemedLabel(cell.transform, forecast, 19, forecastColor);
+            FitCaption(Ui.ThemedLabel(cell.transform, forecast, 19, forecastColor));
             return cell.transform;
+        }
+
+        // 说明小字的字号阶梯:caption 19 → badge 18 → pinyin 17(system/ 字号 token 9 / 8.5 / 8pt × 2.093),
+        // 不另发明字号
+        private static readonly int[] CaptionSizes = { 19, 18, 17 };
+        private const float CaptionGap = 10f; // 单行预告探进列间空隙时,与邻格预告之间至少留的白
+
+        /// <summary>进度预告放进这一格(2026-10-04 按 1600 宽验算)。Unity Text 不折行,原先 19 号单行
+        /// 一律居中溢出,两档宽都有字压到邻格:
+        ///   · 16:9 无刘海(内容区 1354 → 列宽 = 牌宽 117.2):「买下后 19/20 张」135、「新字,拿到即解锁」139、
+        ///     「买下即可升 Lv.10」148、「已满级,买了只进重复卡」196 全超牌宽;
+        ///   · 基准机(安全区 1705 → 列 175.7、牌夹到 144):「已满级…」196 > 列距 196.7 − 10。
+        /// 解法按格里剩多少高分两路,字号从 19 起逐档试:
+        ///   ① 按牌宽折行,高度放得下就用 —— 16:9 牌 117×146,格里余 65.8 高,19 号两行(55)够,
+        ///     上面四条都折成两行、不出本格;
+        ///   ② 折行放不下(基准机牌 144×180,只余 29.1 = 一行 27.5)→ 单行,允许居中探进列间空隙,
+        ///     宽 ≤ 列距 − CaptionGap(基准机 186.7):「买下后 499/500 张」157 仍 19 号,
+        ///     「已满级…」降到 18 号(185.4)。
+        /// 牌宽到下限 96 时(内容区 < 1255,两档都到不了)走 ①:余 94.8 高(三行 82.5),最长那条 19 号折三行,
+        /// 万一实测折成四行则下一档 18 号折两行。</summary>
+        private void FitCaption(Text label)
+        {
+            // 格里除预告外的定高:字牌 + 牌脚(牌高 × 12/128,CardBadges.FootHRatio)+ 钮 + 3 段间距
+            float roomH = SlotRowH - (CardSize.y * (1f + 12f / 128f) + BuyH + 3 * CellGap);
+            float pitchW = _columnW + SlotGap - CaptionGap;
+            foreach (int size in CaptionSizes)
+            {
+                label.fontSize = size;
+                label.horizontalOverflow = HorizontalWrapMode.Wrap; // ① 竖排布局给它牌宽,按牌宽折
+                var wrapped = label.GetGenerationSettings(new Vector2(CardSize.x, 0));
+                if (label.cachedTextGeneratorForLayout.GetPreferredHeight(label.text, wrapped)
+                    / label.pixelsPerUnit <= roomH) return;
+                label.horizontalOverflow = HorizontalWrapMode.Overflow; // ② 单行,居中探出牌宽
+                if (label.preferredWidth <= pitchW && label.preferredHeight <= roomH) return;
+            }
+            // 阶梯走完仍放不下:停在最小档单行。1354 / 1705 两档实算都到不了这里(见上)
         }
 
         /// <summary>墨锭摊位:牌面 → 价格钮(写明「×张数 · 价格」)。</summary>
@@ -293,7 +335,21 @@ namespace Brushblade.Presentation
             {
                 // 这一档今天没得出(例如还一张绿字都没有):留一个空格说清楚,不让版面缺一块
                 var empty = EmptyWell(parent, $"AdSlot{tier}", Theme.PanelBorder);
-                Ui.ThemedLabel(empty, Strings.T("shop.card_ad.none_label"), 19, Theme.LockGray);
+                var none = Ui.ThemedLabel(empty, Strings.T("shop.card_ad.none_label"), 19, Theme.LockGray);
+                // 「今日暂无可领」19 号宽 114:基准机卡面 140(牌 144 − 描边 2×2)放得下;16:9 卡面 113.2
+                // 会顶到描边 → 按字号阶梯缩到离卡面内沿各留 4(16:9 取 17 号,宽 102 ≤ 105.2)。
+                // 牌宽到下限 96 时 17 号也放不下(102 > 84),改按卡面宽折两行,卡高 120 够
+                float fitW = CardSize.x - 2 * 2f - 2 * 4f;
+                foreach (int size in CaptionSizes)
+                {
+                    none.fontSize = size;
+                    if (none.preferredWidth <= fitW) break;
+                }
+                if (none.preferredWidth > fitW)
+                {
+                    none.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    Ui.Anchor(none.rectTransform, Vector2.zero, Vector2.one, new Vector2(4, 4), new Vector2(-4, -4));
+                }
                 return;
             }
 
