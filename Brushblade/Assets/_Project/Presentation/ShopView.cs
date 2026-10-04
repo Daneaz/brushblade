@@ -269,11 +269,11 @@ namespace Brushblade.Presentation
             var cell = CardFace(parent, $"Slot{index}", card, bundle, sold, Strings.T("shop.slot.sold"),
                 DiscountTag(discount));
             BuyButton(cell, CardSize.x, sold, price,
-                sold ? Strings.T("shop.slot.sold_today") : price.ToString(),
+                sold ? Strings.T("shop.slot.sold_today") : Ui.InkText(price),
                 () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
                     Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
                     Strings.T("shop.card.buy_fail_title"),
-                    Strings.T("shop.card.buy_fail_body", ("card", card), ("price", price), ("ink", _meta.Ink))),
+                    Strings.T("shop.card.buy_fail_body", ("card", card), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))),
                 original: ShopRules.BundlePriceFor(def.Rarity));
         }
 
@@ -379,7 +379,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)row.transform);
             price.transform.SetParent(row.transform, false);
             var dim = new Color(fg.r, fg.g, fg.b, 0.6f);
-            var orig = Ui.ThemedLabel(row.transform, original.ToString(), Mathf.RoundToInt(font * 0.7f), dim);
+            var orig = Ui.ThemedLabel(row.transform, Ui.InkText(original), Mathf.RoundToInt(font * 0.7f), dim);
             var line = Ui.Panel(orig.transform, "Strike");
             var image = line.AddComponent<Image>();
             image.color = dim;
@@ -502,14 +502,14 @@ namespace Brushblade.Presentation
             // 箱位满时不可买:按钮直接写清楚为什么,别让玩家点了才弹窗
             string label = sold ? Strings.T("shop.slot.sold_today")
                 : slotsFull ? Strings.T("shop.chest.slots_full_label")
-                : price.ToString();
+                : Ui.InkText(price);
             var buy = Ui.RoundButton(stack.transform, label,
                 () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time),
                     Strings.T("shop.chest.buy_success", ("chestName", chestName)),
                     Strings.T("shop.chest.buy_fail_title"),
                     slotsFull
                         ? Strings.T("shop.chest.slot_full_body", ("count", ChestRules.SlotLimit), ("limit", ChestRules.SlotLimit))
-                        : Strings.T("shop.chest.buy_fail_body", ("chestName", chestName), ("price", price), ("ink", _meta.Ink))),
+                        : Strings.T("shop.chest.buy_fail_body", ("chestName", chestName), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))),
                 sold || slotsFull ? Theme.LockedBg : _meta.Ink < price ? Theme.PanelInset : Theme.Ink,
                 sold || slotsFull ? Theme.LockGray : _meta.Ink < price ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(0, BuyH), 14);
@@ -550,7 +550,7 @@ namespace Brushblade.Presentation
             var inkAd = Ui.AdBadge(parent,
                 _meta.Shop.InkAdClaimed
                     ? Strings.T("shop.supply.used_label")
-                    : Strings.T("shop.ink_ad.claim_label", ("amount", _meta.Shop.InkAdAmount)),
+                    : Strings.T("shop.ink_ad.claim_label", ("amount", Ui.InkText(_meta.Shop.InkAdAmount))),
                 () => AdGate.Watch(AdPlacement.ShopInk,
                     () => Do(() => ShopRules.TryClaimInkAd(_meta), Strings.T("shop.ink_ad.claim_success"),
                         Strings.T("shop.ink_ad.already_claimed_title"), Strings.T("shop.ink_ad.already_claimed_body"))),

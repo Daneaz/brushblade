@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using Brushblade.Core;
 using Brushblade.Data;
 using UnityEngine;
@@ -49,7 +48,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(content, Strings.T("character.ms_level", ("level", level)), 71,
                 Theme.TextMain, Theme.TitleFont);
             Ui.IngotLabel(content,
-                Strings.T("milestone.ink", ("ink", def.Value.Ink.ToString("N0", CultureInfo.InvariantCulture))), 29);
+                Strings.T("milestone.ink", ("ink", Ui.InkText(def.Value.Ink))), 29);
 
             var sec = Ui.Row(content, "Sec", 13);
             sec.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;

@@ -56,7 +56,7 @@
 ## 与拍板稿的差异（`drafts/character/Character.dc.html`，按代码画）
 
 1. **顶栏排布**：稿是「返回」钮在最左、标题其后、墨锭在最右；代码按全站惯例「标题在左，墨锭 + 返回在右」，钮文案是「返回地图」（`CharacterView.BuildTopBar`，`CharacterView.cs:74–97`，类注释自认这一条）。
-2. **墨锭数**：千分位与稿一致（「2,480」，`Ui.InkBalanceText`）；稿的墨锭图标带金色内框、数字粗体，代码是纯 `ingot-dark` 六边形、常规字重（`BuildTopBar`）。
+2. **墨锭数**：千分位与稿一致（「2,480」，`Ui.InkText`）；稿的墨锭图标带金色内框、数字粗体，代码是纯 `ingot-dark` 六边形、常规字重（`BuildTopBar`）。
 3. **字距**：稿标题、头像名、页签、「领 取」都有 `letter-spacing`；代码 Unity `Text` 没有字距，间隔只靠字符串里的空格。
 4. **经验条**：稿轨道 `quiet`（#E4DDCE）、填充 `rarity-gold`（#C9A94A）、高 5；代码 `Ui.Bar` 轨道 `paper-dim`、填充 `gold`（#CA9D33）、高 4.78（`BuildProfile`，`CharacterView.cs:129`）。
 5. **属性行**：稿底色 #F2EEE4、生命值 `fire-glyph`（#B02D2E）；代码底色 `panel-inset`（#F1EBDE）、生命值 `cinnabar`（`AttrRow`，`CharacterView.cs:140, 168`）。

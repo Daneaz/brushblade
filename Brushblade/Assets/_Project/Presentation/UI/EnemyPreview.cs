@@ -122,7 +122,7 @@ namespace Brushblade.Presentation
             if (isBoss)
                 Ui.ThemedLabel(stack, EnemyInfo.ChargeRuleText(), 14, Theme.TextDim);
             if (bounty > 0)
-                Ui.ThemedLabel(stack, Strings.T("enemy.preview.bounty_line", ("bounty", bounty)), 18, Theme.GoldDeep, Theme.TitleFont);
+                Ui.ThemedLabel(stack, Strings.T("enemy.preview.bounty_line", ("bounty", Ui.InkText(bounty))), 18, Theme.GoldDeep, Theme.TitleFont);
             Ui.PillButton(stack, Strings.T("common.ok"), () => Object.Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));
             return overlay;

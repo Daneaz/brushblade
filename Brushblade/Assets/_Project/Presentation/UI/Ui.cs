@@ -703,10 +703,11 @@ namespace Brushblade.Presentation
             return ThemedLabel(row.transform, text, fontSize, Theme.TextMain);
         }
 
-        /// <summary>墨锭余额的唯一格式:千分位(2026-10-04 拍板,如「2,480」)。InvariantCulture ——
-        /// 跟系统区域走会在德语等区域印成「2.480」。<see cref="InkPulse"/> 翻回正面时也走这里,
-        /// 不然翻牌结束那一下会闪成不带千分位的数,直到下次重绘。</summary>
-        internal static string InkBalanceText(int ink) =>
+        /// <summary>墨锭数额的唯一格式:千分位(2026-10-04 拍板,如「2,480」)。**所有**玩家可见的
+        /// 墨锭数额都走这里 —— 余额、翻牌增量、收入/赏钱、价格、差额;别各处手写 ToString("N0")。
+        /// InvariantCulture —— 跟系统区域走会在德语等区域印成「2.480」。<see cref="InkPulse"/>
+        /// 翻回正面时也走这里,不然翻牌结束那一下会闪成不带千分位的数,直到下次重绘。</summary>
+        internal static string InkText(int ink) =>
             ink.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>玩家余额计数器 = 墨锭 + 数字 + 增减翻牌动效(2026-08-29;08-30 由飘字改翻牌)。
@@ -715,7 +716,7 @@ namespace Brushblade.Presentation
         /// 那些数字不是同一个账本,混进来会翻出凭空的增减(InkPulse 的注释)。</summary>
         public static GameObject InkCounter(Transform parent, int ink, int fontSize = 20)
         {
-            var label = IngotLabelText(parent, InkBalanceText(ink), fontSize);
+            var label = IngotLabelText(parent, InkText(ink), fontSize);
             InkPulse.Observe(label, ink);
             return label.transform.parent.gameObject;
         }

@@ -91,7 +91,7 @@ namespace Brushblade.Presentation
                 }
                 long remaining = ChestRules.RemainingSeconds(chest, _time);
                 if (countdown != null) countdown.text = Format(remaining);
-                if (skipCost != null) skipCost.text = Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining)));
+                if (skipCost != null) skipCost.text = Strings.T("map.chest.skip_cost", ("cost", Ui.InkText(ChestRules.InkCostToSkip(remaining))));
             }
             // 说明弹窗与结果面板同一条守卫:Rebuild 会 Ui.Clear 掉整个根节点,而两者
             // 都挂在根上 —— 读说明读到某只箱刚好就绪,弹窗会当着玩家的面消失。
@@ -386,7 +386,7 @@ namespace Brushblade.Presentation
 
             var run = Ui.Row(stack.transform, "RunState", 25);
             Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_hp", ("hp", snapshot.PlayerHp), ("maxHp", maxHp)), 21, Theme.TextDim);
-            Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_ink", ("ink", snapshot.EarnedInk)), 21, Theme.TextDim);
+            Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_ink", ("ink", Ui.InkText(snapshot.EarnedInk))), 21, Theme.TextDim);
             int capacity = MetaRules.LibraryCapacityFor(_meta) + (snapshot.LibraryExpanded ? RunEngine.ExpandBonus : 0);
             Ui.ThemedLabel(run.transform,
                 Strings.T("map.tower.run_library", ("count", snapshot.Library.Count), ("capacity", capacity)), 21, Theme.TextDim);
@@ -543,11 +543,11 @@ namespace Brushblade.Presentation
                         () => AdGate.Watch(AdPlacement.ChestBoost,
                             () => Do(() => ChestRules.TryApplyAdBoost(chest))), new Vector2(72, 46));
                 }
-                var skip = Ui.RoundButton(actions.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
+                var skip = Ui.RoundButton(actions.transform, Strings.T("map.chest.skip_cost", ("cost", Ui.InkText(ChestRules.InkCostToSkip(remaining)))),
                     () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),
                         Strings.T("map.chest.skip_fail_body",
-                            ("needed", ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))),
-                            ("ink", _meta.Ink))),
+                            ("needed", Ui.InkText(ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time)))),
+                            ("ink", Ui.InkText(_meta.Ink)))),
                     Theme.Gold, Theme.GoldText, 19, new Vector2(72, 46), 14);
                 _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
             }
@@ -791,7 +791,7 @@ namespace Brushblade.Presentation
             var inkElement = inkPill.gameObject.AddComponent<LayoutElement>();
             inkElement.preferredWidth = 190;
             inkElement.preferredHeight = 63; // 稿上 30pt
-            var inkRow = Ui.IngotLabel(inkPill.transform, $"+{rewards.Ink}", 22, true);
+            var inkRow = Ui.IngotLabel(inkPill.transform, "+" + Ui.InkText(rewards.Ink), 22, true);
             Ui.Stretch((RectTransform)inkRow.transform);
             inkRow.GetComponentInChildren<Text>().color = Theme.GoldDeep;
 
@@ -1118,7 +1118,7 @@ namespace Brushblade.Presentation
                 HelpCell(row.transform,
                     $"{ChestRules.KindCount[tierIndex - 1]}/{ChestRules.TotalCards[tierIndex - 1]}",
                     HelpCountColW, Theme.TextMain);
-                HelpCell(row.transform, ChestRules.InkReward[tierIndex - 1].ToString(),
+                HelpCell(row.transform, Ui.InkText(ChestRules.InkReward[tierIndex - 1]),
                     HelpInkColW, Theme.GoldDeep);
 
                 var guaranteed = ChestRules.GuaranteedRarityFor(tier);

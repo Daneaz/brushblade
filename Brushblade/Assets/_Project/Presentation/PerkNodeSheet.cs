@@ -396,9 +396,9 @@ namespace Brushblade.Presentation
 
             BuildRequirementBox(row.transform, Strings.T("perk.detail.req.ink.label"),
                 inkMet
-                    ? Strings.T("perk.detail.req.ink.met", ("cost", def.InkCost))
+                    ? Strings.T("perk.detail.req.ink.met", ("cost", Ui.InkText(def.InkCost)))
                     : Strings.T("perk.detail.req.ink.gap",
-                        ("cost", def.InkCost), ("gap", def.InkCost - meta.Ink)),
+                        ("cost", Ui.InkText(def.InkCost)), ("gap", Ui.InkText(def.InkCost - meta.Ink))),
                 inkMet);
         }
 
@@ -469,7 +469,7 @@ namespace Brushblade.Presentation
         {
             PerkView.NodeState.Owned => Strings.T("perk.node.badge.owned"),
             PerkView.NodeState.CanUnlock or PerkView.NodeState.PoorInk =>
-                Strings.T("perk.view.unlock_button", ("cost", def.InkCost)),
+                Strings.T("perk.view.unlock_button", ("cost", Ui.InkText(def.InkCost))),
             // 「需先点上一层」对跨树节点是错的 —— 它不在任何一条直链上,卡住它的是两侧谓词。
             PerkView.NodeState.GatedPrereq => def.Tree == PerkTree.Cross
                 ? Strings.T("perk.node.badge.gated_cross")
