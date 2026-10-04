@@ -286,6 +286,22 @@ namespace Brushblade.Presentation
                 inner.color = Theme.PanelPaper;
                 Ui.Anchor(inner.rectTransform, Vector2.zero, Vector2.one, new Vector2(3, 3), new Vector2(-3, -3));
             }
+            else if (ready)
+            {
+                // 可领:钉外一圈 3pt `gold-soft` 光环(稿 .ready .pin box-shadow 0 0 0 3px)→ 外扩 6。
+                // 子节点画在父图之上,所以钉本身改透明,光环在下、金色实心圆在上;光环不进布局。
+                pin.GetComponent<Image>().color = Color.clear;
+                var halo = Ui.Panel(pin.transform, "Halo").AddComponent<Image>();
+                halo.sprite = Theme.Circle;
+                halo.color = Theme.GoldSoft;
+                halo.raycastTarget = false;
+                Ui.Anchor(halo.rectTransform, Vector2.zero, Vector2.one, new Vector2(-6, -6), new Vector2(6, 6));
+                var face = Ui.Panel(pin.transform, "Face").AddComponent<Image>();
+                face.sprite = Theme.Circle;
+                face.color = Theme.Gold;
+                face.raycastTarget = false;
+                Ui.Stretch(face.rectTransform);
+            }
             else if (done && Icons.Get("check") is { } check)
             {
                 var icon = Ui.Panel(pin.transform, "Check").AddComponent<Image>();
@@ -481,12 +497,18 @@ namespace Brushblade.Presentation
         private void BuildTowerPane(Transform pane)
         {
             var s = _meta.Stats;
+            string times = Strings.T("character.unit.times"), floors = Strings.T("character.unit.floors");
             var tiles = TileRow(pane);
-            StatTile(tiles, Strings.T("character.tower.climbs"), s.Climbs);
-            StatTile(tiles, Strings.T("character.tower.floors"), s.FloorsCleared);
-            StatTile(tiles, Strings.T("character.tower.best"), _meta.BestDepth);
-            StatTile(tiles, Strings.T("character.tower.bosses"), s.BossesDefeated);
-            StatTile(tiles, Strings.T("character.tower.deaths"), s.Deaths);
+            StatTile(tiles, Strings.T("character.tower.climbs"), s.Climbs, times,
+                Strings.T("character.tower.climbs_note"));
+            StatTile(tiles, Strings.T("character.tower.floors"), s.FloorsCleared, floors,
+                Strings.T("character.tower.floors_note"));
+            StatTile(tiles, Strings.T("character.tower.best"), _meta.BestDepth, floors,
+                Strings.T("character.tower.best_note", ("rank", EndlessRules.RankTitle(_meta.BestDepth))));
+            StatTile(tiles, Strings.T("character.tower.bosses"), s.BossesDefeated, Strings.T("character.unit.bosses"),
+                Strings.T("character.tower.bosses_note"));
+            StatTile(tiles, Strings.T("character.tower.deaths"), s.Deaths, times,
+                Strings.T("character.tower.deaths_note"));
         }
 
         private void BuildBattlePane(Transform pane)
@@ -530,8 +552,8 @@ namespace Brushblade.Presentation
             rightLayout.childAlignment = TextAnchor.UpperLeft;
             rightLayout.childForceExpandWidth = true;
             var pair = TileRowIn(right.transform);
-            StatTile(pair, Strings.T("character.battle.composes"), s.Composes);
-            StatTile(pair, Strings.T("character.battle.dismantles"), s.Dismantles);
+            StatTile(pair, Strings.T("character.battle.composes"), s.Composes, Strings.T("character.unit.times"));
+            StatTile(pair, Strings.T("character.battle.dismantles"), s.Dismantles, Strings.T("character.unit.times"));
             StatTile(right.transform, Strings.T("character.battle.maxhit"), s.MaxHit);
         }
 
@@ -539,24 +561,46 @@ namespace Brushblade.Presentation
         {
             var s = _meta.Stats;
             var tiles = TileRow(pane);
-            StatTile(tiles, Strings.T("character.econ.earned"), s.InkEarned);
-            StatTile(tiles, Strings.T("character.econ.spent"), s.InkSpent);
-            StatTile(tiles, Strings.T("character.econ.ads"), s.AdRewards);
+            StatTile(tiles, Strings.T("character.econ.earned"), s.InkEarned, null,
+                Strings.T("character.econ.earned_note"));
+            StatTile(tiles, Strings.T("character.econ.spent"), s.InkSpent, null,
+                Strings.T("character.econ.spent_note"));
+            StatTile(tiles, Strings.T("character.econ.ads"), s.AdRewards, Strings.T("character.unit.times"),
+                Strings.T("character.econ.ads_note"));
         }
 
-        /// <summary>大数字卡:标签 20 号 TextDim、数值 46 号 TitleFont(千分位)。</summary>
-        private static void StatTile(Transform parent, string label, int value)
+        /// <summary>大数字卡(稿 .tile):标签 9.5pt `text-dim` → 数值宋体 22pt(千分位)+ 单位 10pt `text-faint`
+        /// → 说明 8.5pt `text-faint`;内边距 10/10/9pt、竖排 4pt。数值行按稿 line-height 1.1 给定高 51
+        /// (字身照常画出,Text 不裁切),单位与数值**基线对齐**:两个 Text 底对齐后,单位再垫高两者下沉量之差
+        /// (宋体 46 × 0.286 − 黑体 21 × 0.288 ≈ 7)。卡高 = 40 + 29 + 8 + 51(+ 8 + 26 说明行)= 128 / 162。
+        /// 战斗页三格稿上没有说明行(<paramref name="note"/> 传 null)。</summary>
+        private static void StatTile(Transform parent, string label, int value, string unit = null,
+            string note = null)
         {
+            const float ValueH = 51f, NoteH = 26f, Gap = 8f;
             var tile = Ui.OutlinedPanel(parent, "Tile", Theme.CardWhite, Theme.PanelBorder, 17);
             var element = tile.gameObject.AddComponent<LayoutElement>();
             element.flexibleWidth = 1;
-            element.preferredHeight = 130;
-            var stack = PaddedStack(tile.transform, "Stack", 8, new RectOffset(21, 21, 19, 19));
-            var layout = stack.GetComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleLeft;
+            element.preferredHeight = 40 + 29 + Gap + ValueH + (note != null ? Gap + NoteH : 0f);
+            var stack = PaddedStack(tile.transform, "Stack", Gap, new RectOffset(21, 21, 21, 19));
             Ui.ThemedLabel(stack, label, 20, Theme.TextDim, null, TextAnchor.MiddleLeft);
-            Ui.ThemedLabel(stack, value.ToString("N0", Inv), 46, Theme.TextMain, Theme.TitleFont,
-                TextAnchor.MiddleLeft);
+
+            var line = Ui.Row(stack, "Value", 8);   // 稿 margin-left 2pt → 4,再加宋体数字右侧字身空白的余量
+            line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
+            Ui.Sized(line, height: ValueH);
+            Ui.Sized(Ui.ThemedLabel(line.transform, value.ToString("N0", Inv), 46, Theme.TextMain, Theme.TitleFont,
+                TextAnchor.LowerLeft).gameObject, height: ValueH);
+            if (!string.IsNullOrEmpty(unit))
+            {
+                var unitBox = Ui.Row(line.transform, "Unit", 0);
+                var unitLayout = unitBox.GetComponent<HorizontalLayoutGroup>();
+                unitLayout.padding = new RectOffset(0, 0, 0, 7);
+                unitLayout.childAlignment = TextAnchor.LowerLeft;
+                Ui.ThemedLabel(unitBox.transform, unit, 21, Theme.LockGray, null, TextAnchor.LowerLeft);
+            }
+            if (note != null)
+                Ui.Sized(Ui.ThemedLabel(stack, note, 18, Theme.LockGray, null, TextAnchor.MiddleLeft).gameObject,
+                    height: NoteH);
         }
 
         /// <summary>整页一排等宽大数字卡(登塔 / 经济):贴顶,不被页高拉长。</summary>

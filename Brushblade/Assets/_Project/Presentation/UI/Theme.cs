@@ -50,6 +50,11 @@ namespace Brushblade.Presentation
         public static readonly Color LockedPaper = new(0.937f, 0.918f, 0.878f);  // 稿 #EFEAE0
         public static readonly Color LockedGlyph = new(0.557f, 0.525f, 0.459f);  // 稿 #8E8675(原 #AFA695:LockedPaper 上 2.0 → 3:1,只用于大字形)
         public static readonly Color LockGray = new(0.404f, 0.435f, 0.478f);    // #676F7A(原 #88909C:宣纸上 2.9 → 4.5:1)
+        /// <summary>token `text-warm` #696151:暖灰正文档(稿上的次要小字,如升级弹窗属性行的旧值与箭头)。
+        /// 冷调的用 TextDim / LockGray,两支别混在同一块里。</summary>
+        public static readonly Color TextWarm = new(0.412f, 0.380f, 0.318f);
+        /// <summary>token `ink-bar` #EFEADF:墨锭计数胶囊的底(稿 .ink / .inkline)。</summary>
+        public static readonly Color InkBar = new(0.937f, 0.918f, 0.875f);
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);
         public static readonly Color NeutralPart = new(0.309f, 0.336f, 0.379f); // 中性部件底
         public static readonly Color IngotDark = new(0.1f, 0.122f, 0.17f);      // 墨锭图标

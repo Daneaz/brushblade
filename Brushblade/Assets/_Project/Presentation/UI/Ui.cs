@@ -888,6 +888,22 @@ namespace Brushblade.Presentation
             Stretch(label.rectTransform);
         }
 
+        /// <summary>弹窗抬头「— 升 级 —」:宋体小字两侧各一条短横线(稿 .kick::before/::after:
+        /// 34×1pt `panel-border`、间距 10pt → 71×2 / 21 逻辑单位)。返回整行,调用方自己定高。</summary>
+        public static GameObject KickerRow(Transform parent, string text, int fontSize, Color color)
+        {
+            var row = Row(parent, "Kicker", 21);
+            for (int i = 0; i < 2; i++)
+            {
+                var line = Panel(row.transform, "Line").AddComponent<Image>();
+                line.color = Theme.PanelBorder;
+                line.raycastTarget = false;
+                Sized(line.gameObject, 71, 2);
+                if (i == 0) ThemedLabel(row.transform, text, fontSize, color, Theme.TitleFont);
+            }
+            return row;
+        }
+
         /// <summary>圆形字头像:实色圆底 + 居中单字。战斗怪物与图鉴怪牌共用,保证形象一致。</summary>
         public static GameObject CircleGlyph(Transform parent, string face, Color faceColor, Color glyphColor, float diameter)
         {
