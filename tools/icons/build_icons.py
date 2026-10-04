@@ -27,6 +27,9 @@ FILL = 'fill="#fff"'
 # 细描边:技能树图标的构件比状态图标多(两张牌、四个格),6 的线宽在 46px 节点上糊成一坨
 STROKE4 = 'fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"'
 
+# 线宽 5:traits 稿的霜抗(圆环 + 雪花)笔画多,6 的线宽会糊
+STROKE5 = 'fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"'
+
 # 导航图标(nav_*)另一套:路径直接抄 Home.dc.html,那边是 24 的 viewBox,
 # 这里只加一层缩放撑到 64,坐标一个不改 —— 手改坐标必然和稿漂开。
 # 线宽也照稿的 1.7(在 24 空间里)而不是上面的 6:导航图标显示在 36 逻辑单位上,
@@ -190,6 +193,22 @@ ICONS = {
     # 角色页里程碑进度箭头(2026-10-02)
     "chevron": f'<path {STROKE} d="M24 14L42 32L24 50"/>',
     "check": f'<path {STROKE} d="M14 34L27 46L50 19"/>',
+    # 字卡特性 Plan C(2026-10-04):路径逐字取自 docs/design/drafts/traits/traits-data.js 的 NEW 三枚
+    # 格挡:描边盾 + 内部左尖括号
+    "block": (
+        f'<path {STROKE} d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
+        f'<path {STROKE} d="M38 23l-10 10 10 10"/>'
+    ),
+    # 霜抗:圆环 + 六角雪花(线宽 5)
+    "frostguard": (
+        f'<circle cx="32" cy="32" r="25" {STROKE5}/>'
+        f'<path {STROKE5} d="M32 15v34M17.3 23.5l29.4 17M46.7 23.5l-29.4 17"/>'
+    ),
+    # 冰滞:偏左的雪花 + 右向箭头(行动条被推后)
+    "chill": (
+        f'<path {STROKE} d="M21 10v44M8 20l26 24M34 20L8 44"/>'
+        f'<path {STROKE} d="M60 32H43M50 24l-8 8 8 8"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

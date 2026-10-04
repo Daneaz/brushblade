@@ -41,6 +41,8 @@ EXPECTED = {
     "perk_hp", "perk_library", "perk_hand", "perk_ap",
     # 角色页 —— 里程碑标记与进度箭头
     "chevron", "check",
+    # 字卡特性 Plan C(2026-10-04):格挡 / 霜抗 / 冰滞,取自 traits 稿 StatusChips 的 NEW 三枚。
+    "block", "frostguard", "chill",
 }
 
 
