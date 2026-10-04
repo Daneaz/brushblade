@@ -29,6 +29,15 @@ namespace Brushblade.Core
         Passive,
     }
 
+    /// <summary>特性何时结算(spec v7 §2.3)。Cast = 出字时(主动特性与「修饰本字」的被动);
+    /// OnCrit / OnKill = 本字这次出字暴击 / 击杀时入队,出字末尾兑现(附录 M23)。</summary>
+    public enum TraitTrigger
+    {
+        Cast,
+        OnCrit,
+        OnKill,
+    }
+
     /// <summary>一条字卡特性(spec v7 §1 / §11.1)。名称是游戏数据(随字表),不进字符串表。</summary>
     public sealed class TraitDef
     {
@@ -36,17 +45,20 @@ namespace Brushblade.Core
         public int UnlockLevel => (int)Slot;
         public TraitFace Face { get; }
         public TraitForm Form { get; }
+        public TraitTrigger Trigger { get; }
         /// <summary>解锁后替换掉的低阶槽位(如 Lv3 强化替换 Lv1);null = 不替换。</summary>
         public TraitSlot? Replaces { get; }
         public string Name { get; }
         public IReadOnlyList<EffectDef> Effects { get; }
 
         public TraitDef(TraitSlot slot, TraitFace face, TraitForm form, TraitSlot? replaces,
-            string name, IReadOnlyList<EffectDef> effects)
+            string name, IReadOnlyList<EffectDef> effects,
+            TraitTrigger trigger = TraitTrigger.Cast)
         {
             Slot = slot;
             Face = face;
             Form = form;
+            Trigger = trigger;
             Replaces = replaces;
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Effects = effects ?? Array.Empty<EffectDef>();

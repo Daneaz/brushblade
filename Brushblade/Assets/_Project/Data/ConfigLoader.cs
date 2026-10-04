@@ -26,6 +26,7 @@ namespace Brushblade.Data
             public string Slot { get; set; }
             public string Face { get; set; }     // null = Both
             public string Form { get; set; }     // null = Active
+            public string Trigger { get; set; }  // null = Cast
             public string Replaces { get; set; } // null = 不替换
             public string Name { get; set; }
             public List<EffectDto> Effects { get; set; }
@@ -566,10 +567,13 @@ namespace Brushblade.Data
                 if (!keys.Add((slot, face)))
                     throw new ConfigException($"字「{dto.Id}」的特性重复:{t.Slot}/{face}(同一槽位每个作用面只能有一条)");
                 var form = ParseEnum(t.Form, TraitForm.Active, dto.Id, "特性形态");
+                var trigger = ParseEnum(t.Trigger, TraitTrigger.Cast, dto.Id, "特性触发类型");
+                if (form == TraitForm.Active && trigger != TraitTrigger.Cast)
+                    throw new ConfigException($"字「{dto.Id}」的主动特性「{t.Name}」不能配触发类型 {trigger}(主动特性只在出字时结算)");
                 TraitSlot? replaces = string.IsNullOrEmpty(t.Replaces)
                     ? (TraitSlot?)null
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>())));
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>()), trigger));
             }
             foreach (var t in traits)
                 if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))

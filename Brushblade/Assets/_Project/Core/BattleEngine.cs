@@ -997,6 +997,7 @@ namespace Brushblade.Core
             _cardLevels = cardLevels;
             _random = new GameRandom(seed);
             _targetRandom = new GameRandom(seed ^ TargetSeedSalt);
+            _traitRandom = new GameRandom(seed ^ TraitSeedSalt);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
@@ -1058,7 +1059,8 @@ namespace Brushblade.Core
 
         /// <summary>断点存档专用构造:不发牌、不开回合,状态全部由 <see cref="Restore"/> 灌进来。</summary>
         private BattleEngine(RecipeGraph graph, BattleConfig config,
-            IReadOnlyDictionary<string, int> cardLevels, GameRandom random, GameRandom targetRandom)
+            IReadOnlyDictionary<string, int> cardLevels, GameRandom random, GameRandom targetRandom,
+            GameRandom traitRandom)
         {
             _graph = graph;
             _config = config;
@@ -1066,6 +1068,7 @@ namespace Brushblade.Core
             _cardLevels = cardLevels;
             _random = random;
             _targetRandom = targetRandom;
+            _traitRandom = traitRandom;
             _forge = new ForgeState(new List<string>(), new List<string>());
         }
 
@@ -1086,6 +1089,10 @@ namespace Brushblade.Core
                 BurnPerStack = _burnPerStack,
                 RandomState = _random.State,
                 TargetRandomState = _targetRandom.State,
+                TraitRandomState = _traitRandom.State,
+                TraitUsesThisTurn = new Dictionary<string, int>(_traitUsesThisTurn),
+                TraitUsesThisBattle = new Dictionary<string, int>(_traitUsesThisBattle),
+                CastsThisTurn = CastsThisTurn,
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
                 PendingDrop = _pendingDrop,
@@ -1111,8 +1118,13 @@ namespace Brushblade.Core
         {
             var engine = new BattleEngine(graph, config, cardLevels,
                 GameRandom.FromState(snapshot.RandomState),
-                GameRandom.FromState(snapshot.TargetRandomState))
+                GameRandom.FromState(snapshot.TargetRandomState),
+                // 旧快照没有特性流:0 = 缺字段,按主流状态派生一条(存档里没有原始种子可用)
+                snapshot.TraitRandomState != 0
+                    ? GameRandom.FromState(snapshot.TraitRandomState)
+                    : new GameRandom(unchecked((int)snapshot.RandomState) ^ TraitSeedSalt))
             {
+                CastsThisTurn = snapshot.CastsThisTurn,
                 PlayerHp = snapshot.PlayerHp,
                 Ap = snapshot.Ap,
                 Turn = snapshot.Turn,
@@ -1129,6 +1141,10 @@ namespace Brushblade.Core
             };
             foreach (var o in snapshot.PendingOpenings ?? new List<OpeningEffect>())
                 engine._pendingOpenings.Add(o.Clone());
+            foreach (var kv in snapshot.TraitUsesThisTurn ?? new Dictionary<string, int>())
+                engine._traitUsesThisTurn[kv.Key] = kv.Value;
+            foreach (var kv in snapshot.TraitUsesThisBattle ?? new Dictionary<string, int>())
+                engine._traitUsesThisBattle[kv.Key] = kv.Value;
             foreach (int slot in snapshot.SummonThresholdCrossed ?? new List<int>())
                 engine._summonThresholdCrossed.Add(slot);
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
@@ -1420,6 +1436,14 @@ namespace Brushblade.Core
         public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
             bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null,
             int allySlot = Targeting.PlayerTarget)
+        {
+            var result = CastCore(charId, targetIndex, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot);
+            if (result == BattleError.None) CastsThisTurn++;   // 成功才计;结算期间读到的是「本字之前」的数
+            return result;
+        }
+
+        private BattleError CastCore(string charId, int targetIndex, bool replaceSummon,
+            bool attackMode, int libraryIndex, IReadOnlyList<int> summonSlots, int allySlot)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -2701,6 +2725,8 @@ namespace Brushblade.Core
         private void StartTurn()
         {
             Turn += 1;
+            CastsThisTurn = 0;
+            _traitUsesThisTurn.Clear();
             // 封字(2026-08-06):AP 扣减从裸字段改成 StatusKind.Seal —— 这样它可被净化、
             // 可被免疫,并且跟着 PlayerStatuses 进存档(裸字段从来没进过 BattleSnapshot,
             // 倾覆后存档续爬会白丢惩罚)。到期移除由统一的状态回合递减负责,这里不清。

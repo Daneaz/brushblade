@@ -44,6 +44,31 @@ namespace Brushblade.Core
         /// 给 EnemyHit / EnemyKilled 的 <see cref="HookArgs.CastCharId"/>。排空反应时为 null。</summary>
         private string _castingCharId;
 
+        /// <summary>特性随机流的种子偏移(spec D5)。只给特性里的随机选取用;没有特性命中时一次也不摇。</summary>
+        internal const int TraitSeedSalt = 0x5EED7A17;
+
+        internal GameRandom _traitRandom;
+
+        private readonly Dictionary<string, int> _traitUsesThisTurn = new();
+        private readonly Dictionary<string, int> _traitUsesThisBattle = new();
+
+        /// <summary>本回合已成功出字数(部件出手也计);StartTurn 清零。「本回合第一张」用。</summary>
+        public int CastsThisTurn { get; private set; }
+
+        internal static string TraitKey(string charId, TraitSlot slot, TraitFace face) => $"{charId}/{(int)slot}/{face}";
+
+        /// <summary>次数阀:perTurn / perBattle 为 0 = 不限。两项都未满才算用掉并计数;失败不扣任何一项。</summary>
+        internal bool TryUseTrait(string key, int perTurn, int perBattle)
+        {
+            _traitUsesThisTurn.TryGetValue(key, out int turnUsed);
+            _traitUsesThisBattle.TryGetValue(key, out int battleUsed);
+            if (perTurn > 0 && turnUsed >= perTurn) return false;
+            if (perBattle > 0 && battleUsed >= perBattle) return false;
+            _traitUsesThisTurn[key] = turnUsed + 1;
+            _traitUsesThisBattle[key] = battleUsed + 1;
+            return true;
+        }
+
         internal int PendingReactionCount => _reactions.Count;
 
         /// <summary>入队。战斗已分胜负时丢弃。</summary>

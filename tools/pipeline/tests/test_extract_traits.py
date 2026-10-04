@@ -36,6 +36,21 @@ def test_face_form_replaces_mapping_omits_defaults():
     assert t["火上浇油"]["effects"] == [{"kind": "DamageSingle", "value": 50}]
 
 
+def test_form_trigger_suffix_parsed():
+    table = _TABLE + "| 炎 | Lv6 | 两面 | 被动·暴击 | — | 暴焰 | `BurnSingle 1` | ✅ |\n" \
+                     "| 炎 | Lv8 | 两面 | 被动·击杀 | — | 乘胜 | `BurnSingle 1` | ✅ |\n"
+    t = {x["name"]: x for x in extract_traits(table)["炎"]}
+    assert t["暴焰"]["form"] == "Passive" and t["暴焰"]["trigger"] == "OnCrit"
+    assert t["乘胜"]["form"] == "Passive" and t["乘胜"]["trigger"] == "OnKill"
+    assert "trigger" not in t["双焰"]
+
+
+def test_active_with_trigger_rejected():
+    bad = _TABLE + "| 炎 | Lv6 | 两面 | 主动·暴击 | — | 坏 | `BurnSingle 1` | ✅ |\n"
+    with pytest.raises(ValueError):
+        extract_traits(bad)
+
+
 @pytest.mark.parametrize("bad", [
     "| 炎 | Lv2 | 攻 | 主动 | — | 坏 | `DamageSingle 1` | ✅ |",
     "| 炎 | Lv5 | 飞 | 主动 | — | 坏 | `DamageSingle 1` | ✅ |",

@@ -12,7 +12,9 @@ from extract_values import _parse_effects
 ELEMENT_FILES = ["火", "金", "水", "土", "木"]
 FACE_NAMES = {"攻": "Attack", "燃": "Feature", "铠": "Feature", "润": "Feature",
               "固": "Feature", "生": "Feature", "两面": None}
-FORMS = {"主动": None, "被动": "Passive"}
+# 形态 → (form, trigger);「被动·暴击/击杀」= 被动 + 触发类型(spec v7 §2.3)。主动只能是出字时,不接后缀
+FORMS = {"主动": (None, None), "被动": ("Passive", None),
+         "被动·暴击": ("Passive", "OnCrit"), "被动·击杀": ("Passive", "OnKill")}
 SLOTS = {"Lv1", "Lv3", "Lv4", "Lv5", "Lv6", "Lv8"}
 _HEADER = ["字", "槽", "面", "形态", "替换", "名", "效果配置", "实现"]
 
@@ -52,8 +54,11 @@ def extract_traits(markdown):
         trait = {"slot": slot}
         if FACE_NAMES[face]:
             trait["face"] = FACE_NAMES[face]
-        if FORMS[form]:
-            trait["form"] = FORMS[form]
+        form_name, trigger = FORMS[form]
+        if form_name:
+            trait["form"] = form_name
+        if trigger:
+            trait["trigger"] = trigger
         if replaces not in ("—", "-", ""):
             if replaces not in SLOTS:
                 raise ValueError(f"特性表:字「{char}」替换槽位非法:{replaces}")

@@ -23,6 +23,17 @@ namespace Brushblade.Core
         /// 择敌的随机量随召唤物只数、敌人只数波动,混进主流会让暴击/命中/掉字的序列跟着漂,
         /// 上千条带种子的既有测试会一起位移。两条流由同一颗 Seed 派生,可复现性不变。</summary>
         public uint TargetRandomState { get; set; }
+
+        /// <summary>特性随机流状态(D1 Task 2,spec D5)。0 = 旧快照没有这个字段
+        /// (xorshift 的状态恒非零),读档时按 RandomState 派生重建。</summary>
+        public uint TraitRandomState { get; set; }
+
+        /// <summary>特性次数阀:key = <c>BattleEngine.TraitKey</c>。旧快照缺 = null/空。</summary>
+        public Dictionary<string, int> TraitUsesThisTurn { get; set; } = new();
+        public Dictionary<string, int> TraitUsesThisBattle { get; set; } = new();
+
+        /// <summary>本回合已成功出字数(StartTurn 清零)。</summary>
+        public int CastsThisTurn { get; set; }
         public List<string> Library { get; set; } = new();
         public List<string> Pool { get; set; } = new();
         public List<EnemySnapshot> Enemies { get; set; } = new();
