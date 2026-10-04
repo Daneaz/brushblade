@@ -707,8 +707,10 @@ namespace Brushblade.Presentation
                 Upgrade(cardId);
             }, Theme.Primary, Color.white, 24, new Vector2(0, 71));
             confirm.GetComponent<LayoutElement>().flexibleWidth = 1;
-            Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
-                Theme.LockedBg, Theme.TextMain, 24, new Vector2(250, 71));
+            // 两钮等宽对半分(2026-10-04 用户反馈:原「再想想」定宽 250、主钮弹性,比例不对等)
+            var cancel = Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
+                Theme.LockedBg, Theme.TextMain, 24, new Vector2(0, 71));
+            cancel.GetComponent<LayoutElement>().flexibleWidth = 1;
         }
 
         /// <summary>数值提升:一行一条「旧 → 新 (+差)」。没有量级变化的字这一栏留空,
