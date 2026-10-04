@@ -42,6 +42,10 @@ def test_face_form_replaces_mapping_omits_defaults():
     "| 炎 | Lv5 | 攻 | 半动 | — | 坏 | `DamageSingle 1` | ✅ |",
     "| 炎 | Lv5 | 攻 | 主动 | — |  | `DamageSingle 1` | ✅ |",
     "| 炎 | Lv5 | 攻 | 主动 | — | 坏 | `DamageSingle 1` `TotallyBogus` | ✅ |",
+    "| 炎 | Lv5 | 攻 | 主动 | 坏 | `DamageSingle 1` | ✅ |",
+    "| 炎 | Lv5 | 攻 | 主动 | — | 坏 | `DamageSingle 1` | 多 | ✅ |",
+    "| 炎 | Lv5 | 攻 | 主动 | — | 坏 | `DamageSingle 1` ✅ |",
+    "| 炎 | Lv5 | 攻 | 主动 | — | 坏 | DamageSingle 50 | ✅ |",
 ])
 def test_bad_rows_raise(bad):
     md = "| 字 | 槽 | 面 | 形态 | 替换 | 名 | 效果配置 | 实现 |\n|---|---|---|---|---|---|---|---|\n" + bad + "\n"
@@ -82,3 +86,32 @@ def test_build_all_without_traits_adds_no_key():
     out = build_all("", _SPEC, {})
     yan = next(c for c in out["chars"] if c["id"] == "炎")
     assert "traits" not in yan
+
+
+_H = "| 字 | 槽 | 面 | 形态 | 替换 | 名 | 效果配置 | 实现 |\n|---|---|---|---|---|---|---|---|\n"
+
+
+def test_both_and_single_face_same_slot_raises():
+    md = (_H + "| 炎 | Lv5 | 两面 | 主动 | — | 两面五 | `DamageSingle 1` | ✅ |\n"
+          "| 炎 | Lv5 | 攻 | 主动 | — | 攻五 | `DamageSingle 1` | ✅ |\n")
+    with pytest.raises(ValueError):
+        extract_traits(md)
+
+
+def test_both_and_single_face_different_slots_ok():
+    md = (_H + "| 炎 | Lv1 | 两面 | 主动 | — | 甲 | `DamageSingle 1` | ✅ |\n"
+          "| 炎 | Lv5 | 攻 | 主动 | — | 乙 | `DamageSingle 1` | ✅ |\n")
+    assert len(extract_traits(md)["炎"]) == 2
+
+
+@pytest.mark.parametrize("cfg", ["—", "-", ""])
+def test_empty_effect_config_allowed(cfg):
+    md = _H + f"| 炎 | Lv5 | 攻 | 被动 | — | 空 | {cfg} | ✅ |\n"
+    assert extract_traits(md)["炎"][0]["effects"] == []
+
+
+def test_duplicate_across_feature_face_names_raises():
+    md = (_H + "| 炎 | Lv5 | 燃 | 主动 | — | 甲 | `BurnSingle 1` | ✅ |\n"
+          "| 炎 | Lv5 | 铠 | 主动 | — | 乙 | `BurnSingle 1` | ✅ |\n")
+    with pytest.raises(ValueError):
+        extract_traits(md)

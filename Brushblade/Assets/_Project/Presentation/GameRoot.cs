@@ -402,6 +402,7 @@ namespace Brushblade.Presentation
         /// 层经验与 Depth 推进已在 OnFloorCleared 记过账,这里不再重复。</summary>
         private static void OnFloorAdvanced(RunEngine run, int carriedInk)
         {
+            // 有意不写 CarriedOpenings:开局效果只在 AdvanceAfterBattle 变化,OnFloorCleared/WriteCarriedSnapshot 已写最新值;段内续玩走 InProgress.Run。
             var snapshot = _meta.EndlessV2;
             if (snapshot == null) return;
             CommitEventInk(run); // 本段净额(层清算 + 字摊)即时结进账户

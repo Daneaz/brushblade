@@ -87,7 +87,7 @@ namespace Brushblade.Core
         private int _carriedShieldAccum;
         private int _carriedHealAccum;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
-        private List<OpeningEffect> _carriedOpenings = new(); // 跨场开局效果(spec v6 §5.1)
+        private List<OpeningEffect> _carriedOpenings = new(); // 跨场开局效果(spec v7 §5.1)
         private List<StatusEffect> _carriedStatuses = new(); // 护甲增益延续(2026-08-04):段内持久,到段末才清;
                                                                // 只承载 DefenseBuff,HoT 不跨战斗
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
@@ -653,7 +653,7 @@ namespace Brushblade.Core
             _carriedShieldAccum = Battle.ShieldAccum;
             _carriedHealAccum = Battle.HealAccum;
             _carriedSummons = CaptureAliveSummons();
-            // 跨场开局效果(spec v6 §5.1):本场开局已生效的递减 1;再并入本场新登记的(同类取最强)。
+            // 跨场开局效果(spec v7 §5.1):本场开局已生效的递减 1;再并入本场新登记的(同类取最强)。
             foreach (var o in _carriedOpenings) o.BattlesLeft -= 1;
             _carriedOpenings = OpeningRules.Merge(_carriedOpenings, Battle.PendingOpenings);
             // 只取护甲增益:HoT 是本场限定,不随携带态跨战斗(2026-08-04;

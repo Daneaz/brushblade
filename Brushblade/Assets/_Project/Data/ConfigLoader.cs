@@ -33,7 +33,7 @@ namespace Brushblade.Data
 
         private sealed class CharDto
         {
-            public List<TraitDto> Traits { get; set; } // 字卡特性(spec v6)
+            public List<TraitDto> Traits { get; set; } // 字卡特性(spec v7)
             public string Id { get; set; }
             public string Element { get; set; }
             public List<string> Recipe { get; set; }
@@ -571,6 +571,9 @@ namespace Brushblade.Data
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
                 traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>())));
             }
+            foreach (var t in traits)
+                if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))
+                    throw new ConfigException($"字「{dto.Id}」的槽位 {t.Slot} 同时有两面特性与单面特性(spec v7 不混用)");
             foreach (var t in traits)
                 if (t.Replaces.HasValue && (!keys.Contains((t.Replaces.Value, t.Face)) || (int)t.Replaces.Value >= (int)t.Slot))
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」替换了同一作用面上不存在或更高的槽位:{t.Replaces}");

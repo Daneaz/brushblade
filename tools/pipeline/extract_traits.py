@@ -26,8 +26,10 @@ def extract_traits(markdown):
         if not line.startswith("|") or line.startswith("|---"):
             continue
         cells = [c.strip() for c in line.strip("|").split("|")]
-        if cells == _HEADER or len(cells) != len(_HEADER):
+        if cells == _HEADER:
             continue
+        if len(cells) != len(_HEADER):
+            raise ValueError(f"特性表:列数应为 {len(_HEADER)},实际 {len(cells)}:{line}")
         char, slot, face, form, replaces, name, config, impl = cells
         if not impl.startswith("✅"):
             continue
@@ -39,10 +41,14 @@ def extract_traits(markdown):
             raise ValueError(f"特性表:字「{char}」形态非法:{form}")
         if not name:
             raise ValueError(f"特性表:字「{char}」{slot} 缺名称")
-        key = (char, slot, face)
+        face_key = FACE_NAMES[face]
+        key = (char, slot, face_key)
         if key in seen:
             raise ValueError(f"特性表:字「{char}」{slot}/{face} 重复")
         seen.add(key)
+        faces_here = {k[2] for k in seen if k[0] == char and k[1] == slot}
+        if None in faces_here and len(faces_here) > 1:
+            raise ValueError(f"特性表:字「{char}」{slot} 同时有两面特性与单面特性")
         trait = {"slot": slot}
         if FACE_NAMES[face]:
             trait["face"] = FACE_NAMES[face]
@@ -53,6 +59,8 @@ def extract_traits(markdown):
                 raise ValueError(f"特性表:字「{char}」替换槽位非法:{replaces}")
             trait["replaces"] = replaces
         trait["name"] = name
+        if config not in ("—", "-", "") and "`" not in config:
+            raise ValueError(f"特性表:字「{char}」{slot} 效果配置缺反引号 token:{config}")
         trait["effects"] = _parse_effects(config, char)
         result.setdefault(char, []).append(trait)
     return result

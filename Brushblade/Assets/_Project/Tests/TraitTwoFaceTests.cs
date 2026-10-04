@@ -115,5 +115,14 @@ namespace Brushblade.Core.Tests
             Assert.DoesNotThrow(() => Load(
                 @"{""slot"":""Lv1"",""face"":""Attack"",""name"":""攻灼"",""effects"":[{""kind"":""BurnSingle"",""value"":1}]}"));
         }
+
+        [Test]
+        public void BothAndSingleFaceTraitsAtSameSlot_Throws()
+        {
+            var ex = Assert.Throws<ConfigException>(() => Load(
+                @"{""slot"":""Lv5"",""name"":""两面五"",""effects"":[]},
+                  {""slot"":""Lv5"",""face"":""Attack"",""name"":""攻五"",""effects"":[{""kind"":""DamageSingle"",""value"":1}]}"));
+            Assert.That(ex.Message, Does.Contain("Lv5"));
+        }
     }
 }
