@@ -1,4 +1,4 @@
-<!-- @dsCard group="局内流程" height=355 subtitle="实现 · BattleView.DrawReplaceSheet · 四入口共用的唯一一处永久删除" -->
+<!-- @dsCard group="局内流程" height=375 subtitle="实现 · BattleView.DrawReplaceSheet · 四入口共用的唯一一处永久删除" -->
 <!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>
 html,body{margin:0;background:var(--paper)}
 .stage{position:relative;padding:14px 16px}
@@ -8,8 +8,8 @@ html,body{margin:0;background:var(--paper)}
 /* 底下透出的战场示意,只为说明「为什么用浅遮罩」 */
 .field{position:absolute;inset:0;background:var(--paper);z-index:0}
 .field i{position:absolute;display:block;border-radius:3px;background:var(--ink);opacity:.10}
-/* Ui.Sheet 1633×460 · 圆角 18 · 描边 1.5 · 内边距 24 · 行距 14 · UpperCenter */
-.sheet{position:relative;z-index:1;width:390.11px;height:109.89px;box-sizing:border-box;margin:0 auto;
+/* Ui.Sheet 1633×500 · 圆角 18 · 描边 1.5 · 内边距 24 · 行距 14 · UpperCenter */
+.sheet{position:relative;z-index:1;width:390.11px;height:119.45px;box-sizing:border-box;margin:0 auto;
   background:var(--panel-paper);border:.36px solid var(--panel-border);border-radius:4.30px;
   padding:5.73px;display:flex;flex-direction:column;align-items:center;gap:3.34px}
 .h{font-family:var(--font-serif);font-weight:600;font-size:7.88px;line-height:1;color:var(--text-main);white-space:nowrap;flex:none}
@@ -70,7 +70,7 @@ html,body{margin:0;background:var(--paper)}
       <i style="left:6%;top:12%;width:12%;height:14%"></i><i style="left:64%;top:12%;width:12%;height:14%"></i>
     </div>
     <div class="sheet">
-      <div class="h">字库已满 · 用「焚」换掉哪一个?</div>
+      <div class="h">字库已满 · 用「焚」换掉哪一张?</div>
       <span class="zd-chip zd-chip--warn warn">字库 11/11——被换掉的字永久失去</span>
       <div class="row">
         <div class="zd-tile zd-r-orange zd-e-fire zd-tile--sel" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">焚</span><span class="zd-tile__py">fén</span></div></div></div>

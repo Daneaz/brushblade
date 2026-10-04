@@ -23,7 +23,7 @@ html,body{margin:0;background:var(--paper)}
   padding:11.26px 16px 12.44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5.63px}
 .t{font-family:var(--font-serif);font-weight:600;font-size:13.63px;line-height:1.1;color:var(--text-main);white-space:nowrap}
 .band{font-size:6.52px;color:var(--text-dim);white-space:nowrap}
-/* 滚存大数字:刻意不用 InkCounter —— 没有墨锭图标 */
+/* 本趟已挣墨锭大数字:刻意不用 InkCounter —— 没有墨锭图标 */
 .roll{display:flex;align-items:center;gap:4.44px;white-space:nowrap}
 .roll b{font-family:var(--font-serif);font-weight:600;font-size:21.03px;line-height:1;color:var(--gold-deep);font-variant-numeric:tabular-nums}
 .roll span{font-size:6.22px;color:var(--text-faint)}
@@ -57,12 +57,12 @@ html,body{margin:0;background:var(--paper)}
     <div class="card">
       <div class="t">安全层 · 第 25 层告捷</div>
       <div class="band">段位「秀才」 · 最高第 28 层</div>
-      <div class="roll"><b>340</b><span>滚存墨锭</span></div>
+      <div class="roll"><b>340</b><span>本趟已挣墨锭</span></div>
       <div class="state"><span>生命 412 / 660</span><span>字库 5 / 7</span><span>已破 Boss 第 25 层</span></div>
       <div class="forks">
         <div class="fork">
           <span class="pill" style="background:var(--cinnabar)">深入「文山」第 26~30 层</span>
-          <span class="why">滚存带进下一段继续累加
+          <span class="why">本趟已挣带进下一段继续累加
 墨锭赚到即入账,阵亡也不打折</span>
         </div>
         <div class="fork">
@@ -82,12 +82,12 @@ html,body{margin:0;background:var(--paper)}
     <div class="card">
       <div class="t">安全层 · 第 30 层告捷</div>
       <div class="band">段位「秀才」 · 最高第 30 层</div>
-      <div class="roll"><b>800</b><span>滚存墨锭</span></div>
+      <div class="roll"><b>800</b><span>本趟已挣墨锭</span></div>
       <div class="state"><span>生命 388 / 660</span><span>字库 6 / 7</span><span>已破 Boss 第 30 层</span></div>
       <div class="forks">
         <div class="fork">
           <span class="pill" style="background:var(--cinnabar)">深入「金石」第 31~35 层</span>
-          <span class="why">滚存带进下一段继续累加
+          <span class="why">本趟已挣带进下一段继续累加
 墨锭赚到即入账,阵亡也不打折</span>
         </div>
         <div class="fork">
@@ -100,7 +100,7 @@ html,body{margin:0;background:var(--paper)}
     </div>
     <div class="scrim"><div class="dlg"><div class="h">首破 · 文山</div><div class="b">击败本段主题 Boss，首破奖励 350 墨锭已入账。</div><div class="k">知道了</div></div></div>
   </div>
-  <div class="lbl">第 30 层(本段主题 Boss,首次击破):叠首破弹窗;滚存 800 已含首破 350</div>
+  <div class="lbl">第 30 层(本段主题 Boss,首次击破):叠首破弹窗;本趟已挣 800 已含首破 350</div>
 
   <div class="note"><b>取舍句写在钮下面</b>，不是 tooltip、不是一行小字 —— 这一屏存在的唯一理由就是让人做这个取舍。朱砂给<b style="color:var(--text-dim)">默认推进项</b>（深入），ink-soft 给撤退。大金数字刻意<b>不用 InkCounter</b>（无墨锭图标）——它报的是本趟战绩，可花的余额在右上角标里。本次若升了级，角色升级弹窗（见 current/LevelUpSheet）再叠在最上面。</div>
 </div>
