@@ -75,7 +75,7 @@ namespace Brushblade.Presentation
                 // 所以各分支内部照常写逗号即可,不必再逐个改文案。
                 if (i > 0) parts.Append(';');
                 var e = effects[i];
-                int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
+                int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
                 string shown = v.ToString();
                 parts.Append(e.Kind switch
                 {

@@ -217,7 +217,7 @@ namespace Brushblade.Presentation
         {
             foreach (var e in effects)
             {
-                int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
+                int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
                 switch (e.Kind)
                 {
                     // 伤害与护/治本身不是特性 —— 它们的量级在「数值」、去向在「攻击模式」

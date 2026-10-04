@@ -76,8 +76,7 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # 曾经历一段 turns **可选**的过渡期(见下方 git blame / task-2-report.md)——当时既有字
 # 「锋」是 `CritBuff 20` 不写 turns(本场持久),硬塞进 DURATION_KINDS 会让它当场报错,
 # 砸穿恒等性硬线,故临时开了个 OPTIONAL_DURATION_KINDS 口子。P2 落地完成后 利/锋 两字
-# 均已改写成限时版(带 `(turns N)`,回合数随卡等级成长,spec §4.2 明写这两个是养成侧
-# 唯二吃 turns 的字),不再需要那个口子——并回 DURATION_KINDS,让 T1 的反方向防线
+# 均已改写成限时版(带 `(turns N)`;2026-10-04 起回合数不随卡等级,spec v7 §1),不再需要那个口子——并回 DURATION_KINDS,让 T1 的反方向防线
 # (「在表里就必须有 turns」)重新覆盖它们,补住「利/锋 漏写 turns」这类错的防护
 # (与 spec §3 第 20 项记的 `壁` 历史 bug 同一个形状:漏 turns → TurnsLeft=0 →
 # 状态施加当场清空,卡面照印)。

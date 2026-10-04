@@ -840,7 +840,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void OnHitSlow_ScalesBothPercentAndTurnsWithCardLevel()
+        public void OnHitSlow_PercentScales_TurnsDoNot()
         {
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
@@ -849,7 +849,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("缓");
             var p = engine.Summons[0].Passive;
             Assert.That(p.OnHitSlowPercent, Is.EqualTo(62), "ceil(50 × 1.234)");
-            Assert.That(p.OnHitSlowTurns, Is.EqualTo(3), "ceil(2 × 1.234)");
+            Assert.That(p.OnHitSlowTurns, Is.EqualTo(2), "回合数不吃卡等级(spec v7 §1),基础 2 回合");
         }
 
         [Test]

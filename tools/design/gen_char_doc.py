@@ -329,7 +329,7 @@ def desc(e):
         'Cleanse': "净化自身全部减益", 'Immunity': f"免疫 {v} 次伤害",
         'Reflect': f"反弹 {v}% 伤害×{t} 回合", 'DefenseBuff': f"护甲 +{v}(本场)",
         # 破甲 2026-08-13 起是「削目标护甲 v 点」,不再是「承伤 +25% 持续 t 回合」
-        # 利/锋 是限时增益(spec §4.2:养成侧唯二吃 turns 随卡等级成长的字),
+        # 利/锋 是限时增益(回合数不随卡等级,spec v7 §1),
         # 管线已强制它们必须带 turns(P2 Task 4a 把两者移进 DURATION_KINDS),
         # 所以不留「本场」那一支 —— 与 CharInfo.cs / CardTraits.cs 两处同口径
         # (2026-09-07 P2 Task 4d 修的是那两处,这里是同一个 bug 的第三个读取点)。

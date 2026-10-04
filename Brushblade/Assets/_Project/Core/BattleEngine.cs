@@ -2713,7 +2713,7 @@ namespace Brushblade.Core
             {
             foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
             {
-                int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
+                int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
@@ -2851,8 +2851,7 @@ namespace Brushblade.Core
                         // 回合数不吃卡等级(2026-09-06 终审修复项 2):spec §4.2 明写利/锋是
                         // 养成侧**唯二**吃 turns 随卡等级成长的字;魅惑白拿回合数会打穿 §2.3
                         // 的封禁定价梯度(卡 10 级的绿档「花」会魅惑到比橙档「淋」买的封禁还久)。
-                        // 与 Silence/Blind/Freeze 同口径:直接用 effect.Turns,不过
-                        // ScaleTurnsByCardLevel。Math.Max(1, …) 保留:字表若漏填 turns(=0)
+                        // 直接用 effect.Turns(判据见 MetaRules.ScalesWithCardLevel)。Math.Max(1, …) 保留:字表若漏填 turns(=0)
                         // 时兜底给 1 回合,而不是让魅惑当场到期。
                         if (targetIndex >= 0)
                             ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
@@ -2979,7 +2978,7 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Block:
                     {
-                        // 格挡(spec v7 §3.1/§4):次数是离散量,读 effect.Value 不吃等级;
+                        // 格挡(spec v7 §3.1/§4):次数是离散量,读 effect.Value(判据见 MetaRules.ScalesWithCardLevel);
                         // 反击 = 攻击面本体伤害(吃等级)× 30%,出字时定死,不吃攻击力(与反弹同口径)。
                         int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel)
                             * BattleConfig.BlockCounterPercent / 100;
@@ -3051,13 +3050,10 @@ namespace Brushblade.Core
                         {
                             Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
-                            // 限时增益(2026-09-05):turns > 0 时按回合到期(回合数吃卡等级,
-                            // 任务 8 的 ScaleTurnsByCardLevel,每 5 级 +1,与数值缩放分开算),
+                            // 限时增益(2026-09-05):turns > 0 时按回合到期(回合数不吃卡等级,spec v7 §1),
                             // **turns <= 0 仍为 -1(本场持久)** —— 既有字表全没填 turns,
                             // 这条兜住它们逐字节不变。
-                            TurnsLeft = effect.Turns > 0
-                                ? MetaRules.ScaleTurnsByCardLevel(effect.Turns, cardLevel)
-                                : -1,
+                            TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
@@ -3079,13 +3075,10 @@ namespace Brushblade.Core
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
-                            // 限时增益(2026-09-05):turns > 0 时按回合到期(回合数吃卡等级,
-                            // 任务 8 的 ScaleTurnsByCardLevel,每 5 级 +1,与数值缩放分开算),
+                            // 限时增益(2026-09-05):turns > 0 时按回合到期(回合数不吃卡等级,spec v7 §1),
                             // **turns <= 0 仍为 -1(本场持久)** —— 既有字表全没填 turns,
                             // 这条兜住它们逐字节不变。
-                            TurnsLeft = effect.Turns > 0
-                                ? MetaRules.ScaleTurnsByCardLevel(effect.Turns, cardLevel)
-                                : -1,
+                            TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
@@ -3404,7 +3397,7 @@ namespace Brushblade.Core
 
         /// <summary>把随卡等级成长的召唤被动折算好,写进一份拷贝(2026-08-25)。
         ///
-        /// 只有 OnHitFreezeChance / OnHitSlowPercent / OnHitSlowTurns 三项吃等级 ——
+        /// 只有 OnHitFreezeChance / OnHitSlowPercent 两项(百分比)吃等级;OnHitSlowTurns 是回合数,不吃(spec v7 §1) ——
         /// 其余(反伤、灼烧层、诅咒、闪避、速度)仍守 2026-08-05 的「节奏不随等级变」。
         /// 冻结概率**钳到 100**:再高也只是必中,让它超过 100 会在别处被误当成有效数字。
         /// 返回拷贝而不是就地改:effect.Passive 是 CharDef 上的共享实例,
@@ -3418,8 +3411,6 @@ namespace Brushblade.Core
                     MetaRules.ScaleByCardLevel(scaled.OnHitFreezeChance, cardLevel));
             if (scaled.OnHitSlowPercent > 0)
                 scaled.OnHitSlowPercent = MetaRules.ScaleByCardLevel(scaled.OnHitSlowPercent, cardLevel);
-            if (scaled.OnHitSlowTurns > 0)
-                scaled.OnHitSlowTurns = MetaRules.ScaleByCardLevel(scaled.OnHitSlowTurns, cardLevel);
             return scaled;
         }
 

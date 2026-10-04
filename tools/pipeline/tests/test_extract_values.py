@@ -291,8 +291,8 @@ def test_freeze_value_is_the_turn_count_directly():
 
 
 def test_empower_with_turns_attaches_turns():
-    """限时增攻(利):`Empower 30`(turns 2)——回合数随卡等级成长(§4.2),但管线层
-    只管把 turns 原样落进 effect,缩放是引擎的事。"""
+    """限时增攻(利):`Empower 30`(turns 2)——管线层只管把 turns 原样落进 effect
+    (回合数不随卡等级,spec v7 §1)。"""
     assert _parse_effects("`Empower 30`(turns 2)", "利") == [
         {"kind": "Empower", "value": 30, "turns": 2}]
 

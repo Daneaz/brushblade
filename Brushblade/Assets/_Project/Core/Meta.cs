@@ -786,29 +786,27 @@ namespace Brushblade.Core
         /// 2026-09-11(档位差距与升级替代,拍板第 2 条)系数 0.1 → 0.117:档位倍率统一为
         /// G = 10^(1/6) = 1.4678 之后,0.117 让 **5 级系数 = 1 + 0.117×4 = 1.468 = G**,
         /// 即规则表述「**升到 5 级 ≈ 下一档 1 级**」。满级(10)由 1.9 变 2.05。
-        ///
-        /// ⚠ **不要顺手把 <see cref="ScaleTurnsByCardLevel"/> 一起改**:回合数是「每满 5 级
-        /// +1」的整数阶梯,与这条数值曲线刻意不共用公式(理由见那边的注释)。</summary>
+        /// 离散量(层数/回合/次数)不走这条曲线,见 <see cref="ScalesWithCardLevel"/>。</summary>
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
             if (cardLevel <= 1) return baseValue;
             return (int)Math.Ceiling(baseValue * (1 + 0.117 * (cardLevel - 1)));
         }
 
-        /// <summary>卡等级回合数系数(2026-09-05):**每满 5 级 +1 回合**(5/10/15/…级门槛),
-        /// 1~4 级恒等。
-        ///
-        /// 刻意**不复用** <see cref="ScaleByCardLevel"/> 的 ×(1 + 0.117×(级−1)) + ceiling ——
-        /// 那条对回合数太快:2 回合的字 6 级就变 3、11 级变 4。回合数是节奏不是数值,
-        /// 一张限时增攻字在满级变成半永久会把「限时」这个设计整个抹掉。
-        ///
-        /// `baseTurns == 0` 原样返回 —— 0 在效果侧的语义是「本场持久」(见
-        /// BattleEngine 的 Empower/CritBuff case),被抬成 1 会把持久字改成 1 回合字。</summary>
-        public static int ScaleTurnsByCardLevel(int baseTurns, int cardLevel)
+        /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放
+        /// (只在 Lv3 由特性提升);伤害、护盾、治疗、护甲点数、百分比等数值缩放。
+        /// 引擎(ApplyEffects)与卡面(CharInfo / CardTraits)共用这一份判据。</summary>
+        public static bool ScalesWithCardLevel(EffectKind kind) => kind switch
         {
-            if (baseTurns <= 0) return baseTurns;
-            return baseTurns + Math.Max(cardLevel, 1) / 5;
-        }
+            EffectKind.Freeze or EffectKind.Slow
+                or EffectKind.BurnSingle or EffectKind.BurnAll
+                or EffectKind.Morale or EffectKind.Immunity or EffectKind.Revive
+                or EffectKind.Block or EffectKind.Dispel or EffectKind.ApBoost or EffectKind.Charm => false,
+            _ => true,
+        };
+
+        public static int ScaleEffectValue(EffectKind kind, int baseValue, int cardLevel) =>
+            ScalesWithCardLevel(kind) ? ScaleByCardLevel(baseValue, cardLevel) : baseValue;
 
         /// <summary>叠字前置(spec 2026-08-15 Part 2):配方里的**非部件**原料必须都已收集。
         ///
