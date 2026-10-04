@@ -44,12 +44,19 @@
     .dr .dl { font-size: 9.1px; color: var(--upgrade-text); font-variant-numeric: tabular-nums; }
     .empty { font-size: 9.5px; color: var(--text-faint); padding: 6px 2px; }
 
-    /* 新解锁卡:墨晕(halo-new)+ 面印大号 + 「挂在哪一面」。只此一张卡带呼吸,是整窗唯一会动的东西 */
-    .nu { position: relative; border-radius: 8px; background: var(--card-face); padding: 8px 10px 9px; display: flex; flex-direction: column; gap: 5px;
+    /* 新解锁:墨晕(halo-new)包住这一级解锁的全部特性,是整窗唯一会动的东西。
+       v7 起 Lv5 / Lv8 一次解两条(攻击、五行面各一),两张小卡上下叠在同一圈墨晕里;每张卡头是「面印 + 哪一面」。 */
+    .nus { position: relative; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; padding: 3px;
       box-shadow: var(--halo-new); animation: breathe 2.6s ease-in-out infinite; }
+    .nu { position: relative; border-radius: 6px; background: var(--card-face); padding: 6px 9px 7px; display: flex; flex-direction: column; gap: 3px; }
+    .nu.back { background: var(--tint); }
+    .nus.two .nu { padding: 5px 8px 6px; gap: 2px; }
+    .nus.two .nu .tx { font-size: 9.5px; line-height: 1.45; }
     @keyframes breathe { 0%, 100% { box-shadow: 0 0 0 2px rgba(201,169,74,.5), 0 0 12px 3px rgba(201,169,74,.34); } 50% { box-shadow: 0 0 0 2px rgba(201,169,74,.32), 0 0 6px 1px rgba(201,169,74,.18); } }
     .nu .where { display: flex; align-items: center; gap: 6px; }
-    .nu .where .wb { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--text-main); }
+    .nu .where .wb { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+    .nu .where .tb { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 1px; white-space: nowrap; }
+    .nu .where .tk { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
     .nu .where .ws { font-size: 8.5px; color: var(--text-dim); }
     .nu .newtag { margin-left: auto; height: 14px; padding: 0 6px; border-radius: 7px; background: var(--gold); color: var(--gold-text); font-size: 8px; display: inline-flex; align-items: center; }
     .nu .tn { display: flex; align-items: baseline; gap: 6px; }
@@ -98,17 +105,20 @@
       <div class="colm">
         <h5>{{ rightTitle }}</h5>
         <sc-if value="{{ hasNew }}" hint-placeholder-val="{{ true }}">
-          <div class="nu">
-            <div class="where"><span class="{{ nuSealCls }}">{{ nuSeal }}</span><b class="wb">{{ nuWhere }}</b><span class="ws">{{ nuWhereSub }}</span><span class="newtag">新</span></div>
-            <div class="tn"><b class="tb">{{ nuName }}</b><span class="tk">Lv{{ L2 }} · {{ nuKind }}</span></div>
-            <div class="tx"><sc-for list="{{ nuSegs }}" as="s"><span class="{{ s.cls }}">{{ s.t }}</span></sc-for></div>
+          <div class="{{ nusCls }}">
+            <sc-for list="{{ nus }}" as="u">
+              <div class="{{ u.cls }}">
+                <div class="where"><span class="{{ u.sealCls }}">{{ u.seal }}</span><b class="wb">{{ u.w }}</b><b class="tb">{{ u.name }}</b><span class="tk">{{ u.kind }}</span><span class="newtag">新</span></div>
+                <div class="tx"><sc-for list="{{ u.segs }}" as="s"><span class="{{ s.cls }}">{{ s.t }}</span></sc-for></div>
+              </div>
+            </sc-for>
           </div>
         </sc-if>
         <sc-if value="{{ noNew }}" hint-placeholder-val="{{ false }}">
           <div class="empty">这一级没有新特性</div>
           <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}">
-            <div class="next"><span class="k">下一个在 Lv{{ nxLv }}</span>
-              <div class="r"><span class="{{ nxSealCls }}">{{ nxSeal }}</span><b>{{ nxName }}</b>{{ nxWhere }}</div></div>
+            <div class="next"><span class="k">下一级解锁在 Lv{{ nxLv }}</span>
+              <sc-for list="{{ nxs }}" as="x"><div class="r"><span class="{{ x.sealCls }}">{{ x.seal }}</span>{{ x.w }} ·<b>{{ x.name }}</b></div></sc-for></div>
           </sc-if>
         </sc-if>
       </div>
@@ -129,9 +139,9 @@
 <script data-dc-script data-props='{"$preview": {"width": 932, "height": 476}}'>
 var Z = window.ZD;
 function whereOf(c, t) {
-  if (t.face === 'both') return { seal: '两', cls: 'seal l both', w: '两面', sub: t.lv === 4 ? '修饰本字' : '两面同时强化' };
-  var f = c.faces[t.fi], m = t.fi === c.main;
-  return { seal: f.s, cls: Z.seal(f.s, 'l'), w: f.s === '攻' ? '攻击' : '五行面「' + f.s + '」', sub: t.lv === 8 ? '主面 · 招牌' : '' };
+  if (t.face === 'both') return { seal: '两', cls: 'seal m both', w: '两面', sub: '' };
+  var f = c.faces[t.fi];
+  return { seal: f.s, cls: Z.seal(f.s, 'm'), w: f.s === '攻' ? '攻击' : '五行面', sub: '' };
 }
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { id: '炎', L: 4 }; }
@@ -139,7 +149,7 @@ class Component extends DCLogic {
     var self = this, s = this.state, id = s.id, L = s.L, L2 = L + 1, c = Z.CHARS[id];
     var deltas = [];
     [0, 1].forEach(function (fi) {
-      var a = Z.faceOf(id, fi, L), b = Z.faceOf(id, fi, L2), m = fi === c.main;
+      var a = Z.faceOf(id, fi, L), b = Z.faceOf(id, fi, L2);
       a.stats.forEach(function (st, i) {
         var o = st.v, n = b.stats[i].v;
         if (o === n) return;
@@ -148,19 +158,25 @@ class Component extends DCLogic {
       });
     });
     var all = Z.traitsOf(id, L2);
-    var nu = all.filter(function (t) { return t.lv === L2; })[0];
-    var nx = all.filter(function (t) { return t.lv > L2; })[0];
+    var nuList = all.filter(function (t) { return t.lv === L2; });
+    var nxLv = (all.filter(function (t) { return t.lv > L2; })[0] || {}).lv;
+    var nxList = all.filter(function (t) { return t.lv === nxLv; });
     var same = all.filter(function (t) { return t.lv <= L; }).map(function (t) { return t.name; });
-    var w = nu ? whereOf(c, nu) : null, wn = nx ? whereOf(c, nx) : null;
+    var nu = nuList[0];
     return {
       bg: new Array(20).fill(0),
       dlgCls: 'dlg e-' + c.el + ' r-' + c.rar, id: id, L: L, L2: L2, mainSeal: c.faces[0].s, mainSealCls: Z.seal(c.faces[0].s, 'xs'),
       deltas: deltas.slice(0, 4), noDelta: deltas.length === 0,
-      rightTitle: nu ? '新解锁' : '特性',
+      rightTitle: nu ? (nuList.length > 1 ? '新解锁 · 两面各一条' : '新解锁') : '特性',
       hasNew: !!nu, noNew: !nu,
-      nuSeal: w ? w.seal : '', nuSealCls: w ? w.cls : '', nuWhere: w ? w.w : '', nuWhereSub: w ? w.sub : '',
-      nuName: nu ? nu.name + (nu.tag ? '（' + nu.tag + '）' : '') : '', nuKind: nu ? (nu.kind || '强化') : '', nuSegs: nu ? Z.segs(nu.text) : [],
-      hasNext: !!nx, nxLv: nx ? nx.lv : '', nxSeal: wn ? wn.seal : '', nxSealCls: wn ? wn.cls.replace(' l ', ' s ') : '', nxName: nx ? nx.name : '', nxWhere: wn ? ' · ' + wn.w : '',
+      nusCls: 'nus' + (nuList.length > 1 ? ' two' : ''),
+      nus: nuList.map(function (t) {
+        var w = whereOf(c, t);
+        return { cls: 'nu' + (t.fi === 1 ? ' back' : ''), seal: w.seal, sealCls: w.cls, w: w.w, name: t.name + (t.tag ? '（' + t.tag + '）' : ''),
+          kind: (t.kind || '强化') + (t.lv === 8 ? ' · 招牌' : ''), segs: Z.segs(t.text) };
+      }),
+      hasNext: !!nxLv, nxLv: nxLv || '',
+      nxs: nxList.map(function (t) { var w = whereOf(c, t); return { seal: w.seal, sealCls: w.cls.replace(' m ', ' s ').replace(' l ', ' s '), w: w.w, name: t.name }; }),
       same: same.length ? '不变：' + same.join(' · ') : '不变：两面本体的层数与回合',
       charBtns: Z.ORDER.map(function (k) { return { id: k, cls: k === id ? 'on' : '', pick: function () { self.setState({ id: k }); } }; }),
       lvBtns: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return { n: n + '→' + (n + 1), cls: n === L ? 'on' : '', pick: function () { self.setState({ L: n }); } }; })

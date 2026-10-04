@@ -52,10 +52,12 @@
     .pip .bar { width: 19px; height: 5px; border-radius: 2.5px; background: var(--paper-dim); }
     .pip.done .bar { background: var(--ink-soft); }
     .pip.next .bar { background: var(--jade); }
+    /* 解锁记号按「挂在哪一面」着色:墨实 = 攻击,本系色实 = 五行面,空心 = 两面通用。
+       v7 起 Lv5、Lv8 两面各一条 → 同一格并排两枚(左攻右五行),一眼看出「这一级解两条」。 */
+    .pip .mks { display: flex; gap: 1.5px; height: 7px; }
     .pip .mk { width: 7px; height: 7px; box-sizing: border-box; border-radius: 1.5px; }
-    .pip .mk.none { visibility: hidden; }
+    .pip .mks .mk + .mk { width: 6px; }
     .pip .mk.both { background: transparent; box-shadow: inset 0 0 0 1.2px var(--ink-soft); }
-    /* 记号按「挂在哪一面」着色:墨实 = 攻击,本系色实 = 五行面,空心 = 两面 */
     .pip .mk.atk { background: var(--ink); }
     .pip .mk.el  { background: var(--glyph); }
     .pip .mk.off  { opacity: .35; }
@@ -73,36 +75,31 @@
     .pair { flex: 1; min-height: 0; display: flex; gap: 9px; }
 
     /* 一面 = 一张纸,左右恒为「正左背右」:正面 = 攻击(纸白),背面 = 五行面(背面纸 --tint)。
-       主面不再加宽、不再挂色条 —— 只在 Lv8 招牌所在那一面挂一枚「主面 · Lv8 招牌」签(spec v6.2 §12)。 */
-    .face { flex: 1; min-width: 0; box-sizing: border-box; border-radius: 9px; padding: 8px 10px 9px;
-      display: flex; flex-direction: column; gap: 6px; }
+       v7 两面平等、等宽,各列自己的 Lv5 / Lv6(若挂在这面)/ Lv8 —— 一面最多三行。
+       为装下三行:落点 · 范围并进面头,数值格压到 31pt。 */
+    .face { flex: 1; min-width: 0; box-sizing: border-box; border-radius: 9px; padding: 8px 10px 8px;
+      display: flex; flex-direction: column; gap: 5px; }
     .face.front { background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
     .face.back  { background: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glyph) 22%, transparent); }
     .fh { display: flex; align-items: center; gap: 7px; height: 24px; }
     .fn { font-size: 14px; font-weight: 600; letter-spacing: 1px; }
     .role { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--text-main); letter-spacing: 1px; }
-    .mtag { height: 15px; padding: 0 6px; border-radius: 7.5px; display: inline-flex; align-items: center; font-size: 8.5px;
-      letter-spacing: .5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    /* 主面签:赭金淡底压 gold-deep(4.52:1)—— 赭金在本系统里是「这一项最值钱」的语义 */
-    .mtag.lv8 { background: var(--gold-soft); color: var(--gold-deep); box-shadow: inset 0 0 0 1px rgba(201,169,74,.55); }
-    .mtag.none { display: none; }
-    .tg { font-size: 9px; color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
-    .tg svg { width: 10px; height: 10px; flex: none; }
+    .tgs { font-size: 9px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
     .stats { display: flex; gap: 6px; }
-    .sb { flex: 1; min-width: 0; height: 37px; box-sizing: border-box; border-radius: 7px; padding: 4px 7px;
+    .sb { flex: 1; min-width: 0; height: 31px; box-sizing: border-box; border-radius: 7px; padding: 3px 7px;
       background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
     .face.front .sb { background: var(--panel-paper); }
     .sb.t { cursor: pointer; }
     .sb .k { font-size: 8px; color: var(--text-dim); letter-spacing: .5px; white-space: nowrap; }
     .sb.t .k span { font-weight: 700; color: var(--ink-soft); }
-    .sb .v { margin-top: 2px; white-space: nowrap; }
-    .sb .v b { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+    .sb .v { margin-top: 1px; white-space: nowrap; }
+    .sb .v b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
     .sb .v i { font-style: normal; font-size: 8.5px; color: var(--text-dim); margin-left: 2px; }
 
     /* 特性行:头「Lv 标 + 名 + 主动/被动」,下一句效果。整行可点 → 词条气泡 */
-    .tl { display: flex; flex-direction: column; gap: 4px; }
-    .tr { position: relative; box-sizing: border-box; border-radius: 7px; padding: 5px 8px 5px; cursor: pointer;
+    .tl { display: flex; flex-direction: column; gap: 3px; }
+    .tr { position: relative; box-sizing: border-box; border-radius: 7px; padding: 4px 8px 4px; cursor: pointer;
       background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
     .face.front .tr { background: var(--panel-paper); }
     .tr.open { box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
@@ -111,7 +108,7 @@
       display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; flex: none; }
     .tn { font-size: 11.5px; font-weight: 600; letter-spacing: .5px; white-space: nowrap; }
     .tk { font-size: 8px; color: var(--text-dim); white-space: nowrap; }
-    .tx { margin-top: 3px; font-size: 9.5px; line-height: 1.5; color: var(--text-dim); }
+    .tx { margin-top: 2px; font-size: 9.5px; line-height: 1.4; color: var(--text-dim); }
     .lock { display: inline-flex; align-items: center; gap: 2px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
     .lock svg { width: 8px; height: 8px; }
     /* 未解锁:非激活态(不在对比度要求之内),字压一档、去底 */
@@ -185,7 +182,7 @@
           <div class="lvbig"><b>Lv.{{ L }}</b><i>/ 10</i></div>
           <div class="ladder">
             <sc-for list="{{ pips }}" as="p">
-              <div class="{{ p.cls }}"><i class="{{ p.mk }}"></i><span class="bar"></span><span class="ln">{{ p.ln }}</span></div>
+              <div class="{{ p.cls }}"><span class="mks"><sc-for list="{{ p.mks }}" as="k"><i class="{{ k.cls }}"></i></sc-for></span><span class="bar"></span><span class="ln">{{ p.ln }}</span></div>
             </sc-for>
           </div>
           <div class="costs">
@@ -204,12 +201,7 @@
               <div class="fh">
                 <span class="{{ f.sealCls }}">{{ f.s }}</span>
                 <span class="role">{{ f.role }}</span>
-                <div class="grow"></div>
-                <span class="{{ f.tagCls }}">{{ f.tag }}</span>
-              </div>
-              <div class="tg">
-                <svg viewBox="0 0 64 64"><path fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" d="M10 32h38M36 18l14 14-14 14"/></svg>
-                {{ f.tgtLine }}
+                <span class="tgs">{{ f.tgtLine }}</span>
               </div>
               <div class="stats">
                 <sc-for list="{{ f.stats }}" as="st">
@@ -318,7 +310,7 @@ class Component extends DCLogic {
     var all = Z.traitsOf(id, L);
     var bubKey = s.bub && s.bub.key;
     function row(t) {
-      var key = 'lv' + t.lv;
+      var key = 'lv' + t.lv + '-' + t.fi;
       return {
         lv: t.lv, name: t.name + (t.tag ? '（' + t.tag + '）' : ''), kind: (t.kind || (t.face === 'both' ? '两面' : '')) + (t.lv === 8 ? ' · 招牌' : ''),
         segs: Z.segs(t.text), locked: !t.on,
@@ -327,11 +319,10 @@ class Component extends DCLogic {
       };
     }
     var faces = [0, 1].map(function (fi) {
-      var f = Z.faceOf(id, fi, L), m = f.isMain;
+      var f = Z.faceOf(id, fi, L);
       return {
         cls: 'face ' + (fi === 0 ? 'front' : 'back'), s: f.s, role: f.role,
         sealCls: Z.seal(f.s, 'l'),
-        tagCls: 'mtag ' + (m ? 'lv8' : 'none'), tag: '主面 · Lv8 招牌',
         tgtLine: Z.TGT[f.tgt] + (f.tgt === 'summon' ? '' : ' · ' + f.area),
         stats: f.stats.map(function (st, i) {
           var key = 'st' + fi + i;
@@ -342,15 +333,14 @@ class Component extends DCLogic {
       };
     });
     var shared = all.filter(function (t) { return t.face === 'both'; }).map(row);
-    var marks = {}; all.forEach(function (t) { marks[t.lv] = t; });
-    marks[1] = { face: 'both', on: true };
+    var marks = { 1: [{ face: 'both', fi: -1 }] };
+    all.forEach(function (t) { (marks[t.lv] = marks[t.lv] || []).push(t); });
     var canUp = c.copies[0] >= c.copies[1] && c.ink[0] >= c.ink[1];
     var pips = [];
     for (var i = 1; i <= 10; i++) {
-      var m = marks[i];
-      var mk = m ? (m.face === 'both' ? 'both' : (m.fi === 0 ? 'atk' : 'el')) : 'none';
-      pips.push({ cls: 'pip' + (i <= L ? ' done' : (i === L + 1 && canUp ? ' next' : '')),
-        mk: 'mk ' + mk + (m && i > L ? ' off' : ''), ln: m ? i : '' });
+      var ms = marks[i] || [];
+      pips.push({ cls: 'pip' + (i <= L ? ' done' : (i === L + 1 && canUp ? ' next' : '')), ln: ms.length ? i : '',
+        mks: ms.map(function (t) { return { cls: 'mk ' + (t.fi < 0 ? 'both' : t.fi === 0 ? 'atk' : 'el') + (i > L ? ' off' : '') }; }) });
     }
     var bub = s.bub;
     var EL = Z.EL;

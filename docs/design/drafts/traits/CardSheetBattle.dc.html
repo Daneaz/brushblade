@@ -39,8 +39,9 @@
     .pip { width: 17px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .pip .bar { width: 17px; height: 4px; border-radius: 2px; background: var(--paper-dim); }
     .pip.done .bar { background: var(--ink-soft); }
+    .pip .mks { display: flex; gap: 1px; height: 6px; }
     .pip .mk { width: 6px; height: 6px; box-sizing: border-box; border-radius: 1.5px; }
-    .pip .mk.none { visibility: hidden; } .pip .mk.both { background: transparent; box-shadow: inset 0 0 0 1.2px var(--ink-soft); } .pip .mk.atk { background: var(--ink); } .pip .mk.el { background: var(--glyph); }
+    .pip .mks .mk + .mk { width: 5px; } .pip .mk.both { background: transparent; box-shadow: inset 0 0 0 1.2px var(--ink-soft); } .pip .mk.atk { background: var(--ink); } .pip .mk.el { background: var(--glyph); }
     .pip .mk.off { opacity: .35; }
 
     .body { flex: 1; min-height: 0; display: flex; gap: 10px; }
@@ -56,9 +57,6 @@
     .fh { display: flex; align-items: center; gap: 6px; height: 20px; }
     .role { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; letter-spacing: 1px; }
     .tgs { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
-    .mtag { height: 14px; padding: 0 5px; border-radius: 7px; display: inline-flex; align-items: center; font-size: 8px; white-space: nowrap; }
-    .mtag.lv8 { background: var(--gold-soft); color: var(--gold-deep); box-shadow: inset 0 0 0 1px rgba(201,169,74,.55); }
-    .mtag.none { display: none; }
     .uptag { height: 14px; padding: 0 5px; border-radius: 7px; background: var(--ink); color: #fff; font-size: 8px; display: inline-flex; align-items: center; white-space: nowrap; }
     .stats { display: flex; gap: 5px; }
     .sb { flex: 1; min-width: 0; height: 31px; box-sizing: border-box; border-radius: 6px; padding: 3px 6px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
@@ -69,13 +67,13 @@
     .sb .v b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
     .sb .v i { font-style: normal; font-size: 8px; color: var(--text-dim); margin-left: 2px; }
     .tl { display: flex; flex-direction: column; gap: 4px; }
-    .tr { border-radius: 6px; padding: 4px 7px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); cursor: pointer; }
+    .tr { border-radius: 6px; padding: 3px 7px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); cursor: pointer; }
     .face.front .tr { background: var(--panel-paper); }
     .th { display: flex; align-items: center; gap: 5px; height: 12px; }
     .lvt { height: 11px; padding: 0 3.5px; border-radius: 5.5px; background: var(--ink); color: #fff; font-size: 7px; display: inline-flex; align-items: center; flex: none; }
     .tn { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
     .tk { font-size: 7.5px; color: var(--text-dim); }
-    .tx { margin-top: 2px; font-size: 9px; line-height: 1.45; color: var(--text-dim); }
+    .tx { margin-top: 1px; font-size: 9px; line-height: 1.4; color: var(--text-dim); }
     .lockln { margin-top: auto; display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
     .face.back .lockln { color: var(--text-dim); }
     .lockln svg { width: 8px; height: 8px; }
@@ -85,6 +83,11 @@
     .shl { flex: none; width: 30px; border-radius: 6px; background: var(--panel-inset); display: flex; align-items: center; justify-content: center; }
     .shl b { font-family: "Noto Serif SC", serif; font-size: 9.5px; font-weight: 600; color: var(--text-dim); writing-mode: vertical-rl; letter-spacing: 2px; }
     .shared .tr { flex: 1; min-width: 0; }
+    /* 战斗版的两面条压成单行:名 + 效果同一行(v7 一面最多三行特性,纵向只够这么省) */
+    .shared .tr { display: flex; align-items: center; gap: 6px; height: 22px; box-sizing: border-box; }
+    .shared .tr .tx { margin-top: 0; font-size: 8.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .shared .tr .tk { display: none; } /* 单行里不印「两面 / 被动」:左边的「两面」标签已经说了 */
+    .tk { white-space: nowrap; flex: none; }
 
     .side { flex: none; width: 146px; display: flex; flex-direction: column; gap: 4px; }
     .wxr { display: flex; align-items: center; gap: 5px; height: 21px; padding: 0 6px; border-radius: 6px; background: var(--panel-inset); }
@@ -144,7 +147,7 @@
         <div class="flav">{{ gloss }}</div>
         <div class="lvrow">
           <div class="lvbig">本场等级<b>Lv.{{ L }}</b></div>
-          <div class="ladder"><sc-for list="{{ pips }}" as="p"><div class="{{ p.cls }}"><i class="{{ p.mk }}"></i><span class="bar"></span></div></sc-for></div>
+          <div class="ladder"><sc-for list="{{ pips }}" as="p"><div class="{{ p.cls }}"><span class="mks"><sc-for list="{{ p.mks }}" as="k"><i class="{{ k.cls }}"></i></sc-for></span><span class="bar"></span></div></sc-for></div>
         </div>
       </div>
     </div>
@@ -158,7 +161,6 @@
                 <span class="{{ f.sealCls }}">{{ f.s }}</span><span class="role">{{ f.role }}</span><span class="tgs">{{ f.tgtLine }}</span>
                 <div class="grow"></div>
                 <sc-if value="{{ f.up }}" hint-placeholder-val="{{ false }}"><span class="uptag">朝上</span></sc-if>
-                <span class="{{ f.tagCls }}">{{ f.tag }}</span>
               </div>
               <div class="stats">
                 <sc-for list="{{ f.stats }}" as="st"><div class="{{ st.cls }}"><div class="k">{{ st.k }}</div><div class="v"><b>{{ st.v }}</b><i>{{ st.u }}</i></div></div></sc-for>
@@ -217,14 +219,13 @@ class Component extends DCLogic {
     var all = Z.traitsOf(id, L);
     function row(t) { return { lv: t.lv, name: t.name + (t.tag ? '（' + t.tag + '）' : ''), kind: (t.kind || '两面') + (t.lv === 8 ? ' · 招牌' : ''), segs: Z.segs(t.text) }; }
     var faces = [0, 1].map(function (fi) {
-      var f = Z.faceOf(id, fi, L), m = f.isMain;
+      var f = Z.faceOf(id, fi, L);
       var mine = all.filter(function (t) { return t.fi === fi; });
       var locked = mine.filter(function (t) { return !t.on; });
       return {
         cls: 'face ' + (fi === 0 ? 'front' : 'back') + (fi === upFi ? ' up' : ''), up: fi === upFi,
         s: f.s, role: f.role, sealCls: Z.seal(f.s, 'm'),
         tgtLine: Z.TGT[f.tgt] + (f.tgt === 'summon' ? '' : ' · ' + f.area),
-        tagCls: 'mtag ' + (m ? 'lv8' : 'none'), tag: '主面 · Lv8 招牌',
         stats: f.stats.map(function (st) { return { k: st.k, v: st.v, u: st.u || '', cls: 'sb' + (st.t ? ' t' : '') }; }),
         traits: mine.filter(function (t) { return t.on; }).map(row),
         hasLocked: locked.length > 0,
@@ -232,11 +233,12 @@ class Component extends DCLogic {
       };
     });
     var shared = all.filter(function (t) { return t.face === 'both' && t.on; }).map(row);
-    var marks = {}; all.forEach(function (t) { marks[t.lv] = t; }); marks[1] = { face: 'both' };
+    var marks = { 1: [{ fi: -1 }] };
+    all.forEach(function (t) { (marks[t.lv] = marks[t.lv] || []).push(t); });
     var pips = [];
     for (var i = 1; i <= 10; i++) {
-      var mm = marks[i];
-      pips.push({ cls: 'pip' + (i <= L ? ' done' : ''), mk: 'mk ' + (mm ? (mm.face === 'both' ? 'both' : (mm.fi === 0 ? 'atk' : 'el')) : 'none') + (mm && i > L ? ' off' : '') });
+      pips.push({ cls: 'pip' + (i <= L ? ' done' : ''),
+        mks: (marks[i] || []).map(function (t) { return { cls: 'mk ' + (t.fi < 0 ? 'both' : t.fi === 0 ? 'atk' : 'el') + (i > L ? ' off' : '') }; }) });
     }
     var upFace = c.faces[upFi];
     var isAllyUp = upFace.tgt !== 'enemy';

@@ -2,7 +2,7 @@
    来源:docs/superpowers/specs/2026-10-03-字卡五特性体系-design.md §1 §3 §4 §9;
    本体基础值取自 Brushblade/Assets/StreamingAssets/config/chars.json(仿真定标前的现值)。
    口径(稿内假设,待实现侧确认):
-   · 数值每级 +6%(§1);副面暂不打折(v6.1,2026-10-04 用户拍板):两面都按 100% 结算,
+   · 数值每级 +6%(§1);两面平等,都按 100% 结算(v7),
      Core 保留 BattleConfig.SideFacePercent(缺省 100),平衡阶段再定。
    文案标记:[词] = 术语(可查词条);{数} = 数字(加粗)。 */
 window.ZD = (function () {
@@ -59,17 +59,16 @@ window.ZD = (function () {
 
   var TGT = { enemy: '拖到敌人', ally: '拖到自己或木灵', summon: '拖到空位召唤 · 拖到木灵上嫁接' };
 
-  var SIDE = 1; // 副面系数 = SideFacePercent / 100
+  var SIDE = 1; // = SideFacePercent / 100,缺省 100(v6.1 起不打折)
   function sc(L) { return 1 + 0.06 * (L - 1); }
   function r(x) { return Math.round(x); }
 
   // faces[0] = 攻击 = 正面(白底,默认朝上,墨色「攻」印);faces[1] = 五行面 = 背面(本系淡底 + 本系面印)。
-  // main = 主面下标:只表示 Lv8 招牌挂在哪一面(Lv5 挂另一面),不决定朝上(v6.2)。
-  // stats(L, p) 里 p = 副面系数,v6.1 起两面都是 SIDE = 1。
-  // traits.face:'both' | 'main' | 'sub'
+  // v7:两面平等,不分主副;每一面各有自己的 Lv5、Lv8。stats(L, p) 的 p 恒为 1(SideFacePercent 缺省 100)。
+  // traits.face:'both'(Lv1/3/4 两面通用)| 'atk' | 'el';pool = 取自词条池(§8,几张字之间会重复)
   var CHARS = {
     '炎': {
-      el: 'Fire', rar: 'Gold', py: 'yán', gloss: '火苗上炎', rec: ['火', '火'], main: 1, copies: [4, 4], ink: [2480, 2000],
+      el: 'Fire', rar: 'Gold', py: 'yán', gloss: '火苗上炎', rec: ['火', '火'], copies: [4, 4], ink: [2480, 2000],
       faces: [
         { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [灼] {3}',
           stats: function (L, p) { return [{ k: '伤害', v: r(168 * sc(L) * p) }, { k: '灼', v: L >= 3 ? 4 : 3, u: '层', t: '灼' }]; } },
@@ -79,13 +78,15 @@ window.ZD = (function () {
       traits: [
         { lv: 3, face: 'both', name: '强化', text: '[灼] +{1}；燃改为持续 {3} 回合' },
         { lv: 4, face: 'both', name: '双焰', tag: '拆字', kind: '被动', text: '拆出的 {2} 个「火」本回合出手时各附[灼] {2}' },
-        { lv: 5, face: 'sub', name: '火上浇油', kind: '主动', text: '目标带[灼]时，伤害 ×{2}' },
-        { lv: 6, face: 'main', name: '上炎', kind: '被动', text: '带本字[灼]的敌人每回合开始 +{1} 层，持续 {3} 回合' },
-        { lv: 8, face: 'main', name: '炎炎', kind: '主动', text: '[灼]层数 ×{2}；[跨场]：下一场开局全体 +[灼] {2}' }
+        { lv: 5, face: 'atk', name: '火上浇油', kind: '主动', text: '目标带[灼]时，伤害 ×{2}' },
+        { lv: 5, face: 'el', name: '续火', pool: true, kind: '主动', text: '目标已有[灼]时，额外 +{2} 层' },
+        { lv: 6, face: 'el', name: '上炎', kind: '被动', text: '带本字[灼]的敌人每回合开始 +{1} 层，持续 {3} 回合' },
+        { lv: 8, face: 'atk', name: '炎刃', kind: '主动', text: '打 {2} 击；每击后目标的[灼]结算一次（不减层）' },
+        { lv: 8, face: 'el', name: '炎炎', kind: '主动', text: '[灼]层数 ×{2}；[跨场]：下一场开局全体 +[灼] {2}' }
       ]
     },
     '剑': {
-      el: 'Metal', rar: 'Blue', py: 'jiàn', gloss: '两刃长兵', rec: ['佥', '刂'], main: 0, copies: [6, 6], ink: [3400, 2600],
+      el: 'Metal', rar: 'Blue', py: 'jiàn', gloss: '两刃长兵', rec: ['佥', '刂'], copies: [6, 6], ink: [3400, 2600],
       faces: [
         { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [战意] {1}',
           stats: function (L, p) { return [{ k: '伤害', v: r(94 * sc(L) * p) }, { k: '战意', v: L >= 3 ? '+2' : '+1', u: '层', t: '战意' }]; } },
@@ -95,13 +96,15 @@ window.ZD = (function () {
       traits: [
         { lv: 3, face: 'both', name: '强化', text: '[战意] +{1}；[格挡]改为 {2} 次' },
         { lv: 4, face: 'both', name: '克敌', tag: '通用', kind: '被动', text: '本字克制目标时，效果 +{15%}' },
-        { lv: 5, face: 'sub', name: '剑意', kind: '主动', text: '[战意] +{1}；[格挡]反击改为本体 {50%}' },
-        { lv: 6, face: 'main', name: '迎刃', kind: '被动', text: '击杀时[战意] +{1}' },
-        { lv: 8, face: 'main', name: '横扫千军', kind: '主动', text: '改为[横扫]；每多命中 1 名敌人，[战意] +{1}' }
+        { lv: 5, face: 'atk', name: '破甲', pool: true, kind: '主动', text: '目标[护甲] −{20}，{3} 回合' },
+        { lv: 5, face: 'el', name: '剑意', kind: '主动', text: '[战意] +{1}；[格挡]反击改为本体 {50%}' },
+        { lv: 6, face: 'atk', name: '迎刃', pool: true, kind: '被动', text: '击杀时[战意] +{1}' },
+        { lv: 8, face: 'atk', name: '横扫千军', kind: '主动', text: '改为[横扫]；每多命中 1 名敌人，[战意] +{1}' },
+        { lv: 8, face: 'el', name: '反戈', pool: true, kind: '主动', text: '本回合[格挡]的反击伤害 ×{2}' }
       ]
     },
     '林': {
-      el: 'Wood', rar: 'Gold', py: 'lín', gloss: '成片的树', rec: ['木', '木'], main: 1, copies: [1, 4], ink: [800, 2000],
+      el: 'Wood', rar: 'Gold', py: 'lín', gloss: '成片的树', rec: ['木', '木'], copies: [1, 4], ink: [800, 2000],
       faces: [
         { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [种] {2} 回合',
           stats: function (L, p) { return [{ k: '伤害', v: r(233 * sc(L) * p) }, { k: '种', v: L >= 3 ? 3 : 2, u: '回合', t: '种' }]; } },
@@ -111,13 +114,15 @@ window.ZD = (function () {
       traits: [
         { lv: 3, face: 'both', name: '强化', text: '[种]改为 {3} 回合；[本命]强化' },
         { lv: 4, face: 'both', name: '双木', tag: '拆字', kind: '被动', text: '拆林时召唤 {2} 只[幼苗]' },
-        { lv: 5, face: 'sub', name: '众木', kind: '主动', text: '伤害 + 每只[木灵] {10%}' },
-        { lv: 6, face: 'main', name: '林荫', kind: '被动', text: '林灵在场时，每只[木灵]使我方减伤 {5%}（≤{20%}）' },
-        { lv: 8, face: 'main', name: '林立', kind: '主动', text: '召唤 {2} 只林灵（各 {60%}）；{3} 回合内全部[木灵]攻击 +{20%}' }
+        { lv: 5, face: 'atk', name: '众木', kind: '主动', text: '伤害 + 每只[木灵] {10%}' },
+        { lv: 5, face: 'el', name: '新芽', pool: true, kind: '主动', text: '额外召唤一只[幼苗]' },
+        { lv: 6, face: 'el', name: '林荫', kind: '被动', text: '林灵在场时，每只[木灵]使我方减伤 {5%}（≤{20%}）' },
+        { lv: 8, face: 'atk', name: '林海', kind: '主动', text: '所有[木灵]各攻击目标一次（攻击 {70%}）' },
+        { lv: 8, face: 'el', name: '林立', kind: '主动', text: '召唤 {2} 只林灵（各 {60%}）；{3} 回合内全部[木灵]攻击 +{20%}' }
       ]
     },
     '冷': {
-      el: 'Water', rar: 'White', py: 'lěng', gloss: '寒而不温', rec: ['冫', '令'], main: 0, copies: [9, 12], ink: [600, 900],
+      el: 'Water', rar: 'White', py: 'lěng', gloss: '寒而不温', rec: ['冫', '令'], copies: [9, 12], ink: [600, 900],
       faces: [
         { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [减速] {1} 回合',
           stats: function (L, p) { return [{ k: '伤害', v: r(45 * sc(L) * p) }, { k: '减速', v: L >= 3 ? 2 : 1, u: '回合', t: '减速' }]; } },
@@ -127,13 +132,15 @@ window.ZD = (function () {
       traits: [
         { lv: 3, face: 'both', name: '强化', text: '两面都 +{1} 回合' },
         { lv: 4, face: 'both', name: '克敌', tag: '通用', kind: '被动', text: '本字克制目标时，效果 +{15%}' },
-        { lv: 5, face: 'sub', name: '涓流', kind: '主动', text: '额外清除 {1} 个减益' },
-        { lv: 6, face: 'sub', name: '护持', kind: '被动', text: '治疗时，额外给治疗量 {20%} 的[护盾]' },
-        { lv: 8, face: 'main', name: '冷却', kind: '主动', text: 'Boss 蓄力推迟 {1} 拍；小怪下次攻击 −{50%}' }
+        { lv: 5, face: 'atk', name: '凝冰', pool: true, kind: '主动', text: '目标已被[减速]时，改为[冻结] {1} 回合' },
+        { lv: 5, face: 'el', name: '涓流', pool: true, kind: '主动', text: '额外清除 {1} 个减益' },
+        { lv: 6, face: 'el', name: '护持', pool: true, kind: '被动', text: '治疗时，额外给治疗量 {20%} 的[护盾]' },
+        { lv: 8, face: 'atk', name: '冷却', kind: '主动', text: 'Boss 蓄力推迟 {1} 拍；小怪下次攻击 −{50%}' },
+        { lv: 8, face: 'el', name: '甘露', pool: true, kind: '主动', text: '治疗 +{60%}，清除 {1} 个减益' }
       ]
     },
     '㙓': {
-      el: 'Earth', rar: 'Red', py: 'lěi', gloss: '土垒极厚', rec: ['土', '垚'], main: 1, copies: [2, 2], ink: [5200, 8000],
+      el: 'Earth', rar: 'Red', py: 'lěi', gloss: '土垒极厚', rec: ['土', '垚'], copies: [2, 2], ink: [5200, 8000],
       faces: [
         { s: '攻', role: '攻击', tgt: 'enemy', area: '全体', lv1: '伤害 + [破甲] {2} 回合；释放[厚]',
           stats: function (L, p) { return [{ k: '伤害', v: r(235 * sc(L) * p) }, { k: '破甲', v: L >= 3 ? 4 : 2, u: '回合', t: '破甲' }]; } },
@@ -143,9 +150,11 @@ window.ZD = (function () {
       traits: [
         { lv: 3, face: 'both', name: '强化', text: '[破甲]与[护甲]都改为 {4} 回合' },
         { lv: 4, face: 'both', name: '深厚', kind: '被动', text: '本字[护甲]的持续回合 ×{2}' },
-        { lv: 5, face: 'sub', name: '山压', kind: '主动', text: '伤害 + 我方当前[护盾]的 {50%}（不消耗护盾）' },
-        { lv: 6, face: 'main', name: '载物', kind: '被动', text: '[护盾]同时给全部[木灵]（每只 {50%}）' },
-        { lv: 8, face: 'main', name: '厚德载物', kind: '主动', text: '本次[护盾]翻倍，并成为[留存护盾]' }
+        { lv: 5, face: 'atk', name: '山压', kind: '主动', text: '伤害 + 我方当前[护盾]的 {50%}（不消耗护盾）' },
+        { lv: 5, face: 'el', name: '厚土', kind: '主动', text: '[护盾] +{50%}，并获得[厚] {2} 层' },
+        { lv: 6, face: 'el', name: '载物', kind: '被动', text: '[护盾]同时给全部[木灵]（每只 {50%}）' },
+        { lv: 8, face: 'atk', name: '地动', kind: '主动', text: '全体伤害 + 我方当前[护盾]的 {30%}，全体[破甲] {2} 回合' },
+        { lv: 8, face: 'el', name: '厚德载物', kind: '主动', text: '本次[护盾]翻倍，并成为[留存护盾]' }
       ]
     }
   };
@@ -168,13 +177,13 @@ window.ZD = (function () {
   function traitsOf(id, L) {
     var c = CHARS[id];
     return c.traits.map(function (t) {
-      var fi = t.face === 'main' ? c.main : t.face === 'sub' ? 1 - c.main : -1;
+      var fi = t.face === 'atk' ? 0 : t.face === 'el' ? 1 : -1;
       return Object.assign({}, t, { fi: fi, on: L >= t.lv });
     });
   }
   function faceOf(id, fi, L) {
-    var c = CHARS[id], f = c.faces[fi], isMain = fi === c.main;
-    return Object.assign({}, f, { fi: fi, isMain: isMain, stats: f.stats(L, isMain ? 1 : SIDE) });
+    var c = CHARS[id], f = c.faces[fi];
+    return Object.assign({}, f, { fi: fi, stats: f.stats(L, SIDE) });
   }
   // 面印的 class:五行面印吃所在元素的 --glyph;「攻」印加 .atk 换成墨色。只有一式,不分主副。
   function seal(s, size) { return 'seal ' + size + ' main' + (s === '攻' ? ' atk' : ''); }

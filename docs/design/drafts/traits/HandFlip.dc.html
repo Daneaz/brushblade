@@ -241,12 +241,12 @@ class Component extends DCLogic {
   }
   faceIdx(i) { return this.state.faces[i] ? 1 : 0; } // 0 = 正面攻击,1 = 背面五行面
   cast(i, tid, el) {
-    var id = HAND[i][0], L = HAND[i][1], c = Z.CHARS[id], fi = this.faceIdx(i), f = Z.faceOf(id, fi, L), isMain = fi === c.main;
+    var id = HAND[i][0], L = HAND[i][1], c = Z.CHARS[id], fi = this.faceIdx(i), f = Z.faceOf(id, fi, L);
     var act = Z.traitsOf(id, L).filter(function (t) { return t.fi === fi && t.on && t.kind === '主动'; })[0];
     if (act && act.lv === 5 && id === '炎' && !(FOES[tid] && FOES[tid].burn)) act = null; // 火上浇油:目标带灼才触发
     var dev = el.closest('.dev').getBoundingClientRect(), r = el.getBoundingClientRect();
     var self = this, key = ++this.popSeq;
-    var pop = { key: key, x: r.left - dev.left + Math.min(r.width / 2, 40), y: r.top - dev.top + r.height / 2 - 8, el: c.el, tn: act ? act.name : '', seal: f.s, isMain: isMain, num: hoverLbl(id, f, L, tid) };
+    var pop = { key: key, x: r.left - dev.left + Math.min(r.width / 2, 40), y: r.top - dev.top + r.height / 2 - 8, el: c.el, tn: act ? act.name : '', seal: f.s, num: hoverLbl(id, f, L, tid) };
     var faces = this.state.faces.slice(); faces[i] = 0; // 出手后回到正面(攻击)
     this.setState({ pops: this.state.pops.concat([pop]), faces: faces, sel: -1,
       msg: '「' + id + '」以' + (f.s === '攻' ? '攻击' : '「' + f.s + '」面') + '出手' + (act ? '，主动特性「' + act.name + '」触发' : '') + ' —— 出手后这张牌回到正面（演示里留在手上）' });
