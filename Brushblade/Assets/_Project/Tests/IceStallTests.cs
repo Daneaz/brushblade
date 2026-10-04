@@ -102,5 +102,23 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.False, "这一拍已行动,冰滞解除");
             Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(burnOnly));
         }
+
+        [Test]
+        public void IceStallAndNegativeMeter_SurviveSnapshotRoundTrip()
+        {
+            var b = Battle();
+            b.Enemies[0].ActionMeter = 0;
+            b.Cast("冻", 0);
+            int meter = b.Enemies[0].ActionMeter;
+            Assert.That(meter, Is.LessThan(0));
+            var restored = BattleEngine.Restore(b.Capture(),
+                RebalanceFixture.Graph(Freeze2, Hit, Ember),
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 }, null,
+                new Dictionary<string, EnemyDef> { ["钧"] = RebalanceFixture.Boss(attack: 1) });
+            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(meter));
+            var stall = restored.Enemies[0].Statuses.Find(StatusKind.IceStall);
+            Assert.That(stall, Is.Not.Null);
+            Assert.That(stall.Magnitude, Is.EqualTo(2));
+        }
     }
 }

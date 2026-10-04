@@ -2479,7 +2479,6 @@ namespace Brushblade.Presentation
                 chips.Add(new("", Theme.InkSoft, Color.white, "slow"));
 
             // ---- 正面 ----
-            Decaying(StatusKind.HealOverTime, "heal", Theme.Jade); // HOT:每回合回多少
             Flag(StatusKind.Immunity, "immunity", Theme.Jade);
             Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
@@ -2491,6 +2490,8 @@ namespace Brushblade.Presentation
             Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
             if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
                 chips.Add(new("", Theme.Jade, Color.white, "speed"));
+            // 润泽(HOT)垫底:StatusChips 稿「嘲讽·留存护盾·格挡·战意·厚·泉·润泽」,溢出从尾部丢
+            Decaying(StatusKind.HealOverTime, "heal", Theme.Jade); // HOT:每回合回多少
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
