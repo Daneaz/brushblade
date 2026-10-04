@@ -27,16 +27,19 @@
 | 各类被拒提示 | 知道了 `locked-bg`（`Ui.Alert`） | 商城 / 战斗 / 卡组等 |
 
 ## 同一套外壳的大浮层（都走 `Ui.Sheet`，尺寸各自定）
-| 浮层 | 尺寸（逻辑单位） | 遮罩 | 点遮罩关 | 调用点 |
-| --- | --- | --- | --- | --- |
-| 战斗换字 | 1633×460 | `scrim-soft` | 否 | `BattleView.DrawReplaceSheet` |
-| 战斗选字 | 1298×520 | `scrim-soft` | 否 | `BattleView.DrawPickSheet` |
-| 单位详情 | 1280×760 | `scrim` | 是 | `UnitSheet.Show` |
-| 字卡详情 | 1591×670（高版按屏算） | `scrim` | 是 | `CharPreview.Show` |
-| 升级前后对比 | 1088×670 | `scrim` | 是 | `CollectionView.ShowUpgradePreview` |
-| 技能节点（贴右缘） | 宽 396，上下铺满 | `scrim` | 是 | `PerkNodeSheet.Show` |
-| 里程碑领取（墨锭 + 字卡 3 选 1） | 1256×785（内边距 42/29、行距 14） | `scrim` | 是 | `MilestonePickSheet.Show` |
-| 角色升级 | 1256×745（内边距改 38/29、行距 21） | `scrim` | 否 | `LevelUpPopup.Show` |
+| 浮层 | 尺寸（逻辑单位，基准机） | 16:9 宽 | 遮罩 | 点遮罩关 | 调用点 |
+| --- | --- | --- | --- | --- | --- |
+| 战斗换字 | 1633×460 | **1354**（`min(1633, .safe 框)`） | `scrim-soft` | 否 | `BattleView.DrawReplaceSheet` |
+| 战斗选字 | 1298×520 | 1298（`min(1298, .safe 框)`，余 56） | `scrim-soft` | 否 | `BattleView.DrawPickSheet` |
+| 单位详情 | 1280×760 | 1280（定宽，框内余 74） | `scrim` | 是 | `UnitSheet.Show` |
+| 字卡详情 | 1591×670（高版按屏算） | **1354**（`min(1591, .safe 框)`，内部两栏 757 → 638） | `scrim` | 是 | `CharPreview.Show` |
+| 升级前后对比 | 1088×670 | 1088（定宽，余 266） | `scrim` | 是 | `CollectionView.ShowUpgradePreview` |
+| 技能节点（贴右缘） | 宽 396，上下铺满 | 396（贴安全区右缘，不让 .safe 那 123；抽屉式，左侧还剩 1204） | `scrim` | 是 | `PerkNodeSheet.Show` |
+| 里程碑领取（墨锭 + 字卡 3 选 1） | 1256×785（内边距 42/29、行距 14） | 1256（定宽，余 98；内部横排另算） | `scrim` | 是 | `MilestonePickSheet.Show` |
+| 角色升级 | 1256×745（内边距改 38/29、行距 21） | 1256（定宽，余 98；内部横排另算） | `scrim` | 否 | `LevelUpPopup.Show` |
+| 小弹窗 | 620×300 | 620 | `scrim` | 是 | `Ui.Modal` / `Ui.Alert` |
+
+**16:9 宽**的口径（2026-10-04）：`CanvasScaler` 1600×900 按高匹配，16:9 画布宽 1600、无刘海机两侧各补 `SafeArea.MissingInset()` 123 → 稿上 .safe 框 **1354**（基准机 ≈1705）。浮层挂在 SafeAreaFitter 之内、铺满它，所以**卡宽 > 1354 就会伸进 .safe 边、贴屏边**。稿宽超过 1354 的浮层一律 `min(稿宽, SafeArea.FrameWidth())`，内部按夹后的净宽（− 描边 3 − 内边距 48）反算，不缩字号。「余」= 1354 − 卡宽。
 
 ## 规则
 - **不是「同屏只留一个」**：`Ui.Sheet` 的互斥是**按 `name`** 的，且要调用方显式传 `replaceSameName: true`。

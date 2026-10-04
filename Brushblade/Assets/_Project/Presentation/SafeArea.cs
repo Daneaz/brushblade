@@ -50,5 +50,22 @@ namespace Brushblade.Presentation
             float given = Mathf.Min(safe.xMin, Screen.width - safe.xMax) / scale;
             return (Mathf.Max(0f, SideInset - given), Mathf.Max(0f, BottomInset - safe.yMin / scale));
         }
+
+        /// <summary>稿上 .safe 框的实际宽(逻辑单位)= 安全区宽 − 两侧 <see cref="MissingInset"/>。
+        /// 挂在 SafeAreaFitter 之内的视图、以及铺满它的浮层,横向能用的就是这么宽:
+        /// 基准机 932×430pt ≈ 1705(刘海那段由 SafeAreaFitter 让出、MissingInset 补 0);
+        /// 16:9 无刘海机 = 1600 − 123×2 = 1354。按 Screen 算而不读 RectTransform.rect ——
+        /// 建界面那一帧 CanvasScaler 可能还没把画布尺寸定下来。
+        ///
+        /// 2026-10-04 加,供共用浮层(<see cref="CharPreview"/>)按「min(稿宽, 可用宽)」夹宽。
+        /// ⚠ 同一笔账另有四份私有实现,口径相同、尚未改调本函数:
+        /// <c>BattleView.FrameWidth</c>、<c>CollectionView.ContentWidth</c>、
+        /// <c>MapView.RootWidth</c>(− 2×side 在调用处)、<c>ShopView.Init</c> 里的 <c>safeW</c>。</summary>
+        public static float FrameWidth()
+        {
+            float scale = Screen.height / 900f; // CanvasScaler 1600×900,match = 1(按高)
+            if (scale <= 0f) return 1600f - 2f * SideInset;
+            return Screen.safeArea.width / scale - 2f * MissingInset().side;
+        }
     }
 }
