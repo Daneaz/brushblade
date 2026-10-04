@@ -38,7 +38,7 @@
 - 「领 取」不用朱砂：一屏可能同时有好几格可领，朱砂一屏只许一颗主钮（spec §6.2）。点了打开 `MilestonePickSheet`（见 `current/MilestonePickSheet`），领完回调 `Rebuild` 整页重画。
 - **轨道窗口**（`Window`）：Lv.50 及以内恒显示表内十档 5…50；过了 50，从最早一个没领的那档起往后 10 档，全领完取最后 10 档，不足 10 档向前补；候选多取一个步长，好露出「当前等级之后的下一档」。
 - 属性值读 `MetaRules.BuildBattleConfig`（与局内、主界面同源，含技能加成）；「下一级」增量只按等级曲线算 `f(L+1) − f(L)`，AP 恒写「—」。暴击不上屏。
-- 页签切换 = 改 `_tab` 后整页 `Rebuild`（不保留任何滚动或动效状态，本页也没有滚动）。
+- 页签切换 = 改 `_tab` 后整页 `Rebuild`（只保留右栏横向滚动位置 `_rightScrollX`，其余状态不保留）。
 - 保底的展示顺序是金 → 橙 → 红（把 `ChestRules.PityRules` 的红 → 橙 → 金倒过来读），读的是真实计数 `GoldPity / OrangePity / RedPity`。
 
 ## 文案
