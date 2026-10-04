@@ -16,7 +16,11 @@ namespace Brushblade.Presentation
         public static readonly Color TextMain = new(0.088f, 0.105f, 0.132f);
         public static readonly Color TextDim = new(0.363f, 0.391f, 0.435f);
         public static readonly Color CardWhite = Color.white;
-        public static readonly Color Cinnabar = new(0.772f, 0.211f, 0.215f);    // 朱砂
+        // 石青 #2E5E8C = tokens.json `cta`(2026-10-04 用户拍板,比稿 docs/design/demos/cta-color/推进色比稿.html):
+        // 一屏主推进钮(续爬/深入/结束回合/收下/确认类主钮)的实底,白字 6.78:1。
+        public static readonly Color Cta = new(0.180f, 0.369f, 0.549f);
+        // 朱砂(2026-10-04 起只表示危险/威胁:DoT、威胁 chip、红点、伤害、血条;不再做推进钮底)
+        public static readonly Color Cinnabar = new(0.772f, 0.211f, 0.215f);
         public static readonly Color CinnabarDark = new(0.607f, 0.117f, 0.135f);
         public static readonly Color WarnBg = new(0.984f, 0.890f, 0.886f);   // 稿 #FBE3E2:不可逆告警条底
         public static readonly Color WarnText = new(0.607f, 0.117f, 0.133f); // 稿 #9B1E22:告警条字色

@@ -66,7 +66,7 @@ namespace Brushblade.Presentation
 
         /// <summary>版面自上而下(稿 .coach):右上角金色印章「第 N 步/共 M 步」→ 衬线大字的
         /// <paramref name="tale"/> → 分隔线 → 「这样做」小标 + <paramref name="doIt"/> →
-        /// 灰字 <paramref name="then"/> → 底部一行(进度圆点 + 跳过引导 + 朱砂下一步钮)。
+        /// 灰字 <paramref name="then"/> → 底部一行(进度圆点 + 跳过引导 + 石青下一步钮)。
         ///
         /// <paramref name="onNext"/> 只负责关掉这份弹层——真正的教程步骤推进由玩家实际做出
         /// 「拆/合/出/领奖」那个动作时各自调用 <see cref="Brushblade.Core.Tutorial.Notify"/>,
@@ -187,7 +187,7 @@ namespace Brushblade.Presentation
                 ? Strings.T("battle.coach.done")
                 : Strings.T("battle.coach.next");
             Ui.PillButton(footRow.transform, nextText, () => onNext?.Invoke(),
-                Theme.Cinnabar, Color.white, NextFontSize, new Vector2(NextW, NextH));
+                Theme.Cta, Color.white, NextFontSize, new Vector2(NextW, NextH));
 
             // 卡片高度 = content 实际内容高度 + 上下 padding + 两侧描边厚度。content 挂了
             // ContentSizeFitter 但它的 sizeDelta 要等一次布局才会更新,这里强制立即跑一遍

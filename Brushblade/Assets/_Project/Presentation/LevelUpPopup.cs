@@ -48,7 +48,7 @@ namespace Brushblade.Presentation
                 MilestoneBar(content, lv);
 
             Ui.PillButton(content, Strings.T("levelup.ok"), () => Object.Destroy(sheet),
-                Theme.Cinnabar, Color.white, 31, new Vector2(335, ButtonH));
+                Theme.Cta, Color.white, 31, new Vector2(335, ButtonH));
         }
 
         // ---- 竖向预算(弹窗定高,两栏吃剩余高;升级奖励卡的立绘按它反算) ----
