@@ -34,12 +34,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Lv8Burn_OneStack_SettlesAtCeilOf20Times142()
+        public void Lv8Burn_OneStack_SettlesAtFloorOf20Times142()
         {
             var b = Battle(new Dictionary<string, int> { ["燃"] = 8 }, 100, "燃", "熯");
             b.Cast("燃", 0);
             Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Burn).Potency, Is.EqualTo(142));
-            Assert.That(Lost(b, () => b.Cast("熯", 0)), Is.EqualTo(29), "ceil(20 × 1.42) = 29");
+            Assert.That(Lost(b, () => b.Cast("熯", 0)), Is.EqualTo(28), "floor(20 × 1.42) = floor(28.4) = 28");
         }
 
         [Test]
@@ -47,7 +47,7 @@ namespace Brushblade.Core.Tests
         {
             var b = Battle(new Dictionary<string, int> { ["燃"] = 8 }, 200, "燃", "熯");
             b.Cast("燃", 0);
-            Assert.That(Lost(b, () => b.Cast("熯", 0)), Is.EqualTo(58), "ceil(20 × 1.42) × 200%");
+            Assert.That(Lost(b, () => b.Cast("熯", 0)), Is.EqualTo(56), "floor(20 × 1.42 × 2) = floor(56.8) = 56(取整在整式末端)");
         }
 
         [Test]
@@ -77,8 +77,8 @@ namespace Brushblade.Core.Tests
         {
             var b = Battle(new Dictionary<string, int> { ["燃二"] = 8 }, 100, "燃二", "煸");
             b.Cast("燃二", 0);
-            // 3 层:3×4/2 = 6 个层·回合,每层 ceil(20 × 1.42) = 29
-            Assert.That(Lost(b, () => b.Cast("煸", 0)), Is.EqualTo(6 * 29));
+            // 3 层:3×4/2 = 6 个层·回合 × 20 × 1.42 = 170.4 → 170(不是 6 × 28 = 168,也不是 6 × 29)
+            Assert.That(Lost(b, () => b.Cast("煸", 0)), Is.EqualTo(170));
         }
 
         [Test]
@@ -86,7 +86,48 @@ namespace Brushblade.Core.Tests
         {
             var b = Battle(new Dictionary<string, int> { ["燃二"] = 8 }, 100, "燃二");
             b.Cast("燃二", 0);
-            Assert.That(Lost(b, () => b.EndTurn()), Is.EqualTo(3 * 29));
+            Assert.That(Lost(b, () => b.EndTurn()), Is.EqualTo(85), "3 × 20 × 1.42 = 85.2 → 85");
+        }
+
+        [Test]
+        public void TenStacks_Lv8_Tick_Is284_NoFloatingPointLoss()
+        {
+            // 10 层 × 20 × 1.42 = 284(整数分子 28400 / 100.0,不是 28.4 × 10 = 283.99…)
+            var b = Battle(new Dictionary<string, int> { ["燃二"] = 8 }, 100, "甲");
+            b.ApplyDetachedEffects("燃二", Element.Fire, new[] { new EffectDef(EffectKind.BurnSingle, 10) }, 0);
+            Assert.That(Lost(b, () => b.EndTurn()), Is.EqualTo(284));
+        }
+
+        [Test]
+        public void DetachedReaction_UsesSourceCardLevelPotency()
+        {
+            var b = Battle(new Dictionary<string, int> { ["燃"] = 8 }, 100, "甲");
+            b.ApplyDetachedEffects("燃", Element.Fire, new[] { new EffectDef(EffectKind.BurnSingle, 1) }, 0);
+            Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Burn).Potency, Is.EqualTo(142));
+        }
+
+        [Test]
+        public void OpeningBurn_UsesSourceCardLevelPotency()
+        {
+            var opening = new OpeningEffect { SourceCharId = "燃", Element = Element.Fire, Kind = EffectKind.BurnAll, Value = 1, BattlesLeft = 1 };
+            var b = new BattleEngine(Graph(), Config(), new[] { "甲" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["燃"] = 8 }, startingOpenings: new[] { opening });
+            Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Burn).Potency, Is.EqualTo(142));
+        }
+
+        [Test]
+        public void ClampedAtCap_PotencyStillKeptAndRaised()
+        {
+            var b = Battle(new Dictionary<string, int> { ["燃二"] = 8, ["燃"] = 10 }, 100, "甲");
+            b.ApplyDetachedEffects("燃二", Element.Fire, new[] { new EffectDef(EffectKind.BurnSingle, 12) }, 0);
+            var burn = b.Enemies[0].Statuses.Find(StatusKind.Burn);
+            Assert.That(burn.Magnitude, Is.EqualTo(CombatCaps.BurnStacks), "钳到上限");
+            Assert.That(burn.Potency, Is.EqualTo(142), "钳位不丢火力");
+            b.ApplyDetachedEffects("燃", Element.Fire, new[] { new EffectDef(EffectKind.BurnSingle, 1) }, 0);
+            burn = b.Enemies[0].Statuses.Find(StatusKind.Burn);
+            Assert.That(burn.Magnitude, Is.EqualTo(CombatCaps.BurnStacks));
+            Assert.That(burn.Potency, Is.EqualTo(154), "满层时更高级的字仍抬高火力");
         }
 
         [Test]

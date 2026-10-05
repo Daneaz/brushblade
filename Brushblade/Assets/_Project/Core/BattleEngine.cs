@@ -3007,8 +3007,8 @@ namespace Brushblade.Core
                 && _playerStatuses.TotalMagnitude(StatusKind.Morale) >= _config.MoraleCap
                 && HasDamageEffect(def, attackMode);
             int cardLevel = CardLevelOf(def.Id);
-            // 灼的火力:出字上灼 = 本卡等级系数;脱离出字的效果(特性反应 / 开局)恒 100
-            int burnPotency = _detachedDepth > 0 ? 100 : MetaRules.CardLevelPercent(cardLevel);
+            // 灼的火力:按来源字的卡等级(特性反应 / 开局效果的 def.Id 即来源字;查不到等级 = 1 → 100)
+            int burnPotency = MetaRules.CardLevelPercent(cardLevel);
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
             // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
@@ -4066,7 +4066,7 @@ namespace Brushblade.Core
             float burnWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
             bool burnKe = burnWuxing > 1f;
             bool burnCountered = burnWuxing < 1f;
-            int tick = (int)Math.Floor(burn.Magnitude * BurnPerStackWithPotency(EnemyBurnPerStack, burn.Potency)
+            int tick = (int)Math.Floor(BurnBaseWithPotency((long)burn.Magnitude * EnemyBurnPerStack, burn.Potency)
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
@@ -4143,7 +4143,7 @@ namespace Brushblade.Core
             float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
             bool detonateKe = detonateWuxing > 1f;
             bool detonateCountered = detonateWuxing < 1f;
-            int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * BurnPerStackWithPotency(EnemyBurnPerStack, burn.Potency)
+            int damage = (int)Math.Floor(BurnBaseWithPotency((long)(stacks * (stacks + 1) / 2) * EnemyBurnPerStack, burn.Potency)
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
@@ -4253,12 +4253,10 @@ namespace Brushblade.Core
         {
             var def = new CharDef(sourceCharId, element, effects: effects, isComponent: true);
             EnterTrigger();
-            _detachedDepth++;
             try { ApplyEffects(def, targetIndex); }
-            finally { _detachedDepth--; ExitTrigger(); }
+            finally { ExitTrigger(); }
         }
         internal void ExitTrigger() => TriggerDepth--;
-        private int _detachedDepth;   // >0 = 正在 ApplyDetachedEffects 里(灼的火力恒 100)
 
         internal void AddHookListener(IBattleHookListener listener) => _hookListeners.Add(listener);
 
@@ -4304,10 +4302,11 @@ namespace Brushblade.Core
                 ? UnitRef.Player
                 : UnitRef.Summon(allySlot);
 
-        /// <summary>灼的火力折算(spec v7 §4):每层基础伤害 × potency / 100,向上取整(与 ScaleByCardLevel 同写法)。
-        /// potency ≤ 100(含缺省 0)原样返回 —— 全 1 级下逐位恒等的保证。</summary>
-        private static int BurnPerStackWithPotency(int perStack, int potency) =>
-            potency <= 100 ? perStack : (int)(((long)perStack * potency + 99) / 100);
+        /// <summary>灼的火力折算(spec v7 §4):层·基础伤害 × potency / 100,取整放在整式末端(调用方再乘攻击% 与生克后 floor)。
+        /// 用整数分子(base × potency)再 /100.0,避免 28.4 × 10 落成 283.99…。
+        /// potency ≤ 100(含缺省 0)原样返回 base —— 全 1 级下逐位恒等的保证。</summary>
+        private static double BurnBaseWithPotency(long baseDamage, int potency) =>
+            potency <= 100 ? baseDamage : baseDamage * potency / 100.0;
 
         /// <summary>叠加灼烧层数,返回**实际增加**的层数(满层时为 0;调用方据此决定发不发 Burn 事件)。(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
         /// 出字的灼烧字用这条:一次性施加,层数自然衰减到 0,累加是既有语义,不受光环影响。</summary>
