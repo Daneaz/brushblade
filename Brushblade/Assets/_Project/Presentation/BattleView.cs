@@ -5607,7 +5607,7 @@ namespace Brushblade.Presentation
                 return;
             }
             if (error == BattleError.None)
-                _tutorial?.Notify(TutorialAction.Cast, charId);
+                _tutorial?.Notify(TutorialAction.Cast, charId, BattleEngine.FaceOf(_graph.Get(charId), attackMode));
             else
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? Strings.T("battle.msg.cast_success", ("charId", charId)) : Describe(error);
