@@ -59,6 +59,8 @@ namespace Brushblade.Core.Tests
             EffectKind.BurnSettleNow, EffectKind.Detonate, EffectKind.Empower, EffectKind.CritBuff,
             EffectKind.PierceBuff, EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.Quench,
             EffectKind.Haste, EffectKind.Unseal,
+            // 减攻(D1 Task 5):Value 是百分点,吃卡等级;Turns 不吃(读 effect.Turns)
+            EffectKind.Weaken,
         };
 
         [Test]

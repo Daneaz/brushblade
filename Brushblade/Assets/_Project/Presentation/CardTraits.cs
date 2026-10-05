@@ -284,6 +284,12 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.blind.name"),
                             Strings.T("collection.trait.blind.desc", ("value", v), ("turns", e.Turns)));
                         break;
+                    case EffectKind.Weaken:
+                        // 减攻(D1 Task 5):无图标,走纯文字 chip(与魅惑同款 AddWord);Value 吃等级,回合不吃
+                        AddWord(traits, Strings.T("collection.trait.weaken.chip"),
+                            Strings.T("collection.trait.weaken.name"),
+                            Strings.T("collection.trait.weaken.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
+                        break;
                     case EffectKind.Silence:
                         AddTrait(traits, "silence", "",
                             Strings.T("collection.trait.silence.name"),

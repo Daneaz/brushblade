@@ -121,6 +121,8 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.healovertime.single", ("value", shown), ("turns", e.Turns)),
                     EffectKind.Freeze => Strings.T("char.effect.freeze", ("value", shown)),
                     EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
+                    // 减攻(D1 Task 5):Value 是百分点、吃卡等级(shown);回合数读 e.Turns,不吃等级
+                    EffectKind.Weaken => Strings.T("char.effect.weaken", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 护甲/破甲 2026-09-08 起限时,回合数要印在卡面上 —— 玩家看不到时限
                     // 就会当成本场持久去规划出牌顺序(这两条以前确实是持久的)
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
@@ -148,7 +150,9 @@ namespace Brushblade.Presentation
                     EffectKind.Silence => Strings.T("char.effect.silence", ("turns", e.Turns)),
                     EffectKind.Reflect => Strings.T("char.effect.reflect", ("value", shown), ("turns", e.Turns)),
                     EffectKind.BurnNoDecay => Strings.T("char.effect.burnnodecay"),
-                    EffectKind.BurnSettleNow => Strings.T("char.effect.burnsettlenow"),
+                    EffectKind.BurnSettleNow => e.KeepStacks
+                        ? Strings.T("char.effect.burnsettlenow.keep")
+                        : Strings.T("char.effect.burnsettlenow"),
                     EffectKind.Detonate => Strings.T("char.effect.detonate"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
@@ -191,6 +195,9 @@ namespace Brushblade.Presentation
                     EffectKind.Augment => AugmentText(e),
                     _ => e.Kind.ToString(),
                 });
+                // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
+                if (EffectPickRules.Supports(e.Kind))
+                    parts.Append(PickText(e.Pick) + OnlyIfText(e.OnlyIf));
             }
             return parts.ToString();
         }
@@ -297,6 +304,17 @@ namespace Brushblade.Presentation
             AmpScope.Counter => Strings.T("char.effect.amplify.counter", ("value", e.Value)),
             AmpScope.All => Strings.T("char.effect.amplify.all", ("value", e.Value)),
             _ => Strings.T("char.effect.amplify.damage", ("value", e.Value)),
+        };
+
+        /// <summary>目标选择器后缀(D1 Task 5,e.Pick)。Primary 不印;旧 TargetAll 标志有自己的「全体」文案,不走这里。</summary>
+        private static string PickText(EffectPick pick) => pick switch
+        {
+            EffectPick.All => Strings.T("char.effect.pick.all"),
+            EffectPick.Random => Strings.T("char.effect.pick.random"),
+            EffectPick.HitTargets => Strings.T("char.effect.pick.hittargets"),
+            EffectPick.MostBurn => Strings.T("char.effect.pick.mostburn"),
+            EffectPick.FrozenByThisCast => Strings.T("char.effect.pick.frozen"),
+            _ => "",
         };
 
         /// <summary>条件门后缀(D1 Task 3,e.OnlyIf)。与 DoubleVsText 一样每个条件一条 key,

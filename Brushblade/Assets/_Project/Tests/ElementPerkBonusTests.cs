@@ -174,6 +174,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Amplify, EffectKind.Reshape,
                 // Augment(D1 Task 4):同修饰器,出字前折叠掉,不进结算、没有量值可放大。
                 EffectKind.Augment,
+                // 减攻(D1 Task 5):挂的是敌人 Curse 状态的百分点,不吃五行 L3(与 Blind 以外的控制类同口径)。
+                EffectKind.Weaken,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

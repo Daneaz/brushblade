@@ -105,6 +105,9 @@ namespace Brushblade.Core
         Augment,      // 本字叠加修饰器(D1 Task 4,附录 M4):Value = 加多少,AugmentKind / AugmentField 指明
                       // 加在本面**第一条**该 Kind 效果的哪个字段(次数 / 回合 / 跳数)。找不到同 Kind 空转。
                       // 由 Fold 折叠,不进结算循环;离散量,不吃卡等级。
+        Weaken,       // 减攻(D1 Task 5,附录 M5):给目标挂 StatusKind.Curse(攻击 −Value%),Turns 回合,
+                      // SourceId = 字 ID,同源刷新取较强值与较长回合。玩家可见名「减攻」(枚举不改名)。
+                      // Value 是百分点,吃卡等级;Turns 不吃。支持 Pick / OnlyIf。
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -238,7 +241,8 @@ namespace Brushblade.Core
         /// <summary>Amplify 的作用范围(D1 Task 3)。其余 kind 不读。</summary>
         public AmpScope Scope { get; }
 
-        /// <summary>条件门(D1 Task 3,附录 M1/M24)。目前只有 Amplify 读:条件满足时这一条加成才算。
+        /// <summary>条件门(D1 Task 3,附录 M1/M24)。Amplify 读:条件满足时这一条加成才算;
+        /// D1 Task 5 起 <see cref="EffectPickRules.Supports"/> 的非伤害效果也读:每个被选中的目标各判一次,不满足就跳过。
         /// 按 R3 出字前快照判定;目标相关的条件按「这一击的目标」判定。None = 无条件。</summary>
         public DamageCondition OnlyIf { get; }
 
@@ -265,6 +269,13 @@ namespace Brushblade.Core
 
         /// <summary>Fold 挂上来的加成项:(百分点, 条件)。字表对象恒为空表;只有 Fold 产出的副本非空。
         /// internal:表现层不读它(卡面读的是 Amplify 效果本身)。</summary>
+        /// <summary>效果目标选择器(D1 Task 5,附录 M10)。缺省 Primary = 玩家选的主目标。
+        /// 只有 <see cref="EffectPickRules.Supports"/> 列出的 kind 读它;旧 <see cref="TargetAll"/> 等价于 All。</summary>
+        public EffectPick Pick { get; }
+
+        /// <summary>BurnSettleNow:结算一次但**不减层**(D1 Task 5,附录 M8,引燃)。其余 kind 不读。</summary>
+        public bool KeepStacks { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
 
         private static readonly (int, DamageCondition)[] NoAmpTerms = new (int, DamageCondition)[0];
@@ -280,7 +291,8 @@ namespace Brushblade.Core
             bool trueDamage = false, int armorStrikePercent = 0,
             AmpScope scope = AmpScope.Damage, DamageCondition onlyIf = DamageCondition.None,
             int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
-            EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count)
+            EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
+            EffectPick pick = EffectPick.Primary, bool keepStacks = false)
         {
             Kind = kind;
             Value = value;
@@ -311,6 +323,8 @@ namespace Brushblade.Core
             ShieldStrikePercent = shieldStrikePercent;
             AugmentKind = augmentKind;
             AugmentField = augmentField;
+            Pick = pick;
+            KeepStacks = keepStacks;
         }
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
@@ -326,7 +340,7 @@ namespace Brushblade.Core
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
-                AugmentKind, AugmentField)
+                AugmentKind, AugmentField, Pick, KeepStacks)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
             };

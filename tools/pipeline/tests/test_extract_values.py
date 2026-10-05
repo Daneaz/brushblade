@@ -425,3 +425,50 @@ def test_augment_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D1 Task 5:Weaken / pick / if(非 Amplify)/ keep ----
+
+def test_weaken_takes_value_and_turns():
+    assert _parse_effects("`Weaken 15` turns 2", "火") == [{"kind": "Weaken", "value": 15, "turns": 2}]
+
+
+def test_weaken_without_turns_raises():
+    """Weaken 在 DURATION_KINDS 里:漏写 turns 会被引擎静默兜成 1 回合,管线必须拦下。"""
+    with pytest.raises(ValueError):
+        _parse_effects("`Weaken 15`", "火")
+
+
+def test_pick_attaches_to_preceding_effect_only():
+    effects = _parse_effects("`BurnSingle 3` + `Weaken 20` + `pick HitTargets` turns 1", "土")
+    assert effects == [{"kind": "BurnSingle", "value": 3},
+                       {"kind": "Weaken", "value": 20, "pick": "HitTargets", "turns": 1}]
+
+
+@pytest.mark.parametrize("pick", ["All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"])
+def test_every_pick_value_is_accepted(pick):
+    assert _parse_effects(f"`Slow 1` + `pick {pick}`", "水") == [{"kind": "Slow", "value": 1, "pick": pick}]
+
+
+def test_if_on_non_amplify_attaches_condition_gate():
+    assert _parse_effects("`BurnSingle 2` + `if Burning`", "火") == [
+        {"kind": "BurnSingle", "value": 2, "onlyIf": "Burning"}]
+
+
+def test_keep_attaches_to_burn_settle_now():
+    assert _parse_effects("`BurnSettleNow` + `keep` + `pick All`", "火") == [
+        {"kind": "BurnSettleNow", "value": 0, "keepStacks": True, "pick": "All"}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Slow 1` + `pick Bogus`", "Bogus"),                    # 取值未知
+    ("`pick All` + `Slow 1`", "pick"),                       # 前面没有可挂的效果
+    ("`Shield 3` + `pick All`", "pick"),                     # Shield 不认选择器
+    ("`Slow 1` + `keep`", "keep"),                           # keep 只挂 BurnSettleNow
+    ("`Slow 1` + `pick All` + `pick Random`", "pick"),       # 同一条效果多个 pick
+    ("`BurnSingle 2` + `if Nope`", "Nope"),                  # 条件名未知
+])
+def test_pick_if_keep_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

@@ -50,6 +50,7 @@ namespace Brushblade.Core
             [EffectKind.DefenseBuff] = false,
             [EffectKind.ArmorBreak] = false,
             [EffectKind.HealOverTime] = false,
+            [EffectKind.Weaken] = false,
         };
 
         public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);

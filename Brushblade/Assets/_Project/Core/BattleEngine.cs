@@ -683,6 +683,66 @@ namespace Brushblade.Core
         // 不进快照,它只活在一次 Cast 的同步调用里。
         private int _castCritBonus;
 
+        // 效果目标选择器的两张「本次出字」名单(D1 Task 5):命中过的敌人(按命中顺序去重)/ 真正被冻住的敌人。
+        // 与 _castCritBonus 同口径:ApplyEffects 进门清空、嵌套时保存 / 恢复,不进快照。
+        private List<int> _castHitTargets = new List<int>();
+        private List<int> _castFrozenTargets = new List<int>();
+
+        /// <summary>条件门(D1 Task 5,附录 M24):<c>OnlyIf</c> 为空 = 无条件;否则按出字前快照判这个目标。</summary>
+        private bool OnlyIfMet(EffectDef effect, int enemyIndex) =>
+            effect.OnlyIf == DamageCondition.None || PreCastConditionMet(effect.OnlyIf, enemyIndex);
+
+        /// <summary>一条敌方侧效果这次要落在哪些敌人身上(D1 Task 5,附录 M10)。返回的是**拷贝**:
+        /// 调用方边遍历边结算(击杀、分裂)不会动到它。All 取调用时的表长,分裂出的新怪不进这一发。
+        /// Primary 不做存活过滤(与改造前各分支一致,存活守卫留在各分支里)。</summary>
+        private List<int> PickTargets(EffectDef effect, int primary)
+        {
+            var result = new List<int>();
+            switch (EffectPickRules.Effective(effect))
+            {
+                case EffectPick.Primary:
+                    if (primary >= 0 && primary < _enemies.Count) result.Add(primary);
+                    break;
+                case EffectPick.All:
+                {
+                    int count = _enemies.Count;
+                    for (int i = 0; i < count; i++) if (_enemies[i].Alive) result.Add(i);
+                    break;
+                }
+                case EffectPick.Random:
+                {
+                    // 没有存活敌人时不摇号(与 Unseal 空转同一条纪律:摇了不用的一次会平移后面的随机流)
+                    for (int i = 0; i < _enemies.Count; i++) if (_enemies[i].Alive) result.Add(i);
+                    if (result.Count > 0)
+                    {
+                        int chosen = result[_traitRandom.Next(result.Count)];
+                        result.Clear();
+                        result.Add(chosen);
+                    }
+                    break;
+                }
+                case EffectPick.HitTargets:
+                    foreach (int i in _castHitTargets) if (_enemies[i].Alive) result.Add(i);
+                    break;
+                case EffectPick.MostBurn:
+                {
+                    int best = -1, bestStacks = 0;   // 同层取下标小:严格大于才换;没人带灼 = 空
+                    for (int i = 0; i < _enemies.Count; i++)
+                    {
+                        if (!_enemies[i].Alive) continue;
+                        int stacks = _enemies[i].Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+                        if (stacks > bestStacks) { best = i; bestStacks = stacks; }
+                    }
+                    if (best >= 0) result.Add(best);
+                    break;
+                }
+                case EffectPick.FrozenByThisCast:
+                    foreach (int i in _castFrozenTargets) if (_enemies[i].Alive) result.Add(i);
+                    break;
+            }
+            return result;
+        }
+
         private int ApplySpecialtyPercent(int value, Element attacker, EffectKind kind)
         {
             int pct = SpecialtyPercentOf(attacker, kind);
@@ -1845,12 +1905,16 @@ namespace Brushblade.Core
         /// <summary>单条效果是否需要敌方目标(NeedsTarget 的逐条判据;特性校验也用它)。</summary>
         public static bool EffectNeedsTarget(EffectDef effect)
         {
+                // 选择器 != Primary(含旧 TargetAll)的效果不需要玩家选目标(D1 Task 5)
+                if (EffectPickRules.Supports(effect.Kind) && EffectPickRules.Effective(effect) != EffectPick.Primary)
+                    return false;
                 // 全体(All)与连发一样不选目标(spec v7 §3.2)
                 if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter
                         && effect.Shape != TargetArea.All)
                     || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
+                    || effect.Kind == EffectKind.Weaken
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
                     // targetIndex 停在 -1,ApplyEffects 里 _enemies[-1] 直接越界崩溃。
                     // 必须排除 TargetAll(淡):那支是全体驱散,本就不需要选目标。
@@ -2838,8 +2902,12 @@ namespace Brushblade.Core
             int outerCritBonus = _castCritBonus;
             bool outerMoraleGranted = _critMoraleGrantedThisCast;
             var outerConditions = _preCastConditions;
+            var outerHitTargets = _castHitTargets;
+            var outerFrozenTargets = _castFrozenTargets;
             try
             {
+            _castHitTargets = new List<int>();
+            _castFrozenTargets = new List<int>();
             _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             _castCritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
@@ -2970,6 +3038,7 @@ namespace Brushblade.Core
                                     // 只有跨排造成的重复才传 true。
                                     sameSwing: sameSwing && hit == 0,
                                     attackerRef: UnitRef.Player);
+                                if (!_castHitTargets.Contains(tgt)) _castHitTargets.Add(tgt);   // 选择器 HitTargets 用
                             }
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
@@ -2995,41 +3064,65 @@ namespace Brushblade.Core
                         }
                         break;
                     }
+                    // 敌方侧效果统一走 PickTargets(D1 Task 5):Primary = 玩家选的那只(现行为),
+                    // 其余选择器见 EffectPick;OnlyIf 按每个被选中的目标各判一次。
                     case EffectKind.BurnSingle:
-                        if (_enemies[targetIndex].Alive)
+                        foreach (int ti in PickTargets(effect, targetIndex))
                         {
-                            int burnGain = ApplyBurn(targetIndex, value, UnitRef.Player);
-                            if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, burnGain));
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            int burnGain = ApplyBurn(ti, value, UnitRef.Player);
+                            if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, ti, burnGain));
                         }
                         break;
                     case EffectKind.Bleed:
-                        if (_enemies[targetIndex].Alive)
+                        foreach (int ti in PickTargets(effect, targetIndex))
                         {
-                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
                                 // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
                                 Magnitude = ScaleByAttack(value), TurnsLeft = 3,   // 固定 3 回合
-                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
                     case EffectKind.Freeze:
-                        if (_enemies[targetIndex].Alive)
-                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                        {
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            bool applied = ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 // Magnitude 不在这里赋:ApplyStatus 会把冻结时长记进去(R1,结束时据此发霜抗)。
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                                 TurnsLeft = value,
-                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                            // 「冻结成功」= 袋子里真挂上了 Freeze:Boss 吃的是冰滞(返回 true 但没有 Freeze),不算
+                            if (applied && _enemies[ti].Statuses.Has(StatusKind.Freeze) && !_castFrozenTargets.Contains(ti))
+                                _castFrozenTargets.Add(ti);
+                        }
                         break;
                     case EffectKind.Slow:
-                        if (_enemies[targetIndex].Alive)
+                        foreach (int ti in PickTargets(effect, targetIndex))
                         {
-                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
                                 Magnitude = -50, TurnsLeft = value, SourceId = def.Id,
-                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                        }
+                        break;
+                    case EffectKind.Weaken:
+                        // 减攻(D1 Task 5,M5):挂 Curse(攻击 −Magnitude%),SourceId = 字 ID,同源刷新取强(ApplyStatus)。
+                        // 回合数不吃卡等级(spec v7 §1),缺 turns 兜 1 回合。
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                        {
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                            {
+                                Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                                Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
                     case EffectKind.Charm:
@@ -3056,14 +3149,18 @@ namespace Brushblade.Core
                         // SourceId 铸唯一序号 → **可叠加**且**各自计时**:不叠只刷新的话六个破甲字
                         // 互相排斥,先出削 20 的再出削 10 的会变弱,而战例二的「三张接力削光坚壁 Boss」
                         // 整套玩法就建立在叠加上。上限由 EffectiveEnemyDefense 的 max(0,…) 天然给出。
-                        ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
+                        foreach (int ti in PickTargets(effect, targetIndex))
                         {
-                            Kind = StatusKind.ArmorBreak,
-                            Polarity = StatusPolarity.Debuff,
-                            Magnitude = value,
-                            TurnsLeft = Math.Max(1, effect.Turns),
-                            SourceId = $"{def.Id}#{_statusSerial++}",
-                        }, UnitRef.Enemy(targetIndex), UnitRef.Player);
+                            if (!OnlyIfMet(effect, ti)) continue;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                            {
+                                Kind = StatusKind.ArmorBreak,
+                                Polarity = StatusPolarity.Debuff,
+                                Magnitude = value,
+                                TurnsLeft = Math.Max(1, effect.Turns),
+                                SourceId = $"{def.Id}#{_statusSerial++}",
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                        }
                         break;
                     case EffectKind.Dispel:
                         // 条数用 effect.Value 而不是 value —— 驱散条数不吃卡等级(与召唤被动同口径:
@@ -3122,16 +3219,9 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Blind:
                         // SourceId 用字 ID:同字再出只刷新,不无限叠命中惩罚
-                        if (effect.TargetAll)
-                        {
-                            int blindCount = _enemies.Count; // 分裂产生的新怪不吃同一发(与全体伤害 All 同口径)
-                            for (int i = 0; i < blindCount; i++)
-                                if (_enemies[i].Alive) ApplyBlind(i, value, effect.Turns, def.Id);
-                        }
-                        else if (targetIndex >= 0 && _enemies[targetIndex].Alive)
-                        {
-                            ApplyBlind(targetIndex, value, effect.Turns, def.Id);
-                        }
+                        // 全体(旧 TargetAll = Pick.All):PickTargets 取调用时的表长,分裂产生的新怪不吃同一发
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBlind(ti, value, effect.Turns, def.Id);
                         break;
                     case EffectKind.Silence:
                         if (targetIndex >= 0 && _enemies[targetIndex].Alive)
@@ -3187,18 +3277,16 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.BurnSettleNow:
                         // 复用回合末那一套(SettleBurnOn 自带存活与空层守卫),不留两份实现
-                        if (targetIndex >= 0) SettleBurnOn(targetIndex);
+                        // KeepStacks(M8,引燃):结算一次但不减层
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti)) SettleBurnOn(ti, decay: !effect.KeepStacks);
                         break;
                     case EffectKind.Detonate:
                         // 全体引爆(2026-08-26,炸):逐只各爆各的,不选目标。
                         // 与全体伤害(All)同一条纪律:先取表长快照,引爆致死若牵出分裂,
                         // 新怪不进这一发。
-                        if (effect.TargetAll)
-                        {
-                            int blastCount = _enemies.Count;
-                            for (int i = 0; i < blastCount; i++) Detonate(i);
-                        }
-                        else if (targetIndex >= 0) Detonate(targetIndex);
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti)) Detonate(ti);
                         break;
                     case EffectKind.Quench:
                         // 蓄热(2026-09-16,热):清空目标灼烧层数,每层转成本场永久的 _burnPerStack
@@ -3555,6 +3643,8 @@ namespace Brushblade.Core
                 _castCritBonus = outerCritBonus;
                 _critMoraleGrantedThisCast = outerMoraleGranted;
                 _preCastConditions = outerConditions;
+                _castHitTargets = outerHitTargets;
+                _castFrozenTargets = outerFrozenTargets;
                 _inApplyEffects = false;
             }
         }
@@ -3707,7 +3797,7 @@ namespace Brushblade.Core
         ///
         /// 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
         /// 相生已在施加时由 WuxingResolver 体现过。</summary>
-        private void SettleBurnOn(int enemyIndex)
+        private void SettleBurnOn(int enemyIndex, bool decay = true)
         {
             var enemy = _enemies[enemyIndex];
             if (!enemy.Alive) return;
@@ -3729,7 +3819,8 @@ namespace Brushblade.Core
             // 不灭(2026-08-09):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
             // 只挡这一步。Task 3 的 BurnSettleNow 同样复用这里,所以「免费兑现」
             // (立即结算也不掉层)也一并生效——这是规格 §4.2 那条爆发链的根
-            if (!enemy.Statuses.Has(StatusKind.BurnNoDecay))
+            // decay = false(D1 Task 5,KeepStacks 引燃):只结算伤害、不减层
+            if (decay && !enemy.Statuses.Has(StatusKind.BurnNoDecay))
             {
                 burn.Magnitude -= 1;
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
@@ -3863,6 +3954,17 @@ namespace Brushblade.Core
                 // 钩子口径:钳位后总层数没涨(满层再施加 / 灯花刷新到不高于现有层数)不发 StatusApplied。
                 // 照常写袋子、返回值不变(与 GainStacks 的 raiseHook 同口径)。
                 if (effect.Magnitude <= (bag.Find(StatusKind.Burn)?.Magnitude ?? 0)) raiseHook = false;
+            }
+            else if (effect.Kind == StatusKind.Curse)
+            {
+                // 减攻同源刷新取强(D1 Task 5,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
+                // 同源 = 同 Kind + 同 SourceId(bag.Apply 的去重键),不同来源各自并存。
+                var existing = bag.All.FirstOrDefault(s => s.Kind == StatusKind.Curse && s.SourceId == effect.SourceId);
+                if (existing != null)
+                {
+                    effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
+                    effect.TurnsLeft = Math.Max(effect.TurnsLeft, existing.TurnsLeft);
+                }
             }
             bag.Apply(effect);
             if (raiseHook) Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);

@@ -81,6 +81,9 @@ namespace Brushblade.Data
             // D1 Task 4:Augment 叠加修饰器(`Augment 1` + `of Block` + `field Count`)
             public string AugmentKind { get; set; }    // 目标效果 Kind
             public string AugmentField { get; set; }   // Count / Turns / Shots
+            // D1 Task 5:效果目标选择器与不减层结算
+            public string Pick { get; set; }           // Primary(缺省)/ All / Random / HitTargets / MostBurn / FrozenByThisCast
+            public bool KeepStacks { get; set; }       // BurnSettleNow:结算一次但不减层
         }
 
         private sealed class CampaignFileDto
@@ -658,9 +661,20 @@ namespace Brushblade.Data
                 if (!string.IsNullOrEmpty(effect.Scope)
                     && (!Enum.TryParse(effect.Scope, out scope) || !Enum.IsDefined(typeof(AmpScope), scope)))
                     throw new ConfigException($"字「{dto.Id}」的 Amplify scope 未知:{effect.Scope}");
-                // OnlyIf 目前只有 Amplify 读;写在别的效果上会被引擎静默忽略 —— 先拦下(条件门 M24 落地时放开)
-                if (!string.IsNullOrEmpty(effect.OnlyIf) && kind != EffectKind.Amplify)
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(目前只有 Amplify 能带条件)");
+                // OnlyIf 只有 Amplify 与认选择器的敌方侧效果读(EffectPickRules.Supports);写在别的效果上会被引擎静默忽略 —— 拦下
+                if (!string.IsNullOrEmpty(effect.OnlyIf) && kind != EffectKind.Amplify && !EffectPickRules.Supports(kind))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(只有 Amplify 与敌方侧效果能带条件)");
+                var pick = EffectPick.Primary;
+                if (!string.IsNullOrEmpty(effect.Pick))
+                {
+                    // 与 Shape 同一个坑:Enum.TryParse 放数字字符串过关,叠加 IsDefined
+                    if (!Enum.TryParse(effect.Pick, out pick) || !Enum.IsDefined(typeof(EffectPick), pick))
+                        throw new ConfigException($"字「{dto.Id}」的目标选择器未知:{effect.Pick}");
+                    if (pick != EffectPick.Primary && !EffectPickRules.Supports(kind))
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(目标选择器只支持敌方侧的灼/流血/冻结/减速/破甲/致盲/减攻/结算灼/引爆)");
+                }
+                if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 var augmentKind = EffectKind.DamageSingle;
@@ -698,7 +712,7 @@ namespace Brushblade.Data
                     effect.ArmorStrikePercent,
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
-                    augmentKind, augmentField));
+                    augmentKind, augmentField, pick, effect.KeepStacks));
             }
             return effects;
         }

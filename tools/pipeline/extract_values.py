@@ -91,8 +91,10 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # 加速/急速(2026-09-16,水,EffectKind.Haste):Value=百分比(50/100)、Turns=持续回合数,
 # 与 CritBuff/DefenseBuff 同型——带数值又带 turns,漏进这张白名单的后果同 `壁` 那次:
 # turns 写了没人吃,静默消失。
+# 减攻(D1 Task 5,EffectKind.Weaken):Value = 百分点、Turns = 回合,漏写 turns 引擎兜成 1 回合 ——
+# 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak", "Haste"}
+                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken"}
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 TURN_TAKING_KINDS = DURATION_KINDS
@@ -167,6 +169,55 @@ AUGMENT_FIELD_TOKEN = "field"
 AUGMENT_FIELDS = {"Count", "Turns", "Shots"}
 RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
+# D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
+# 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
+PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
+              "BurnSettleNow", "Detonate"}
+PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
+PICK_TOKEN = "pick"
+KEEP_TOKEN = "keep"
+
+
+def _positional_hosts(config, effects):
+    """认选择器的效果(PICK_KINDS)在配置格里的位置:[(pos, effect)],按位置升序。
+    修饰 token 挂**它前面最近的**那条效果(`Slow 1` + `pick Random` 的 pick 属于 Slow)。
+    同一格里同 Kind 出现两次时,后一条从前一条之后开始找位置。"""
+    found, cursor = [], {}
+    for e in effects:
+        kind = e["kind"]
+        if kind not in PICK_KINDS:
+            continue
+        needles = [f"`{kind} ", f"`{kind}`"] + (["`DetonateAll`"] if kind == "Detonate" else [])
+        start = cursor.get(kind, 0)
+        hits = [pos for pos in (config.find(n, start) for n in needles) if pos >= 0]
+        if not hits:
+            continue
+        pos = min(hits)
+        cursor[kind] = pos + 1
+        found.append((pos, e))
+    return sorted(found, key=lambda t: t[0])
+
+
+def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None):
+    """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS 效果上。parse(raw) 返回要写进字段的值。"""
+    pattern = rf"`{token}(?: (\w+))?`"
+    hosts = _positional_hosts(config, effects)
+    seen = set()
+    for m in re.finditer(pattern, config):
+        consumed.add(token)
+        before = [e for pos, e in hosts if pos < m.start()]
+        if not before:
+            raise ValueError(
+                f"{char}:配置格「{config}」写了 `{token}`,但它前面没有可挂的效果"
+                f"(只认 {sorted(PICK_KINDS)})—— 它会静默消失。")
+        host = before[-1]
+        if allowed_kinds is not None and host["kind"] not in allowed_kinds:
+            raise ValueError(f"{char}:`{token}` 只能挂在 {sorted(allowed_kinds)} 上,当前挂到了 {host['kind']}")
+        if id(host) in seen or field in host:
+            raise ValueError(f"{char}:配置格「{config}」里同一条 {host['kind']} 写了多个 `{token}`,只能有一个")
+        seen.add(id(host))
+        host[field] = parse(m.group(1))
+
 
 def _attach_modifier_tokens(config, char, effects, consumed):
     """D1 Task 3:把修饰 token 挂到同格的修饰器上(与 `turns` / `Pierce` 同一套「挂在本格效果上」的机制)。
@@ -188,6 +239,8 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         found = re.search(rf"`{token} (\w+)`", config)
         if not found:
             continue
+        if token == ONLY_IF_TOKEN and not amps:
+            continue   # 没有 Amplify:条件门挂在前一条敌方侧效果上(下面的 _attach_positional)
         consumed.add(token)
         # 同格多个 scope / if:只认第一个会让后面的静默消失 —— 一格一条 Amplify 一个条件,多了就拆格
         if len(re.findall(rf"`{token} \w+`", config)) > 1:
@@ -197,6 +250,22 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         need(amps, token, " Amplify")
         for e in amps:
             e[field] = found.group(1)
+
+    def _parse_condition(raw):
+        if raw not in CONDITIONS:
+            raise ValueError(f"{char}:`if {raw}` 的取值未知,只认 {sorted(CONDITIONS)}")
+        return raw
+
+    def _parse_pick(raw):
+        if raw not in PICKS:
+            raise ValueError(f"{char}:`pick {raw}` 的取值未知,只认 {sorted(PICKS)}")
+        return raw
+
+    if not amps:
+        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition)
+    _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
+    _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
+                       allowed_kinds={"BurnSettleNow"})
 
     augments = [e for e in effects if e["kind"] == "Augment"]
     for token, field, allowed in ((AUGMENT_OF_TOKEN, "augmentKind", None),
