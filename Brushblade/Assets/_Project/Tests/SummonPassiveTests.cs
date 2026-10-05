@@ -252,6 +252,20 @@ namespace Brushblade.Core.Tests
             Assert.That(enemy.Attack, Is.EqualTo(6), "两只槐仍是 −25%,不叠成 −50%");
         }
 
+        /// <summary>Ruling 18:减攻多来源取最强(与标记 / 本回合减伤同口径),不相加。</summary>
+        [Test]
+        public void Curse_TwoSources_TakesTheStronger_NotSum()
+        {
+            var enemy = CursedEnemy(100, 20, "槐");
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                Magnitude = 30, TurnsLeft = 2, SourceId = "崩",
+            });
+            Assert.That(enemy.Statuses.All.Count(s => s.Kind == StatusKind.Curse), Is.EqualTo(2), "不同来源各自并存");
+            Assert.That(enemy.Attack, Is.EqualTo(70), "100 × (100 − max(20, 30)) ÷ 100 = 70,不是 −50%");
+        }
+
         [Test]
         public void Curse_ShareOneAxisWithAttackBuff() // 原名 Curse_AppliesAfterAttackBuff
         {

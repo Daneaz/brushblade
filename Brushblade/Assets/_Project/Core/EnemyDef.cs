@@ -400,6 +400,7 @@ namespace Brushblade.Core
         public int BaseAttack { get; internal set; }
 
         /// <summary>当前攻击 = 基础攻击 × (100 + 攻击增益% − 诅咒%) ÷ 100,向下取整、下限 0。
+        /// 诅咒(减攻)多来源取最强的一条,不相加(Ruling 18,与标记 / 本回合减伤同口径);攻击增益仍相加。
         ///
         /// AttackBuff 与 Curse 都是**百分点**,同一根轴上直接加减(2026-08-12,E-b4 T0.5)——
         /// 与玩家侧 <c>BattleEngine.EffectiveAttack</c> 同形,敌我两侧的 AttackBuff 从此是同一个单位。
@@ -424,7 +425,7 @@ namespace Brushblade.Core
             {
                 int percent = 100
                     + Statuses.TotalMagnitude(StatusKind.AttackBuff)
-                    - Statuses.TotalMagnitude(StatusKind.Curse);
+                    - Statuses.MaxMagnitude(StatusKind.Curse);   // 多来源取最强,不相加(Ruling 18)
                 return Math.Max(0, BaseAttack * percent / 100);
             }
         }
