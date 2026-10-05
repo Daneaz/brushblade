@@ -254,6 +254,7 @@ namespace Brushblade.Balance
                 }
             }
 
+            bool playedElementFaceThisTurn = false;
             while (battle.Phase == BattlePhase.PlayerTurn && battle.Ap > 0)
             {
                 // ---- 双方向字的选面规则(2026-09-08,P3;design §10.5)----
@@ -276,7 +277,11 @@ namespace Brushblade.Balance
                 // 2026-09-17(用户拍板):补一条「身上已有盾 → 出攻面」。土系护面只加盾不回血,
                 // 原规则下一掉到半血就永远只出盾不出手(土系画像僵局判死 187/300),量的是机器人
                 // 自缚而不是土系强弱。水系护面回血会把血线拉回来,这一条对它基本不触发。
-                bool preferAttackFace = battle.PlayerHp * 2 > battle.MaxHp || battle.PlayerShield > 0;
+                // 2026-10-05(Task 10 修复,Ruling 15):护盾回合末清空后,「身上有盾」不再能跨回合延续,
+                // 旧判据(PlayerShield > 0)会逼机器人每回合补盾。改为与护盾状态无关的防僵局写法:
+                // 血量 ≤ 一半且**本回合还没出过五行面(护面)**时才优先五行面,否则攻面;
+                // 「本回合已出过」由这里自己记(下面 playedElementFaceThisTurn),不读引擎。
+                bool preferAttackFace = battle.PlayerHp * 2 > battle.MaxHp || playedElementFaceThisTurn;
 
                 string pick = null;
                 int pickPower = -1;
@@ -299,6 +304,7 @@ namespace Brushblade.Balance
                 int target = BattleEngine.NeedsTarget(pickDef, pickAttackFace) ? PickTarget(battle) : -1;
                 if (battle.Cast(pick, target, attackMode: pickAttackFace) != BattleError.None) break;
                 if (pickAttackFace) probe.AttackFaceCasts++;
+                else if (pickDef.AttackEffects.Count > 0) playedElementFaceThisTurn = true;   // 双方向字出了五行(护)面
                 // 取面口径同 Power():有攻面且选了攻面才读 AttackEffects
                 var castEffects = pickAttackFace && pickDef.AttackEffects.Count > 0 ? pickDef.AttackEffects : pickDef.Effects;
                 if (castEffects.Any(e => e.Kind == EffectKind.Summon))
