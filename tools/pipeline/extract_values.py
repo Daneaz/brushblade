@@ -160,6 +160,11 @@ AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All"}
 CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Frozen",
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
               "FirstCastThisTurn", "Countering"}
+# D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
+# `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一格一条 Augment,缺哪个都报错)。
+AUGMENT_OF_TOKEN = "of"
+AUGMENT_FIELD_TOKEN = "field"
+AUGMENT_FIELDS = {"Count", "Turns", "Shots"}
 RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 
@@ -192,6 +197,23 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         need(amps, token, " Amplify")
         for e in amps:
             e[field] = found.group(1)
+
+    augments = [e for e in effects if e["kind"] == "Augment"]
+    for token, field, allowed in ((AUGMENT_OF_TOKEN, "augmentKind", None),
+                                  (AUGMENT_FIELD_TOKEN, "augmentField", AUGMENT_FIELDS)):
+        found = re.findall(rf"`{token} (\w+)`", config)
+        if found:
+            consumed.add(token)
+        if len(found) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{token}`,一格只能有一条 Augment")
+        if found and not augments:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token} {found[0]}`,但本格没有 Augment —— 它会静默消失。")
+        if found and allowed is not None and found[0] not in allowed:
+            raise ValueError(f"{char}:`{token} {found[0]}` 的取值未知,只认 {sorted(allowed)}")
+        if augments and not found:
+            raise ValueError(f"{char}:配置格「{config}」的 Augment 缺 `{token} X`")
+        for e in augments:
+            e[field] = found[0]
 
     shape = re.search(rf"`{RESHAPE_SHAPE_TOKEN} (\w+)`", config)
     if shape:

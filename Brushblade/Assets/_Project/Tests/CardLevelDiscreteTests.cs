@@ -46,6 +46,8 @@ namespace Brushblade.Core.Tests
             EffectKind.Dispel, EffectKind.ApBoost, EffectKind.Charm,
             // 修饰器(D1 Task 3):百分点按池档位定值、不吃卡等级;出字前被 Fold 折叠,不进结算
             EffectKind.Amplify, EffectKind.Reshape,
+            // Augment(D1 Task 4):Value 是加几次 / 几回合 / 几跳,离散量;出字前被 Fold 折叠,不进结算
+            EffectKind.Augment,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

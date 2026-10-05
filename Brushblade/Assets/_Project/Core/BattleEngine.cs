@@ -1685,7 +1685,7 @@ namespace Brushblade.Core
 
         /// <summary>该字的实际出字效果:攻击模式下优先用 AttackEffects(水/土 的第二用法),
         /// 没有第二用法就照常;都没有效果的用兜底一击。</summary>
-        private static IReadOnlyList<EffectDef> EffectsOf(CharDef def, bool attackMode = false)
+        internal static IReadOnlyList<EffectDef> EffectsOf(CharDef def, bool attackMode = false)
         {
             if (attackMode && def.AttackEffects.Count > 0) return def.AttackEffects;
             return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
@@ -1695,7 +1695,7 @@ namespace Brushblade.Core
         /// 没有特性时与 EffectsOf 逐项相同 —— 恒等。
         /// 修饰器(Amplify / Reshape)由 TraitRules.Fold 折叠进去,不进结算循环(D1 Task 3)。</summary>
         private static List<EffectDef> CastEffectsOf(CharDef def, bool attackMode, int cardLevel) =>
-            TraitRules.Fold(EffectsOf(def, attackMode), def, FaceOf(def, attackMode), cardLevel);
+            TraitRules.CastEffects(def, FaceOf(def, attackMode), cardLevel);
 
         /// <summary>本次出手落在哪一面:攻击模式且有攻击面效果 = Attack,否则 Feature(与 EffectsOf 同口径)。</summary>
         public static CardFace FaceOf(CharDef def, bool attackMode) =>

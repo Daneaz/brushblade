@@ -172,6 +172,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Block,
                 // 修饰器(D1 Task 3):出字前被 TraitRules.Fold 折叠掉,不进结算、没有量值可放大。
                 EffectKind.Amplify, EffectKind.Reshape,
+                // Augment(D1 Task 4):同修饰器,出字前折叠掉,不进结算、没有量值可放大。
+                EffectKind.Augment,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

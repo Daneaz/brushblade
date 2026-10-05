@@ -78,6 +78,9 @@ namespace Brushblade.Data
             public bool ForceCrit { get; set; }        // 必定暴击
             public int ArmorIgnorePercent { get; set; } // 无视目标 N% 护甲
             public int ShieldStrikePercent { get; set; } // 额外 + 我方护盾 N%
+            // D1 Task 4:Augment 叠加修饰器(`Augment 1` + `of Block` + `field Count`)
+            public string AugmentKind { get; set; }    // 目标效果 Kind
+            public string AugmentField { get; set; }   // Count / Turns / Shots
         }
 
         private sealed class CampaignFileDto
@@ -660,6 +663,30 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(目前只有 Amplify 能带条件)");
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
+                var augmentKind = EffectKind.DamageSingle;
+                var augmentField = AugmentField.Count;
+                bool hasAugmentFields = !string.IsNullOrEmpty(effect.AugmentKind) || !string.IsNullOrEmpty(effect.AugmentField);
+                if (hasAugmentFields && kind != EffectKind.Augment)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 augmentKind / augmentField(只有 Augment 读它们)");
+                if (kind == EffectKind.Augment)
+                {
+                    if (!Enum.TryParse(effect.AugmentKind, out augmentKind) || !Enum.IsDefined(typeof(EffectKind), augmentKind)
+                        || augmentKind == EffectKind.Augment)
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 目标效果未知:{effect.AugmentKind}(写 of <Kind>)");
+                    if (!Enum.TryParse(effect.AugmentField, out augmentField) || !Enum.IsDefined(typeof(AugmentField), augmentField))
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 字段未知:{effect.AugmentField}(写 field Count|Turns|Shots)");
+                    // 组合写错会在引擎里静默空转 —— 加载期拦下
+                    bool ok = augmentField switch
+                    {
+                        AugmentField.Count => augmentKind == EffectKind.Block,
+                        AugmentField.Turns => TraitRules.HasTurns(augmentKind),
+                        _ => augmentKind == EffectKind.DamageSingle || augmentKind == EffectKind.HealSelf,
+                    };
+                    if (!ok)
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 组合无效:{augmentKind} 没有 {augmentField} 字段可加");
+                    if (effect.Value < 1)
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 加量至少为 1,当前:{effect.Value}");
+                }
                 effects.Add(new EffectDef(kind, effect.Value,
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
@@ -670,7 +697,8 @@ namespace Brushblade.Data
                     shape, effect.ShapePercent, effect.Shots, effect.TrueDamage,
                     effect.ArmorStrikePercent,
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
-                    effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent));
+                    effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
+                    augmentKind, augmentField));
             }
             return effects;
         }

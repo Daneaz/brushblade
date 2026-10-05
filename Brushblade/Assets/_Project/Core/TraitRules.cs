@@ -3,32 +3,76 @@ using System.Linq;
 
 namespace Brushblade.Core
 {
-    /// <summary>特性解锁规则(spec v7 §1):等级达到槽位值即解锁;被同一作用面上更高槽位 Replaces 的不再生效;
-    /// 结果按槽位升序。</summary>
+    /// <summary>特性解锁规则(spec v7 §1):等级达到槽位值即解锁;被同一作用面上更高槽位 Replaces 的不再生效
+    /// (Lv1 例外,见 Unlocked);结果按槽位升序。</summary>
     public static class TraitRules
     {
+        /// <summary>已解锁的特性,按槽位升序。被同一作用面上更高槽位 Replaces 的不再返回 ——
+        /// **Lv1 例外**(D1 Task 4):被 Lv3 替换的 Lv1 仍返回(UI 要显示关键词名);
+        /// 它的效果不参与出字,见 <see cref="Superseded"/>。</summary>
         public static IReadOnlyList<TraitDef> Unlocked(CharDef def, int cardLevel)
         {
             var unlocked = def.Traits.Where(t => t.UnlockLevel <= cardLevel).ToList();
             var replaced = new HashSet<(TraitSlot, TraitFace)>(
-                unlocked.Where(t => t.Replaces.HasValue).Select(t => (t.Replaces.Value, t.Face)));
+                unlocked.Where(t => t.Replaces.HasValue && t.Replaces.Value != TraitSlot.Lv1)
+                    .Select(t => (t.Replaces.Value, t.Face)));
             return unlocked.Where(t => !replaced.Contains((t.Slot, t.Face))).OrderBy(t => (int)t.Slot).ToList();
         }
 
-        public static IReadOnlyList<TraitDef> ActiveTraits(CharDef def, CardFace face, int cardLevel) =>
-            Unlocked(def, cardLevel).Where(t => t.Form == TraitForm.Active && t.AppliesTo(face)).ToList();
+        /// <summary>被同一作用面上更高槽位 Replaces 的特性(含 Lv1):效果不参与出字。
+        /// Lv1 被 Lv3 替换时,Lv3 的效果以「按 Kind 替换本体」的方式生效(见 <see cref="Fold"/>)。</summary>
+        private static HashSet<(TraitSlot, TraitFace)> Superseded(IReadOnlyList<TraitDef> unlocked) =>
+            new(unlocked.Where(t => t.Replaces.HasValue).Select(t => (t.Replaces.Value, t.Face)));
 
-        /// <summary>修饰器:出字前折叠进本体,不进结算循环(D1 Task 3)。</summary>
+        public static IReadOnlyList<TraitDef> ActiveTraits(CharDef def, CardFace face, int cardLevel)
+        {
+            var unlocked = Unlocked(def, cardLevel);
+            var superseded = Superseded(unlocked);
+            return unlocked.Where(t => t.Form == TraitForm.Active && t.AppliesTo(face)
+                && !superseded.Contains((t.Slot, t.Face))).ToList();
+        }
+
+        /// <summary>修饰器:出字前折叠进本体,不进结算循环(D1 Task 3 / 4)。</summary>
         public static bool IsModifier(EffectKind kind) =>
-            kind == EffectKind.Amplify || kind == EffectKind.Reshape;
+            kind == EffectKind.Amplify || kind == EffectKind.Reshape || kind == EffectKind.Augment;
 
-        /// <summary>本次出字实际结算的效果表(D1 Task 3):
-        /// ① 本体在前,已解锁、面匹配的**主动**特性按槽位追加在后(spec v7 R3);
-        /// ② 修饰器(本体里、主动特性里、出字时机的被动特性里)按出现顺序收集,逐条按类型分派折叠到 ① 上;
-        /// ③ 修饰器本身不进结果。
+        /// <summary>该字这一面本次出字实际结算的效果表(D1 Task 4,取代 BattleEngine.CastEffectsOf 里的拼装)。
+        /// 本体取法与 <c>BattleEngine.EffectsOf</c> 一致(攻击面空 / 效果空时走兜底一击)。</summary>
+        public static List<EffectDef> CastEffects(CharDef def, CardFace face, int cardLevel) =>
+            Fold(BattleEngine.EffectsOf(def, face == CardFace.Attack), def, face, cardLevel);
+
+        // ---- Augment 的「回合」字段:表驱动,值 = 回合是否放在 Value 上(否则在 Turns 上)----
+        // 新增带回合的 kind(Weaken、种……)时在这里加一行。
+        private static readonly Dictionary<EffectKind, bool> TurnsInValue = new()
+        {
+            [EffectKind.Freeze] = true,
+            [EffectKind.Slow] = true,
+            [EffectKind.DefenseBuff] = false,
+            [EffectKind.ArmorBreak] = false,
+            [EffectKind.HealOverTime] = false,
+        };
+
+        public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);
+
+        /// <summary>该效果的回合数(按 kind 自动取 Value 或 Turns);表外的 kind 返回 0。</summary>
+        public static int TurnsOf(EffectDef e) =>
+            !TurnsInValue.TryGetValue(e.Kind, out bool inValue) ? 0 : inValue ? e.Value : e.Turns;
+
+        /// <summary>回合数 + <paramref name="add"/> 的副本;表外的 kind 原样返回。</summary>
+        public static EffectDef WithTurns(EffectDef e, int add) =>
+            !TurnsInValue.TryGetValue(e.Kind, out bool inValue) ? e
+            : inValue ? e.With(value: e.Value + add) : e.With(turns: e.Turns + add);
+
+        /// <summary>本次出字实际结算的效果表(D1 Task 3 / 4),按顺序:
+        /// ① 本体复制一份;
+        /// ② 已解锁、面匹配、出字时机、<c>Replaces == Lv1</c> 的特性:每条效果替换本体里**第一条同 Kind** 的效果(同位置),
+        ///    没有同 Kind 就追加到末尾;被 Replaces 的 Lv1 特性自己的效果不执行;
+        /// ③ 其余已解锁、面匹配的**主动**特性效果按槽位追加(R3);
+        /// ④ 修饰器(本体里、特性里、出字时机的被动特性里)按出现顺序逐条折叠:Amplify / Reshape / Augment,
+        ///    修饰器本身不进结果。
         ///
         /// 纯函数:不改 <paramref name="body"/> 与特性里的任何 EffectDef(它们是字表共享对象),
-        /// 被修饰的效果换成 <see cref="EffectDef.With"/> 产出的副本。没有修饰器时结果与
+        /// 被修饰的效果换成 <see cref="EffectDef.With"/> 产出的副本。没有修饰器、没有 Lv3 替换时结果与
         /// 「本体 + 主动特性」逐项同一对象 —— 恒等。</summary>
         public static List<EffectDef> Fold(IReadOnlyList<EffectDef> body, CharDef def, CardFace face, int cardLevel)
         {
@@ -36,12 +80,26 @@ namespace Brushblade.Core
             var modifiers = new List<EffectDef>();
             foreach (var e in body)
                 (IsModifier(e.Kind) ? modifiers : effects).Add(e);
-            foreach (var t in Unlocked(def, cardLevel))
+            var unlocked = Unlocked(def, cardLevel);
+            var superseded = Superseded(unlocked);
+            var touched = new HashSet<int>();   // 已被替换 / 刚追加的位置:同一条 Lv3 里的两条同 Kind 不互相覆盖
+            foreach (var t in unlocked)
             {
                 if (!t.AppliesTo(face) || t.Trigger != TraitTrigger.Cast) continue;
+                if (superseded.Contains((t.Slot, t.Face))) continue;
+                bool replacesLv1 = t.Replaces == TraitSlot.Lv1;
                 foreach (var e in t.Effects)
                 {
-                    if (IsModifier(e.Kind)) modifiers.Add(e);
+                    if (IsModifier(e.Kind)) { modifiers.Add(e); continue; }
+                    if (replacesLv1)
+                    {
+                        int at = -1;
+                        for (int i = 0; i < effects.Count; i++)
+                            if (effects[i].Kind == e.Kind && !touched.Contains(i)) { at = i; break; }
+                        if (at >= 0) effects[at] = e;
+                        else { effects.Add(e); at = effects.Count - 1; }
+                        touched.Add(at);
+                    }
                     // 被动特性的非修饰效果仍不在出字时执行(附着类留给后续任务)
                     else if (t.Form == TraitForm.Active) effects.Add(e);
                 }
@@ -52,9 +110,31 @@ namespace Brushblade.Core
                 {
                     case EffectKind.Amplify: ApplyAmplify(effects, m); break;
                     case EffectKind.Reshape: ApplyReshape(effects, m); break;
+                    case EffectKind.Augment: ApplyAugment(effects, m); break;
                 }
             }
             return effects;
+        }
+
+        /// <summary>Augment:本面**第一条** Kind == AugmentKind 的效果,对应字段 + Value。找不到 / 该 kind 没有这个字段 → 空转。</summary>
+        private static void ApplyAugment(List<EffectDef> effects, EffectDef aug)
+        {
+            int at = effects.FindIndex(e => e.Kind == aug.AugmentKind);
+            if (at < 0) return;
+            var target = effects[at];
+            switch (aug.AugmentField)
+            {
+                case AugmentField.Count:
+                    if (target.Kind == EffectKind.Block) effects[at] = target.With(value: target.Value + aug.Value);
+                    break;
+                case AugmentField.Turns:
+                    effects[at] = WithTurns(target, aug.Value);
+                    break;
+                case AugmentField.Shots:
+                    if (target.Kind == EffectKind.DamageSingle || target.Kind == EffectKind.HealSelf)
+                        effects[at] = target.With(shots: target.Shots + aug.Value);
+                    break;
+            }
         }
 
         /// <summary>Amplify:本面每条 scope 匹配的效果挂一项 (百分点, 条件)。不在这里求值 ——

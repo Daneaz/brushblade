@@ -187,6 +187,8 @@ namespace Brushblade.Presentation
                     // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
                     EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
                     EffectKind.Reshape => ReshapeText(e),
+                    // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
+                    EffectKind.Augment => AugmentText(e),
                     _ => e.Kind.ToString(),
                 });
             }
@@ -315,6 +317,30 @@ namespace Brushblade.Presentation
             DamageCondition.Countering => Strings.T("char.effect.onlyif.countering"),
             _ => "",
         };
+
+        /// <summary>Augment(D1 Task 4):「{目标}{字段}+{N}」。目标名与字段名各走一条完整 key,
+        /// 不拼接动态 key(字符串表检查只认字面量)。</summary>
+        private static string AugmentText(EffectDef e)
+        {
+            string target = e.AugmentKind switch
+            {
+                EffectKind.Block => Strings.T("char.effect.augment.target.block"),
+                EffectKind.Freeze => Strings.T("char.effect.augment.target.freeze"),
+                EffectKind.Slow => Strings.T("char.effect.augment.target.slow"),
+                EffectKind.DefenseBuff => Strings.T("char.effect.augment.target.defensebuff"),
+                EffectKind.ArmorBreak => Strings.T("char.effect.augment.target.armorbreak"),
+                EffectKind.HealOverTime => Strings.T("char.effect.augment.target.healovertime"),
+                EffectKind.HealSelf => Strings.T("char.effect.augment.target.healself"),
+                _ => Strings.T("char.effect.augment.target.damage"),
+            };
+            string field = e.AugmentField switch
+            {
+                AugmentField.Turns => Strings.T("char.effect.augment.field.turns"),
+                AugmentField.Shots => Strings.T("char.effect.augment.field.shots"),
+                _ => Strings.T("char.effect.augment.field.count"),
+            };
+            return Strings.T("char.effect.augment", ("target", target), ("field", field), ("value", e.Value));
+        }
 
         /// <summary>Reshape(D1 Task 3):「伤害改为 + 形状 + 改动的修饰」。只印 Reshape 上非缺省的字段,
         /// 与引擎 TraitRules.Fold 的覆盖口径一致。</summary>

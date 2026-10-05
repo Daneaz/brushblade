@@ -806,6 +806,8 @@ namespace Brushblade.Core
             // 修饰器(D1 Task 3):Value 是加成百分点,按池档位定值、不随卡等级涨(spec D7);
             // 它们在出字前被 TraitRules.Fold 折叠掉,本来也走不到 ScaleEffectValue —— 归这里只为口径明确。
             EffectKind.Amplify or EffectKind.Reshape => false,
+            // Augment(D1 Task 4):Value 是「加几次 / 几回合 / 几跳」,离散量。
+            EffectKind.Augment => false,
             _ => true,
         };
 

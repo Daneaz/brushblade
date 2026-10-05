@@ -89,7 +89,8 @@ namespace Brushblade.Core.Tests
         public void TraitRules_Unlocked_RespectsLevelAndReplacement()
         {
             var slots = TraitRules.Unlocked(Char(), 3).Select(t => t.Slot).ToList();
-            Assert.That(slots.Contains(TraitSlot.Lv1), Is.False);
+            // D1 Task 4:被 Lv3 替换的 Lv1 仍返回(UI 要显示关键词);效果不参与出字(见 Level3_ReplacesLv1)
+            Assert.That(slots.Contains(TraitSlot.Lv1), Is.True);
             Assert.That(slots.Contains(TraitSlot.Lv3), Is.True);
             Assert.That(slots.Contains(TraitSlot.Lv5), Is.False);
         }

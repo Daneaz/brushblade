@@ -405,3 +405,23 @@ def test_unknown_lowercase_modifier_token_raises():
     with pytest.raises(Exception) as err:
         _parse_effects("`Reshape` + `forcecrit`", "测")
     assert "forcecrit" in str(err.value)
+
+
+# ---- D1 Task 4:Augment 叠加修饰器的 `of X` / `field Y` token ----
+
+def test_augment_with_of_and_field():
+    assert _parse_effects("`Augment 1` + `of Block` + `field Count`", "铠") == [
+        {"kind": "Augment", "value": 1, "augmentKind": "Block", "augmentField": "Count"}]
+
+
+@pytest.mark.parametrize("config,needle", [
+    ("`Augment 1` + `of Block`", "field"),                      # 缺 field
+    ("`Augment 1` + `field Count`", "of"),                      # 缺 of
+    ("`Augment 1` + `of Block` + `field Bogus`", "Bogus"),      # field 取值未知
+    ("`Shield 30` + `of Block`", "of"),                         # 没有 Augment 可挂
+    ("`Augment 1` + `of Block` + `of Freeze` + `field Count`", "of"),   # 同格多个
+])
+def test_augment_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

@@ -102,6 +102,17 @@ namespace Brushblade.Core
         Reshape,      // 本字修饰器(D1 Task 3,附录 M2/M3):改本面**第一条** DamageSingle 的形状 /
                       // 击数 / 每击百分比 / 伤害标记 —— Reshape 上非缺省的字段覆盖原值。本面没有
                       // DamageSingle 时空转。同样由 Fold 折叠,不进结算循环。
+        Augment,      // 本字叠加修饰器(D1 Task 4,附录 M4):Value = 加多少,AugmentKind / AugmentField 指明
+                      // 加在本面**第一条**该 Kind 效果的哪个字段(次数 / 回合 / 跳数)。找不到同 Kind 空转。
+                      // 由 Fold 折叠,不进结算循环;离散量,不吃卡等级。
+    }
+
+    /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
+    public enum AugmentField
+    {
+        Count,  // 次数(Block 的次数,在 Value 上)
+        Turns,  // 回合(Freeze / Slow 在 Value 上,DefenseBuff / ArmorBreak / HealOverTime 在 Turns 上,见 TraitRules.TurnsOf)
+        Shots,  // 跳数 / 发数(Shots)
     }
 
     /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
@@ -246,6 +257,12 @@ namespace Brushblade.Core
         /// 额外 + 玩家护盾(两桶之和,出手那一刻)× N%;全体(All)时每个目标都是主目标。0 = 不启用。</summary>
         public int ShieldStrikePercent { get; }
 
+        /// <summary>Augment 的目标效果 Kind(D1 Task 4)。其余 kind 不读。</summary>
+        public EffectKind AugmentKind { get; }
+
+        /// <summary>Augment 加在目标效果的哪个字段(D1 Task 4)。其余 kind 不读。</summary>
+        public AugmentField AugmentField { get; }
+
         /// <summary>Fold 挂上来的加成项:(百分点, 条件)。字表对象恒为空表;只有 Fold 产出的副本非空。
         /// internal:表现层不读它(卡面读的是 Amplify 效果本身)。</summary>
         internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
@@ -262,7 +279,8 @@ namespace Brushblade.Core
             TargetArea shape = TargetArea.Single, int shapePercent = 100, int shots = 0,
             bool trueDamage = false, int armorStrikePercent = 0,
             AmpScope scope = AmpScope.Damage, DamageCondition onlyIf = DamageCondition.None,
-            int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0)
+            int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
+            EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count)
         {
             Kind = kind;
             Value = value;
@@ -291,20 +309,24 @@ namespace Brushblade.Core
             ForceCrit = forceCrit;
             ArmorIgnorePercent = armorIgnorePercent;
             ShieldStrikePercent = shieldStrikePercent;
+            AugmentKind = augmentKind;
+            AugmentField = augmentField;
         }
 
-        /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用):字表里的 EffectDef 是多张字 / 多场战斗
+        /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
         /// 共享的不可变对象,折叠一律产出新对象,绝不改原件。null = 沿用原值。</summary>
         internal EffectDef With(TargetArea? shape = null, int? shapePercent = null, int? shots = null,
             int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
-            IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null) =>
-            new EffectDef(Kind, Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
-                Turns, TargetAll, Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
+            IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null,
+            int? value = null, int? turns = null) =>
+            new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
+                turns ?? Turns, TargetAll, Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
-                armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent)
+                armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
+                AugmentKind, AugmentField)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
             };
