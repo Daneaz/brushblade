@@ -16,7 +16,9 @@ RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "
 # 那才是这条闸原先真正防的东西,见那里的注释)。
 # 木系(2026-09-27):召唤字改双面 —— 护面 = 召唤,攻面 = 单体伤害(详表 §三 三张召唤表
 # 多挂的那格「攻击效果配置」)。纯攻击字 花 只有一个反引号格,不受影响。
-DUAL_DIRECTION_ELEMENTS = {"水", "土", "金", "木"}
+# 火系(2026-10-05,D1 Task 11):为 Task 12 把火字拆攻 / 燃两面预备;现有火表没有第二个
+# 反引号格(实现格之前),加进来不改变任何已有输出。
+DUAL_DIRECTION_ELEMENTS = {"水", "土", "金", "木", "火"}
 
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
@@ -173,7 +175,7 @@ CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Fro
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
               "FirstCastThisTurn", "Countering"}
 # D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
-# `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一格一条 Augment,缺哪个都报错)。
+# `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
 AUGMENT_FIELD_TOKEN = "field"
 AUGMENT_FIELDS = {"Count", "Turns", "Shots"}
@@ -301,16 +303,17 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         found = re.findall(rf"`{token} (\w+)`", config)
         if found:
             consumed.add(token)
-        if len(found) > 1:
-            raise ValueError(f"{char}:配置格「{config}」写了多个 `{token}`,一格只能有一条 Augment")
+        if len(found) > len(augments) and augments:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{token}`,一条 Augment 只能配一个")
         if found and not augments:
             raise ValueError(f"{char}:配置格「{config}」写了 `{token} {found[0]}`,但本格没有 Augment —— 它会静默消失。")
-        if found and allowed is not None and found[0] not in allowed:
-            raise ValueError(f"{char}:`{token} {found[0]}` 的取值未知,只认 {sorted(allowed)}")
-        if augments and not found:
+        if augments and len(found) < len(augments):
             raise ValueError(f"{char}:配置格「{config}」的 Augment 缺 `{token} X`")
-        for e in augments:
-            e[field] = found[0]
+        # 一格可有多条 Augment(冰锁:冻结、减速各 +1),of / field 按出现顺序一一对应
+        for e, value in zip(augments, found):
+            if allowed is not None and value not in allowed:
+                raise ValueError(f"{char}:`{token} {value}` 的取值未知,只认 {sorted(allowed)}")
+            e[field] = value
 
     shape = re.search(rf"`{RESHAPE_SHAPE_TOKEN} (\w+)`", config)
     if shape:
