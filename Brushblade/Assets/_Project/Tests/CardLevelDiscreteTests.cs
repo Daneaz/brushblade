@@ -55,6 +55,8 @@ namespace Brushblade.Core.Tests
             EffectKind.SummonSapling, EffectKind.SummonStrike, EffectKind.AddWellspring, EffectKind.AddHeft,
             // 净化(D1 Task 7 修复,Ruling 10):Value = 清几个减益,条数是离散量
             EffectKind.Cleanse,
+            // 反震(D1 Task 9):Value = 反弹吸收量的百分比;吸收量本身已随护盾吃过等级
+            EffectKind.ShieldRecoil,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

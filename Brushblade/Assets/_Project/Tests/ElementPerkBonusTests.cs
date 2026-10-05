@@ -183,6 +183,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.DamageCut, EffectKind.CounterBoost, EffectKind.Endure,
                 EffectKind.SummonSapling, EffectKind.HealSummons, EffectKind.ShieldSummons, EffectKind.SummonStrike,
                 EffectKind.ShieldFromHeal, EffectKind.AddWellspring, EffectKind.AddHeft,
+                // D1 Task 9:反震是百分比(反弹吸收量的 N%),不是本系字的护盾本体
+                EffectKind.ShieldRecoil,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

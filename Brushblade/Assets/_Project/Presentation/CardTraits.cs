@@ -282,7 +282,9 @@ namespace Brushblade.Presentation
                     case EffectKind.Blind:
                         AddTrait(traits, "blind", v + "%",
                             Strings.T("collection.trait.blind.name"),
-                            Strings.T("collection.trait.blind.desc", ("value", v), ("turns", e.Turns)));
+                            e.RiderOf == StatusKind.Burn   // 烟熏(D1 Task 9):随灼存续,没有回合数
+                                ? Strings.T("collection.trait.blind.desc.rider_burn", ("value", v))
+                                : Strings.T("collection.trait.blind.desc", ("value", v), ("turns", e.Turns)));
                         break;
                     case EffectKind.Weaken:
                         // 减攻(D1 Task 5):无图标,走纯文字 chip(与魅惑同款 AddWord);Value 吃等级,回合不吃
@@ -433,6 +435,12 @@ namespace Brushblade.Presentation
                         AddWord(traits, Strings.T("collection.trait.addheft.chip", ("value", v)),
                             Strings.T("collection.trait.addheft.name"),
                             Strings.T("collection.trait.addheft.desc", ("value", v)));
+                        break;
+                    // 反震(D1 Task 9):无图标,纯文字 chip;百分比离散
+                    case EffectKind.ShieldRecoil:
+                        AddWord(traits, Strings.T("collection.trait.shieldrecoil.chip"),
+                            Strings.T("collection.trait.shieldrecoil.name"),
+                            Strings.T("collection.trait.shieldrecoil.desc", ("value", v)));
                         break;
                     // AP 是节奏不是资源,同样不吃卡等级
                     case EffectKind.ApBoost:

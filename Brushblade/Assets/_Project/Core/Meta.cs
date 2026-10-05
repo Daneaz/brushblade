@@ -821,6 +821,8 @@ namespace Brushblade.Core
             EffectKind.DamageCut or EffectKind.CounterBoost or EffectKind.Endure or EffectKind.ShieldFromHeal
                 or EffectKind.SummonSapling or EffectKind.SummonStrike
                 or EffectKind.AddWellspring or EffectKind.AddHeft => false,
+            // D1 Task 9:反震的 Value 是反弹吸收量的百分比 —— 吸收量本身已随护盾吃过等级,再缩放就重复吃等级
+            EffectKind.ShieldRecoil => false,
             _ => true,
         };
 

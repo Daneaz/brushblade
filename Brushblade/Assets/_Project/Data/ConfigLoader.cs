@@ -85,6 +85,7 @@ namespace Brushblade.Data
             public string Pick { get; set; }           // Primary(缺省)/ All / Random / HitTargets / MostBurn / FrozenByThisCast
             public bool KeepStacks { get; set; }       // BurnSettleNow:结算一次但不减层
             public bool PercentOfMax { get; set; }     // HealSummons:回复量按 MaxHp × Value%(D1 Task 7)
+            public string RiderOf { get; set; }        // 附着载体(D1 Task 9,烟熏):目前只认 Blind 挂 Burn
         }
 
         private sealed class CampaignFileDto
@@ -694,6 +695,16 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");
+                // 附着载体(D1 Task 9):引擎只实现了「致盲挂在灼上」(烟熏);别的组合会静默按普通效果结算 —— 拦下
+                StatusKind? riderOf = null;
+                if (!string.IsNullOrEmpty(effect.RiderOf))
+                {
+                    if (!Enum.TryParse(effect.RiderOf, out StatusKind carrier) || carrier != StatusKind.Burn)
+                        throw new ConfigException($"字「{dto.Id}」的附着载体未知:{effect.RiderOf}(目前只支持 Burn)");
+                    if (kind != EffectKind.Blind)
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf(目前只有 Blind 能附着在灼上)");
+                    riderOf = carrier;
+                }
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 var augmentKind = EffectKind.DamageSingle;
@@ -731,7 +742,7 @@ namespace Brushblade.Data
                     effect.ArmorStrikePercent,
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
-                    augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax));
+                    augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf));
             }
             return effects;
         }

@@ -154,6 +154,9 @@ namespace Brushblade.Presentation
                     EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
+                    // 烟熏(D1 Task 9):附着在灼上的致盲没有回合数,随灼存续
+                    EffectKind.Blind when e.RiderOf == StatusKind.Burn =>
+                        Strings.T("char.effect.blind.rider_burn", ("value", shown)),
                     EffectKind.Blind => e.TargetAll
                         ? Strings.T("char.effect.blind.all", ("value", shown), ("turns", e.Turns))
                         : Strings.T("char.effect.blind.single", ("value", shown), ("turns", e.Turns)),
@@ -218,6 +221,8 @@ namespace Brushblade.Presentation
                     EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
                     EffectKind.AddWellspring => Strings.T("char.effect.addwellspring", ("value", shown)),
                     EffectKind.AddHeft => Strings.T("char.effect.addheft", ("value", shown)),
+                    // 反震(D1 Task 9):百分比离散(shown == e.Value)
+                    EffectKind.ShieldRecoil => Strings.T("char.effect.shieldrecoil", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印

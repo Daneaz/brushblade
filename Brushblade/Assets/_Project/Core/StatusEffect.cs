@@ -76,6 +76,12 @@ namespace Brushblade.Core
         CounterBoost,     // 反击增强(D1 Task 7,仅玩家):格挡反击 ×(100 + Magnitude)/100,TurnsLeft = 1;
                           // 多个来源只取最强的一份;仍在 60% 反伤预算内钳。
         Endure,           // 保命(D1 Task 7,仅召唤物):DamageSummon 致命一击留 1 血并移除本状态,TurnsLeft = -1。吞噬不吃。
+        TraitRider,       // 附着载体(D1 Task 9,附录 M9,隐藏,不画 chip):SourceId = 字 ID,TraitKey = 特性键,
+                          // Magnitude = 载体 StatusKind 的 int(D1 只有 Burn)。载体从单位身上移除时
+                          // (BattleEngine.DropRiders)连同 SourceId + TraitKey 相同的附带状态一起移除。
+                          // 极性记 Debuff:敌人侧驱散只清 Buff,载体不能被驱散单独剥掉。
+        ShieldRecoil,     // 反震(D1 Task 9,D9,仅玩家,隐藏):Magnitude = 反弹吸收量的百分比,TurnsLeft = -1,
+                          // TraitKey = 每回合次数阀的键。同类取最强(只留一条);两桶护盾归零 / 倾覆清盾时移除。
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -130,6 +136,11 @@ namespace Brushblade.Core
         /// = 给该目标上过灼的火字中最高的等级系数(<c>MetaRules.CardLevelPercent</c>)。0(缺省 / 旧存档)视为 100。</summary>
         public int Potency { get; set; }
 
+        /// <summary>特性键(D1 Task 9,附录 M9):<see cref="StatusKind.TraitRider"/> 与它附带的状态共用同一个键
+        /// (<c>BattleEngine.TraitKey</c> 产出的「字/槽/面」),<see cref="StatusKind.ShieldRecoil"/> 用它查每回合次数。
+        /// 普通状态恒为 null —— 去重键因此逐位不变。</summary>
+        public string TraitKey { get; set; }
+
         /// <summary>持续治疗的落点槽位(2026-08-22,spec §8.3)。−1 = 玩家,0..5 = 召唤物槽。
         /// 与 <see cref="TargetAll"/> 同构:HoT 始终挂在**玩家的** StatusBag 上,
         /// 结算时按这个槽位分发。
@@ -143,7 +154,7 @@ namespace Brushblade.Core
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
-            TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency,
+            TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency, TraitKey = TraitKey,
         };
     }
 
@@ -193,6 +204,7 @@ namespace Brushblade.Core
             {
                 if (_list[i].Kind != effect.Kind) continue;
                 if (_list[i].SourceId != effect.SourceId) continue;
+                if (_list[i].TraitKey != effect.TraitKey) continue;   // 附着带出的状态不覆盖同字的普通状态(普通状态恒 null,恒等)
                 _list[i] = effect;
                 return;
             }

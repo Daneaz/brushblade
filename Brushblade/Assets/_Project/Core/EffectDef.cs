@@ -129,6 +129,10 @@ namespace Brushblade.Core
                         // 只统计排在它之前的治疗。
         AddWellspring,  // 直接 +Value 层泉(走 AddPlayerCounter + CapFor,不经治疗折算)
         AddHeft,        // 直接 +Value 层厚(同上)
+        // ---- D1 Task 9:附着载体(附录 M9 / D9)。⚠ 只在末尾追加 ----
+        ShieldRecoil,   // 反震:本次出字给玩家加了护盾(实际入账 > 0)时,给玩家挂 StatusKind.ShieldRecoil(Magnitude = Value%)。
+                        // 护盾吸收敌人挥击时按吸收量 × Value% 反弹,每回合 1 次,与镜 / 格挡反击共用 60% 反伤预算。
+                        // Value 是百分比,离散(不吃卡等级)。
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -300,6 +304,15 @@ namespace Brushblade.Core
         /// <summary>HealSummons:true = 回复量按每只召唤物的 MaxHp × Value% 算(D1 Task 7,灵荫)。其余 kind 不读。</summary>
         public bool PercentOfMax { get; }
 
+        /// <summary>附着载体(D1 Task 9,附录 M9,烟熏):非 null 时这条效果挂在目标身上的该载体上 ——
+        /// 只对带本次出字上的灼的目标施加,回合数改为 -1,并挂一条隐藏的 <see cref="StatusKind.TraitRider"/>;
+        /// 载体移除时一并移除。D1 只支持 Blind + Burn(ConfigLoader 拦其余组合)。</summary>
+        public StatusKind? RiderOf { get; }
+
+        /// <summary>这条效果来自哪条特性(<c>BattleEngine.TraitKey</c>,「字/槽/面」);只有 <see cref="TraitRules.Fold"/>
+        /// 给附着类效果(RiderOf / ShieldRecoil)打上,字表对象恒为 null。</summary>
+        internal string TraitKey { get; private set; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
 
         private static readonly (int, DamageCondition)[] NoAmpTerms = new (int, DamageCondition)[0];
@@ -316,7 +329,8 @@ namespace Brushblade.Core
             AmpScope scope = AmpScope.Damage, DamageCondition onlyIf = DamageCondition.None,
             int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
             EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
-            EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false)
+            EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
+            StatusKind? riderOf = null)
         {
             Kind = kind;
             Value = value;
@@ -350,6 +364,7 @@ namespace Brushblade.Core
             Pick = pick;
             KeepStacks = keepStacks;
             PercentOfMax = percentOfMax;
+            RiderOf = riderOf;
         }
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
@@ -358,16 +373,17 @@ namespace Brushblade.Core
             int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
             IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null,
-            int? value = null, int? turns = null) =>
+            int? value = null, int? turns = null, string traitKey = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
-                AugmentKind, AugmentField, Pick, KeepStacks, PercentOfMax)
+                AugmentKind, AugmentField, Pick, KeepStacks, PercentOfMax, RiderOf)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
+                TraitKey = traitKey ?? TraitKey,
             };
     }
 }

@@ -568,3 +568,26 @@ def test_endure_and_cleanse_self_picks():
 def test_ally_pick_combos_rejected(config):
     with pytest.raises(ValueError):
         _parse_effects(config, "测")
+
+
+# ---- D1 Task 9:附着载体(烟熏 `rider Burn`)与反震 `ShieldRecoil N` ----
+
+def test_rider_burn_attaches_to_blind_without_turns():
+    assert _parse_effects("`Blind 15` + `pick HitTargets` + `rider Burn`", "火") == [
+        {"kind": "Blind", "value": 15, "pick": "HitTargets", "riderOf": "Burn"}]
+
+
+def test_shield_recoil_is_a_plain_kind():
+    assert _parse_effects("`ShieldRecoil 30`", "土") == [{"kind": "ShieldRecoil", "value": 30}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Blind 15` + `rider Freeze`", "Freeze"),               # 载体只认 Burn
+    ("`Slow 1` + `rider Burn`", "rider"),                    # 只有 Blind 能附着
+    ("`rider Burn` + `Blind 15`", "rider"),                  # 前面没有可挂的效果
+    ("`Blind 15`", "turns"),                                 # 不附着的致盲仍必须写 turns
+])
+def test_rider_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

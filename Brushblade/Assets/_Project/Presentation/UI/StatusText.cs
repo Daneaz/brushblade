@@ -137,8 +137,9 @@ namespace Brushblade.Presentation
                             Strings.T("status.duration.turns", ("value", turnsLeft)),
                             Strings.T("status.speed.desc", ("magnitude", magnitude)));
                 case StatusKind.Blind:
+                    // 时长走 Duration:烟熏(D1 Task 9)附着在灼上的致盲 TurnsLeft = -1,写死「剩 N 回合」会印出 -1
                     return new Info("blind", Strings.T("status.blind.name"),
-                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Duration(turnsLeft),
                         Strings.T("status.blind.desc", ("magnitude", magnitude)));
                 case StatusKind.Silence:
                     return new Info("silence", Strings.T("status.silence.name"),

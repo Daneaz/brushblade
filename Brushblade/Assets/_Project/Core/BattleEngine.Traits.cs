@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -67,6 +68,69 @@ namespace Brushblade.Core
             _traitUsesThisTurn[key] = turnUsed + 1;
             _traitUsesThisBattle[key] = battleUsed + 1;
             return true;
+        }
+
+        // ---- D1 Task 9:出字内触发(附录 M23)与附着载体(附录 M9 / D9) ----
+
+        /// <summary>本次出字(顶层 Cast,TriggerDepth == 0)已解锁、面匹配的暴击时 / 击杀时特性;其余时候为 null。
+        /// ApplyEffects 进门设、出门恢复外层(与 _castHitTargets 同一套保存 / 恢复)。</summary>
+        private IReadOnlyList<TraitDef> _castOnCrit;
+        private IReadOnlyList<TraitDef> _castOnKill;
+        private CharDef _castTraitDef;
+
+        /// <summary>本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏「带本字灼」的判据)。</summary>
+        private List<int> _castBurnedTargets = new List<int>();
+
+        /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
+        private int _castShieldGranted;
+
+        private static IReadOnlyList<TraitDef> NullIfEmpty(IReadOnlyList<TraitDef> traits) => traits.Count == 0 ? null : traits;
+
+        /// <summary>出字内触发入队(R4:只有顶层出字的伤害 / 击杀会走到这里 —— 排空期间 _castOnCrit / _castOnKill 为 null)。
+        /// 每条特性一条反应,目标 = 被暴击 / 被击杀的那名敌人。</summary>
+        private void EnqueueCastTraits(IReadOnlyList<TraitDef> traits, int enemyIndex)
+        {
+            if (traits == null || TriggerDepth > 0) return;
+            var element = _castTraitDef.Element ?? Element.Heart;
+            foreach (var t in traits)
+                Enqueue(new Reaction(_castTraitDef.Id, element, t.Effects, enemyIndex, TriggerDepth + 1));
+        }
+
+        /// <summary>附着:给敌人挂一条隐藏载体(Carrier 存在 Magnitude 里)。同字同特性再挂只刷新。</summary>
+        private static void AttachRider(StatusBag bag, string sourceId, string traitKey, StatusKind carrier) =>
+            bag.Apply(new StatusEffect
+            {
+                Kind = StatusKind.TraitRider, Polarity = StatusPolarity.Debuff,
+                Magnitude = (int)carrier, TurnsLeft = -1, SourceId = sourceId, TraitKey = traitKey,
+            });
+
+        /// <summary>载体 <paramref name="carrier"/> 从这个单位身上移除了:移除挂在它上面的 TraitRider,
+        /// 以及与该载体 SourceId + TraitKey 相同的全部附带状态。没有载体时空转(恒等)。</summary>
+        private static void DropRiders(StatusBag bag, StatusKind carrier)
+        {
+            var riders = bag.All.Where(s => s.Kind == StatusKind.TraitRider && s.Magnitude == (int)carrier).ToList();
+            foreach (var r in riders)
+                foreach (var s in bag.All.Where(s => s.SourceId == r.SourceId && s.TraitKey == r.TraitKey).ToList())
+                    bag.RemoveEntry(s);
+        }
+
+        /// <summary>两桶护盾都空了:反震失去载体,移除(D9)。</summary>
+        private void DropShieldRecoilIfEmpty()
+        {
+            if (_shieldNormal + _shieldPersist <= 0) _playerStatuses.Remove(StatusKind.ShieldRecoil);
+        }
+
+        /// <summary>反震挂载:同类取最强,只留一条(TraitKey 跟随较强的那条)。</summary>
+        private void ApplyShieldRecoil(int percent, string sourceId, string traitKey)
+        {
+            var existing = _playerStatuses.Find(StatusKind.ShieldRecoil);
+            if (existing != null && existing.Magnitude >= percent) return;
+            _playerStatuses.Remove(StatusKind.ShieldRecoil);
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.ShieldRecoil, Polarity = StatusPolarity.Buff,
+                Magnitude = percent, TurnsLeft = -1, SourceId = sourceId, TraitKey = traitKey,
+            });
         }
 
         internal int PendingReactionCount => _reactions.Count;

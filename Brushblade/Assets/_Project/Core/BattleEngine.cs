@@ -369,6 +369,7 @@ namespace Brushblade.Core
         Execute,  // 钩子用:斩杀
         BlockCounter, // 格挡反击(spec v7 §3.1,R4:特性伤害,受击/死亡类被动据此跳过)
         IronBarb,     // 钩子用:铁画反噬打到玩家(PlayerHit 的 Source;不进 BattleEvent)
+        ShieldRecoil, // 反震(D1 Task 9):护盾吸收后按吸收量反弹;表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -2991,9 +2992,16 @@ namespace Brushblade.Core
             var outerFrozenTargets = _castFrozenTargets;
             var outerSummonedSlots = _castSummonedSlots;
             int outerHealTotal = _castHealTotal;
+            var outerOnCrit = _castOnCrit;
+            var outerOnKill = _castOnKill;
+            var outerTraitDef = _castTraitDef;
+            var outerBurnedTargets = _castBurnedTargets;
+            int outerShieldGranted = _castShieldGranted;
             try
             {
             _castHitTargets = new List<int>();
+            _castBurnedTargets = new List<int>();
+            _castShieldGranted = 0;
             _castFrozenTargets = new List<int>();
             _castSummonedSlots = new List<int>();
             _castHealTotal = 0;
@@ -3009,6 +3017,13 @@ namespace Brushblade.Core
             int cardLevel = CardLevelOf(def.Id);
             // 灼的火力:按来源字的卡等级(特性反应 / 开局效果的 def.Id 即来源字;查不到等级 = 1 → 100)
             int burnPotency = MetaRules.CardLevelPercent(cardLevel);
+            // 出字内触发(D1 Task 9,附录 M23):只认顶层出字(Cast 正在结算这张字、不在反应里,R4)。
+            // 没有这类特性时两项都是 null —— 下面的入队整条空转,恒等。
+            bool topLevelCast = TriggerDepth == 0 && _castingCharId == def.Id;
+            var castFace = FaceOf(def, attackMode);
+            _castOnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
+            _castOnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
+            _castTraitDef = def;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
             // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
@@ -3117,8 +3132,10 @@ namespace Brushblade.Core
                                 // 随这一击一起过生克 / 暴击 / 护甲
                                 if (primary && hit == 0 && effect.ShieldStrikePercent > 0)
                                     damage += (_shieldNormal + _shieldPersist) * effect.ShieldStrikePercent / 100;
+                                // 摇点位置不变(原先就在 DamageEnemy 的实参里、伤害算完之后):提成局部量只为暴击时入队
+                                bool crit = RollCrit(effect.ForceCrit);
                                 DamageEnemy(tgt, damage, attacker,
-                                    crit: RollCrit(effect.ForceCrit),
+                                    crit: crit,
                                     pierce: primary ? effect.Pierce : 0, // 多段:每段各减一次护甲(裁定 4)
                                     // 碾(2026-09-16,土):跳过整条 DR,与穿透是两档 —— 对这一效果
                                     // 打中的每个目标(含形状展开的非主目标)都生效,不像 Pierce 只给主目标。
@@ -3130,6 +3147,8 @@ namespace Brushblade.Core
                                     sameSwing: sameSwing && hit == 0,
                                     attackerRef: UnitRef.Player);
                                 if (!_castHitTargets.Contains(tgt)) _castHitTargets.Add(tgt);   // 选择器 HitTargets 用
+                                // 暴击时(D1 Task 9,炽烈):每击各入队,目标 = 这一击的落点;Cast 末尾兑现
+                                if (crit) EnqueueCastTraits(_castOnCrit, tgt);
                             }
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
@@ -3163,6 +3182,7 @@ namespace Brushblade.Core
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
                             int burnGain = ApplyBurn(ti, value, UnitRef.Player, burnPotency);
                             if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, ti, burnGain));
+                            if (!_castBurnedTargets.Contains(ti)) _castBurnedTargets.Add(ti);   // 烟熏「带本字灼」
                         }
                         break;
                     case EffectKind.Bleed:
@@ -3439,6 +3459,10 @@ namespace Brushblade.Core
                         // 直接加泉(D1 Task 7,附录 M18,蓄泉):不经治疗折算,只受上限
                         AddPlayerCounter(StatusKind.Wellspring, value, CapFor(StatusKind.Wellspring));
                         break;
+                    case EffectKind.ShieldRecoil:
+                        // 反震(D1 Task 9,D9):本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
+                        if (_castShieldGranted > 0) ApplyShieldRecoil(effect.Value, def.Id, effect.TraitKey ?? def.Id);
+                        break;
                     case EffectKind.AddHeft:
                         AddPlayerCounter(StatusKind.Heft, value, CapFor(StatusKind.Heft));
                         break;
@@ -3473,7 +3497,23 @@ namespace Brushblade.Core
                         // SourceId 用字 ID:同字再出只刷新,不无限叠命中惩罚
                         // 全体(旧 TargetAll = Pick.All):PickTargets 取调用时的表长,分裂产生的新怪不吃同一发
                         foreach (int ti in PickTargets(effect, targetIndex))
-                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBlind(ti, value, effect.Turns, def.Id);
+                        {
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            if (effect.RiderOf == StatusKind.Burn)
+                            {
+                                // 烟熏(D1 Task 9,附录 M9):只给带本字灼的目标;致盲随灼存续(-1),灼移除时 DropRiders 一并移除
+                                if (!_castBurnedTargets.Contains(ti) || !_enemies[ti].Statuses.Has(StatusKind.Burn)) continue;
+                                string riderKey = effect.TraitKey ?? def.Id;
+                                AttachRider(_enemies[ti].Statuses, def.Id, riderKey, StatusKind.Burn);
+                                ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                                {
+                                    Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff,
+                                    Magnitude = value, TurnsLeft = -1, SourceId = def.Id, TraitKey = riderKey,
+                                }, UnitRef.Enemy(ti), UnitRef.Player);
+                                continue;
+                            }
+                            ApplyBlind(ti, value, effect.Turns, def.Id);
+                        }
                         break;
                     case EffectKind.Silence:
                         if (targetIndex >= 0 && _enemies[targetIndex].Alive)
@@ -3557,6 +3597,7 @@ namespace Brushblade.Core
                             if (quenchStacks > 0)
                             {
                                 quenchTarget.Statuses.Remove(StatusKind.Burn);
+                                DropRiders(quenchTarget.Statuses, StatusKind.Burn);   // 蓄热夺火:附着在灼上的一并移除(D1 Task 9)
                                 _burnPerStack += quenchStacks * value;
                             }
                         }
@@ -3688,6 +3729,7 @@ namespace Brushblade.Core
                             {
                                 int burnGain = ApplyBurn(i, value, UnitRef.Player, burnPotency);
                                 if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, i, burnGain));
+                                if (!_castBurnedTargets.Contains(i)) _castBurnedTargets.Add(i);   // 烟熏「带本字灼」
                             }
                         break;
                     case EffectKind.Shield:
@@ -3900,6 +3942,11 @@ namespace Brushblade.Core
                 _castFrozenTargets = outerFrozenTargets;
                 _castSummonedSlots = outerSummonedSlots;
                 _castHealTotal = outerHealTotal;
+                _castOnCrit = outerOnCrit;
+                _castOnKill = outerOnKill;
+                _castTraitDef = outerTraitDef;
+                _castBurnedTargets = outerBurnedTargets;
+                _castShieldGranted = outerShieldGranted;
                 _inApplyEffects = false;
             }
         }
@@ -4078,7 +4125,11 @@ namespace Brushblade.Core
             if (decay && !enemy.Statuses.Has(StatusKind.BurnNoDecay))
             {
                 burn.Magnitude -= 1;
-                if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
+                if (burn.Magnitude <= 0)
+                {
+                    enemy.Statuses.Remove(StatusKind.Burn);
+                    DropRiders(enemy.Statuses, StatusKind.Burn);   // 灼烧完:附着在灼上的一并移除(D1 Task 9)
+                }
             }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe,
                 attacker: Element.Fire, countered: burnCountered));
@@ -4147,6 +4198,7 @@ namespace Brushblade.Core
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
+            DropRiders(enemy.Statuses, StatusKind.Burn);   // 引爆:附着在灼上的一并移除(D1 Task 9)
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe,
                 attacker: Element.Fire, countered: detonateCountered));
@@ -4541,6 +4593,7 @@ namespace Brushblade.Core
             int granted = Math.Max(0, Math.Min(amount, cap - (_shieldNormal + _shieldPersist)));
             if (persist) _shieldPersist += granted;
             else _shieldNormal += granted;
+            if (_inApplyEffects) _castShieldGranted += granted;   // 反震的挂载条件(D1 Task 9)
             return granted;
         }
 
@@ -5041,6 +5094,9 @@ namespace Brushblade.Core
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
             Raise(HookKind.EnemyKilled, UnitRef.Enemy(enemyIndex), killer, source: source, castCharId: _castingCharId);
+            // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
+            // 反应里的击杀不入队(R4:排空时 _castOnKill 为 null)
+            EnqueueCastTraits(_castOnKill, enemyIndex);
             SpreadEmbers(enemyIndex);
         }
 
@@ -5073,6 +5129,7 @@ namespace Brushblade.Core
             // (SettleBurnOn 先判 Alive、敌人不会复活),但留着是快照里的死数据 ——
             // 只摘这具尸体自己的,不碰 target 刚接手的那份。
             _enemies[enemyIndex].Statuses.Remove(StatusKind.Burn);
+            DropRiders(_enemies[enemyIndex].Statuses, StatusKind.Burn);   // 余烬转走死者的灼:附着一并移除(D1 Task 9)
             if (gained > 0)
                 _events.Add(new BattleEvent(BattleEventKind.Burn, target, gained, enemyIndex,
                     source: EffectSource.Embers));
@@ -5207,15 +5264,32 @@ namespace Brushblade.Core
                         source: EffectSource.Reflect, attackerRef: UnitRef.Player);
             }
             // 格挡反击:与镜共用 60% 反伤预算(§5.2.3),镜先用,反击拿剩下的
+            int counterDealt = 0;
             if (counter > 0 && _enemies[enemyIndex].Alive)
             {
                 int budget = damage * CombatCaps.ReflectPercent / 100 - bounced;
                 int dealt = Math.Min(counter, budget);
                 if (dealt > 0)
+                {
                     DamageEnemy(enemyIndex, dealt, Element.Heart,
                         bypassDefense: true, allowBarb: false,
                         source: EffectSource.BlockCounter, attackerRef: UnitRef.Player);
+                    counterDealt = dealt;
+                }
             }
+            // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
+            // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
+            var recoil = allowReflect ? _playerStatuses.Find(StatusKind.ShieldRecoil) : null;
+            if (recoil != null && absorbed > 0 && _enemies[enemyIndex].Alive)
+            {
+                int budget = damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt;
+                int dealt = Math.Min(absorbed * recoil.Magnitude / 100, budget);
+                if (dealt > 0 && TryUseTrait(recoil.TraitKey ?? recoil.SourceId ?? "", perTurn: 1, perBattle: 0))
+                    DamageEnemy(enemyIndex, dealt, Element.Heart,
+                        bypassDefense: true, allowBarb: false,
+                        source: EffectSource.ShieldRecoil, attackerRef: UnitRef.Player);
+            }
+            if (absorbed > 0) DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震随之移除
             return true;
         }
 
@@ -5439,6 +5513,7 @@ namespace Brushblade.Core
                     {
                         _shieldNormal = 0;
                         _shieldPersist = 0;
+                        DropShieldRecoilIfEmpty();   // 倾覆清盾:反震失去载体(D1 Task 9)
                         _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
                     }
                     // TurnsLeft = 2(2026-08-06 定的值)。Seal 由敌人的攻击动作在敌方段挂上,

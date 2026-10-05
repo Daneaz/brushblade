@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -29,6 +30,21 @@ namespace Brushblade.Core
             var unlocked = Unlocked(def, cardLevel);
             var superseded = Superseded(unlocked);
             return unlocked.Where(t => t.Form == TraitForm.Active && t.AppliesTo(face)
+                && !superseded.Contains((t.Slot, t.Face))).ToList();
+        }
+
+        /// <summary>附着类效果(D1 Task 9):挂在载体上(RiderOf)或以护盾为载体(ShieldRecoil)。
+        /// 被动特性里的这类效果也在出字时结算(其余被动效果不在出字时执行)。</summary>
+        public static bool IsAttached(EffectDef e) => e.RiderOf.HasValue || e.Kind == EffectKind.ShieldRecoil;
+
+        /// <summary>该字这一面已解锁、Trigger 为 <paramref name="trigger"/> 的特性(D1 Task 9,出字内触发)。
+        /// 被替换的槽位不算;按槽位升序。</summary>
+        public static IReadOnlyList<TraitDef> Triggered(CharDef def, CardFace face, int cardLevel, TraitTrigger trigger)
+        {
+            if (def.Traits.Count == 0) return Array.Empty<TraitDef>();
+            var unlocked = Unlocked(def, cardLevel);
+            var superseded = Superseded(unlocked);
+            return unlocked.Where(t => t.Trigger == trigger && t.AppliesTo(face)
                 && !superseded.Contains((t.Slot, t.Face))).ToList();
         }
 
@@ -94,6 +110,12 @@ namespace Brushblade.Core
                 foreach (var e in t.Effects)
                 {
                     if (IsModifier(e.Kind)) { modifiers.Add(e); continue; }
+                    // 附着类(D1 Task 9,附录 M9):主动 / 被动都在出字时结算,打上特性键(载体与附带状态靠它配对)
+                    if (IsAttached(e))
+                    {
+                        effects.Add(e.With(traitKey: BattleEngine.TraitKey(def.Id, t.Slot, t.Face)));
+                        continue;
+                    }
                     if (replacesLv1)
                     {
                         int at = -1;

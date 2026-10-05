@@ -191,6 +191,11 @@ PICK_KINDS = ENEMY_PICK_KINDS | set(ALLY_PICKS.values())
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
 KEEP_TOKEN = "keep"
+# D1 Task 9:附着载体 `rider Burn`(烟熏)。与 Core 的 ConfigLoader 同一张表:目前只有 Blind 能附着、只认 Burn 载体。
+# 附着的致盲随灼存续,不写 turns(下面的 missing_turns 检查对它放行)。
+RIDER_TOKEN = "rider"
+RIDER_CARRIERS = {"Burn"}
+RIDER_KINDS = {"Blind"}
 
 
 def _positional_hosts(config, effects):
@@ -281,6 +286,14 @@ def _attach_modifier_tokens(config, char, effects, consumed):
     _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
     _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
                        allowed_kinds={"BurnSettleNow"})
+
+    def _parse_rider(raw):
+        if raw not in RIDER_CARRIERS:
+            raise ValueError(f"{char}:`rider {raw}` 的载体未知,只认 {sorted(RIDER_CARRIERS)}")
+        return raw
+
+    _attach_positional(config, char, effects, consumed, RIDER_TOKEN, "riderOf", _parse_rider,
+                       allowed_kinds=RIDER_KINDS)
 
     augments = [e for e in effects if e["kind"] == "Augment"]
     for token, field, allowed in ((AUGMENT_OF_TOKEN, "augmentKind", None),
@@ -691,7 +704,7 @@ def _parse_effects(config, char):
     # `(turns N)`,TurnsLeft = 0 会被 TickTurns 当场清掉,卡面照印着这个效果,状态施加
     # 那一刻就已经失效)。比「turns 挂错 kind」更常见,是详表最容易漏写的一种笔误。
     missing_turns = [e["kind"] for e in effects
-                     if "turns" not in e
+                     if "turns" not in e and "riderOf" not in e   # 附着的效果随载体存续(D1 Task 9)
                      and (e["kind"] in DURATION_KINDS
                           # 标记(Vulnerable):只有冰缚写法(pick FrozenByThisCast)可省 turns,
                           # 回合数由引擎取目标的冻结回合;其余缺 turns 同减攻 / 种报错
