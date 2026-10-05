@@ -179,3 +179,21 @@ def test_pool_ref_trigger_entries_not_retargeted():
 
 def test_pool_ref_non_enemy_kinds_untouched_on_all_target_face():
     assert "pick" not in _ref_effects(_AOE, _ROWS, "池·爆燃")[0]
+
+
+def test_pool_ref_on_self_only_feature_face_gets_pick_all():
+    """五行面本体只作用自身(固面:护盾 + 护甲)、池条目打敌人且没写 pick → 补 pick All;
+    同一面里本体的自身效果原样不动,显式 pick 不覆盖。见 _body_needs_enemy_target 的边界注释。"""
+    from extract_traits import extract_pool
+    chars = {"崩": {"rarity": "Green",
+                   "effects": [{"kind": "Shield", "value": 64}, {"kind": "DefenseBuff", "value": 20, "turns": 2}],
+                   "attackEffects": [{"kind": "DamageSingle", "value": 65}]}}
+    pool = extract_pool("| 系 | 槽 | 面 | 形态 | 名 | 效果配置 | X |\n|---|---|---|---|---|---|---|\n"
+                        "| 土 | Lv5 | 固 | 主动 | 震慑 | `Slow 1` `Shield 5` | — |\n"
+                        "| 土 | Lv5 | 固 | 主动 | 点震 | `Slow 1` `pick Random` | — |\n")
+    md = _H + "| 崩 | Lv5 | 固 | — | — | 池·震慑 | — | ✅ |\n"
+    effects = extract_traits(md, "土", pool, chars)["崩"][0]["effects"]
+    assert effects[0]["kind"] == "Slow" and effects[0]["pick"] == "All"
+    assert effects[1]["kind"] == "Shield" and "pick" not in effects[1]
+    md2 = _H + "| 崩 | Lv5 | 固 | — | — | 池·点震 | — | ✅ |\n"
+    assert extract_traits(md2, "土", pool, chars)["崩"][0]["effects"][0]["pick"] == "Random"

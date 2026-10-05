@@ -118,7 +118,13 @@ def is_ref_row(name):
 
 
 def _body_needs_enemy_target(body):
-    """本体效果表是否要玩家选敌方目标(与 Core 的 EffectNeedsTarget 同口径的子集)。"""
+    """本体效果表是否要玩家选敌方目标(与 Core 的 EffectNeedsTarget 同口径的子集)。
+
+    边界(终审补注):五行面本体只作用自身(固面的护盾 / 护甲、润面的治疗等)时这里返回 False ——
+    这一面出字不选敌人、没有主目标。池条目若在这样的面上写了**不带 pick** 的打敌人效果,
+    _retarget_to_all 会把它补成 pick All(与 Ruling 17 的全体面同口径):否则它要么在加载期因
+    「特性需要敌方目标但本体不选」被拒,要么出手时没有目标而空转。本意是「随机一名」等的池条目
+    必须显式写 pick,显式 pick 不会被覆盖。锁定测试:test_pool_ref_on_self_only_feature_face_gets_pick_all。"""
     for e in body:
         if e["kind"] == "DamageSingle":
             if e.get("shape") not in ("All", "Scatter"):

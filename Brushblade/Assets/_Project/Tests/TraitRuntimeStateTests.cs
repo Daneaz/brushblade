@@ -97,6 +97,18 @@ namespace Brushblade.Core.Tests
             Assert.That(b.CastsThisTurn, Is.EqualTo(0));
         }
 
+        /// <summary>终审补测:从部件池直接出手的部件也算一次出字(先声「本回合首次出字」据此判定)。</summary>
+        [Test]
+        public void CastsThisTurn_CountsComponentCastFromPool()
+        {
+            var part = new CharDef("刂", Element.Metal, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) });
+            var b = new BattleEngine(RebalanceFixture.Graph(Hit(), part), Config(),
+                new[] { "击", "击", "击" }, new[] { "刂" },
+                new[] { RebalanceFixture.Mob(attack: 1) }, seed: 7);
+            Assert.That(b.Cast("刂", 0), Is.EqualTo(BattleError.None), "部件从池里出手");
+            Assert.That(b.CastsThisTurn, Is.EqualTo(1));
+        }
+
         [Test]
         public void Snapshot_RoundTrips_TraitRandomCountersAndCasts()
         {

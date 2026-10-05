@@ -148,12 +148,6 @@ namespace Brushblade.Core.Tests
         private static int ExpectedGroupHeal(CardRarity rarity, params string[] traits) =>
             Round(RarityAnchor[rarity].Heal * HealF * GroupF * (1 - Ratio(rarity, traits)));
 
-        private static int ExpectedGroupShield(CardRarity rarity, params string[] traits) =>
-            Round(RarityAnchor[rarity].Shield * ShieldF * GroupF * (1 - Ratio(rarity, traits)));
-
-        private static int ExpectedAllAttack(CardRarity rarity, params string[] traits) =>
-            Round(RarityAnchor[rarity].All * (1 - Ratio(rarity, traits)));
-
         /// <summary>利 / 锋 的攻护两面(2026-09-08 用户裁定:「不能既加攻又能攻击,还给我方
         /// +buff」)。这两张此前是**单面**字 —— 一次触发同时吃到伤害 + 自身增益,正是 §1.5
         /// 「打敌人的进攻面、挂自己的进护面、不许两面都挂」的漏网。
@@ -375,14 +369,11 @@ namespace Brushblade.Core.Tests
             Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50+镇压50", "对破甲")),
                 "金档:护盾锚点278 × SHIELD_F × (1 − (反伤50+镇压50+对破甲)×K金)");
             // 㙓 2026-09-08 起是群盾 + 群攻(与 崩 对称:红档的厚积薄发载体也该打全场)。
-            // 2026-10-05(D1 Task 12,用户拍板 U2):固面改单体 Shield、攻击改单体,数值沿用原值 ——
-            // 下面两条只把读取位置跟着形状改,期望值仍是旧价目算式的结果(价目已作废,Plan F 定标)。
-            Assert.That(ShieldValueOf(graph, "㙓"),
-                Is.EqualTo(ExpectedGroupShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
-                "红档:护盾锚点600 × SHIELD_F × GROUP_F × (1 − (免一次清盾+护甲)×K红);终极技不计价");
+            // 2026-10-05(D1 Task 12,用户拍板 U2):固面改单体 Shield、攻击改单体,数值沿用原值。
+            // 旧价目公式已作废(spec §4 价目作废,Ruling 16),这里直接钉住本体现值;Plan F 定标时改这两个数。
+            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(235), "㙓 固面单体护盾本体值(Plan F 定标前)");
             Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(ExpectedAllAttack(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
-                "攻面走全体锚点,与护盾面同一个 ratio");
+                Is.EqualTo(235), "㙓 攻面单体伤害本体值(Plan F 定标前)");
             Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1+碾", "护甲")),
                 "金档:护盾锚点278 × SHIELD_F × (1 − (免疫1+碾+护甲)×K金)");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,

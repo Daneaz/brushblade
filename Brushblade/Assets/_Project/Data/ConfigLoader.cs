@@ -600,22 +600,29 @@ namespace Brushblade.Data
             return traits;
         }
 
-        /// <summary>主动特性若需要(敌方/友方)目标,它所作用的面的本体也必须选同类目标 ——
-        /// 否则出手时 targetIndex / allySlot 停在缺省值,特性悄悄空转(与 NeedsTarget 注释里 C1 那次同型)。</summary>
         /// <summary>幼苗(SummonSapling)取「本次出字召出的第一只」的属性:同一面(本体 + 作用于该面的特性)
-        /// 没有 Summon 时它永远空转 —— 加载期拦下(D1 Task 7 修复第 1 轮)。</summary>
+        /// 没有 Summon 时它永远空转 —— 加载期拦下(D1 Task 7 修复第 1 轮)。
+        /// 结算顺序是「本体 → 特性按槽位」(TraitRules.Fold),幼苗排在该面第一条 Summon 之前同样取不到,一并拦下(终审补)。</summary>
         private static void ValidateSaplingFaces(CharDef def)
         {
             foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
             {
                 if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;   // 没有攻击面:出字只走五行面
                 var body = face == CardFace.Attack ? def.AttackEffects : def.Effects;
-                var all = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects)).ToList();
-                if (all.Any(e => e.Kind == EffectKind.SummonSapling) && !all.Any(e => e.Kind == EffectKind.Summon))
+                var all = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).OrderBy(t => (int)t.Slot)
+                    .SelectMany(t => t.Effects)).ToList();
+                int sapling = all.FindIndex(e => e.Kind == EffectKind.SummonSapling);
+                if (sapling < 0) continue;
+                int summon = all.FindIndex(e => e.Kind == EffectKind.Summon);
+                if (summon < 0)
                     throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)所在的面没有召唤(Summon),幼苗会永远空转");
+                if (summon > sapling)
+                    throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)排在同面召唤(Summon)之前,结算时取不到召出的第一只");
             }
         }
 
+        /// <summary>主动特性若需要(敌方/友方)目标,它所作用的面的本体也必须选同类目标 ——
+        /// 否则出手时 targetIndex / allySlot 停在缺省值,特性悄悄空转(与 NeedsTarget 注释里 C1 那次同型)。</summary>
         private static void ValidateTraitTargets(CharDef def)
         {
             foreach (var t in def.Traits)

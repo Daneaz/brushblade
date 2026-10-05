@@ -323,6 +323,12 @@ namespace Brushblade.Core.Tests
             int budget = 60 * CombatCaps.ReflectPercent / 100;
             Assert.That(EnemyLost(b6), Is.EqualTo(budget), "格挡反击 + 反震合计钳在 60% 预算");
             Assert.That(counter, Is.LessThan(budget), "反击先用,反震拿剩下的");
+            // 终审补测:按 EffectSource 分别断言,钉住「镜 → 格挡 → 反震」的顺序 ——
+            // 若反震先用,它会拿满 60×30% = 18,格挡只剩 18;现在是格挡 19、反震 17
+            int SourceDamage(EffectSource src) => b6.LastEvents
+                .Where(e => e.Kind == BattleEventKind.Damage && e.Source == src).Sum(e => e.Amount);
+            Assert.That(SourceDamage(EffectSource.BlockCounter), Is.EqualTo(19), "格挡反击先拿满 19");
+            Assert.That(SourceDamage(EffectSource.ShieldRecoil), Is.EqualTo(17), "反震拿剩下的 36 − 19 = 17");
         }
             // ---------------- 字表加载 ----------------
 

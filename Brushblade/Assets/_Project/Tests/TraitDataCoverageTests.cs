@@ -12,7 +12,9 @@ namespace Brushblade.Core.Tests
         private static RecipeGraph _graph;
         private static RecipeGraph Graph => _graph ??= CharTableTests.RealGraph();
 
-        // 增补平面字在 chars.json 里走 PUA 代理码位
+        // 增补平面字在 chars.json 里走 PUA 代理码位:𣛧(U+236E7)/ 𨰻(U+28C3B)不在 BMP,
+        // 字表里的 id 是 BMP 私用区码位(U+E625 / U+E626,返回值是不可见的 PUA 字符,不是空串)。
+        // 只换这两个;其余字原样返回。新增增补平面字要在这里与 EveryPoolCell_… 里的反向映射同步加。
         private static string Id(string ch) => ch == "𣛧" ? "" : ch == "𨰻" ? "" : ch;
 
         private static List<CharDef> Playable() =>

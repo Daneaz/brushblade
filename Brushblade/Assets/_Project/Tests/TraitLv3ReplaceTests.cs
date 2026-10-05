@@ -104,6 +104,29 @@ namespace Brushblade.Core.Tests
             Assert.That(TraitRules.CastEffects(def, CardFace.Feature, 3)[0].Value, Is.EqualTo(1));
         }
 
+        /// <summary>终审 Minor 6:真实字表的形状 —— Lv1 恒为两面(只放名字,效果在本体),Lv3 单面替换。
+        /// 替换按 Kind 落在那一面的本体上;另一面本体不动;Lv1 仍在 Unlocked 里(UI 显示关键词)。</summary>
+        [Test]
+        public void BothFaceLv1_SingleFaceLv3_ReplacesOnlyThatFace_EndToEnd()
+        {
+            var def = new CharDef("双", Element.Heart,
+                effects: new[] { Burn(1) }, attackEffects: new[] { Dmg(100), Burn(1) },
+                traits: new[] { Lv1(TraitFace.Both, "灼"), Lv3(TraitFace.Attack, Burn(2)) });
+
+            Assert.That(TraitRules.CastEffects(def, CardFace.Attack, 3).Select(e => (e.Kind, e.Value)).ToList(),
+                Is.EqualTo(new[] { (EffectKind.DamageSingle, 100), (EffectKind.BurnSingle, 2) }), "攻面:灼原位换成 2");
+            Assert.That(TraitRules.CastEffects(def, CardFace.Feature, 3).Select(e => (e.Kind, e.Value)).ToList(),
+                Is.EqualTo(new[] { (EffectKind.BurnSingle, 1) }), "另一面本体不动");
+            Assert.That(TraitRules.Unlocked(def, 3).Any(t => t.Slot == TraitSlot.Lv1), Is.True);
+
+            var attack = Battle(def, 3);
+            attack.Cast("双", 0, attackMode: true);
+            Assert.That(attack.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
+            var feature = Battle(def, 3);
+            feature.Cast("双", 0);
+            Assert.That(feature.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+        }
+
         [Test]
         public void Unlocked_StillReturnsReplacedLv1_ButNonLv1ReplacementStillHides()
         {

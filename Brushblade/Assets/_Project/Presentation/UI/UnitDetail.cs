@@ -128,8 +128,11 @@ namespace Brushblade.Presentation
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
                 or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable => "",   // 种 / 标记无数字(稿)
-            // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字
-            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure => "",
+            // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
+            // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
+            StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),
+            StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
+            StatusKind.Endure => Strings.T("detail.chip.endure"),
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),

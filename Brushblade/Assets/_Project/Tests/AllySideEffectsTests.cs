@@ -499,6 +499,20 @@ namespace Brushblade.Core.Tests
             Assert.That(g.Get("甲").Traits[0].Effects[0].Kind, Is.EqualTo(EffectKind.SummonSapling));
         }
 
+        /// <summary>终审补测:幼苗取「本次出字召出的第一只」—— 在同面里排在 Summon 前面就取不到,加载期拦下。</summary>
+        [Test]
+        public void Config_SaplingBeforeSummonOnSameFace_IsRejected()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Wood"",""effects"":[
+                  {""kind"":""SummonSapling"",""value"":20},{""kind"":""Summon"",""value"":10,""count"":1}]}]}"));
+            // 本体里 Summon 在前:放行
+            var g = ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Wood"",""effects"":[
+                  {""kind"":""Summon"",""value"":10,""count"":1},{""kind"":""SummonSapling"",""value"":20}]}]}");
+            Assert.That(g.Get("甲").Effects[1].Kind, Is.EqualTo(EffectKind.SummonSapling));
+        }
+
         [Test]
         public void Endure_SavesFromLethalSummonBurn()
         {
