@@ -97,10 +97,11 @@ def test_extract_pulls_60_implementable_chars():
     # 2026-09-07(P2 Task 4a):补对灼烧(灼烧梯队·高),预算扣除 + DOT 当量扣除后 120 → 108。
     # 2026-09-11(档位统一 G=1.468,T3):橙档全体锚点 240 → 204,预算与 DOT 当量 D99 都没动,
     # (108+99)×(204/240)−99 = 76.95 → 108 → 77。
-    fen = next(e for e in values["焚"]["effects"]
+    # 2026-10-05(D1 Task 12):火字拆两面,伤害进攻击面(attackEffects);对灼烧翻倍随附加效果作废。
+    fen = next(e for e in values["焚"]["attackEffects"]
                if e["kind"] == "DamageSingle" and e.get("shape") == "All")
     assert fen["value"] == 77
-    assert fen["doubleVs"] == "Burning"
+    assert "doubleVs" not in fen
     assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
@@ -127,13 +128,17 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
 
     2026-09-16(土水系机制重做 Task 12):灭 移出字表(封禁已是水系标识机制),`Silence`
     的 turns 解析覆盖改用 湮(水·紫,攻击面 `Silence 0`(turns 1),封禁语义与 灭 当年一致)。
+
+    2026-10-05(D1 Task 12,spec v7 §4):水攻击面的封禁随附加效果作废,`Silence` 自此无载体;
+    turns 括注解析改由 热 燃面的 `Weaken 15`(turns 2) 守。沐 的润面改为 治疗 86 + 润泽 17 × 2 回合。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    yan = next(e for e in values["湮"]["attackEffects"] if e["kind"] == "Silence")
-    assert yan["turns"] == 1
+    assert not any(e["kind"] == "Silence" for e in values["湮"]["attackEffects"])
+    weaken = next(e for e in values["热"]["effects"] if e["kind"] == "Weaken")
+    assert weaken["turns"] == 2
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
-    assert mu["turns"] == 3
+    assert mu["turns"] == 2
     assert "targetAll" not in mu
 
 
@@ -468,18 +473,24 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 召唤被动的形状与出手控场(2026-08-25):都是「token 表漏接线就静默丢」的字段
     # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
     # 2026-09-07(P2 Task 4a):剑 改攻击字,横扫改验直伤效果自身的 shape 字段。
-    assert by_id["剑"]["effects"][0]["kind"] == "DamageSingle", "剑 已改攻击字,不再是 Summon"
-    assert by_id["剑"]["effects"][0]["shape"] == "Row"
-    assert by_id["剑"]["effects"][0]["shapePercent"] == 50
-    # 2026-09-16(土水系机制重做 Task 12):枪(唯一的召唤被动 Skewer 载体)移出字表,
-    # 召唤侧的 Skewer 通道自此无载体、休眠;贯穿这个形状语义转移给 锥(攻击侧,见下一断言)。
+    # 2026-10-05(D1 Task 12,用户拍板 U2):剑 / 锥 拆两面,攻击面改单体 —— 横扫 / 贯穿
+    # 字卡侧自此无载体(Lv8 横扫千军 / 锥心 才「改为横扫 / 贯穿」),断言改为「攻击面单体、
+    # 五行面 = 铠」。
+    for cid in ("剑", "锥"):
+        attack = by_id[cid]["attackEffects"][0]
+        assert attack["kind"] == "DamageSingle", f"{cid} 攻击面是伤害"
+        assert "shape" not in attack and "shapePercent" not in attack, f"{cid} 攻击面单体(U2)"
+        assert [e["kind"] for e in by_id[cid]["effects"]] == ["Morale", "Block"], f"{cid} 铠 = 战意 + 格挡"
+    # 2026-09-16(土水系机制重做 Task 12):枪(唯一的召唤被动 Skewer 载体)移出字表。
     assert "枪" not in by_id, "枪 已移出字表(spec §7.1)"
-    assert by_id["锥"]["effects"][0]["kind"] == "DamageSingle", "锥 已改攻击字,不再是 Summon"
-    assert "passive" not in by_id["锥"]["effects"][0]
-    # 2026-09-16(土水系机制重做):锥 破甲 → 贯穿(spec §7.4),攻击侧接住 枪 让出的 Skewer 形状。
-    assert by_id["锥"]["effects"][0]["shape"] == "Column"
-    assert by_id["锥"]["effects"][0]["shapePercent"] == 70
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
+
+    # D1 Task 12 新写法的字段(选择器 / 回合)在真实产物里落得下来
+    assert by_id["焱"]["effects"] == [
+        {"kind": "BurnAll", "value": 3},
+        {"kind": "Weaken", "value": 15, "pick": "All", "turns": 2}], "焱 燃:全体灼 + 全体减攻"
+    assert by_id["崩"]["attackEffects"][1] == {"kind": "ArmorBreak", "value": 20, "pick": "All", "turns": 2}
+    assert by_id["溃"]["attackEffects"][1] == {"kind": "Slow", "value": 1, "pick": "All"}
 
     # 条件加成(2026-08-25 由 doubleVsBurning 泛化)
     # 2026-09-02:冰 的 doubleVs 随双方向重配(Task 10)挪进 attackEffects,
@@ -490,14 +501,11 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 2026-09-16(土水系机制重做):垚 的第二条特性由「对破甲」(DoubleVsArmorBroken,吃破甲)
     # 订正为「破甲」(ArmorBreak,施加破甲,与 碎/鍂/𨰻 组成同一条破甲点数梯队,spec §1.4③
     # 的机制订正,不只是数值)——垚 自此不再产出 doubleVs,从期望字典里删除。
-    from export_chars import PUA_PROXY
+    # 2026-10-05(D1 Task 12):spec v7 头部「字卡现有的附加效果作废」,本体的条件加成(DoubleVs)
+    # 全部去掉,由 M1 的条件修饰器(特性 Amplify + if)接管 —— 本体一侧钉空集。
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
             for e in c.get("effects", []) + c.get("attackEffects", [])
-            if e.get("doubleVs")} == {
-        "铡": "Bleeding", "冰": "Controlled",
-        "㵘": "Controlled", "淼": "Controlled", "湮": "Controlled", "圭": "ArmorBroken",
-        "炎": "Burning", "烈": "Burning", "焚": "Burning", "燚": "Burning",
-        PUA_PROXY["𨰻"]: "ArmorBroken"}
+            if e.get("doubleVs")} == {}
 
 
 def test_component_entries_are_flagged():

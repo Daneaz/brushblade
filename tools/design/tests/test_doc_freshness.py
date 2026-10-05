@@ -131,7 +131,7 @@ def test_execute_thresholds_match_across_three_places():
 
     checked = 0
     for cid, c in chars.items():
-        for e in c.get("effects", []):
+        for e in c.get("effects", []) + c.get("attackEffects", []):
             pct = e.get("executeBelowPercent")
             if not pct:
                 continue
@@ -142,7 +142,9 @@ def test_execute_thresholds_match_across_three_places():
                     f"「{cid}」的斩杀线在 chars.json 是 {pct}%,文档那行却没有这个数:\n  {row}")
             checked += 1
     # 2026-08-25 字表重构:镰 移出字表,斩杀字从 3 个减到 2 个(铡 直杀 / 剿 双倍)
-    assert checked >= 2, f"只校到 {checked} 个斩杀字,预期至少 2 个(铡/剿)"
+    # 2026-10-05(D1 Task 12):本体斩杀随附加效果作废(spec v7 头部、附录 §2.4),铡 / 剿 / 刲
+    # 都不再带斩杀 —— 钉空集。哪天本体又挂斩杀,本条会红,届时把下限改回实际载体数。
+    assert checked == 0, f"本体斩杀应无载体,却校到 {checked} 个;把下限改回实际载体数"
 
 
 def test_phrases_match_the_scoring_doc():

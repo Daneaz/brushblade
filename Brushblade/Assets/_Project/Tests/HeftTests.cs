@@ -296,15 +296,19 @@ namespace Brushblade.Core.Tests
             // 单发 152 < 阈值 200,结论形状不变;三发 456 = 200×2 + 56 → 2 层 + 余 56。
             // **2026-09-27(阈值 200 → 100,积攒速度 ×2)**:152 ≥ 100 → 单发 1 层 + 余 52;
             // 三发 456 = 100×4 + 56 → 4 层 + 余 56。
+            // **2026-10-05(D1 Task 12,spec v7 §4)**:润 = 治疗 + 润泽 2 回合,冰 的润面多了
+            // HealOverTime 30 × 2 回合(round(152 × 20%));持续治疗出字时按 每跳 × 回合 一次性攒泉
+            // (BattleEngine HealOverTime 分支),所以单发攒 152 + 60 = 212 → 2 层 + 余 12;
+            // 三发 636 = 100×6 + 36 → 6 层 + 余 36。
             var battle = NewBattleWithChar("冰", maxHp: 500);
             battle.Cast("冰", 0);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(1), "冰 的治疗 152 ≥ 阈值 100,单发攒一层");
-            Assert.That(battle.HealAccum, Is.EqualTo(52), "152 − 100 = 52 留成余数");
+            Assert.That(battle.WellspringStacks, Is.EqualTo(2), "冰 的治疗 152 + 润泽 60 = 212,单发攒两层");
+            Assert.That(battle.HealAccum, Is.EqualTo(12), "212 − 200 = 12 留成余数");
             // 三发的累计(出字即耗字,用测试钩子补后两发的同等治疗量)
-            battle.GainWellspringForTest(152);
-            battle.GainWellspringForTest(152);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(4), "三发 冰 456 = 100×4 + 56 → 4 层");
-            Assert.That(battle.HealAccum, Is.EqualTo(56), "456 − 100×4 = 56");
+            battle.GainWellspringForTest(212);
+            battle.GainWellspringForTest(212);
+            Assert.That(battle.WellspringStacks, Is.EqualTo(6), "三发 冰 636 = 100×6 + 36 → 6 层");
+            Assert.That(battle.HealAccum, Is.EqualTo(36), "636 − 100×6 = 36");
         }
 
         // ---- 护盾/治疗接上角色攻击成长(2026-09-02,Task 5)----
@@ -399,7 +403,9 @@ namespace Brushblade.Core.Tests
             // 2026-09-11(T3):金档治疗锚点 240 → 162,冰 146 → 99;99 × 150 / 100 = 148.5 → 148。
             // 2026-09-16(土水系机制重做,Task 12):冰 99 → 152(护盾/治疗列改按单攻列 1:1
             // 定标 + 补对偶「急速」);152 × 150 / 100 = 228。
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(228));
+            // 2026-10-05(D1 Task 12):润面多了润泽 30(出手即跳第一跳,同样吃泉放大):
+            // 228 + 30 × 150 / 100 = 228 + 45 = 273。
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(273));
         }
 
         [Test]
@@ -440,8 +446,10 @@ namespace Brushblade.Core.Tests
             // ⚠ 判别式的窗口随阈值 100 → 200(Task 4)已经收窄:174/152 都小于 200,不再会
             // 撞出层数差,只剩 HealAccum 这一句能分辨「攒的是放大前还是放大后的值」。
             // 2026-09-27(阈值 200 → 100):152 跨一层,余 52(放大值 174 会余 74)。
-            Assert.That(battleB.HealAccum, Is.EqualTo(52),
-                "攒进去的是未放大的 152(余 52),不是 3 层泉放大后的 174(余 74)");
+            // 2026-10-05(D1 Task 12):润面多了润泽 30 × 2(攒泉按未放大的 每跳 × 回合 = 60):
+            // 未放大 152 + 60 = 212 → 余 12;若误用放大值(174 + 36 × 2 = 246)会余 46。
+            Assert.That(battleB.HealAccum, Is.EqualTo(12),
+                "攒进去的是未放大的 152 + 60(余 12),不是泉放大后的值");
         }
 
         [Test]
@@ -511,10 +519,14 @@ namespace Brushblade.Core.Tests
 
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(174),
+            // 2026-10-05(D1 Task 12):润面多了润泽 30。各条效果各自「先放大、后攒」:
+            //   治疗 152 用旧层数 3 → 174,攒 152 → 4 层 + 余 52;
+            //   润泽首跳 30 用此刻的层数 4 → 36,攒 30 × 2 = 60 → 5 层 + 余 12。
+            // 合计回血 174 + 36 = 210。若治疗反转顺序(先攒到 4 层再放大)会是 182 + 37 = 219。
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(210),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWellspring 攒完之后的新层数");
-            Assert.That(battle.WellspringStacks, Is.EqualTo(4),
-                "夹具有效性:这一发确实跨过了一层,两种顺序才会读到不同的层数");
+            Assert.That(battle.WellspringStacks, Is.EqualTo(5),
+                "夹具有效性:这一发确实跨过了层数,两种顺序才会读到不同的层数");
 
             // 反转顺序对照:同样的起点,先攒(层数 3 → 4)再放大,得 182 ≠ 174。
             // 这三行是**防夹具退化的哨兵** —— 若哪天数值再变到两种顺序同值,它会先红。

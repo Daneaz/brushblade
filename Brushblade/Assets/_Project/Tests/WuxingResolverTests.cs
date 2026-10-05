@@ -89,12 +89,14 @@ namespace Brushblade.Core.Tests
             // 焚 橙档全体 240→204(108→77)、蒸 紫档单攻 200→190(120→112)、
             // 刲 橙档单攻 480→409(单段 154→131)。不变量仍是同一条:存的是实战值。
             // 2026-09-30:偷袭取消,刲 的 0.25 × K 预算回流数值,单段 131→159(共 318)。
-            Assert.That(graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value,
+            // 2026-10-05(D1 Task 12):三张字拆两面,伤害搬进攻击面(AttackEffects),数值不变;
+            // 刲 的分 2 段 / 斩杀随附加效果作废,159 是单段的攻击伤害。
+            Assert.That(graph.Get("焚").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value,
                 Is.EqualTo(77));
-            Assert.That(graph.Get("蒸").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
+            Assert.That(graph.Get("蒸").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value,
                 Is.EqualTo(112));
-            Assert.That(graph.Get("刲").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(159), "刲 分 2 段 + 斩杀(偷袭已取消)后,单段值 159");
+            Assert.That(graph.Get("刲").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(159), "刲 攻击伤害沿用 159");
         }
 
         // ---- 克/被克 的查表入口(2026-09-03,卡组页详情印「克 X ×1.5 / 被 Y 克 ×0.5」) ----

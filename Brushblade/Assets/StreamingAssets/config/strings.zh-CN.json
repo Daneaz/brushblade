@@ -1080,6 +1080,8 @@
   "collection.mode.self_immunity": "自身免疫",
   "collection.mode.self_block": "自身格挡",
   "collection.mode.self_reflect": "自身反伤",
+  "collection.mode.single_debuff": "单体减益",
+  "collection.mode.all_debuff": "全体减益",
   "collection.mode.melee": "近战",
   "collection.mode.ranged": "远程",
   "collection.mode.note.persist": "打不掉的话留到下一场",

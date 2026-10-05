@@ -143,6 +143,14 @@ namespace Brushblade.Presentation
                     case EffectKind.Reflect:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_reflect")));
                         break;
+                    // 火·燃(D1 Task 12,spec v7 §2.1):燃面没有伤害,只有 灼 + 减攻 —— 不补这一支,
+                    // 11 张火字的燃面在「打谁 / 护谁」里整面隐形(CardFaceCoverageTests 守)。
+                    // 只认 Weaken(燃面专有),不认灼:攻击面也带灼,认灼会给攻击面多印一行。
+                    case EffectKind.Weaken:
+                        Add(modes, seen, new Mode(true, EffectPickRules.Effective(e) == EffectPick.All
+                            ? Strings.T("collection.mode.all_debuff")
+                            : Strings.T("collection.mode.single_debuff")));
+                        break;
                 }
             }
         }

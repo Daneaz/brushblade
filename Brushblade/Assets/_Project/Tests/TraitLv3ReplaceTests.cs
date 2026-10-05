@@ -202,6 +202,25 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Augment_TwoInOneTrait_EachApplies()
+        {
+            // 冰锁写法:同一条特性里两条 Augment(冻结 +1、减速 +1),折叠后各自落到自己的 Kind 上
+            var def = new CharDef("锁", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 1), new EffectDef(EffectKind.Slow, 2) },
+                traits: new[]
+                {
+                    new TraitDef(TraitSlot.Lv4, TraitFace.Both, TraitForm.Passive, null, "冰锁", new[]
+                    {
+                        Augment(1, EffectKind.Freeze, AugmentField.Turns),
+                        Augment(1, EffectKind.Slow, AugmentField.Turns),
+                    }),
+                });
+            var folded = TraitRules.CastEffects(def, CardFace.Feature, 4);
+            Assert.That(folded.Select(e => (e.Kind, e.Value)).ToList(),
+                Is.EqualTo(new[] { (EffectKind.Freeze, 2), (EffectKind.Slow, 3) }));
+        }
+
+        [Test]
         public void Augment_IsDiscrete_NotScaledByCardLevel()
         {
             Assert.That(MetaRules.ScalesWithCardLevel(EffectKind.Augment), Is.False);
