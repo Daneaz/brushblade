@@ -166,7 +166,8 @@ def _expand_reference(char, slot, face, form, replaces, name, config, element, p
         raise ValueError(f"特性表:字「{char}」不在详表 ✅ 行中,无法按档位展开池条目「{name}」")
     form_name, trigger = FORMS[entry["form_cn"]]
     effects = expand_pool_entry(entry, info["rarity"], char)
-    if entry["face_cn"] != "两面":
+    # 触发类（被动·暴击 / 被动·击杀）的反应自带目标，不随全体面补 pick All
+    if entry["face_cn"] != "两面" and trigger is None:
         body = info.get("attackEffects", []) if entry["face_cn"] == "攻" else info.get("effects", [])
         effects = _retarget_to_all(effects, body)
     return short, form_name, trigger, effects

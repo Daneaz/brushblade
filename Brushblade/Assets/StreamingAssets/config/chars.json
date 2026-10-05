@@ -426,8 +426,7 @@
           "effects": [
             {
               "kind": "BurnSingle",
-              "value": 2,
-              "pick": "All"
+              "value": 2
             }
           ]
         },
@@ -658,8 +657,7 @@
           "effects": [
             {
               "kind": "BurnSingle",
-              "value": 2,
-              "pick": "All"
+              "value": 2
             }
           ]
         }

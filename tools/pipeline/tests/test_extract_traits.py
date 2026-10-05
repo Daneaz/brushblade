@@ -168,5 +168,14 @@ def test_pool_ref_explicit_pick_not_overridden():
     assert _ref_effects(_AOE, _ROWS, "池·凝冰")[0]["pick"] == "Random"
 
 
+def test_pool_ref_trigger_entries_not_retargeted():
+    """被动·暴击 / 被动·击杀 的反应自带目标，全体面也不补 pick All。"""
+    from extract_traits import extract_pool
+    pool = extract_pool("| 系 | 槽 | 面 | 形态 | 名 | 效果配置 | X |\n|---|---|---|---|---|---|---|\n"
+                        "| 火 | Lv6 | 攻 | 被动·暴击 | 炽烈 | `BurnSingle 2` | — |\n")
+    md = _H + "| 炸 | Lv6 | 攻 | — | — | 池·炽烈 | — | ✅ |\n"
+    assert "pick" not in extract_traits(md, "火", pool, _AOE)["炸"][0]["effects"][0]
+
+
 def test_pool_ref_non_enemy_kinds_untouched_on_all_target_face():
     assert "pick" not in _ref_effects(_AOE, _ROWS, "池·爆燃")[0]
