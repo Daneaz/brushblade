@@ -126,6 +126,10 @@ namespace Brushblade.Core
         /// <summary>格挡每次反击的伤害(spec v7 §4,仅 <see cref="StatusKind.Block"/> 用;出字时定死,不吃攻击力)。</summary>
         public int CounterDamage { get; set; }
 
+        /// <summary>灼的火力(spec v7 §4,仅 <see cref="StatusKind.Burn"/> 用):每层伤害的百分比系数,
+        /// = 给该目标上过灼的火字中最高的等级系数(<c>MetaRules.CardLevelPercent</c>)。0(缺省 / 旧存档)视为 100。</summary>
+        public int Potency { get; set; }
+
         /// <summary>持续治疗的落点槽位(2026-08-22,spec §8.3)。−1 = 玩家,0..5 = 召唤物槽。
         /// 与 <see cref="TargetAll"/> 同构:HoT 始终挂在**玩家的** StatusBag 上,
         /// 结算时按这个槽位分发。
@@ -139,7 +143,7 @@ namespace Brushblade.Core
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
-            TargetSlot = TargetSlot, CounterDamage = CounterDamage,
+            TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency,
         };
     }
 

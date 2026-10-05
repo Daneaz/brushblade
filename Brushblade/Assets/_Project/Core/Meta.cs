@@ -790,9 +790,14 @@ namespace Brushblade.Core
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
             if (cardLevel <= 1 || baseValue <= 0) return baseValue;
-            long scaled = (long)baseValue * (100 + 6 * (cardLevel - 1));
+            long scaled = (long)baseValue * CardLevelPercent(cardLevel);
             return (int)((scaled + 99) / 100);
         }
+
+        /// <summary>卡等级系数的百分数:100 + 6 × (等级 − 1);Lv ≤ 1 = 100。
+        /// <see cref="ScaleByCardLevel"/> 与灼的火力(StatusEffect.Potency)共用这一条曲线。</summary>
+        public static int CardLevelPercent(int cardLevel) =>
+            cardLevel <= 1 ? 100 : 100 + 6 * (cardLevel - 1);
 
         /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放
         /// (只在 Lv3 由特性提升);伤害、护盾、治疗、护甲点数、百分比等数值缩放。
