@@ -130,3 +130,12 @@ def test_duplicate_across_feature_face_names_raises():
           "| 炎 | Lv5 | 铠 | 主动 | — | 乙 | `BurnSingle 1` | ✅ |\n")
     with pytest.raises(ValueError):
         extract_traits(md)
+
+
+def test_backticked_turns_token_is_a_modifier_not_an_effect():
+    """池表与特性表把回合数写成 `turns N`(带反引号):它是挂在前面效果上的修饰,不是一条 kind=turns 的效果
+    (D1 Task 13:曾落成 {"kind": "turns"} 让 ConfigLoader 加载期报「效果类型未知」)。"""
+    md = _H + "| 炎 | Lv3 | 燃 | 主动 | Lv1 | 甲 | `BurnSingle 4` `Weaken 15` `turns 3` | ✅ |\n"
+    effects = extract_traits(md)["炎"][0]["effects"]
+    assert [e["kind"] for e in effects] == ["BurnSingle", "Weaken"]
+    assert effects[1]["turns"] == 3

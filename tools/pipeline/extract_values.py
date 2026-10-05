@@ -572,6 +572,11 @@ def _parse_effects(config, char):
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):
         if kind in SUMMON_HANDLED:
             continue
+        if kind == "turns":
+            # 带反引号的 `turns N`(池表 / 特性表的写法)是回合数修饰,下面统一用 turns 正则挂到
+            # 吃回合的效果上;不是一条 kind=turns 的效果(D1 Task 13)
+            consumed.add(kind)
+            continue
         consumed.add(kind)
         if kind in EXECUTE_TOKENS:
             continue  # 斩杀是修饰而非效果,下面统一挂到伤害上

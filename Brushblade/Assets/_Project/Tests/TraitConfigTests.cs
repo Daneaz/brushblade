@@ -60,6 +60,25 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SingleFaceLv3_MayReplace_BothFaceLv1()
+        {
+            // D1 Task 13:Lv1 是「两面」一行(只放关键词名),Lv3 按面各一行并替换它
+            var g = ConfigLoader.LoadGraph(@"{""chars"":[{""id"":""甲"",""element"":""Fire""," + Body + @",""traits"":[
+                  {""slot"":""Lv1"",""name"":""灼"",""effects"":[]},
+                  {""slot"":""Lv3"",""face"":""Attack"",""replaces"":""Lv1"",""name"":""灼·强化"",""effects"":[{""kind"":""BurnSingle"",""value"":2}]}]}]}");
+            Assert.That(g.Get("甲").Traits[1].Replaces, Is.EqualTo(TraitSlot.Lv1));
+        }
+
+        [Test]
+        public void SingleFaceLv3_CannotReplace_OtherSingleFaceLv1()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Fire""," + Body + @",""traits"":[
+                  {""slot"":""Lv1"",""face"":""Feature"",""name"":""灼"",""effects"":[]},
+                  {""slot"":""Lv3"",""face"":""Attack"",""replaces"":""Lv1"",""name"":""灼·强化"",""effects"":[{""kind"":""BurnSingle"",""value"":2}]}]}]}"));
+        }
+
+        [Test]
         public void NoTraitsField_IsEmpty()
         {
             var g = ConfigLoader.LoadGraph(@"{""chars"":[{""id"":""甲"",""element"":""Fire""," + Body + "}]}");
