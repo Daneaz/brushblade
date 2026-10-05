@@ -15,8 +15,11 @@ namespace Brushblade.Balance
         private const int StallTurns = 60;
         private const int DepthCap = 300;
 
-        /// <summary>画像统一的养成档:卡 5 级、角色 10 级(沿用 2026-09 系列画像的中段养成口径)。</summary>
-        private const int CardLevel = 5;
+        /// <summary>画像统一的养成档:卡 5 级、角色 10 级(沿用 2026-09 系列画像的中段养成口径)。
+        /// 卡等级可用 <c>--card-level N</c> 覆盖(D1 Task 13:特性 Lv3+ 上线后读 Lv1 / Lv5 / Lv8 三档);
+        /// 缺省 5 级,输出与改动前逐字相同。</summary>
+        private const int DefaultCardLevel = 5;
+        private static int CardLevel = DefaultCardLevel;
         private const int CharacterLevel = 10;
 
         /// <summary>起手抽卡的五行顺序,与 <c>MetaRules.StartingElements</c> 一致。</summary>
@@ -39,8 +42,15 @@ namespace Brushblade.Balance
             graph.All.Where(d => d.Effects.Count > 0 && !d.IsComponent && d.Element is { } el && elements.Contains(el))
                 .Select(d => d.Id).ToList();
 
-        public static void Main()
+        public static void Main(string[] args)
         {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "--card-level" && i + 1 < args.Length && int.TryParse(args[i + 1], out var lv) && lv >= 1)
+                    { CardLevel = lv; i++; }
+                else
+                    throw new ArgumentException($"未知参数:{args[i]}(只认 --card-level N,N >= 1)");
+            }
             string configDir = Path.Combine(AppContext.BaseDirectory,
                 "../../../../../Brushblade/Assets/StreamingAssets/config");
             var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
