@@ -53,13 +53,15 @@ namespace Brushblade.Core.Tests
             // 加泉 / 加厚是层数
             EffectKind.DamageCut, EffectKind.CounterBoost, EffectKind.Endure, EffectKind.ShieldFromHeal,
             EffectKind.SummonSapling, EffectKind.SummonStrike, EffectKind.AddWellspring, EffectKind.AddHeft,
+            // 净化(D1 Task 7 修复,Ruling 10):Value = 清几个减益,条数是离散量
+            EffectKind.Cleanse,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
         {
             EffectKind.DamageSingle, EffectKind.Shield, EffectKind.ShieldAll, EffectKind.BurnPotency,
             EffectKind.HealSelf, EffectKind.Summon, EffectKind.Bleed, EffectKind.HealAll,
-            EffectKind.HealOverTime, EffectKind.DefenseBuff, EffectKind.ArmorBreak, EffectKind.Cleanse,
+            EffectKind.HealOverTime, EffectKind.DefenseBuff, EffectKind.ArmorBreak,
             EffectKind.Blind, EffectKind.Silence, EffectKind.Reflect, EffectKind.BurnNoDecay,
             EffectKind.BurnSettleNow, EffectKind.Detonate, EffectKind.Empower, EffectKind.CritBuff,
             EffectKind.PierceBuff, EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.Quench,

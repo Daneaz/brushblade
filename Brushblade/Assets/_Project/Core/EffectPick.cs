@@ -34,7 +34,8 @@ namespace Brushblade.Core
         /// Self 只给 Cleanse;SummonedThisCast 只给 Endure。</summary>
         public static bool Allows(EffectKind kind, EffectPick pick) => pick switch
         {
-            EffectPick.Primary => true,
+            // 保命必须写 SummonedThisCast(Ruling 10):Primary 写法选不到召唤物(Endure 不在友方目标名单),会静默空转
+            EffectPick.Primary => kind != EffectKind.Endure,
             EffectPick.Self => kind == EffectKind.Cleanse,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure,
             _ => Supports(kind),

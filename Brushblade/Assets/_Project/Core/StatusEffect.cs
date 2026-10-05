@@ -70,9 +70,11 @@ namespace Brushblade.Core
         Vulnerable,       // 标记(spec v7 §3.1,D1 Task 6,仅敌人):受到的 DamageEnemy 伤害 +Magnitude%(多个来源只取最强的一份),
                           // TurnsLeft 按该敌人行动递减。在冰滞易伤之后、护甲之前,分别整数取整;灼烧 / 流血不走 DamageEnemy,不吃。
                           // 同源刷新取较强值与较长回合。
-        DamageCut,        // 本回合减伤(D1 Task 7,仅玩家):Magnitude = 百分点,TurnsLeft = 1(玩家回合开始的 tick 到期)。
-                          // 在 DamagePlayerDirect 与格挡减伤合计,钳到 CombatCaps.NonArmorReductionPercent;多来源相加。
-        CounterBoost,     // 反击增强(D1 Task 7,仅玩家):格挡反击 ×(100 + Magnitude)/100,TurnsLeft = 1;仍在 60% 反伤预算内钳。
+        DamageCut,        // 本回合减伤(D1 Task 7,挂在玩家身上,作用于玩家**与全部召唤物**):Magnitude = 百分点,
+                          // TurnsLeft = 1(玩家回合开始的 tick 到期)。多个来源只取最强的一份(spec §5.2 第 1 律);
+                          // 玩家侧与格挡 40% 合计、召唤物侧单独,都钳到 CombatCaps.NonArmorReductionPercent。
+        CounterBoost,     // 反击增强(D1 Task 7,仅玩家):格挡反击 ×(100 + Magnitude)/100,TurnsLeft = 1;
+                          // 多个来源只取最强的一份;仍在 60% 反伤预算内钳。
         Endure,           // 保命(D1 Task 7,仅召唤物):DamageSummon 致命一击留 1 血并移除本状态,TurnsLeft = -1。吞噬不吃。
     }
 
@@ -165,6 +167,15 @@ namespace Brushblade.Core
             foreach (var e in _list)
                 if (e.Kind == kind) sum += e.Magnitude;
             return sum;
+        }
+
+        /// <summary>该种类各条目量值的最大值(没有 = 0)。「同类取最强」的状态(减伤 / 反击增强)用它。</summary>
+        public int MaxMagnitude(StatusKind kind)
+        {
+            int max = 0;
+            foreach (var e in _list)
+                if (e.Kind == kind && e.Magnitude > max) max = e.Magnitude;
+            return max;
         }
 
         /// <summary>施加一条。同 Kind 且同 SourceId 视为同一来源,覆盖刷新而非叠加

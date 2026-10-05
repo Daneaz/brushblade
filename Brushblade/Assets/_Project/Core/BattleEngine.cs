@@ -1858,7 +1858,7 @@ namespace Brushblade.Core
         public int SummonReplaceCountOf(CharDef def, bool attackMode = false,
             IReadOnlyList<int> summonSlots = null)
         {
-            int count = MainSummonCountOf(def, attackMode);   // 幼苗不顶人(D1 Task 7),不进替换确认
+            int count = ReplaceableSummonCountOf(def, attackMode);   // 幼苗不顶人(D1 Task 7),不进替换确认
             if (count <= 0) return 0;
             if (summonSlots == null)
                 return Math.Max(0, AliveSummons() + count - SummonCapacity);
@@ -1878,9 +1878,9 @@ namespace Brushblade.Core
             return Math.Min(count, SummonCapacity);
         }
 
-        /// <summary>本体召唤的只数(不含幼苗,D1 Task 7):替换确认只算它 —— 幼苗只占空位、不顶人。
+        /// <summary>本体召唤的只数(不含幼苗,D1 Task 7):替换确认(引擎拒出、按钮、弹窗文案)只算它 —— 幼苗只占空位、不顶人。
         /// 读的是整张出字效果表(本体 + 已解锁特性),与 <see cref="SummonCountOf"/> 同源;没有特性时与 EffectsOf 逐项相同。</summary>
-        private int MainSummonCountOf(CharDef def, bool attackMode)
+        public int ReplaceableSummonCountOf(CharDef def, bool attackMode = false)
         {
             int count = 0;
             foreach (var effect in CastEffectsOf(def, attackMode, CardLevelOf(def.Id)))
@@ -2405,12 +2405,25 @@ namespace Brushblade.Core
 
             int tick = burn.Magnitude * OurSideBurnPerStack;
             int hpBefore = summon.Hp;
-            summon.Hp = Math.Max(0, summon.Hp - tick);
+            LoseSummonHp(summon, tick);   // 保命也挡灼烧致死(「将要阵亡时」)
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
             CheckThreshold(UnitRef.Summon(slot), hpBefore, summon.Hp, summon.MaxHp);
             if (!summon.Alive) OnSummonDeath(slot, UnitRef.None);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
+        }
+
+        /// <summary>召唤物掉血的唯一入口(受击与灼烧共用,D1 Task 7):这一下会致命且带保命 → 留 1 血、移除一条保命。
+        /// 吞噬不走这里(直接移除单位,不算受伤)。</summary>
+        private static void LoseSummonHp(SummonState summon, int amount)
+        {
+            var endure = amount >= summon.Hp ? summon.Statuses.Find(StatusKind.Endure) : null;
+            if (endure != null)
+            {
+                summon.Statuses.RemoveEntry(endure);
+                summon.Hp = 1;
+            }
+            else summon.Hp = Math.Max(0, summon.Hp - amount);
         }
 
         /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
@@ -3382,13 +3395,15 @@ namespace Brushblade.Core
                     {
                         // 群盾(D1 Task 7,灵荫):只给召唤物,走 AddSummonShield 吃上限。按单份量攒厚 —— 与 桂 的
                         // SummonShield 同口径(玩家出字换来的护盾,发给召唤物也算「堆了防御」)。
+                        bool anyShielded = false;
                         for (int slot = 0; slot < _summons.Length; slot++)
                         {
                             if (_summons[slot] == null || !_summons[slot].Alive) continue;
                             int granted = AddSummonShield(slot, value);
                             _events.Add(new BattleEvent(BattleEventKind.Shield, slot, granted));
+                            if (granted > 0) anyShielded = true;
                         }
-                        GainHeft(value);
+                        if (anyShielded) GainHeft(value);   // 一份都没发出去(没有召唤物 / 全顶满)就不攒厚
                         break;
                     }
                     case EffectKind.SummonStrike:
@@ -3402,7 +3417,9 @@ namespace Brushblade.Core
                             var summon = _summons[slot];
                             if (summon == null || !summon.Alive) continue;
                             if (!_enemies[targetIndex].Alive) break;
-                            StrikeTargetWithSummon(slot, targetIndex, summon.EffectiveAttack * value / 100, sameSwing: false);
+                            int strike = summon.EffectiveAttack * value / 100;
+                            if (strike <= 0) continue;   // 0 伤不出手:不发事件、不触发出手附带
+                            StrikeTargetWithSummon(slot, targetIndex, strike, sameSwing: false);
                         }
                         break;
                     }
@@ -5126,7 +5143,8 @@ namespace Brushblade.Core
             StatusEffect block = allowReflect ? _playerStatuses.Find(StatusKind.Block) : null;
             int counter = 0;
             // 本回合减伤(D1 Task 7,附录 M12):与格挡的 40% 合计后一起钳(§5.2.4)。两者都没有时整段跳过 —— 恒等。
-            int damageCut = _playerStatuses.TotalMagnitude(StatusKind.DamageCut);
+            // 多来源取最强(spec §5.2 第 1 律,Ruling 11)。
+            int damageCut = _playerStatuses.MaxMagnitude(StatusKind.DamageCut);
             bool blocking = block != null && block.Magnitude > 0;
             if (blocking || damageCut > 0)
             {
@@ -5138,7 +5156,7 @@ namespace Brushblade.Core
             {
                 counter = block.CounterDamage;
                 // 反击增强(D1 Task 7,反戈):×(100+N)/100,仍在下面的 60% 反伤预算里钳
-                int boost = _playerStatuses.TotalMagnitude(StatusKind.CounterBoost);
+                int boost = _playerStatuses.MaxMagnitude(StatusKind.CounterBoost);   // 多来源取最强(Ruling 11)
                 if (boost > 0) counter = counter * (100 + boost) / 100;
                 block.Magnitude--;
                 if (block.Magnitude <= 0) _playerStatuses.RemoveEntry(block);
@@ -5234,6 +5252,10 @@ namespace Brushblade.Core
             // 「甲厚过攻击力」这种口径随点数减法一起作废。位置在生克**之后**,与 DamageEnemy 那边
             // (生克 → 暴击 → 折算护甲)同序:折的是实际打到身上的量,不是敌人名义上的攻击力。
             taken = ApplyDefense(taken, summon.EffectiveDefense);
+            // 本回合减伤(Ruling 10):挂在玩家身上、我方全体受益。召唤物眼下没有别的非护甲减伤,单独钳 60%。
+            // 没有减伤时整句跳过 —— 恒等。
+            int summonCut = Math.Min(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), CombatCaps.NonArmorReductionPercent);
+            if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
             int hpBefore = summon.Hp;
 
             // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,排在护甲之后、护盾之前 ——
@@ -5253,14 +5275,7 @@ namespace Brushblade.Core
 
             int absorbed = Math.Min(summon.Shield, taken);
             summon.Shield -= absorbed;
-            // 保命(D1 Task 7,扎根):这一下会致命 → 留 1 血、移除保命。只在这里结算:吞噬与自焚不算受伤。
-            var endure = taken - absorbed >= summon.Hp ? summon.Statuses.Find(StatusKind.Endure) : null;
-            if (endure != null)
-            {
-                summon.Statuses.RemoveEntry(endure);
-                summon.Hp = 1;
-            }
-            else summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
+            LoseSummonHp(summon, taken - absorbed);
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
             Raise(HookKind.SummonHit, UnitRef.Summon(summonIndex), UnitRef.Enemy(enemyIndex), taken, absorbed: absorbed);

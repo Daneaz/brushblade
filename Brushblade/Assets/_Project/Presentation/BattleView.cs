@@ -5650,7 +5650,9 @@ namespace Brushblade.Presentation
         /// 那时说不出具体是哪一格,退回旧口径的整体说法。</summary>
         private string ReplaceSummonBody(CharDef def, bool attackMode, IReadOnlyList<int> summonSlots)
         {
-            int count = Battle.SummonCountOf(def, attackMode);
+            // 只算本体召唤(D1 Task 7):幼苗只占空位、不顶人 —— 与引擎 SummonReplaceCountOf、按钮同口径。
+            // 选位(EnterSlotPicking)仍用 SummonCountOf:落位表要给幼苗也排上格子。
+            int count = Battle.ReplaceableSummonCountOf(def, attackMode);
             if (summonSlots == null)
                 return Strings.T("battle.dialog.slot_occupied.body_generic",
                         ("alive", Battle.AliveSummonCount), ("capacity", Battle.SummonCapacity),

@@ -389,6 +389,8 @@ namespace Brushblade.Core.Tests
             Assert.That(EffectPickRules.Allows(EffectKind.Cleanse, EffectPick.All), Is.False);
             Assert.That(EffectPickRules.Allows(EffectKind.Endure, EffectPick.Self), Is.False);
             Assert.That(EffectPickRules.Allows(EffectKind.Freeze, EffectPick.Random), Is.True);
+            Assert.That(EffectPickRules.Allows(EffectKind.Endure, EffectPick.Primary), Is.False, "保命必须写 SummonedThisCast");
+            Assert.That(EffectPickRules.Allows(EffectKind.Cleanse, EffectPick.Primary), Is.True);
         }
 
         private const string Body = @"""effects"":[{""kind"":""Shield"",""value"":5}],
@@ -422,6 +424,195 @@ namespace Brushblade.Core.Tests
                 @"{""chars"":[{""id"":""甲"",""element"":""Wood"",""effects"":[{""kind"":""Freeze"",""value"":1,""pick"":""Self""}]}]}"));
             Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
                 @"{""chars"":[{""id"":""甲"",""element"":""Wood"",""effects"":[{""kind"":""HealSelf"",""value"":1,""percentOfMax"":true}]}]}"));
+        }
+
+        // ================= 修复第 1 轮 =================
+
+        [Test]
+        public void DamageCut_AlsoReducesDamageToSummons()
+        {
+            var cut = Def("壁", new EffectDef(EffectKind.DamageCut, 20));
+            var b = Battle(new[] { cut }, null, new[] { Summon(0, 1000, 1000) }, RebalanceFixture.Mob(attack: 100));
+            b.Cast("壁");
+            b.EndTurn();
+            Assert.That(b.Summons[0].Hp, Is.EqualTo(1000 - 80), "我方全体受益(Ruling 10)");
+        }
+
+        [Test]
+        public void DamageCut_DifferentSources_TakeStrongestOnly()
+        {
+            var a = Def("壁", new EffectDef(EffectKind.DamageCut, 20));
+            var c = Def("垒", new EffectDef(EffectKind.DamageCut, 30));
+            var b = Battle(new[] { a, c }, null, null, RebalanceFixture.Mob(attack: 100));
+            b.Cast("壁");
+            b.Cast("垒");
+            Assert.That(b.PlayerStatuses.All.Count(s => s.Kind == StatusKind.DamageCut), Is.EqualTo(2), "两条并存");
+            Assert.That(HitTaken(b), Is.EqualTo(70), "取较大的 30,不是相加的 50");
+        }
+
+        [Test]
+        public void CounterBoost_DifferentSources_TakeStrongestOnly()
+        {
+            var weak = Def("戟", new EffectDef(EffectKind.CounterBoost, 50));
+            var b = Battle(new[] { Riposte, weak }, null, null, RebalanceFixture.Mob(attack: 400));
+            b.Cast("戈", -1, attackMode: false);
+            b.Cast("戟");
+            b.EndTurn();
+            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(60), "×2 而不是 ×2.5");
+        }
+
+        [Test]
+        public void Cleanse_IsDiscrete_NotScaledByCardLevel()
+        {
+            Assert.That(MetaRules.ScalesWithCardLevel(EffectKind.Cleanse), Is.False);
+            var c = Def("涓", new EffectDef(EffectKind.Cleanse, 1));
+            var b = new BattleEngine(RebalanceFixture.Graph(c), Config, new[] { "涓" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: new Dictionary<string, int> { ["涓"] = 10 });
+            AddDebuffs(b, StatusKind.Blind, StatusKind.Curse, StatusKind.Seal);
+            b.Cast("涓");
+            Assert.That(b.PlayerStatuses.All.Count(s => s.Polarity == StatusPolarity.Debuff), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Config_EndureWithoutPick_IsRejected()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Wood"",""effects"":[{""kind"":""Endure"",""value"":0}]}]}"));
+        }
+
+        [Test]
+        public void Config_SaplingWithoutSummonOnSameFace_IsRejected()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Wood"",""effects"":[{""kind"":""SummonSapling"",""value"":20}]}]}"));
+            // 召唤在五行面、幼苗写在攻击面特性 → 不同面,拒绝
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Wood"",
+                  ""effects"":[{""kind"":""Summon"",""value"":10,""count"":1}],
+                  ""attackEffects"":[{""kind"":""DamageSingle"",""value"":5}],""traits"":[
+                  {""slot"":""Lv5"",""face"":""Attack"",""name"":""芽"",""effects"":[{""kind"":""SummonSapling"",""value"":20}]}]}]}"));
+            // 同面:放行
+            var g = ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Wood"",
+                  ""effects"":[{""kind"":""Summon"",""value"":10,""count"":1}],""traits"":[
+                  {""slot"":""Lv5"",""face"":""Feature"",""name"":""芽"",""effects"":[{""kind"":""SummonSapling"",""value"":20}]}]}]}");
+            Assert.That(g.Get("甲").Traits[0].Effects[0].Kind, Is.EqualTo(EffectKind.SummonSapling));
+        }
+
+        [Test]
+        public void Endure_SavesFromLethalSummonBurn()
+        {
+            var b = Battle(new[] { Rooted });
+            b.Cast("扎");
+            int slot = Array.FindIndex(b.Summons.ToArray(), s => s != null);
+            b.Summons[slot].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff, Magnitude = 10, TurnsLeft = -1,
+            });
+            b.EndTurn();
+            Assert.That(b.Summons[slot].Alive, Is.True, "灼烧致死同样算「将要阵亡」");
+            Assert.That(b.Summons[slot].Hp, Is.EqualTo(1));
+            Assert.That(b.Summons[slot].Statuses.Has(StatusKind.Endure), Is.False);
+            b.EndTurn();
+            Assert.That(b.Summons[slot].Alive, Is.False, "只救一次");
+        }
+
+        [Test]
+        public void Endure_TwoLethalHitsInOneRound_SavesOnlyOnce()
+        {
+            var b = Battle(new[] { Rooted }, null, null,
+                RebalanceFixture.Mob(attack: 100), RebalanceFixture.Mob(attack: 100));
+            b.Cast("扎");
+            int slot = Array.FindIndex(b.Summons.ToArray(), s => s != null);
+            b.EndTurn();   // 两只近战都打前排唯一的召唤物:第一下留 1 血,第二下打死
+            Assert.That(b.Summons[slot].Alive, Is.False);
+        }
+
+        [Test]
+        public void ShieldSummons_NoShieldGranted_DoesNotAccumulateHeft()
+        {
+            var grove = Def("荫", new EffectDef(EffectKind.ShieldSummons, 15));
+            var b = Battle(new[] { grove });
+            b.Cast("荫");
+            Assert.That(b.ShieldAccum, Is.EqualTo(0), "没有召唤物:一份护盾都没发出去");
+
+            var c = Battle(new[] { grove }, null, new[] { Summon(0, 50) });
+            c.Cast("荫");
+            Assert.That(c.ShieldAccum, Is.EqualTo(15), "发出去了就按单份量攒厚");
+        }
+
+        [Test]
+        public void SummonStrike_ZeroDamage_DoesNotStrike()
+        {
+            var strike = Def("刺", new EffectDef(EffectKind.SummonStrike, 50));
+            var b = Battle(new[] { strike }, null, new[] { Summon(0, 50, attack: 1) });
+            b.Cast("刺", 0);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.SummonAttack), Is.False, "1 × 50% = 0,不出手");
+        }
+
+        [Test]
+        public void SummonStrike_TargetKilled_RemainingSummonsStop()
+        {
+            var strike = Def("刺", new EffectDef(EffectKind.SummonStrike, 50));
+            var b = Battle(new[] { strike }, null,
+                new[] { Summon(0, 50, attack: 40), Summon(1, 50, attack: 40) },
+                RebalanceFixture.Mob(hp: 15), RebalanceFixture.Mob());
+            b.Cast("刺", 0);
+            Assert.That(b.Enemies[0].Alive, Is.False);
+            Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.SummonAttack), Is.EqualTo(1), "目标死了第二只不出手");
+            Assert.That(b.Enemies[1].Hp, Is.EqualTo(100000), "不改打别人");
+        }
+
+        [Test]
+        public void SummonStrike_CanCrit()
+        {
+            var strike = Def("刺", new EffectDef(EffectKind.SummonStrike, 50));
+            var critter = Summon(0, 50, attack: 40);
+            critter.Statuses.Add(new StatusEffect
+            {
+                Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff, Magnitude = 100, TurnsLeft = -1,
+            });
+            var b = Battle(new[] { strike }, null, new[] { critter });
+            b.Cast("刺", 0);
+            Assert.That(100000 - b.Enemies[0].Hp, Is.GreaterThan(20), "暴击率 100%:必暴");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Damage && e.Crit), Is.True);
+        }
+
+        [Test]
+        public void Cleanse_PickSelf_IgnoresAllySlot_SummonDebuffsUntouched()
+        {
+            var c = new CharDef("涤", Element.Heart, effects: new[] { new EffectDef(EffectKind.Shield, 5) },
+                attackEffects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 10),
+                    new EffectDef(EffectKind.Cleanse, 0, pick: EffectPick.Self),
+                });
+            var sick = Summon(0, 50);
+            sick.Statuses.Add(new StatusEffect
+            {
+                Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff, Magnitude = 1, TurnsLeft = 3, SourceId = "x",
+            });
+            var b = Battle(new[] { c }, null, new[] { sick });
+            AddDebuffs(b, StatusKind.Blind, StatusKind.Curse);
+            Assert.That(b.Cast("涤", 0, attackMode: true, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerStatuses.All.Any(s => s.Polarity == StatusPolarity.Debuff), Is.False, "玩家清干净");
+            Assert.That(b.Summons[0].Statuses.Has(StatusKind.Blind), Is.True, "指向的召唤物不受影响");
+        }
+
+        [Test]
+        public void Sapling_SurvivesSnapshotRoundTrip()
+        {
+            var b = Battle(new[] { Sprout });
+            b.Cast("芽");
+            int slot = Array.FindIndex(b.Summons.ToArray(), s => s != null && s.Char == "苗");
+            var restored = BattleEngine.Restore(b.Capture(), RebalanceFixture.Graph(Sprout), Config, null,
+                new Dictionary<string, EnemyDef> { ["怔"] = RebalanceFixture.Mob() });
+            var sapling = restored.Summons[slot];
+            Assert.That(sapling.Char, Is.EqualTo("苗"));
+            Assert.That(sapling.Passive, Is.Null);
+            Assert.That(sapling.SourceChar, Is.EqualTo("芽"));
+            Assert.That(sapling.MaxHp, Is.EqualTo(20));
+            Assert.That(sapling.Attack, Is.EqualTo(10));
         }
     }
 }

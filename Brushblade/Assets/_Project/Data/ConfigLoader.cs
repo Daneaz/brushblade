@@ -527,6 +527,7 @@ namespace Brushblade.Data
                     dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
                     traits: ParseTraits(dto));
                 ValidateTraitTargets(def);
+                ValidateSaplingFaces(def);
                 defs.Add(def);
             }
 
@@ -600,6 +601,20 @@ namespace Brushblade.Data
 
         /// <summary>主动特性若需要(敌方/友方)目标,它所作用的面的本体也必须选同类目标 ——
         /// 否则出手时 targetIndex / allySlot 停在缺省值,特性悄悄空转(与 NeedsTarget 注释里 C1 那次同型)。</summary>
+        /// <summary>幼苗(SummonSapling)取「本次出字召出的第一只」的属性:同一面(本体 + 作用于该面的特性)
+        /// 没有 Summon 时它永远空转 —— 加载期拦下(D1 Task 7 修复第 1 轮)。</summary>
+        private static void ValidateSaplingFaces(CharDef def)
+        {
+            foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
+            {
+                if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;   // 没有攻击面:出字只走五行面
+                var body = face == CardFace.Attack ? def.AttackEffects : def.Effects;
+                var all = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects)).ToList();
+                if (all.Any(e => e.Kind == EffectKind.SummonSapling) && !all.Any(e => e.Kind == EffectKind.Summon))
+                    throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)所在的面没有召唤(Summon),幼苗会永远空转");
+            }
+        }
+
         private static void ValidateTraitTargets(CharDef def)
         {
             foreach (var t in def.Traits)
@@ -671,9 +686,10 @@ namespace Brushblade.Data
                     // 与 Shape 同一个坑:Enum.TryParse 放数字字符串过关,叠加 IsDefined
                     if (!Enum.TryParse(effect.Pick, out pick) || !Enum.IsDefined(typeof(EffectPick), pick))
                         throw new ConfigException($"字「{dto.Id}」的目标选择器未知:{effect.Pick}");
-                    if (!EffectPickRules.Allows(kind, pick))
-                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 只给净化,SummonedThisCast 只给保命)");
                 }
+                // 放在 if 外:保命不写 pick(= Primary)也要拦下(Ruling 10,Primary 写法选不到召唤物)
+                if (!EffectPickRules.Allows(kind, pick))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 只给净化;保命必须写 SummonedThisCast)");
                 if (effect.PercentOfMax && kind != EffectKind.HealSummons)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)

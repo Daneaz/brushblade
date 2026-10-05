@@ -457,6 +457,9 @@ def _attach_ally_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
                              f"{sorted(p for p, k in ALLY_PICKS.items() if k == e['kind'])})")
     for e in effects:
+        # 保命必须写 `pick SummonedThisCast`(Ruling 10):缺省写法引擎选不到召唤物,会静默空转
+        if e["kind"] == "Endure" and e.get("pick") != "SummonedThisCast":
+            raise ValueError(f"{char}:`Endure` 必须配 `pick SummonedThisCast`(落点是本次召出的召唤物)")
         if "onlyIf" in e and e["kind"] in ALLY_PICKS.values():
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 

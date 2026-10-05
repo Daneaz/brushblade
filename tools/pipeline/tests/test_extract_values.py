@@ -563,6 +563,7 @@ def test_endure_and_cleanse_self_picks():
     "`Endure` + `pick Random`",                # 保命只认 SummonedThisCast
     "`Cleanse 1` + `pick SummonedThisCast`",
     "`Cleanse 1` + `if Burning`",              # 条件门只给敌方侧效果
+    "`Endure`",                                # 保命必须写 pick SummonedThisCast(Ruling 10)
 ])
 def test_ally_pick_combos_rejected(config):
     with pytest.raises(ValueError):
