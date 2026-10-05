@@ -586,7 +586,7 @@ namespace Brushblade.Core
         /// <summary>我方(玩家/召唤物)身上的灼烧每层伤害:恒为基础值(2026-10-02 用户拍板)——
         /// 局内灼烧加成与添薪都是「玩家点的火」的增威,敌人给我方上的灼烧不享有。</summary>
         private int OurSideBurnPerStack => _config?.BurnPerStack ?? BattleConfig.BaseBurnPerStack;
-        private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
+        private int _shieldNormal;          // 普通护盾:玩家下一回合开始清空(U1,2026-10-04);战后按 ShieldCarryPercent 带到下一场(2026-07-26 起关间延续)
         private int _playerTurnsStarted;    // 已开始的玩家回合数(BeginPlayerTurn 计);0 = 本场第一个玩家回合还没开,此时不清盾
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
@@ -3923,8 +3923,8 @@ namespace Brushblade.Core
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
-                        // 它是一次性额外血条 —— 吸完即无、不刷新、不随回合清空(召唤物本身就是
-                        // 消耗品,再加个衰减太碎)。盾是「资源」,跟血/攻一样吃卡等级
+                        // 它是额外血条 —— 吸完即无、不刷新;U1(2026-10-04)起剩余部分在玩家下一
+                        // 回合开始时清空(召唤物本身就是消耗品)。盾是「资源」,跟血/攻一样吃卡等级
                         if (effect.SummonShield > 0)
                         {
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);

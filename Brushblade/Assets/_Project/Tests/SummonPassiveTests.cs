@@ -698,21 +698,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SummonShield_OnceDepleted_DoesNotRefresh()
         {
+            // 2026-10-04 U1 判别力修复:敌人攻 7 > 盾 6,第一击内就是「盾部分吸收、溢出进血」。
             // 2026-09-13:盾召 2 只,显式钉在槽 0(前排)与槽 4(后排)——前排若站两只,
             // 敌方近战会在其间随机,「槽 0 必挨这几下」就不再确定。前排只留一只,
             // 候选池退化不摇随机,复现改前的确定性。
-            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 7) });
             engine.Cast("盾", summonSlots: new[] { 0, 4 });
-            // 2026-10-04 U1:盾 6 吃第一击(余 2)后在下一玩家回合开始清空,之后每击整 4 点进血
-            // (原:6→2→0 溢出 2 点进血,hp 8 / 4)
-            engine.EndTurn(); // 盾 6 → 2 → 清空
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10));
-            engine.EndTurn(); // 整 4 点进血
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "护盾不随回合补满");
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(6));
+            // 盾 6 吃第一击 7:盾被打穿,溢出 1 点进血;之后盾不补满、每击整 7 点进血
             engine.EndTurn();
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(2));
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(9), "10 − (7 − 6)");
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "护盾不随回合补满");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(2), "9 − 7");
         }
 
         [Test]

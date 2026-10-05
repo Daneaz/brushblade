@@ -145,28 +145,31 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerStatuses.Has(StatusKind.ShieldRecoil), Is.False);
         }
 
-        /// <summary>战斗在敌人回合结束(胜利)时剩余护盾按 ShieldCarryPercent 带走:
-        /// 带走的是清空前、战斗结束那一刻剩下的量,清盾规则不改这一点。</summary>
-        [Test]
-        public void Run_CarriesRemainingShieldAtBattleEnd()
+        private static RunEngine RunWith(CharDef[] chars, string[] library, EnemyDef enemy, int playerAttack = 100)
         {
-            var graph = new RecipeGraph(new[]
-            {
-                new CharDef("木", Element.Wood),
-                new CharDef("垒", Element.Earth,
-                    effects: new[] { new EffectDef(EffectKind.Shield, 100) }),
-                new CharDef("焚", Element.Fire,
-                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) }),
-            });
-            var run = new RunEngine(graph,
+            var graph = new RecipeGraph(chars);
+            return new RunEngine(graph,
                 new RunConfig
                 {
-                    Encounters = new[] { new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
-                                         new[] { new EnemyDef("枯", Element.Wood, 4, 2) } },
+                    Encounters = new[] { new[] { enemy }, new[] { enemy } },
                     RewardPool = new[] { "木" },
                 },
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500, ShieldCarryPercent = 50 },
-                startingLibrary: new[] { "垒", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500, PlayerAttack = playerAttack,
+                    ShieldCarryPercent = 50 },
+                startingLibrary: library, startingPool: Array.Empty<string>(), seed: 7);
+        }
+
+        /// <summary>玩家回合清场(胜利发生在玩家回合内):战斗结束那一刻剩下的护盾按 ShieldCarryPercent 带走。</summary>
+        [Test]
+        public void Run_PlayerTurnClear_CarriesRemainingShield()
+        {
+            var run = RunWith(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("垒", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 100) }),
+                new CharDef("焚", Element.Fire,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) }),
+            }, new[] { "垒", "焚" }, new EnemyDef("枯", Element.Wood, 4, 2));
             Assert.That(run.Battle.Cast("垒"), Is.EqualTo(BattleError.None));
             Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
@@ -174,6 +177,54 @@ namespace Brushblade.Core.Tests
             run.AdvanceAfterBattle();
 
             Assert.That(run.CarriedNormalShield, Is.EqualTo(50), "100 × 50%");
+        }
+
+        /// <summary>胜利发生在**敌方段**(格挡反击打死最后一只敌人):清盾发生在玩家回合开始,
+        /// 敌方段胜利时根本没走到那一步,带走的是敌方段结束时剩余的普通盾 × 50%。</summary>
+        [Test]
+        public void Run_EnemyPhaseWin_ByBlockCounter_CarriesRemainingShield()
+        {
+            var run = RunWith(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("垒", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 100) }),
+                new CharDef("铠", Element.Metal,
+                    effects: new[] { new EffectDef(EffectKind.Block, 1) },
+                    attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
+            }, new[] { "垒", "铠" }, new EnemyDef("靶", Element.Heart, 20, 100));
+            Assert.That(run.Battle.Cast("垒"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("铠", -1, attackMode: false), Is.EqualTo(BattleError.None));
+
+            run.Battle.EndTurn();
+
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won), "反击在敌方段打死了最后一只敌人");
+            int remaining = run.Battle.ShieldNormal;
+            Assert.That(remaining, Is.GreaterThan(0).And.LessThan(100), "吃了一击但没被清空");
+            run.AdvanceAfterBattle();
+            Assert.That(run.CarriedNormalShield, Is.EqualTo(remaining * 50 / 100));
+        }
+
+        [Test]
+        public void Run_EnemyPhaseWin_ByThorns_CarriesRemainingShield()
+        {
+            var run = RunWith(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("垒", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 100) }),
+                new CharDef("棘", Element.Wood,
+                    effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
+                        passive: new SummonPassive { Thorns = 100 }) }),
+            }, new[] { "垒", "棘" }, new EnemyDef("靶", Element.Heart, 20, 100));
+            Assert.That(run.Battle.Cast("垒"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("棘"), Is.EqualTo(BattleError.None));
+
+            run.Battle.EndTurn();
+
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won), "荆棘反伤在敌方段打死了最后一只敌人");
+            int remaining = run.Battle.ShieldNormal;
+            Assert.That(remaining, Is.EqualTo(100), "敌人打的是召唤物,玩家的盾原样留到战斗结束");
+            run.AdvanceAfterBattle();
+            Assert.That(run.CarriedNormalShield, Is.EqualTo(50));
         }
     }
 }
