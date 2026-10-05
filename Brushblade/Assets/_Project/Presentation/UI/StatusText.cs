@@ -226,6 +226,16 @@ namespace Brushblade.Presentation
                     return new Info("chill", Strings.T("status.icestall.name"),
                         Strings.T("status.duration.until_next_action"),
                         Strings.T("status.icestall.desc"));
+                case StatusKind.Seed:
+                    // 种(spec v7 §3.1,D1 Task 6):敌人身上,每次行动让我方最低比例的单位回血。翠玉底,无数字。
+                    return new Info("seed", Strings.T("status.seed.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.seed.desc", ("magnitude", magnitude)));
+                case StatusKind.Vulnerable:
+                    // 标记(spec v7 §3.1,D1 Task 6):受伤 +Magnitude%。朱砂底,无数字。
+                    return new Info("mark", Strings.T("status.mark.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.mark.desc", ("magnitude", magnitude)));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

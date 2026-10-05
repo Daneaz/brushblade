@@ -64,6 +64,12 @@ namespace Brushblade.Core
         IceStall,         // 冰滞(spec v7 R1b,仅 Boss):Boss 被冻结时改挂本状态 —— 行动条后退半格(可为负)、
                           // 下次行动前受伤 +15%。Magnitude = 本该冻结的回合数 N,TurnsLeft = -1;
                           // Boss 下次行动开始时移除并挂霜抗 N+1(本拍末尾 TickTurns 减 1)。
+        Seed,             // 种(spec v7 §3.1,D1 Task 6,仅敌人):Magnitude = 每次回复量,TurnsLeft = 回合,SourceId = 字 ID。
+                          // 该敌人每次行动开始(含被冻结 / 冰滞跳过的那一拍),我方生命**比例**最低的单位回复 Magnitude。
+                          // 同源刷新取较大量、较长回合;不同来源并存、各治一次。
+        Vulnerable,       // 标记(spec v7 §3.1,D1 Task 6,仅敌人):受到的 DamageEnemy 伤害 +Magnitude%(各来源相加),
+                          // TurnsLeft 按该敌人行动递减。在冰滞易伤之后、护甲之前,分别整数取整;灼烧 / 流血不走 DamageEnemy,不吃。
+                          // 同源刷新取较强值与较长回合。
     }
 
     public enum StatusPolarity { Buff, Debuff }

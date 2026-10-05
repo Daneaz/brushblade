@@ -61,6 +61,10 @@ namespace Brushblade.Core.Tests
             EffectKind.Haste, EffectKind.Unseal,
             // 减攻(D1 Task 5):Value 是百分点,吃卡等级;Turns 不吃(读 effect.Turns)
             EffectKind.Weaken,
+            // 种(D1 Task 6):Value 是每次回复量,吃卡等级;Turns 不吃
+            EffectKind.Seed,
+            // 标记(D1 Task 6):Value 是百分点,吃卡等级;Turns 不吃
+            EffectKind.Vulnerable,
         };
 
         [Test]

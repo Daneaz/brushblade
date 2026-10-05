@@ -43,6 +43,8 @@ EXPECTED = {
     "chevron", "check",
     # 字卡特性 Plan C(2026-10-04):格挡 / 霜抗 / 冰滞,取自 traits 稿 StatusChips 的 NEW 三枚。
     "block", "frostguard", "chill",
+    # 字卡特性 D1 Task 6(2026-10-05):种 / 标记,取自 traits 稿 StatusChips 的 NEW 两枚。
+    "seed", "mark",
 }
 
 

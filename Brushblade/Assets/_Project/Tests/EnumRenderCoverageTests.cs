@@ -77,6 +77,8 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Charm),
             nameof(StatusKind.FrostResist),
             nameof(StatusKind.IceStall),
+            nameof(StatusKind.Seed),       // 种(D1 Task 6):敌人身上的回复来源
+            nameof(StatusKind.Vulnerable), // 标记(D1 Task 6)
         };
 
         private static string Root()

@@ -22,6 +22,7 @@ namespace Brushblade.Core
         {
             EffectKind.BurnSingle or EffectKind.Bleed or EffectKind.Freeze or EffectKind.Slow
                 or EffectKind.ArmorBreak or EffectKind.Blind or EffectKind.Weaken
+                or EffectKind.Seed or EffectKind.Vulnerable
                 or EffectKind.BurnSettleNow or EffectKind.Detonate => true,
             _ => false,
         };

@@ -69,6 +69,8 @@ namespace Brushblade.Presentation
             { "block", "挡" },
             { "frostguard", "霜" },
             { "chill", "滞" },
+            { "seed", "种" },
+            { "mark", "标" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

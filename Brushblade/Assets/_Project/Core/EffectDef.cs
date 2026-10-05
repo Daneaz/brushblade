@@ -108,6 +108,12 @@ namespace Brushblade.Core
         Weaken,       // 减攻(D1 Task 5,附录 M5):给目标挂 StatusKind.Curse(攻击 −Value%),Turns 回合,
                       // SourceId = 字 ID,同源刷新取较强值与较长回合。玩家可见名「减攻」(枚举不改名)。
                       // Value 是百分点,吃卡等级;Turns 不吃。支持 Pick / OnlyIf。
+        Seed,         // 种(D1 Task 6,附录 M6):给目标敌人挂 StatusKind.Seed —— 该敌人每次行动开始时,
+                      // 我方生命比例最低的单位回复 Value。Value = 回复量(吃卡等级、吃 Amplify scope Seed),
+                      // Turns = 回合(离散量,不吃等级)。SourceId = 字 ID,同源刷新取强。支持 Pick / OnlyIf。
+        Vulnerable,   // 标记(D1 Task 6,附录 M11):给目标敌人挂 StatusKind.Vulnerable —— 受到的伤害 +Value%。
+                      // Value = 百分点(吃卡等级),Turns = 回合(不吃)。Turns == 0 且 Pick == FrozenByThisCast
+                      // 时回合数 = 该目标本次冻结的回合数(冰缚);其余缺 turns 兜 1 回合。支持 Pick / OnlyIf。
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -124,7 +130,7 @@ namespace Brushblade.Core
         Damage,   // DamageSingle
         Heal,     // HealSelf / HealAll / HealOverTime
         Shield,   // Shield / ShieldAll
-        Seed,     // 种(M6 落地后接上;D1 Task 3 时还没有种的 EffectKind,空转)
+        Seed,     // 种的回复量(D1 Task 6 接上)
         Counter,  // 格挡反击量(Block 写 CounterDamage 时乘)
         All,      // 以上全部
     }

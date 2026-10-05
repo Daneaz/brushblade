@@ -123,6 +123,11 @@ namespace Brushblade.Presentation
                     EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
                     // 减攻(D1 Task 5):Value 是百分点、吃卡等级(shown);回合数读 e.Turns,不吃等级
                     EffectKind.Weaken => Strings.T("char.effect.weaken", ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                    // 种 / 标记(D1 Task 6):Value 吃卡等级(shown),回合不吃。标记 Turns == 0 + 冰缚选择器 = 跟随冻结回合
+                    EffectKind.Seed => Strings.T("char.effect.seed", ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.Vulnerable => e.Turns <= 0 && e.Pick == EffectPick.FrozenByThisCast
+                        ? Strings.T("char.effect.vulnerable.bind", ("value", shown))
+                        : Strings.T("char.effect.vulnerable", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 护甲/破甲 2026-09-08 起限时,回合数要印在卡面上 —— 玩家看不到时限
                     // 就会当成本场持久去规划出牌顺序(这两条以前确实是持久的)
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",

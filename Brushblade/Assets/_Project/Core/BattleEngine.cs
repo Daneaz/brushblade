@@ -1915,6 +1915,7 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
                     || effect.Kind == EffectKind.Weaken
+                    || effect.Kind == EffectKind.Seed || effect.Kind == EffectKind.Vulnerable
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
                     // targetIndex 停在 -1,ApplyEffects 里 _enemies[-1] 直接越界崩溃。
                     // 必须排除 TargetAll(淡):那支是全体驱散,本就不需要选目标。
@@ -2460,6 +2461,9 @@ namespace Brushblade.Core
             DrainReactions();   // 安全点:「回合开始时」类反应在它出手前兑现(与玩家侧对称)
             if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }   // 被反应打死
 
+            // 种(D1 Task 6):每次行动开始(含稍后被冻结 / 冰滞跳过的这一拍)触发,先于灼烧结算。
+            TriggerSeeds(enemy);
+
             // 冰滞到此为止(R1b):Boss 这一拍照常行动,易伤窗口关闭,挂霜抗 N+1(本拍末尾 TickTurns 会减 1)
             var stall = enemy.Statuses.Find(StatusKind.IceStall);
             if (stall != null)
@@ -2547,6 +2551,43 @@ namespace Brushblade.Core
             // `Phase == BattlePhase.PlayerTurn` 早退天然覆盖,不需要在这里重复拦一次。
             enemy.Statuses.TickTurns();
             EndBeat(UnitRef.Enemy(enemyIndex));
+        }
+
+        /// <summary>种(D1 Task 6):该敌人身上每条 Seed 各治疗一次 —— 受益者是我方生命**比例**最低的单位
+        /// (玩家与存活召唤物,按 Hp * 1000 / MaxHp 比较;同比例先玩家,再槽位小)。每条种按各自治疗前的血量重选。
+        /// 走 HealAlly(吃泉放大,但不攒泉:种是敌方回合的触发,不是玩家的一次治疗)。
+        /// 没有 Seed 时一次判断就返回 —— 不摇随机、不发事件,生产数据恒等。</summary>
+        private void TriggerSeeds(EnemyState enemy)
+        {
+            if (!enemy.Statuses.Has(StatusKind.Seed)) return;
+            foreach (var seed in enemy.Statuses.All.Where(s => s.Kind == StatusKind.Seed).ToList())
+            {
+                if (Phase == BattlePhase.Lost) return;
+                int slot = LowestHpRatioAllySlot();
+                if (slot == int.MinValue || seed.Magnitude <= 0) continue;
+                HealAlly(slot, AmplifyByWellspring(seed.Magnitude));
+            }
+        }
+
+        /// <summary>我方生命比例最低的单位:玩家 = <see cref="Targeting.PlayerTarget"/>,召唤物 = 槽位。
+        /// 同比例先玩家、再槽位小(严格小于才换人)。玩家已阵亡(maxHp 未知 / Hp ≤ 0)时 = int.MinValue。</summary>
+        private int LowestHpRatioAllySlot()
+        {
+            int best = int.MinValue;
+            long bestRatio = long.MaxValue;
+            if (_config != null && _config.PlayerMaxHp > 0 && PlayerHp > 0)
+            {
+                best = Targeting.PlayerTarget;
+                bestRatio = (long)PlayerHp * 1000 / _config.PlayerMaxHp;
+            }
+            for (int i = 0; i < _summons.Length; i++)
+            {
+                var summon = _summons[i];
+                if (summon == null || !summon.Alive || summon.MaxHp <= 0) continue;
+                long ratio = (long)summon.Hp * 1000 / summon.MaxHp;
+                if (ratio < bestRatio) { best = i; bestRatio = ratio; }
+            }
+            return best;
         }
 
         /// <summary>轮到玩家(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍):玩家灼烧 →
@@ -3122,6 +3163,35 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
                                 Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                        }
+                        break;
+                    case EffectKind.Seed:
+                        // 种(D1 Task 6,M6):挂 StatusKind.Seed(Magnitude = 每次回复量,已含卡等级与 Amplify),
+                        // 回合数不吃卡等级,缺 turns 兜 1 回合。同源刷新取强(ApplyStatus)。
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                        {
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                            {
+                                Kind = StatusKind.Seed, Polarity = StatusPolarity.Debuff,
+                                Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                        }
+                        break;
+                    case EffectKind.Vulnerable:
+                        // 标记(D1 Task 6,M11):受伤 +value%。Turns == 0 且 Pick == FrozenByThisCast(冰缚)时,
+                        // 回合数 = 该目标本次冻结的回合数(此刻 Freeze 条目的 TurnsLeft);其余缺 turns 兜 1 回合。
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                        {
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            int markTurns = effect.Turns;
+                            if (markTurns <= 0 && EffectPickRules.Effective(effect) == EffectPick.FrozenByThisCast)
+                                markTurns = _enemies[ti].Statuses.Find(StatusKind.Freeze)?.TurnsLeft ?? 0;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                            {
+                                Kind = StatusKind.Vulnerable, Polarity = StatusPolarity.Debuff,
+                                Magnitude = value, TurnsLeft = Math.Max(1, markTurns), SourceId = def.Id,
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3955,11 +4025,11 @@ namespace Brushblade.Core
                 // 照常写袋子、返回值不变(与 GainStacks 的 raiseHook 同口径)。
                 if (effect.Magnitude <= (bag.Find(StatusKind.Burn)?.Magnitude ?? 0)) raiseHook = false;
             }
-            else if (effect.Kind == StatusKind.Curse)
+            else if (effect.Kind == StatusKind.Curse || effect.Kind == StatusKind.Seed || effect.Kind == StatusKind.Vulnerable)
             {
-                // 减攻同源刷新取强(D1 Task 5,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
+                // 减攻 / 种 / 标记同源刷新取强(D1 Task 5 / 6,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
                 // 同源 = 同 Kind + 同 SourceId(bag.Apply 的去重键),不同来源各自并存。
-                var existing = bag.All.FirstOrDefault(s => s.Kind == StatusKind.Curse && s.SourceId == effect.SourceId);
+                var existing = bag.All.FirstOrDefault(s => s.Kind == effect.Kind && s.SourceId == effect.SourceId);
                 if (existing != null)
                 {
                     effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
@@ -4575,6 +4645,9 @@ namespace Brushblade.Core
             // 冰滞易伤(R1b):暴击之后、护甲之前,整数乘除。灼烧/流血/引爆/斩杀直杀不走本方法,不吃。
             if (enemy.Statuses.Has(StatusKind.IceStall))
                 damage = damage * (100 + BattleConfig.IceStallDamageTakenPercent) / 100;
+            // 标记(D1 Task 6):紧随冰滞易伤,与它相乘、分别整数取整;各来源的百分点相加。无标记整句跳过 —— 恒等。
+            int markPercent = enemy.Statuses.TotalMagnitude(StatusKind.Vulnerable);
+            if (markPercent > 0) damage = damage * (100 + markPercent) / 100;
             // 护甲(2026-08-12 E-b4 T2 接线,2026-09-16 改百分比减伤):**全部乘法算完之后,最后折**。
             // 结算式 = floor(基础 × 生克 × 暴击) × 100 ÷ (100 + max(0, 护甲 − 破甲 − 穿透))。
             // 护甲是**百分比减伤**(2026-09-16,推翻 E-b4 的点数减法):DR = 甲/(甲+100),

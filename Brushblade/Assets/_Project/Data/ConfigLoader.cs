@@ -671,7 +671,7 @@ namespace Brushblade.Data
                     if (!Enum.TryParse(effect.Pick, out pick) || !Enum.IsDefined(typeof(EffectPick), pick))
                         throw new ConfigException($"字「{dto.Id}」的目标选择器未知:{effect.Pick}");
                     if (pick != EffectPick.Primary && !EffectPickRules.Supports(kind))
-                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(目标选择器只支持敌方侧的灼/流血/冻结/减速/破甲/致盲/减攻/结算灼/引爆)");
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(目标选择器只支持敌方侧的灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆)");
                 }
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");

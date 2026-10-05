@@ -439,6 +439,34 @@ def test_weaken_without_turns_raises():
         _parse_effects("`Weaken 15`", "火")
 
 
+# ---- D1 Task 6:Seed / Vulnerable ----
+
+def test_seed_takes_value_and_turns():
+    assert _parse_effects("`Seed 10` turns 2", "木") == [{"kind": "Seed", "value": 10, "turns": 2}]
+
+
+def test_seed_without_turns_raises():
+    """Seed 在 DURATION_KINDS 里:漏写 turns 会被引擎静默兜成 1 回合,管线必须拦下。"""
+    with pytest.raises(ValueError):
+        _parse_effects("`Seed 10`", "木")
+
+
+def test_vulnerable_takes_optional_turns():
+    assert _parse_effects("`Vulnerable 20` turns 2", "水") == [{"kind": "Vulnerable", "value": 20, "turns": 2}]
+
+
+def test_vulnerable_bind_usage_has_no_turns():
+    """冰缚:Turns 缺省 0 + pick FrozenByThisCast = 回合数跟随冻结回合,所以 Vulnerable 不进 DURATION_KINDS。"""
+    effects = _parse_effects("`Freeze 2` + `Vulnerable 20` + `pick FrozenByThisCast`", "水")
+    assert effects == [{"kind": "Freeze", "value": 2},
+                       {"kind": "Vulnerable", "value": 20, "pick": "FrozenByThisCast"}]
+
+
+def test_seed_and_vulnerable_accept_pick():
+    assert _parse_effects("`Seed 5` + `pick Random` turns 2", "木")[0]["pick"] == "Random"
+    assert _parse_effects("`Vulnerable 10` + `pick All` turns 1", "水")[0]["pick"] == "All"
+
+
 def test_pick_attaches_to_preceding_effect_only():
     effects = _parse_effects("`BurnSingle 3` + `Weaken 20` + `pick HitTargets` turns 1", "土")
     assert effects == [{"kind": "BurnSingle", "value": 3},

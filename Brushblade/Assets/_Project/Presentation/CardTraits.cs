@@ -290,6 +290,20 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.weaken.name"),
                             Strings.T("collection.trait.weaken.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
                         break;
+                    case EffectKind.Seed:
+                        // 种(D1 Task 6):图标 seed,Value 吃等级、回合不吃
+                        AddTrait(traits, "seed", v.ToString(),
+                            Strings.T("collection.trait.seed.name"),
+                            Strings.T("collection.trait.seed.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
+                        break;
+                    case EffectKind.Vulnerable:
+                        // 标记(D1 Task 6):Turns == 0 + 冰缚选择器 = 持续到解冻
+                        AddTrait(traits, "mark", v + "%",
+                            Strings.T("collection.trait.mark.name"),
+                            e.Turns <= 0 && e.Pick == EffectPick.FrozenByThisCast
+                                ? Strings.T("collection.trait.mark.desc.bind", ("value", v))
+                                : Strings.T("collection.trait.mark.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
+                        break;
                     case EffectKind.Silence:
                         AddTrait(traits, "silence", "",
                             Strings.T("collection.trait.silence.name"),

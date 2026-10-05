@@ -176,6 +176,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Augment,
                 // 减攻(D1 Task 5):挂的是敌人 Curse 状态的百分点,不吃五行 L3(与 Blind 以外的控制类同口径)。
                 EffectKind.Weaken,
+                // 种(D1 Task 6):回复量吃 Amplify scope Seed,不吃五行 L3 / 专精;标记是敌人状态百分点。
+                EffectKind.Seed, EffectKind.Vulnerable,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

@@ -51,6 +51,8 @@ namespace Brushblade.Core
             [EffectKind.ArmorBreak] = false,
             [EffectKind.HealOverTime] = false,
             [EffectKind.Weaken] = false,
+            [EffectKind.Seed] = false,
+            [EffectKind.Vulnerable] = false,
         };
 
         public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);
@@ -175,14 +177,15 @@ namespace Brushblade.Core
             bool heal = kind == EffectKind.HealSelf || kind == EffectKind.HealAll || kind == EffectKind.HealOverTime;
             bool shield = kind == EffectKind.Shield || kind == EffectKind.ShieldAll;
             bool counter = kind == EffectKind.Block;
+            bool seed = kind == EffectKind.Seed;
             return scope switch
             {
                 AmpScope.Damage => damage,
                 AmpScope.Heal => heal,
                 AmpScope.Shield => shield,
                 AmpScope.Counter => counter,
-                AmpScope.Seed => false,   // 种的 EffectKind 尚未落地(M6),落地时在这里接上
-                AmpScope.All => damage || heal || shield || counter,
+                AmpScope.Seed => seed,
+                AmpScope.All => damage || heal || shield || counter || seed,
                 _ => false,
             };
         }

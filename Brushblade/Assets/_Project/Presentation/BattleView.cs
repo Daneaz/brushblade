@@ -2947,12 +2947,19 @@ namespace Brushblade.Presentation
                 int bleedStacks = enemy.Statuses.TotalMagnitude(StatusKind.Bleed);
                 if (bleedStacks > 0)
                     chipSpecs.Add(new($"{bleedStacks}", Theme.Cinnabar, Color.white, "bleed"));
+                // 标记(D1 Task 6,StatusChips 稿):朱砂底、mark 图标、无数字(受伤加成是挂着期间恒定的修正值)。
+                // 顺序「灼 · 标记 · 冻结」:紧跟灼烧一族,先于控制类。
+                if (enemy.Statuses.TotalMagnitude(StatusKind.Vulnerable) > 0)
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "mark"));
                 // 冻结 / 减速(2026-08-13):此前这两个状态在敌人身上零显示 —— 冻结的怪不出手、
                 // 减速的怪隔回合才出手,玩家只能靠数它哪回合打了自己来倒推。
                 // 排在致盲之前:这两条直接回答「它下回合会不会打我」,信息价值高于减伤类,
                 // 不该在 ChipFlow 装不下时被从尾部丢掉。
                 if (enemy.Statuses.Has(StatusKind.Freeze))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "freeze"));
+                // 种(D1 Task 6,StatusChips 稿):翠玉底、seed 图标、无数字。顺序「冻结 · 种 · 减速」。
+                if (enemy.Statuses.Has(StatusKind.Seed))
+                    chipSpecs.Add(new("", Theme.Jade, Color.white, "seed"));
                 // 减速 / 致盲 / 诅咒都只出图标不带数字(2026-09-02 用户拍板):数字只留给
                 // 「跟随回合消亡」的 DOT/HOT(上面的灼烧就是),而这三条是**持续期间恒定的
                 // 修正值** —— 玩家要知道的是「挂上没挂上」,减多少去详情弹窗看。

@@ -94,10 +94,13 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # 减攻(D1 Task 5,EffectKind.Weaken):Value = 百分点、Turns = 回合,漏写 turns 引擎兜成 1 回合 ——
 # 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken"}
+                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed"}
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
-TURN_TAKING_KINDS = DURATION_KINDS
+# 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
+# 不写 turns,回合数由引擎取目标的冻结回合 —— 所以它在这里、不在 DURATION_KINDS。
+# 种(Seed)在 DURATION_KINDS:漏写 turns 引擎兜成 1 回合,与减攻同型。
+TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable"}
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -172,7 +175,7 @@ RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
 # 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
 PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
-              "BurnSettleNow", "Detonate"}
+              "BurnSettleNow", "Detonate", "Seed", "Vulnerable"}
 PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
 PICK_TOKEN = "pick"
 KEEP_TOKEN = "keep"
