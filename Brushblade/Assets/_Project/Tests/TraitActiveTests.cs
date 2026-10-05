@@ -67,12 +67,41 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Level8_AttackFace_AddsLv8_PassiveIgnored()
+        public void Level8_AttackFace_AddsLv6PassiveAndLv8()
         {
             var b = Battle(8);
             b.Cast("试", 0, attackMode: true);
-            int expected = MetaRules.ScaleByCardLevel(100, 8) + MetaRules.ScaleByCardLevel(50, 8);
-            Assert.That(b.Enemies[0].Hp, Is.EqualTo(100000 - expected), "被动特性(999)在 Plan A 不执行");
+            int expected = MetaRules.ScaleByCardLevel(100, 8) + MetaRules.ScaleByCardLevel(999, 8)
+                + MetaRules.ScaleByCardLevel(50, 8);
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(100000 - expected),
+                "出字时机的被动特性(999)也追加结算(D1 终审 Critical;Plan A 时代不执行)");
+        }
+
+        /// <summary>终审 Critical:Lv6 被动「冰缚」(Vulnerable pick FrozenByThisCast)在出字冻结目标后真的挂上标记。</summary>
+        [Test]
+        public void PassiveLv6_IceBind_MarksTheTargetFrozenByThisCast()
+        {
+            var def = new CharDef("冻", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 10) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10), new EffectDef(EffectKind.Freeze, 1) },
+                traits: new[]
+                {
+                    new TraitDef(TraitSlot.Lv6, TraitFace.Attack, TraitForm.Passive, null, "冰缚",
+                        new[] { new EffectDef(EffectKind.Vulnerable, 20, pick: EffectPick.FrozenByThisCast) }),
+                });
+            BattleEngine At(int level) => new(RebalanceFixture.Graph(def),
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 },
+                new[] { "冻", "冻" }, Array.Empty<string>(), new[] { RebalanceFixture.Mob() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["冻"] = level });
+
+            var b6 = At(6);
+            b6.Cast("冻", 0, attackMode: true);
+            Assert.That(b6.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.True);
+            Assert.That(b6.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.True, "Lv6 冰缚:冻住的目标挂上标记");
+
+            var b5 = At(5);
+            b5.Cast("冻", 0, attackMode: true);
+            Assert.That(b5.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.False, "Lv5 未解锁");
         }
 
         [Test]

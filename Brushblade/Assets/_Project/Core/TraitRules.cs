@@ -86,13 +86,14 @@ namespace Brushblade.Core
         /// ① 本体复制一份;
         /// ② 已解锁、面匹配、出字时机、<c>Replaces == Lv1</c> 的特性:每条效果替换本体里**第一条同 Kind** 的效果(同位置),
         ///    没有同 Kind 就追加到末尾;被 Replaces 的 Lv1 特性自己的效果不执行;
-        /// ③ 其余已解锁、面匹配的**主动**特性效果按槽位追加(R3);
+        /// ③ 其余已解锁、面匹配、出字时机的特性(主动与被动)效果按槽位追加(R3)——被动的 Lv6 余震 / 冰缚 /
+        ///    护持 / 扎根等就靠这一步生效;非出字时机(暴击 / 击杀)的被动走反应队列,不在这里;
         /// ④ 修饰器(本体里、特性里、出字时机的被动特性里)按出现顺序逐条折叠:Amplify / Reshape / Augment,
         ///    修饰器本身不进结果。
         ///
         /// 纯函数:不改 <paramref name="body"/> 与特性里的任何 EffectDef(它们是字表共享对象),
         /// 被修饰的效果换成 <see cref="EffectDef.With"/> 产出的副本。没有修饰器、没有 Lv3 替换时结果与
-        /// 「本体 + 主动特性」逐项同一对象 —— 恒等。</summary>
+        /// 「本体 + 特性追加」逐项同一对象 —— 恒等。</summary>
         public static List<EffectDef> Fold(IReadOnlyList<EffectDef> body, CharDef def, CardFace face, int cardLevel)
         {
             var effects = new List<EffectDef>(body.Count);
@@ -125,8 +126,8 @@ namespace Brushblade.Core
                         else { effects.Add(e); at = effects.Count - 1; }
                         touched.Add(at);
                     }
-                    // 被动特性的非修饰效果仍不在出字时执行(附着类留给后续任务)
-                    else if (t.Form == TraitForm.Active) effects.Add(e);
+                    // 主动、被动一视同仁:走到这里的都是出字时机(Trigger == Cast)的特性(D1 终审 Critical)
+                    else effects.Add(e);
                 }
             }
             foreach (var m in modifiers)

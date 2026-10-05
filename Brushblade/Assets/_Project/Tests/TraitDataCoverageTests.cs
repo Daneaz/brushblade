@@ -313,5 +313,24 @@ namespace Brushblade.Core.Tests
             // 写死数字不放大:爆(绿)爆燃 +30%
             Assert.That(PoolEffect("爆", TraitSlot.Lv5, TraitFace.Attack, "爆燃", EffectKind.Amplify).Value, Is.EqualTo(30));
         }
+
+        // ---- 终审 Critical:Lv6 被动(出字时机)的非修饰效果要进出字效果表 ----
+
+        [Test]
+        public void Lv6PassiveCastEffects_RealData_AreInCastEffects()
+        {
+            var beng = TraitRules.CastEffects(Graph.Get("崩"), CardFace.Attack, 8);
+            Assert.That(beng.Any(e => e.Kind == EffectKind.Weaken && e.Pick == EffectPick.HitTargets), Is.True,
+                "崩 Lv8 攻面应含余震(Weaken pick HitTargets)");
+            Assert.That(TraitRules.CastEffects(Graph.Get("冷"), CardFace.Feature, 8)
+                .Any(e => e.Kind == EffectKind.ShieldFromHeal), Is.True, "冷 Lv8 润面应含护持(ShieldFromHeal)");
+            Assert.That(TraitRules.CastEffects(Graph.Get("冻"), CardFace.Attack, 8)
+                .Any(e => e.Kind == EffectKind.Vulnerable), Is.True, "冻 Lv8 攻面应含冰缚(Vulnerable)");
+            Assert.That(TraitRules.CastEffects(Graph.Get("箭"), CardFace.Feature, 8)
+                .Any(e => e.Kind == EffectKind.Endure), Is.True, "箭 Lv8 生面应含扎根(Endure)");
+            // 未解锁时不在
+            Assert.That(TraitRules.CastEffects(Graph.Get("崩"), CardFace.Attack, 5)
+                .Any(e => e.Kind == EffectKind.Weaken), Is.False, "Lv5 不解锁 Lv6");
+        }
     }
 }
