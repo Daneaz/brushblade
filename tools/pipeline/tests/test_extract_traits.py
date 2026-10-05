@@ -139,3 +139,34 @@ def test_backticked_turns_token_is_a_modifier_not_an_effect():
     effects = extract_traits(md)["炎"][0]["effects"]
     assert [e["kind"] for e in effects] == ["BurnSingle", "Weaken"]
     assert effects[1]["turns"] == 3
+
+
+def _ref_effects(chars, pool_rows, name):
+    from extract_traits import extract_pool
+    pool = extract_pool("| 系 | 槽 | 面 | 形态 | 名 | 效果配置 | X |\n|---|---|---|---|---|---|---|\n" + pool_rows)
+    md = _H + f"| 炸 | Lv5 | 攻 | — | — | {name} | — | ✅ |\n"
+    return extract_traits(md, "火", pool, chars)["炸"][0]["effects"]
+
+
+_AOE = {"炸": {"rarity": "Blue", "attackEffects": [{"kind": "DamageSingle", "value": 4, "shape": "All"}]}}
+_SINGLE = {"炸": {"rarity": "Blue", "attackEffects": [{"kind": "DamageSingle", "value": 4}]}}
+_ROWS = ("| 火 | Lv5 | 攻 | 主动 | 引燃 | `BurnSettleNow` `keep` | — |\n"
+         "| 火 | Lv5 | 攻 | 主动 | 凝冰 | `Freeze 1` `pick Random` | — |\n"
+         "| 火 | Lv5 | 攻 | 主动 | 爆燃 | `Amplify 30` `scope Damage` | — |\n")
+
+
+def test_pool_ref_on_all_target_face_gets_pick_all():
+    """Ruling 17:池条目落到全体面(本体不选目标)时,单体敌方效果补 pick All。"""
+    assert _ref_effects(_AOE, _ROWS, "池·引燃")[0]["pick"] == "All"
+
+
+def test_pool_ref_on_single_target_face_keeps_primary():
+    assert "pick" not in _ref_effects(_SINGLE, _ROWS, "池·引燃")[0]
+
+
+def test_pool_ref_explicit_pick_not_overridden():
+    assert _ref_effects(_AOE, _ROWS, "池·凝冰")[0]["pick"] == "Random"
+
+
+def test_pool_ref_non_enemy_kinds_untouched_on_all_target_face():
+    assert "pick" not in _ref_effects(_AOE, _ROWS, "池·爆燃")[0]

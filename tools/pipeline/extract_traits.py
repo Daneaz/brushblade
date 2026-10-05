@@ -9,7 +9,7 @@ import re
 from fractions import Fraction
 from pathlib import Path
 
-from extract_values import _parse_effects, extract
+from extract_values import ENEMY_PICK_KINDS, _parse_effects, extract
 
 ELEMENT_FILES = ["火", "金", "水", "土", "木"]
 FACE_NAMES = {"攻": "Attack", "燃": "Feature", "铠": "Feature", "润": "Feature",
@@ -117,6 +117,27 @@ def is_ref_row(name):
     return bool(sep) and prefix in (POOL_PREFIX, GENERAL_POOL_PREFIX)
 
 
+def _body_needs_enemy_target(body):
+    """本体效果表是否要玩家选敌方目标(与 Core 的 EffectNeedsTarget 同口径的子集)。"""
+    for e in body:
+        if e["kind"] == "DamageSingle":
+            if e.get("shape") not in ("All", "Scatter"):
+                return True
+        elif e["kind"] in ENEMY_PICK_KINDS and e.get("pick", "Primary") == "Primary" \
+                and not e.get("targetAll"):
+            return True
+    return False
+
+
+def _retarget_to_all(effects, body):
+    """Ruling 17:池条目落到「不选目标」的面(全体伤害面等)时,单体敌方效果改为作用于全体。
+    只补没写 pick 的、EffectPickRules 支持选择器的 kind;已有 pick 不覆盖。"""
+    if _body_needs_enemy_target(body):
+        return effects
+    return [dict(e, pick="All") if e["kind"] in ENEMY_PICK_KINDS and "pick" not in e else e
+            for e in effects]
+
+
 def _expand_reference(char, slot, face, form, replaces, name, config, element, pool, chars):
     """`池·名` / `通·名` → (name, form_name, trigger, effects)。口径见 task-11:
     槽位、面与池条目一致;系池条目的系 = 本字的系;数值按本字档位展开。"""
@@ -144,7 +165,11 @@ def _expand_reference(char, slot, face, form, replaces, name, config, element, p
     if not info:
         raise ValueError(f"特性表:字「{char}」不在详表 ✅ 行中,无法按档位展开池条目「{name}」")
     form_name, trigger = FORMS[entry["form_cn"]]
-    return short, form_name, trigger, expand_pool_entry(entry, info["rarity"], char)
+    effects = expand_pool_entry(entry, info["rarity"], char)
+    if entry["face_cn"] != "两面":
+        body = info.get("attackEffects", []) if entry["face_cn"] == "攻" else info.get("effects", [])
+        effects = _retarget_to_all(effects, body)
+    return short, form_name, trigger, effects
 
 
 def extract_traits(markdown, element=None, pool=None, chars=None):

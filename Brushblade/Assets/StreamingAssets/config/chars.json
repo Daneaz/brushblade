@@ -426,7 +426,8 @@
           "effects": [
             {
               "kind": "BurnSingle",
-              "value": 2
+              "value": 2,
+              "pick": "All"
             }
           ]
         },
@@ -525,6 +526,19 @@
               "value": 15,
               "scope": "All",
               "onlyIf": "Countering"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "引燃",
+          "effects": [
+            {
+              "kind": "BurnSettleNow",
+              "value": 0,
+              "keepStacks": true,
+              "pick": "All"
             }
           ]
         },
@@ -644,7 +658,8 @@
           "effects": [
             {
               "kind": "BurnSingle",
-              "value": 2
+              "value": 2,
+              "pick": "All"
             }
           ]
         }
@@ -2314,6 +2329,19 @@
               "value": 22,
               "scope": "All",
               "onlyIf": "FirstCastThisTurn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "凝冰",
+          "effects": [
+            {
+              "kind": "Freeze",
+              "value": 1,
+              "onlyIf": "Slowed",
+              "pick": "All"
             }
           ]
         },

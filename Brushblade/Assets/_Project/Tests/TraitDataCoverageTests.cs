@@ -59,14 +59,12 @@ namespace Brushblade.Core.Tests
             list.First(e => pred(e.Kind));
 
         // ---- spec §9 池格清单(照表手抄:字 槽 面 名;专属格不在其中) ----
-        // 两格 spec 内部冲突暂缺(待用户裁定,见 task-13 报告):炸 Lv5·攻「池·引燃」、溃 Lv5·攻「池·凝冰」——
-        // 池条目是单体(BurnSettleNow / Freeze 选主目标),而这两字的攻击面本体是全体、不选目标,
-        // ConfigLoader.ValidateTraitTargets 拒收(特性会因没有目标而空转)。共 124 - 2 = 122 格。
+        // 炸 Lv5·攻「引燃」、溃 Lv5·攻「凝冰」:池条目落到全体面,管线自动补 pick All(Ruling 17)。
         private static readonly string[] PoolCells =
         {
             "热 Lv4 Both 先声", "热 Lv5 Attack 引燃", "热 Lv5 Feature 续火", "热 Lv6 Feature 烟熏", "热 Lv8 Feature 火雨",
             "爆 Lv4 Both 精进", "爆 Lv5 Attack 爆燃", "爆 Lv5 Feature 续火", "爆 Lv6 Attack 炽烈", "爆 Lv8 Feature 焦热",
-            "炸 Lv4 Both 克敌", "炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
+            "炸 Lv4 Both 克敌", "炸 Lv5 Attack 引燃","炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
             "烈 Lv6 Attack 炽烈", "燥 Lv5 Feature 续火", "燥 Lv6 Feature 烟熏", "蒸 Lv5 Feature 烟障", "蒸 Lv6 Attack 炽烈",
             "炎 Lv5 Feature 续火", "灿 Lv5 Attack 引燃", "利 Lv4 Both 先声", "利 Lv5 Attack 破甲", "利 Lv5 Feature 砥砺",
             "利 Lv6 Feature 回锋", "利 Lv8 Attack 重斩", "锋 Lv4 Both 精进", "锋 Lv5 Attack 连斩", "锋 Lv5 Feature 砥砺",
@@ -76,7 +74,7 @@ namespace Brushblade.Core.Tests
             "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 破甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Both 克敌",
             "冷 Lv5 Attack 凝冰", "冷 Lv5 Feature 涓流", "冷 Lv6 Feature 护持", "冷 Lv8 Feature 甘露", "冻 Lv4 Both 精进",
             "冻 Lv5 Attack 激流", "冻 Lv5 Feature 寒泉", "冻 Lv6 Attack 冰缚", "冻 Lv8 Feature 蓄泉", "海 Lv4 Both 化险",
-            "海 Lv5 Feature 涓流", "海 Lv6 Feature 护持", "海 Lv8 Attack 怒涛", "溃 Lv4 Both 先声",
+            "海 Lv5 Feature 涓流", "海 Lv6 Feature 护持", "海 Lv8 Attack 怒涛", "溃 Lv4 Both 先声", "溃 Lv5 Attack 凝冰",
             "溃 Lv6 Feature 护持", "溃 Lv8 Feature 甘露", "湮 Lv5 Attack 激流", "湮 Lv6 Attack 冰缚", "澡 Lv5 Feature 寒泉",
             "澡 Lv6 Feature 护持", "冰 Lv5 Attack 凝冰", "沐 Lv5 Feature 涓流", "碉 Lv4 Both 先声", "碉 Lv5 Attack 碎石",
             "碉 Lv5 Feature 加固", "碉 Lv6 Feature 反震", "碉 Lv8 Attack 崩岩", "垒 Lv4 Both 化险", "垒 Lv5 Attack 震地",
@@ -92,9 +90,9 @@ namespace Brushblade.Core.Tests
         };
 
         [Test]
-        public void PoolCellList_Has122Cells()
+        public void PoolCellList_Has124Cells()
         {
-            Assert.That(PoolCells.Length, Is.EqualTo(122));
+            Assert.That(PoolCells.Length, Is.EqualTo(124));
         }
 
         [Test]
