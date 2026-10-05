@@ -65,8 +65,10 @@ namespace Brushblade.Trace
         // 没跟着改),柳/洼 随本次移出。下面全部是现行字表里真实存在的字。
         // 2026-09-05 字表调整:杖/松 本批移出(木系),换成本批新增的木系三字 藻/箭/葬,
         // 维持这张表对木系事件(召唤/直伤)的覆盖。
+        // 2026-10-05(D1 Task 12):葬 早在 2026-09-07 字表重做 P2 已移出字表,是幽灵字
+        // (项目记忆「硬编码字名列表会失效」),删去,不找字顶替。
         private static readonly string[] MixedCards =
-            { "塔", "堡", "垒", "淋", "沐", "森", "林", "冰", "淼", "海", "崩", "藻", "箭", "葬" };
+            { "塔", "堡", "垒", "淋", "沐", "森", "林", "冰", "淼", "海", "崩", "藻", "箭" };
 
         /// <summary>卡等级全 1:spec §10.2 的「基准切片」要求。<see cref="MetaRules.ScaleByCardLevel"/>
         /// 在 level &gt; 1 时带 ceil,ceil(10x·k) ≠ 10·ceil(x·k),等级一上去 ×10 恒等立刻不成立。</summary>
@@ -285,14 +287,14 @@ namespace Brushblade.Trace
                 // 先按序数排序把这条依赖切断(.NET 的字符串哈希在极端情况下会切到随机化路径)。
                 foreach (var id in Ordered(suggest.Composable))
                 {
-                    int power = Power(graph, id);
+                    int power = CardValue(graph, id);
                     if (power > bestPower) { bestPower = power; best = id; }
                 }
                 if (best == null) break;
 
                 if (battle.Compose(best) == BattleError.ForgeFailed)
                 {
-                    var weakest = battle.Library.OrderBy(id => Power(graph, id)).FirstOrDefault();
+                    var weakest = battle.Library.OrderBy(id => CardValue(graph, id)).FirstOrDefault();
                     if (weakest == null || battle.Discard(weakest) != BattleError.None) break;
                     if (battle.Compose(best) != BattleError.None) break;
                 }
@@ -302,18 +304,25 @@ namespace Brushblade.Trace
             {
                 string pick = null;
                 int pickPower = -1;
+                bool pickAttackFace = false;
                 foreach (var id in battle.Library.Concat(battle.Pool.Where(p => IsCastableLeaf(graph, p, battle))))
                 {
                     if (!graph.TryGet(id, out var def) || def.ApCost > battle.Ap) continue;
-                    int power = Power(graph, id);
-                    if (power > pickPower) { pickPower = power; pick = id; }
+                    // 选面(D1 Task 12):两面取分高的那一面,同分取五行面(与改前只读 Effects 的口径一致)。
+                    // 取面口径同 Power():有攻面且选了攻面才读 AttackEffects。
+                    int feature = Power(graph, id, attackMode: false);
+                    int attack = Power(graph, id, attackMode: true);
+                    bool attackFace = def.AttackEffects.Count > 0 && attack > feature;
+                    int power = attackFace ? attack : feature;
+                    if (power > pickPower) { pickPower = power; pick = id; pickAttackFace = attackFace; }
                 }
                 if (pick == null) break;
 
                 graph.TryGet(pick, out var pickDef);
-                int target = BattleEngine.NeedsTarget(pickDef) ? PickTarget(battle) : -1;
+                // ⚠ NeedsTarget 必须跟着传同一个 attackMode:燃面 / 攻面要选敌人,铠 / 生等面不要
+                int target = BattleEngine.NeedsTarget(pickDef, pickAttackFace) ? PickTarget(battle) : -1;
                 int turn = battle.Turn;
-                if (battle.Cast(pick, target) != BattleError.None) break;
+                if (battle.Cast(pick, target, attackMode: pickAttackFace) != BattleError.None) break;
                 Flush(rec, seed, depth, battleIndex, turn, battle);
             }
 
@@ -339,11 +348,11 @@ namespace Brushblade.Trace
             int battleIndex, TraceRecorder rec)
         {
             string dropped = battle.PendingDrop;
-            int droppedPower = Power(graph, dropped);
+            int droppedPower = CardValue(graph, dropped);
             int weakest = 0, weakestPower = int.MaxValue;
             for (int i = 0; i < battle.Library.Count; i++)
             {
-                int power = Power(graph, battle.Library[i]);
+                int power = CardValue(graph, battle.Library[i]);
                 if (power < weakestPower) { weakestPower = power; weakest = i; }
             }
             if (droppedPower > weakestPower)
@@ -368,7 +377,7 @@ namespace Brushblade.Trace
                 int best = 0, bestPower = -1;
                 for (int i = 0; i < run.RewardOptions.Count; i++)
                 {
-                    int power = Power(graph, run.RewardOptions[i]);
+                    int power = CardValue(graph, run.RewardOptions[i]);
                     if (power > bestPower) { bestPower = power; best = i; }
                 }
                 string candidate = run.RewardOptions[best];
@@ -377,7 +386,7 @@ namespace Brushblade.Trace
                 int weakest = 0, weakestPower = int.MaxValue;
                 for (int i = 0; i < run.CarriedLibrary.Count; i++)
                 {
-                    int power = Power(graph, run.CarriedLibrary[i]);
+                    int power = CardValue(graph, run.CarriedLibrary[i]);
                     if (power < weakestPower) { weakestPower = power; weakest = i; }
                 }
                 if (bestPower <= weakestPower || !run.PickRewardReplacing(best, weakest)) break;
@@ -414,16 +423,25 @@ namespace Brushblade.Trace
         {
             int best = 0;
             foreach (var id in battle.Library)
-                best = Math.Max(best, Power(graph, id));
+                best = Math.Max(best, CardValue(graph, id));
             return best;
         }
 
-        private static int Power(RecipeGraph graph, string id)
+        /// <summary>这张字在库里值多少 = 两面里更值钱的那一面(D1 Task 12,照 tools/balance 的 CardValue)。
+        /// 合成 / 弃字 / 掉落替换 / 战利品这几处排序用它;出字时选面见 PlayTurn。</summary>
+        private static int CardValue(RecipeGraph graph, string id) =>
+            Math.Max(Power(graph, id, attackMode: false), Power(graph, id, attackMode: true));
+
+        /// <summary>一张字**某一面**的威力评分。attackMode=true 读 AttackEffects,没有攻面时退回
+        /// Effects —— 与 BattleEngine.EffectsOf 同口径(D1 Task 12 前只读 Effects:21 张原单面字
+        /// 拆两面后伤害全在攻面,不改就只会出燃 / 铠)。</summary>
+        private static int Power(RecipeGraph graph, string id, bool attackMode = false)
         {
             if (id == null || !graph.TryGet(id, out var def)) return 0;
-            if (def.Effects.Count == 0) return 3;
+            var effects = attackMode && def.AttackEffects.Count > 0 ? def.AttackEffects : def.Effects;
+            if (effects.Count == 0) return 3;
             int sum = 0;
-            foreach (var e in def.Effects)
+            foreach (var e in effects)
             {
                 switch (e.Kind)
                 {
