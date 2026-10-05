@@ -4645,8 +4645,11 @@ namespace Brushblade.Core
             // 冰滞易伤(R1b):暴击之后、护甲之前,整数乘除。灼烧/流血/引爆/斩杀直杀不走本方法,不吃。
             if (enemy.Statuses.Has(StatusKind.IceStall))
                 damage = damage * (100 + BattleConfig.IceStallDamageTakenPercent) / 100;
-            // 标记(D1 Task 6):紧随冰滞易伤,与它相乘、分别整数取整;各来源的百分点相加。无标记整句跳过 —— 恒等。
-            int markPercent = enemy.Statuses.TotalMagnitude(StatusKind.Vulnerable);
+            // 标记(D1 Task 6):紧随冰滞易伤,与它相乘、分别整数取整;多个来源只取最强的一份(spec §5.2 第 1 律)。
+            // 无标记整句跳过 —— 恒等。
+            int markPercent = 0;
+            foreach (var mark in enemy.Statuses.All)
+                if (mark.Kind == StatusKind.Vulnerable && mark.Magnitude > markPercent) markPercent = mark.Magnitude;
             if (markPercent > 0) damage = damage * (100 + markPercent) / 100;
             // 护甲(2026-08-12 E-b4 T2 接线,2026-09-16 改百分比减伤):**全部乘法算完之后,最后折**。
             // 结算式 = floor(基础 × 生克 × 暴击) × 100 ÷ (100 + max(0, 护甲 − 破甲 − 穿透))。

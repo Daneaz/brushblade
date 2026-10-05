@@ -462,6 +462,18 @@ def test_vulnerable_bind_usage_has_no_turns():
                        {"kind": "Vulnerable", "value": 20, "pick": "FrozenByThisCast"}]
 
 
+def test_vulnerable_without_turns_or_bind_pick_raises():
+    with pytest.raises(ValueError):
+        _parse_effects("`Vulnerable 20`", "水")
+    with pytest.raises(ValueError):
+        _parse_effects("`Vulnerable 20` + `pick All`", "水")
+
+
+def test_vulnerable_bind_pick_may_omit_turns():
+    assert _parse_effects("`Vulnerable 20` + `pick FrozenByThisCast`", "水") == [
+        {"kind": "Vulnerable", "value": 20, "pick": "FrozenByThisCast"}]
+
+
 def test_seed_and_vulnerable_accept_pick():
     assert _parse_effects("`Seed 5` + `pick Random` turns 2", "木")[0]["pick"] == "Random"
     assert _parse_effects("`Vulnerable 10` + `pick All` turns 1", "水")[0]["pick"] == "All"

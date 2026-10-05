@@ -253,6 +253,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Vulnerable_DifferentSources_TakeStrongestOnly()
+        {
+            var weak = Def("弱标", new EffectDef(EffectKind.Vulnerable, 20, turns: 2));
+            var strong = Def("强标", new EffectDef(EffectKind.Vulnerable, 30, turns: 2));
+            var b = Battle(new[] { weak, strong });
+            b.Cast("弱标", 0);
+            b.Cast("强标", 0);
+            Assert.That(b.Enemies[0].Statuses.All.Count(s => s.Kind == StatusKind.Vulnerable), Is.EqualTo(2), "异源并存不覆盖");
+            int before = b.Enemies[0].Hp;
+            b.Cast("甲", 0);   // 20 × 1.3 = 26(不是 ×1.5 = 30)
+            Assert.That(before - b.Enemies[0].Hp, Is.EqualTo(26));
+        }
+
+        [Test]
         public void Vulnerable_ExpiresByEnemyActions()
         {
             var b = Battle(new[] { Mark });

@@ -909,7 +909,7 @@
   "status.seed.name": "种",
   "status.seed.desc": "它每次行动时，我方生命比例最低的单位回复 {magnitude} 点生命。同一张字重复施放取较强的数值与较长的回合。",
   "status.mark.name": "标记",
-  "status.mark.desc": "受到的所有伤害 +{magnitude}%，不同来源相加；灼烧与流血不受影响。同一张字重复施放取较强的数值与较长的回合。",
+  "status.mark.desc": "受到的所有伤害 +{magnitude}%，多个来源只取最强的一份；灼烧与流血不受影响。同一张字重复施放取较强的数值与较长的回合。",
   "status.duration.turns": "剩 {value} 回合",
   "status.duration.stacks": "{value} 层",
   "status.duration.charges": "{value} 次",

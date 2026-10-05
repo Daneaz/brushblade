@@ -637,7 +637,11 @@ def _parse_effects(config, char):
     # `(turns N)`,TurnsLeft = 0 会被 TickTurns 当场清掉,卡面照印着这个效果,状态施加
     # 那一刻就已经失效)。比「turns 挂错 kind」更常见,是详表最容易漏写的一种笔误。
     missing_turns = [e["kind"] for e in effects
-                     if e["kind"] in DURATION_KINDS and "turns" not in e]
+                     if "turns" not in e
+                     and (e["kind"] in DURATION_KINDS
+                          # 标记(Vulnerable):只有冰缚写法(pick FrozenByThisCast)可省 turns,
+                          # 回合数由引擎取目标的冻结回合;其余缺 turns 同减攻 / 种报错
+                          or (e["kind"] == "Vulnerable" and e.get("pick") != "FrozenByThisCast"))]
     if missing_turns:
         raise ValueError(
             f"{char}:`{missing_turns[0]}` 是需要 turns 的效果(在 DURATION_KINDS 里),"
