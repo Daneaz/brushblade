@@ -84,6 +84,7 @@ namespace Brushblade.Data
             // D1 Task 5:效果目标选择器与不减层结算
             public string Pick { get; set; }           // Primary(缺省)/ All / Random / HitTargets / MostBurn / FrozenByThisCast
             public bool KeepStacks { get; set; }       // BurnSettleNow:结算一次但不减层
+            public bool PercentOfMax { get; set; }     // HealSummons:回复量按 MaxHp × Value%(D1 Task 7)
         }
 
         private sealed class CampaignFileDto
@@ -670,9 +671,11 @@ namespace Brushblade.Data
                     // 与 Shape 同一个坑:Enum.TryParse 放数字字符串过关,叠加 IsDefined
                     if (!Enum.TryParse(effect.Pick, out pick) || !Enum.IsDefined(typeof(EffectPick), pick))
                         throw new ConfigException($"字「{dto.Id}」的目标选择器未知:{effect.Pick}");
-                    if (pick != EffectPick.Primary && !EffectPickRules.Supports(kind))
-                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(目标选择器只支持敌方侧的灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆)");
+                    if (!EffectPickRules.Allows(kind, pick))
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 只给净化,SummonedThisCast 只给保命)");
                 }
+                if (effect.PercentOfMax && kind != EffectKind.HealSummons)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");
                 if (kind == EffectKind.Block && effect.Value < 1)
@@ -712,7 +715,7 @@ namespace Brushblade.Data
                     effect.ArmorStrikePercent,
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
-                    augmentKind, augmentField, pick, effect.KeepStacks));
+                    augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax));
             }
             return effects;
         }

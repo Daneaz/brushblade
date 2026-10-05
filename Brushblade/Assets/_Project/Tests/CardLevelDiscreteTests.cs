@@ -48,6 +48,11 @@ namespace Brushblade.Core.Tests
             EffectKind.Amplify, EffectKind.Reshape,
             // Augment(D1 Task 4):Value 是加几次 / 几回合 / 几跳,离散量;出字前被 Fold 折叠,不进结算
             EffectKind.Augment,
+            // D1 Task 7:减伤是固定百分点(与 60% 非护甲减伤封顶直接相关,池词条写死数字)、反击增强是倍率、
+            // 保命 Value 不用(一次性);治疗转盾 / 幼苗 / 群刺是对另一个已缩放量取百分比(再缩放就重复吃等级);
+            // 加泉 / 加厚是层数
+            EffectKind.DamageCut, EffectKind.CounterBoost, EffectKind.Endure, EffectKind.ShieldFromHeal,
+            EffectKind.SummonSapling, EffectKind.SummonStrike, EffectKind.AddWellspring, EffectKind.AddHeft,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
@@ -65,6 +70,8 @@ namespace Brushblade.Core.Tests
             EffectKind.Seed,
             // 标记(D1 Task 6):Value 是百分点,吃卡等级;Turns 不吃
             EffectKind.Vulnerable,
+            // D1 Task 7:群疗 / 群盾的 Value 是回复量 / 护盾量(群疗 pct 模式下是百分比,同样随等级 —— 与 Weaken 百分点同口径)
+            EffectKind.HealSummons, EffectKind.ShieldSummons,
         };
 
         [Test]

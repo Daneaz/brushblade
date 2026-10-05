@@ -114,6 +114,21 @@ namespace Brushblade.Core
         Vulnerable,   // 标记(D1 Task 6,附录 M11):给目标敌人挂 StatusKind.Vulnerable —— 受到的伤害 +Value%。
                       // Value = 百分点(吃卡等级),Turns = 回合(不吃)。Turns == 0 且 Pick == FrozenByThisCast
                       // 时回合数 = 该目标本次冻结的回合数(冰缚);其余缺 turns 兜 1 回合。支持 Pick / OnlyIf。
+        // ---- D1 Task 7:我方侧(附录 M12/M13/M14/M16/M18、扎根)。⚠ 只在末尾追加 ----
+        DamageCut,      // 本回合减伤:给玩家挂 StatusKind.DamageCut(TurnsLeft 1),Value = 百分点(离散,不吃等级)。
+                        // 与格挡的 40% 合计后钳到 CombatCaps.NonArmorReductionPercent。
+        CounterBoost,   // 反击增强:给玩家挂 StatusKind.CounterBoost(TurnsLeft 1),格挡反击 ×(100+Value)/100;仍受 60% 反伤预算。
+        Endure,         // 保命:给召唤物挂 StatusKind.Endure(一次性)。Pick = SummonedThisCast → 本次出字召出的召唤物;
+                        // Primary → allySlot 指的那只召唤物(点玩家空转)。Value 不用。
+        SummonSapling,  // 幼苗:额外召 SummonCount 只「苗」,血 / 攻 = 本次出字召出的第一只 × Value%,无本命;
+                        // 只占空槽 / 尸体槽,没有空位就不召(不顶替)。本次出字没召出任何召唤物时空转。
+        HealSummons,    // 群疗(仅召唤物):每只存活召唤物回复 Value;PercentOfMax = true 时回复 MaxHp × Value%。
+        ShieldSummons,  // 群盾(仅召唤物):每只存活召唤物 +Value 护盾(走 AddSummonShield,吃上限)。
+        SummonStrike,   // 群刺:每只存活召唤物各对选定目标攻击一次,伤害 = 有效攻击 × Value%(暴击走 _random,D5)。
+        ShieldFromHeal, // 治疗转盾:本次出字内**实际**治疗量(溢出不算)× Value% 转为玩家护盾(不吃护盾 Amplify / 筑垒)。
+                        // 只统计排在它之前的治疗。
+        AddWellspring,  // 直接 +Value 层泉(走 AddPlayerCounter + CapFor,不经治疗折算)
+        AddHeft,        // 直接 +Value 层厚(同上)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -282,6 +297,9 @@ namespace Brushblade.Core
         /// <summary>BurnSettleNow:结算一次但**不减层**(D1 Task 5,附录 M8,引燃)。其余 kind 不读。</summary>
         public bool KeepStacks { get; }
 
+        /// <summary>HealSummons:true = 回复量按每只召唤物的 MaxHp × Value% 算(D1 Task 7,灵荫)。其余 kind 不读。</summary>
+        public bool PercentOfMax { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
 
         private static readonly (int, DamageCondition)[] NoAmpTerms = new (int, DamageCondition)[0];
@@ -298,7 +316,7 @@ namespace Brushblade.Core
             AmpScope scope = AmpScope.Damage, DamageCondition onlyIf = DamageCondition.None,
             int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
             EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
-            EffectPick pick = EffectPick.Primary, bool keepStacks = false)
+            EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false)
         {
             Kind = kind;
             Value = value;
@@ -331,6 +349,7 @@ namespace Brushblade.Core
             AugmentField = augmentField;
             Pick = pick;
             KeepStacks = keepStacks;
+            PercentOfMax = percentOfMax;
         }
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
@@ -346,7 +365,7 @@ namespace Brushblade.Core
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
-                AugmentKind, AugmentField, Pick, KeepStacks)
+                AugmentKind, AugmentField, Pick, KeepStacks, PercentOfMax)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
             };

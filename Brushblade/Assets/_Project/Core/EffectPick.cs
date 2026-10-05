@@ -12,6 +12,9 @@ namespace Brushblade.Core
         HitTargets,         // 本次出字被 DamageSingle 命中的敌人,按命中顺序去重
         MostBurn,           // 灼层最高的存活敌人,同层取下标小;没人带灼 = 空
         FrozenByThisCast,   // 本次出字真正冻结成功的敌人(Boss 的冰滞不算冻结)
+        // ---- D1 Task 7:我方侧选择器(不进 Supports;合法组合见 EffectPickRules.Allows) ----
+        Self,               // 玩家自身(Cleanse:攻击面「我方清 1 个减益」,不要求友方目标)
+        SummonedThisCast,   // 本次出字召出的召唤物(Endure:扎根)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。
@@ -25,6 +28,16 @@ namespace Brushblade.Core
                 or EffectKind.Seed or EffectKind.Vulnerable
                 or EffectKind.BurnSettleNow or EffectKind.Detonate => true,
             _ => false,
+        };
+
+        /// <summary>这条效果能不能写这个选择器(ConfigLoader 校验用)。Primary 恒可;敌方侧选择器只给 Supports 列出的 kind;
+        /// Self 只给 Cleanse;SummonedThisCast 只给 Endure。</summary>
+        public static bool Allows(EffectKind kind, EffectPick pick) => pick switch
+        {
+            EffectPick.Primary => true,
+            EffectPick.Self => kind == EffectKind.Cleanse,
+            EffectPick.SummonedThisCast => kind == EffectKind.Endure,
+            _ => Supports(kind),
         };
 
         /// <summary>这条效果实际生效的选择器:旧 TargetAll 标志(Blind / Detonate 在用)视为 All。</summary>

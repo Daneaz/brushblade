@@ -808,6 +808,12 @@ namespace Brushblade.Core
             EffectKind.Amplify or EffectKind.Reshape => false,
             // Augment(D1 Task 4):Value 是「加几次 / 几回合 / 几跳」,离散量。
             EffectKind.Augment => false,
+            // D1 Task 7:减伤是写死的百分点(与 60% 非护甲减伤封顶直接相关)、反击增强是倍率、保命 Value 不用;
+            // 治疗转盾 / 幼苗 / 群刺取的是另一个**已按等级缩放**的量的百分比,再缩放就重复吃等级;加泉 / 加厚是层数。
+            // 群疗 / 群盾的 Value 是量 → 走缺省的连续。
+            EffectKind.DamageCut or EffectKind.CounterBoost or EffectKind.Endure or EffectKind.ShieldFromHeal
+                or EffectKind.SummonSapling or EffectKind.SummonStrike
+                or EffectKind.AddWellspring or EffectKind.AddHeft => false,
             _ => true,
         };
 

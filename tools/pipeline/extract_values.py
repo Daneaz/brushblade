@@ -20,6 +20,11 @@ DUAL_DIRECTION_ELEMENTS = {"水", "土", "金", "木"}
 
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
+def _is_damage(kind):
+    """伤害效果(修饰 token 挂它):Damage 开头,但 DamageCut(本回合减伤,D1 Task 7)不是伤害。"""
+    return kind.startswith("Damage") and kind != "DamageCut"
+
+
 SUMMON_PASSIVE = {
     "SummonSpeed": "speed",
     "Thorns": "thorns",
@@ -59,6 +64,8 @@ VALUELESS_EFFECTS = {
     # 改形修饰器(D1 Task 3,附录 M2):不带数值;改什么由同格的 `shape X` / `hits N` 等小写 token 给出,
     # 见 _attach_modifier_tokens。
     "Reshape": {"kind": "Reshape", "value": 0},
+    # 保命(D1 Task 7,扎根):Value 不用;落点由 `pick SummonedThisCast` 给出。
+    "Endure": {"kind": "Endure", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -174,9 +181,14 @@ RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
 # 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
-PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
-              "BurnSettleNow", "Detonate", "Seed", "Vulnerable"}
-PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
+ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
+                    "BurnSettleNow", "Detonate", "Seed", "Vulnerable"}
+ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
+# D1 Task 7:我方侧选择器,各只给一个 kind(与 Core 的 EffectPickRules.Allows 同一张表)。
+# 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
+ALLY_PICKS = {"Self": "Cleanse", "SummonedThisCast": "Endure"}
+PICK_KINDS = ENEMY_PICK_KINDS | set(ALLY_PICKS.values())
+PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
 KEEP_TOKEN = "keep"
 
@@ -413,6 +425,42 @@ def _parse_row(line, element):
     return char, entry
 
 
+SAPLING_COUNT_TOKEN = "count"
+PERCENT_OF_MAX_TOKEN = "pct"
+
+
+def _attach_ally_tokens(config, char, effects, consumed):
+    """D1 Task 7:`count N` → 本格 SummonSapling 的只数;`pct` → 本格 HealSummons 按最大生命百分比;
+    我方侧选择器只能配它自己的 kind,我方侧效果不带条件门(Core 的 ConfigLoader 同样拦)。"""
+    for token, field, host_kind, value_of in (
+            (SAPLING_COUNT_TOKEN, "count", "SummonSapling", lambda m: int(m.group(1))),
+            (PERCENT_OF_MAX_TOKEN, "percentOfMax", "HealSummons", lambda m: True)):
+        pattern = rf"`{token} (\d+)`" if field == "count" else rf"`{token}`"
+        found = list(re.finditer(pattern, config))
+        if not found:
+            continue
+        consumed.add(token)
+        hosts = [e for e in effects if e["kind"] == host_kind]
+        if not hosts:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有 {host_kind} —— 它会静默消失。")
+        if len(found) > 1 or len(hosts) > 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{token}` 只能配一条 {host_kind}")
+        hosts[0][field] = value_of(found[0])
+    for e in effects:
+        pick = e.get("pick")
+        if pick is None:
+            continue
+        ally_kind = ALLY_PICKS.get(pick)
+        if ally_kind is not None and e["kind"] != ally_kind:
+            raise ValueError(f"{char}:`pick {pick}` 只能挂在 {ally_kind} 上,当前挂到了 {e['kind']}")
+        if ally_kind is None and e["kind"] not in ENEMY_PICK_KINDS:
+            raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
+                             f"{sorted(p for p, k in ALLY_PICKS.items() if k == e['kind'])})")
+    for e in effects:
+        if "onlyIf" in e and e["kind"] in ALLY_PICKS.values():
+            raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
+
+
 def _parse_effects(config, char):
     """「`DamageSingle 30` + `All` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
 
@@ -515,6 +563,8 @@ def _parse_effects(config, char):
             continue  # 目标形状的修饰,下面统一挂到伤害上
         if kind in DAMAGE_MARKER_VALUE_TOKENS:
             continue  # 修饰器 / 伤害标记的数值(D1 Task 3),由 _attach_modifier_tokens 挂
+        if kind == SAPLING_COUNT_TOKEN:
+            continue  # 幼苗只数(D1 Task 7),下面挂到 SummonSapling 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -527,7 +577,7 @@ def _parse_effects(config, char):
             effect["targetAll"] = True
         # 条件加成(2026-08-25 由 DoubleVsBurning 泛化成四选一)。写成条件名而不是布尔位,
         # 新增条件时只动这张表,不用再加一个平行的 bool —— 与 EffectKind 同口径。
-        if kind.startswith("Damage"):
+        if _is_damage(kind):
             for token in ("Burning", "Bleeding", "Controlled", "ArmorBroken"):
                 if f"`DoubleVs{token}`" in config:
                     effect["doubleVs"] = token
@@ -538,7 +588,7 @@ def _parse_effects(config, char):
         # 而不是被悄悄吞掉、生成一张「以为能偷袭」的字。
         # 碾(2026-09-16,土):跳过整条 DR,单体/全体两种伤害都能挂(BattleEngine 的
         # DamageSingle 分支对形状展开的每个目标都接了 effect.TrueDamage → bypassDefense)。
-        if kind.startswith("Damage") and f"`{TRUE_DAMAGE_TOKEN}`" in config:
+        if _is_damage(kind) and f"`{TRUE_DAMAGE_TOKEN}`" in config:
             effect["trueDamage"] = True
             consumed.add(TRUE_DAMAGE_TOKEN)
         # 目标形状(2026-08-22,spec §9.1):修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
@@ -589,7 +639,7 @@ def _parse_effects(config, char):
             continue
         consumed.add(token)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["executeBelowPercent"] = int(found.group(1))
                 effect["executeKills"] = kills
 
@@ -597,24 +647,25 @@ def _parse_effects(config, char):
     if hit_count:
         consumed.add(HIT_COUNT_TOKEN)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["hitCount"] = int(hit_count.group(1))
 
     pierce = re.search(rf"`{PIERCE_TOKEN} (\d+)`", config)
     if pierce:
         consumed.add(PIERCE_TOKEN)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["pierce"] = int(pierce.group(1))
 
     armor_strike = re.search(rf"`{ARMOR_STRIKE_TOKEN} (\d+)`", config)
     if armor_strike:
         consumed.add(ARMOR_STRIKE_TOKEN)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["armorStrikePercent"] = int(armor_strike.group(1))
 
     _attach_modifier_tokens(config, char, effects, consumed)
+    _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:

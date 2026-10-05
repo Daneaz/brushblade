@@ -512,3 +512,58 @@ def test_pick_if_keep_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D1 Task 7:我方侧新效果 ----
+
+def test_ally_side_simple_kinds():
+    assert _parse_effects("`DamageCut 20`", "土") == [{"kind": "DamageCut", "value": 20}]
+    assert _parse_effects("`CounterBoost 100`", "金") == [{"kind": "CounterBoost", "value": 100}]
+    assert _parse_effects("`ShieldFromHeal 20`", "水") == [{"kind": "ShieldFromHeal", "value": 20}]
+    assert _parse_effects("`AddWellspring 2`", "水") == [{"kind": "AddWellspring", "value": 2}]
+    assert _parse_effects("`AddHeft 2`", "土") == [{"kind": "AddHeft", "value": 2}]
+    assert _parse_effects("`SummonStrike 50`", "木") == [{"kind": "SummonStrike", "value": 50}]
+    assert _parse_effects("`ShieldSummons 15`", "木") == [{"kind": "ShieldSummons", "value": 15}]
+
+
+def test_damage_cut_is_not_a_damage_effect():
+    """DamageCut 以 Damage 开头,但不是伤害:伤害修饰(分段 / 穿透 / 斩杀 / 碾 / 条件翻倍)不能挂到它身上。"""
+    effects = _parse_effects(
+        "`DamageSingle 30` + `HitCount 2` + `Pierce 5` + `TrueDamage` + `DoubleVsBurning` + `DamageCut 20`", "土")
+    assert effects[1] == {"kind": "DamageCut", "value": 20}
+    assert effects[0]["hitCount"] == 2 and effects[0]["pierce"] == 5 and effects[0]["trueDamage"] is True
+
+
+def test_heal_summons_pct_token():
+    assert _parse_effects("`HealSummons 30` + `pct`", "木") == [
+        {"kind": "HealSummons", "value": 30, "percentOfMax": True}]
+    assert _parse_effects("`HealSummons 30`", "木") == [{"kind": "HealSummons", "value": 30}]
+    with pytest.raises(ValueError):
+        _parse_effects("`HealSelf 30` + `pct`", "水")
+
+
+def test_summon_sapling_count_token():
+    assert _parse_effects("`SummonSapling 20`", "木") == [{"kind": "SummonSapling", "value": 20}]
+    assert _parse_effects("`SummonSapling 20` + `count 2`", "木") == [
+        {"kind": "SummonSapling", "value": 20, "count": 2}]
+    with pytest.raises(ValueError):
+        _parse_effects("`Shield 5` + `count 2`", "土")
+
+
+def test_endure_and_cleanse_self_picks():
+    assert _parse_effects("`Endure` + `pick SummonedThisCast`", "木") == [
+        {"kind": "Endure", "value": 0, "pick": "SummonedThisCast"}]
+    assert _parse_effects("`DamageSingle 10` + `Cleanse 1` + `pick Self`", "水") == [
+        {"kind": "DamageSingle", "value": 10}, {"kind": "Cleanse", "value": 1, "pick": "Self"}]
+
+
+@pytest.mark.parametrize("config", [
+    "`Slow 1` + `pick Self`",                  # Self 只给净化
+    "`Cleanse 1` + `pick All`",                # 净化只认 Self
+    "`Endure` + `pick Random`",                # 保命只认 SummonedThisCast
+    "`Cleanse 1` + `pick SummonedThisCast`",
+    "`Cleanse 1` + `if Burning`",              # 条件门只给敌方侧效果
+])
+def test_ally_pick_combos_rejected(config):
+    with pytest.raises(ValueError):
+        _parse_effects(config, "测")

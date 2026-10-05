@@ -178,6 +178,11 @@ namespace Brushblade.Core.Tests
                 EffectKind.Weaken,
                 // 种(D1 Task 6):回复量吃 Amplify scope Seed,不吃五行 L3 / 专精;标记是敌人状态百分点。
                 EffectKind.Seed, EffectKind.Vulnerable,
+                // D1 Task 7:我方侧新效果一律不吃五行 L3 —— 百分比 / 层数 / 次数是离散量;群疗 / 群盾 / 治疗转盾
+                // 的量值不是「本系字的治疗 / 护盾」本体(L3 白名单只收本体效果),先不接,免得木系字吃水 / 土的加成口径
+                EffectKind.DamageCut, EffectKind.CounterBoost, EffectKind.Endure,
+                EffectKind.SummonSapling, EffectKind.HealSummons, EffectKind.ShieldSummons, EffectKind.SummonStrike,
+                EffectKind.ShieldFromHeal, EffectKind.AddWellspring, EffectKind.AddHeft,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

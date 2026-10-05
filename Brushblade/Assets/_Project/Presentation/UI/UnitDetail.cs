@@ -99,6 +99,8 @@ namespace Brushblade.Presentation
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime
                 or StatusKind.Seed => Guard,   // 种(D1 Task 6,稿 k-heal 翠玉)
+            // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
+            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure => Guard,
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
@@ -126,6 +128,8 @@ namespace Brushblade.Presentation
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
                 or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable => "",   // 种 / 标记无数字(稿)
+            // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字
+            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure => "",
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),

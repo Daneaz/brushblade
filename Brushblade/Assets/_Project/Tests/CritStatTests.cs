@@ -543,6 +543,9 @@ namespace Brushblade.CoreTests
             Assert.That((int)StatusKind.IceStall, Is.EqualTo(26), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Seed, Is.EqualTo(27), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Vulnerable, Is.EqualTo(28), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.DamageCut, Is.EqualTo(29), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.CounterBoost, Is.EqualTo(30), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.Endure, Is.EqualTo(31), "新值必须追加在末尾");
         }
     }
 }

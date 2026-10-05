@@ -142,7 +142,12 @@ namespace Brushblade.Presentation
                     EffectKind.Dispel => e.Value < 0
                         ? (e.TargetAll ? Strings.T("char.effect.dispel.all.full") : Strings.T("char.effect.dispel.single.full"))
                         : (e.TargetAll ? Strings.T("char.effect.dispel.all.count", ("count", e.Value)) : Strings.T("char.effect.dispel.single.count", ("count", e.Value))),
-                    EffectKind.Cleanse => Strings.T("char.effect.cleanse"),
+                    // 净化(D1 Task 7 起可计数、可 Pick.Self):条数是离散量,读 e.Value
+                    EffectKind.Cleanse => e.Pick == EffectPick.Self
+                        ? (e.Value > 0 ? Strings.T("char.effect.cleanse.self.count", ("count", e.Value))
+                            : Strings.T("char.effect.cleanse.self"))
+                        : (e.Value > 0 ? Strings.T("char.effect.cleanse.count", ("count", e.Value))
+                            : Strings.T("char.effect.cleanse")),
                     EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
                     // 格挡(spec v7 §3.1):次数是离散量,不吃等级 —— 读 e.Value,不读缩放后的 shown。
                     EffectKind.Block => Strings.T("char.effect.block", ("value", e.Value)),
@@ -198,6 +203,21 @@ namespace Brushblade.Presentation
                     EffectKind.Reshape => ReshapeText(e),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
+                    // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
+                    EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
+                    EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
+                    EffectKind.Endure => e.Pick == EffectPick.SummonedThisCast
+                        ? Strings.T("char.effect.endure.summoned") : Strings.T("char.effect.endure"),
+                    EffectKind.SummonSapling => Strings.T("char.effect.summonsapling",
+                        ("count", e.SummonCount), ("value", shown)),
+                    EffectKind.HealSummons => e.PercentOfMax
+                        ? Strings.T("char.effect.healsummons.pct", ("value", shown))
+                        : Strings.T("char.effect.healsummons", ("value", shown)),
+                    EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
+                    EffectKind.SummonStrike => Strings.T("char.effect.summonstrike", ("value", shown)),
+                    EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
+                    EffectKind.AddWellspring => Strings.T("char.effect.addwellspring", ("value", shown)),
+                    EffectKind.AddHeft => Strings.T("char.effect.addheft", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -206,6 +226,9 @@ namespace Brushblade.Presentation
             }
             return parts.ToString();
         }
+
+        /// <summary>反击增强的倍率(D1 Task 7):Value 100 → 「2」,50 → 「1.5」。</summary>
+        internal static string BoostMult(int percent) => ((100 + percent) / 100f).ToString("0.##");
 
         /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了
         /// (`1514207 feat(core)`,范围只写了 core),而 CharInfo 从没跟进,玩家看铡的卡面只见

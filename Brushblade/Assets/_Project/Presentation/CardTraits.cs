@@ -375,9 +375,64 @@ namespace Brushblade.Presentation
                                 Strings.T("collection.trait.dispel.desc", ("count", e.Value)));
                         break;
                     case EffectKind.Cleanse:
+                        // D1 Task 7:Value > 0 = 只清前 N 个(离散量,读 e.Value)
                         AddWord(traits, Strings.T("collection.trait.cleanse.chip"),
                             Strings.T("collection.trait.cleanse.name"),
-                            Strings.T("collection.trait.cleanse.desc"));
+                            e.Value > 0 ? Strings.T("collection.trait.cleanse.desc.count", ("count", e.Value))
+                                : Strings.T("collection.trait.cleanse.desc"));
+                        break;
+                    // ---- D1 Task 7:我方侧新效果。无图标(减伤 / 反击加倍 / 保命的图标在 Task 7b),走纯文字 chip ----
+                    case EffectKind.DamageCut:
+                        AddWord(traits, Strings.T("collection.trait.damagecut.chip"),
+                            Strings.T("collection.trait.damagecut.name"),
+                            Strings.T("collection.trait.damagecut.desc", ("value", v)));
+                        break;
+                    case EffectKind.CounterBoost:
+                        AddWord(traits, Strings.T("collection.trait.counterboost.chip"),
+                            Strings.T("collection.trait.counterboost.name"),
+                            Strings.T("collection.trait.counterboost.desc", ("mult", CharInfo.BoostMult(v))));
+                        break;
+                    case EffectKind.Endure:
+                        AddWord(traits, Strings.T("collection.trait.endure.chip"),
+                            Strings.T("collection.trait.endure.name"),
+                            Strings.T("collection.trait.endure.desc"));
+                        break;
+                    case EffectKind.SummonSapling:
+                        AddWord(traits, Strings.T("collection.trait.summonsapling.chip"),
+                            Strings.T("collection.trait.summonsapling.name"),
+                            Strings.T("collection.trait.summonsapling.desc", ("count", e.SummonCount), ("value", v)));
+                        break;
+                    case EffectKind.HealSummons:
+                        AddWord(traits, Strings.T("collection.trait.healsummons.chip"),
+                            Strings.T("collection.trait.healsummons.name"),
+                            e.PercentOfMax
+                                ? Strings.T("collection.trait.healsummons.desc.pct", ("value", v))
+                                : Strings.T("collection.trait.healsummons.desc", ("value", v)));
+                        break;
+                    case EffectKind.ShieldSummons:
+                        AddWord(traits, Strings.T("collection.trait.shieldsummons.chip"),
+                            Strings.T("collection.trait.shieldsummons.name"),
+                            Strings.T("collection.trait.shieldsummons.desc", ("value", v)));
+                        break;
+                    case EffectKind.SummonStrike:
+                        AddWord(traits, Strings.T("collection.trait.summonstrike.chip"),
+                            Strings.T("collection.trait.summonstrike.name"),
+                            Strings.T("collection.trait.summonstrike.desc", ("value", v)));
+                        break;
+                    case EffectKind.ShieldFromHeal:
+                        AddWord(traits, Strings.T("collection.trait.shieldfromheal.chip"),
+                            Strings.T("collection.trait.shieldfromheal.name"),
+                            Strings.T("collection.trait.shieldfromheal.desc", ("value", v)));
+                        break;
+                    case EffectKind.AddWellspring:
+                        AddWord(traits, Strings.T("collection.trait.addwellspring.chip", ("value", v)),
+                            Strings.T("collection.trait.addwellspring.name"),
+                            Strings.T("collection.trait.addwellspring.desc", ("value", v)));
+                        break;
+                    case EffectKind.AddHeft:
+                        AddWord(traits, Strings.T("collection.trait.addheft.chip", ("value", v)),
+                            Strings.T("collection.trait.addheft.name"),
+                            Strings.T("collection.trait.addheft.desc", ("value", v)));
                         break;
                     // AP 是节奏不是资源,同样不吃卡等级
                     case EffectKind.ApBoost:

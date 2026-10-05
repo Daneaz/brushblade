@@ -236,6 +236,21 @@ namespace Brushblade.Presentation
                     return new Info("mark", Strings.T("status.mark.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
                         Strings.T("status.mark.desc", ("magnitude", magnitude)));
+                case StatusKind.DamageCut:
+                    // 本回合减伤(D1 Task 7):玩家身上,TurnsLeft 1。名与说明取 designer 补稿词条;
+                    // 图标待 Task 7b(补稿拍板后),IconKey 先留 null(与 Heft/Wellspring 同处理)。
+                    return new Info(null, Strings.T("status.damagecut.name"),
+                        Strings.T("status.duration.this_turn"),
+                        Strings.T("status.damagecut.desc"));
+                case StatusKind.CounterBoost:
+                    return new Info(null, Strings.T("status.counterboost.name"),
+                        Strings.T("status.duration.this_turn"),
+                        Strings.T("status.counterboost.desc"));
+                case StatusKind.Endure:
+                    // 保命(D1 Task 7,扎根):召唤物身上,一次性 —— 时长行报次数(与免疫同口径)
+                    return new Info(null, Strings.T("status.endure.name"),
+                        Strings.T("status.duration.charges", ("value", magnitude)),
+                        Strings.T("status.endure.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句
