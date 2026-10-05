@@ -111,15 +111,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Shield_PersistsThroughEnemyTurn() // 段内持久:普通护盾不再回合末全清
+        public void Shield_PersistsThroughEnemyTurn() // 留存护盾段内持久;普通护盾在下一玩家回合开始清空(U1)
         {
             // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收
+            // 2026-10-04 U1:原用普通桶 5,现在 EndTurn 回到玩家回合时会被清空,改用留存桶观察「吸收后剩余」
             var engine = new BattleEngine(Graph(), Config(),
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { WoodMinion(hp: 100) }, seed: 42, startingHp: 50, cardLevels: null,
-                startingNormalShield: 5);
+                startingPersistShield: 5);
             engine.EndTurn();                 // 敌方攻击 3,护盾吸收
-            Assert.That(engine.PlayerShield, Is.EqualTo(2)); // 旧逻辑会清 0;段内持久剩 2
+            Assert.That(engine.PlayerShield, Is.EqualTo(2)); // 留存护盾不清,剩 2
             Assert.That(engine.PlayerHp, Is.EqualTo(50));    // 护盾垫住,血未掉
         }
 
@@ -494,13 +495,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_ShieldPersists() // 护盾段内持久,不再回合末全清
+        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_NormalShieldClearedNextTurn() // 先吸伤;普通护盾下一玩家回合开始清空(U1)
         {
             var engine = Engine(library: new[] { "锢" }, enemies: new[] { MetalBoss() }); // 攻 5
             engine.Cast("锢"); // 护盾 8(相生 ×3 已取消)
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 8 盾吸收攻 5,不掉血
-            Assert.That(engine.PlayerShield, Is.EqualTo(3)); // 护盾段内持久,剩余 3
+            Assert.That(engine.PlayerShield, Is.EqualTo(0)); // 2026-10-04 U1:剩余 3 点在下一玩家回合开始被清空(原断言 3)
             Assert.That(engine.Turn, Is.EqualTo(2));
             Assert.That(engine.Ap, Is.EqualTo(3)); // AP 不跨回合保留,重置为 3
         }

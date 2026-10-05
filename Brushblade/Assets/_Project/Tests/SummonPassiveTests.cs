@@ -691,7 +691,8 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(6));
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "血量不动");
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(2), "盾从 6 扣到 2");
+            // 2026-10-04 U1:盾从 6 扣到 2 后,剩下的 2 点在回到玩家回合时清空(原断言 2)
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "6 盾吃一击后余 2,下一玩家回合开始清空");
         }
 
         [Test]
@@ -702,13 +703,16 @@ namespace Brushblade.Core.Tests
             // 候选池退化不摇随机,复现改前的确定性。
             var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
             engine.Cast("盾", summonSlots: new[] { 0, 4 });
-            engine.EndTurn(); // 盾 6 → 2
-            engine.EndTurn(); // 盾 2 → 0,溢出的 2 点进血
+            // 2026-10-04 U1:盾 6 吃第一击(余 2)后在下一玩家回合开始清空,之后每击整 4 点进血
+            // (原:6→2→0 溢出 2 点进血,hp 8 / 4)
+            engine.EndTurn(); // 盾 6 → 2 → 清空
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(8));
-            engine.EndTurn(); // 不刷新,整 4 点进血
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10));
+            engine.EndTurn(); // 整 4 点进血
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "护盾不随回合补满");
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(4));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(6));
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(2));
         }
 
         [Test]

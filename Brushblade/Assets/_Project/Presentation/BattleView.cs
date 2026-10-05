@@ -1475,7 +1475,7 @@ namespace Brushblade.Presentation
               .Append(_run.CharPicksLeft).Append('|')
               .Append(_run.EarnedInk).Append('|')
               .Append(battle.Phase).Append('|').Append(battle.Turn).Append('|').Append(battle.Ap).Append('|')
-              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append('|')
+              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append(',').Append(battle.ShieldPersist).Append('|')
               .Append(string.Join(",", battle.Library)).Append('|')
               .Append(string.Join(",", battle.Pool));
             foreach (var enemy in battle.Enemies)
@@ -1912,6 +1912,11 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "reflect"));
+            // 留存护盾(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 留存量。普通护盾回合末清空,
+            // 这一枚是「清不掉的那部分」;玩家护盾总数仍在血条上合计显示,这里只额外报留存量。
+            // 顺序:稿定 嘲讽 · 保命 · 留存护盾 · 减伤 · 格挡 ...(前后几枚未实现,只按相对顺序放在格挡之前)
+            int keepShield = Battle.ShieldPersist;
+            if (keepShield > 0) statusChips.Add(new($"{keepShield}", Theme.Jade, Color.white, "keepshield"));
             // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
             int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
             if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));

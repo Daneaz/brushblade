@@ -16,6 +16,9 @@ namespace Brushblade.Core
         public BattlePhase Phase { get; set; }
         public int ShieldNormal { get; set; }
         public int ShieldPersist { get; set; }
+
+        /// <summary>已开始的玩家回合数(护盾回合末清空用:0 = 第一个玩家回合,不清)。</summary>
+        public int PlayerTurnsStarted { get; set; }
         public int BurnPerStack { get; set; }   // BurnPotency 可抬高,本场累计
         public uint RandomState { get; set; }
 

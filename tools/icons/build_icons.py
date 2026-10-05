@@ -220,6 +220,11 @@ ICONS = {
         f'<path {STROKE} d="M32 6l26 26-26 26L6 32z"/>'
         f'<circle cx="32" cy="32" r="7" {FILL}/>'
     ),
+    # 留存护盾(D1 Task 10,2026-10-05):盾形描边 + 实心书签。路径逐字取自 traits-data.js 的 keepshield
+    "keepshield": (
+        f'<path {STROKE} d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
+        f'<path {FILL} d="M25 19h14v23l-7-6-7 6z"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

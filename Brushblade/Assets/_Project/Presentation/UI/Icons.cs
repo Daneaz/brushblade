@@ -71,6 +71,7 @@ namespace Brushblade.Presentation
             { "chill", "滞" },
             { "seed", "种" },
             { "mark", "标" },
+            { "keepshield", "留" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

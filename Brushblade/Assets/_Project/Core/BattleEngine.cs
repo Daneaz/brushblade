@@ -587,6 +587,7 @@ namespace Brushblade.Core
         /// 局内灼烧加成与添薪都是「玩家点的火」的增威,敌人给我方上的灼烧不享有。</summary>
         private int OurSideBurnPerStack => _config?.BurnPerStack ?? BattleConfig.BaseBurnPerStack;
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
+        private int _playerTurnsStarted;    // 已开始的玩家回合数(BeginPlayerTurn 计);0 = 本场第一个玩家回合还没开,此时不清盾
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
         private int _healAccum;             // 泉的余数:不足一层的治疗名义值
@@ -1204,6 +1205,7 @@ namespace Brushblade.Core
                 Phase = Phase,
                 ShieldNormal = _shieldNormal,
                 ShieldPersist = _shieldPersist,
+                PlayerTurnsStarted = _playerTurnsStarted,
                 BurnPerStack = _burnPerStack,
                 RandomState = _random.State,
                 TargetRandomState = _targetRandom.State,
@@ -1249,6 +1251,7 @@ namespace Brushblade.Core
                 Phase = snapshot.Phase,
                 _shieldNormal = snapshot.ShieldNormal,
                 _shieldPersist = snapshot.ShieldPersist,
+                _playerTurnsStarted = snapshot.PlayerTurnsStarted,
                 _burnPerStack = snapshot.BurnPerStack,
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
@@ -2644,6 +2647,18 @@ namespace Brushblade.Core
         /// 玩家未被灼烧烧死时才跑——死人不用治。</summary>
         private void BeginPlayerTurn()
         {
+            // 护盾回合末清空(spec v7 §3.1,用户拍板 U1):「回合结束」= 一整轮结束,即玩家下一回合开始。
+            // 清普通桶与全部召唤物护盾,留存桶(_shieldPersist)不动。排在 TurnStarted 之前:
+            // 本回合开始时的特性反应看到的是清空后的盾。本场第一个玩家回合(_playerTurnsStarted == 0)不清:
+            // 跨场带入 / 开局效果给的护盾写在构造函数里,第一回合开始就清的话它们一拍都挡不到。
+            if (_playerTurnsStarted > 0)
+            {
+                _shieldNormal = 0;
+                foreach (var summon in _summons)
+                    if (summon != null) summon.Shield = 0;
+                DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
+            }
+            _playerTurnsStarted++;
             Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             DrainReactions();   // 安全点:「回合开始时」类反应排在玩家灼烧结算之前
             SettlePlayerBurn();

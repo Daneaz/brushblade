@@ -35,6 +35,9 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
             new CharDef("盾", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
+            // 留存护盾版:U1 之后普通护盾下一玩家回合开始就清空,倾覆的「先吸伤再清盾」探针要靠留存桶才撑得到倾覆
+            new CharDef("壁", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Shield, 20, persistOnce: true) }),
             // 护甲 2 点(测试本地值,真实字表是 12):这里的 Boss 攻击力只有 5,
             // 拿 12 会把普攻直接归零,断言看不出「大招也吃护甲」这件事
             new CharDef("铠", Element.Metal,
@@ -308,8 +311,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Topple_ClearsAllShieldAndCutsNextTurnAp()
         {
-            var engine = Engine(BossSkill.Topple);
-            engine.Cast("盾"); // 土系护盾 20
+            var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
+                new string[0], new[] { "火", "林", "壁", "火", "林", "壁" },
+                new[] { SkillBoss(BossSkill.Topple) }, seed: 1);
+            engine.Cast("壁"); // 土系留存护盾 20(普通护盾撑不到倾覆:U1 下一玩家回合开始清空)
             Assert.That(engine.PlayerShield, Is.EqualTo(20));
             int full = engine.PlayerHp;
 

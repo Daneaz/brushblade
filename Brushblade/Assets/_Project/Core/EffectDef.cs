@@ -164,7 +164,7 @@ namespace Brushblade.Core
         /// <see cref="DamageCondition.None"/> = 无条件。</summary>
         public DamageCondition DoubleVs { get; }
 
-        /// <summary>护盾类:豁免一次回合末全清(堡,10.3.6)。</summary>
+        /// <summary>护盾类:本次护盾进留存桶(留存护盾,spec v7 §3.1)——普通护盾在玩家下一回合开始时清空,留存护盾不清。</summary>
         public bool PersistOnce { get; }
 
         /// <summary>召唤类:召几个(林 = 2)。</summary>

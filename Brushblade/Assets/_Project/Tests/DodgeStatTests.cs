@@ -153,7 +153,9 @@ namespace Brushblade.CoreTests
             engine.EndTurn();
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
                 "免疫层数一点没掉");
-            Assert.That(engine.PlayerShield, Is.EqualTo(shieldBefore), "护盾一点没掉");
+            // 2026-10-04 U1:回到玩家回合时普通护盾已被清空,不能再比 PlayerShield;改看敌方段里没有任何吸收
+            Assert.That(engine.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed),
+                Is.EqualTo(0), "护盾一点没掉");
         }
 
         // ---- 钳位 ----

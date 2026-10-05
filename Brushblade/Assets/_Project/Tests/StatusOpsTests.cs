@@ -463,7 +463,9 @@ namespace Brushblade.Core.Tests
             Assert.That(shieldBefore, Is.GreaterThan(0), "护盾字必须先立起非零护盾,测试才有区分力");
             engine.Cast("堵", 0);
             engine.EndTurn();
-            Assert.That(engine.PlayerShield, Is.EqualTo(shieldBefore), "护盾一点没掉");
+            // 2026-10-04 U1:回到玩家回合时普通护盾已被清空,不能再比 PlayerShield;改看敌方段里没有任何吸收
+            Assert.That(engine.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed),
+                Is.EqualTo(0), "护盾一点没掉(伤害被免疫挡下,没轮到盾)");
             Assert.That(engine.PlayerHp, Is.EqualTo(50));
         }
 

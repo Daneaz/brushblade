@@ -45,6 +45,8 @@ EXPECTED = {
     "block", "frostguard", "chill",
     # 字卡特性 D1 Task 6(2026-10-05):种 / 标记,取自 traits 稿 StatusChips 的 NEW 两枚。
     "seed", "mark",
+    # 字卡特性 D1 Task 10(2026-10-05):留存护盾,取自 traits 稿 StatusChips 的 NEW 一枚。
+    "keepshield",
 }
 
 
