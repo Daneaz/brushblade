@@ -8,7 +8,7 @@ preview.html 在 artifact 上由 Design System 类型注入 tokens 与 bundle.cs
 本地直接打开两样都没有。这里补上那层外壳:
 - tokens.css:tokens.json 的全部 token 转成 :root 变量 + 字体 @font-face + 字样类
 - <名>.html:preview 原文,只在 <head> 里插两条 <link>
-- index.html:按 @dsCard 分组铺开全部卡,并链到各画布画廊
+- index.html:按目录顺序(artifact → component → current → drafts → demos)铺开全部卡并链到画布与 demos,标题用英文目录名
 - canvas-<目录>.html:设计稿画布 docs/design/drafts/<目录>/ 按 canvas.json 的分页与标题铺开全部画板
 
 画布的 *.dc.html 写死 <script src="./support.js">,线上由 Design 类型提供。本地由
@@ -112,19 +112,20 @@ def _canvas_gallery(d: Path) -> str:
         if not group:
             continue
         if pid is not None:
-            body.append(f"<h2>{html.escape(pages.get(pid, str(pid)))}</h2>")
+            body.append(f"<h2>{html.escape(str(pid))} <small>{html.escape(pages.get(pid, ''))}</small></h2>")
         for b in group:
-            body.append(f'<section><h3>{html.escape(b["title"])} <small>{b["file"]} · {b["w"]}×{b["h"]}</small></h3>'
+            # 标题用文件名(英文原名,不翻译);canvas.json 里的中文标题降为副文
+            body.append(f'<section><h3>{b["file"]} <small>{html.escape(b["title"])} · {b["w"]}×{b["h"]}</small></h3>'
                         f'<iframe src="{b["href"]}" width="{b["w"]}" height="{b["h"]}"></iframe></section>')
-    title = c.get("title") or d.name
+    title = c.get("title") or ""
     return ("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
-            f"<title>画布 · {html.escape(title)}</title>"
+            f"<title>drafts/{d.name}</title>"
             "<link rel=\"stylesheet\" href=\"tokens.css\"><style>"
             "body{margin:0;padding:16px 24px;background:var(--paper);color:var(--text-main);font-family:var(--font-sans)}"
             "h2{font-family:var(--font-serif);margin:28px 0 8px}h3{font-size:13px;margin:16px 0 6px}"
             "small{font-weight:400;color:var(--text-dim);margin-left:8px}"
             "iframe{display:block;border:1px solid var(--panel-border);border-radius:8px;background:#fff}"
-            f"</style></head><body><p><a href=\"index.html\">← 总览</a></p><h1>画布 · {html.escape(title)}</h1>"
+            f"</style></head><body><p><a href=\"index.html\">← index</a></p><h1>drafts/{d.name} <small>{html.escape(title)}</small></h1>"
             f"<p>源稿 docs/design/drafts/{d.name}/;由 tools/design/build_ds_preview.py 生成。画板可交互。</p>"
             + "".join(body) + "</body></html>\n")
 
@@ -133,29 +134,45 @@ def canvas_galleries() -> dict:
     return {f"canvas-{d.name}.html": _canvas_gallery(d) for d in canvas_dirs()}
 
 
+DEMOS = DESIGN / "demos"
+
+
 def index_html() -> str:
-    groups = {}
-    for p in sources():
-        groups.setdefault(_card_meta(p.read_text(encoding="utf-8"))["group"], []).append(p)
+    """总览按 docs/design/ 的目录顺序排:artifact → component → current → drafts → demos。
+    标题一律用目录 / 文件的英文原名,不翻译;@dsCard 的中文分组与副标题降为副文。"""
     body = []
-    for g, ps in groups.items():
-        body.append(f"<h2>{html.escape(g)}</h2>")
+    for layer in (ARTIFACT, COMPONENT, CURRENT):
+        ps = sorted(layer.glob("*/preview.html"))
+        if not ps:
+            continue
+        body.append(f'<h2 id="{layer.name}">{layer.name}/</h2>')
         for p in ps:
             meta = _card_meta(p.read_text(encoding="utf-8"))
             name = p.parent.name
-            body.append(f'<section><h3>{name} <small>{html.escape(meta["subtitle"])}</small></h3>'
+            sub = " · ".join(x for x in (meta["group"] if meta["group"] != "其他" else "", meta["subtitle"]) if x)
+            body.append(f'<section><h3>{name} <small>{html.escape(sub)}</small></h3>'
                         f'<iframe src="{name}.html" style="height:{meta["height"]}px"></iframe></section>')
+    body.append('<h2 id="drafts">drafts/</h2><ul>' + "".join(
+        f'<li><a href="canvas-{d.name}.html">{d.name}</a></li>' for d in canvas_dirs()) + "</ul>")
+    demo_dirs = sorted(p for p in DEMOS.iterdir() if p.is_dir()) if DEMOS.exists() else []
+    if demo_dirs:
+        body.append('<h2 id="demos">demos/</h2>')
+        for d in demo_dirs:
+            files = sorted(d.glob("*.html"))
+            if files:
+                body.append(f"<h3>{d.name}</h3><ul>" + "".join(
+                    f'<li><a href="../demos/{d.name}/{f.name}">{html.escape(f.name)}</a></li>' for f in files) + "</ul>")
+    toc = " · ".join(f'<a href="#{n}">{n}/</a>' for n in ("artifact", "component", "current", "drafts", "demos"))
     return ("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
-            "<title>字·斗 设计系统 · 本地预览</title>"
+            "<title>docs/design · preview</title>"
             "<link rel=\"stylesheet\" href=\"tokens.css\"><style>"
             "body{margin:0;padding:16px 24px;background:var(--paper);color:var(--text-main);font-family:var(--font-sans)}"
-            "h2{font-family:var(--font-serif);margin:28px 0 8px}h3{font-size:13px;margin:16px 0 6px}"
+            "h2{font-family:var(--font-sans);margin:28px 0 8px}h3{font-size:13px;margin:16px 0 6px}"
             "small{font-weight:400;color:var(--text-dim);margin-left:8px}"
             "iframe{width:100%;border:1px solid var(--panel-border);border-radius:8px;background:var(--paper)}"
-            "</style></head><body><h1>字·斗 设计系统 · 本地预览</h1>"
-            "<p>由 tools/design/build_ds_preview.py 生成;规范见 system/README.md,组件见 component/,现状见 current/,设计稿见 drafts/。</p>"
-            + "<h2>画布</h2><ul>" + "".join(f'<li><a href="canvas-{d.name}.html">{d.name}</a></li>' for d in canvas_dirs())
-            + "</ul>" + "".join(body) + "</body></html>\n")
+            "</style></head><body><h1>docs/design</h1>"
+            "<p>由 tools/design/build_ds_preview.py 生成;规则与 token 见 system/README.md、system/tokens.json。</p>"
+            f"<p>{toc}</p>" + "".join(body) + "</body></html>\n")
 
 
 def main():
