@@ -199,6 +199,8 @@ namespace Brushblade.Trace
             IReadOnlyList<string> library = profile.Library;
             IReadOnlyList<string> pool = new[] { "木", "木" };
             int hp = profile.MaxHp;
+            // 开局效果跨段携带(D1 附录 M19):照 GameRoot 传 snapshot.CarriedOpenings 的生产口径
+            IReadOnlyList<OpeningEffect> openings = new List<OpeningEffect>();
             rec.Run(seed, profile.Name, profile.StartDepth);
 
             while (fromDepth <= maxDepth)
@@ -220,7 +222,7 @@ namespace Brushblade.Trace
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
                     seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: AllLevelOne,
-                    startingHp: hp);
+                    startingHp: hp, startingOpenings: openings);
                 rec.Segment(seed, fromDepth, run.Capture().RandomState);
 
                 while (run.Phase == RunPhase.InBattle || run.Phase == RunPhase.Reward ||
@@ -267,6 +269,7 @@ namespace Brushblade.Trace
                 library = new List<string>(run.Battle.Library);
                 pool = new List<string>(run.Battle.Pool);
                 hp = run.Battle.PlayerHp;
+                openings = new List<OpeningEffect>(run.CarriedOpenings);
                 fromDepth += endless.BossEvery;
             }
             rec.RunEnd(seed, maxDepth, "DepthCap");

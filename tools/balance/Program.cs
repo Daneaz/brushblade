@@ -180,6 +180,8 @@ namespace Brushblade.Balance
             IReadOnlyList<string> library = DrawStartingLibrary(graph, profile, deckRandom);
             IReadOnlyList<string> pool = MetaRules.RollStartingPool(library, graph, deckRandom);
             int hp = profile.MaxHp;
+            // 开局效果跨段携带(D1 附录 M19):照 GameRoot 传 snapshot.CarriedOpenings 的生产口径
+            IReadOnlyList<OpeningEffect> openings = new List<OpeningEffect>();
 
             while (fromDepth <= DepthCap)
             {
@@ -204,7 +206,7 @@ namespace Brushblade.Balance
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
                     seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: profile.CardLevels,
-                    startingHp: hp);
+                    startingHp: hp, startingOpenings: openings);
 
                 while (run.Phase == RunPhase.InBattle || run.Phase == RunPhase.Reward || run.Phase == RunPhase.Event)
                 {
@@ -235,6 +237,7 @@ namespace Brushblade.Balance
                 library = new List<string>(run.Battle.Library);
                 pool = new List<string>(run.Battle.Pool);
                 hp = run.Battle.PlayerHp;
+                openings = new List<OpeningEffect>(run.CarriedOpenings);
                 fromDepth += endless.BossEvery;
             }
             return DepthCap;
