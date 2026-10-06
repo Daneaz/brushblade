@@ -2019,6 +2019,33 @@ namespace Brushblade.Core
             return false;
         }
 
+        /// <summary>spec §2.2:五行面落到活着的木灵上时的附加规则(D2-0 Task 4,Ruling E2)。
+        /// 水 = 本场改水属性(复原点见 RunEngine.CaptureAliveSummons,E3);土 = 本场嘲讽;
+        /// 金(格挡落木灵)归 Block 效果本身,木(嫁接)归 Task 5。攻击面、落点是玩家、燃面都不触发。
+        /// 自带解封的字不叠加改水:解封是它自己的属性重掷,再盖一层水等于把重掷作废。</summary>
+        private void ApplyFeatureOntoSummon(CharDef def, bool attackMode, int allySlot)
+        {
+            if (attackMode || allySlot == Targeting.PlayerTarget || allySlot < 0 || allySlot >= _summons.Length) return;
+            var summon = _summons[allySlot];
+            if (summon == null || !summon.Alive) return;
+            if (def.Element == Element.Water)
+            {
+                foreach (var effect in EffectsOf(def, false))
+                    if (effect.Kind == EffectKind.Unseal) return;
+                summon.BaseElement ??= summon.Element;
+                summon.Element = Element.Water;
+                _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)Element.Water));
+            }
+            else if (def.Element == Element.Earth)
+            {
+                ApplyStatus(summon.Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Taunt, Polarity = StatusPolarity.Buff,
+                    Magnitude = 0, TurnsLeft = -1, SourceId = def.Id,
+                }, UnitRef.Summon(allySlot), UnitRef.Player);
+            }
+        }
+
         /// <summary>这次效果落在谁的状态袋上(2026-08-28,增益改单体)。
         /// allySlot = <see cref="Targeting.PlayerTarget"/> 就是玩家的袋子,否则是那只召唤物自己的。
         ///
@@ -3765,6 +3792,7 @@ namespace Brushblade.Core
                             // 不进 StatusBag,不随回合递减。
                             var rerolled = (Element)_random.Next(6);
                             unsealTarget.Element = rerolled;
+                            unsealTarget.BaseElement = null;   // E4:解封是永久重掷,清掉「战后复原」记号
                             _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)rerolled));
                         }
                         break;
@@ -3976,6 +4004,7 @@ namespace Brushblade.Core
                         break;
                 }
             }
+            ApplyFeatureOntoSummon(def, attackMode, allySlot);
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
             }
             finally

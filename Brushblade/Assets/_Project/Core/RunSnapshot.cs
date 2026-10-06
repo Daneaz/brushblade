@@ -102,6 +102,9 @@ namespace Brushblade.Core
         public string SourceChar { get; set; }
 
         public Element Element { get; set; }
+
+        /// <summary>§2.2 本场改属性前的属性(D2-0);null = 没改过。老存档没有 → null。</summary>
+        public Element? BaseElement { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public int Attack { get; set; }

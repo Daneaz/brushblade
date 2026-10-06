@@ -193,6 +193,9 @@ namespace Brushblade.Core
         /// 会变,早已是 internal set)不对称,是因为召唤物属性此前从来不会变;解封落地后
         /// 两者同型。</summary>
         public Element Element { get; internal set; }
+
+        /// <summary>§2.2 本场改属性前的属性;null = 本场没改过。战后复原(E3),解封清掉它(E4)。</summary>
+        public Element? BaseElement { get; internal set; }
         public int Hp { get; internal set; }
         public int MaxHp { get; }
         public int Attack { get; }
@@ -305,7 +308,7 @@ namespace Brushblade.Core
             {
                 Slot = slot,
                 Char = Char, SourceChar = SourceChar,
-                Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+                Element = Element, BaseElement = BaseElement, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
                 Passive = Passive?.Clone(), Statuses = statuses,
             };
@@ -315,6 +318,7 @@ namespace Brushblade.Core
         {
             var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
                 s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
+            state.BaseElement = s.BaseElement;
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;
         }

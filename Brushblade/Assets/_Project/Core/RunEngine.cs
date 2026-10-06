@@ -914,6 +914,9 @@ namespace Brushblade.Core
                 snapshot.ActionMeter = 0;
                 // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲
                 snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)).ToList();
+                // §2.2 本场改的属性在这里复原(E3);解封已清掉记号的,Element 即最终属性
+                if (summon.BaseElement.HasValue) snapshot.Element = summon.BaseElement.Value;
+                snapshot.BaseElement = null;
                 snapshot.Shield = snapshot.Shield * _battleConfig.ShieldCarryPercent / 100;   // 战后护盾保留对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }
