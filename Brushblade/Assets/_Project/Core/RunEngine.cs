@@ -917,6 +917,9 @@ namespace Brushblade.Core
                 // §2.2 本场改的属性在这里复原(E3);解封已清掉记号的,Element 即最终属性
                 if (summon.BaseElement.HasValue) snapshot.Element = summon.BaseElement.Value;
                 snapshot.BaseElement = null;
+                // 嫁接换的本命只管本场(E5):复原到嫁接之前
+                if (summon.BasePassive != null) snapshot.Passive = summon.BasePassive.Clone();
+                snapshot.BasePassive = null;
                 snapshot.Shield = snapshot.Shield * _battleConfig.ShieldCarryPercent / 100;   // 战后护盾保留对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }

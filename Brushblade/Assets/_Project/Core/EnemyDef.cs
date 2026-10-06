@@ -213,7 +213,11 @@ namespace Brushblade.Core
         public int Shield { get; internal set; }
 
         /// <summary>被动(2026-08-05)。null = 无被动。</summary>
-        public SummonPassive Passive { get; }
+        public SummonPassive Passive { get; internal set; }
+
+        /// <summary>嫁接前的本命;null = 本场没嫁接过。战后复原(E3/E5)。
+        /// 嫁接前本无被动的,这里存一份空被动当记号(区分「没嫁接」与「嫁接前无本命」)。</summary>
+        public SummonPassive BasePassive { get; internal set; }
 
         /// <summary>召唤物身上的状态容器(2026-08-26)。与 <see cref="EnemyState.Statuses"/> 同型。
         ///
@@ -310,7 +314,7 @@ namespace Brushblade.Core
                 Char = Char, SourceChar = SourceChar,
                 Element = Element, BaseElement = BaseElement, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
-                Passive = Passive?.Clone(), Statuses = statuses,
+                Passive = Passive?.Clone(), BasePassive = BasePassive?.Clone(), Statuses = statuses,
             };
         }
 
@@ -319,6 +323,7 @@ namespace Brushblade.Core
             var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
                 s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
             state.BaseElement = s.BaseElement;
+            state.BasePassive = s.BasePassive?.Clone();
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;
         }

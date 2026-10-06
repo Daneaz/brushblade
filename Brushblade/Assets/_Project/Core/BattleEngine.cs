@@ -343,6 +343,8 @@ namespace Brushblade.Core
         MoraleGain,    // 战意实际增加(2026-09-18;Amount = 实际涨的层数,Source 标来源)。
                        // 目前**只有**金脉 L2「锋芒」发 —— 字卡自带的战意照旧不发,事件流与改前一致。
                        // 顶到上限实际没涨时不发。
+        Graft,         // 嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满并换本命,不召新木灵
+                       // (SecondIndex = 被嫁接的召唤物槽位,与 Summon 事件同口径;TargetIndex = −1)。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -1613,9 +1615,12 @@ namespace Brushblade.Core
                 else if (!CanHealSlot(allySlot)) return BattleError.InvalidTarget;
             }
 
-            // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
-            // 不只看满员——3/4 时召 2 只同样溢出,也得先问过玩家
-            if (!replaceSummon && SummonReplaceCountOf(def, attackMode, summonSlots) > 0) return BattleError.SummonCapFull;
+            // 嫁接(D2-0 Task 5,E5):木的生面带 allySlot ≥ 0 指向尸体 / 空格 = 点错了落点,拒出;
+            // 指向活木灵 = 嫁接,不召新木灵,所以不需要「召唤位满」的替换确认。
+            // allySlot 缺省(玩家)= 普通召唤。生面的 Summon 不在 EffectNeedsAllyTarget 里,这条校验在此单做。
+            bool graft = IsGraft(def, attackMode, allySlot);
+            if (!graft && allySlot >= 0 && HasSummonFace(def, attackMode)) return BattleError.InvalidTarget;
+            if (!graft && !replaceSummon && SummonReplaceCountOf(def, attackMode, summonSlots) > 0) return BattleError.SummonCapFull;
 
             _events.Clear();
             Ap -= def.ApCost;
@@ -2018,6 +2023,20 @@ namespace Brushblade.Core
                     return true;
             return false;
         }
+
+        /// <summary>木的生面(本字等级下的出字效果表里有 Summon)——嫁接判据的前半。</summary>
+        private bool HasSummonFace(CharDef def, bool attackMode)
+        {
+            if (attackMode || def.Element != Element.Wood) return false;
+            foreach (var effect in CastEffectsOf(def, false, CardLevelOf(def.Id)))
+                if (effect.Kind == EffectKind.Summon) return true;
+            return false;
+        }
+
+        /// <summary>这次出字是不是嫁接:五行面、本面有 Summon、allySlot 指向活着的木灵(D2-0 Task 5,E5)。</summary>
+        private bool IsGraft(CharDef def, bool attackMode, int allySlot) =>
+            allySlot >= 0 && allySlot < SummonCap && _summons[allySlot] != null && _summons[allySlot].Alive
+            && HasSummonFace(def, attackMode);
 
         /// <summary>spec §2.2:五行面落到活着的木灵上时的附加规则(D2-0 Task 4,Ruling E2)。
         /// 水 = 本场改水属性(复原点见 RunEngine.CaptureAliveSummons,E3);土 = 本场嘲讽;
@@ -3053,6 +3072,8 @@ namespace Brushblade.Core
             _castHealTotal = 0;
             _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
+            bool graft = IsGraft(def, attackMode, allySlot);   // 嫁接:Summon 效果改为作用在 allySlot 上(E5)
+            bool grafted = false;
             _castCritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
             // 断金(2026-10-02):进门时判定,同一张字结算途中暴击涨满的不算本张。
             // 只认金系「字」(部件直出不算)且本张字带伤害效果;纯 buff 金字不消耗战意。
@@ -3445,8 +3466,10 @@ namespace Brushblade.Core
                     {
                         // 幼苗(D1 Task 7,附录 M14):属性取本次出字召出的第一只 × Value%(那只已吃过等级与攻击力缩放),
                         // 无本命。只占空槽 / 尸体槽 —— 落位表的下一格站着活人就退回最小空槽,还没有就不召(不顶替)。
-                        if (_castSummonedSlots.Count == 0) break;
-                        var first = _summons[_castSummonedSlots[0]];
+                        // 嫁接时没有「本次召出的」,属性来源取被嫁接的木灵(allySlot,Task 5 裁定)
+                        int saplingSrc = graft ? allySlot : _castSummonedSlots.Count > 0 ? _castSummonedSlots[0] : -1;
+                        if (saplingSrc < 0) break;
+                        var first = _summons[saplingSrc];
                         if (first == null) break;
                         int saplingHp = Math.Max(1, first.MaxHp * value / 100);
                         int saplingAttack = first.Attack * value / 100;
@@ -3909,6 +3932,20 @@ namespace Brushblade.Core
                         break;
                     }
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
+                        if (graft)
+                        {
+                            // 嫁接(E5):不召新木灵;回满生命,本命换成本字的(吃卡等级缩放,效果表已含 Lv3 强化),本场有效。
+                            // 只结算一次;SummonShield / SummonDefense 不发,幼苗等其余效果照常。
+                            if (grafted) break;
+                            grafted = true;
+                            var target = _summons[allySlot];
+                            target.BasePassive ??= target.Passive?.Clone() ?? new SummonPassive();
+                            target.Passive = ScalePassiveByCardLevel(effect.Passive, cardLevel)?.Clone();
+                            target.Hp = target.MaxHp;
+                            RefreshSummonAura();
+                            _events.Add(new BattleEvent(BattleEventKind.Graft, -1, 0, allySlot));
+                            break;
+                        }
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些「资源」随等级涨,

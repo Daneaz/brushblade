@@ -116,6 +116,9 @@ namespace Brushblade.Core
         public int Shield { get; set; }
         public SummonPassive Passive { get; set; }
 
+        /// <summary>嫁接前的本命(D2-0 Task 5);null = 没嫁接过。老存档没有 → null。</summary>
+        public SummonPassive BasePassive { get; set; }
+
         /// <summary>身上的状态(2026-08-26)。与 <see cref="EnemySnapshot.Statuses"/> 同型;
         /// 老存档没有这个字段 → Newtonsoft 填 null → Restore 兜底成空表。</summary>
         public List<StatusEffect> Statuses { get; set; } = new();

@@ -5626,6 +5626,7 @@ namespace Brushblade.Presentation
                 AppendBossPhaseMessage();
                 AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
                 AppendUnsealMessage(); // 解封重掷召唤物属性,同样产自 Cast() 自己的 _events
+                AppendGraftMessage();  // 嫁接(木生面落木灵):回满并换本命,最小反馈
             }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
@@ -5686,8 +5687,8 @@ namespace Brushblade.Presentation
         private void DropReplacedSummonSnapshots()
         {
             foreach (var e in Battle.LastEvents)
-                if (e.Kind == BattleEventKind.Summon && e.SecondIndex >= 0)
-                {
+                if ((e.Kind == BattleEventKind.Summon || e.Kind == BattleEventKind.Graft) && e.SecondIndex >= 0)
+                {   // 嫁接(D2-0 Task 5):回满生命,同样不能在动画期间停在旧血量
                     _summonAnimHp.Remove(e.SecondIndex);
                 }
         }
@@ -5788,6 +5789,19 @@ namespace Brushblade.Presentation
                         ? Battle.Summons[e.TargetIndex].Char : "";
                     _message += Strings.T("battle.msg.unseal",
                         ("charId", charId), ("element", CharInfo.ElementName((Element)e.Amount)));
+                }
+        }
+
+        /// <summary>嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满生命并换本命。完整交互归 Plan E,这里只播一句。</summary>
+        private void AppendGraftMessage()
+        {
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.Graft)
+                {
+                    string charId = e.SecondIndex >= 0 && e.SecondIndex < Battle.Summons.Count
+                        && Battle.Summons[e.SecondIndex] != null
+                        ? Battle.Summons[e.SecondIndex].Char : "";
+                    _message += Strings.T("battle.msg.graft", ("charId", charId));
                 }
         }
 
