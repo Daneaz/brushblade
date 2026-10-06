@@ -82,6 +82,18 @@ namespace Brushblade.Core
                           // 极性记 Debuff:敌人侧驱散只清 Buff,载体不能被驱散单独剥掉。
         ShieldRecoil,     // 反震(D1 Task 9,D9,仅玩家,隐藏):Magnitude = 反弹吸收量的百分比,TurnsLeft = -1,
                           // TraitKey = 每回合次数阀的键。同类取最强(只留一条);两桶护盾归零 / 倾覆清盾时移除。
+        Taunt,            // 嘲讽(D2-0 Task 2,spec §3.1,E11,玩家与木灵):敌人只能攻击带嘲讽的单位。Magnitude 不用,
+                          // TurnsLeft = 回合数(-1 = 本场),SourceId = 字 ID(同源刷新)。玩家身上按玩家回合递减,木灵身上按木灵自己那一拍递减。
+    }
+
+    /// <summary>状态的分类规则。</summary>
+    public static class StatusRules
+    {
+        /// <summary>「本场」状态:木灵战后带进下一场之前剥离(spec §3.3,E3)。按 Kind 判定,不看 TurnsLeft ——
+        /// 入场护甲(DefenseBuff,TurnsLeft = -1)要跨场保留。</summary>
+        public static bool IsBattleScoped(StatusKind kind) =>
+            kind == StatusKind.Taunt || kind == StatusKind.Block || kind == StatusKind.Endure
+            || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost;
     }
 
     public enum StatusPolarity { Buff, Debuff }

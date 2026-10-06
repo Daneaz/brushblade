@@ -62,8 +62,10 @@ namespace Brushblade.Core
         /// 第一层是 <see cref="GameRandom.Next"/> 自己的性质(maxExclusive ≤ 1 直接 return 0,
         /// 不碰内部状态),PickOne 里的短路是第二层纵深防御。两层任一在位都够,但两层都要在。</summary>
         public static int PickAllyTarget(AttackRange range, AttackFocus focus,
-            IReadOnlyList<SummonState> summons, int frontRow, GameRandom random)
+            IReadOnlyList<SummonState> summons, int frontRow, GameRandom random, bool playerTaunting = false)
         {
+            // 玩家嘲讽(D2-0 Task 2,E11)压过一切:单体攻击一律打玩家,不摇随机数
+            if (playerTaunting) return PlayerTarget;
             if (range == AttackRange.Melee)
             {
                 var front = AliveSlots(summons, 0, frontRow);
@@ -111,7 +113,8 @@ namespace Brushblade.Core
             for (int s = from; s < toExclusive && s < summons.Count; s++)
             {
                 var summon = summons[s];
-                if (summon == null || !summon.Alive || summon.Passive == null || !summon.Passive.Taunt) continue;
+                if (summon == null || !summon.Alive) continue;
+                if (!(summon.Passive?.Taunt == true || summon.Statuses.Has(StatusKind.Taunt))) continue;
                 (slots ??= new List<int>()).Add(s);
             }
             return slots;

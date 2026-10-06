@@ -1904,6 +1904,9 @@ namespace Brushblade.Presentation
             // 这一栏里符合的是灼烧(层数每回合衰减)与战意(层数;2026-09-30 起本场不衰减,见下);
             // 封字是**下回合一次性**扣 AP、减速是持续期间恒定的修正值、那一排增益挂着即生效,
             // 都只出图标 —— 一排数字在 120pt 宽的状态栏里糊成一团,反而读不出挂了哪几样。
+            // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):排在我方 chip 首位,无数字
+            if (Battle.PlayerStatuses.Has(StatusKind.Taunt))
+                statusChips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
                 statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
@@ -2563,6 +2566,8 @@ namespace Brushblade.Presentation
                 if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Fg(bg), icon));
             }
 
+            // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):木灵 chip 首位,无数字
+            if (st.Has(StatusKind.Taunt)) chips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
             Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);

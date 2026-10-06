@@ -191,8 +191,10 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
 # D1 Task 7:我方侧选择器,各只给一个 kind(与 Core 的 EffectPickRules.Allows 同一张表)。
 # 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
-ALLY_PICKS = {"Self": "Cleanse", "SummonedThisCast": "Endure"}
-PICK_KINDS = ENEMY_PICK_KINDS | set(ALLY_PICKS.values())
+# D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
+ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"}}
+ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
+PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
 KEEP_TOKEN = "keep"
@@ -469,17 +471,20 @@ def _attach_ally_tokens(config, char, effects, consumed):
         pick = e.get("pick")
         if pick is None:
             continue
-        ally_kind = ALLY_PICKS.get(pick)
-        if ally_kind is not None and e["kind"] != ally_kind:
-            raise ValueError(f"{char}:`pick {pick}` 只能挂在 {ally_kind} 上,当前挂到了 {e['kind']}")
-        if ally_kind is None and e["kind"] not in ENEMY_PICK_KINDS:
+        ally_kinds = ALLY_PICKS.get(pick)
+        if ally_kinds is not None and e["kind"] not in ally_kinds:
+            raise ValueError(f"{char}:`pick {pick}` 只能挂在 {sorted(ally_kinds)} 上,当前挂到了 {e['kind']}")
+        if ally_kinds is None and e["kind"] not in ENEMY_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
-                             f"{sorted(p for p, k in ALLY_PICKS.items() if k == e['kind'])})")
+                             f"{sorted(p for p, ks in ALLY_PICKS.items() if e['kind'] in ks)})")
     for e in effects:
         # 保命必须写 `pick SummonedThisCast`(Ruling 10):缺省写法引擎选不到召唤物,会静默空转
         if e["kind"] == "Endure" and e.get("pick") != "SummonedThisCast":
             raise ValueError(f"{char}:`Endure` 必须配 `pick SummonedThisCast`(落点是本次召出的召唤物)")
-        if "onlyIf" in e and e["kind"] in ALLY_PICKS.values():
+        # 嘲讽同理:必须写 pick Self / SummonedThisCast / AllSummons(Primary 写法 ConfigLoader 会拒绝)
+        if e["kind"] == "Taunt" and e.get("pick") not in ALLY_PICKS:
+            raise ValueError(f"{char}:`Taunt` 必须配 `pick Self` / `pick SummonedThisCast` / `pick AllSummons`")
+        if "onlyIf" in e and e["kind"] in ALLY_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 
 

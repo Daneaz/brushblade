@@ -237,6 +237,11 @@ namespace Brushblade.Presentation
                     return new Info("mark", Strings.T("status.mark.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
                         Strings.T("status.mark.desc", ("magnitude", magnitude)));
+                case StatusKind.Taunt:
+                    // 嘲讽(D2-0 Task 2,spec §3.1,稿 StatusChips k-ctrl):玩家与木灵身上,无数字。TurnsLeft -1 = 本场。
+                    return new Info("taunt", Strings.T("status.taunt.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.taunt.desc"));
                 case StatusKind.DamageCut:
                     // 本回合减伤(D1 Task 7):玩家身上,TurnsLeft 1。名与说明取 designer 补稿词条;
                     // 图标待 Task 7b(补稿拍板后),IconKey 先留 null(与 Heft/Wellspring 同处理)。

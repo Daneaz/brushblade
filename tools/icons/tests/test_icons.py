@@ -47,6 +47,8 @@ EXPECTED = {
     "seed", "mark",
     # 字卡特性 D1 Task 10(2026-10-05):留存护盾,取自 traits 稿 StatusChips 的 NEW 一枚。
     "keepshield",
+    # 字卡特性 D2-0 Task 2(2026-10-06):嘲讽,取自 traits 稿 StatusChips 的 NEW 一枚。
+    "taunt",
 }
 
 

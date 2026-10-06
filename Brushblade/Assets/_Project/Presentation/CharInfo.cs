@@ -223,6 +223,8 @@ namespace Brushblade.Presentation
                     EffectKind.AddHeft => Strings.T("char.effect.addheft", ("value", shown)),
                     // 反震(D1 Task 9):百分比离散(shown == e.Value)
                     EffectKind.ShieldRecoil => Strings.T("char.effect.shieldrecoil", ("value", shown)),
+                    // 嘲讽(D2-0 Task 2):Value = 回合数,0 = 本场;按落点分主语
+                    EffectKind.Taunt => TauntText(e),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -233,6 +235,16 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>反击增强的倍率(D1 Task 7):Value 100 → 「2」,50 → 「1.5」。</summary>
+        /// <summary>嘲讽效果文案(D2-0 Task 2):主语按 pick(自己 / 召出的木灵 / 全部木灵),Value = 回合数,0 = 本场。</summary>
+        internal static string TauntText(EffectDef e)
+        {
+            string who = e.Pick == EffectPick.Self ? Strings.T("char.effect.taunt.self")
+                : e.Pick == EffectPick.AllSummons ? Strings.T("char.effect.taunt.all")
+                : Strings.T("char.effect.taunt.summoned");
+            return e.Value > 0 ? Strings.T("char.effect.taunt.turns", ("who", who), ("turns", e.Value))
+                : Strings.T("char.effect.taunt.battle", ("who", who));
+        }
+
         internal static string BoostMult(int percent) => ((100 + percent) / 100f).ToString("0.##");
 
         /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了

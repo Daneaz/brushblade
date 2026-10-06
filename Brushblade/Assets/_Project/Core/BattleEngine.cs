@@ -2848,7 +2848,8 @@ namespace Brushblade.Core
                 // 死盯玩家。规则全在 Targeting,这里只执行。走 _targetRandom 而不是 _random,
                 // 见该字段的注释。
                 int tankIdx = Targeting.PickAllyTarget(enemy.Def.Range, enemy.Def.Focus,
-                    _summons, FrontRowSize, _targetRandom);
+                    _summons, FrontRowSize, _targetRandom,
+                    playerTaunting: _playerStatuses.Has(StatusKind.Taunt));
                 // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
                 // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
                 bool hit;
@@ -3382,6 +3383,31 @@ namespace Brushblade.Core
                                 Kind = StatusKind.Endure, Polarity = StatusPolarity.Buff,
                                 Magnitude = 1, TurnsLeft = -1, SourceId = def.Id,
                             }, UnitRef.Summon(slot), UnitRef.Player);
+                        }
+                        break;
+                    }
+                    case EffectKind.Taunt:
+                    {
+                        // 嘲讽(D2-0 Task 2,E11):Value = 回合数,0 = 本场。同源(字 ID)刷新。落点按 pick,ConfigLoader 已挡下其余写法。
+                        int tauntTurns = effect.Value > 0 ? effect.Value : -1;
+                        StatusEffect NewTaunt() => new StatusEffect
+                        {
+                            Kind = StatusKind.Taunt, Polarity = StatusPolarity.Buff,
+                            Magnitude = 0, TurnsLeft = tauntTurns, SourceId = def.Id,
+                        };
+                        if (effect.Pick == EffectPick.Self)
+                            ApplyStatus(_playerStatuses, NewTaunt(), UnitRef.Player, UnitRef.Player);
+                        else
+                        {
+                            var tauntSlots = new List<int>();
+                            if (effect.Pick == EffectPick.SummonedThisCast) tauntSlots.AddRange(_castSummonedSlots);
+                            else if (effect.Pick == EffectPick.AllSummons)
+                                for (int ts = 0; ts < _summons.Length; ts++) tauntSlots.Add(ts);
+                            foreach (int slot in tauntSlots)
+                            {
+                                if (_summons[slot] == null || !_summons[slot].Alive) continue;
+                                ApplyStatus(_summons[slot].Statuses, NewTaunt(), UnitRef.Summon(slot), UnitRef.Player);
+                            }
                         }
                         break;
                     }

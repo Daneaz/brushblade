@@ -133,6 +133,9 @@ namespace Brushblade.Core
         ShieldRecoil,   // 反震:本次出字给玩家加了护盾(实际入账 > 0)时,给玩家挂 StatusKind.ShieldRecoil(Magnitude = Value%)。
                         // 护盾吸收敌人挥击时按吸收量 × Value% 反弹,每回合 1 次,与镜 / 格挡反击共用 60% 反伤预算。
                         // Value 是百分比,离散(不吃卡等级)。
+        // ---- D2-0 Task 2:嘲讽。⚠ 只在末尾追加 ----
+        Taunt,          // 嘲讽:Value = 回合数(0 = 本场),离散不吃等级。必须写 pick:Self → 玩家(敌人的单体攻击一律打玩家);
+                        // SummonedThisCast → 本次出字召出的木灵;AllSummons → 全部存活木灵。同源刷新。
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>

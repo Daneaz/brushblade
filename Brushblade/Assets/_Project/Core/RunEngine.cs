@@ -912,6 +912,8 @@ namespace Brushblade.Core
                 if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
                 var snapshot = summon.Capture(s);   // 槽位随之带走
                 snapshot.ActionMeter = 0;
+                // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲
+                snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)).ToList();
                 snapshot.Shield = snapshot.Shield * _battleConfig.ShieldCarryPercent / 100;   // 战后护盾保留对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }

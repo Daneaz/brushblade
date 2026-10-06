@@ -697,7 +697,7 @@ namespace Brushblade.Data
                 }
                 // 放在 if 外:保命不写 pick(= Primary)也要拦下(Ruling 10,Primary 写法选不到召唤物)
                 if (!EffectPickRules.Allows(kind, pick))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 只给净化;保命必须写 SummonedThisCast)");
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 给净化/嘲讽;保命必须写 SummonedThisCast;嘲讽必须写 Self / SummonedThisCast / AllSummons)");
                 if (effect.PercentOfMax && kind != EffectKind.HealSummons)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)

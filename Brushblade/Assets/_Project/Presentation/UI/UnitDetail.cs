@@ -94,7 +94,8 @@ namespace Brushblade.Presentation
             // 标记(D1 Task 6,StatusChips 稿 k-dot):朱砂,与灼烧同属「持续伤害与威胁」
             StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable => Theme.Cinnabar,
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
-                or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall => Control,
+                or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
+                or StatusKind.Taunt => Control,   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
             StatusKind.SpeedModifier => magnitude < 0 ? Control : Guard,
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime
@@ -127,7 +128,8 @@ namespace Brushblade.Presentation
                 or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
-                or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable => "",   // 种 / 标记无数字(稿)
+                or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable
+                or StatusKind.Taunt => "",   // 种 / 标记 / 嘲讽无数字(稿)
             // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
             // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
             StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),

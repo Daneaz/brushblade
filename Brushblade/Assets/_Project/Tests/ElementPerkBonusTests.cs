@@ -185,6 +185,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.ShieldFromHeal, EffectKind.AddWellspring, EffectKind.AddHeft,
                 // D1 Task 9:反震是百分比(反弹吸收量的 N%),不是本系字的护盾本体
                 EffectKind.ShieldRecoil,
+                // D2-0 Task 2:嘲讽是状态回合数,不是本系字的量值本体
+                EffectKind.Taunt,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

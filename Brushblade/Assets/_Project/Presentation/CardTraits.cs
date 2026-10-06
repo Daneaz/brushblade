@@ -444,6 +444,12 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.addheft.name"),
                             Strings.T("collection.trait.addheft.desc", ("value", v)));
                         break;
+                    // 嘲讽(D2-0 Task 2):Value = 回合数,0 = 本场
+                    case EffectKind.Taunt:
+                        AddWord(traits, Strings.T("collection.trait.taunt.chip"),
+                            Strings.T("collection.trait.taunt.name"),
+                            CharInfo.TauntText(e));
+                        break;
                     // 反震(D1 Task 9):无图标,纯文字 chip;百分比离散
                     case EffectKind.ShieldRecoil:
                         AddWord(traits, Strings.T("collection.trait.shieldrecoil.chip"),

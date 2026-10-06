@@ -557,6 +557,28 @@ def test_endure_and_cleanse_self_picks():
         {"kind": "DamageSingle", "value": 10}, {"kind": "Cleanse", "value": 1, "pick": "Self"}]
 
 
+def test_taunt_effect_with_picks():
+    """D2-0 Task 2:`Taunt N`(N = 回合数,0 = 本场)按 pick 落点;不与召唤物被动的布尔 `Taunt` 冲突。"""
+    assert _parse_effects("`Taunt 1` + `pick Self`", "土") == [
+        {"kind": "Taunt", "value": 1, "pick": "Self"}]
+    assert _parse_effects("`Taunt 0` + `pick SummonedThisCast`", "土") == [
+        {"kind": "Taunt", "value": 0, "pick": "SummonedThisCast"}]
+    assert _parse_effects("`Taunt 2` + `pick AllSummons`", "木") == [
+        {"kind": "Taunt", "value": 2, "pick": "AllSummons"}]
+
+
+@pytest.mark.parametrize("config", [
+    "`Taunt 1`",                               # 嘲讽必须写 pick
+    "`Taunt 1` + `pick Random`",               # 嘲讽不认敌方侧选择器
+    "`Taunt 1` + `pick Self` + `if Burning`",  # 我方侧效果不带条件门
+    "`Slow 1` + `pick AllSummons`",            # AllSummons 只给嘲讽
+    "`Endure` + `pick AllSummons`",
+])
+def test_taunt_pick_combos_rejected(config):
+    with pytest.raises(ValueError):
+        _parse_effects(config, "测")
+
+
 @pytest.mark.parametrize("config", [
     "`Slow 1` + `pick Self`",                  # Self 只给净化
     "`Cleanse 1` + `pick All`",                # 净化只认 Self
