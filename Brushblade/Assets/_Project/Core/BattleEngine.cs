@@ -2011,7 +2011,10 @@ namespace Brushblade.Core
                     // 解封(2026-09-16,水):作用于**我方召唤物**,必须登记进这张名单 ——
                     // 漏了的后果与上面 C1/Quench 同型:UI 判不出要选目标,allySlot 恒为
                     // Targeting.PlayerTarget,ApplyEffects 的 Unseal 分支永远走玩家空转分支。
-                    || effect.Kind == EffectKind.Unseal)
+                    || effect.Kind == EffectKind.Unseal
+                    // 格挡(D2-0 Task 3,Ruling E1,spec §2.2):铠可落到木灵身上,格挡挂在木灵自己的袋子里;
+                    // 战意照旧给玩家。场上没有存活木灵时 Cast 自动锁玩家(免选口径)。
+                    || effect.Kind == EffectKind.Block)
                     return true;
             return false;
         }
@@ -3592,11 +3595,12 @@ namespace Brushblade.Core
                             * BattleConfig.BlockCounterPercent / 100;
                         // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样
                         counter = Amplified(counter, AmpPercent(effect, -1));
-                        ApplyStatus(_playerStatuses, new StatusEffect
+                        // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.Block, Polarity = StatusPolarity.Buff,
                             Magnitude = effect.Value, CounterDamage = counter, TurnsLeft = -1,
-                        }, UnitRef.Player, UnitRef.Player);
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     }
                     case EffectKind.BurnNoDecay:
@@ -5380,7 +5384,14 @@ namespace Brushblade.Core
             taken = ApplyDefense(taken, summon.EffectiveDefense);
             // 本回合减伤(Ruling 10):挂在玩家身上、我方全体受益。召唤物眼下没有别的非护甲减伤,单独钳 60%。
             // 没有减伤时整句跳过 —— 恒等。
-            int summonCut = Math.Min(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), CombatCaps.NonArmorReductionPercent);
+            // 格挡(D2-0 Task 3,E1):木灵自己的袋子;只挡敌人的挥击(本方法的全部调用点都是挥击,
+            // 见任务报告);减伤与本回合减伤合计封顶 60%(§5.2.4)。打空 / 免疫在下面或上面 return,不耗次数。
+            // 没有格挡时 blockPercent = 0,整段退化为原来的单独钳 60% —— 恒等。
+            StatusEffect block = summon.Statuses.Find(StatusKind.Block);
+            bool blocking = block != null && block.Magnitude > 0;
+            int summonCut = Math.Min(
+                (blocking ? BattleConfig.BlockReductionPercent : 0) + _playerStatuses.MaxMagnitude(StatusKind.DamageCut),
+                CombatCaps.NonArmorReductionPercent);
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
             int hpBefore = summon.Hp;
 
@@ -5397,6 +5408,18 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, taken, summonIndex));
                 Raise(HookKind.SummonHit, UnitRef.Summon(summonIndex), UnitRef.Enemy(enemyIndex), 0);
                 return true;
+            }
+
+            // 格挡次数在免疫之后才扣(免疫完全挡下这一记,格挡留着);反击量按玩家侧同口径
+            // (CounterBoost 在玩家身上,多来源取最强)。反击本身在下面反弹之后结算。
+            int blockCounter = 0;
+            if (blocking)
+            {
+                blockCounter = block.CounterDamage;
+                int boost = _playerStatuses.MaxMagnitude(StatusKind.CounterBoost);
+                if (boost > 0) blockCounter = blockCounter * (100 + boost) / 100;
+                block.Magnitude--;
+                if (block.Magnitude <= 0) summon.Statuses.RemoveEntry(block);
             }
 
             int absorbed = Math.Min(summon.Shield, taken);
@@ -5429,11 +5452,13 @@ namespace Brushblade.Core
             // 分开结算的,顺序分配比按比例缩放算出来的零碎数字更好解释、实现也更直白。
             int thornsRaw = summon.Passive?.Thorns ?? 0;
             int thornsEffective = Math.Min(CombatCaps.ReflectPercent, thornsRaw);
+            int thornsDealt = 0;   // 荆棘实际折返的量,格挡反击要从同一份 60% 预算里扣(D2-0 Task 3)
             if (thornsEffective > 0 && _enemies[enemyIndex].Alive)
             {
                 // bounced > 0 守卫与下面 Reflect 那段同理:0 伤反弹会白白推进 enemy.HitsTaken,
                 // 送出生僻字现形 / 焦痕加攻 / 叠字分裂。低百分比 × 小伤害整除到 0 时正会撞上。
                 int bounced = taken * thornsEffective / 100;
+                thornsDealt = bounced;
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
@@ -5466,14 +5491,28 @@ namespace Brushblade.Core
             int reflect = Math.Min(reflectBudget,
                 _playerStatuses.TotalMagnitude(StatusKind.Reflect)
                 + summon.Statuses.TotalMagnitude(StatusKind.Reflect));
+            int reflectDealt = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
                 int bounced = taken * reflect / 100;
                 if (bounced > 0)
+                {
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
                         allowBarb: false,      // 同玩家侧:折返不算挥击,不触发铁画的反噬
                         source: EffectSource.Reflect, attackerRef: UnitRef.Summon(summonIndex));
+                    reflectDealt = bounced;
+                }
+            }
+            // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
+            if (blockCounter > 0 && _enemies[enemyIndex].Alive)
+            {
+                int budget = taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt;
+                int dealt = Math.Min(blockCounter, budget);
+                if (dealt > 0)
+                    DamageEnemy(enemyIndex, dealt, Element.Heart,
+                        bypassDefense: true, allowBarb: false,
+                        source: EffectSource.BlockCounter, attackerRef: UnitRef.Summon(summonIndex));
             }
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
