@@ -26,6 +26,7 @@ namespace Brushblade.Data
             public string Slot { get; set; }
             public string Face { get; set; }     // null = Both
             public string Form { get; set; }     // null = Active
+            public string Trigger { get; set; }  // null = Cast
             public string Replaces { get; set; } // null = 不替换
             public string Name { get; set; }
             public List<EffectDto> Effects { get; set; }
@@ -70,6 +71,21 @@ namespace Brushblade.Data
             public int Shots { get; set; }         // 连发发数
             public bool TrueDamage { get; set; }   // 碾:本次伤害完全跳过护甲(2026-09-16,土)
             public int ArmorStrikePercent { get; set; } // 镇压:额外打出自己有效护甲 N%(2026-09-16,土)
+            // D1 Task 3:修饰器与伤害标记
+            public string Scope { get; set; }          // Amplify 的作用范围:null = Damage
+            public string OnlyIf { get; set; }         // 条件门(目前只有 Amplify 用):null = 无条件
+            public int HitPercent { get; set; } = 100; // 多段时每段百分比
+            public bool ForceCrit { get; set; }        // 必定暴击
+            public int ArmorIgnorePercent { get; set; } // 无视目标 N% 护甲
+            public int ShieldStrikePercent { get; set; } // 额外 + 我方护盾 N%
+            // D1 Task 4:Augment 叠加修饰器(`Augment 1` + `of Block` + `field Count`)
+            public string AugmentKind { get; set; }    // 目标效果 Kind
+            public string AugmentField { get; set; }   // Count / Turns / Shots
+            // D1 Task 5:效果目标选择器与不减层结算
+            public string Pick { get; set; }           // Primary(缺省)/ All / Random / HitTargets / MostBurn / FrozenByThisCast
+            public bool KeepStacks { get; set; }       // BurnSettleNow:结算一次但不减层
+            public bool PercentOfMax { get; set; }     // HealSummons:回复量按 MaxHp × Value%(D1 Task 7)
+            public string RiderOf { get; set; }        // 附着载体(D1 Task 9,烟熏):目前只认 Blind 挂 Burn
         }
 
         private sealed class CampaignFileDto
@@ -512,6 +528,7 @@ namespace Brushblade.Data
                     dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
                     traits: ParseTraits(dto));
                 ValidateTraitTargets(def);
+                ValidateSaplingFaces(def);
                 defs.Add(def);
             }
 
@@ -566,18 +583,42 @@ namespace Brushblade.Data
                 if (!keys.Add((slot, face)))
                     throw new ConfigException($"字「{dto.Id}」的特性重复:{t.Slot}/{face}(同一槽位每个作用面只能有一条)");
                 var form = ParseEnum(t.Form, TraitForm.Active, dto.Id, "特性形态");
+                var trigger = ParseEnum(t.Trigger, TraitTrigger.Cast, dto.Id, "特性触发类型");
+                if (form == TraitForm.Active && trigger != TraitTrigger.Cast)
+                    throw new ConfigException($"字「{dto.Id}」的主动特性「{t.Name}」不能配触发类型 {trigger}(主动特性只在出字时结算)");
                 TraitSlot? replaces = string.IsNullOrEmpty(t.Replaces)
                     ? (TraitSlot?)null
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>())));
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>()), trigger));
             }
             foreach (var t in traits)
                 if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))
                     throw new ConfigException($"字「{dto.Id}」的槽位 {t.Slot} 同时有两面特性与单面特性(spec v7 不混用)");
             foreach (var t in traits)
-                if (t.Replaces.HasValue && (!keys.Contains((t.Replaces.Value, t.Face)) || (int)t.Replaces.Value >= (int)t.Slot))
+                if (t.Replaces.HasValue && (!(keys.Contains((t.Replaces.Value, t.Face)) || keys.Contains((t.Replaces.Value, TraitFace.Both))) || (int)t.Replaces.Value >= (int)t.Slot))
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」替换了同一作用面上不存在或更高的槽位:{t.Replaces}");
             return traits;
+        }
+
+        /// <summary>幼苗(SummonSapling)取「本次出字召出的第一只」的属性:同一面(本体 + 作用于该面的特性)
+        /// 没有 Summon 时它永远空转 —— 加载期拦下(D1 Task 7 修复第 1 轮)。
+        /// 结算顺序是「本体 → 特性按槽位」(TraitRules.Fold),幼苗排在该面第一条 Summon 之前同样取不到,一并拦下(终审补)。</summary>
+        private static void ValidateSaplingFaces(CharDef def)
+        {
+            foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
+            {
+                if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;   // 没有攻击面:出字只走五行面
+                var body = face == CardFace.Attack ? def.AttackEffects : def.Effects;
+                var all = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).OrderBy(t => (int)t.Slot)
+                    .SelectMany(t => t.Effects)).ToList();
+                int sapling = all.FindIndex(e => e.Kind == EffectKind.SummonSapling);
+                if (sapling < 0) continue;
+                int summon = all.FindIndex(e => e.Kind == EffectKind.Summon);
+                if (summon < 0)
+                    throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)所在的面没有召唤(Summon),幼苗会永远空转");
+                if (summon > sapling)
+                    throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)排在同面召唤(Summon)之前,结算时取不到召出的第一只");
+            }
         }
 
         /// <summary>主动特性若需要(敌方/友方)目标,它所作用的面的本体也必须选同类目标 ——
@@ -593,7 +634,7 @@ namespace Brushblade.Data
                 {
                     if (!t.AppliesTo(face)) continue;
                     bool attackMode = face == CardFace.Attack;
-                    if (t.Effects.Any(BattleEngine.EffectNeedsTarget) && !BattleEngine.NeedsTarget(def, attackMode))
+                    if (t.Effects.Any(BattleEngine.EffectNeedsTarget) && !BattleEngine.BodyNeedsTarget(def, attackMode))
                         throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」需要敌方目标,但该面本体不选敌方目标");
                     if (t.Effects.Any(BattleEngine.EffectNeedsAllyTarget) && !BattleEngine.NeedsAllyTarget(def, attackMode))
                         throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」需要友方目标,但该面本体不选友方目标");
@@ -631,14 +672,72 @@ namespace Brushblade.Data
                 if (effect.Passive != null && !Enum.IsDefined(typeof(TargetArea), effect.Passive.Shape))
                     throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 // spec v7 §3.2:All 只对玩家出字的 DamageSingle 有定义;别处写 All 引擎会静默忽略或语义错乱。
-                if (shape == TargetArea.All && kind != EffectKind.DamageSingle)
+                // Reshape 写 shape All 是「把首条伤害改成全体」,它本身不是带形状的效果 —— 放行
+                if (shape == TargetArea.All && kind != EffectKind.DamageSingle && kind != EffectKind.Reshape)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能用全体(All)形状,只有 DamageSingle 可以");
                 if (effect.Passive != null && effect.Passive.Shape == TargetArea.All)
                     throw new ConfigException($"字「{dto.Id}」的召唤被动不能用全体(All)形状");
                 if (shape == TargetArea.All && effect.ArmorStrikePercent > 0)
                     throw new ConfigException($"字「{dto.Id}」的全体(All)伤害不能同时配镇压(armorStrikePercent)");
+                if (!string.IsNullOrEmpty(effect.Scope) && kind != EffectKind.Amplify)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 scope(只有 Amplify 读它)");
+                var scope = AmpScope.Damage;
+                if (!string.IsNullOrEmpty(effect.Scope)
+                    && (!Enum.TryParse(effect.Scope, out scope) || !Enum.IsDefined(typeof(AmpScope), scope)))
+                    throw new ConfigException($"字「{dto.Id}」的 Amplify scope 未知:{effect.Scope}");
+                // OnlyIf 只有 Amplify 与认选择器的敌方侧效果读(EffectPickRules.Supports);写在别的效果上会被引擎静默忽略 —— 拦下
+                if (!string.IsNullOrEmpty(effect.OnlyIf) && kind != EffectKind.Amplify && !EffectPickRules.Supports(kind))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(只有 Amplify 与敌方侧效果能带条件)");
+                var pick = EffectPick.Primary;
+                if (!string.IsNullOrEmpty(effect.Pick))
+                {
+                    // 与 Shape 同一个坑:Enum.TryParse 放数字字符串过关,叠加 IsDefined
+                    if (!Enum.TryParse(effect.Pick, out pick) || !Enum.IsDefined(typeof(EffectPick), pick))
+                        throw new ConfigException($"字「{dto.Id}」的目标选择器未知:{effect.Pick}");
+                }
+                // 放在 if 外:保命不写 pick(= Primary)也要拦下(Ruling 10,Primary 写法选不到召唤物)
+                if (!EffectPickRules.Allows(kind, pick))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 只给净化;保命必须写 SummonedThisCast)");
+                if (effect.PercentOfMax && kind != EffectKind.HealSummons)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
+                if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");
+                // 附着载体(D1 Task 9):引擎只实现了「致盲挂在灼上」(烟熏);别的组合会静默按普通效果结算 —— 拦下
+                StatusKind? riderOf = null;
+                if (!string.IsNullOrEmpty(effect.RiderOf))
+                {
+                    if (!Enum.TryParse(effect.RiderOf, out StatusKind carrier) || carrier != StatusKind.Burn)
+                        throw new ConfigException($"字「{dto.Id}」的附着载体未知:{effect.RiderOf}(目前只支持 Burn)");
+                    if (kind != EffectKind.Blind)
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf(目前只有 Blind 能附着在灼上)");
+                    riderOf = carrier;
+                }
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
+                var augmentKind = EffectKind.DamageSingle;
+                var augmentField = AugmentField.Count;
+                bool hasAugmentFields = !string.IsNullOrEmpty(effect.AugmentKind) || !string.IsNullOrEmpty(effect.AugmentField);
+                if (hasAugmentFields && kind != EffectKind.Augment)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 augmentKind / augmentField(只有 Augment 读它们)");
+                if (kind == EffectKind.Augment)
+                {
+                    if (!Enum.TryParse(effect.AugmentKind, out augmentKind) || !Enum.IsDefined(typeof(EffectKind), augmentKind)
+                        || augmentKind == EffectKind.Augment)
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 目标效果未知:{effect.AugmentKind}(写 of <Kind>)");
+                    if (!Enum.TryParse(effect.AugmentField, out augmentField) || !Enum.IsDefined(typeof(AugmentField), augmentField))
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 字段未知:{effect.AugmentField}(写 field Count|Turns|Shots)");
+                    // 组合写错会在引擎里静默空转 —— 加载期拦下
+                    bool ok = augmentField switch
+                    {
+                        AugmentField.Count => augmentKind == EffectKind.Block,
+                        AugmentField.Turns => TraitRules.HasTurns(augmentKind),
+                        _ => augmentKind == EffectKind.DamageSingle || augmentKind == EffectKind.HealSelf,
+                    };
+                    if (!ok)
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 组合无效:{augmentKind} 没有 {augmentField} 字段可加");
+                    if (effect.Value < 1)
+                        throw new ConfigException($"字「{dto.Id}」的 Augment 加量至少为 1,当前:{effect.Value}");
+                }
                 effects.Add(new EffectDef(kind, effect.Value,
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
@@ -647,7 +746,10 @@ namespace Brushblade.Data
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
                     effect.HitCount, effect.Pierce,
                     shape, effect.ShapePercent, effect.Shots, effect.TrueDamage,
-                    effect.ArmorStrikePercent));
+                    effect.ArmorStrikePercent,
+                    scope, ParseCondition(effect.OnlyIf, dto.Id),
+                    effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
+                    augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf));
             }
             return effects;
         }

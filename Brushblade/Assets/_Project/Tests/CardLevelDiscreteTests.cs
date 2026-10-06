@@ -44,17 +44,38 @@ namespace Brushblade.Core.Tests
             EffectKind.Freeze, EffectKind.Slow, EffectKind.BurnSingle, EffectKind.BurnAll,
             EffectKind.Morale, EffectKind.Immunity, EffectKind.Revive, EffectKind.Block,
             EffectKind.Dispel, EffectKind.ApBoost, EffectKind.Charm,
+            // 修饰器(D1 Task 3):百分点按池档位定值、不吃卡等级;出字前被 Fold 折叠,不进结算
+            EffectKind.Amplify, EffectKind.Reshape,
+            // Augment(D1 Task 4):Value 是加几次 / 几回合 / 几跳,离散量;出字前被 Fold 折叠,不进结算
+            EffectKind.Augment,
+            // D1 Task 7:减伤是固定百分点(与 60% 非护甲减伤封顶直接相关,池词条写死数字)、反击增强是倍率、
+            // 保命 Value 不用(一次性);治疗转盾 / 幼苗 / 群刺是对另一个已缩放量取百分比(再缩放就重复吃等级);
+            // 加泉 / 加厚是层数
+            EffectKind.DamageCut, EffectKind.CounterBoost, EffectKind.Endure, EffectKind.ShieldFromHeal,
+            EffectKind.SummonSapling, EffectKind.SummonStrike, EffectKind.AddWellspring, EffectKind.AddHeft,
+            // 净化(D1 Task 7 修复,Ruling 10):Value = 清几个减益,条数是离散量
+            EffectKind.Cleanse,
+            // 反震(D1 Task 9):Value = 反弹吸收量的百分比;吸收量本身已随护盾吃过等级
+            EffectKind.ShieldRecoil,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
         {
             EffectKind.DamageSingle, EffectKind.Shield, EffectKind.ShieldAll, EffectKind.BurnPotency,
             EffectKind.HealSelf, EffectKind.Summon, EffectKind.Bleed, EffectKind.HealAll,
-            EffectKind.HealOverTime, EffectKind.DefenseBuff, EffectKind.ArmorBreak, EffectKind.Cleanse,
+            EffectKind.HealOverTime, EffectKind.DefenseBuff, EffectKind.ArmorBreak,
             EffectKind.Blind, EffectKind.Silence, EffectKind.Reflect, EffectKind.BurnNoDecay,
             EffectKind.BurnSettleNow, EffectKind.Detonate, EffectKind.Empower, EffectKind.CritBuff,
             EffectKind.PierceBuff, EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.Quench,
             EffectKind.Haste, EffectKind.Unseal,
+            // 减攻(D1 Task 5):Value 是百分点,吃卡等级;Turns 不吃(读 effect.Turns)
+            EffectKind.Weaken,
+            // 种(D1 Task 6):Value 是每次回复量,吃卡等级;Turns 不吃
+            EffectKind.Seed,
+            // 标记(D1 Task 6):Value 是百分点,吃卡等级;Turns 不吃
+            EffectKind.Vulnerable,
+            // D1 Task 7:群疗 / 群盾的 Value 是回复量 / 护盾量(群疗 pct 模式下是百分比,同样随等级 —— 与 Weaken 百分点同口径)
+            EffectKind.HealSummons, EffectKind.ShieldSummons,
         };
 
         [Test]

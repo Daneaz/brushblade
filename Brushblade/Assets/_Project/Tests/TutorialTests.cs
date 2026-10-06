@@ -52,10 +52,26 @@ namespace Brushblade.Core.Tests
             var tutorial = new Tutorial();
             tutorial.Notify(TutorialAction.Dismantle, Tutorial.DemoChar);
             tutorial.Notify(TutorialAction.Compose, Tutorial.DemoChar);
-            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar);
+            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar, CardFace.Attack);
             tutorial.Notify(TutorialAction.PickReward);
             Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.Done));
             Assert.That(tutorial.Done, Is.True);
+        }
+
+        /// <summary>Ruling 19:剿 拆两面后,点自己出的是铠面(只给战意 + 格挡,不伤怪),
+        /// 演示步只认攻击面出字 —— 否则引导推进了,怪却没死。</summary>
+        [Test]
+        public void CastDemo_FeatureFace_DoesNotAdvance()
+        {
+            var tutorial = new Tutorial();
+            tutorial.Notify(TutorialAction.Dismantle, Tutorial.DemoChar);
+            tutorial.Notify(TutorialAction.Compose, Tutorial.DemoChar);
+            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar, CardFace.Feature);
+            Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.CastDemo), "铠面不算");
+            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar);
+            Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.CastDemo), "不报面也不算");
+            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar, CardFace.Attack);
+            Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.PickReward), "攻击面出字才推进");
         }
 
         [Test]
@@ -116,7 +132,7 @@ namespace Brushblade.Core.Tests
             var tutorial = new Tutorial();
             tutorial.Notify(TutorialAction.Dismantle, Tutorial.DemoChar);
             tutorial.Notify(TutorialAction.Compose, Tutorial.DemoChar);
-            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar);
+            tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar, CardFace.Attack);
             tutorial.Notify(TutorialAction.PickReward);
             tutorial.Notify(TutorialAction.Cast, Tutorial.DemoChar);
             Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.Done));

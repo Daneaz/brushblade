@@ -143,6 +143,14 @@ namespace Brushblade.Presentation
                     case EffectKind.Reflect:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_reflect")));
                         break;
+                    // 火·燃(D1 Task 12,spec v7 §2.1):燃面没有伤害,只有 灼 + 减攻 —— 不补这一支,
+                    // 11 张火字的燃面在「打谁 / 护谁」里整面隐形(CardFaceCoverageTests 守)。
+                    // 只认 Weaken(燃面专有),不认灼:攻击面也带灼,认灼会给攻击面多印一行。
+                    case EffectKind.Weaken:
+                        Add(modes, seen, new Mode(true, EffectPickRules.Effective(e) == EffectPick.All
+                            ? Strings.T("collection.mode.all_debuff")
+                            : Strings.T("collection.mode.single_debuff")));
+                        break;
                 }
             }
         }
@@ -282,7 +290,29 @@ namespace Brushblade.Presentation
                     case EffectKind.Blind:
                         AddTrait(traits, "blind", v + "%",
                             Strings.T("collection.trait.blind.name"),
-                            Strings.T("collection.trait.blind.desc", ("value", v), ("turns", e.Turns)));
+                            e.RiderOf == StatusKind.Burn   // 烟熏(D1 Task 9):随灼存续,没有回合数
+                                ? Strings.T("collection.trait.blind.desc.rider_burn", ("value", v))
+                                : Strings.T("collection.trait.blind.desc", ("value", v), ("turns", e.Turns)));
+                        break;
+                    case EffectKind.Weaken:
+                        // 减攻(D1 Task 5):无图标,走纯文字 chip(与魅惑同款 AddWord);Value 吃等级,回合不吃
+                        AddWord(traits, Strings.T("collection.trait.weaken.chip"),
+                            Strings.T("collection.trait.weaken.name"),
+                            Strings.T("collection.trait.weaken.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
+                        break;
+                    case EffectKind.Seed:
+                        // 种(D1 Task 6):图标 seed,Value 吃等级、回合不吃
+                        AddTrait(traits, "seed", v.ToString(),
+                            Strings.T("collection.trait.seed.name"),
+                            Strings.T("collection.trait.seed.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
+                        break;
+                    case EffectKind.Vulnerable:
+                        // 标记(D1 Task 6):Turns == 0 + 冰缚选择器 = 持续到解冻
+                        AddTrait(traits, "mark", v + "%",
+                            Strings.T("collection.trait.mark.name"),
+                            e.Turns <= 0 && e.Pick == EffectPick.FrozenByThisCast
+                                ? Strings.T("collection.trait.mark.desc.bind", ("value", v))
+                                : Strings.T("collection.trait.mark.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
                         break;
                     case EffectKind.Silence:
                         AddTrait(traits, "silence", "",
@@ -355,9 +385,70 @@ namespace Brushblade.Presentation
                                 Strings.T("collection.trait.dispel.desc", ("count", e.Value)));
                         break;
                     case EffectKind.Cleanse:
+                        // D1 Task 7:Value > 0 = 只清前 N 个(离散量,读 e.Value)
                         AddWord(traits, Strings.T("collection.trait.cleanse.chip"),
                             Strings.T("collection.trait.cleanse.name"),
-                            Strings.T("collection.trait.cleanse.desc"));
+                            e.Value > 0 ? Strings.T("collection.trait.cleanse.desc.count", ("count", e.Value))
+                                : Strings.T("collection.trait.cleanse.desc"));
+                        break;
+                    // ---- D1 Task 7:我方侧新效果。无图标(减伤 / 反击加倍 / 保命的图标在 Task 7b),走纯文字 chip ----
+                    case EffectKind.DamageCut:
+                        AddWord(traits, Strings.T("collection.trait.damagecut.chip"),
+                            Strings.T("collection.trait.damagecut.name"),
+                            Strings.T("collection.trait.damagecut.desc", ("value", v)));
+                        break;
+                    case EffectKind.CounterBoost:
+                        AddWord(traits, Strings.T("collection.trait.counterboost.chip"),
+                            Strings.T("collection.trait.counterboost.name"),
+                            Strings.T("collection.trait.counterboost.desc", ("mult", CharInfo.BoostMult(v))));
+                        break;
+                    case EffectKind.Endure:
+                        AddWord(traits, Strings.T("collection.trait.endure.chip"),
+                            Strings.T("collection.trait.endure.name"),
+                            Strings.T("collection.trait.endure.desc"));
+                        break;
+                    case EffectKind.SummonSapling:
+                        AddWord(traits, Strings.T("collection.trait.summonsapling.chip"),
+                            Strings.T("collection.trait.summonsapling.name"),
+                            Strings.T("collection.trait.summonsapling.desc", ("count", e.SummonCount), ("value", v)));
+                        break;
+                    case EffectKind.HealSummons:
+                        AddWord(traits, Strings.T("collection.trait.healsummons.chip"),
+                            Strings.T("collection.trait.healsummons.name"),
+                            e.PercentOfMax
+                                ? Strings.T("collection.trait.healsummons.desc.pct", ("value", v))
+                                : Strings.T("collection.trait.healsummons.desc", ("value", v)));
+                        break;
+                    case EffectKind.ShieldSummons:
+                        AddWord(traits, Strings.T("collection.trait.shieldsummons.chip"),
+                            Strings.T("collection.trait.shieldsummons.name"),
+                            Strings.T("collection.trait.shieldsummons.desc", ("value", v)));
+                        break;
+                    case EffectKind.SummonStrike:
+                        AddWord(traits, Strings.T("collection.trait.summonstrike.chip"),
+                            Strings.T("collection.trait.summonstrike.name"),
+                            Strings.T("collection.trait.summonstrike.desc", ("value", v)));
+                        break;
+                    case EffectKind.ShieldFromHeal:
+                        AddWord(traits, Strings.T("collection.trait.shieldfromheal.chip"),
+                            Strings.T("collection.trait.shieldfromheal.name"),
+                            Strings.T("collection.trait.shieldfromheal.desc", ("value", v)));
+                        break;
+                    case EffectKind.AddWellspring:
+                        AddWord(traits, Strings.T("collection.trait.addwellspring.chip", ("value", v)),
+                            Strings.T("collection.trait.addwellspring.name"),
+                            Strings.T("collection.trait.addwellspring.desc", ("value", v)));
+                        break;
+                    case EffectKind.AddHeft:
+                        AddWord(traits, Strings.T("collection.trait.addheft.chip", ("value", v)),
+                            Strings.T("collection.trait.addheft.name"),
+                            Strings.T("collection.trait.addheft.desc", ("value", v)));
+                        break;
+                    // 反震(D1 Task 9):无图标,纯文字 chip;百分比离散
+                    case EffectKind.ShieldRecoil:
+                        AddWord(traits, Strings.T("collection.trait.shieldrecoil.chip"),
+                            Strings.T("collection.trait.shieldrecoil.name"),
+                            Strings.T("collection.trait.shieldrecoil.desc", ("value", v)));
                         break;
                     // AP 是节奏不是资源,同样不吃卡等级
                     case EffectKind.ApBoost:
@@ -405,6 +496,12 @@ namespace Brushblade.Presentation
                         AddWord(traits, Strings.T("collection.trait.unseal.chip"),
                             Strings.T("collection.trait.unseal.name"),
                             Strings.T("collection.trait.unseal.desc"));
+                        break;
+                    case EffectKind.Amplify:
+                    case EffectKind.Reshape:
+                    case EffectKind.Augment:
+                        // 修饰器(D1 Task 3):只出现在特性里、出字前折叠进本体,本身不是独立效果,
+                        // 不出 chip;它改了什么由 CharInfo 的卡面文案印。
                         break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见

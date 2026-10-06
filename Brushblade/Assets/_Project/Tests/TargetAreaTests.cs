@@ -6,7 +6,7 @@ namespace Brushblade.Core.Tests
     /// <summary>目标形状的缺省契约(2026-08-22,spec §3.1)。
     /// 缺省必须是 Single 且 ShapePercent = 100 —— 恒等性硬线全靠这条:
     /// 87 张现有伤害字一个字节不改,行为就不能变。</summary>
-    public class TargetShapeTests
+    public class TargetAreaTests
     {
         [Test]
         public void DefaultShape_IsSingle()

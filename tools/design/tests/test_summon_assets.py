@@ -44,10 +44,22 @@ def test_python_and_csharp_slug_tables_agree():
     assert _csharp_slugs() == bs.SLUGS
 
 
+# 已登记的「形象待出稿」召唤字:游戏里暂时回落成纯字牌格(功能不受影响),形象要先经 designer 出稿,
+# 不能由实现侧自己画(CLAUDE.md「UI 设计流程」)。出稿落地后从这里删掉,下面的测试会逼着补齐四处对账。
+# - 花(2026-10-05,D1 Task 12):花 拆两面,生面召唤花灵(spec v7 §9 木系「花例外」)。
+PENDING_ART = {"花"}
+
+
 def test_every_summon_char_has_a_slug():
     """字表新增召唤字而没配形象 → 那只召唤物回落成纯字牌格。"""
-    missing = sorted(_summon_chars() - set(bs.SLUGS))
+    missing = sorted(_summon_chars() - set(bs.SLUGS) - PENDING_ART)
     assert missing == [], f"这些召唤字没有形象 slug:{missing}"
+
+
+def test_pending_art_entries_are_live_and_still_pending():
+    """待出稿名单不许过期:名单里的字必须仍是召唤字,且确实还没有 slug(配上了就该从名单删掉)。"""
+    assert PENDING_ART <= _summon_chars(), f"待出稿名单里有字表已经不召的字:{sorted(PENDING_ART - _summon_chars())}"
+    assert not (PENDING_ART & set(bs.SLUGS)), f"这些字已经有形象了,从 PENDING_ART 删掉:{sorted(PENDING_ART & set(bs.SLUGS))}"
 
 
 def test_no_slug_points_at_a_retired_summon():

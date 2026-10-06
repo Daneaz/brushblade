@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Brushblade.Core
 {
     /// <summary>出字效果类型(第 3 章 3.2.1;按流派需要逐步扩展)。</summary>
@@ -94,6 +96,62 @@ namespace Brushblade.Core
                       // 别假设只有这三条。
         Block,        // 格挡(spec v7 §3.1,铠):Value = 次数(离散量,不吃卡等级);下一次敌人挥击 −40% 并反击。
                       // 反击伤害 = 本字攻击面首条 DamageSingle(吃等级)× 30%,出字时定死。
+        Amplify,      // 本字修饰器(D1 Task 3,附录 M1):Value = 百分点,作用范围 EffectDef.Scope,
+                      // 可带条件 EffectDef.OnlyIf。出字前由 TraitRules.Fold 折叠成目标效果上的 AmpTerms,
+                      // **不进结算循环**;同轴多条相加(spec §6.1.3)。百分点不吃卡等级。
+        Reshape,      // 本字修饰器(D1 Task 3,附录 M2/M3):改本面**第一条** DamageSingle 的形状 /
+                      // 击数 / 每击百分比 / 伤害标记 —— Reshape 上非缺省的字段覆盖原值。本面没有
+                      // DamageSingle 时空转。同样由 Fold 折叠,不进结算循环。
+        Augment,      // 本字叠加修饰器(D1 Task 4,附录 M4):Value = 加多少,AugmentKind / AugmentField 指明
+                      // 加在本面**第一条**该 Kind 效果的哪个字段(次数 / 回合 / 跳数)。找不到同 Kind 空转。
+                      // 由 Fold 折叠,不进结算循环;离散量,不吃卡等级。
+        Weaken,       // 减攻(D1 Task 5,附录 M5):给目标挂 StatusKind.Curse(攻击 −Value%),Turns 回合,
+                      // SourceId = 字 ID,同源刷新取较强值与较长回合。玩家可见名「减攻」(枚举不改名)。
+                      // Value 是百分点,吃卡等级;Turns 不吃。支持 Pick / OnlyIf。
+        Seed,         // 种(D1 Task 6,附录 M6):给目标敌人挂 StatusKind.Seed —— 该敌人每次行动开始时,
+                      // 我方生命比例最低的单位回复 Value。Value = 回复量(吃卡等级、吃 Amplify scope Seed),
+                      // Turns = 回合(离散量,不吃等级)。SourceId = 字 ID,同源刷新取强。支持 Pick / OnlyIf。
+        Vulnerable,   // 标记(D1 Task 6,附录 M11):给目标敌人挂 StatusKind.Vulnerable —— 受到的伤害 +Value%。
+                      // Value = 百分点(吃卡等级),Turns = 回合(不吃)。Turns == 0 且 Pick == FrozenByThisCast
+                      // 时回合数 = 该目标本次冻结的回合数(冰缚);其余缺 turns 兜 1 回合。支持 Pick / OnlyIf。
+        // ---- D1 Task 7:我方侧(附录 M12/M13/M14/M16/M18、扎根)。⚠ 只在末尾追加 ----
+        DamageCut,      // 本回合减伤:给玩家挂 StatusKind.DamageCut(TurnsLeft 1),Value = 百分点(离散,不吃等级)。
+                        // 与格挡的 40% 合计后钳到 CombatCaps.NonArmorReductionPercent。
+        CounterBoost,   // 反击增强:给玩家挂 StatusKind.CounterBoost(TurnsLeft 1),格挡反击 ×(100+Value)/100;仍受 60% 反伤预算。
+        Endure,         // 保命:给召唤物挂 StatusKind.Endure(一次性)。Pick = SummonedThisCast → 本次出字召出的召唤物;
+                        // Primary → allySlot 指的那只召唤物(点玩家空转)。Value 不用。
+        SummonSapling,  // 幼苗:额外召 SummonCount 只「苗」,血 / 攻 = 本次出字召出的第一只 × Value%,无本命;
+                        // 只占空槽 / 尸体槽,没有空位就不召(不顶替)。本次出字没召出任何召唤物时空转。
+        HealSummons,    // 群疗(仅召唤物):每只存活召唤物回复 Value;PercentOfMax = true 时回复 MaxHp × Value%。
+        ShieldSummons,  // 群盾(仅召唤物):每只存活召唤物 +Value 护盾(走 AddSummonShield,吃上限)。
+        SummonStrike,   // 群刺:每只存活召唤物各对选定目标攻击一次,伤害 = 有效攻击 × Value%(暴击走 _random,D5)。
+        ShieldFromHeal, // 治疗转盾:本次出字内**实际**治疗量(溢出不算)× Value% 转为玩家护盾(不吃护盾 Amplify / 筑垒)。
+                        // 只统计排在它之前的治疗。
+        AddWellspring,  // 直接 +Value 层泉(走 AddPlayerCounter + CapFor,不经治疗折算)
+        AddHeft,        // 直接 +Value 层厚(同上)
+        // ---- D1 Task 9:附着载体(附录 M9 / D9)。⚠ 只在末尾追加 ----
+        ShieldRecoil,   // 反震:本次出字给玩家加了护盾(实际入账 > 0)时,给玩家挂 StatusKind.ShieldRecoil(Magnitude = Value%)。
+                        // 护盾吸收敌人挥击时按吸收量 × Value% 反弹,每回合 1 次,与镜 / 格挡反击共用 60% 反伤预算。
+                        // Value 是百分比,离散(不吃卡等级)。
+    }
+
+    /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
+    public enum AugmentField
+    {
+        Count,  // 次数(Block 的次数,在 Value 上)
+        Turns,  // 回合(Freeze / Slow 在 Value 上,DefenseBuff / ArmorBreak / HealOverTime 在 Turns 上,见 TraitRules.TurnsOf)
+        Shots,  // 跳数 / 发数(Shots)
+    }
+
+    /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
+    public enum AmpScope
+    {
+        Damage,   // DamageSingle
+        Heal,     // HealSelf / HealAll / HealOverTime
+        Shield,   // Shield / ShieldAll
+        Seed,     // 种的回复量(D1 Task 6 接上)
+        Counter,  // 格挡反击量(Block 写 CounterDamage 时乘)
+        All,      // 以上全部
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -106,7 +164,7 @@ namespace Brushblade.Core
         /// <see cref="DamageCondition.None"/> = 无条件。</summary>
         public DamageCondition DoubleVs { get; }
 
-        /// <summary>护盾类:豁免一次回合末全清(堡,10.3.6)。</summary>
+        /// <summary>护盾类:本次护盾进留存桶(留存护盾,spec v7 §3.1)——普通护盾在玩家下一回合开始时清空,留存护盾不清。</summary>
         public bool PersistOnce { get; }
 
         /// <summary>召唤类:召几个(林 = 2)。</summary>
@@ -205,6 +263,60 @@ namespace Brushblade.Core
         /// **不是**角色基础护甲 —— 「越肥打得越疼」这条流派靠的正是局内堆起来的那部分。</summary>
         public int ArmorStrikePercent { get; }
 
+        /// <summary>Amplify 的作用范围(D1 Task 3)。其余 kind 不读。</summary>
+        public AmpScope Scope { get; }
+
+        /// <summary>条件门(D1 Task 3,附录 M1/M24)。Amplify 读:条件满足时这一条加成才算;
+        /// D1 Task 5 起 <see cref="EffectPickRules.Supports"/> 的非伤害效果也读:每个被选中的目标各判一次,不满足就跳过。
+        /// 按 R3 出字前快照判定;目标相关的条件按「这一击的目标」判定。None = 无条件。</summary>
+        public DamageCondition OnlyIf { get; }
+
+        /// <summary>多段时每一段的伤害百分比(D1 Task 3,连斩「2 击各 60%」)。缺省 100 = 不折算;
+        /// ≤0 兜回 100(与 ShapePercent 同型)。</summary>
+        public int HitPercent { get; }
+
+        /// <summary>必定暴击(D1 Task 3,附录 M3):暴击判定走 chance 100 短路,不摇号。</summary>
+        public bool ForceCrit { get; }
+
+        /// <summary>无视目标有效护甲的百分比(D1 Task 3,重斩 50)。0 = 不启用。
+        /// 作用在 <c>EffectiveEnemyDefense</c> 算完(含破甲 / 穿透)之后:剩下的甲再打 (100 − N)% 折。</summary>
+        public int ArmorIgnorePercent { get; }
+
+        /// <summary>按我方当前护盾加伤(D1 Task 3,崩岩 40):加在**每个主目标的第一段**上,
+        /// 额外 + 玩家护盾(两桶之和,出手那一刻)× N%;全体(All)时每个目标都是主目标。0 = 不启用。</summary>
+        public int ShieldStrikePercent { get; }
+
+        /// <summary>Augment 的目标效果 Kind(D1 Task 4)。其余 kind 不读。</summary>
+        public EffectKind AugmentKind { get; }
+
+        /// <summary>Augment 加在目标效果的哪个字段(D1 Task 4)。其余 kind 不读。</summary>
+        public AugmentField AugmentField { get; }
+
+        /// <summary>Fold 挂上来的加成项:(百分点, 条件)。字表对象恒为空表;只有 Fold 产出的副本非空。
+        /// internal:表现层不读它(卡面读的是 Amplify 效果本身)。</summary>
+        /// <summary>效果目标选择器(D1 Task 5,附录 M10)。缺省 Primary = 玩家选的主目标。
+        /// 只有 <see cref="EffectPickRules.Supports"/> 列出的 kind 读它;旧 <see cref="TargetAll"/> 等价于 All。</summary>
+        public EffectPick Pick { get; }
+
+        /// <summary>BurnSettleNow:结算一次但**不减层**(D1 Task 5,附录 M8,引燃)。其余 kind 不读。</summary>
+        public bool KeepStacks { get; }
+
+        /// <summary>HealSummons:true = 回复量按每只召唤物的 MaxHp × Value% 算(D1 Task 7,灵荫)。其余 kind 不读。</summary>
+        public bool PercentOfMax { get; }
+
+        /// <summary>附着载体(D1 Task 9,附录 M9,烟熏):非 null 时这条效果挂在目标身上的该载体上 ——
+        /// 只对带本次出字上的灼的目标施加,回合数改为 -1,并挂一条隐藏的 <see cref="StatusKind.TraitRider"/>;
+        /// 载体移除时一并移除。D1 只支持 Blind + Burn(ConfigLoader 拦其余组合)。</summary>
+        public StatusKind? RiderOf { get; }
+
+        /// <summary>这条效果来自哪条特性(<c>BattleEngine.TraitKey</c>,「字/槽/面」);只有 <see cref="TraitRules.Fold"/>
+        /// 给附着类效果(RiderOf / ShieldRecoil)打上,字表对象恒为 null。</summary>
+        internal string TraitKey { get; private set; }
+
+        internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
+
+        private static readonly (int, DamageCondition)[] NoAmpTerms = new (int, DamageCondition)[0];
+
         public EffectDef(EffectKind kind, int value,
             DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
@@ -213,7 +325,12 @@ namespace Brushblade.Core
             int executeBelowPercent = 0, bool executeKills = false,
             int hitCount = 1, int pierce = 0,
             TargetArea shape = TargetArea.Single, int shapePercent = 100, int shots = 0,
-            bool trueDamage = false, int armorStrikePercent = 0)
+            bool trueDamage = false, int armorStrikePercent = 0,
+            AmpScope scope = AmpScope.Damage, DamageCondition onlyIf = DamageCondition.None,
+            int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
+            EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
+            EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
+            StatusKind? riderOf = null)
         {
             Kind = kind;
             Value = value;
@@ -236,6 +353,37 @@ namespace Brushblade.Core
             Shots = shots;
             TrueDamage = trueDamage;
             ArmorStrikePercent = armorStrikePercent;
+            Scope = scope;
+            OnlyIf = onlyIf;
+            HitPercent = hitPercent <= 0 ? 100 : hitPercent;
+            ForceCrit = forceCrit;
+            ArmorIgnorePercent = armorIgnorePercent;
+            ShieldStrikePercent = shieldStrikePercent;
+            AugmentKind = augmentKind;
+            AugmentField = augmentField;
+            Pick = pick;
+            KeepStacks = keepStacks;
+            PercentOfMax = percentOfMax;
+            RiderOf = riderOf;
         }
+
+        /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
+        /// 共享的不可变对象,折叠一律产出新对象,绝不改原件。null = 沿用原值。</summary>
+        internal EffectDef With(TargetArea? shape = null, int? shapePercent = null, int? shots = null,
+            int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
+            int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
+            IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null,
+            int? value = null, int? turns = null, string traitKey = null) =>
+            new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
+                turns ?? Turns, TargetAll, Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
+                hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
+                TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
+                hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
+                armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
+                AugmentKind, AugmentField, Pick, KeepStacks, PercentOfMax, RiderOf)
+            {
+                AmpTerms = ampTerms ?? AmpTerms,
+                TraitKey = traitKey ?? TraitKey,
+            };
     }
 }

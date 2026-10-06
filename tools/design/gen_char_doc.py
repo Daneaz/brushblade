@@ -321,22 +321,26 @@ def desc(e):
         'Bleed': f"流血 {v}/回合", 'Shield': f"护盾 {v}",
         'HealSelf': f"治疗自身 {v}", 'HealAll': f"群体治疗 {v}",
         'HealOverTime': f"持续治疗 {v}×{t} 回合" + ("(含召唤物)" if all_ else ""),
-        'Revive': f"复活 {v} 名召唤物(回半血)", 'Freeze': f"冻结 {v} 回合",
-        'Slow': f"减速 {v} 回合", 'Silence': f"沉默 {t} 回合",
+        'Revive': f"复活 {v} 名召唤物(回半血)", 'Freeze': ("全体" if e.get('pick') == 'All' else "") + f"冻结 {v} 回合",
+        'Slow': ("全体" if e.get('pick') == 'All' else "") + f"减速 {v} 回合", 'Silence': f"沉默 {t} 回合",
         'Charm': f"魅惑 {t} 回合(本回合改攻己方阵营)",
         'Blind': f"致盲 −{v}% 命中×{t} 回合" + ("(全体)" if all_ else ""),
         'Dispel': ("驱散敌方全部增益" if v == -1 else f"驱散敌方 {v} 条增益") + ("(全体各清)" if all_ else ""),
         'Cleanse': "净化自身全部减益", 'Immunity': f"免疫 {v} 次伤害",
-        'Reflect': f"反弹 {v}% 伤害×{t} 回合", 'DefenseBuff': f"护甲 +{v}(本场)",
+        'Reflect': f"反弹 {v}% 伤害×{t} 回合", 'DefenseBuff': f"护甲 +{v}" + (f",{t} 回合" if t else "(本场)"),
         # 破甲 2026-08-13 起是「削目标护甲 v 点」,不再是「承伤 +25% 持续 t 回合」
         # 利/锋 是限时增益(回合数不随卡等级,spec v7 §1),
         # 管线已强制它们必须带 turns(P2 Task 4a 把两者移进 DURATION_KINDS),
         # 所以不留「本场」那一支 —— 与 CharInfo.cs / CardTraits.cs 两处同口径
         # (2026-09-07 P2 Task 4d 修的是那两处,这里是同一个 bug 的第三个读取点)。
-        'ArmorBreak': f"破甲 {v}(削目标护甲,本场,可叠)", 'Empower': f"攻击力 +{v},{t} 回合",
+        'ArmorBreak': ("全体" if e.get('pick') == 'All' else "") + f"破甲 {v}(削目标护甲," + (f"{t} 回合" if t else "本场") + ")", 'Empower': f"攻击力 +{v},{t} 回合",
         'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
         'Morale': f"战意 +{v} 层(每层 +10% 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
         'CritBuff': f"暴击率 +{v}%,{t} 回合",
+        # D1 Task 12(spec v7 §4):燃 的减攻、木攻击面的种、铠 的格挡;选择器 pick All 印「全体」
+        'Weaken': ("全体" if e.get('pick') == 'All' else "") + f"攻击 −{v}%,{t} 回合",
+        'Seed': f"种 {v}(目标每次行动,我方生命最低的单位回复 {v}),{t} 回合",
+        'Block': f"格挡 {v} 次(下一次受击 −40% 并反击)",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
                   + (f",{passive_txt(e['passive'])}" if e.get('passive') else "") + ")",
         'ShieldAll': f"群体护盾 {v}(玩家 + 全部存活召唤物各一份)",
@@ -414,6 +418,10 @@ TRAITS = {
     'Haste': lambda e, v: (f"急速 +{v}%" if v >= 100 else f"加速 +{v}%"),  # 阈值同 CardTraits:
                                                                           # 未缩放基础值 ≥100 记急速
     'Unseal': lambda e, v: "解封",
+    # D1 Task 12:对着 CardTraits.cs 的 collection.trait.weaken / seed / block 抄
+    'Weaken': lambda e, v: f"减攻 {v}%",
+    'Seed': lambda e, v: f"种 {v}",
+    'Block': lambda e, v: f"格挡 {v}",
     # 有数值/有去向、但本身不是特性的:各归各列
     'DamageSingle': None, 'Shield': None, 'ShieldAll': None,
     'HealSelf': None, 'HealAll': None, 'HealOverTime': None, 'Revive': None, 'Summon': None,

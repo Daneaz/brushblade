@@ -25,6 +25,28 @@ namespace Brushblade.Core.Tests
             Assert.That(t[1].Replaces, Is.EqualTo(TraitSlot.Lv1));
             Assert.That(t[2].Form, Is.EqualTo(TraitForm.Passive));
             Assert.That(t[3].Face, Is.EqualTo(TraitFace.Attack));
+            Assert.That(t[2].Trigger, Is.EqualTo(TraitTrigger.Cast), "trigger 缺省 Cast");
+        }
+
+        [Test]
+        public void PipelineShapedTrigger_LoadsAsOnKill()
+        {
+            var g = ConfigLoader.LoadGraph(@"{""chars"":[{""id"":""炎"",""rarity"":""Gold"",""element"":""Fire"",
+                ""effects"":[{""kind"":""DamageSingle"",""value"":168}],
+                ""attackEffects"":[{""kind"":""DamageSingle"",""value"":168}],
+                ""traits"":[
+                  {""slot"":""Lv4"",""form"":""Passive"",""trigger"":""OnKill"",""name"":""乘胜"",""effects"":[{""kind"":""Shield"",""value"":2}]}
+                ]}]}");
+            Assert.That(g.Get("炎").Traits[0].Trigger, Is.EqualTo(TraitTrigger.OnKill));
+        }
+
+        [TestCase(@"{""slot"":""Lv4"",""form"":""Passive"",""trigger"":""Weird"",""name"":""x"",""effects"":[]}")]
+        [TestCase(@"{""slot"":""Lv4"",""trigger"":""OnCrit"",""name"":""x"",""effects"":[]}")]
+        public void BadTrigger_Throws(string trait)
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""炎"",""element"":""Fire"",""effects"":[{""kind"":""Shield"",""value"":5}],
+                ""attackEffects"":[{""kind"":""DamageSingle"",""value"":5}],""traits"":[" + trait + "]}]}"));
         }
     }
 }

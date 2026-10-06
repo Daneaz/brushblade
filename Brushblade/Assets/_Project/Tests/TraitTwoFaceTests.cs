@@ -54,7 +54,8 @@ namespace Brushblade.Core.Tests
                     new TraitDef(TraitSlot.Lv3, TraitFace.Attack, TraitForm.Active, TraitSlot.Lv1, "攻三", Array.Empty<EffectDef>()),
                 });
             var names = TraitRules.Unlocked(def, 3).Select(t => t.Name).ToList();
-            Assert.That(names.Contains("攻一"), Is.False, "同面被替换");
+            // D1 Task 4:被 Lv3 替换的 Lv1 仍返回(UI 要显示关键词名),替换只作用于效果拼装,且仍只管同一面
+            Assert.That(names.Contains("攻一"), Is.True, "Lv1 被替换仍返回");
             Assert.That(names.Contains("行一"), Is.True, "另一面不受影响");
             Assert.That(names.Contains("攻三"), Is.True);
         }

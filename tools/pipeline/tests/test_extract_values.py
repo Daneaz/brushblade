@@ -352,3 +352,242 @@ def test_summon_row_unknown_token_still_raises():
     with pytest.raises(Exception) as err:
         _parse_effects("`Summon 1`(100 血/攻 0) + `TotallyBogus`", "测")
     assert "TotallyBogus" in str(err.value)
+
+
+# ---- D1 Task 3:本字修饰器 Amplify / Reshape 与伤害标记的修饰 token ----
+
+def test_amplify_with_scope_and_condition():
+    assert _parse_effects("`Amplify 30` + `scope Damage` + `if Burning`", "火") == [
+        {"kind": "Amplify", "value": 30, "scope": "Damage", "onlyIf": "Burning"}]
+
+
+def test_reshape_collects_all_modifier_tokens():
+    effects = _parse_effects(
+        "`Reshape` + `shape Row` + `shapePercent 50` + `hits 2` + `hitPercent 60` + `forceCrit`"
+        " + `armorIgnore 50` + `shieldStrike 40` + `armorStrike 300`", "土")
+    assert effects == [{"kind": "Reshape", "value": 0, "shape": "Row", "shapePercent": 50,
+                        "hitCount": 2, "hitPercent": 60, "forceCrit": True,
+                        "armorIgnorePercent": 50, "shieldStrikePercent": 40,
+                        "armorStrikePercent": 300}]
+
+
+def test_damage_markers_attach_to_damage_single_without_reshape():
+    assert _parse_effects("`DamageSingle 100` + `armorIgnore 50` + `forceCrit`", "金") == [
+        {"kind": "DamageSingle", "value": 100, "armorIgnorePercent": 50, "forceCrit": True}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Amplify 30` + `scope Bogus`", "Bogus"),
+    ("`Amplify 30` + `if Nope`", "Nope"),
+    ("`Reshape` + `shape Ring`", "Ring"),
+    ("`Shield 30` + `scope Shield`", "scope"),     # scope 没有 Amplify 可挂
+    ("`Shield 30` + `hits 2`", "hits"),            # 标记没有 Reshape / DamageSingle 可挂
+])
+def test_modifier_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Amplify 30` + `scope Damage` + `scope Heal`", "scope"),
+    ("`Amplify 30` + `if Burning` + `if Slowed`", "if"),
+])
+def test_multiple_scope_or_if_in_one_cell_raises(config, needle):
+    """同格写两个 scope / if 时不能静默共用第一个 —— 第二个会无声消失。"""
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert f"`{needle}`" in str(err.value)
+
+
+def test_unknown_lowercase_modifier_token_raises():
+    """拼错的无数值修饰 token(`forcecrit`)落进消费记账,不能静默过关。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Reshape` + `forcecrit`", "测")
+    assert "forcecrit" in str(err.value)
+
+
+# ---- D1 Task 4:Augment 叠加修饰器的 `of X` / `field Y` token ----
+
+def test_augment_with_of_and_field():
+    assert _parse_effects("`Augment 1` + `of Block` + `field Count`", "铠") == [
+        {"kind": "Augment", "value": 1, "augmentKind": "Block", "augmentField": "Count"}]
+
+
+@pytest.mark.parametrize("config,needle", [
+    ("`Augment 1` + `of Block`", "field"),                      # 缺 field
+    ("`Augment 1` + `field Count`", "of"),                      # 缺 of
+    ("`Augment 1` + `of Block` + `field Bogus`", "Bogus"),      # field 取值未知
+    ("`Shield 30` + `of Block`", "of"),                         # 没有 Augment 可挂
+    ("`Augment 1` + `of Block` + `of Freeze` + `field Count`", "of"),   # 同格多个
+])
+def test_augment_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D1 Task 5:Weaken / pick / if(非 Amplify)/ keep ----
+
+def test_weaken_takes_value_and_turns():
+    assert _parse_effects("`Weaken 15` turns 2", "火") == [{"kind": "Weaken", "value": 15, "turns": 2}]
+
+
+def test_weaken_without_turns_raises():
+    """Weaken 在 DURATION_KINDS 里:漏写 turns 会被引擎静默兜成 1 回合,管线必须拦下。"""
+    with pytest.raises(ValueError):
+        _parse_effects("`Weaken 15`", "火")
+
+
+# ---- D1 Task 6:Seed / Vulnerable ----
+
+def test_seed_takes_value_and_turns():
+    assert _parse_effects("`Seed 10` turns 2", "木") == [{"kind": "Seed", "value": 10, "turns": 2}]
+
+
+def test_seed_without_turns_raises():
+    """Seed 在 DURATION_KINDS 里:漏写 turns 会被引擎静默兜成 1 回合,管线必须拦下。"""
+    with pytest.raises(ValueError):
+        _parse_effects("`Seed 10`", "木")
+
+
+def test_vulnerable_takes_optional_turns():
+    assert _parse_effects("`Vulnerable 20` turns 2", "水") == [{"kind": "Vulnerable", "value": 20, "turns": 2}]
+
+
+def test_vulnerable_bind_usage_has_no_turns():
+    """冰缚:Turns 缺省 0 + pick FrozenByThisCast = 回合数跟随冻结回合,所以 Vulnerable 不进 DURATION_KINDS。"""
+    effects = _parse_effects("`Freeze 2` + `Vulnerable 20` + `pick FrozenByThisCast`", "水")
+    assert effects == [{"kind": "Freeze", "value": 2},
+                       {"kind": "Vulnerable", "value": 20, "pick": "FrozenByThisCast"}]
+
+
+def test_vulnerable_without_turns_or_bind_pick_raises():
+    with pytest.raises(ValueError):
+        _parse_effects("`Vulnerable 20`", "水")
+    with pytest.raises(ValueError):
+        _parse_effects("`Vulnerable 20` + `pick All`", "水")
+
+
+def test_vulnerable_bind_pick_may_omit_turns():
+    assert _parse_effects("`Vulnerable 20` + `pick FrozenByThisCast`", "水") == [
+        {"kind": "Vulnerable", "value": 20, "pick": "FrozenByThisCast"}]
+
+
+def test_seed_and_vulnerable_accept_pick():
+    assert _parse_effects("`Seed 5` + `pick Random` turns 2", "木")[0]["pick"] == "Random"
+    assert _parse_effects("`Vulnerable 10` + `pick All` turns 1", "水")[0]["pick"] == "All"
+
+
+def test_pick_attaches_to_preceding_effect_only():
+    effects = _parse_effects("`BurnSingle 3` + `Weaken 20` + `pick HitTargets` turns 1", "土")
+    assert effects == [{"kind": "BurnSingle", "value": 3},
+                       {"kind": "Weaken", "value": 20, "pick": "HitTargets", "turns": 1}]
+
+
+@pytest.mark.parametrize("pick", ["All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"])
+def test_every_pick_value_is_accepted(pick):
+    assert _parse_effects(f"`Slow 1` + `pick {pick}`", "水") == [{"kind": "Slow", "value": 1, "pick": pick}]
+
+
+def test_if_on_non_amplify_attaches_condition_gate():
+    assert _parse_effects("`BurnSingle 2` + `if Burning`", "火") == [
+        {"kind": "BurnSingle", "value": 2, "onlyIf": "Burning"}]
+
+
+def test_keep_attaches_to_burn_settle_now():
+    assert _parse_effects("`BurnSettleNow` + `keep` + `pick All`", "火") == [
+        {"kind": "BurnSettleNow", "value": 0, "keepStacks": True, "pick": "All"}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Slow 1` + `pick Bogus`", "Bogus"),                    # 取值未知
+    ("`pick All` + `Slow 1`", "pick"),                       # 前面没有可挂的效果
+    ("`Shield 3` + `pick All`", "pick"),                     # Shield 不认选择器
+    ("`Slow 1` + `keep`", "keep"),                           # keep 只挂 BurnSettleNow
+    ("`Slow 1` + `pick All` + `pick Random`", "pick"),       # 同一条效果多个 pick
+    ("`BurnSingle 2` + `if Nope`", "Nope"),                  # 条件名未知
+])
+def test_pick_if_keep_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D1 Task 7:我方侧新效果 ----
+
+def test_ally_side_simple_kinds():
+    assert _parse_effects("`DamageCut 20`", "土") == [{"kind": "DamageCut", "value": 20}]
+    assert _parse_effects("`CounterBoost 100`", "金") == [{"kind": "CounterBoost", "value": 100}]
+    assert _parse_effects("`ShieldFromHeal 20`", "水") == [{"kind": "ShieldFromHeal", "value": 20}]
+    assert _parse_effects("`AddWellspring 2`", "水") == [{"kind": "AddWellspring", "value": 2}]
+    assert _parse_effects("`AddHeft 2`", "土") == [{"kind": "AddHeft", "value": 2}]
+    assert _parse_effects("`SummonStrike 50`", "木") == [{"kind": "SummonStrike", "value": 50}]
+    assert _parse_effects("`ShieldSummons 15`", "木") == [{"kind": "ShieldSummons", "value": 15}]
+
+
+def test_damage_cut_is_not_a_damage_effect():
+    """DamageCut 以 Damage 开头,但不是伤害:伤害修饰(分段 / 穿透 / 斩杀 / 碾 / 条件翻倍)不能挂到它身上。"""
+    effects = _parse_effects(
+        "`DamageSingle 30` + `HitCount 2` + `Pierce 5` + `TrueDamage` + `DoubleVsBurning` + `DamageCut 20`", "土")
+    assert effects[1] == {"kind": "DamageCut", "value": 20}
+    assert effects[0]["hitCount"] == 2 and effects[0]["pierce"] == 5 and effects[0]["trueDamage"] is True
+
+
+def test_heal_summons_pct_token():
+    assert _parse_effects("`HealSummons 30` + `pct`", "木") == [
+        {"kind": "HealSummons", "value": 30, "percentOfMax": True}]
+    assert _parse_effects("`HealSummons 30`", "木") == [{"kind": "HealSummons", "value": 30}]
+    with pytest.raises(ValueError):
+        _parse_effects("`HealSelf 30` + `pct`", "水")
+
+
+def test_summon_sapling_count_token():
+    assert _parse_effects("`SummonSapling 20`", "木") == [{"kind": "SummonSapling", "value": 20}]
+    assert _parse_effects("`SummonSapling 20` + `count 2`", "木") == [
+        {"kind": "SummonSapling", "value": 20, "count": 2}]
+    with pytest.raises(ValueError):
+        _parse_effects("`Shield 5` + `count 2`", "土")
+
+
+def test_endure_and_cleanse_self_picks():
+    assert _parse_effects("`Endure` + `pick SummonedThisCast`", "木") == [
+        {"kind": "Endure", "value": 0, "pick": "SummonedThisCast"}]
+    assert _parse_effects("`DamageSingle 10` + `Cleanse 1` + `pick Self`", "水") == [
+        {"kind": "DamageSingle", "value": 10}, {"kind": "Cleanse", "value": 1, "pick": "Self"}]
+
+
+@pytest.mark.parametrize("config", [
+    "`Slow 1` + `pick Self`",                  # Self 只给净化
+    "`Cleanse 1` + `pick All`",                # 净化只认 Self
+    "`Endure` + `pick Random`",                # 保命只认 SummonedThisCast
+    "`Cleanse 1` + `pick SummonedThisCast`",
+    "`Cleanse 1` + `if Burning`",              # 条件门只给敌方侧效果
+    "`Endure`",                                # 保命必须写 pick SummonedThisCast(Ruling 10)
+])
+def test_ally_pick_combos_rejected(config):
+    with pytest.raises(ValueError):
+        _parse_effects(config, "测")
+
+
+# ---- D1 Task 9:附着载体(烟熏 `rider Burn`)与反震 `ShieldRecoil N` ----
+
+def test_rider_burn_attaches_to_blind_without_turns():
+    assert _parse_effects("`Blind 15` + `pick HitTargets` + `rider Burn`", "火") == [
+        {"kind": "Blind", "value": 15, "pick": "HitTargets", "riderOf": "Burn"}]
+
+
+def test_shield_recoil_is_a_plain_kind():
+    assert _parse_effects("`ShieldRecoil 30`", "土") == [{"kind": "ShieldRecoil", "value": 30}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Blind 15` + `rider Freeze`", "Freeze"),               # 载体只认 Burn
+    ("`Slow 1` + `rider Burn`", "rider"),                    # 只有 Blind 能附着
+    ("`rider Burn` + `Blind 15`", "rider"),                  # 前面没有可挂的效果
+    ("`Blind 15`", "turns"),                                 # 不附着的致盲仍必须写 turns
+])
+def test_rider_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

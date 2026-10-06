@@ -48,6 +48,12 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ObsoleteDamageReduction)] =
                 "废弃占位,序号锁定不得删除/复用(StatusEffect.cs 原注释);引擎按约定不得再把它" +
                 "构造进真实 StatusBag,玩家不可能在游戏中撞见这个值",
+            [nameof(StatusKind.TraitRider)] =
+                "隐藏载体(D1 Task 9,附录 M9):只记「哪条特性挂在哪个载体上」,玩家看到的是它附带的状态" +
+                "(烟熏 = 致盲 chip);StatusText.Of 落 default 返回 None 是预期,不画 chip,触发反馈归 Plan E",
+            [nameof(StatusKind.ShieldRecoil)] =
+                "隐藏载体(D1 Task 9,D9 反震):拍板稿没有这枚 chip,按 TraitRider 同样隐藏;" +
+                "StatusText.Of 落 default 返回 None 是预期,触发反馈归 Plan E 的 TriggerFx",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。
@@ -77,6 +83,8 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Charm),
             nameof(StatusKind.FrostResist),
             nameof(StatusKind.IceStall),
+            nameof(StatusKind.Seed),       // 种(D1 Task 6):敌人身上的回复来源
+            nameof(StatusKind.Vulnerable), // 标记(D1 Task 6)
         };
 
         private static string Root()

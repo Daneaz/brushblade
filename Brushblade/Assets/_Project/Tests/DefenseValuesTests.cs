@@ -277,9 +277,12 @@ namespace Brushblade.CoreTests
             // 真正的隐患是 AttackEffects 里的伤害值(双方向字的攻击面,如 冷 49)在离色
             // 且带甲的目标面前会更早归零,但那类字**都不是「独苗」**——玩家永远还有别的
             // 元素/字可用,不属于这条测试要守的「字库被护甲整体掐死」场景。
+            // ⚠ 2026-10-05(D1 Task 12):55 字全部两面,伤害**只**在攻击面(spec v7 §2.1),
+            // 五行面一条 DamageSingle 都不剩 —— 上面「只扫 Effects」的范围已经扫不到任何东西,
+            // 改扫 AttackEffects。最低档仍是 花 的 36(热 / 冷 45、利 45 都更高;爆 4 是全体,不在范围内)。
             var realGraph = RealGraph();
             int lowestTier = realGraph.All
-                .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
+                .SelectMany(c => (c.AttackEffects ?? Array.Empty<EffectDef>())
                     .Where(e => e.Kind == EffectKind.DamageSingle && e.Shape != TargetArea.All && e.Pierce == 0)
                     .Select(e => e.Value))
                 .Min();

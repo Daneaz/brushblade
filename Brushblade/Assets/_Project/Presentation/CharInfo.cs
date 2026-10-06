@@ -84,12 +84,13 @@ namespace Brushblade.Presentation
                     EffectKind.DamageSingle when e.Shape == TargetArea.All
                         => Strings.T("char.effect.damageall", ("value", shown))
                         + DoubleVsText(e)
-                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e),
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e)
+                        + ShapeSuffix(e) + MarkerText(e),
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e)
-                        + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e),
+                        + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e) + MarkerText(e),
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
@@ -120,6 +121,13 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.healovertime.single", ("value", shown), ("turns", e.Turns)),
                     EffectKind.Freeze => Strings.T("char.effect.freeze", ("value", shown)),
                     EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
+                    // 减攻(D1 Task 5):Value 是百分点、吃卡等级(shown);回合数读 e.Turns,不吃等级
+                    EffectKind.Weaken => Strings.T("char.effect.weaken", ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                    // 种 / 标记(D1 Task 6):Value 吃卡等级(shown),回合不吃。标记 Turns == 0 + 冰缚选择器 = 跟随冻结回合
+                    EffectKind.Seed => Strings.T("char.effect.seed", ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.Vulnerable => e.Turns <= 0 && e.Pick == EffectPick.FrozenByThisCast
+                        ? Strings.T("char.effect.vulnerable.bind", ("value", shown))
+                        : Strings.T("char.effect.vulnerable", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 护甲/破甲 2026-09-08 起限时,回合数要印在卡面上 —— 玩家看不到时限
                     // 就会当成本场持久去规划出牌顺序(这两条以前确实是持久的)
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
@@ -134,20 +142,30 @@ namespace Brushblade.Presentation
                     EffectKind.Dispel => e.Value < 0
                         ? (e.TargetAll ? Strings.T("char.effect.dispel.all.full") : Strings.T("char.effect.dispel.single.full"))
                         : (e.TargetAll ? Strings.T("char.effect.dispel.all.count", ("count", e.Value)) : Strings.T("char.effect.dispel.single.count", ("count", e.Value))),
-                    EffectKind.Cleanse => Strings.T("char.effect.cleanse"),
+                    // 净化(D1 Task 7 起可计数、可 Pick.Self):条数是离散量,读 e.Value
+                    EffectKind.Cleanse => e.Pick == EffectPick.Self
+                        ? (e.Value > 0 ? Strings.T("char.effect.cleanse.self.count", ("count", e.Value))
+                            : Strings.T("char.effect.cleanse.self"))
+                        : (e.Value > 0 ? Strings.T("char.effect.cleanse.count", ("count", e.Value))
+                            : Strings.T("char.effect.cleanse")),
                     EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
                     // 格挡(spec v7 §3.1):次数是离散量,不吃等级 —— 读 e.Value,不读缩放后的 shown。
                     EffectKind.Block => Strings.T("char.effect.block", ("value", e.Value)),
                     EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
+                    // 烟熏(D1 Task 9):附着在灼上的致盲没有回合数,随灼存续
+                    EffectKind.Blind when e.RiderOf == StatusKind.Burn =>
+                        Strings.T("char.effect.blind.rider_burn", ("value", shown)),
                     EffectKind.Blind => e.TargetAll
                         ? Strings.T("char.effect.blind.all", ("value", shown), ("turns", e.Turns))
                         : Strings.T("char.effect.blind.single", ("value", shown), ("turns", e.Turns)),
                     EffectKind.Silence => Strings.T("char.effect.silence", ("turns", e.Turns)),
                     EffectKind.Reflect => Strings.T("char.effect.reflect", ("value", shown), ("turns", e.Turns)),
                     EffectKind.BurnNoDecay => Strings.T("char.effect.burnnodecay"),
-                    EffectKind.BurnSettleNow => Strings.T("char.effect.burnsettlenow"),
+                    EffectKind.BurnSettleNow => e.KeepStacks
+                        ? Strings.T("char.effect.burnsettlenow.keep")
+                        : Strings.T("char.effect.burnsettlenow"),
                     EffectKind.Detonate => Strings.T("char.effect.detonate"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
@@ -183,11 +201,39 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.haste", ("value", shown), ("turns", e.Turns)),
                     // 解封(2026-09-16,水):6 类纯随机重掷,永久,Value 不用(与 Cleanse 同口径)。
                     EffectKind.Unseal => Strings.T("char.effect.unseal"),
+                    // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
+                    EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
+                    EffectKind.Reshape => ReshapeText(e),
+                    // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
+                    EffectKind.Augment => AugmentText(e),
+                    // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
+                    EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
+                    EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
+                    EffectKind.Endure => e.Pick == EffectPick.SummonedThisCast
+                        ? Strings.T("char.effect.endure.summoned") : Strings.T("char.effect.endure"),
+                    EffectKind.SummonSapling => Strings.T("char.effect.summonsapling",
+                        ("count", e.SummonCount), ("value", shown)),
+                    EffectKind.HealSummons => e.PercentOfMax
+                        ? Strings.T("char.effect.healsummons.pct", ("value", shown))
+                        : Strings.T("char.effect.healsummons", ("value", shown)),
+                    EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
+                    EffectKind.SummonStrike => Strings.T("char.effect.summonstrike", ("value", shown)),
+                    EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
+                    EffectKind.AddWellspring => Strings.T("char.effect.addwellspring", ("value", shown)),
+                    EffectKind.AddHeft => Strings.T("char.effect.addheft", ("value", shown)),
+                    // 反震(D1 Task 9):百分比离散(shown == e.Value)
+                    EffectKind.ShieldRecoil => Strings.T("char.effect.shieldrecoil", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
+                // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
+                if (EffectPickRules.Supports(e.Kind))
+                    parts.Append(PickText(e.Pick) + OnlyIfText(e.OnlyIf));
             }
             return parts.ToString();
         }
+
+        /// <summary>反击增强的倍率(D1 Task 7):Value 100 → 「2」,50 → 「1.5」。</summary>
+        internal static string BoostMult(int percent) => ((100 + percent) / 100f).ToString("0.##");
 
         /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了
         /// (`1514207 feat(core)`,范围只写了 core),而 CharInfo 从没跟进,玩家看铡的卡面只见
@@ -282,6 +328,84 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
+        /// <summary>Amplify 的作用范围 + 百分点(D1 Task 3)。每个范围一条完整句子的 key。</summary>
+        private static string AmplifyText(EffectDef e) => e.Scope switch
+        {
+            AmpScope.Heal => Strings.T("char.effect.amplify.heal", ("value", e.Value)),
+            AmpScope.Shield => Strings.T("char.effect.amplify.shield", ("value", e.Value)),
+            AmpScope.Seed => Strings.T("char.effect.amplify.seed", ("value", e.Value)),
+            AmpScope.Counter => Strings.T("char.effect.amplify.counter", ("value", e.Value)),
+            AmpScope.All => Strings.T("char.effect.amplify.all", ("value", e.Value)),
+            _ => Strings.T("char.effect.amplify.damage", ("value", e.Value)),
+        };
+
+        /// <summary>目标选择器后缀(D1 Task 5,e.Pick)。Primary 不印;旧 TargetAll 标志有自己的「全体」文案,不走这里。</summary>
+        private static string PickText(EffectPick pick) => pick switch
+        {
+            EffectPick.All => Strings.T("char.effect.pick.all"),
+            EffectPick.Random => Strings.T("char.effect.pick.random"),
+            EffectPick.HitTargets => Strings.T("char.effect.pick.hittargets"),
+            EffectPick.MostBurn => Strings.T("char.effect.pick.mostburn"),
+            EffectPick.FrozenByThisCast => Strings.T("char.effect.pick.frozen"),
+            _ => "",
+        };
+
+        /// <summary>条件门后缀(D1 Task 3,e.OnlyIf)。与 DoubleVsText 一样每个条件一条 key,
+        /// 不拼「对 + 状态名」—— 翻译者要拿到完整句子。</summary>
+        private static string OnlyIfText(DamageCondition condition) => condition switch
+        {
+            DamageCondition.Burning => Strings.T("char.effect.onlyif.burning"),
+            DamageCondition.Bleeding => Strings.T("char.effect.onlyif.bleeding"),
+            DamageCondition.Controlled => Strings.T("char.effect.onlyif.controlled"),
+            DamageCondition.ArmorBroken => Strings.T("char.effect.onlyif.armorbroken"),
+            DamageCondition.Slowed => Strings.T("char.effect.onlyif.slowed"),
+            DamageCondition.Frozen => Strings.T("char.effect.onlyif.frozen"),
+            DamageCondition.TargetHpAbove70 => Strings.T("char.effect.onlyif.targethpabove70"),
+            DamageCondition.TargetHpBelow30 => Strings.T("char.effect.onlyif.targethpbelow30"),
+            DamageCondition.PlayerHpBelow50 => Strings.T("char.effect.onlyif.playerhpbelow50"),
+            DamageCondition.PlayerHasArmor => Strings.T("char.effect.onlyif.playerhasarmor"),
+            DamageCondition.FirstCastThisTurn => Strings.T("char.effect.onlyif.firstcastthisturn"),
+            DamageCondition.Countering => Strings.T("char.effect.onlyif.countering"),
+            _ => "",
+        };
+
+        /// <summary>Augment(D1 Task 4):「{目标}{字段}+{N}」。目标名与字段名各走一条完整 key,
+        /// 不拼接动态 key(字符串表检查只认字面量)。</summary>
+        private static string AugmentText(EffectDef e)
+        {
+            string target = e.AugmentKind switch
+            {
+                EffectKind.Block => Strings.T("char.effect.augment.target.block"),
+                EffectKind.Freeze => Strings.T("char.effect.augment.target.freeze"),
+                EffectKind.Slow => Strings.T("char.effect.augment.target.slow"),
+                EffectKind.DefenseBuff => Strings.T("char.effect.augment.target.defensebuff"),
+                EffectKind.ArmorBreak => Strings.T("char.effect.augment.target.armorbreak"),
+                EffectKind.HealOverTime => Strings.T("char.effect.augment.target.healovertime"),
+                EffectKind.HealSelf => Strings.T("char.effect.augment.target.healself"),
+                _ => Strings.T("char.effect.augment.target.damage"),
+            };
+            string field = e.AugmentField switch
+            {
+                AugmentField.Turns => Strings.T("char.effect.augment.field.turns"),
+                AugmentField.Shots => Strings.T("char.effect.augment.field.shots"),
+                _ => Strings.T("char.effect.augment.field.count"),
+            };
+            return Strings.T("char.effect.augment", ("target", target), ("field", field), ("value", e.Value));
+        }
+
+        /// <summary>Reshape(D1 Task 3):「伤害改为 + 形状 + 改动的修饰」。只印 Reshape 上非缺省的字段,
+        /// 与引擎 TraitRules.Fold 的覆盖口径一致。</summary>
+        private static string ReshapeText(EffectDef e) =>
+            Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
+            + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
+
+        /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。</summary>
+        private static string MarkerText(EffectDef e) =>
+            (e.HitPercent != 100 ? Strings.T("char.effect.hitpercent", ("percent", e.HitPercent)) : "")
+            + (e.ForceCrit ? Strings.T("char.effect.forcecrit") : "")
+            + (e.ArmorIgnorePercent > 0 ? Strings.T("char.effect.armorignore", ("percent", e.ArmorIgnorePercent)) : "")
+            + (e.ShieldStrikePercent > 0 ? Strings.T("char.effect.shieldstrike", ("percent", e.ShieldStrikePercent)) : "");
+
         private static string PierceText(EffectDef e) =>
             e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";
 
@@ -343,7 +467,9 @@ namespace Brushblade.Presentation
                     ("shots", shots), ("percent", percent)),
                 TargetArea.Row or TargetArea.Adjacent or TargetArea.Column when percent != 100
                     => Strings.T("char.shape.suffix.splash", ("percent", percent)),
-                // 全体每个目标都按主目标满额结算,没有溅射比例可报
+                // 全体每个目标都按主目标满额结算,没有溅射比例可报;
+                // 例外是带百分比的全体(D1 Task 3,怒涛「全体各 60%」):每个目标都打折
+                TargetArea.All when percent < 100 => Strings.T("char.shape.suffix.all", ("percent", percent)),
                 TargetArea.All => "",
                 _ => "",
             };

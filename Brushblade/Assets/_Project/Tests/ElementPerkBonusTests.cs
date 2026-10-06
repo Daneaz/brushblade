@@ -170,6 +170,21 @@ namespace Brushblade.Core.Tests
                 EffectKind.Unseal,
                 // 格挡(spec v7 §3.1):次数是离散量,不吃五行 L3 百分比。
                 EffectKind.Block,
+                // 修饰器(D1 Task 3):出字前被 TraitRules.Fold 折叠掉,不进结算、没有量值可放大。
+                EffectKind.Amplify, EffectKind.Reshape,
+                // Augment(D1 Task 4):同修饰器,出字前折叠掉,不进结算、没有量值可放大。
+                EffectKind.Augment,
+                // 减攻(D1 Task 5):挂的是敌人 Curse 状态的百分点,不吃五行 L3(与 Blind 以外的控制类同口径)。
+                EffectKind.Weaken,
+                // 种(D1 Task 6):回复量吃 Amplify scope Seed,不吃五行 L3 / 专精;标记是敌人状态百分点。
+                EffectKind.Seed, EffectKind.Vulnerable,
+                // D1 Task 7:我方侧新效果一律不吃五行 L3 —— 百分比 / 层数 / 次数是离散量;群疗 / 群盾 / 治疗转盾
+                // 的量值不是「本系字的治疗 / 护盾」本体(L3 白名单只收本体效果),先不接,免得木系字吃水 / 土的加成口径
+                EffectKind.DamageCut, EffectKind.CounterBoost, EffectKind.Endure,
+                EffectKind.SummonSapling, EffectKind.HealSummons, EffectKind.ShieldSummons, EffectKind.SummonStrike,
+                EffectKind.ShieldFromHeal, EffectKind.AddWellspring, EffectKind.AddHeft,
+                // D1 Task 9:反震是百分比(反弹吸收量的 N%),不是本系字的护盾本体
+                EffectKind.ShieldRecoil,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

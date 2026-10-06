@@ -64,6 +64,24 @@ namespace Brushblade.Core
         IceStall,         // 冰滞(spec v7 R1b,仅 Boss):Boss 被冻结时改挂本状态 —— 行动条后退半格(可为负)、
                           // 下次行动前受伤 +15%。Magnitude = 本该冻结的回合数 N,TurnsLeft = -1;
                           // Boss 下次行动开始时移除并挂霜抗 N+1(本拍末尾 TickTurns 减 1)。
+        Seed,             // 种(spec v7 §3.1,D1 Task 6,仅敌人):Magnitude = 每次回复量,TurnsLeft = 回合,SourceId = 字 ID。
+                          // 该敌人每次行动开始(含被冻结 / 冰滞跳过的那一拍),我方生命**比例**最低的单位回复 Magnitude。
+                          // 同源刷新取较大量、较长回合;不同来源并存、各治一次。
+        Vulnerable,       // 标记(spec v7 §3.1,D1 Task 6,仅敌人):受到的 DamageEnemy 伤害 +Magnitude%(多个来源只取最强的一份),
+                          // TurnsLeft 按该敌人行动递减。在冰滞易伤之后、护甲之前,分别整数取整;灼烧 / 流血不走 DamageEnemy,不吃。
+                          // 同源刷新取较强值与较长回合。
+        DamageCut,        // 本回合减伤(D1 Task 7,挂在玩家身上,作用于玩家**与全部召唤物**):Magnitude = 百分点,
+                          // TurnsLeft = 1(玩家回合开始的 tick 到期)。多个来源只取最强的一份(spec §5.2 第 1 律);
+                          // 玩家侧与格挡 40% 合计、召唤物侧单独,都钳到 CombatCaps.NonArmorReductionPercent。
+        CounterBoost,     // 反击增强(D1 Task 7,仅玩家):格挡反击 ×(100 + Magnitude)/100,TurnsLeft = 1;
+                          // 多个来源只取最强的一份;仍在 60% 反伤预算内钳。
+        Endure,           // 保命(D1 Task 7,仅召唤物):DamageSummon 致命一击留 1 血并移除本状态,TurnsLeft = -1。吞噬不吃。
+        TraitRider,       // 附着载体(D1 Task 9,附录 M9,隐藏,不画 chip):SourceId = 字 ID,TraitKey = 特性键,
+                          // Magnitude = 载体 StatusKind 的 int(D1 只有 Burn)。载体从单位身上移除时
+                          // (BattleEngine.DropRiders)连同 SourceId + TraitKey 相同的附带状态一起移除。
+                          // 极性记 Debuff:敌人侧驱散只清 Buff,载体不能被驱散单独剥掉。
+        ShieldRecoil,     // 反震(D1 Task 9,D9,仅玩家,隐藏):Magnitude = 反弹吸收量的百分比,TurnsLeft = -1,
+                          // TraitKey = 每回合次数阀的键。同类取最强(只留一条);两桶护盾归零 / 倾覆清盾时移除。
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -114,6 +132,15 @@ namespace Brushblade.Core
         /// <summary>格挡每次反击的伤害(spec v7 §4,仅 <see cref="StatusKind.Block"/> 用;出字时定死,不吃攻击力)。</summary>
         public int CounterDamage { get; set; }
 
+        /// <summary>灼的火力(spec v7 §4,仅 <see cref="StatusKind.Burn"/> 用):每层伤害的百分比系数,
+        /// = 给该目标上过灼的火字中最高的等级系数(<c>MetaRules.CardLevelPercent</c>)。0(缺省 / 旧存档)视为 100。</summary>
+        public int Potency { get; set; }
+
+        /// <summary>特性键(D1 Task 9,附录 M9):<see cref="StatusKind.TraitRider"/> 与它附带的状态共用同一个键
+        /// (<c>BattleEngine.TraitKey</c> 产出的「字/槽/面」),<see cref="StatusKind.ShieldRecoil"/> 用它查每回合次数。
+        /// 普通状态恒为 null —— 去重键因此逐位不变。</summary>
+        public string TraitKey { get; set; }
+
         /// <summary>持续治疗的落点槽位(2026-08-22,spec §8.3)。−1 = 玩家,0..5 = 召唤物槽。
         /// 与 <see cref="TargetAll"/> 同构:HoT 始终挂在**玩家的** StatusBag 上,
         /// 结算时按这个槽位分发。
@@ -127,7 +154,7 @@ namespace Brushblade.Core
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
-            TargetSlot = TargetSlot, CounterDamage = CounterDamage,
+            TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency, TraitKey = TraitKey,
         };
     }
 
@@ -157,6 +184,15 @@ namespace Brushblade.Core
             return sum;
         }
 
+        /// <summary>该种类各条目量值的最大值(没有 = 0)。「同类取最强」的状态(减伤 / 反击增强)用它。</summary>
+        public int MaxMagnitude(StatusKind kind)
+        {
+            int max = 0;
+            foreach (var e in _list)
+                if (e.Kind == kind && e.Magnitude > max) max = e.Magnitude;
+            return max;
+        }
+
         /// <summary>施加一条。同 Kind 且同 SourceId 视为同一来源,覆盖刷新而非叠加
         /// (口径来自 P0:同字减伤不叠加,重复施放只刷新——2026-09-16 起 DefenseBuff 已移出这条,
         /// 见 <see cref="StatusEffect.SourceId"/> 的用法说明)。SourceId 为 null 时按 Kind 去重。
@@ -168,6 +204,7 @@ namespace Brushblade.Core
             {
                 if (_list[i].Kind != effect.Kind) continue;
                 if (_list[i].SourceId != effect.SourceId) continue;
+                if (_list[i].TraitKey != effect.TraitKey) continue;   // 附着带出的状态不覆盖同字的普通状态(普通状态恒 null,恒等)
                 _list[i] = effect;
                 return;
             }

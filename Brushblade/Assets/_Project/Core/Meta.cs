@@ -95,7 +95,7 @@ namespace Brushblade.Core
             // 2026-09-16(土水系机制重做,spec §7):枪(木·白·召唤)移出字表,土系交出召唤位
             // 后木系白档由 花 补位;灭(火·白)移出字表(封禁已是水系标识机制),白档位置由
             // 热 顶替,热 原占的绿档随之空出,由蓝→绿换档的 爆 填上。
-            "利", "剿", // 金:白 增攻+30(2回合)+45 伤 / 蓝 112 伤+残血加伤(教程演示字)
+            "利", "剿", // 金:白 45 伤+战意 / 蓝 112 伤+战意(教程演示字);两张的铠面都是 战意+格挡(D1 两面拆分)
             "花", "藤", // 木:白 魅惑1+36 伤 / 绿 召唤·命中冻结
             "冷", "冻", // 水:白 减速1+45伤(支援面回血 45,加速1回合)/ 绿 减速2+55伤(回血 55,加速2回合)
             "热", "爆", // 火:白 蓄热+45 伤 / 绿 全体 4 伤+灼烧 2 层
@@ -790,9 +790,14 @@ namespace Brushblade.Core
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
             if (cardLevel <= 1 || baseValue <= 0) return baseValue;
-            long scaled = (long)baseValue * (100 + 6 * (cardLevel - 1));
+            long scaled = (long)baseValue * CardLevelPercent(cardLevel);
             return (int)((scaled + 99) / 100);
         }
+
+        /// <summary>卡等级系数的百分数:100 + 6 × (等级 − 1);Lv ≤ 1 = 100。
+        /// <see cref="ScaleByCardLevel"/> 与灼的火力(StatusEffect.Potency)共用这一条曲线。</summary>
+        public static int CardLevelPercent(int cardLevel) =>
+            cardLevel <= 1 ? 100 : 100 + 6 * (cardLevel - 1);
 
         /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放
         /// (只在 Lv3 由特性提升);伤害、护盾、治疗、护甲点数、百分比等数值缩放。
@@ -803,6 +808,21 @@ namespace Brushblade.Core
                 or EffectKind.BurnSingle or EffectKind.BurnAll
                 or EffectKind.Morale or EffectKind.Immunity or EffectKind.Revive
                 or EffectKind.Block or EffectKind.Dispel or EffectKind.ApBoost or EffectKind.Charm => false,
+            // 修饰器(D1 Task 3):Value 是加成百分点,按池档位定值、不随卡等级涨(spec D7);
+            // 它们在出字前被 TraitRules.Fold 折叠掉,本来也走不到 ScaleEffectValue —— 归这里只为口径明确。
+            EffectKind.Amplify or EffectKind.Reshape => false,
+            // Augment(D1 Task 4):Value 是「加几次 / 几回合 / 几跳」,离散量。
+            EffectKind.Augment => false,
+            // 净化(D1 Task 7 起 Value = 清几个,0 = 全清):条数是离散量(Ruling 10)
+            EffectKind.Cleanse => false,
+            // D1 Task 7:减伤是写死的百分点(与 60% 非护甲减伤封顶直接相关)、反击增强是倍率、保命 Value 不用;
+            // 治疗转盾 / 幼苗 / 群刺取的是另一个**已按等级缩放**的量的百分比,再缩放就重复吃等级;加泉 / 加厚是层数。
+            // 群疗 / 群盾的 Value 是量 → 走缺省的连续。
+            EffectKind.DamageCut or EffectKind.CounterBoost or EffectKind.Endure or EffectKind.ShieldFromHeal
+                or EffectKind.SummonSapling or EffectKind.SummonStrike
+                or EffectKind.AddWellspring or EffectKind.AddHeft => false,
+            // D1 Task 9:反震的 Value 是反弹吸收量的百分比 —— 吸收量本身已随护盾吃过等级,再缩放就重复吃等级
+            EffectKind.ShieldRecoil => false,
             _ => true,
         };
 

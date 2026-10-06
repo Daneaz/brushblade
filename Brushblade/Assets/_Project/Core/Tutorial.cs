@@ -13,7 +13,7 @@ namespace Brushblade.Core
     {
         DismantleDemo, // 拆【剿】得 巢+刂
         RecomposeDemo, // 巢+刂 合回【剿】——拆与合互为表里
-        CastDemo,      // 打出【剿】清场
+        CastDemo,      // 以攻击面打出【剿】清场
         PickReward,    // 战后三选一
         Done,
     }
@@ -43,12 +43,13 @@ namespace Brushblade.Core
             DemoChar, "花", "冷", "热", "碉", "碎",
         };
 
-        private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =
+        /// <summary>face 非空 = 该步只认这一面的出字(Ruling 19:剿 拆两面后,铠面不伤怪,演示只认攻击面)。</summary>
+        private static readonly (TutorialStep step, TutorialAction action, string charId, CardFace? face)[] Script =
         {
-            (TutorialStep.DismantleDemo, TutorialAction.Dismantle, DemoChar),
-            (TutorialStep.RecomposeDemo, TutorialAction.Compose, DemoChar),
-            (TutorialStep.CastDemo, TutorialAction.Cast, DemoChar),
-            (TutorialStep.PickReward, TutorialAction.PickReward, null),
+            (TutorialStep.DismantleDemo, TutorialAction.Dismantle, DemoChar, null),
+            (TutorialStep.RecomposeDemo, TutorialAction.Compose, DemoChar, null),
+            (TutorialStep.CastDemo, TutorialAction.Cast, DemoChar, CardFace.Attack),
+            (TutorialStep.PickReward, TutorialAction.PickReward, null, null),
         };
 
         private int _index;
@@ -56,12 +57,14 @@ namespace Brushblade.Core
         public TutorialStep Step => _index < Script.Length ? Script[_index].step : TutorialStep.Done;
         public bool Done => Step == TutorialStep.Done;
 
-        public void Notify(TutorialAction action, string charId = null)
+        /// <param name="face">出字落在哪一面(只对 Cast 有意义;调用方用 BattleEngine.FaceOf 求)。</param>
+        public void Notify(TutorialAction action, string charId = null, CardFace? face = null)
         {
             if (Done) return;
             var current = Script[_index];
             if (current.action != action) return;
             if (current.charId != null && current.charId != charId) return;
+            if (current.face != null && current.face != face) return;
             _index++;
         }
     }

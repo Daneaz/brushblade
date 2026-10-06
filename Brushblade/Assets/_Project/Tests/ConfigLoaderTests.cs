@@ -244,7 +244,8 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.Compose("焱"), Is.EqualTo(BattleError.ForgeFailed)); // 不在已解锁卡池,合不出
             Assert.That(battle.Dismantle(demo), Is.EqualTo(BattleError.None));
             Assert.That(battle.Compose(demo), Is.EqualTo(BattleError.None));
-            Assert.That(battle.Cast(demo), Is.EqualTo(BattleError.None));
+            // 剿 拆两面后(D1 Task 12)伤害只在攻击面,教程演示也只认攻面出手
+            Assert.That(battle.Cast(demo, 0, attackMode: true), Is.EqualTo(BattleError.None));
             if (battle.Phase == BattlePhase.PlayerTurn)
                 battle.EndTurn(); // 直伤不足则由持续伤害补刀
             Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Won));

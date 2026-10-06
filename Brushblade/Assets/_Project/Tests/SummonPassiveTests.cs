@@ -252,6 +252,20 @@ namespace Brushblade.Core.Tests
             Assert.That(enemy.Attack, Is.EqualTo(6), "两只槐仍是 −25%,不叠成 −50%");
         }
 
+        /// <summary>Ruling 18:减攻多来源取最强(与标记 / 本回合减伤同口径),不相加。</summary>
+        [Test]
+        public void Curse_TwoSources_TakesTheStronger_NotSum()
+        {
+            var enemy = CursedEnemy(100, 20, "槐");
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                Magnitude = 30, TurnsLeft = 2, SourceId = "崩",
+            });
+            Assert.That(enemy.Statuses.All.Count(s => s.Kind == StatusKind.Curse), Is.EqualTo(2), "不同来源各自并存");
+            Assert.That(enemy.Attack, Is.EqualTo(70), "100 × (100 − max(20, 30)) ÷ 100 = 70,不是 −50%");
+        }
+
         [Test]
         public void Curse_ShareOneAxisWithAttackBuff() // 原名 Curse_AppliesAfterAttackBuff
         {
@@ -691,24 +705,26 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(6));
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "血量不动");
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(2), "盾从 6 扣到 2");
+            // 2026-10-04 U1:盾从 6 扣到 2 后,剩下的 2 点在回到玩家回合时清空(原断言 2)
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "6 盾吃一击后余 2,下一玩家回合开始清空");
         }
 
         [Test]
         public void SummonShield_OnceDepleted_DoesNotRefresh()
         {
+            // 2026-10-04 U1 判别力修复:敌人攻 7 > 盾 6,第一击内就是「盾部分吸收、溢出进血」。
             // 2026-09-13:盾召 2 只,显式钉在槽 0(前排)与槽 4(后排)——前排若站两只,
             // 敌方近战会在其间随机,「槽 0 必挨这几下」就不再确定。前排只留一只,
             // 候选池退化不摇随机,复现改前的确定性。
-            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 7) });
             engine.Cast("盾", summonSlots: new[] { 0, 4 });
-            engine.EndTurn(); // 盾 6 → 2
-            engine.EndTurn(); // 盾 2 → 0,溢出的 2 点进血
+            // 盾 6 吃第一击 7:盾被打穿,溢出 1 点进血;之后盾不补满、每击整 7 点进血
+            engine.EndTurn();
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(8));
-            engine.EndTurn(); // 不刷新,整 4 点进血
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(9), "10 − (7 − 6)");
+            engine.EndTurn();
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "护盾不随回合补满");
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(4));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(2), "9 − 7");
         }
 
         [Test]

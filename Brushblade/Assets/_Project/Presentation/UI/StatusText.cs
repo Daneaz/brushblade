@@ -137,8 +137,9 @@ namespace Brushblade.Presentation
                             Strings.T("status.duration.turns", ("value", turnsLeft)),
                             Strings.T("status.speed.desc", ("magnitude", magnitude)));
                 case StatusKind.Blind:
+                    // 时长走 Duration:烟熏(D1 Task 9)附着在灼上的致盲 TurnsLeft = -1,写死「剩 N 回合」会印出 -1
                     return new Info("blind", Strings.T("status.blind.name"),
-                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Duration(turnsLeft),
                         Strings.T("status.blind.desc", ("magnitude", magnitude)));
                 case StatusKind.Silence:
                     return new Info("silence", Strings.T("status.silence.name"),
@@ -226,6 +227,31 @@ namespace Brushblade.Presentation
                     return new Info("chill", Strings.T("status.icestall.name"),
                         Strings.T("status.duration.until_next_action"),
                         Strings.T("status.icestall.desc"));
+                case StatusKind.Seed:
+                    // 种(spec v7 §3.1,D1 Task 6):敌人身上,每次行动让我方最低比例的单位回血。翠玉底,无数字。
+                    return new Info("seed", Strings.T("status.seed.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.seed.desc", ("magnitude", magnitude)));
+                case StatusKind.Vulnerable:
+                    // 标记(spec v7 §3.1,D1 Task 6):受伤 +Magnitude%。朱砂底,无数字。
+                    return new Info("mark", Strings.T("status.mark.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.mark.desc", ("magnitude", magnitude)));
+                case StatusKind.DamageCut:
+                    // 本回合减伤(D1 Task 7):玩家身上,TurnsLeft 1。名与说明取 designer 补稿词条;
+                    // 图标待 Task 7b(补稿拍板后),IconKey 先留 null(与 Heft/Wellspring 同处理)。
+                    return new Info(null, Strings.T("status.damagecut.name"),
+                        Strings.T("status.duration.this_turn"),
+                        Strings.T("status.damagecut.desc"));
+                case StatusKind.CounterBoost:
+                    return new Info(null, Strings.T("status.counterboost.name"),
+                        Strings.T("status.duration.this_turn"),
+                        Strings.T("status.counterboost.desc"));
+                case StatusKind.Endure:
+                    // 保命(D1 Task 7,扎根):召唤物身上,一次性 —— 时长行报次数(与免疫同口径)
+                    return new Info(null, Strings.T("status.endure.name"),
+                        Strings.T("status.duration.charges", ("value", magnitude)),
+                        Strings.T("status.endure.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

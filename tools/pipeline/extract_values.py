@@ -16,10 +16,20 @@ RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "
 # 那才是这条闸原先真正防的东西,见那里的注释)。
 # 木系(2026-09-27):召唤字改双面 —— 护面 = 召唤,攻面 = 单体伤害(详表 §三 三张召唤表
 # 多挂的那格「攻击效果配置」)。纯攻击字 花 只有一个反引号格,不受影响。
-DUAL_DIRECTION_ELEMENTS = {"水", "土", "金", "木"}
+# 火系(2026-10-05,D1 Task 11):为 Task 12 把火字拆攻 / 燃两面预备;现有火表没有第二个
+# 反引号格(实现格之前),加进来不改变任何已有输出。
+# 2026-10-05(D1 Task 12):55 字全部两面 —— 火 / 金 单面表与木系「攻」表(花)都加了
+# 「攻击效果配置(攻面)」一格,第一格改为五行面(燃 / 铠 / 生)。上面「金系其余表全是单面字」
+# 「花 只有一个反引号格」两句是当时的状态,已不成立。
+DUAL_DIRECTION_ELEMENTS = {"水", "土", "金", "木", "火"}
 
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
+def _is_damage(kind):
+    """伤害效果(修饰 token 挂它):Damage 开头,但 DamageCut(本回合减伤,D1 Task 7)不是伤害。"""
+    return kind.startswith("Damage") and kind != "DamageCut"
+
+
 SUMMON_PASSIVE = {
     "SummonSpeed": "speed",
     "Thorns": "thorns",
@@ -56,6 +66,11 @@ VALUELESS_EFFECTS = {
     # 6 类纯随机重掷召唤物属性、永久,不带数值。本任务只造机制不配字,这里先补上
     # token 映射,免得 Task 10/11 配字时才发现这张表漏了它。
     "Unseal": {"kind": "Unseal", "value": 0},
+    # 改形修饰器(D1 Task 3,附录 M2):不带数值;改什么由同格的 `shape X` / `hits N` 等小写 token 给出,
+    # 见 _attach_modifier_tokens。
+    "Reshape": {"kind": "Reshape", "value": 0},
+    # 保命(D1 Task 7,扎根):Value 不用;落点由 `pick SummonedThisCast` 给出。
+    "Endure": {"kind": "Endure", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -88,11 +103,16 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # 加速/急速(2026-09-16,水,EffectKind.Haste):Value=百分比(50/100)、Turns=持续回合数,
 # 与 CritBuff/DefenseBuff 同型——带数值又带 turns,漏进这张白名单的后果同 `壁` 那次:
 # turns 写了没人吃,静默消失。
+# 减攻(D1 Task 5,EffectKind.Weaken):Value = 百分点、Turns = 回合,漏写 turns 引擎兜成 1 回合 ——
+# 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak", "Haste"}
+                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed"}
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
-TURN_TAKING_KINDS = DURATION_KINDS
+# 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
+# 不写 turns,回合数由引擎取目标的冻结回合 —— 所以它在这里、不在 DURATION_KINDS。
+# 种(Seed)在 DURATION_KINDS:漏写 turns 引擎兜成 1 回合,与减攻同型。
+TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable"}
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -132,6 +152,193 @@ CHAIN_TOKEN = "Chain"
 
 SHOTS_TOKEN = "Shots"
 SHAPE_PERCENT_TOKEN = "ShapePercent"
+
+# ---- D1 Task 3:本字修饰器(附录 M1–M3)的修饰 token ----
+# 写法:`Amplify 30` + `scope Damage` + `if Burning`;`Reshape` + `shape Row` + `shapePercent 50` + `hits 2`
+# + `hitPercent 60` + `forceCrit` + `armorIgnore 50` + `shieldStrike 40` + `armorStrike 300`。
+# 小写开头是刻意的:与既有的大写修饰位(`ShapePercent N` / `ArmorStrike N`)区分,两套互不吞。
+# 带数值的那几个必须挂进通用循环的跳过名单,否则会被 `(\w+) (\d+)` 当成独立效果 kind="hits" 落进字表
+# (与 PIERCE_TOKEN 头上那条注释同一个坑)。
+AMP_SCOPE_TOKEN = "scope"
+ONLY_IF_TOKEN = "if"
+RESHAPE_SHAPE_TOKEN = "shape"
+FORCE_CRIT_TOKEN = "forceCrit"
+# token → chars.json 字段
+DAMAGE_MARKER_VALUE_TOKENS = {
+    "shapePercent": "shapePercent",
+    "hits": "hitCount",
+    "hitPercent": "hitPercent",
+    "armorIgnore": "armorIgnorePercent",
+    "shieldStrike": "shieldStrikePercent",
+    "armorStrike": "armorStrikePercent",
+}
+# 与 Core 的 AmpScope / DamageCondition / TargetArea 枚举名一致;写错直接报错,不静默落成缺省
+AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All"}
+CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Frozen",
+              "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
+              "FirstCastThisTurn", "Countering"}
+# D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
+# `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
+AUGMENT_OF_TOKEN = "of"
+AUGMENT_FIELD_TOKEN = "field"
+AUGMENT_FIELDS = {"Count", "Turns", "Shots"}
+RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
+
+# D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
+# 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
+ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
+                    "BurnSettleNow", "Detonate", "Seed", "Vulnerable"}
+ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
+# D1 Task 7:我方侧选择器,各只给一个 kind(与 Core 的 EffectPickRules.Allows 同一张表)。
+# 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
+ALLY_PICKS = {"Self": "Cleanse", "SummonedThisCast": "Endure"}
+PICK_KINDS = ENEMY_PICK_KINDS | set(ALLY_PICKS.values())
+PICKS = ENEMY_PICKS | set(ALLY_PICKS)
+PICK_TOKEN = "pick"
+KEEP_TOKEN = "keep"
+# D1 Task 9:附着载体 `rider Burn`(烟熏)。与 Core 的 ConfigLoader 同一张表:目前只有 Blind 能附着、只认 Burn 载体。
+# 附着的致盲随灼存续,不写 turns(下面的 missing_turns 检查对它放行)。
+RIDER_TOKEN = "rider"
+RIDER_CARRIERS = {"Burn"}
+RIDER_KINDS = {"Blind"}
+
+
+def _positional_hosts(config, effects):
+    """认选择器的效果(PICK_KINDS)在配置格里的位置:[(pos, effect)],按位置升序。
+    修饰 token 挂**它前面最近的**那条效果(`Slow 1` + `pick Random` 的 pick 属于 Slow)。
+    同一格里同 Kind 出现两次时,后一条从前一条之后开始找位置。"""
+    found, cursor = [], {}
+    for e in effects:
+        kind = e["kind"]
+        if kind not in PICK_KINDS:
+            continue
+        needles = [f"`{kind} ", f"`{kind}`"] + (["`DetonateAll`"] if kind == "Detonate" else [])
+        start = cursor.get(kind, 0)
+        hits = [pos for pos in (config.find(n, start) for n in needles) if pos >= 0]
+        if not hits:
+            continue
+        pos = min(hits)
+        cursor[kind] = pos + 1
+        found.append((pos, e))
+    return sorted(found, key=lambda t: t[0])
+
+
+def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None):
+    """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS 效果上。parse(raw) 返回要写进字段的值。"""
+    pattern = rf"`{token}(?: (\w+))?`"
+    hosts = _positional_hosts(config, effects)
+    seen = set()
+    for m in re.finditer(pattern, config):
+        consumed.add(token)
+        before = [e for pos, e in hosts if pos < m.start()]
+        if not before:
+            raise ValueError(
+                f"{char}:配置格「{config}」写了 `{token}`,但它前面没有可挂的效果"
+                f"(只认 {sorted(PICK_KINDS)})—— 它会静默消失。")
+        host = before[-1]
+        if allowed_kinds is not None and host["kind"] not in allowed_kinds:
+            raise ValueError(f"{char}:`{token}` 只能挂在 {sorted(allowed_kinds)} 上,当前挂到了 {host['kind']}")
+        if id(host) in seen or field in host:
+            raise ValueError(f"{char}:配置格「{config}」里同一条 {host['kind']} 写了多个 `{token}`,只能有一个")
+        seen.add(id(host))
+        host[field] = parse(m.group(1))
+
+
+def _attach_modifier_tokens(config, char, effects, consumed):
+    """D1 Task 3:把修饰 token 挂到同格的修饰器上(与 `turns` / `Pierce` 同一套「挂在本格效果上」的机制)。
+
+    - `scope X` / `if X` → 本格的 Amplify(没有 Amplify 就报错:那个条件会静默消失)。
+    - `shape X`、DAMAGE_MARKER_VALUE_TOKENS、`forceCrit` → 本格的 Reshape;本格没有 Reshape 时
+      挂到 DamageSingle 上(伤害标记也可以直接写在本体伤害上);两者都没有就报错。
+    - 名字不在枚举表里的值(`scope Bogus` / `if Nope` / `shape Ring`)报错。"""
+    amps = [e for e in effects if e["kind"] == "Amplify"]
+    hosts = [e for e in effects if e["kind"] == "Reshape"] or \
+        [e for e in effects if e["kind"] == "DamageSingle"]
+
+    def need(host_list, token, what):
+        if not host_list:
+            raise ValueError(f"{char}:配置格「{config}」写了修饰 token `{token}`,但本格没有{what} —— 它会静默消失。")
+
+    for token, field, allowed in ((AMP_SCOPE_TOKEN, "scope", AMP_SCOPES),
+                                  (ONLY_IF_TOKEN, "onlyIf", CONDITIONS)):
+        found = re.search(rf"`{token} (\w+)`", config)
+        if not found:
+            continue
+        if token == ONLY_IF_TOKEN and not amps:
+            continue   # 没有 Amplify:条件门挂在前一条敌方侧效果上(下面的 _attach_positional)
+        consumed.add(token)
+        # 同格多个 scope / if:只认第一个会让后面的静默消失 —— 一格一条 Amplify 一个条件,多了就拆格
+        if len(re.findall(rf"`{token} \w+`", config)) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{token}`,只能有一个(多条加成请分开写)")
+        if found.group(1) not in allowed:
+            raise ValueError(f"{char}:`{token} {found.group(1)}` 的取值未知,只认 {sorted(allowed)}")
+        need(amps, token, " Amplify")
+        for e in amps:
+            e[field] = found.group(1)
+
+    def _parse_condition(raw):
+        if raw not in CONDITIONS:
+            raise ValueError(f"{char}:`if {raw}` 的取值未知,只认 {sorted(CONDITIONS)}")
+        return raw
+
+    def _parse_pick(raw):
+        if raw not in PICKS:
+            raise ValueError(f"{char}:`pick {raw}` 的取值未知,只认 {sorted(PICKS)}")
+        return raw
+
+    if not amps:
+        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition)
+    _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
+    _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
+                       allowed_kinds={"BurnSettleNow"})
+
+    def _parse_rider(raw):
+        if raw not in RIDER_CARRIERS:
+            raise ValueError(f"{char}:`rider {raw}` 的载体未知,只认 {sorted(RIDER_CARRIERS)}")
+        return raw
+
+    _attach_positional(config, char, effects, consumed, RIDER_TOKEN, "riderOf", _parse_rider,
+                       allowed_kinds=RIDER_KINDS)
+
+    augments = [e for e in effects if e["kind"] == "Augment"]
+    for token, field, allowed in ((AUGMENT_OF_TOKEN, "augmentKind", None),
+                                  (AUGMENT_FIELD_TOKEN, "augmentField", AUGMENT_FIELDS)):
+        found = re.findall(rf"`{token} (\w+)`", config)
+        if found:
+            consumed.add(token)
+        if len(found) > len(augments) and augments:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{token}`,一条 Augment 只能配一个")
+        if found and not augments:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token} {found[0]}`,但本格没有 Augment —— 它会静默消失。")
+        if augments and len(found) < len(augments):
+            raise ValueError(f"{char}:配置格「{config}」的 Augment 缺 `{token} X`")
+        # 一格可有多条 Augment(冰锁:冻结、减速各 +1),of / field 按出现顺序一一对应
+        for e, value in zip(augments, found):
+            if allowed is not None and value not in allowed:
+                raise ValueError(f"{char}:`{token} {value}` 的取值未知,只认 {sorted(allowed)}")
+            e[field] = value
+
+    shape = re.search(rf"`{RESHAPE_SHAPE_TOKEN} (\w+)`", config)
+    if shape:
+        consumed.add(RESHAPE_SHAPE_TOKEN)
+        if shape.group(1) not in RESHAPE_SHAPES:
+            raise ValueError(f"{char}:`shape {shape.group(1)}` 的形状未知,只认 {sorted(RESHAPE_SHAPES)}")
+        need(hosts, RESHAPE_SHAPE_TOKEN, " Reshape 或 DamageSingle")
+        for e in hosts:
+            e["shape"] = shape.group(1)
+    for token, field in DAMAGE_MARKER_VALUE_TOKENS.items():
+        found = re.search(rf"`{token} (\d+)`", config)
+        if not found:
+            continue
+        consumed.add(token)
+        need(hosts, token, " Reshape 或 DamageSingle")
+        for e in hosts:
+            e[field] = int(found.group(1))
+    if f"`{FORCE_CRIT_TOKEN}`" in config:
+        consumed.add(FORCE_CRIT_TOKEN)
+        need(hosts, FORCE_CRIT_TOKEN, " Reshape 或 DamageSingle")
+        for e in hosts:
+            e["forceCrit"] = True
 
 
 def _raise_unconsumed_tokens(char, config, unknown):
@@ -237,6 +444,45 @@ def _parse_row(line, element):
     return char, entry
 
 
+SAPLING_COUNT_TOKEN = "count"
+PERCENT_OF_MAX_TOKEN = "pct"
+
+
+def _attach_ally_tokens(config, char, effects, consumed):
+    """D1 Task 7:`count N` → 本格 SummonSapling 的只数;`pct` → 本格 HealSummons 按最大生命百分比;
+    我方侧选择器只能配它自己的 kind,我方侧效果不带条件门(Core 的 ConfigLoader 同样拦)。"""
+    for token, field, host_kind, value_of in (
+            (SAPLING_COUNT_TOKEN, "count", "SummonSapling", lambda m: int(m.group(1))),
+            (PERCENT_OF_MAX_TOKEN, "percentOfMax", "HealSummons", lambda m: True)):
+        pattern = rf"`{token} (\d+)`" if field == "count" else rf"`{token}`"
+        found = list(re.finditer(pattern, config))
+        if not found:
+            continue
+        consumed.add(token)
+        hosts = [e for e in effects if e["kind"] == host_kind]
+        if not hosts:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有 {host_kind} —— 它会静默消失。")
+        if len(found) > 1 or len(hosts) > 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{token}` 只能配一条 {host_kind}")
+        hosts[0][field] = value_of(found[0])
+    for e in effects:
+        pick = e.get("pick")
+        if pick is None:
+            continue
+        ally_kind = ALLY_PICKS.get(pick)
+        if ally_kind is not None and e["kind"] != ally_kind:
+            raise ValueError(f"{char}:`pick {pick}` 只能挂在 {ally_kind} 上,当前挂到了 {e['kind']}")
+        if ally_kind is None and e["kind"] not in ENEMY_PICK_KINDS:
+            raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
+                             f"{sorted(p for p, k in ALLY_PICKS.items() if k == e['kind'])})")
+    for e in effects:
+        # 保命必须写 `pick SummonedThisCast`(Ruling 10):缺省写法引擎选不到召唤物,会静默空转
+        if e["kind"] == "Endure" and e.get("pick") != "SummonedThisCast":
+            raise ValueError(f"{char}:`Endure` 必须配 `pick SummonedThisCast`(落点是本次召出的召唤物)")
+        if "onlyIf" in e and e["kind"] in ALLY_PICKS.values():
+            raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
+
+
 def _parse_effects(config, char):
     """「`DamageSingle 30` + `All` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
 
@@ -326,6 +572,11 @@ def _parse_effects(config, char):
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):
         if kind in SUMMON_HANDLED:
             continue
+        if kind == "turns":
+            # 带反引号的 `turns N`(池表 / 特性表的写法)是回合数修饰,下面统一用 turns 正则挂到
+            # 吃回合的效果上;不是一条 kind=turns 的效果(D1 Task 13)
+            consumed.add(kind)
+            continue
         consumed.add(kind)
         if kind in EXECUTE_TOKENS:
             continue  # 斩杀是修饰而非效果,下面统一挂到伤害上
@@ -337,6 +588,10 @@ def _parse_effects(config, char):
             continue  # 镇压百分比是修饰而非效果,下面统一挂到伤害上
         if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN, CHAIN_TOKEN):
             continue  # 目标形状的修饰,下面统一挂到伤害上
+        if kind in DAMAGE_MARKER_VALUE_TOKENS:
+            continue  # 修饰器 / 伤害标记的数值(D1 Task 3),由 _attach_modifier_tokens 挂
+        if kind == SAPLING_COUNT_TOKEN:
+            continue  # 幼苗只数(D1 Task 7),下面挂到 SummonSapling 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -349,7 +604,7 @@ def _parse_effects(config, char):
             effect["targetAll"] = True
         # 条件加成(2026-08-25 由 DoubleVsBurning 泛化成四选一)。写成条件名而不是布尔位,
         # 新增条件时只动这张表,不用再加一个平行的 bool —— 与 EffectKind 同口径。
-        if kind.startswith("Damage"):
+        if _is_damage(kind):
             for token in ("Burning", "Bleeding", "Controlled", "ArmorBroken"):
                 if f"`DoubleVs{token}`" in config:
                     effect["doubleVs"] = token
@@ -360,7 +615,7 @@ def _parse_effects(config, char):
         # 而不是被悄悄吞掉、生成一张「以为能偷袭」的字。
         # 碾(2026-09-16,土):跳过整条 DR,单体/全体两种伤害都能挂(BattleEngine 的
         # DamageSingle 分支对形状展开的每个目标都接了 effect.TrueDamage → bypassDefense)。
-        if kind.startswith("Damage") and f"`{TRUE_DAMAGE_TOKEN}`" in config:
+        if _is_damage(kind) and f"`{TRUE_DAMAGE_TOKEN}`" in config:
             effect["trueDamage"] = True
             consumed.add(TRUE_DAMAGE_TOKEN)
         # 目标形状(2026-08-22,spec §9.1):修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
@@ -411,7 +666,7 @@ def _parse_effects(config, char):
             continue
         consumed.add(token)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["executeBelowPercent"] = int(found.group(1))
                 effect["executeKills"] = kills
 
@@ -419,22 +674,25 @@ def _parse_effects(config, char):
     if hit_count:
         consumed.add(HIT_COUNT_TOKEN)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["hitCount"] = int(hit_count.group(1))
 
     pierce = re.search(rf"`{PIERCE_TOKEN} (\d+)`", config)
     if pierce:
         consumed.add(PIERCE_TOKEN)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["pierce"] = int(pierce.group(1))
 
     armor_strike = re.search(rf"`{ARMOR_STRIKE_TOKEN} (\d+)`", config)
     if armor_strike:
         consumed.add(ARMOR_STRIKE_TOKEN)
         for effect in effects:
-            if effect["kind"].startswith("Damage"):
+            if _is_damage(effect["kind"]):
                 effect["armorStrikePercent"] = int(armor_strike.group(1))
+
+    _attach_modifier_tokens(config, char, effects, consumed)
+    _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:
@@ -457,7 +715,11 @@ def _parse_effects(config, char):
     # `(turns N)`,TurnsLeft = 0 会被 TickTurns 当场清掉,卡面照印着这个效果,状态施加
     # 那一刻就已经失效)。比「turns 挂错 kind」更常见,是详表最容易漏写的一种笔误。
     missing_turns = [e["kind"] for e in effects
-                     if e["kind"] in DURATION_KINDS and "turns" not in e]
+                     if "turns" not in e and "riderOf" not in e   # 附着的效果随载体存续(D1 Task 9)
+                     and (e["kind"] in DURATION_KINDS
+                          # 标记(Vulnerable):只有冰缚写法(pick FrozenByThisCast)可省 turns,
+                          # 回合数由引擎取目标的冻结回合;其余缺 turns 同减攻 / 种报错
+                          or (e["kind"] == "Vulnerable" and e.get("pick") != "FrozenByThisCast"))]
     if missing_turns:
         raise ValueError(
             f"{char}:`{missing_turns[0]}` 是需要 turns 的效果(在 DURATION_KINDS 里),"

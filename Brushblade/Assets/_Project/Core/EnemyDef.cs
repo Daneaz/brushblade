@@ -205,8 +205,8 @@ namespace Brushblade.Core
         /// <summary>行动计量器:回合末累积速度,每满 100 行动一次(与敌人同走一套模型)。</summary>
         public int ActionMeter { get; internal set; }
 
-        /// <summary>召唤物护盾(2026-08-05,桂):一次性额外血条,先于血量吸伤,吸完即无、
-        /// 不刷新、不随回合清空。</summary>
+        /// <summary>召唤物护盾(2026-08-05,桂):额外血条,先于血量吸伤,吸完即无、不刷新。
+        /// 2026-10-04 U1 起:剩余部分在玩家下一回合开始时清空(与玩家普通护盾同一时点;召唤物没有留存桶)。</summary>
         public int Shield { get; internal set; }
 
         /// <summary>被动(2026-08-05)。null = 无被动。</summary>
@@ -337,7 +337,9 @@ namespace Brushblade.Core
 
         /// <summary>敌人护盾(2026-08-30):一次性额外血条,在护甲折算**之后**、扣血**之前**吸收
         /// (2026-09-16 护甲由点数减法改为百分比减伤,顺序口径不变);
-        /// 吸完即无、不刷新、不随回合清空。与 <see cref="SummonState.Shield"/> 同型。
+        /// 吸完即无、不刷新、不随回合清空
+        /// (U1 回合末清盾只清我方:玩家普通桶与召唤物护盾,敌人护盾不在其列;因此与
+        /// <see cref="SummonState.Shield"/> 不再同型,后者在玩家下一回合开始清空)。
         ///
         /// ⚠ **眼下没有来源**(用户 2026-08-30 拍板):enemies.json 不配、也没有结盾技能。
         /// 将来的来源是「加盾辅助怪给同伴挂 buff」。所以真机上它恒为 0,
@@ -398,6 +400,7 @@ namespace Brushblade.Core
         public int BaseAttack { get; internal set; }
 
         /// <summary>当前攻击 = 基础攻击 × (100 + 攻击增益% − 诅咒%) ÷ 100,向下取整、下限 0。
+        /// 诅咒(减攻)多来源取最强的一条,不相加(Ruling 18,与标记 / 本回合减伤同口径);攻击增益仍相加。
         ///
         /// AttackBuff 与 Curse 都是**百分点**,同一根轴上直接加减(2026-08-12,E-b4 T0.5)——
         /// 与玩家侧 <c>BattleEngine.EffectiveAttack</c> 同形,敌我两侧的 AttackBuff 从此是同一个单位。
@@ -422,7 +425,7 @@ namespace Brushblade.Core
             {
                 int percent = 100
                     + Statuses.TotalMagnitude(StatusKind.AttackBuff)
-                    - Statuses.TotalMagnitude(StatusKind.Curse);
+                    - Statuses.MaxMagnitude(StatusKind.Curse);   // 多来源取最强,不相加(Ruling 18)
                 return Math.Max(0, BaseAttack * percent / 100);
             }
         }

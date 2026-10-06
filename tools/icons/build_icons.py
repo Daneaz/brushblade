@@ -209,6 +209,22 @@ ICONS = {
         f'<path {STROKE} d="M21 10v44M8 20l26 24M34 20L8 44"/>'
         f'<path {STROKE} d="M60 32H43M50 24l-8 8 8 8"/>'
     ),
+    # 种(D1 Task 6,2026-10-05):一茎两叶的嫩芽。路径逐字取自 traits-data.js 的 seed
+    "seed": (
+        f'<path {STROKE} d="M32 56V30"/>'
+        f'<path {FILL} d="M32 33C20 33 11 25 11 12c13 0 21 8 21 21z"/>'
+        f'<path {FILL} d="M32 29c0-11 7-18 20-18 0 11-7 18-20 18z"/>'
+    ),
+    # 标记:描边菱形 + 实心圆心。路径逐字取自 traits-data.js 的 mark
+    "mark": (
+        f'<path {STROKE} d="M32 6l26 26-26 26L6 32z"/>'
+        f'<circle cx="32" cy="32" r="7" {FILL}/>'
+    ),
+    # 留存护盾(D1 Task 10,2026-10-05):盾形描边 + 实心书签。路径逐字取自 traits-data.js 的 keepshield
+    "keepshield": (
+        f'<path {STROKE} d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
+        f'<path {FILL} d="M25 19h14v23l-7-6-7 6z"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

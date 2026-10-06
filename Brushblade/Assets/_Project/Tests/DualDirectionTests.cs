@@ -148,12 +148,6 @@ namespace Brushblade.Core.Tests
         private static int ExpectedGroupHeal(CardRarity rarity, params string[] traits) =>
             Round(RarityAnchor[rarity].Heal * HealF * GroupF * (1 - Ratio(rarity, traits)));
 
-        private static int ExpectedGroupShield(CardRarity rarity, params string[] traits) =>
-            Round(RarityAnchor[rarity].Shield * ShieldF * GroupF * (1 - Ratio(rarity, traits)));
-
-        private static int ExpectedAllAttack(CardRarity rarity, params string[] traits) =>
-            Round(RarityAnchor[rarity].All * (1 - Ratio(rarity, traits)));
-
         /// <summary>利 / 锋 的攻护两面(2026-09-08 用户裁定:「不能既加攻又能攻击,还给我方
         /// +buff」)。这两张此前是**单面**字 —— 一次触发同时吃到伤害 + 自身增益,正是 §1.5
         /// 「打敌人的进攻面、挂自己的进护面、不许两面都挂」的漏网。
@@ -167,14 +161,16 @@ namespace Brushblade.Core.Tests
         public void MetalBuffChars_SplitIntoBothDirections()
         {
             var graph = LoadRealGraph();
-            foreach (var (id, buff) in new[] { ("利", EffectKind.Empower), ("锋", EffectKind.CritBuff) })
+            // 2026-10-05(D1 Task 12,spec v7 §4):利 / 锋 原护面的增攻 / 暴击随附加效果作废,
+            // 护面改为铠 = 战意 + 格挡 1 次。「攻面不夹带护面效果」的归属不变量照钉。
+            foreach (var (id, buff) in new[] { ("利", EffectKind.Block), ("锋", EffectKind.Block) })
             {
                 var def = graph.Get(id);
                 Assert.That(def.AttackEffects.Count, Is.GreaterThan(0), $"{id} 缺攻击面");
 
-                // 护面 = 自身增益,且必须限时(2026-09-08 全表规则)
+                // 护面 = 铠(战意 + 格挡)
                 var b = def.Effects.First(e => e.Kind == buff);
-                Assert.That(b.Turns, Is.GreaterThan(0), $"{id} 的增益要带回合数");
+                Assert.That(b.Value, Is.EqualTo(1), $"{id} 格挡 1 次");
                 Assert.That(def.Effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False,
                     $"{id} 的护面不该带伤害");
 
@@ -201,15 +197,16 @@ namespace Brushblade.Core.Tests
             int hp0 = attack.Enemies[0].Hp;
             Assert.That(attack.Cast("利", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(attack.Enemies[0].Hp, Is.LessThan(hp0), "攻面打得动人");
-            Assert.That(attack.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0),
-                "攻面不该顺带给玩家增攻");
+            Assert.That(attack.PlayerStatuses.TotalMagnitude(StatusKind.Block), Is.EqualTo(0),
+                "攻面不该顺带给玩家格挡");
 
             var buff = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 1000 },
                 new[] { "利" }, Array.Empty<string>(), enemies, seed: 1);
             int hp1 = buff.Enemies[0].Hp;
             Assert.That(buff.Cast("利", allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
-            Assert.That(buff.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff), Is.GreaterThan(0),
-                "护面真的给了增攻");
+            // 2026-10-05(D1 Task 12):护面由增攻改为铠(格挡)
+            Assert.That(buff.PlayerStatuses.TotalMagnitude(StatusKind.Block), Is.GreaterThan(0),
+                "护面真的给了格挡");
             Assert.That(buff.Enemies[0].Hp, Is.EqualTo(hp1), "护面不该顺带打人");
         }
 
@@ -371,13 +368,12 @@ namespace Brushblade.Core.Tests
             // 反伤/免疫不再分开计价,改用合并键(见上方 TraitPrice 大注释)。
             Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50+镇压50", "对破甲")),
                 "金档:护盾锚点278 × SHIELD_F × (1 − (反伤50+镇压50+对破甲)×K金)");
-            // 㙓 2026-09-08 起是群盾 + 群攻(与 崩 对称:红档的厚积薄发载体也该打全场)
-            Assert.That(ShieldAllValueOf(graph, "㙓"),
-                Is.EqualTo(ExpectedGroupShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
-                "红档:护盾锚点600 × SHIELD_F × GROUP_F × (1 − (免一次清盾+护甲)×K红);终极技不计价");
-            Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value,
-                Is.EqualTo(ExpectedAllAttack(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
-                "攻面走全体锚点,与护盾面同一个 ratio");
+            // 㙓 2026-09-08 起是群盾 + 群攻(与 崩 对称:红档的厚积薄发载体也该打全场)。
+            // 2026-10-05(D1 Task 12,用户拍板 U2):固面改单体 Shield、攻击改单体,数值沿用原值。
+            // 旧价目公式已作废(spec §4 价目作废,Ruling 16),这里直接钉住本体现值;Plan F 定标时改这两个数。
+            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(235), "㙓 固面单体护盾本体值(Plan F 定标前)");
+            Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(235), "㙓 攻面单体伤害本体值(Plan F 定标前)");
             Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1+碾", "护甲")),
                 "金档:护盾锚点278 × SHIELD_F × (1 − (免疫1+碾+护甲)×K金)");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
@@ -449,12 +445,15 @@ namespace Brushblade.Core.Tests
             var yanDef = graph.Get("焱");
             var yiDef = graph.Get("燚");
             var fenDef = graph.Get("焚");
-            int yan = yanDef.Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
-            int yi = yiDef.Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
-            int fen = fenDef.Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
-            int yanBurn = yanDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            int yiBurn = yiDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            int fenBurn = fenDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            // 2026-10-05(D1 Task 12):火字拆两面,伤害与灼在攻击面。焱 的攻击按用户拍板 U2 改单体
+            // (spec §9 本体列只写「燃:全体」),伤害值沿用;灼层数改按 spec v7 §4 的档位表:
+            // 橙 3、红 4(燚 5 → 4、焚 4 → 3,焱 仍 3)。
+            int yan = yanDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value;
+            int yi = yiDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
+            int fen = fenDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
+            int yanBurn = yanDef.AttackEffects.First(e => e.Kind == EffectKind.BurnSingle).Value;
+            int yiBurn = yiDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            int fenBurn = fenDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
             // 2026-09-11(T3):橙档全体锚点 240 → 204(焱 126 → 99、焚 108 → 77);
             // 红档全体锚点 300 不变,燚 的 86 原样。
             Assert.That(yan, Is.EqualTo(99));
@@ -462,8 +461,8 @@ namespace Brushblade.Core.Tests
             Assert.That(yi, Is.EqualTo(86),
                 "红档当面数字比橙档低——强度大头压在灼烧总当量上,不是当面数字,见类方法文档");
             Assert.That(yanBurn, Is.EqualTo(3));
-            Assert.That(fenBurn, Is.EqualTo(4));
-            Assert.That(yiBurn, Is.EqualTo(5));
+            Assert.That(fenBurn, Is.EqualTo(3));
+            Assert.That(yiBurn, Is.EqualTo(4));
 
             // 真正的档位不变量:总当量(直接伤害 + 灼烧层数按三角数折算的等价伤害)
             // 必须红档 > 橙档 —— dot_equiv(n) = n(n+1)/2 × 20,与 rebalance 脚本同公式。

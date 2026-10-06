@@ -91,12 +91,16 @@ namespace Brushblade.Presentation
         /// 其余 19 个 StatusKind 各自固定在一个分组里,与符号无关。</summary>
         public static Color ColorFor(StatusKind kind, int magnitude) => kind switch
         {
-            StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed => Theme.Cinnabar,
+            // 标记(D1 Task 6,StatusChips 稿 k-dot):朱砂,与灼烧同属「持续伤害与威胁」
+            StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable => Theme.Cinnabar,
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
                 or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall => Control,
             StatusKind.SpeedModifier => magnitude < 0 ? Control : Guard,
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
-                or StatusKind.DodgeBuff or StatusKind.HealOverTime => Guard,
+                or StatusKind.DodgeBuff or StatusKind.HealOverTime
+                or StatusKind.Seed => Guard,   // 种(D1 Task 6,稿 k-heal 翠玉)
+            // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
+            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure => Guard,
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
@@ -123,7 +127,12 @@ namespace Brushblade.Presentation
                 or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
-                or StatusKind.IceStall => "",
+                or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable => "",   // 种 / 标记无数字(稿)
+            // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
+            // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
+            StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),
+            StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
+            StatusKind.Endure => Strings.T("detail.chip.endure"),
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),

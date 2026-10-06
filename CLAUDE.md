@@ -29,7 +29,7 @@
 ```bash
 # 管线(pytest)。⚠ 六个目录都要跑:漏掉 tools/icons/ 会让「手写了一张 PNG、
 # 绕过整条 SVG→PNG 管线」这种改法全绿通过(2026-09-04 栽过一次);漏掉 tools/design/
-# 就看不到数值脚本(rebalance_2026_09_05.py)与 chars.json 的对账测试;
+# 就看不到宝箱 / 设计预览 / 字怪与召唤物素材 / 文档新鲜度这几组测试(数值脚本与 chars.json 的对账测试已于 D1 退役);
 # 漏掉 tools/branding/ 看不到 App 图标与 Theme.cs 的配色对账;
 # 漏掉 tools/monetization/ 看不到「广告发奖有没有过 AdGate」的接线对账 ——
 # 后两个是 2026-09-21/22 新增的,加新目录记得同步这一行

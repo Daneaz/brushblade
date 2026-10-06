@@ -1475,7 +1475,7 @@ namespace Brushblade.Presentation
               .Append(_run.CharPicksLeft).Append('|')
               .Append(_run.EarnedInk).Append('|')
               .Append(battle.Phase).Append('|').Append(battle.Turn).Append('|').Append(battle.Ap).Append('|')
-              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append('|')
+              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append(',').Append(battle.ShieldPersist).Append('|')
               .Append(string.Join(",", battle.Library)).Append('|')
               .Append(string.Join(",", battle.Pool));
             foreach (var enemy in battle.Enemies)
@@ -1912,6 +1912,11 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "reflect"));
+            // 留存护盾(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 留存量。普通护盾回合末清空,
+            // 这一枚是「清不掉的那部分」;玩家护盾总数仍在血条上合计显示,这里只额外报留存量。
+            // 顺序:稿定 嘲讽 · 保命 · 留存护盾 · 减伤 · 格挡 ...(前后几枚未实现,只按相对顺序放在格挡之前)
+            int keepShield = Battle.ShieldPersist;
+            if (keepShield > 0) statusChips.Add(new($"{keepShield}", Theme.Jade, Color.white, "keepshield"));
             // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
             int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
             if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
@@ -2947,12 +2952,19 @@ namespace Brushblade.Presentation
                 int bleedStacks = enemy.Statuses.TotalMagnitude(StatusKind.Bleed);
                 if (bleedStacks > 0)
                     chipSpecs.Add(new($"{bleedStacks}", Theme.Cinnabar, Color.white, "bleed"));
+                // 标记(D1 Task 6,StatusChips 稿):朱砂底、mark 图标、无数字(受伤加成是挂着期间恒定的修正值)。
+                // 顺序「灼 · 标记 · 冻结」:紧跟灼烧一族,先于控制类。
+                if (enemy.Statuses.TotalMagnitude(StatusKind.Vulnerable) > 0)
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "mark"));
                 // 冻结 / 减速(2026-08-13):此前这两个状态在敌人身上零显示 —— 冻结的怪不出手、
                 // 减速的怪隔回合才出手,玩家只能靠数它哪回合打了自己来倒推。
                 // 排在致盲之前:这两条直接回答「它下回合会不会打我」,信息价值高于减伤类,
                 // 不该在 ChipFlow 装不下时被从尾部丢掉。
                 if (enemy.Statuses.Has(StatusKind.Freeze))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "freeze"));
+                // 种(D1 Task 6,StatusChips 稿):翠玉底、seed 图标、无数字。顺序「冻结 · 种 · 减速」。
+                if (enemy.Statuses.Has(StatusKind.Seed))
+                    chipSpecs.Add(new("", Theme.Jade, Color.white, "seed"));
                 // 减速 / 致盲 / 诅咒都只出图标不带数字(2026-09-02 用户拍板):数字只留给
                 // 「跟随回合消亡」的 DOT/HOT(上面的灼烧就是),而这三条是**持续期间恒定的
                 // 修正值** —— 玩家要知道的是「挂上没挂上」,减多少去详情弹窗看。
@@ -3238,7 +3250,7 @@ namespace Brushblade.Presentation
             //   · **既要敌人又要友方**的(沝/澡/沐/垚/圭/垒):照旧拖到敌人身上,松手后进第二段
             //     点友方 —— 与点「出字」那条路径同一个状态机,不写第二套。
             bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
-                && !BattleEngine.NeedsTarget(def, attackMode: true);
+                && !BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id));
             // 双方向字(2026-09-03):起拖时**敌我两边一起点亮**,与双击那条路径同构 ——
             // 拖到哪边就是哪边,可落点必须在起拖那一刻就看得见,否则玩家得靠猜。
             // 排在 allyOnly 之后判:纯友方字(㵘/淼 这类没有单体攻击面的)仍走它自己那一支,
@@ -3397,7 +3409,7 @@ namespace Brushblade.Presentation
 
             if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
 
-            var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
+            var (shape, shots) = BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id));
             // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
             // 对全体字返回 Single,预览只标悬停那只。本次是恒等重构,预览沿用旧样子;
             // 要改成「标出全场」是另一件视觉改动,不在这里顺手做。
@@ -3445,8 +3457,8 @@ namespace Brushblade.Presentation
             ClearDragTargets();
             // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
             // 所以拖拽时照样要把能落的敌人标出来。
-            if (!BattleEngine.NeedsTarget(def, attackMode: true)
-                && BattleEngine.AttackShapeOf(def, attackMode: true).Shape != TargetArea.Scatter) return;
+            if (!BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id))
+                && BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id)).Shape != TargetArea.Scatter) return;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
                 if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode: true)) continue;
@@ -5353,7 +5365,7 @@ namespace Brushblade.Presentation
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
             // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
             // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
-            if (BattleEngine.NeedsTarget(def, attackMode) && LegalTargetCount(def, attackMode) > 1)
+            if (BattleEngine.NeedsTarget(def, attackMode, _run.CardLevel(def.Id)) && LegalTargetCount(def, attackMode) > 1)
             {
                 _targeting = true;
                 _pendingAttackMode = attackMode;
@@ -5595,7 +5607,7 @@ namespace Brushblade.Presentation
                 return;
             }
             if (error == BattleError.None)
-                _tutorial?.Notify(TutorialAction.Cast, charId);
+                _tutorial?.Notify(TutorialAction.Cast, charId, BattleEngine.FaceOf(_graph.Get(charId), attackMode));
             else
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? Strings.T("battle.msg.cast_success", ("charId", charId)) : Describe(error);
@@ -5643,7 +5655,9 @@ namespace Brushblade.Presentation
         /// 那时说不出具体是哪一格,退回旧口径的整体说法。</summary>
         private string ReplaceSummonBody(CharDef def, bool attackMode, IReadOnlyList<int> summonSlots)
         {
-            int count = Battle.SummonCountOf(def, attackMode);
+            // 只算本体召唤(D1 Task 7):幼苗只占空位、不顶人 —— 与引擎 SummonReplaceCountOf、按钮同口径。
+            // 选位(EnterSlotPicking)仍用 SummonCountOf:落位表要给幼苗也排上格子。
+            int count = Battle.ReplaceableSummonCountOf(def, attackMode);
             if (summonSlots == null)
                 return Strings.T("battle.dialog.slot_occupied.body_generic",
                         ("alive", Battle.AliveSummonCount), ("capacity", Battle.SummonCapacity),

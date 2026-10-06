@@ -155,7 +155,9 @@ namespace Brushblade.Core.Tests
 
             Assert.That(battle.Dismantle(demo), Is.EqualTo(BattleError.None), "拆演示字");
             Assert.That(battle.Compose(demo), Is.EqualTo(BattleError.None), "合回演示字");
-            Assert.That(battle.Cast(demo), Is.EqualTo(BattleError.None), "打出演示字");
+            // 2026-10-05(D1 Task 12):剿 拆成攻击 / 铠两面,伤害在攻击面。表现层的双向态里
+            // 点敌人 = 攻击面(BattleView.OnCastPressed),所以这里按攻击面出、打首个敌人。
+            Assert.That(battle.Cast(demo, 0, attackMode: true), Is.EqualTo(BattleError.None), "打出演示字");
             if (battle.Phase == BattlePhase.PlayerTurn)
                 battle.EndTurn();
             Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Won), "首层没能在一回合内清掉");

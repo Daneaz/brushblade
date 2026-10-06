@@ -36,6 +36,21 @@ def test_face_form_replaces_mapping_omits_defaults():
     assert t["火上浇油"]["effects"] == [{"kind": "DamageSingle", "value": 50}]
 
 
+def test_form_trigger_suffix_parsed():
+    table = _TABLE + "| 炎 | Lv6 | 两面 | 被动·暴击 | — | 暴焰 | `BurnSingle 1` | ✅ |\n" \
+                     "| 炎 | Lv8 | 两面 | 被动·击杀 | — | 乘胜 | `BurnSingle 1` | ✅ |\n"
+    t = {x["name"]: x for x in extract_traits(table)["炎"]}
+    assert t["暴焰"]["form"] == "Passive" and t["暴焰"]["trigger"] == "OnCrit"
+    assert t["乘胜"]["form"] == "Passive" and t["乘胜"]["trigger"] == "OnKill"
+    assert "trigger" not in t["双焰"]
+
+
+def test_active_with_trigger_rejected():
+    bad = _TABLE + "| 炎 | Lv6 | 两面 | 主动·暴击 | — | 坏 | `BurnSingle 1` | ✅ |\n"
+    with pytest.raises(ValueError):
+        extract_traits(bad)
+
+
 @pytest.mark.parametrize("bad", [
     "| 炎 | Lv2 | 攻 | 主动 | — | 坏 | `DamageSingle 1` | ✅ |",
     "| 炎 | Lv5 | 飞 | 主动 | — | 坏 | `DamageSingle 1` | ✅ |",
@@ -115,3 +130,70 @@ def test_duplicate_across_feature_face_names_raises():
           "| 炎 | Lv5 | 铠 | 主动 | — | 乙 | `BurnSingle 1` | ✅ |\n")
     with pytest.raises(ValueError):
         extract_traits(md)
+
+
+def test_backticked_turns_token_is_a_modifier_not_an_effect():
+    """池表与特性表把回合数写成 `turns N`(带反引号):它是挂在前面效果上的修饰,不是一条 kind=turns 的效果
+    (D1 Task 13:曾落成 {"kind": "turns"} 让 ConfigLoader 加载期报「效果类型未知」)。"""
+    md = _H + "| 炎 | Lv3 | 燃 | 主动 | Lv1 | 甲 | `BurnSingle 4` `Weaken 15` `turns 3` | ✅ |\n"
+    effects = extract_traits(md)["炎"][0]["effects"]
+    assert [e["kind"] for e in effects] == ["BurnSingle", "Weaken"]
+    assert effects[1]["turns"] == 3
+
+
+def _ref_effects(chars, pool_rows, name):
+    from extract_traits import extract_pool
+    pool = extract_pool("| 系 | 槽 | 面 | 形态 | 名 | 效果配置 | X |\n|---|---|---|---|---|---|---|\n" + pool_rows)
+    md = _H + f"| 炸 | Lv5 | 攻 | — | — | {name} | — | ✅ |\n"
+    return extract_traits(md, "火", pool, chars)["炸"][0]["effects"]
+
+
+_AOE = {"炸": {"rarity": "Blue", "attackEffects": [{"kind": "DamageSingle", "value": 4, "shape": "All"}]}}
+_SINGLE = {"炸": {"rarity": "Blue", "attackEffects": [{"kind": "DamageSingle", "value": 4}]}}
+_ROWS = ("| 火 | Lv5 | 攻 | 主动 | 引燃 | `BurnSettleNow` `keep` | — |\n"
+         "| 火 | Lv5 | 攻 | 主动 | 凝冰 | `Freeze 1` `pick Random` | — |\n"
+         "| 火 | Lv5 | 攻 | 主动 | 爆燃 | `Amplify 30` `scope Damage` | — |\n")
+
+
+def test_pool_ref_on_all_target_face_gets_pick_all():
+    """Ruling 17:池条目落到全体面(本体不选目标)时,单体敌方效果补 pick All。"""
+    assert _ref_effects(_AOE, _ROWS, "池·引燃")[0]["pick"] == "All"
+
+
+def test_pool_ref_on_single_target_face_keeps_primary():
+    assert "pick" not in _ref_effects(_SINGLE, _ROWS, "池·引燃")[0]
+
+
+def test_pool_ref_explicit_pick_not_overridden():
+    assert _ref_effects(_AOE, _ROWS, "池·凝冰")[0]["pick"] == "Random"
+
+
+def test_pool_ref_trigger_entries_not_retargeted():
+    """被动·暴击 / 被动·击杀 的反应自带目标，全体面也不补 pick All。"""
+    from extract_traits import extract_pool
+    pool = extract_pool("| 系 | 槽 | 面 | 形态 | 名 | 效果配置 | X |\n|---|---|---|---|---|---|---|\n"
+                        "| 火 | Lv6 | 攻 | 被动·暴击 | 炽烈 | `BurnSingle 2` | — |\n")
+    md = _H + "| 炸 | Lv6 | 攻 | — | — | 池·炽烈 | — | ✅ |\n"
+    assert "pick" not in extract_traits(md, "火", pool, _AOE)["炸"][0]["effects"][0]
+
+
+def test_pool_ref_non_enemy_kinds_untouched_on_all_target_face():
+    assert "pick" not in _ref_effects(_AOE, _ROWS, "池·爆燃")[0]
+
+
+def test_pool_ref_on_self_only_feature_face_gets_pick_all():
+    """五行面本体只作用自身(固面:护盾 + 护甲)、池条目打敌人且没写 pick → 补 pick All;
+    同一面里本体的自身效果原样不动,显式 pick 不覆盖。见 _body_needs_enemy_target 的边界注释。"""
+    from extract_traits import extract_pool
+    chars = {"崩": {"rarity": "Green",
+                   "effects": [{"kind": "Shield", "value": 64}, {"kind": "DefenseBuff", "value": 20, "turns": 2}],
+                   "attackEffects": [{"kind": "DamageSingle", "value": 65}]}}
+    pool = extract_pool("| 系 | 槽 | 面 | 形态 | 名 | 效果配置 | X |\n|---|---|---|---|---|---|---|\n"
+                        "| 土 | Lv5 | 固 | 主动 | 震慑 | `Slow 1` `Shield 5` | — |\n"
+                        "| 土 | Lv5 | 固 | 主动 | 点震 | `Slow 1` `pick Random` | — |\n")
+    md = _H + "| 崩 | Lv5 | 固 | — | — | 池·震慑 | — | ✅ |\n"
+    effects = extract_traits(md, "土", pool, chars)["崩"][0]["effects"]
+    assert effects[0]["kind"] == "Slow" and effects[0]["pick"] == "All"
+    assert effects[1]["kind"] == "Shield" and "pick" not in effects[1]
+    md2 = _H + "| 崩 | Lv5 | 固 | — | — | 池·点震 | — | ✅ |\n"
+    assert extract_traits(md2, "土", pool, chars)["崩"][0]["effects"][0]["pick"] == "Random"
