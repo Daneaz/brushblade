@@ -49,6 +49,34 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Fire_Yan_FeatureBurnAllHitsEnemy()
+        {
+            Assert.That(L("焱", CardFace.Feature), Is.EqualTo(FaceLanding.Enemy));
+        }
+
+        [TestCase("冻")]
+        [TestCase("澡")]
+        public void Water_Lv5_RandomSlowIsIncidental_StillSelfOrSummons(string id)
+        {
+            Assert.That(CardFaceRules.Landing(Def(id), CardFace.Feature, 5),
+                Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
+        }
+
+        [Test]
+        public void SelfLanding_NeverCoexistsWithHostileTargetedEffect()
+        {
+            foreach (var d in Graph.All.Where(d => !d.IsComponent && CardFaceRules.HasTwoFaces(d)))
+                foreach (int lv in new[] { 1, 5, 8 })
+                {
+                    var landing = CardFaceRules.Landing(d, CardFace.Feature, lv);
+                    if ((landing & FaceLanding.Self) == 0) continue;
+                    foreach (var e in TraitRules.CastEffects(d, CardFace.Feature, lv))
+                        Assert.That(CardFaceRules.IsHostileTargeted(e), Is.False,
+                            $"{d.Id} Lv{lv} 五行面含 Self 落点却有敌对效果 {e.Kind}");
+                }
+        }
+
+        [Test]
         public void SingleFaced_CannotFlip()
         {
             var single = Graph.All.FirstOrDefault(d => !CardFaceRules.HasTwoFaces(d));

@@ -32,24 +32,43 @@ namespace Brushblade.Core
             if (actual == CardFace.Attack && HasTwoFaces(def)) return FaceLanding.Enemy;
 
             var effects = TraitRules.CastEffects(def, actual, cardLevel);
-            bool summons = false, wideDamage = false;
+            bool summons = false, hostile = false;
             foreach (var e in effects)
             {
                 if (e.Kind == EffectKind.Summon || e.Kind == EffectKind.SummonSapling) summons = true;
-                if (e.Kind == EffectKind.DamageSingle
-                    && (e.Shape == TargetArea.All || e.Shape == TargetArea.Scatter)) wideDamage = true;
+                if (IsHostileTargeted(e)) hostile = true;
             }
 
             bool needsEnemy = BattleEngine.NeedsTarget(def, attackMode, cardLevel);
             bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode);
 
             var landing = FaceLanding.None;
-            if (needsEnemy || wideDamage) landing |= FaceLanding.Enemy;
+            if (needsEnemy || hostile) landing |= FaceLanding.Enemy;
             if (needsAlly) landing |= FaceLanding.Self | FaceLanding.Summons;
-            else if (!needsEnemy && !summons && !wideDamage) landing |= FaceLanding.Self;
+            else if (!needsEnemy && !summons && !hostile) landing |= FaceLanding.Self;
             if (summons) landing |= FaceLanding.EmptySlot;
             if (summons && HasGraftFace(def, actual, effects)) landing |= FaceLanding.Graft;
             return landing;
+        }
+
+        /// <summary>作用于敌人的效果 Kind。**新增敌对 Kind 要登记到这里**,否则落点会漏 Enemy。
+        /// 注:Execute 是 DamageSingle 上的字段,不是独立 Kind。</summary>
+        private static readonly HashSet<EffectKind> HostileKinds = new()
+        {
+            EffectKind.DamageSingle, EffectKind.BurnSingle, EffectKind.BurnAll, EffectKind.Bleed,
+            EffectKind.Freeze, EffectKind.Slow, EffectKind.ArmorBreak, EffectKind.Dispel, EffectKind.Blind,
+            EffectKind.Silence, EffectKind.BurnNoDecay, EffectKind.BurnSettleNow, EffectKind.Detonate,
+            EffectKind.Charm, EffectKind.Quench, EffectKind.Weaken, EffectKind.Seed, EffectKind.Vulnerable,
+            EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.SummonStrike,
+        };
+
+        /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /
+        /// FrozenByThisCast 的敌对效果是附带效果,不单独构成 Enemy 落点。</summary>
+        public static bool IsHostileTargeted(EffectDef e)
+        {
+            if (!HostileKinds.Contains(e.Kind)) return false;
+            var pick = EffectPickRules.Effective(e);
+            return pick == EffectPick.Primary || pick == EffectPick.All;
         }
 
         /// <summary>木的五行面里有本体召唤 —— 与 BattleEngine.HasSummonFace(私有,依赖实例卡等级)同判据:
