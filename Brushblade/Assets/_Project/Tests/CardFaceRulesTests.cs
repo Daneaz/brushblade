@@ -95,5 +95,29 @@ namespace Brushblade.Core.Tests
                 Assert.That(CardFaceRules.Landing(d, CardFace.Feature, 1), Is.Not.EqualTo(FaceLanding.None), d.Id + " 五行面");
             }
         }
+
+        private static readonly EffectKind[] NonHostileKinds =
+        {
+            EffectKind.Shield, EffectKind.ShieldAll, EffectKind.BurnPotency, EffectKind.HealSelf, EffectKind.Summon,
+            EffectKind.HealAll, EffectKind.HealOverTime, EffectKind.DefenseBuff, EffectKind.Cleanse,
+            EffectKind.Immunity, EffectKind.Revive, EffectKind.Reflect, EffectKind.Empower, EffectKind.Morale,
+            EffectKind.ApBoost, EffectKind.CritBuff, EffectKind.PierceBuff, EffectKind.Haste, EffectKind.Unseal,
+            EffectKind.Block, EffectKind.Amplify, EffectKind.Reshape, EffectKind.Augment, EffectKind.DamageCut,
+            EffectKind.CounterBoost, EffectKind.Endure, EffectKind.SummonSapling, EffectKind.HealSummons,
+            EffectKind.ShieldSummons, EffectKind.ShieldFromHeal, EffectKind.AddWellspring, EffectKind.AddHeft,
+            EffectKind.ShieldRecoil, EffectKind.Taunt,
+        };
+
+        [Test]
+        public void EveryEffectKind_IsClassifiedHostileOrNot()
+        {
+            foreach (EffectKind k in System.Enum.GetValues(typeof(EffectKind)))
+            {
+                bool hostile = CardFaceRules.HostileKinds.Contains(k);
+                bool non = System.Array.IndexOf(NonHostileKinds, k) >= 0;
+                Assert.That(hostile != non, Is.True,
+                    $"{k} 必须恰在敌对表或非敌对名单之一(hostile={hostile}, nonHostile={non});新增 Kind 要两处择一登记");
+            }
+        }
     }
 }

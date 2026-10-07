@@ -53,7 +53,7 @@ namespace Brushblade.Core
 
         /// <summary>作用于敌人的效果 Kind。**新增敌对 Kind 要登记到这里**,否则落点会漏 Enemy。
         /// 注:Execute 是 DamageSingle 上的字段,不是独立 Kind。</summary>
-        private static readonly HashSet<EffectKind> HostileKinds = new()
+        internal static readonly HashSet<EffectKind> HostileKinds = new()
         {
             EffectKind.DamageSingle, EffectKind.BurnSingle, EffectKind.BurnAll, EffectKind.Bleed,
             EffectKind.Freeze, EffectKind.Slow, EffectKind.ArmorBreak, EffectKind.Dispel, EffectKind.Blind,

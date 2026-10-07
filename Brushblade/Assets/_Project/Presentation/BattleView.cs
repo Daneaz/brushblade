@@ -2314,8 +2314,9 @@ namespace Brushblade.Presentation
                 if (_slotPicking) AttachSlotPicker(cell.transform, slot);
                 else AttachAllyTargetPicker(cell.transform, slot);   // 点尸体 = 复活它
             }
-            // 拖两面字的生面(Plan E1):空位 = 召唤到这里。尸体格不可落(Review Focus 5),不画
-            else if (FaceDragging && corpse == null && (_faceDragLanding & FaceLanding.EmptySlot) != 0)
+            // 拖两面字的生面(Plan E1):空位 = 召唤到这里。尸体格也是空位(与点击路径、Core 一致,Ruling 4),
+            // 只有活木灵格是嫁接
+            else if (FaceDragging && (_faceDragLanding & FaceLanding.EmptySlot) != 0)
                 AddFaceMark(cell.transform, (RectTransform)cell.transform, FaceMarkKind.EmptySlot, slot, null);
         }
 
@@ -3541,7 +3542,12 @@ namespace Brushblade.Presentation
             bool attackMode = _faceDragFace == CardFace.Attack;
             var hit = FaceMarkAt(screenPos);
             EndFaceDrag(); // 标记随后由 Refresh 整排重画带走
-            if (hit == null) { CancelSelection(); return; } // 未点亮处 = 取消,没调 Cast
+            if (hit == null)
+            {
+                _message = Strings.T("battle.hint.initial"); // 选中态已在 BeginFaceDrag 清掉,别留过期文案
+                CancelSelection();
+                return;
+            } // 未点亮处 = 取消,没调 Cast
 
             switch (hit.Kind)
             {
@@ -3723,6 +3729,7 @@ namespace Brushblade.Presentation
             foreach (var e in TraitRules.CastEffects(def, face, level))
             {
                 if (e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All) return true;
+                if (e.Kind == EffectKind.BurnAll) return true;
                 if (CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) == EffectPick.All) return true;
             }
             return false;
@@ -6119,7 +6126,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>当前落位态点活木灵算不算嫁接(Plan E1):两面字的生面经点击「出」进来的落位态。
-        /// 排除 _targeting(「攻/召」双向态,拖拽路径仍是旧语义:点有人的格 = 顶替,Task 4 再改)
+        /// 排除 _targeting(「攻/召」双向态,点有人的格仍是顶替,不走嫁接口径)
         /// 与攻击面落位(_pendingSummonAttackMode)。部件池的牌(卡位 −1)没有面,也不算。</summary>
         private bool PendingSlotPickGrafts =>
             _slotPicking && !_targeting && !_pendingSummonAttackMode && _pendingSummonLibraryIndex >= 0
@@ -6818,6 +6825,12 @@ namespace Brushblade.Presentation
             var result = new int[source.Count];
             for (int i = 0; i < result.Length; i++) result[i] = source[i];
             return result;
+        }
+
+        private void OnDisable()
+        {
+            _handFlipAnim = null; // 组件禁用时协程已被 Unity 停掉,只需清句柄
+            _handFlipAnimIndex = -1;
         }
 
         private void CancelSelection()
