@@ -752,6 +752,53 @@ namespace Brushblade.Presentation
             return label.transform.parent.gameObject;
         }
 
+        /// <summary>面印 xs 档边长:10pt × 2.093 ≈ 21(traits 稿 F8)。</summary>
+        public const float FaceSealXs = 21f;
+
+        /// <summary>面印(组件卡 component/FaceSeal):一式实底白字方印,宋体粗。
+        /// 攻击面 <c>ink</c> 底白「攻」;五行面本系字形色底白面字(火燃 金铠 水润 土固 木生)。
+        /// <paramref name="size"/> 是印的边长(逻辑单位),字高 = 边长 × 0.7,圆角 = 边长 × 0.19;
+        /// 印居中放进 <paramref name="parent"/>,父级是锚点区时按其中心摆。</summary>
+        public static GameObject FaceSeal(Transform parent, Brushblade.Core.CharDef def,
+            Brushblade.Core.CardFace face, float size)
+        {
+            var go = Panel(parent, $"FaceSeal_{face}");
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(size, size);
+            var bg = go.AddComponent<Image>();
+            bg.sprite = Theme.Rounded(Mathf.Max(2, Mathf.RoundToInt(size * 0.19f)));
+            bg.type = Image.Type.Sliced;
+            bg.raycastTarget = false;
+            bg.color = FaceSealColor(def, face);
+            var text = ThemedLabel(go.transform, FaceSealText(def, face),
+                Mathf.RoundToInt(size * 0.7f), Color.white, Theme.TitleFont);
+            text.fontStyle = FontStyle.Bold;
+            text.raycastTarget = false;
+            Stretch(text.rectTransform);
+            return go;
+        }
+
+        /// <summary>面印底色:攻击 = <see cref="Theme.Ink"/>,五行面 = 本系字形色。</summary>
+        public static Color FaceSealColor(Brushblade.Core.CharDef def, Brushblade.Core.CardFace face) =>
+            face == Brushblade.Core.CardFace.Attack ? Theme.Ink : Theme.GlyphColor(def.Element);
+
+        /// <summary>面印上那个字。字符串表 key 必须是字面量(检查只认字面量),所以逐系写 switch。</summary>
+        public static string FaceSealText(Brushblade.Core.CharDef def, Brushblade.Core.CardFace face)
+        {
+            if (face == Brushblade.Core.CardFace.Attack) return Strings.T("face.seal.attack");
+            switch (def.Element)
+            {
+                case Brushblade.Core.Element.Fire: return Strings.T("face.seal.fire");
+                case Brushblade.Core.Element.Metal: return Strings.T("face.seal.metal");
+                case Brushblade.Core.Element.Water: return Strings.T("face.seal.water");
+                case Brushblade.Core.Element.Earth: return Strings.T("face.seal.earth");
+                case Brushblade.Core.Element.Wood: return Strings.T("face.seal.wood");
+                default: return Strings.T("face.seal.heart");
+            }
+        }
+
         /// <summary>字牌(设计板字库卡):稀有度框 + 属性色宋体大字 + 拼音;选中态墨色描环。
         ///
         /// 2026-08-21:去掉牌底那条费用带。<see cref="Brushblade.Core.CharDef.ApCostFor"/>
@@ -763,7 +810,8 @@ namespace Brushblade.Presentation
         /// 「那张红卡我还没拿到」是收集页最该说清的一件事,全灰掉就说不出来了。
         /// 字形仍读得清:玩家要认得出这是哪个字。</summary>
         public static Button GlyphTile(Transform parent, Brushblade.Core.CharDef def,
-            bool selected, Action onClick, Vector2? size = null, bool locked = false)
+            bool selected, Action onClick, Vector2? size = null, bool locked = false,
+            Brushblade.Core.CardFace? face = null)
         {
             var s = size ?? new Vector2(96, 120); // 默认对齐素材 0.8 竖版比例
             var go = new GameObject($"Tile_{def.Id}", typeof(RectTransform));
@@ -785,19 +833,22 @@ namespace Brushblade.Presentation
             // 而牌面恒定 0.8 竖版比例时,等比缩放与「9-slice + 边框同比缩放」逐像素等价,徒增切角风险。
             var frameSprite = CardFrames.Frame(def.Rarity);
             var inner = Panel(go.transform, "Face");
-            var face = inner.AddComponent<Image>();
+            var faceImage = inner.AddComponent<Image>();
+            // 朝上为五行面(2026-10-07,traits 稿 F8):牌面内层底色换本系 soft 色;其余一律 null = 现状
+            Color? featureTint = face == Brushblade.Core.CardFace.Feature && !locked
+                ? Theme.ElementSoft(def.Element) : null;
             if (frameSprite != null)
             {
-                face.sprite = frameSprite;
+                faceImage.sprite = frameSprite;
                 // Image.color 是**相乘**:未拥有时乘一层暖灰,框上的花纹与稀有度色相原样保留、
                 // 只是整张退到宣纸背后。换成纯色板会把框也盖掉,那就分不出稀有度了
-                face.color = locked ? Theme.LockedPaper : Color.white; // 素材自带牌面底色,不再染色
+                faceImage.color = locked ? Theme.LockedPaper : featureTint ?? Color.white; // 素材自带牌面底色,不再染色
             }
             else
             {
-                face.sprite = Theme.Rounded(12);
-                face.type = Image.Type.Sliced;
-                face.color = locked ? Theme.LockedPaper : Theme.CardWhite;
+                faceImage.sprite = Theme.Rounded(12);
+                faceImage.type = Image.Type.Sliced;
+                faceImage.color = locked ? Theme.LockedPaper : featureTint ?? Theme.CardWhite;
             }
             // 左右 2.5、上下 3.125:留边本身也得守 0.8,否则牌面被压扁、四角纹样跟着变形
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
@@ -835,20 +886,31 @@ namespace Brushblade.Presentation
             // 战斗字库牌靠**把牌整体调小**来缩,而不是靠改这个比例。
             Anchor(glyph.rectTransform, new Vector2(0, 0.30f), new Vector2(1, 0.95f), Vector2.zero, Vector2.zero);
 
-            var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12,
-                locked ? Theme.LockedGlyph : Theme.TextDim);
-            Anchor(pinyin.rectTransform, new Vector2(0, 0.06f), new Vector2(1, 0.30f), Vector2.zero, Vector2.zero);
+            if (face == null)
+            {
+                var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12,
+                    locked ? Theme.LockedGlyph : Theme.TextDim);
+                Anchor(pinyin.rectTransform, new Vector2(0, 0.06f), new Vector2(1, 0.30f), Vector2.zero, Vector2.zero);
+            }
+            else
+            {
+                // 面印占拼音位(锚 0.06–0.30,水平居中);一枚 xs 印 21 逻辑单位,牌太矮放不下时按带高收
+                var slot = Panel(content.transform, "SealSlot");
+                Anchor((RectTransform)slot.transform, new Vector2(0, 0.06f), new Vector2(1, 0.30f),
+                    Vector2.zero, Vector2.zero);
+                FaceSeal(slot.transform, def, face.Value, Mathf.Min(FaceSealXs, s.y * 0.24f));
+            }
 
             // 动效(§4):属性决定动什么、稀有度决定动多少。素材缺失时 Init 里自行退化为不动。
             // 未拥有不挂:稿上「未拥有不发光」—— 一屏几十张没拿到的字全在动,会盖过真正到手的那些
             if (!locked)
                 go.AddComponent<CardFrameView>().Init(def.Rarity, def.Element,
-                    new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, face, glow, selected, ring);
+                    new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, faceImage, glow, selected, ring);
             else if (glow != null)
                 glow.enabled = false;
 
             var button = go.AddComponent<Button>();
-            button.targetGraphic = face;
+            button.targetGraphic = faceImage;
             if (onClick != null) button.onClick.AddListener(() => onClick());
             return button;
         }

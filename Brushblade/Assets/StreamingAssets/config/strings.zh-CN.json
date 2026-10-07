@@ -1399,5 +1399,16 @@
   "collection.trait.summon_entrysaplings.desc": "入场时附带 {value} 只幼苗(属性为本体 20%)",
   "collection.trait.summon_onhitcharm.chip": "魅惑",
   "collection.trait.summon_onhitcharm.name": "迷香",
-  "collection.trait.summon_onhitcharm.desc": "出手有 {chance}% 概率魅惑目标 1 回合"
+  "collection.trait.summon_onhitcharm.desc": "出手有 {chance}% 概率魅惑目标 1 回合",
+  "face.seal.attack": "攻",
+  "face.seal.fire": "燃",
+  "face.seal.metal": "铠",
+  "face.seal.water": "润",
+  "face.seal.earth": "固",
+  "face.seal.wood": "生",
+  "face.seal.heart": "心",
+  "face.name.attack": "攻击",
+  "face.name.feature": "五行面",
+  "face.side.front": "正",
+  "face.side.back": "背"
 }
