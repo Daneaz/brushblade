@@ -35,6 +35,9 @@ namespace Brushblade.Core
         public Dictionary<string, int> TraitUsesThisTurn { get; set; } = new();
         public Dictionary<string, int> TraitUsesThisBattle { get; set; } = new();
 
+        /// <summary>拆字印记(D2-0 Task 7,E10):本回合拆出的部件出手时并入来源特性的效果。旧快照缺 = null/空。</summary>
+        public List<PartMarkSnapshot> PartMarks { get; set; } = new();
+
         /// <summary>本回合已成功出字数(StartTurn 清零)。</summary>
         public int CastsThisTurn { get; set; }
         public List<string> Library { get; set; } = new();
@@ -64,6 +67,15 @@ namespace Brushblade.Core
         public bool PlayerThresholdCrossed { get; set; }              // R5 跌破 50% 已触发(spec v6)
         public List<int> SummonThresholdCrossed { get; set; } = new(); // 同上,召唤物槽位
         public List<OpeningEffect> PendingOpenings { get; set; } = new(); // 本场登记、留给之后几场的开局效果
+    }
+
+    /// <summary>一条拆字印记(E10)。TraitKey = <c>BattleEngine.TraitKey</c>,读档时按它找回来源特性的效果。</summary>
+    public sealed class PartMarkSnapshot
+    {
+        public string PartChar { get; set; }
+        public int Remaining { get; set; }
+        public string TraitKey { get; set; }
+        public string SourceCharId { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
@@ -102,6 +114,9 @@ namespace Brushblade.Core
         public string SourceChar { get; set; }
 
         public Element Element { get; set; }
+
+        /// <summary>§2.2 本场改属性前的属性(D2-0);null = 没改过。老存档没有 → null。</summary>
+        public Element? BaseElement { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public int Attack { get; set; }
@@ -112,6 +127,12 @@ namespace Brushblade.Core
         public int Speed { get; set; }
         public int Shield { get; set; }
         public SummonPassive Passive { get; set; }
+
+        /// <summary>嫁接前的本命(D2-0 Task 5);null = 没嫁接过。老存档没有 → null。</summary>
+        public SummonPassive BasePassive { get; set; }
+
+        /// <summary>丛生小藻的母体槽位(D2-0 Task 6);-1 = 不是小藻。缺省 -1:老存档没有该字段时不会被误读成「母体在槽 0」。</summary>
+        public int SproutParentSlot { get; set; } = -1;
 
         /// <summary>身上的状态(2026-08-26)。与 <see cref="EnemySnapshot.Statuses"/> 同型;
         /// 老存档没有这个字段 → Newtonsoft 填 null → Restore 兜底成空表。</summary>

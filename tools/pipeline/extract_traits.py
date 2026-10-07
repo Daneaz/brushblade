@@ -16,7 +16,13 @@ FACE_NAMES = {"攻": "Attack", "燃": "Feature", "铠": "Feature", "润": "Featu
               "固": "Feature", "生": "Feature", "两面": None}
 # 形态 → (form, trigger);「被动·暴击/击杀」= 被动 + 触发类型(spec v7 §2.3)。主动只能是出字时,不接后缀
 FORMS = {"主动": (None, None), "被动": ("Passive", None),
-         "被动·暴击": ("Passive", "OnCrit"), "被动·击杀": ("Passive", "OnKill")}
+         "被动·暴击": ("Passive", "OnCrit"), "被动·击杀": ("Passive", "OnKill"),
+         # 字形特性(spec §9「(拆字) / (成字)」,D2-0 Task 7):字在手上时触发,每场 1 次
+         "拆字": ("Passive", "OnDismantle"), "成字": ("Passive", "OnCompose")}
+
+# 拆字印记(E10):`part 火 2` = 拆出的「火」本回合出手时并入本条效果,共 2 次。只配「拆字」形态;
+# 在交给 _parse_effects 之前从配置里摘掉(它不是效果 token)。部件是否在本字配方里由 export_chars 校验。
+_PART_TOKEN = re.compile(r"`part (\S+) (\d+)`")
 SLOTS = {"Lv1", "Lv3", "Lv4", "Lv5", "Lv6", "Lv8"}
 _HEADER = ["字", "槽", "面", "形态", "替换", "名", "效果配置", "实现"]
 
@@ -28,6 +34,9 @@ TIER_MULTIPLIER = {"White": Fraction(1), "Green": Fraction(6, 5), "Blue": Fracti
                    "Purple": Fraction(7, 4), "Gold": Fraction(21, 10),
                    "Orange": Fraction(5, 2), "Red": Fraction(3)}
 GENERAL_POOL_PREFIX = "通"
+# U6:这些通用池词条看敌方目标;本字五行面不选敌时,五行面那条按同档「精进」生效(两面拆成两条单面)
+TARGET_CONDITIONAL_GENERAL = {"克敌", "破敌", "补刀"}
+FALLBACK_POOL_NAME = "精进"
 POOL_PREFIX = "池"
 _GENERAL_HEADER = ["名", "效果配置", "X"]
 _SYSTEM_HEADER = ["系", "槽", "面", "形态", "名", "效果配置", "X"]
@@ -176,7 +185,14 @@ def _expand_reference(char, slot, face, form, replaces, name, config, element, p
     if entry["face_cn"] != "两面" and trigger is None:
         body = info.get("attackEffects", []) if entry["face_cn"] == "攻" else info.get("effects", [])
         effects = _retarget_to_all(effects, body)
-    return short, form_name, trigger, effects
+    wuxing_effects = None
+    if prefix == GENERAL_POOL_PREFIX and short in TARGET_CONDITIONAL_GENERAL \
+            and face == "两面" and not _body_needs_enemy_target(info.get("effects", [])):
+        fallback = pool.get((GENERAL_POOL_PREFIX, FALLBACK_POOL_NAME))
+        if fallback is None:
+            raise ValueError(f"特性表:通用池缺「{FALLBACK_POOL_NAME}」,无法为「{name}」生成五行面")
+        wuxing_effects = expand_pool_entry(fallback, info["rarity"], char)
+    return short, form_name, trigger, effects, wuxing_effects
 
 
 def extract_traits(markdown, element=None, pool=None, chars=None):
@@ -208,19 +224,9 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
             raise ValueError(f"特性表:字「{char}」{slot} 缺名称")
         if element is not None and face not in ("攻", "两面", ELEMENT_FACE[element]):
             raise ValueError(f"特性表:字「{char}」面「{face}」不属于{element}系(只能写 攻 / 两面 / {ELEMENT_FACE[element]})")
-        face_key = FACE_NAMES[face]
-        key = (char, slot, face_key)
-        if key in seen:
-            raise ValueError(f"特性表:字「{char}」{slot}/{face} 重复")
-        seen.add(key)
-        faces_here = {k[2] for k in seen if k[0] == char and k[1] == slot}
-        if None in faces_here and len(faces_here) > 1:
-            raise ValueError(f"特性表:字「{char}」{slot} 同时有两面特性与单面特性")
-        trait = {"slot": slot}
-        if FACE_NAMES[face]:
-            trait["face"] = FACE_NAMES[face]
+        wuxing_effects = None
         if is_ref_row(name):
-            name, form_name, trigger, effects = _expand_reference(
+            name, form_name, trigger, effects, wuxing_effects = _expand_reference(
                 char, slot, face, form, replaces, name, config, element, pool, chars)
             replaces = "—"
         else:
@@ -228,6 +234,21 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
                 raise ValueError(f"特性表:字「{char}」形态非法:{form}")
             form_name, trigger = FORMS[form]
             effects = None
+        # 管线自己拆出的两条单面(攻击面 + 五行面)按实际产出的 (槽, 面) 记
+        face_keys = ["Attack", "Feature"] if wuxing_effects is not None else [FACE_NAMES[face]]
+        for face_key in face_keys:
+            key = (char, slot, face_key)
+            if key in seen:
+                raise ValueError(f"特性表:字「{char}」{slot}/{face} 重复")
+            seen.add(key)
+        faces_here = {k[2] for k in seen if k[0] == char and k[1] == slot}
+        if None in faces_here and len(faces_here) > 1:
+            raise ValueError(f"特性表:字「{char}」{slot} 同时有两面特性与单面特性")
+        trait = {"slot": slot}
+        if wuxing_effects is not None:
+            trait["face"] = "Attack"
+        elif FACE_NAMES[face]:
+            trait["face"] = FACE_NAMES[face]
         if form_name:
             trait["form"] = form_name
         if trigger:
@@ -240,9 +261,23 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
         if effects is None:
             if config not in _EMPTY and "`" not in config:
                 raise ValueError(f"特性表:字「{char}」{slot} 效果配置缺反引号 token:{config}")
+            parts = _PART_TOKEN.findall(config)
+            if parts:
+                if form != "拆字":
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `part` 只能写在「拆字」形态上(当前 {form})")
+                if len(parts) > 1:
+                    raise ValueError(f"特性表:字「{char}」{slot} 只能写一条 `part`")
+                part_char, part_count = parts[0][0], int(parts[0][1])
+                if part_count < 1:
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `part` 次数必须 ≥ 1")
+                trait["partChar"] = part_char
+                trait["partCount"] = part_count
+                config = _PART_TOKEN.sub("", config)
             effects = _parse_effects(config, char)
         trait["effects"] = effects
         result.setdefault(char, []).append(trait)
+        if wuxing_effects is not None:
+            result[char].append(dict(trait, face="Feature", effects=wuxing_effects))
     return result
 
 

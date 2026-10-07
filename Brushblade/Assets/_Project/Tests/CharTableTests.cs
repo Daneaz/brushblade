@@ -253,8 +253,10 @@ namespace Brushblade.Core.Tests
             var expected = new Dictionary<string, Action<SummonPassive>>
             {
                 // 2026-08-25:荆 改前排肉盾后让出 Ranged,楸 接手(远程挂灼烧,同 灶/烓 的旧定位)
+                // 2026-10-07(D2-0 Task 9,E6):召唤被动 = 本命。楸 的本命秋燥只有「出手附灼 1」,
+                // Ranged 不在本命里,随之作废(远射归 箭)
                 ["楸"] = p => { Assert.That(p.OnHitBurn, Is.EqualTo(1)); Assert.That(p.OnHitBurnAll, Is.False);
-                                Assert.That(p.Ranged, Is.True, "远程唯一载体"); },
+                                Assert.That(p.Ranged, Is.False, "E6:Ranged 不是秋燥的一部分"); },
                 // 2026-09-07:桤(这里原来用来钉 Speed 150 的样本字)随字表重做 P2 移出
                 // (它的部件 岂/己 也随之孤儿化并删除)。Speed 字段本身不是孤儿 ——
                 // 林/森/藻/塔/𣛧(木系「迅捷」梯队)仍在挂它,只是这条字典没有另找一个
@@ -265,11 +267,12 @@ namespace Brushblade.Core.Tests
                 // 桃(HealAlly)的位子由新增的 杖 接手。
                 // 荆(2026-08-25 二次调整):纯反伤肉盾 —— 攻 0,输出全靠反伤。
                 // Thorns 的单位此时已是「受到伤害的百分比」,50 = 反弹一半。
+                // 2026-10-07(D2-0 Task 9,E6):荆 的本命只有荆棘(反伤 50%),嘲讽归 柘(坚木)
                 ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程");
-                                Assert.That(p.Taunt, Is.True, "嘲讽是「挨打即输出」成立的前提"); },
+                                Assert.That(p.Taunt, Is.False, "E6:嘲讽不是荆棘的一部分"); },
                 // 2026-09-05:蕉(OnHitSlow)/ 杖(HealAlly)随字表调整移出,两条断言删去 ——
                 // 复活线索见类文档顶部的「机制休眠」清单。
-                ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(10)); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
+                ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(20), "E7 缠绕 Lv1 20%"); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
                 // 2026-09-07 字表重做 P2:锥/剑 都不再是召唤字 —— 锥 改蓝档单体攻击 + 破甲
                 // (design §6:「破甲链·蓝」),剑 改蓝档单体攻击 + 横扫(design §6:「横扫链·低」),
                 // 两条 SummonPassive.Shape 样本(Volley/Sweep)随之删去。
@@ -284,10 +287,13 @@ namespace Brushblade.Core.Tests
                 pair.Value(summon.Passive);
             }
             // 2026-09-16(土水系机制重做,spec §6):召唤被动 Shape 全表无载体,钉住空集。
-            Assert.That(graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>()))
-                .Where(e => e.Kind == EffectKind.Summon && e.Passive != null)
-                .Any(e => e.Passive.Shape != TargetArea.Single), Is.False,
-                "召唤被动 Shape 当前应无载体(枪 已移出字表)");
+            // 2026-10-07(D2-0 Task 9,E7):𣛧 的本命参天 = 溅射(Adjacent),成为唯一载体。
+            var shaped = graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>()))
+                .Where(e => e.Kind == EffectKind.Summon && e.Passive != null && e.Passive.Shape != TargetArea.Single)
+                .Select(e => e.SummonChar).ToList();
+            Assert.That(shaped.Count, Is.EqualTo(1), "召唤被动 Shape 只有 𣛧(参天)一个载体");
+            Assert.That(graph.Get("\uE625").Effects.First(e => e.Kind == EffectKind.Summon).Passive.Shape,
+                Is.EqualTo(TargetArea.Adjacent));
 
             // 碉/堡(2026-09-16 土水系机制重做):土系交出召唤位,彻底改成 dual_s 双方向字,
             // 不再是 Summon —— 与 荆 同型的纯反伤肉盾坦克包(碉/堡)随之整个作废,原断言删除。
@@ -339,7 +345,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_GuiCarriesThornsAndSummonShield()
+        public void RealConfig_GuiCarriesHealAllyNotThornsOrSummonShield()
         {
             // 名字改过两轮,前提各反转一次(「方法名必须反映断言」):
             //   ① 原 RealConfig_GuiGrantsSummonShield —— 断言 桂 有一次性 SummonShield 60。
@@ -359,9 +365,12 @@ namespace Brushblade.Core.Tests
             // 随桂迁出一并作废,只免第 1 条被动的计价),桂 的盾量因此不再叠加土系印记的
             // 20 点 —— 光环盾单独跟着血量走(血量 820 × 15% 取整到 10 的倍数 = 120)。
             Assert.That(graph.Get("桂").Element, Is.EqualTo(Element.Wood), "退回木系");
-            Assert.That(summon.SummonShield, Is.EqualTo(120), "光环盾 = 血量 820 × 15%,不再叠加土系印记");
+            // 2026-10-07(D2-0 Task 9,E6):本命 = 被动全部内容。桂 的本命桂香 = 每回合全体回复 30;
+            // 入场全场护盾(附加效果)与荆棘一并作废。
+            Assert.That(summon.SummonShield, Is.EqualTo(0), "E6:入场全场护盾作废");
             Assert.That(summon.SummonCount, Is.EqualTo(1), "只数收归全系统一的 1 只");
-            Assert.That(summon.Passive.Thorns, Is.EqualTo(50), "荆棘是 桂 的第二条特性");
+            Assert.That(summon.Passive.Thorns, Is.EqualTo(0), "E6:荆棘不是桂香的一部分");
+            Assert.That(summon.Passive.HealAlly, Is.EqualTo(30), "桂香:每回合给我方全体回复 30");
         }
 
         [Test]

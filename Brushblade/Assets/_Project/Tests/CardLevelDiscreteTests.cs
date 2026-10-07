@@ -57,6 +57,8 @@ namespace Brushblade.Core.Tests
             EffectKind.Cleanse,
             // 反震(D1 Task 9):Value = 反弹吸收量的百分比;吸收量本身已随护盾吃过等级
             EffectKind.ShieldRecoil,
+            // 嘲讽(D2-0 Task 2):Value = 回合数(0 = 本场),离散量
+            EffectKind.Taunt,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

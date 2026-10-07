@@ -823,6 +823,8 @@ namespace Brushblade.Core
                 or EffectKind.AddWellspring or EffectKind.AddHeft => false,
             // D1 Task 9:反震的 Value 是反弹吸收量的百分比 —— 吸收量本身已随护盾吃过等级,再缩放就重复吃等级
             EffectKind.ShieldRecoil => false,
+            // D2-0 Task 2:嘲讽的 Value 是回合数(0 = 本场),离散
+            EffectKind.Taunt => false,
             _ => true,
         };
 

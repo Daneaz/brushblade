@@ -1904,6 +1904,9 @@ namespace Brushblade.Presentation
             // 这一栏里符合的是灼烧(层数每回合衰减)与战意(层数;2026-09-30 起本场不衰减,见下);
             // 封字是**下回合一次性**扣 AP、减速是持续期间恒定的修正值、那一排增益挂着即生效,
             // 都只出图标 —— 一排数字在 120pt 宽的状态栏里糊成一团,反而读不出挂了哪几样。
+            // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):排在我方 chip 首位,无数字
+            if (Battle.PlayerStatuses.Has(StatusKind.Taunt))
+                statusChips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
                 statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
@@ -2563,6 +2566,8 @@ namespace Brushblade.Presentation
                 if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Fg(bg), icon));
             }
 
+            // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):木灵 chip 首位,无数字
+            if (st.Has(StatusKind.Taunt)) chips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
             Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);
@@ -5621,6 +5626,7 @@ namespace Brushblade.Presentation
                 AppendBossPhaseMessage();
                 AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
                 AppendUnsealMessage(); // 解封重掷召唤物属性,同样产自 Cast() 自己的 _events
+                AppendGraftMessage();  // 嫁接(木生面落木灵):回满并换本命,最小反馈
             }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
@@ -5681,8 +5687,8 @@ namespace Brushblade.Presentation
         private void DropReplacedSummonSnapshots()
         {
             foreach (var e in Battle.LastEvents)
-                if (e.Kind == BattleEventKind.Summon && e.SecondIndex >= 0)
-                {
+                if ((e.Kind == BattleEventKind.Summon || e.Kind == BattleEventKind.Graft) && e.SecondIndex >= 0)
+                {   // 嫁接(D2-0 Task 5):回满生命,同样不能在动画期间停在旧血量
                     _summonAnimHp.Remove(e.SecondIndex);
                 }
         }
@@ -5783,6 +5789,19 @@ namespace Brushblade.Presentation
                         ? Battle.Summons[e.TargetIndex].Char : "";
                     _message += Strings.T("battle.msg.unseal",
                         ("charId", charId), ("element", CharInfo.ElementName((Element)e.Amount)));
+                }
+        }
+
+        /// <summary>嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满生命并换本命。完整交互归 Plan E,这里只播一句。</summary>
+        private void AppendGraftMessage()
+        {
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.Graft)
+                {
+                    string charId = e.SecondIndex >= 0 && e.SecondIndex < Battle.Summons.Count
+                        && Battle.Summons[e.SecondIndex] != null
+                        ? Battle.Summons[e.SecondIndex].Char : "";
+                    _message += Strings.T("battle.msg.graft", ("charId", charId));
                 }
         }
 

@@ -465,10 +465,11 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     by_id = {c["id"]: c for c in shipped["chars"]}
 
-    # 远程:2026-08-25 起唯一载体是 楸(荆 改前排肉盾让出;灶/烓 更早移出字表)
-    qiu = by_id["楸"]["effects"][0]
-    assert qiu["kind"] == "Summon"
-    assert qiu["passive"].get("ranged") is True, "楸 应为远程"
+    # 远程:2026-10-07(D2-0 Task 9,E6/E7)起唯一载体是 箭(本命远射);楸 的本命秋燥只有「出手附灼 1」
+    jian = by_id["箭"]["effects"][0]
+    assert jian["kind"] == "Summon"
+    assert jian["passive"].get("ranged") is True, "箭 应为远程"
+    assert by_id["楸"]["effects"][0]["passive"] == {"onHitBurn": 1}
 
     # 召唤被动的形状与出手控场(2026-08-25):都是「token 表漏接线就静默丢」的字段
     # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
@@ -483,7 +484,7 @@ def test_shipped_chars_json_carries_the_new_row_fields():
         assert [e["kind"] for e in by_id[cid]["effects"]] == ["Morale", "Block"], f"{cid} 铠 = 战意 + 格挡"
     # 2026-09-16(土水系机制重做 Task 12):枪(唯一的召唤被动 Skewer 载体)移出字表。
     assert "枪" not in by_id, "枪 已移出字表(spec §7.1)"
-    assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
+    assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 20, "onHitFreezeTurns": 1}  # D2-0 Task 9:E7 缠绕 Lv1 20%
 
     # D1 Task 12 新写法的字段(选择器 / 回合)在真实产物里落得下来
     assert by_id["焱"]["effects"] == [
@@ -667,14 +668,16 @@ def test_p2_task4_roster_changes():
     assert "recipe" not in by_id["化"], "化 是叶子部件"
 
 
-def test_zao_carries_regen_passive():
-    """藻 的自愈落进 passive.regen(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。
+def test_zao_carries_sprout_passive():
+    """藻 的本命丛生落进 passive.sproutPercent / sproutMax(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。
+
+    2026-10-07(D2-0 Task 9,E6):自愈 `Regen 60` 与本命无关,作废;被动 = 丛生 + 底速。
 
     2026-09-07(P2 Task 4a):只数收归 1(spec §6.1 二次收紧),总量守恒摊到 1 只;
     补迅捷(`SummonSpeed`,spec §6 特性技能列「自愈/迅捷」)。
     """
     zao = _shipped()["藻"]["effects"][0]
-    assert zao["passive"] == {"regen": 60, "speed": 150}
+    assert zao["passive"] == {"sproutPercent": 30, "sproutMax": 2, "speed": 150}
     assert zao["count"] == 1
     # 2026-09-11(档位统一 G=1.468,T3):橙档召唤血锚点 780 → 706,694×(706/780) = 628.2 → 628。
     assert zao["value"] == 628

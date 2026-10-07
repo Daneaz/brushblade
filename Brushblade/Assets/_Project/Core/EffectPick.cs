@@ -15,6 +15,7 @@ namespace Brushblade.Core
         // ---- D1 Task 7:我方侧选择器(不进 Supports;合法组合见 EffectPickRules.Allows) ----
         Self,               // 玩家自身(Cleanse:攻击面「我方清 1 个减益」,不要求友方目标)
         SummonedThisCast,   // 本次出字召出的召唤物(Endure:扎根)
+        AllSummons,         // 全部存活召唤物(D2-0 Task 2,Taunt)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。
@@ -31,13 +32,14 @@ namespace Brushblade.Core
         };
 
         /// <summary>这条效果能不能写这个选择器(ConfigLoader 校验用)。Primary 恒可;敌方侧选择器只给 Supports 列出的 kind;
-        /// Self 只给 Cleanse;SummonedThisCast 只给 Endure。</summary>
+        /// Self 给 Cleanse / Taunt;SummonedThisCast 给 Endure / Taunt;AllSummons 只给 Taunt;Taunt 必须写 pick。</summary>
         public static bool Allows(EffectKind kind, EffectPick pick) => pick switch
         {
             // 保命必须写 SummonedThisCast(Ruling 10):Primary 写法选不到召唤物(Endure 不在友方目标名单),会静默空转
-            EffectPick.Primary => kind != EffectKind.Endure,
-            EffectPick.Self => kind == EffectKind.Cleanse,
-            EffectPick.SummonedThisCast => kind == EffectKind.Endure,
+            EffectPick.Primary => kind != EffectKind.Endure && kind != EffectKind.Taunt,
+            EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
+            EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
+            EffectPick.AllSummons => kind == EffectKind.Taunt,
             _ => Supports(kind),
         };
 

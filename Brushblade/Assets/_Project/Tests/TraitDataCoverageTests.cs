@@ -70,10 +70,10 @@ namespace Brushblade.Core.Tests
             "烈 Lv6 Attack 炽烈", "燥 Lv5 Feature 续火", "燥 Lv6 Feature 烟熏", "蒸 Lv5 Feature 烟障", "蒸 Lv6 Attack 炽烈",
             "炎 Lv5 Feature 续火", "灿 Lv5 Attack 引燃", "利 Lv4 Both 先声", "利 Lv5 Attack 破甲", "利 Lv5 Feature 砥砺",
             "利 Lv6 Feature 回锋", "利 Lv8 Attack 重斩", "锋 Lv4 Both 精进", "锋 Lv5 Attack 连斩", "锋 Lv5 Feature 砥砺",
-            "锋 Lv6 Attack 迎刃", "锋 Lv8 Feature 金钟", "剑 Lv4 Both 克敌", "剑 Lv5 Attack 破甲", "剑 Lv6 Attack 迎刃",
-            "剑 Lv8 Feature 反戈", "锥 Lv4 Both 补刀", "锥 Lv5 Attack 连斩", "锥 Lv6 Feature 回锋", "锥 Lv8 Feature 金钟",
+            "锋 Lv6 Attack 迎刃", "锋 Lv8 Feature 金钟", "剑 Lv4 Attack 克敌", "剑 Lv4 Feature 克敌", "剑 Lv5 Attack 破甲", "剑 Lv6 Attack 迎刃",
+            "剑 Lv8 Feature 反戈", "锥 Lv4 Attack 补刀", "锥 Lv4 Feature 补刀", "锥 Lv5 Attack 连斩", "锥 Lv6 Feature 回锋", "锥 Lv8 Feature 金钟",
             "剿 Lv4 Both 化险", "剿 Lv5 Attack 破甲", "剿 Lv6 Attack 迎刃", "剿 Lv8 Feature 反戈", "剁 Lv5 Attack 连斩",
-            "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 破甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Both 克敌",
+            "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 破甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Attack 克敌", "冷 Lv4 Feature 克敌",
             "冷 Lv5 Attack 凝冰", "冷 Lv5 Feature 涓流", "冷 Lv6 Feature 护持", "冷 Lv8 Feature 甘露", "冻 Lv4 Both 精进",
             "冻 Lv5 Attack 激流", "冻 Lv5 Feature 寒泉", "冻 Lv6 Attack 冰缚", "冻 Lv8 Feature 蓄泉", "海 Lv4 Both 化险",
             "海 Lv5 Feature 涓流", "海 Lv6 Feature 护持", "海 Lv8 Attack 怒涛", "溃 Lv4 Both 先声", "溃 Lv5 Attack 凝冰",
@@ -81,20 +81,20 @@ namespace Brushblade.Core.Tests
             "澡 Lv6 Feature 护持", "冰 Lv5 Attack 凝冰", "沐 Lv5 Feature 涓流", "碉 Lv4 Both 先声", "碉 Lv5 Attack 碎石",
             "碉 Lv5 Feature 加固", "碉 Lv6 Feature 反震", "碉 Lv8 Attack 崩岩", "垒 Lv4 Both 化险", "垒 Lv5 Attack 震地",
             "垒 Lv5 Feature 垒土", "垒 Lv6 Feature 反震", "垒 Lv8 Attack 劈山", "壁 Lv4 Both 精进", "壁 Lv5 Attack 碎石",
-            "壁 Lv5 Feature 加固", "壁 Lv6 Attack 余震", "壁 Lv8 Attack 崩岩", "堡 Lv4 Both 克敌", "堡 Lv5 Feature 垒土",
-            "堡 Lv6 Feature 反震", "堡 Lv8 Attack 劈山", "崩 Lv4 Both 破敌", "崩 Lv5 Attack 震地", "崩 Lv6 Attack 余震",
-            "崩 Lv8 Feature 金汤", "碎 Lv4 Both 补刀", "碎 Lv5 Attack 碎石", "碎 Lv6 Attack 余震", "碎 Lv8 Feature 坚壁",
+            "壁 Lv5 Feature 加固", "壁 Lv6 Attack 余震", "壁 Lv8 Attack 崩岩", "堡 Lv4 Attack 克敌", "堡 Lv4 Feature 克敌", "堡 Lv5 Feature 垒土",
+            "堡 Lv6 Feature 反震", "堡 Lv8 Attack 劈山", "崩 Lv4 Attack 破敌", "崩 Lv4 Feature 破敌", "崩 Lv5 Attack 震地", "崩 Lv6 Attack 余震",
+            "崩 Lv8 Feature 金汤", "碎 Lv4 Attack 补刀", "碎 Lv4 Feature 补刀", "碎 Lv5 Attack 碎石", "碎 Lv6 Attack 余震", "碎 Lv8 Feature 坚壁",
             "塔 Lv5 Feature 加固", "塔 Lv6 Feature 反震", "杜 Lv5 Feature 垒土", "圭 Lv5 Feature 加固", "花 Lv4 Both 先声",
             "花 Lv5 Attack 寄生", "花 Lv5 Feature 新芽", "花 Lv6 Feature 扎根", "花 Lv8 Feature 繁生", "藤 Lv4 Both 精进",
-            "藤 Lv5 Attack 寄生", "藤 Lv5 Feature 沃土", "藤 Lv6 Attack 汲取", "藤 Lv8 Attack 缠缚", "箭 Lv4 Both 破敌",
+            "藤 Lv5 Attack 寄生", "藤 Lv5 Feature 沃土", "藤 Lv6 Attack 汲取", "藤 Lv8 Attack 缠缚", "箭 Lv4 Attack 破敌", "箭 Lv4 Feature 破敌",
             "箭 Lv5 Attack 蔓刺", "箭 Lv6 Feature 扎根", "箭 Lv8 Feature 灵荫", "楸 Lv5 Feature 新芽", "楸 Lv6 Feature 扎根",
             "荆 Lv5 Feature 沃土", "荆 Lv6 Feature 扎根", "林 Lv5 Feature 新芽", "柘 Lv5 Feature 沃土"
         };
 
         [Test]
-        public void PoolCellList_Has124Cells()
+        public void PoolCellList_Has131Cells()
         {
-            Assert.That(PoolCells.Length, Is.EqualTo(124));
+            Assert.That(PoolCells.Length, Is.EqualTo(131));
         }
 
         [Test]
@@ -120,13 +120,22 @@ namespace Brushblade.Core.Tests
             foreach (var d in Playable())
             {
                 var lv3 = At(d, TraitSlot.Lv3);
-                bool woodNoFeature = d.Element == Element.Wood;
-                Assert.That(lv3.Count, Is.EqualTo(woodNoFeature ? 1 : 2), $"{d.Id} Lv3 行数");
+                // 2026-10-07(D2-0 Task 9,E8):木字生面行是本命强化(被动,Summon 0 + 强化后的被动 token)
+                Assert.That(lv3.Count, Is.EqualTo(2), $"{d.Id} Lv3 行数");
                 Assert.That(lv3.Any(t => t.Face == TraitFace.Attack), Is.True, $"{d.Id} 缺 Lv3 攻");
-                Assert.That(lv3.Any(t => t.Face == TraitFace.Feature), Is.EqualTo(!woodNoFeature), $"{d.Id} Lv3 五行面");
+                Assert.That(lv3.Any(t => t.Face == TraitFace.Feature), Is.True, $"{d.Id} Lv3 五行面");
                 foreach (var t in lv3)
                 {
                     Assert.That(t.Replaces, Is.EqualTo(TraitSlot.Lv1), $"{d.Id} Lv3 替换 Lv1");
+                    if (d.Element == Element.Wood && t.Face == TraitFace.Feature)
+                    {
+                        Assert.That(t.Form, Is.EqualTo(TraitForm.Passive), $"{d.Id} Lv3 本命强化是被动");
+                        Assert.That(t.Name, Does.EndWith("·强化"), $"{d.Id} Lv3 本命强化名");
+                        Assert.That(t.Effects.Count, Is.EqualTo(1), $"{d.Id} Lv3 本命强化 = 一条 Summon 0");
+                        Assert.That(t.Effects[0].Kind, Is.EqualTo(EffectKind.Summon), $"{d.Id} Lv3 本命强化");
+                        Assert.That(t.Effects[0].Value, Is.EqualTo(0), $"{d.Id} Lv3 本命强化不动血量");
+                        continue;
+                    }
                     Assert.That(t.Form, Is.EqualTo(TraitForm.Active), $"{d.Id} Lv3 主动");
                     Assert.That(t.Name, Is.EqualTo(KeywordOf(d) + "·强化"), $"{d.Id} Lv3 名");
                     Assert.That(t.Effects.Count, Is.GreaterThan(0), $"{d.Id} Lv3 要有效果");
@@ -225,12 +234,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Wood_Lv3_SeedThreeTurns_FlowerCharmTwoTurns_NoFeatureRow()
+        public void Wood_Lv3_SeedThreeTurns_FlowerCharmTwoTurns_AttackRow()
         {
             foreach (var d in OfElement(Element.Wood))
             {
-                var a = At(d, TraitSlot.Lv3).Single().Effects;
-                Assert.That(At(d, TraitSlot.Lv3).Single().Face, Is.EqualTo(TraitFace.Attack), $"{d.Id} Lv3 只有攻");
+                // 2026-10-07(D2-0 Task 9,E8):另有一条生面本命强化行(WoodNatureDataTests 逐字断言)
+                Assert.That(At(d, TraitSlot.Lv3).Count(t => t.Face == TraitFace.Feature), Is.EqualTo(1), $"{d.Id} Lv3 生面本命强化");
+                var a = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects;
                 Assert.That(a.Count, Is.EqualTo(1));
                 if (d.Id == "花")
                 {
@@ -281,7 +291,12 @@ namespace Brushblade.Core.Tests
                 {
                     if (t.Slot == TraitSlot.Lv4)
                     {
-                        Assert.That(t.Face, Is.EqualTo(TraitFace.Both), $"{d.Id} {t.Name}");
+                        // U6:克敌 / 破敌 / 补刀在不选敌的五行面上拆成两条单面(攻击面原条目 + 五行面精进)
+                        bool split = t.Name == "克敌" || t.Name == "破敌" || t.Name == "补刀";
+                        if (split && t.Face != TraitFace.Both)
+                            Assert.That(d.Traits.Count(x => x.Slot == TraitSlot.Lv4 && x.Name == t.Name), Is.EqualTo(2), $"{d.Id} {t.Name} 拆成两条");
+                        else
+                            Assert.That(t.Face, Is.EqualTo(TraitFace.Both), $"{d.Id} {t.Name}");
                         Assert.That(t.Form, Is.EqualTo(TraitForm.Passive), $"{d.Id} {t.Name}");
                     }
                     else if (t.Slot == TraitSlot.Lv6)
@@ -310,8 +325,8 @@ namespace Brushblade.Core.Tests
             Assert.That(PoolEffect("藤", TraitSlot.Lv5, TraitFace.Feature, "沃土", EffectKind.HealSummons).Value, Is.EqualTo(36));
             // 蓝 1.45:剿(蓝)化险 20 → 29;崩(蓝)破敌 15 → 22(21.75 入);堡(蓝)克敌 写死 15 不放大
             Assert.That(PoolEffect("剿", TraitSlot.Lv4, TraitFace.Both, "化险", EffectKind.Amplify).Value, Is.EqualTo(29));
-            Assert.That(PoolEffect("崩", TraitSlot.Lv4, TraitFace.Both, "破敌", EffectKind.Amplify).Value, Is.EqualTo(22));
-            Assert.That(PoolEffect("堡", TraitSlot.Lv4, TraitFace.Both, "克敌", EffectKind.Amplify).Value, Is.EqualTo(15));
+            Assert.That(PoolEffect("崩", TraitSlot.Lv4, TraitFace.Attack, "破敌", EffectKind.Amplify).Value, Is.EqualTo(22));
+            Assert.That(PoolEffect("堡", TraitSlot.Lv4, TraitFace.Attack, "克敌", EffectKind.Amplify).Value, Is.EqualTo(15));
             // 写死数字不放大:爆(绿)爆燃 +30%
             Assert.That(PoolEffect("爆", TraitSlot.Lv5, TraitFace.Attack, "爆燃", EffectKind.Amplify).Value, Is.EqualTo(30));
         }

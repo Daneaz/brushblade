@@ -155,7 +155,7 @@ namespace Brushblade.Core.Tests
             var flowerSpirit = Only(hua.Effects, EffectKind.Summon, "花");
             Assert.That(flowerSpirit.Value, Is.EqualTo(72), "花灵 血 = 攻击伤害 × 2");
             Assert.That(flowerSpirit.SummonAttack, Is.EqualTo(18), "花灵 攻 = 攻击伤害 × 50%");
-            Assert.That(flowerSpirit.Passive, Is.Null, "花灵无本命(D8)");
+            Assert.That(flowerSpirit.Passive.OnHitCharmChance, Is.EqualTo(20), "花灵本命迷香(D2-0 E7,取代 D8 的「无本命」)");
         }
 
         [Test]

@@ -136,6 +136,24 @@ namespace Brushblade.Presentation
                     });
             }
 
+            // 本命新字段(D2-0 Task 6 修复):与上面的旧被动并列逐项列出,不进 else-if 单选链
+            // (否则带 Thorns 等旧被动的木灵、或桂 Lv3 的 HealAllyTimes 会被藏掉);复用卡面的 char.passive.* 整句
+            if (passive != null)
+            {
+                void AddNature(string text) => list.Add(new AbilityEntry
+                {
+                    IconKey = null, ChipColor = UnitDetailChip.Ability, Name = text, Desc = null,
+                });
+                if (passive.HealAllyTimes > 1) AddNature(Strings.T("char.passive.healallytimes", ("value", passive.HealAllyTimes)));
+                if (passive.PerAllyAttackPercent > 0) AddNature(Strings.T("char.passive.perallyattack", ("value", passive.PerAllyAttackPercent)));
+                if (passive.BackRowBonusPercent > 0) AddNature(Strings.T("char.passive.backrowbonus", ("value", passive.BackRowBonusPercent)));
+                if (passive.SproutPercent > 0 && passive.SproutMax > 0)
+                    AddNature(Strings.T("char.passive.sprout", ("value", passive.SproutPercent), ("max", passive.SproutMax)));
+                if (passive.EntrySaplings > 0) AddNature(Strings.T("char.passive.entrysaplings", ("value", passive.EntrySaplings)));
+                if (passive.OnHitCharmChance > 0) AddNature(Strings.T("char.passive.onhitcharm", ("chance", passive.OnHitCharmChance)));
+                if (passive.Armor > 0) AddNature(Strings.T("char.passive.armor", ("value", passive.Armor)));
+            }
+
             // 射程(2026-09-03 用户拍板补:此前召唤物详情整个没有近战/远程标识,
             // 而这正是玩家排兵布阵最要紧的一条 —— 与敌人详情的第一张卡同位置、同模板)。
             // 无条件出条目,与 EnemyInfo.BuildAbilities 消费 OfRange 同理:近战不是「默认到

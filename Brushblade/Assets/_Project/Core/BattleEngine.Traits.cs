@@ -133,6 +133,91 @@ namespace Brushblade.Core
             });
         }
 
+        // ---- D2-0 Task 7:字形特性(拆字 / 成字)与部件印记(spec §11.8,E9 / E10) ----
+
+        /// <summary>一条拆字印记:拆出的 <see cref="PartChar"/> 本回合从池中出手时,并入来源特性
+        /// (<see cref="TraitKey"/>)的效果,还剩 <see cref="Remaining"/> 次。</summary>
+        internal readonly struct PartMark
+        {
+            public readonly string PartChar;
+            public readonly int Remaining;
+            public readonly string TraitKey;
+            public readonly string SourceCharId;
+
+            public PartMark(string partChar, int remaining, string traitKey, string sourceCharId)
+            {
+                PartChar = partChar;
+                Remaining = remaining;
+                TraitKey = traitKey;
+                SourceCharId = sourceCharId;
+            }
+        }
+
+        /// <summary>本回合的拆字印记(计数表,不改 ForgeState.Pool);StartTurn 清空,进快照。</summary>
+        private readonly List<PartMark> _partMarks = new();
+
+        /// <summary>拆 / 合成功后、DrainReactions 之前调用。已解锁的字形特性每张字每条每场 1 次(E9):
+        /// 即时类脱离出字结算(不选敌,targetIndex −1);印记类挂一条印记(拆出的部件里没有 PartChar 时不挂)。
+        /// 没有字形特性时整段空转 —— 不摇随机数、不碰次数阀(恒等)。</summary>
+        private bool FireGlyphTraits(string charId, TraitTrigger trigger)
+        {
+            if (!_graph.TryGet(charId, out var def)) return false;
+            var traits = TraitRules.Glyph(def, CardLevelOf(charId), trigger);
+            if (traits.Count == 0) return false;
+            bool applied = false;
+            foreach (var t in traits)
+            {
+                if (Phase == BattlePhase.Won || Phase == BattlePhase.Lost) break;
+                if (t.PartChar != null && !def.Recipe.Contains(t.PartChar)) continue;   // 配方变动的保险
+                string key = TraitKey(def.Id, t.Slot, t.Face);
+                if (!TryUseTrait(key, perTurn: 0, perBattle: 1)) continue;
+                if (t.PartChar != null)
+                {
+                    _partMarks.Add(new PartMark(t.PartChar, t.PartCount, key, def.Id));
+                    continue;
+                }
+                ApplyDetachedEffects(def.Id, def.Element ?? Element.Heart, t.Effects, targetIndex: -1);
+                applied = true;
+            }
+            return applied;
+        }
+
+        /// <summary>拆 / 合收尾,与 Cast 同序:DrainReactions → RefreshSummonAura → CheckWin。
+        /// 只在有即时字形特性真结算过时才刷光环 / 判胜(无字形数据时恒等)。</summary>
+        private void FinishForgeAction(bool glyphApplied)
+        {
+            DrainReactions();
+            if (!glyphApplied) return;
+            RefreshSummonAura();
+            CheckWin();
+        }
+
+        /// <summary>部件 <paramref name="partId"/> 可用的第一条印记(先来先用)及其效果;没有 = −1 / null。
+        /// 来源特性在字表里找不到(数据变动)的印记视为无效。</summary>
+        private int FindPartMark(string partId, out IReadOnlyList<EffectDef> effects)
+        {
+            effects = null;
+            for (int i = 0; i < _partMarks.Count; i++)
+            {
+                var m = _partMarks[i];
+                if (m.PartChar != partId || m.Remaining <= 0) continue;
+                if (!_graph.TryGet(m.SourceCharId, out var src)) continue;
+                var trait = src.Traits.FirstOrDefault(t => TraitKey(src.Id, t.Slot, t.Face) == m.TraitKey);
+                if (trait == null) continue;
+                effects = trait.Effects;
+                return i;
+            }
+            return -1;
+        }
+
+        /// <summary>用掉第 <paramref name="index"/> 条印记一次;用完移除。</summary>
+        private void ConsumePartMark(int index)
+        {
+            var m = _partMarks[index];
+            if (m.Remaining <= 1) _partMarks.RemoveAt(index);
+            else _partMarks[index] = new PartMark(m.PartChar, m.Remaining - 1, m.TraitKey, m.SourceCharId);
+        }
+
         internal int PendingReactionCount => _reactions.Count;
 
         /// <summary>入队。战斗已分胜负时丢弃。</summary>

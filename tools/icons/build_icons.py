@@ -225,6 +225,11 @@ ICONS = {
         f'<path {STROKE} d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
         f'<path {FILL} d="M25 19h14v23l-7-6-7 6z"/>'
     ),
+    # 嘲讽(D2-0 Task 2,2026-10-06):扩音喇叭 + 一道声波。路径逐字取自 traits-data.js 的 taunt
+    "taunt": (
+        f'<path {STROKE} d="M8 25h12l24-13v40L20 39H8z"/>'
+        f'<path {STROKE} d="M52 24c4 5 4 11 0 16"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

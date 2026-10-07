@@ -132,6 +132,17 @@ namespace Brushblade.Core
                         int at = -1;
                         for (int i = 0; i < effects.Count; i++)
                             if (effects[i].Kind == e.Kind && !touched.Contains(i)) { at = i; break; }
+                        if (e.Kind == EffectKind.Summon && e.Value == 0)
+                        {
+                            // 本命强化(D2-0 Task 6,E8):只覆盖本体 Summon 被动里的非缺省字段;血 / 攻 / 只数不动。
+                            // 找不到本体 Summon 就空转,不追加一条 0 血的召唤。
+                            if (at >= 0)
+                            {
+                                effects[at] = effects[at].With(passive: MergePassive(effects[at].Passive, e.Passive));
+                                touched.Add(at);
+                            }
+                            continue;
+                        }
                         if (at >= 0) effects[at] = e;
                         else { effects.Add(e); at = effects.Count - 1; }
                         touched.Add(at);
@@ -140,6 +151,12 @@ namespace Brushblade.Core
                     else effects.Add(e);
                 }
             }
+            ApplyModifiers(effects, modifiers);
+            return effects;
+        }
+
+        private static void ApplyModifiers(List<EffectDef> effects, IEnumerable<EffectDef> modifiers)
+        {
             foreach (var m in modifiers)
             {
                 switch (m.Kind)
@@ -149,7 +166,65 @@ namespace Brushblade.Core
                     case EffectKind.Augment: ApplyAugment(effects, m); break;
                 }
             }
+        }
+
+        /// <summary>部件印记(D2-0 Task 7,E10):把来源特性的效果并进部件这次出手的效果表 ——
+        /// 非修饰器追加到末尾,修饰器(火山的 Reshape 全体等)随后按出现顺序折叠到整张表上(与 <see cref="Fold"/> ④ 同口径)。
+        /// 纯函数:返回新表,不改 <paramref name="cast"/>。</summary>
+        public static List<EffectDef> FoldExtra(List<EffectDef> cast, IReadOnlyList<EffectDef> extra)
+        {
+            var effects = new List<EffectDef>(cast);
+            var modifiers = new List<EffectDef>();
+            foreach (var e in extra)
+                (IsModifier(e.Kind) ? modifiers : effects).Add(e);
+            ApplyModifiers(effects, modifiers);
             return effects;
+        }
+
+        /// <summary>字形特性(spec §9「(拆字) / (成字)」,D2-0 Task 7):已解锁、Trigger 为 <paramref name="trigger"/>
+        /// (OnCompose / OnDismantle)的特性,不分面;被替换的槽位不算;按槽位升序。没有特性数据时直接返回空表。</summary>
+        public static IReadOnlyList<TraitDef> Glyph(CharDef def, int cardLevel, TraitTrigger trigger)
+        {
+            if (def.Traits.Count == 0) return Array.Empty<TraitDef>();
+            var unlocked = Unlocked(def, cardLevel);
+            var superseded = Superseded(unlocked);
+            return unlocked.Where(t => t.Trigger == trigger && !superseded.Contains((t.Slot, t.Face))).ToList();
+        }
+
+        /// <summary>本命强化的被动合并(E8):<paramref name="over"/> 里非缺省的字段(数值 ≠ 0、布尔 true、
+        /// Shape ≠ Single)覆盖 <paramref name="baseline"/>,其余沿用。纯函数,返回新对象。</summary>
+        internal static SummonPassive MergePassive(SummonPassive baseline, SummonPassive over)
+        {
+            var m = baseline?.Clone() ?? new SummonPassive();
+            if (over == null) return m;
+            if (over.Speed != 0) m.Speed = over.Speed;
+            if (over.Thorns != 0) m.Thorns = over.Thorns;
+            if (over.HealAlly != 0) m.HealAlly = over.HealAlly;
+            if (over.Regen != 0) m.Regen = over.Regen;
+            if (over.AuraAttack != 0) m.AuraAttack = over.AuraAttack;
+            if (over.OnHitBurn != 0) m.OnHitBurn = over.OnHitBurn;
+            if (over.OnHitBurnAll) m.OnHitBurnAll = true;
+            if (over.OnHitCurse != 0) m.OnHitCurse = over.OnHitCurse;
+            if (over.Dodge != 0) m.Dodge = over.Dodge;
+            if (over.OnSummonFreeze != 0) m.OnSummonFreeze = over.OnSummonFreeze;
+            if (over.OnHitFreezeChance != 0) m.OnHitFreezeChance = over.OnHitFreezeChance;
+            if (over.OnHitFreezeTurns != 0) m.OnHitFreezeTurns = over.OnHitFreezeTurns;
+            if (over.OnHitSlowPercent != 0) m.OnHitSlowPercent = over.OnHitSlowPercent;
+            if (over.OnHitSlowTurns != 0) m.OnHitSlowTurns = over.OnHitSlowTurns;
+            if (over.Taunt) m.Taunt = true;
+            if (over.Ranged) m.Ranged = true;
+            if (over.Shape != TargetArea.Single) m.Shape = over.Shape;
+            if (over.ShapePercent != 0) m.ShapePercent = over.ShapePercent;
+            if (over.Shots != 0) m.Shots = over.Shots;
+            if (over.BackRowBonusPercent != 0) m.BackRowBonusPercent = over.BackRowBonusPercent;
+            if (over.PerAllyAttackPercent != 0) m.PerAllyAttackPercent = over.PerAllyAttackPercent;
+            if (over.Armor != 0) m.Armor = over.Armor;
+            if (over.HealAllyTimes != 0) m.HealAllyTimes = over.HealAllyTimes;
+            if (over.SproutPercent != 0) m.SproutPercent = over.SproutPercent;
+            if (over.SproutMax != 0) m.SproutMax = over.SproutMax;
+            if (over.EntrySaplings != 0) m.EntrySaplings = over.EntrySaplings;
+            if (over.OnHitCharmChance != 0) m.OnHitCharmChance = over.OnHitCharmChance;
+            return m;
         }
 
         /// <summary>Augment:本面**第一条** Kind == AugmentKind 的效果,对应字段 + Value。找不到 / 该 kind 没有这个字段 → 空转。</summary>
