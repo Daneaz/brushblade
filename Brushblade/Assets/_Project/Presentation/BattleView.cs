@@ -1315,6 +1315,8 @@ namespace Brushblade.Presentation
                 _onNewFloor?.Invoke(); // 新一场开打:携带态已就位,供外层快照
             }
             _tileRects.Clear();
+            // 全量重画会销毁正被拖的字牌,拖拽就此作废:两面字拖拽的落点状态一并收掉(Plan E1)
+            if (FaceDragging) EndFaceDrag();
             _resolvingHint = false; // 本次重绘是否处在动画锁里,末尾决定底部那行画什么
             Ui.Clear(_topLeft);
             Ui.Clear(_topRight);
@@ -2007,6 +2009,15 @@ namespace Brushblade.Presentation
             _playerAllyRect = (RectTransform)_bottomRow;
             if (_allyTargeting && Battle.CanHealSlot(Targeting.PlayerTarget))
                 AttachAllyTargetPicker(_bottomRow, Targeting.PlayerTarget);
+            // 拖两面字(Plan E1):玩家条可落描环、不可落压暗。_bottomRow 是常驻节点,alpha 每次重画都要复位
+            if (_bottomRow.TryGetComponent<CanvasGroup>(out var playerGroup)) playerGroup.alpha = 1f;
+            if (FaceDragging)
+            {
+                if ((_faceDragLanding & FaceLanding.Self) != 0 && Battle.CanHealSlot(Targeting.PlayerTarget))
+                    AddFaceMark(_bottomRow, _playerAllyRect, FaceMarkKind.Player, Targeting.PlayerTarget, null);
+                else
+                    DimForFaceDrag(_bottomRow.gameObject);
+            }
         }
 
         // 召唤格尺寸(2026-08-31 横排改造,与敌人格同构)。之前挤在 34/28 的小方块里,
@@ -2184,6 +2195,8 @@ namespace Brushblade.Presentation
                 // Cast 内部同一条判据的落地,规则改了这里自动跟着改,不必表现层另猜一遍。
                 else if (_allyTargeting && Battle.CanHealSlot(summonIndex))
                     AttachAllyTargetPicker(cell.transform, summonIndex);
+                // 拖两面字(Plan E1):不挂点击层(落点由松手位置判),只描环 / 压暗
+                else if (FaceDragging) MarkSummonForFaceDrag(cell, summonIndex);
             }
         }
 
@@ -2301,6 +2314,9 @@ namespace Brushblade.Presentation
                 if (_slotPicking) AttachSlotPicker(cell.transform, slot);
                 else AttachAllyTargetPicker(cell.transform, slot);   // 点尸体 = 复活它
             }
+            // 拖两面字的生面(Plan E1):空位 = 召唤到这里。尸体格不可落(Review Focus 5),不画
+            else if (FaceDragging && corpse == null && (_faceDragLanding & FaceLanding.EmptySlot) != 0)
+                AddFaceMark(cell.transform, (RectTransform)cell.transform, FaceMarkKind.EmptySlot, slot, null);
         }
 
         /// <summary>友方选目标态里「友方那一面」走哪套效果(2026-09-27 抽出)。双向态(敌我同时点亮)
@@ -3081,6 +3097,7 @@ namespace Brushblade.Presentation
             // 一句空话——打死一只怪之后玩家看不出旁边还留着位子。
             DrawEmptyEnemySlots(frontCells, frontUsed);
             DrawEmptyEnemySlots(backCells, backUsed);
+            if (FaceDragging) MarkEnemiesForFaceDrag(); // 拖两面字(Plan E1):可落描环、不可落压暗
         }
 
         /// <summary>把本排没被占用的格位画成虚线框(稿 .foeslot);已被跨列怪吞掉、
@@ -3266,6 +3283,13 @@ namespace Brushblade.Presentation
         /// (<see cref="IsSummonDual"/>),落在位子上 = 召唤,落在敌人身上 = 攻。</summary>
         private void AttachDragToAttack(GameObject tile, CharDef def, int libraryIndex = -1)
         {
+            // 字库里的两面字(Plan E1 F5):按朝上的那一面拖,不再进双向态 / 攻召双向态。
+            // 单面字与部件池(卡位 −1)走下面的原路径,行为不变。
+            if (libraryIndex >= 0 && CardFaceRules.HasTwoFaces(def))
+            {
+                AttachFaceDrag(tile, def, libraryIndex);
+                return;
+            }
             // 召唤只数与 AP 都按 attackMode 口径先算一遍:两条都过才点亮槽位。
             // AP 不够时故意**不**点亮 —— 让它走松手时的常规路径,由引擎当场报「AP 不够」,
             // 与点「出字」被拒同口径(见 BeginCast 里那条同因的守卫)。
@@ -3410,6 +3434,300 @@ namespace Brushblade.Presentation
                 onDragMove: screenPos => OnDragHover(screenPos, def));
         }
 
+        // ---- 两面字拖出(Plan E1 Task 4,spec §2.2;HandFlip 稿「落点」) ----
+
+        private enum FaceMarkKind { Enemy, Player, Summon, EmptySlot, Graft }
+
+        /// <summary>一格落点的标记:描环 + 底色 + 悬停签(可空)。拖拽中只就地改它们的颜色 / 显隐。</summary>
+        private sealed class FaceMark
+        {
+            public FaceMarkKind Kind;
+            public int Index;              // 敌人下标 / 召唤槽 / Targeting.PlayerTarget
+            public RectTransform Rect;     // 松手判定用的整格
+            public Image Ring;
+            public Image Tint;
+            public GameObject Label;       // 悬停才显示的预估签;没有为 null
+        }
+
+        // 正在拖的两面字:起拖时定下面与落点,松手 / 全量重画时清。null = 没在拖两面字
+        private CharDef _faceDragDef;
+        private int _faceDragIndex = -1;
+        private CardFace _faceDragFace;
+        private FaceLanding _faceDragLanding;
+        private bool _faceDragHitsAll;     // 这一面打全体:悬停任一敌人,全部敌人一起加深
+        private readonly List<FaceMark> _faceMarks = new();
+        private FaceMark _faceHover;
+
+        private bool FaceDragging => _faceDragDef != null;
+
+        // HandFlip 稿 .tg-ok / .tg-hover / .tg-no / .tg-lbl / .ghost-lbl(pt × 2.093)
+        private const int FaceMarkRadius = 12;          // 与召唤落位层、友方选目标层同一圆角
+        private const int FaceRingOk = 3;               // 1.5pt
+        private const int FaceRingHover = 5;            // 2.5pt
+        private const float FaceTintOk = 0.05f;         // 5% 墨
+        private const float FaceTintHover = 0.09f;      // 9% 墨
+        private const float FaceTintSlot = 0.10f;       // .slot 翠玉 10%
+        private const float FaceDimAlpha = 0.42f;       // .tg-no
+        private const int FaceLabelFontSize = 15;       // 7.2pt
+        private const int FaceLabelPadX = 20;           // 左右各 5pt
+        private const int FaceLabelPadY = 12;           // 高 13pt ≈ 27 = 15 + 12
+        private const float FaceLabelRise = 19f;        // top: −9pt
+        private const int FaceGhostLabelFontSize = 16;  // 7.5pt
+
+        /// <summary>两面字的拖拽:起拖按朝上的面算落点并点亮,松手按命中的落点类型派发。
+        /// 不进双向态(F5):_targeting / _allyTargeting / _slotPicking 全程为 false,
+        /// 敌人 / 召唤两排 / 玩家条都按 <see cref="_faceDragLanding"/> 画。</summary>
+        private void AttachFaceDrag(GameObject tile, CharDef def, int libraryIndex)
+        {
+            DragToAttack.Attach(tile, def.Id, Theme.GlyphColor(def.Element),
+                // 翻面动效那 0.18s 不许起拖(同原路径)
+                () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating
+                    && _handFlipAnim == null,
+                screenPos =>
+                {
+                    ClearHoverPreview();
+                    _hoverPreviewPrimary = -1;
+                    ClearDragTargets();
+                    if (!FaceDragging) { CancelSelection(); return; } // 拖拽中途被全量重画打断过
+                    DropFaceDrag(screenPos);
+                },
+                onBeginDrag: () => BeginFaceDrag(def, libraryIndex),
+                onDragMove: OnFaceDragHover);
+        }
+
+        /// <summary>起拖:定面、算落点、重画敌人排 / 召唤排 / 玩家条(与原路径同样只重画这三块,
+        /// **绝不重绘字库行** —— 那会销毁正被拖的字牌)。AP 不够也照样点亮:松手后由引擎当场报
+        /// 「AP 不够」,不扣 AP(BeginCast / ExecuteCast 的同一条守卫)。</summary>
+        private void BeginFaceDrag(CharDef def, int libraryIndex)
+        {
+            // 上一张字留下的选目标态 / 落位态全部作废:落点只由这一面决定
+            _selectedChar = def.Id;
+            _selectedIndex = libraryIndex;
+            _targeting = false;
+            _allyTargeting = false;
+            _pendingAllyEnemyTarget = -1;
+            ResetSlotPicking();
+
+            _faceDragDef = def;
+            _faceDragIndex = libraryIndex;
+            _faceDragFace = GetFace(libraryIndex);
+            _pendingAttackMode = _faceDragFace == CardFace.Attack;
+            int level = _run.CardLevel(def.Id);
+            _faceDragLanding = CardFaceRules.Landing(def, _faceDragFace, level);
+            _faceDragHitsAll = FaceHitsAllEnemies(def, _faceDragFace, level);
+            _faceMarks.Clear();
+            _faceHover = null;
+
+            RedrawDualTargets(); // 敌人两排 + 召唤两排 + 玩家条,三块各自按落点挂标记
+            _messageLabel.text = Strings.T("battle.hint.drag_release"); // 只改这一行的字,不动 _message:取消后原样回来
+        }
+
+        private void EndFaceDrag()
+        {
+            _faceDragDef = null;
+            _faceDragIndex = -1;
+            _faceDragLanding = FaceLanding.None;
+            _faceDragHitsAll = false;
+            _faceMarks.Clear();
+            _faceHover = null;
+        }
+
+        /// <summary>松手派发(Review Focus 2:方向不能判反,不可落处不扣 AP)。
+        /// attackMode 一律取朝上的面:攻击面 true,五行面 false。</summary>
+        private void DropFaceDrag(Vector2 screenPos)
+        {
+            var def = _faceDragDef;
+            int libraryIndex = _faceDragIndex;
+            bool attackMode = _faceDragFace == CardFace.Attack;
+            var hit = FaceMarkAt(screenPos);
+            EndFaceDrag(); // 标记随后由 Refresh 整排重画带走
+            if (hit == null) { CancelSelection(); return; } // 未点亮处 = 取消,没调 Cast
+
+            switch (hit.Kind)
+            {
+                case FaceMarkKind.Enemy:
+                    // 这一面还要选友方(攻击面顺带选落点的字)就进第二段,与点击路径同一个状态机;
+                    // 场上没有存活召唤物时引擎自动锁玩家,不弹没得选的选择
+                    if (BattleEngine.NeedsAllyTarget(def, attackMode) && Battle.AliveSummonCount > 0)
+                    {
+                        EnterAllyTargeting(def, enemyTarget: hit.Index, attackMode: attackMode);
+                        Refresh();
+                        return;
+                    }
+                    BeginCast(def.Id, hit.Index, attackMode: attackMode, libraryIndex: libraryIndex);
+                    return;
+                case FaceMarkKind.Player:
+                    BeginCast(def.Id, -1, attackMode: attackMode, libraryIndex: libraryIndex,
+                        allySlot: Targeting.PlayerTarget);
+                    return;
+                case FaceMarkKind.Summon:
+                    BeginCast(def.Id, -1, attackMode: attackMode, libraryIndex: libraryIndex, allySlot: hit.Index);
+                    return;
+                case FaceMarkKind.EmptySlot:
+                    // 第一只落玩家松手的那一格,余下由引擎顺延(与点击落位同一张落位表)
+                    ExecuteCast(def.Id, -1, attackMode: attackMode, libraryIndex: libraryIndex,
+                        summonSlots: Battle.PlanSummonSlots(hit.Index, Battle.SummonCountOf(def, attackMode)));
+                    return;
+                case FaceMarkKind.Graft:
+                    // F6:生面落活木灵 = 嫁接,不进选位、不弹顶替(Core 保证召唤位满也能嫁接)
+                    ExecuteCast(def.Id, -1, attackMode: false, libraryIndex: libraryIndex, allySlot: hit.Index);
+                    return;
+            }
+            CancelSelection();
+        }
+
+        private FaceMark FaceMarkAt(Vector2 screenPos)
+        {
+            foreach (var mark in _faceMarks)
+                if (mark.Rect != null && RectTransformUtility.RectangleContainsScreenPoint(mark.Rect, screenPos, null))
+                    return mark;
+            return null;
+        }
+
+        /// <summary>每帧调:只改已存在标记的描环粗细 / 底色 / 签的显隐,不建不删任何物件。</summary>
+        private void OnFaceDragHover(Vector2 screenPos)
+        {
+            if (!FaceDragging) return;
+            // 敌人那一侧照旧出溅射预览(只改 _enemyHitAreas 的颜色,与原路径同一套)
+            if ((_faceDragLanding & FaceLanding.Enemy) != 0)
+                OnDragHover(screenPos, _faceDragDef, _faceDragFace == CardFace.Attack);
+            var hit = FaceMarkAt(screenPos);
+            if (hit == _faceHover) return;
+            _faceHover = hit;
+            bool allEnemies = hit != null && hit.Kind == FaceMarkKind.Enemy && _faceDragHitsAll;
+            foreach (var mark in _faceMarks)
+                SetFaceMarkHover(mark, mark == hit || (allEnemies && mark.Kind == FaceMarkKind.Enemy));
+        }
+
+        private void SetFaceMarkHover(FaceMark mark, bool hover)
+        {
+            if (mark.Ring != null) mark.Ring.sprite = Theme.RoundedRing(FaceMarkRadius, hover ? FaceRingHover : FaceRingOk);
+            if (mark.Tint != null)
+                mark.Tint.color = mark.Kind == FaceMarkKind.EmptySlot
+                    ? new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, FaceTintSlot)
+                    : new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, hover ? FaceTintHover : FaceTintOk);
+            if (mark.Label != null) mark.Label.SetActive(hover);
+        }
+
+        /// <summary>给一格挂落点标记。底色垫在格内容之下、描环压在最上;都不吃射线。</summary>
+        private void AddFaceMark(Transform host, RectTransform hitRect, FaceMarkKind kind, int index, string hoverLabel)
+        {
+            var mark = new FaceMark { Kind = kind, Index = index, Rect = hitRect };
+
+            var tintGo = Ui.Panel(host, "LandTint");
+            tintGo.AddComponent<LayoutElement>().ignoreLayout = true;
+            mark.Tint = tintGo.AddComponent<Image>();
+            mark.Tint.sprite = Theme.Rounded(FaceMarkRadius);
+            mark.Tint.type = Image.Type.Sliced;
+            mark.Tint.raycastTarget = false;
+            Ui.Stretch((RectTransform)tintGo.transform);
+            tintGo.transform.SetAsFirstSibling();
+
+            if (kind == FaceMarkKind.EmptySlot)
+            {
+                var ghost = Ui.ThemedLabel(host, Strings.T("battle.landing.summon_here"), FaceGhostLabelFontSize,
+                    Theme.ElementSoftFg(Element.Wood));
+                ghost.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                ghost.raycastTarget = false;
+                Ui.Stretch(ghost.rectTransform);
+            }
+
+            var ringGo = Ui.Panel(host, "LandRing");
+            ringGo.AddComponent<LayoutElement>().ignoreLayout = true;
+            mark.Ring = ringGo.AddComponent<Image>();
+            mark.Ring.type = Image.Type.Sliced;
+            mark.Ring.fillCenter = false;
+            mark.Ring.raycastTarget = false;
+            // 描环色 = 朝上那面的字形色;攻击面是墨(F7)
+            mark.Ring.color = _faceDragFace == CardFace.Attack ? Theme.Ink : Theme.GlyphColor(_faceDragDef.Element);
+            Ui.Stretch((RectTransform)ringGo.transform);
+
+            if (hoverLabel != null)
+            {
+                var label = Ui.Chip(host, hoverLabel, Theme.Ink, Color.white, FaceLabelFontSize, FaceLabelPadX, FaceLabelPadY);
+                var element = label.GetComponent<LayoutElement>();
+                element.ignoreLayout = true;
+                float w = element.preferredWidth, h = element.preferredHeight;
+                Ui.Anchor((RectTransform)label.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(-w / 2f, FaceLabelRise - h), new Vector2(w / 2f, FaceLabelRise));
+                foreach (var graphic in label.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
+                // 签探出格上沿:单独排序压在相邻排之上,免得被后画的那一排盖住
+                var canvas = label.AddComponent<Canvas>();
+                canvas.overrideSorting = true;
+                var root = host.GetComponentInParent<Canvas>();
+                canvas.sortingOrder = (root != null ? root.rootCanvas.sortingOrder : 0) + 1;
+                mark.Label = label;
+            }
+
+            SetFaceMarkHover(mark, false);
+            _faceMarks.Add(mark);
+        }
+
+        /// <summary>不可落 = 整格压到 0.42(.tg-no)。格子都是这次重画新建的(玩家条除外,它在
+        /// DrawPlayerStats 开头复位),所以只管加不管撤。</summary>
+        private static void DimForFaceDrag(GameObject cell)
+        {
+            if (!cell.TryGetComponent<CanvasGroup>(out var group)) group = cell.AddComponent<CanvasGroup>();
+            group.alpha = FaceDimAlpha;
+        }
+
+        /// <summary>敌人格:这一面能落敌人且该敌人可打(判据走 CanTarget,与引擎受理同源)→ 描环,
+        /// 否则压暗。挂在点击区那一层(跨排 Boss 是向下溢出的那块),松手判定与 EnemyIndexAt 同一块。</summary>
+        private void MarkEnemiesForFaceDrag()
+        {
+            bool attackMode = _faceDragFace == CardFace.Attack;
+            bool enemyFace = (_faceDragLanding & FaceLanding.Enemy) != 0;
+            for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
+            {
+                var area = _enemyHitAreas[i];
+                if (area == null) continue;
+                if (enemyFace && Battle.CanTarget(_faceDragDef, i, attackMode))
+                    AddFaceMark(area.transform, area.rectTransform, FaceMarkKind.Enemy, i, null);
+                else
+                    DimForFaceDrag(area.gameObject);
+            }
+        }
+
+        /// <summary>活召唤物格:生面 → 嫁接;落木灵的五行面(铠 / 润 / 固)→ 友方落点;否则压暗。</summary>
+        private void MarkSummonForFaceDrag(GameObject cell, int slot)
+        {
+            var rect = (RectTransform)cell.transform;
+            if ((_faceDragLanding & FaceLanding.Graft) != 0)
+                AddFaceMark(cell.transform, rect, FaceMarkKind.Graft, slot, Strings.T("battle.landing.graft"));
+            else if ((_faceDragLanding & FaceLanding.Summons) != 0 && Battle.CanHealSlot(slot))
+                AddFaceMark(cell.transform, rect, FaceMarkKind.Summon, slot, SummonLandingLabel());
+            else
+                DimForFaceDrag(cell);
+        }
+
+        /// <summary>落木灵的结果签(designer 2026-10-07:只写结果)。攻击面落不到木灵,这里只有五行面。</summary>
+        private string SummonLandingLabel()
+        {
+            if (_faceDragFace != CardFace.Feature) return null;
+            switch (_faceDragDef.Element)
+            {
+                case Element.Metal:
+                    foreach (var e in TraitRules.CastEffects(_faceDragDef, CardFace.Feature, _run.CardLevel(_faceDragDef.Id)))
+                        if (e.Kind == EffectKind.Block)
+                            return Strings.T("battle.landing.block", ("n", e.Value));
+                    return null;
+                case Element.Water: return Strings.T("battle.landing.to_water");
+                case Element.Earth: return Strings.T("battle.landing.taunt");
+                default: return null;
+            }
+        }
+
+        /// <summary>这一面打全体(全体伤害或 pick = All 的敌对效果):悬停任一敌人时整排一起加深。</summary>
+        private static bool FaceHitsAllEnemies(CharDef def, CardFace face, int level)
+        {
+            foreach (var e in TraitRules.CastEffects(def, face, level))
+            {
+                if (e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All) return true;
+                if (CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) == EffectPick.All) return true;
+            }
+            return false;
+        }
+
         /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
         /// 判据一律走 <see cref="Targeting.ExpandTargets"/>,形状/连发数也一律走
         /// <see cref="BattleEngine.AttackShapeOf"/>(2026-08-22 评审 Finding 2 后从表现层自己
@@ -3426,7 +3744,7 @@ namespace Brushblade.Presentation
         /// ⚠ 每帧都会调用:只改已存在的 <see cref="_enemyHitAreas"/> 颜色,不重绘任何 GameObject
         /// ——DragToAttack.cs 顶部有整段警告解释为什么(销毁正被拖的对象会掐断 OnEndDrag)。
         /// 悬停格没变时直接 return,不做无用功。</summary>
-        private void OnDragHover(Vector2 screenPos, CharDef def)
+        private void OnDragHover(Vector2 screenPos, CharDef def, bool attackMode = true)
         {
             // 召唤字走落位预览(起拖已点亮 6 槽),不叠加打人预览
             // 「攻/召」双向态(2026-09-27)敌人也点亮着,照常出打人预览
@@ -3435,9 +3753,9 @@ namespace Brushblade.Presentation
             _hoverPreviewPrimary = target;
             ClearHoverPreview();
 
-            if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
+            if (target < 0 || !Battle.CanTarget(def, target, attackMode)) return;
 
-            var (shape, shots) = BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id));
+            var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode, _run.CardLevel(def.Id));
             // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
             // 对全体字返回 Single,预览只标悬停那只。本次是恒等重构,预览沿用旧样子;
             // 要改成「标出全场」是另一件视觉改动,不在这里顺手做。

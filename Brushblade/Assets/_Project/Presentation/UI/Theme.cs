@@ -337,6 +337,39 @@ namespace Brushblade.Presentation
             return sprite;
         }
 
+        private static readonly Dictionary<(int, int), Sprite> _ring = new();
+
+        /// <summary>圆角空心描环 9-slice(Plan E1 拖拽落点,HandFlip 稿 .tg-ok/.tg-hover 的 box-shadow 环)。
+        /// 与 <see cref="Rounded"/> 同一套几何,外沿圆角 radius、环宽 thickness,中心全透明。
+        /// 用 <c>Rounded + fillCenter=false</c> 那条路做不出细环:那样的边宽 = 九宫格 border = radius+2。</summary>
+        public static Sprite RoundedRing(int radius, int thickness)
+        {
+            if (_ring.TryGetValue((radius, thickness), out var cached)) return cached;
+            int size = radius * 2 + 8;
+            var tex = NewTex(size, size);
+            float r = radius;
+            float ri = Mathf.Max(0f, radius - thickness);
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = Mathf.Max(0, Mathf.Max(r - x - 0.5f, x + 0.5f - (size - r)));
+                    float dy = Mathf.Max(0, Mathf.Max(r - y - 0.5f, y + 0.5f - (size - r)));
+                    float outer = Mathf.Clamp01(r - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+                    // 内沿:四边内缩 thickness 的圆角矩形,圆角半径 ri
+                    float lo = thickness + ri, hi = size - thickness - ri;
+                    float ix = Mathf.Max(0, Mathf.Max(lo - x - 0.5f, x + 0.5f - hi));
+                    float iy = Mathf.Max(0, Mathf.Max(lo - y - 0.5f, y + 0.5f - hi));
+                    float inner = Mathf.Clamp01(ri - Mathf.Sqrt(ix * ix + iy * iy) + 0.5f);
+                    tex.SetPixel(x, y, new Color(1, 1, 1, outer * (1f - inner)));
+                }
+            tex.Apply();
+            var border = radius + 2;
+            var sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f),
+                100, 0, SpriteMeshType.FullRect, new Vector4(border, border, border, border));
+            _ring[(radius, thickness)] = sprite;
+            return sprite;
+        }
+
         /// <summary>墨晕外扩宽度(px):牌沿向外洇开多远。<see cref="Halo"/> 与调用方的
         /// RectTransform 外扩量必须用同一个数,不然贴图里的渐变对不上牌的边界。</summary>
         public const int HaloPad = 10;
