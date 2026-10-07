@@ -88,6 +88,7 @@ namespace Brushblade.Data
             public bool KeepStacks { get; set; }       // BurnSettleNow:结算一次但不减层
             public bool PercentOfMax { get; set; }     // HealSummons:回复量按 MaxHp × Value%(D1 Task 7)
             public string RiderOf { get; set; }        // 附着载体(D1 Task 9,烟熏):目前只认 Blind 挂 Burn
+            public int BodyPercent { get; set; }       // D2-火 E5:Value = 本面本体首条 DamageSingle × N%(只给 DamageSingle)
         }
 
         private sealed class CampaignFileDto
@@ -741,6 +742,9 @@ namespace Brushblade.Data
                         throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf(目前只有 Blind 能附着在灼上)");
                     riderOf = carrier;
                 }
+                // bodyPercent(D2-火 E5)只在伤害上解析(TraitRules.ForCast);写在别处会静默无效 —— 拦下
+                if (effect.BodyPercent != 0 && (kind != EffectKind.DamageSingle || effect.BodyPercent < 0))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle 能按本体百分比取值,且须 > 0)");
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 var augmentKind = EffectKind.DamageSingle;
@@ -778,7 +782,8 @@ namespace Brushblade.Data
                     effect.ArmorStrikePercent,
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
-                    augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf));
+                    augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf,
+                    effect.BodyPercent));
             }
             return effects;
         }

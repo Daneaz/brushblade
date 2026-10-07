@@ -614,6 +614,8 @@ namespace Brushblade.Core
             DamageCondition.TargetHpAbove70, DamageCondition.TargetHpBelow30,
             DamageCondition.PlayerHpBelow50, DamageCondition.PlayerHasArmor,
             DamageCondition.FirstCastThisTurn, DamageCondition.Countering,
+            // D2-火 Task 1(附录 E1)
+            DamageCondition.PlayerHpAbove70, DamageCondition.HasSummon,
         };
 
         /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
@@ -622,7 +624,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 13 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 15 种),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -646,7 +648,12 @@ namespace Brushblade.Core
 
         private static bool IsTargetIndependent(DamageCondition c) =>
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
-            || c == DamageCondition.FirstCastThisTurn;
+            || c == DamageCondition.FirstCastThisTurn
+            || c == DamageCondition.PlayerHpAbove70 || c == DamageCondition.HasSummon;
+
+        /// <summary>灼的火力加成(D2-火 G3):scope Burn / All 的 Amplify 乘在火力上,不改层数。无加成项原样返回。</summary>
+        private int AmpBurnPotency(EffectDef effect, int potency, int enemyIndex) =>
+            effect.AmpTerms.Count == 0 ? potency : Amplified(potency, AmpPercent(effect, enemyIndex));
 
         /// <summary>这条效果上满足条件的 Amplify 加成百分点之和(D1 Task 3)。无加成项时 0。</summary>
         private int AmpPercent(EffectDef effect, int enemyIndex)
@@ -718,6 +725,21 @@ namespace Brushblade.Core
                 }
                 case EffectPick.FrozenByThisCast:
                     foreach (int i in _cast.FrozenTargets) if (_enemies[i].Alive) result.Add(i);
+                    break;
+                // D2-火 Task 1(附录 E2):以主目标为中心的两档 —— 主目标在前(不论死活,存活守卫留给各分支),其余按下标
+                case EffectPick.Row:
+                    if (primary < 0 || primary >= _enemies.Count) break;
+                    result.Add(primary);
+                    for (int i = 0; i < _enemies.Count; i++)
+                        if (i != primary && _enemies[i].Alive && _enemies[primary].SharesRow(_enemies[i])) result.Add(i);
+                    break;
+                case EffectPick.Adjacent:
+                    if (primary < 0 || primary >= _enemies.Count) break;
+                    result.Add(primary);
+                    result.AddRange(Targeting.AdjacentEnemies(_enemies, primary));
+                    break;
+                case EffectPick.BurnedByThisCast:
+                    foreach (int i in _cast.BurnedTargets) if (_enemies[i].Alive) result.Add(i);
                     break;
             }
             return result;
@@ -1924,9 +1946,11 @@ namespace Brushblade.Core
         /// <summary>单条效果是否需要敌方目标(NeedsTarget 的逐条判据;特性校验也用它)。</summary>
         public static bool EffectNeedsTarget(EffectDef effect)
         {
-                // 选择器 != Primary(含旧 TargetAll)的效果不需要玩家选目标(D1 Task 5)
-                if (EffectPickRules.Supports(effect.Kind) && EffectPickRules.Effective(effect) != EffectPick.Primary)
-                    return false;
+                // 选择器 != Primary(含旧 TargetAll)的效果不需要玩家选目标(D1 Task 5);
+                // Row / Adjacent 以主目标为中心,仍要选(D2-火 E2)
+                if (EffectPickRules.Supports(effect.Kind) && EffectPickRules.Effective(effect) is var pick
+                    && pick != EffectPick.Primary)
+                    return pick == EffectPick.Row || pick == EffectPick.Adjacent;
                 // 全体(All)与连发一样不选目标(spec v7 §3.2)
                 if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter
                         && effect.Shape != TargetArea.All)
@@ -3084,6 +3108,7 @@ namespace Brushblade.Core
             _cast.OnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
             _cast.OnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
             _cast.TraitDef = def;
+            _cast.AttackMode = attackMode;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
             // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
@@ -3126,7 +3151,9 @@ namespace Brushblade.Core
                 // Amplify(D1 Task 3 / Ruling 5、6):与 L3 + 专精同轴相加,紧跟专精之后并进那一项。
                 // 伤害按每一击的目标在 BaseValue 里求和(目标相关条件);格挡的加成落在反击量上(Block 分支)。
                 // 无加成项时整句跳过。
-                if (effect.AmpTerms.Count > 0 && effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.Block)
+                // 灼的加成作用于火力不作用于层数(G3,在 BurnSingle / BurnAll 分支里按目标乘)
+                if (effect.AmpTerms.Count > 0 && effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.Block
+                    && effect.Kind != EffectKind.BurnSingle && effect.Kind != EffectKind.BurnAll)
                     value = Amplified(value, AmpPercent(effect, targetIndex), AmpAxisPercent(attacker, effect.Kind));
                 if (moraleRelease && effect.Kind == EffectKind.DamageSingle)
                     value = value * (100 + _config.MoraleReleasePercent) / 100;
@@ -3242,7 +3269,7 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                         {
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
-                            int burnGain = ApplyBurn(ti, value, UnitRef.Player, burnPotency);
+                            int burnGain = ApplyBurn(ti, value, UnitRef.Player, AmpBurnPotency(effect, burnPotency, ti));
                             if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, ti, burnGain));
                             if (!_cast.BurnedTargets.Contains(ti)) _cast.BurnedTargets.Add(ti);   // 烟熏「带本字灼」
                         }
@@ -3295,6 +3322,7 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
                                 Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                                TraitKey = effect.TraitKey,   // G11:特性来源独立计时,不与本体同源合并
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3324,6 +3352,7 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.Vulnerable, Polarity = StatusPolarity.Debuff,
                                 Magnitude = value, TurnsLeft = Math.Max(1, markTurns), SourceId = def.Id,
+                                TraitKey = effect.TraitKey,   // G11
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3592,7 +3621,7 @@ namespace Brushblade.Core
                                 }, UnitRef.Enemy(ti), UnitRef.Player);
                                 continue;
                             }
-                            ApplyBlind(ti, value, effect.Turns, def.Id);
+                            ApplyBlind(ti, value, effect.Turns, def.Id, effect.TraitKey);   // G11:特性来源独立
                         }
                         break;
                     case EffectKind.Silence:
@@ -3809,7 +3838,7 @@ namespace Brushblade.Core
                         for (int i = 0; i < _enemies.Count; i++)
                             if (_enemies[i].Alive)
                             {
-                                int burnGain = ApplyBurn(i, value, UnitRef.Player, burnPotency);
+                                int burnGain = ApplyBurn(i, value, UnitRef.Player, AmpBurnPotency(effect, burnPotency, i));
                                 if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, i, burnGain));
                                 if (!_cast.BurnedTargets.Contains(i)) _cast.BurnedTargets.Add(i);   // 烟熏「带本字灼」
                             }
@@ -4430,8 +4459,10 @@ namespace Brushblade.Core
             else if (effect.Kind == StatusKind.Curse || effect.Kind == StatusKind.Seed || effect.Kind == StatusKind.Vulnerable)
             {
                 // 减攻 / 种 / 标记同源刷新取强(D1 Task 5 / 6,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
-                // 同源 = 同 Kind + 同 SourceId(bag.Apply 的去重键),不同来源各自并存。
-                var existing = bag.All.FirstOrDefault(s => s.Kind == effect.Kind && s.SourceId == effect.SourceId);
+                // 同源 = 同 Kind + 同 SourceId + 同 TraitKey(bag.Apply 的去重键),不同来源各自并存
+                // (D2-火 G11:特性施加的那条带 TraitKey,与本体分开计时)。
+                var existing = bag.All.FirstOrDefault(s => s.Kind == effect.Kind && s.SourceId == effect.SourceId
+                    && s.TraitKey == effect.TraitKey);
                 if (existing != null)
                 {
                     effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
@@ -4545,12 +4576,12 @@ namespace Brushblade.Core
 
         /// <summary>给一名敌人挂致盲。TurnsLeft 直接用配置的回合数 —— 致盲是玩家在自己回合
         /// 挂上的,不像 Boss 倾覆那样在敌方段挂(那种要 +1 才能熬过同回合的状态递减)。</summary>
-        private void ApplyBlind(int enemyIndex, int percent, int turns, string sourceId)
+        private void ApplyBlind(int enemyIndex, int percent, int turns, string sourceId, string traitKey = null)
         {
             ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
             {
                 Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff,
-                Magnitude = percent, TurnsLeft = turns, SourceId = sourceId,
+                Magnitude = percent, TurnsLeft = turns, SourceId = sourceId, TraitKey = traitKey,
             }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
         }
 
@@ -4976,6 +5007,8 @@ namespace Brushblade.Core
             DamageCondition.TargetHpBelow30 => target.Hp * 100L < target.MaxHp * 30L,
             DamageCondition.PlayerHpBelow50 => PlayerHp * 100L < _config.PlayerMaxHp * (long)HpThresholdPercent,
             DamageCondition.PlayerHasArmor => _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0,
+            DamageCondition.PlayerHpAbove70 => PlayerHp * 100L > _config.PlayerMaxHp * 70L,
+            DamageCondition.HasSummon => AliveSummons() > 0,
             DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
             DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
             _ => false,

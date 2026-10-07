@@ -76,7 +76,10 @@ namespace Brushblade.Presentation
                 if (i > 0) parts.Append(';');
                 var e = effects[i];
                 int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
-                string shown = v.ToString();
+                // 本体百分比(D2-火 E5,连爆):数值在出字时才按本面本体解析,卡面印「本体×N%」
+                string shown = e.BodyPercent > 0
+                    ? Strings.T("char.effect.bodypercent", ("percent", e.BodyPercent))
+                    : v.ToString();
                 parts.Append(e.Kind switch
                 {
                     // 全体(spec v7 §11.6:DamageAll 并入 DamageSingle + All):沿用原「全体N伤」那句,
@@ -357,6 +360,7 @@ namespace Brushblade.Presentation
             AmpScope.Seed => Strings.T("char.effect.amplify.seed", ("value", e.Value)),
             AmpScope.Counter => Strings.T("char.effect.amplify.counter", ("value", e.Value)),
             AmpScope.All => Strings.T("char.effect.amplify.all", ("value", e.Value)),
+            AmpScope.Burn => Strings.T("char.effect.amplify.burn", ("value", e.Value)),
             _ => Strings.T("char.effect.amplify.damage", ("value", e.Value)),
         };
 
@@ -368,6 +372,9 @@ namespace Brushblade.Presentation
             EffectPick.HitTargets => Strings.T("char.effect.pick.hittargets"),
             EffectPick.MostBurn => Strings.T("char.effect.pick.mostburn"),
             EffectPick.FrozenByThisCast => Strings.T("char.effect.pick.frozen"),
+            EffectPick.Row => Strings.T("char.effect.pick.row"),
+            EffectPick.Adjacent => Strings.T("char.effect.pick.adjacent"),
+            EffectPick.BurnedByThisCast => Strings.T("char.effect.pick.burnedbythiscast"),
             _ => "",
         };
 
@@ -387,6 +394,8 @@ namespace Brushblade.Presentation
             DamageCondition.PlayerHasArmor => Strings.T("char.effect.onlyif.playerhasarmor"),
             DamageCondition.FirstCastThisTurn => Strings.T("char.effect.onlyif.firstcastthisturn"),
             DamageCondition.Countering => Strings.T("char.effect.onlyif.countering"),
+            DamageCondition.PlayerHpAbove70 => Strings.T("char.effect.onlyif.playerhpabove70"),
+            DamageCondition.HasSummon => Strings.T("char.effect.onlyif.hassummon"),
             _ => "",
         };
 
@@ -417,8 +426,11 @@ namespace Brushblade.Presentation
         /// <summary>Reshape(D1 Task 3):「伤害改为 + 形状 + 改动的修饰」。只印 Reshape 上非缺省的字段,
         /// 与引擎 TraitRules.Fold 的覆盖口径一致。</summary>
         private static string ReshapeText(EffectDef e) =>
-            Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
-            + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
+            e.Pick != EffectPick.Primary
+                // 重选目标(D2-火 E3,烈风):本面没有伤害时,落在主目标上的效果改落到选择器上
+                ? Strings.T("char.effect.reshape.retarget") + PickText(e.Pick)
+                : Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
+                    + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
 
         /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。</summary>
         private static string MarkerText(EffectDef e) =>

@@ -160,6 +160,10 @@ ARMOR_STRIKE_TOKEN = "ArmorStrike"
 CHAIN_TOKEN = "Chain"
 
 SHOTS_TOKEN = "Shots"
+
+# D2-火 E5:`bodyPercent N` —— 特性效果的 Value = 本面本体首条 DamageSingle × N%(连爆)。只挂本格唯一的 DamageSingle;
+# 不挂白名单会被通用正则当成 kind="bodyPercent" 的独立效果。
+BODY_PERCENT_TOKEN = "bodyPercent"
 SHAPE_PERCENT_TOKEN = "ShapePercent"
 
 # ---- D1 Task 3:本字修饰器(附录 M1–M3)的修饰 token ----
@@ -182,10 +186,11 @@ DAMAGE_MARKER_VALUE_TOKENS = {
     "armorStrike": "armorStrikePercent",
 }
 # 与 Core 的 AmpScope / DamageCondition / TargetArea 枚举名一致;写错直接报错,不静默落成缺省
-AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All"}
+AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All", "Burn"}   # Burn:灼的火力(D2-火 G3)
 CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Frozen",
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
-              "FirstCastThisTurn", "Countering"}
+              "FirstCastThisTurn", "Countering",
+              "PlayerHpAbove70", "HasSummon"}   # D2-火 Task 1(附录 E1)
 # D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
@@ -197,13 +202,18 @@ RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 # 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
 ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
                     "BurnSettleNow", "Detonate", "Seed", "Vulnerable"}
-ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast"}
+ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
+               "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
+# D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
+# 不进 ENEMY_PICK_KINDS:那张表还管「池条目落到不选目标的面时补 pick All」(extract_traits._retarget_to_all),
+# Reshape 是修饰器,不该被补。只作为 `pick` 的挂载点。
+RESHAPE_PICK_KINDS = {"Reshape"}
 # D1 Task 7:我方侧选择器,各只给一个 kind(与 Core 的 EffectPickRules.Allows 同一张表)。
 # 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
 # D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
 ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
-PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS
+PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
 KEEP_TOKEN = "keep"
@@ -483,7 +493,7 @@ def _attach_ally_tokens(config, char, effects, consumed):
         ally_kinds = ALLY_PICKS.get(pick)
         if ally_kinds is not None and e["kind"] not in ally_kinds:
             raise ValueError(f"{char}:`pick {pick}` 只能挂在 {sorted(ally_kinds)} 上,当前挂到了 {e['kind']}")
-        if ally_kinds is None and e["kind"] not in ENEMY_PICK_KINDS:
+        if ally_kinds is None and e["kind"] not in ENEMY_PICK_KINDS | RESHAPE_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
                              f"{sorted(p for p, ks in ALLY_PICKS.items() if e['kind'] in ks)})")
     for e in effects:
@@ -606,6 +616,8 @@ def _parse_effects(config, char):
             continue  # 修饰器 / 伤害标记的数值(D1 Task 3),由 _attach_modifier_tokens 挂
         if kind == SAPLING_COUNT_TOKEN:
             continue  # 幼苗只数(D1 Task 7),下面挂到 SummonSapling 上
+        if kind == BODY_PERCENT_TOKEN:
+            continue  # 本体百分比(D2-火 E5),下面挂到 DamageSingle 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -704,6 +716,14 @@ def _parse_effects(config, char):
         for effect in effects:
             if _is_damage(effect["kind"]):
                 effect["armorStrikePercent"] = int(armor_strike.group(1))
+
+    body_percent = re.findall(rf"`{BODY_PERCENT_TOKEN} (\d+)`", config)
+    if body_percent:
+        consumed.add(BODY_PERCENT_TOKEN)
+        hosts = [e for e in effects if e["kind"] == "DamageSingle"]
+        if len(body_percent) > 1 or len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle")
+        hosts[0]["bodyPercent"] = int(body_percent[0])
 
     _attach_modifier_tokens(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)

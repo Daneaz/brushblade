@@ -154,7 +154,8 @@ namespace Brushblade.Core
         Shield,   // Shield / ShieldAll
         Seed,     // 种的回复量(D1 Task 6 接上)
         Counter,  // 格挡反击量(Block 写 CounterDamage 时乘)
-        All,      // 以上全部
+        All,      // 以上全部(D2-火 起含 Burn)
+        Burn,     // 本字 BurnSingle / BurnAll 施加的灼的**火力**(Potency × (100+Σ)/100),不改层数(D2-火 G3)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -315,6 +316,10 @@ namespace Brushblade.Core
         /// <summary>这条效果来自哪条特性(<c>BattleEngine.TraitKey</c>,「字/槽/面」);只有 <see cref="TraitRules.Fold"/>
         /// 给附着类效果(RiderOf / ShieldRecoil)打上,字表对象恒为 null。</summary>
         internal string TraitKey { get; private set; }
+        /// <summary>本体百分比(D2-火 E5,连爆):&gt; 0 时这条特性效果的 Value = 本面本体**首条** DamageSingle 的 Value × N%,
+        /// 在 <see cref="TraitRules.Fold"/>(出字时机)/ 入队反应前(暴击时 / 击杀时)解析成具体 Value;卡等级照常在结算时套。
+        /// 本面没有 DamageSingle 时解析成 0。0 = 不启用。</summary>
+        public int BodyPercent { get; }
 
         internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
 
@@ -333,7 +338,7 @@ namespace Brushblade.Core
             int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
             EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
             EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
-            StatusKind? riderOf = null)
+            StatusKind? riderOf = null, int bodyPercent = 0)
         {
             Kind = kind;
             Value = value;
@@ -368,6 +373,7 @@ namespace Brushblade.Core
             KeepStacks = keepStacks;
             PercentOfMax = percentOfMax;
             RiderOf = riderOf;
+            BodyPercent = bodyPercent;
         }
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
@@ -376,14 +382,15 @@ namespace Brushblade.Core
             int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
             IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null,
-            int? value = null, int? turns = null, string traitKey = null, SummonPassive passive = null) =>
+            int? value = null, int? turns = null, string traitKey = null, SummonPassive passive = null,
+            EffectPick? pick = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
-                AugmentKind, AugmentField, Pick, KeepStacks, PercentOfMax, RiderOf)
+                AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

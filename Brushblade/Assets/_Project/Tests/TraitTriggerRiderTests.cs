@@ -137,8 +137,10 @@ namespace Brushblade.Core.Tests
 
         private static readonly CharDef Boom = RebalanceFixture.Char("煸", new EffectDef(EffectKind.Detonate, 0));
 
+        // 按烟熏(Lv6)的特性键找:D2-火 G11 起 Lv5 烟障的致盲也带自己的 TraitKey(独立来源),不能再用「TraitKey != null」认附着
         private static StatusEffect RiderBlind(BattleEngine b, int i = 0) =>
-            b.Enemies[i].Statuses.All.FirstOrDefault(s => s.Kind == StatusKind.Blind && s.TraitKey != null);
+            b.Enemies[i].Statuses.All.FirstOrDefault(s => s.Kind == StatusKind.Blind
+                && s.TraitKey == BattleEngine.TraitKey("熏", TraitSlot.Lv6, TraitFace.Attack));
 
         private static StatusEffect Rider(BattleEngine b, int i = 0) => b.Enemies[i].Statuses.Find(StatusKind.TraitRider);
 

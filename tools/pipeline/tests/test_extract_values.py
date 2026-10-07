@@ -625,3 +625,49 @@ def test_rider_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-火 Task 1:新条件 / 新选择器 / scope Burn / Reshape 重选目标 / bodyPercent ----
+
+@pytest.mark.parametrize("pick", ["Row", "Adjacent", "BurnedByThisCast"])
+def test_d2fire_new_picks_accepted(pick):
+    assert _parse_effects(f"`BurnSingle 3` + `pick {pick}`", "火") == [
+        {"kind": "BurnSingle", "value": 3, "pick": pick}]
+
+
+def test_d2fire_smoke_rider_with_burned_by_this_cast():
+    assert _parse_effects("`Blind 15` `pick BurnedByThisCast` `rider Burn`", "火") == [
+        {"kind": "Blind", "value": 15, "pick": "BurnedByThisCast", "riderOf": "Burn"}]
+
+
+@pytest.mark.parametrize("cond", ["PlayerHpAbove70", "HasSummon"])
+def test_d2fire_new_conditions_accepted(cond):
+    assert _parse_effects(f"`Amplify 20` `scope All` `if {cond}`", "火") == [
+        {"kind": "Amplify", "value": 20, "scope": "All", "onlyIf": cond}]
+    assert _parse_effects(f"`BurnSingle 1` `pick All` `if {cond}`", "火") == [
+        {"kind": "BurnSingle", "value": 1, "pick": "All", "onlyIf": cond}]
+
+
+def test_d2fire_scope_burn_accepted():
+    assert _parse_effects("`Amplify 100` `scope Burn`", "火") == [
+        {"kind": "Amplify", "value": 100, "scope": "Burn"}]
+
+
+def test_d2fire_reshape_takes_pick():
+    assert _parse_effects("`Reshape` `pick Row`", "火") == [{"kind": "Reshape", "value": 0, "pick": "Row"}]
+
+
+def test_d2fire_reshape_rejects_ally_pick():
+    with pytest.raises(ValueError):
+        _parse_effects("`Reshape` `pick Self`", "火")
+
+
+def test_d2fire_body_percent_attaches_to_damage():
+    assert _parse_effects("`DamageSingle 0` `All` `bodyPercent 100`", "火") == [
+        {"kind": "DamageSingle", "value": 0, "shape": "All", "bodyPercent": 100}]
+
+
+def test_d2fire_body_percent_without_damage_raises():
+    with pytest.raises(ValueError) as err:
+        _parse_effects("`BurnAll 2` `bodyPercent 100`", "火")
+    assert "bodyPercent" in str(err.value)

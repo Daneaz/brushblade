@@ -118,41 +118,59 @@ namespace Brushblade.Core
                 if (!t.AppliesTo(face) || t.Trigger != TraitTrigger.Cast) continue;
                 if (superseded.Contains((t.Slot, t.Face))) continue;
                 bool replacesLv1 = t.Replaces == TraitSlot.Lv1;
-                foreach (var e in t.Effects)
+                foreach (var raw in t.Effects)
                 {
-                    if (IsModifier(e.Kind)) { modifiers.Add(e); continue; }
-                    // 附着类(D1 Task 9,附录 M9):主动 / 被动都在出字时结算,打上特性键(载体与附带状态靠它配对)
-                    if (IsAttached(e))
+                    if (IsModifier(raw.Kind)) { modifiers.Add(raw); continue; }
+                    // 附着类(D1 Task 9,附录 M9)与非替换特性:追加,打上特性键(ForCast;载体配对 / G11 分来源)
+                    if (IsAttached(raw) || !replacesLv1)
                     {
-                        effects.Add(e.With(traitKey: BattleEngine.TraitKey(def.Id, t.Slot, t.Face)));
+                        effects.Add(ForCast(raw, t, def.Id, body));
                         continue;
                     }
-                    if (replacesLv1)
+                    // Lv3 替换本体(Replaces == Lv1):按 Kind 换掉本体第一条同 Kind 的效果,不打来源键(仍是本体)
+                    var e = ResolveBodyPercent(raw, body);
+                    int at = -1;
+                    for (int i = 0; i < effects.Count; i++)
+                        if (effects[i].Kind == e.Kind && !touched.Contains(i)) { at = i; break; }
+                    if (e.Kind == EffectKind.Summon && e.Value == 0)
                     {
-                        int at = -1;
-                        for (int i = 0; i < effects.Count; i++)
-                            if (effects[i].Kind == e.Kind && !touched.Contains(i)) { at = i; break; }
-                        if (e.Kind == EffectKind.Summon && e.Value == 0)
+                        // 本命强化(D2-0 Task 6,E8):只覆盖本体 Summon 被动里的非缺省字段;血 / 攻 / 只数不动。
+                        // 找不到本体 Summon 就空转,不追加一条 0 血的召唤。
+                        if (at >= 0)
                         {
-                            // 本命强化(D2-0 Task 6,E8):只覆盖本体 Summon 被动里的非缺省字段;血 / 攻 / 只数不动。
-                            // 找不到本体 Summon 就空转,不追加一条 0 血的召唤。
-                            if (at >= 0)
-                            {
-                                effects[at] = effects[at].With(passive: MergePassive(effects[at].Passive, e.Passive));
-                                touched.Add(at);
-                            }
-                            continue;
+                            effects[at] = effects[at].With(passive: MergePassive(effects[at].Passive, e.Passive));
+                            touched.Add(at);
                         }
-                        if (at >= 0) effects[at] = e;
-                        else { effects.Add(e); at = effects.Count - 1; }
-                        touched.Add(at);
+                        continue;
                     }
-                    // 主动、被动一视同仁:走到这里的都是出字时机(Trigger == Cast)的特性(D1 终审 Critical)
-                    else effects.Add(e);
+                    if (at >= 0) effects[at] = e;
+                    else { effects.Add(e); at = effects.Count - 1; }
+                    touched.Add(at);
                 }
             }
             ApplyModifiers(effects, modifiers);
             return effects;
+        }
+
+        /// <summary>一条特性效果进出字 / 反应前的解析(D2-火 E4 / E5):① bodyPercent → 具体 Value;
+        /// ② 打特性来源键 TraitKey —— 附着类一律打(载体配对);其余只给非 Lv1 / Lv3 槽位打(G11:Weaken / Blind / Vulnerable
+        /// 按 SourceId + TraitKey 分来源,不与本体同源合并)。Lv1 / Lv3 是本体的一部分(替换 / 强化本体),不打。
+        /// 主动、被动一视同仁:走到这里的都是出字时机(或暴击 / 击杀反应)的特性(D1 终审 Critical)。</summary>
+        internal static EffectDef ForCast(EffectDef e, TraitDef t, string charId, IReadOnlyList<EffectDef> body)
+        {
+            e = ResolveBodyPercent(e, body);
+            bool tag = IsAttached(e) || (t.Slot != TraitSlot.Lv1 && t.Slot != TraitSlot.Lv3);
+            return tag ? e.With(traitKey: BattleEngine.TraitKey(charId, t.Slot, t.Face)) : e;
+        }
+
+        /// <summary>bodyPercent(E5):Value = 本面本体首条 DamageSingle 的 Value × N%(向下取整);没有就 0。未启用原样返回。</summary>
+        private static EffectDef ResolveBodyPercent(EffectDef e, IReadOnlyList<EffectDef> body)
+        {
+            if (e.BodyPercent <= 0) return e;
+            int baseValue = 0;
+            foreach (var b in body)
+                if (b.Kind == EffectKind.DamageSingle) { baseValue = b.Value; break; }
+            return e.With(value: baseValue * e.BodyPercent / 100);
         }
 
         private static void ApplyModifiers(List<EffectDef> effects, IEnumerable<EffectDef> modifiers)
@@ -265,7 +283,15 @@ namespace Brushblade.Core
         private static void ApplyReshape(List<EffectDef> effects, EffectDef r)
         {
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
-            if (at < 0) return;
+            if (at < 0)
+            {
+                // 重选目标(D2-火 E3,烈风「燃改为横扫」):本面没有伤害时,把落在主目标上的敌方效果换成 Reshape 的选择器
+                if (r.Pick == EffectPick.Primary) return;
+                for (int i = 0; i < effects.Count; i++)
+                    if (EffectPickRules.Supports(effects[i].Kind) && EffectPickRules.Effective(effects[i]) == EffectPick.Primary)
+                        effects[i] = effects[i].With(pick: r.Pick);
+                return;
+            }
             effects[at] = effects[at].With(
                 shape: r.Shape != TargetArea.Single ? r.Shape : (TargetArea?)null,
                 // 改成全体时百分比一并重置:没写 shapePercent 就是全额 100,不沿用原效果(如横扫 50)的溅射比例
@@ -286,6 +312,7 @@ namespace Brushblade.Core
             bool shield = kind == EffectKind.Shield || kind == EffectKind.ShieldAll;
             bool counter = kind == EffectKind.Block;
             bool seed = kind == EffectKind.Seed;
+            bool burn = kind == EffectKind.BurnSingle || kind == EffectKind.BurnAll;   // 作用于火力(D2-火 G3)
             return scope switch
             {
                 AmpScope.Damage => damage,
@@ -293,7 +320,8 @@ namespace Brushblade.Core
                 AmpScope.Shield => shield,
                 AmpScope.Counter => counter,
                 AmpScope.Seed => seed,
-                AmpScope.All => damage || heal || shield || counter || seed,
+                AmpScope.Burn => burn,
+                AmpScope.All => damage || heal || shield || counter || seed || burn,
                 _ => false,
             };
         }
