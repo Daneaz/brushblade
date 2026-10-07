@@ -111,6 +111,9 @@ namespace Brushblade.Core
 
             /// <summary>本次出字的面(攻击面 = true)。入队反应时按它取本面本体,解析 bodyPercent(D2-火 E5)。</summary>
             public bool AttackMode;
+
+            /// <summary>本次出字内每条特性已入队几次(D2-火 N13,TraitDef.MaxPerCast);没有 limit 的特性不记。</summary>
+            public Dictionary<TraitDef, int> Enqueued;
         }
 
         /// <summary>当前出字的瞬时量;见 <see cref="CastContext"/>。</summary>
@@ -127,9 +130,19 @@ namespace Brushblade.Core
             // 反应里的 CharDef 是合成的,读不到本体:bodyPercent 在入队前按本面本体解析;特性来源键同 Fold(G11)
             var body = EffectsOf(_cast.TraitDef, _cast.AttackMode);
             foreach (var t in traits)
+            {
+                // 出字内次数上限(N13,连爆「最多 2 次」):计数随 CastContext,下一张字重新起算
+                if (t.MaxPerCast > 0)
+                {
+                    _cast.Enqueued ??= new Dictionary<TraitDef, int>();
+                    _cast.Enqueued.TryGetValue(t, out int used);
+                    if (used >= t.MaxPerCast) continue;
+                    _cast.Enqueued[t] = used + 1;
+                }
                 Enqueue(new Reaction(_cast.TraitDef.Id, element,
                     t.Effects.Select(e => TraitRules.ForCast(e, t, _cast.TraitDef.Id, body)).ToList(),
                     enemyIndex, TriggerDepth + 1));
+            }
         }
 
         /// <summary>附着:给敌人挂一条隐藏载体(Carrier 存在 Magnitude 里)。同字同特性再挂只刷新。</summary>

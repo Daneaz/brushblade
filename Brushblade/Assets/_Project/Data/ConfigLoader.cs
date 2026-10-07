@@ -30,6 +30,7 @@ namespace Brushblade.Data
             public string Replaces { get; set; } // null = 不替换
             public string PartChar { get; set; } // 拆字印记的部件(D2-0 Task 7);null = 不是印记
             public int PartCount { get; set; }   // 印记次数
+            public int MaxPerCast { get; set; }  // D2-火 N13:同一次出字内最多入队几次(0 = 不限)
             public string Name { get; set; }
             public List<EffectDto> Effects { get; set; }
         }
@@ -89,6 +90,7 @@ namespace Brushblade.Data
             public bool PercentOfMax { get; set; }     // HealSummons:回复量按 MaxHp × Value%(D1 Task 7)
             public string RiderOf { get; set; }        // 附着载体(D1 Task 9,烟熏):目前只认 Blind 挂 Burn
             public int BodyPercent { get; set; }       // D2-火 E5:Value = 本面本体首条 DamageSingle × N%(只给 DamageSingle)
+            public int OpeningBattles { get; set; }    // D2-火 N12:> 0 = 本场不执行,登记为之后 N 场的开局效果
         }
 
         private sealed class CampaignFileDto
@@ -594,7 +596,9 @@ namespace Brushblade.Data
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
                 var effects = ParseEffects(dto, t.Effects ?? new List<EffectDto>());
                 ValidateGlyph(dto, t, trigger, effects);
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount));
+                if (t.MaxPerCast < 0)
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerCast 不能为负:{t.MaxPerCast}");
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount, t.MaxPerCast));
             }
             foreach (var t in traits)
                 if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))
@@ -783,7 +787,10 @@ namespace Brushblade.Data
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
                     augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf,
-                    effect.BodyPercent));
+                    effect.BodyPercent, effect.OpeningBattles));
+                // 开局登记(D2-火 N12):开局效果脱离出字结算、没有主目标 —— 选敌效果登记时 RegisterOpening 会抛,加载期就拦下
+                if (effect.OpeningBattles < 0 || (effect.OpeningBattles > 0 && BattleEngine.EffectNeedsTarget(effects[effects.Count - 1])))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能登记为开局效果(openingBattles 须 > 0,且开局时没有敌方目标,选敌效果要写全体)");
             }
             return effects;
         }

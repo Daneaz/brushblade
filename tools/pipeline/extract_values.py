@@ -164,6 +164,10 @@ SHOTS_TOKEN = "Shots"
 # D2-火 E5:`bodyPercent N` —— 特性效果的 Value = 本面本体首条 DamageSingle × N%(连爆)。只挂本格唯一的 DamageSingle;
 # 不挂白名单会被通用正则当成 kind="bodyPercent" 的独立效果。
 BODY_PERCENT_TOKEN = "bodyPercent"
+
+# D2-火 N12:`battles N` —— 它前面最近的那条效果本场不执行,登记为之后 N 场的开局效果(炎炎、星星之火)。
+# 一格里可以有同 Kind 的两条(星星之火两条 BurnAll),所以按位置挂,不按 Kind 挂。
+BATTLES_TOKEN = "battles"
 SHAPE_PERCENT_TOKEN = "ShapePercent"
 
 # ---- D1 Task 3:本字修饰器(附录 M1–M3)的修饰 token ----
@@ -263,6 +267,33 @@ def _attach_positional(config, char, effects, consumed, token, field, parse, all
             raise ValueError(f"{char}:配置格「{config}」里同一条 {host['kind']} 写了多个 `{token}`,只能有一个")
         seen.add(id(host))
         host[field] = parse(m.group(1))
+
+
+def _attach_battles(config, char, effects, consumed):
+    """`battles N`(D2-火 N12)→ 它前面最近的那条效果的 openingBattles。位置按 `` `Kind `` 在格里的出现顺序认,
+    同 Kind 多条时后一条从前一条之后找(与 _positional_hosts 同手法,但不限 PICK_KINDS)。"""
+    found = list(re.finditer(rf"`{BATTLES_TOKEN} (\d+)`", config))
+    if not found:
+        return
+    consumed.add(BATTLES_TOKEN)
+    hosts, cursor = [], {}
+    for e in effects:
+        kind = e["kind"]
+        start = cursor.get(kind, 0)
+        hits = [pos for pos in (config.find(n, start) for n in (f"`{kind} ", f"`{kind}`")) if pos >= 0]
+        if not hits:
+            continue
+        cursor[kind] = min(hits) + 1
+        hosts.append((min(hits), e))
+    hosts.sort(key=lambda t: t[0])
+    for m in found:
+        before = [e for pos, e in hosts if pos < m.start()]
+        if not before:
+            raise ValueError(f"{char}:配置格「{config}」写了 `battles`,但它前面没有可登记的效果 —— 它会静默消失。")
+        host = before[-1]
+        if "openingBattles" in host or int(m.group(1)) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `battles` 须 ≥ 1,且一条效果只能写一个")
+        host["openingBattles"] = int(m.group(1))
 
 
 def _attach_modifier_tokens(config, char, effects, consumed):
@@ -618,6 +649,8 @@ def _parse_effects(config, char):
             continue  # 幼苗只数(D1 Task 7),下面挂到 SummonSapling 上
         if kind == BODY_PERCENT_TOKEN:
             continue  # 本体百分比(D2-火 E5),下面挂到 DamageSingle 上
+        if kind == BATTLES_TOKEN:
+            continue  # 开局登记场数(D2-火 N12),下面按位置挂到前一条效果上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -725,6 +758,7 @@ def _parse_effects(config, char):
             raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle")
         hosts[0]["bodyPercent"] = int(body_percent[0])
 
+    _attach_battles(config, char, effects, consumed)
     _attach_modifier_tokens(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 

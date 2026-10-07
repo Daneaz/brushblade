@@ -233,6 +233,9 @@ namespace Brushblade.Presentation
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
                 if (EffectPickRules.Supports(e.Kind))
                     parts.Append(PickText(e.Pick) + OnlyIfText(e.OnlyIf));
+                // 开局登记(D2-火 N12):这条本场不执行,之后 N 场开局对全场结算
+                if (e.OpeningBattles > 0)
+                    parts.Append(Strings.T("char.effect.opening", ("battles", e.OpeningBattles)));
             }
             return parts.ToString();
         }

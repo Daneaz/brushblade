@@ -726,17 +726,14 @@ namespace Brushblade.Core
                 case EffectPick.FrozenByThisCast:
                     foreach (int i in _cast.FrozenTargets) if (_enemies[i].Alive) result.Add(i);
                     break;
-                // D2-火 Task 1(附录 E2):以主目标为中心的两档 —— 主目标在前(不论死活,存活守卫留给各分支),其余按下标
+                // D2-火 Task 1(附录 E2):以主目标为中心的两档,几何与伤害形状同一份(Targeting.ExpandTargets):
+                // Row = 横扫(同排);Adjacent = 溅射「目标及同排左右相邻」(spec §3.2,controller 2026-10-08 裁定,不含上下排)。
+                // 主目标在前(不论死活,存活守卫留给各分支),其余按下标;跨排 Boss 的双记去重(状态只挂一次)。
                 case EffectPick.Row:
-                    if (primary < 0 || primary >= _enemies.Count) break;
-                    result.Add(primary);
-                    for (int i = 0; i < _enemies.Count; i++)
-                        if (i != primary && _enemies[i].Alive && _enemies[primary].SharesRow(_enemies[i])) result.Add(i);
-                    break;
                 case EffectPick.Adjacent:
-                    if (primary < 0 || primary >= _enemies.Count) break;
-                    result.Add(primary);
-                    result.AddRange(Targeting.AdjacentEnemies(_enemies, primary));
+                    foreach (int i in Targeting.ExpandTargets(_enemies, primary,
+                                 EffectPickRules.Effective(effect) == EffectPick.Row ? TargetArea.Row : TargetArea.Adjacent, 0))
+                        if (!result.Contains(i)) result.Add(i);
                     break;
                 case EffectPick.BurnedByThisCast:
                     foreach (int i in _cast.BurnedTargets) if (_enemies[i].Alive) result.Add(i);
@@ -3143,6 +3140,17 @@ namespace Brushblade.Core
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             foreach (var effect in castEffects)
             {
+                // 开局登记(D2-火 G13 / N12):本场不执行,登记为之后 N 场的开局效果(同类取最强,OpeningRules.Merge)。
+                // 记**未缩放**的 Value:开局结算走 ApplyDetachedEffects(来源字 ID),卡等级在那时才套,不重复缩放。
+                if (effect.OpeningBattles > 0)
+                {
+                    RegisterOpening(new OpeningEffect
+                    {
+                        SourceCharId = def.Id, Element = attacker, Kind = effect.Kind, Value = effect.Value,
+                        Turns = effect.Turns, TargetAll = effect.TargetAll, BattlesLeft = effect.OpeningBattles,
+                    });
+                    continue;
+                }
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
@@ -5364,7 +5372,8 @@ namespace Brushblade.Core
         /// 本方法只服务「敌人打玩家」(<see cref="DamagePlayerDirect"/>)与「敌人打召唤物」两条链。</summary>
         private bool AttackHits(int enemyIndex, int dodgePercent)
         {
-            int blind = _enemies[enemyIndex].Statuses.TotalMagnitude(StatusKind.Blind);
+            // 多来源取最强(D2-火 V1,spec §5.2 第 1 律):不相加,烟熏 + 炫目 + 蒸笼不会叠成 60%
+            int blind = _enemies[enemyIndex].Statuses.MaxMagnitude(StatusKind.Blind);
             int hitRate = Math.Clamp(100 - blind - dodgePercent, 0, 100);
             if (hitRate >= 100) return true;
             if (hitRate <= 0) return false;

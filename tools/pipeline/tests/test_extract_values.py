@@ -671,3 +671,17 @@ def test_d2fire_body_percent_without_damage_raises():
     with pytest.raises(ValueError) as err:
         _parse_effects("`BurnAll 2` `bodyPercent 100`", "火")
     assert "bodyPercent" in str(err.value)
+
+
+# ---- D2-火 Task 1(第二批):开局登记 `battles N` 挂在它前面最近的那条效果上 ----
+
+def test_d2fire_battles_attaches_to_preceding_effect():
+    effects = _parse_effects("`BurnAll 2` + `Weaken 20` `pick All` `turns 2` + `BurnAll 2` `battles 5`", "焱")
+    assert effects[0] == {"kind": "BurnAll", "value": 2}
+    assert effects[2] == {"kind": "BurnAll", "value": 2, "openingBattles": 5}
+
+
+def test_d2fire_battles_without_preceding_effect_raises():
+    with pytest.raises(ValueError) as err:
+        _parse_effects("`battles 1` `BurnAll 2`", "炎")
+    assert "battles" in str(err.value)

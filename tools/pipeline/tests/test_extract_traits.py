@@ -288,3 +288,21 @@ def test_split_pair_conflicts_with_explicit_single_face_row():
           "| 剑 | Lv4 | 攻 | 被动 | — | 甲 | `BurnSingle 2` | ✅ |\n")
     with pytest.raises(ValueError):
         extract_traits(md, "金", _general_pool(), _JIAN)
+
+
+# ---------------- D2-火 Task 1:特性级出字内次数上限 `limit N` ----------------
+
+def test_d2fire_limit_token_parsed_to_max_per_cast():
+    md = _H + "| 爆 | Lv8 | 攻 | 被动·击杀 | — | 连爆 | `DamageSingle 0` `All` `bodyPercent 100` `limit 2` | ✅ |\n"
+    t = extract_traits(md)["爆"][0]
+    assert t["maxPerCast"] == 2
+    assert t["effects"] == [{"kind": "DamageSingle", "value": 0, "shape": "All", "bodyPercent": 100}]
+
+
+@pytest.mark.parametrize("row", [
+    "| 爆 | Lv8 | 攻 | 被动·击杀 | — | 坏 | `Morale 1` `limit 0` | ✅ |",            # ≥ 1
+    "| 爆 | Lv8 | 攻 | 被动·击杀 | — | 坏 | `Morale 1` `limit 1` `limit 2` | ✅ |",   # 只能一条
+])
+def test_d2fire_bad_limit_rows_raise(row):
+    with pytest.raises(ValueError):
+        extract_traits(_H + row + "\n")

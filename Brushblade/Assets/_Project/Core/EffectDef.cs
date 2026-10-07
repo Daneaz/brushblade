@@ -320,6 +320,9 @@ namespace Brushblade.Core
         /// 在 <see cref="TraitRules.Fold"/>(出字时机)/ 入队反应前(暴击时 / 击杀时)解析成具体 Value;卡等级照常在结算时套。
         /// 本面没有 DamageSingle 时解析成 0。0 = 不启用。</summary>
         public int BodyPercent { get; }
+        /// <summary>开局登记(D2-火 G13 / N12,炎炎、星星之火):&gt; 0 时这条效果**本场不执行**,出字时登记为开局效果,
+        /// 之后 N 场每场开局对全场结算一次(<c>BattleEngine.RegisterOpening</c>,同类取最强)。0 = 普通效果。</summary>
+        public int OpeningBattles { get; }
 
         internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
 
@@ -338,7 +341,7 @@ namespace Brushblade.Core
             int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
             EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
             EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
-            StatusKind? riderOf = null, int bodyPercent = 0)
+            StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0)
         {
             Kind = kind;
             Value = value;
@@ -374,6 +377,7 @@ namespace Brushblade.Core
             PercentOfMax = percentOfMax;
             RiderOf = riderOf;
             BodyPercent = bodyPercent;
+            OpeningBattles = openingBattles;
         }
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
@@ -390,7 +394,7 @@ namespace Brushblade.Core
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
-                AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent)
+                AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

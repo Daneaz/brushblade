@@ -94,16 +94,24 @@ namespace Brushblade.Core.Tests
             Assert.That(new[] { Burn(b, 0), Burn(b, 1), Burn(b, 2), Burn(b, 3) }, Is.EqualTo(new[] { 2, 2, 2, 0 }));
         }
 
+        /// <summary>Adjacent 口径(controller 2026-10-08 补充裁定,spec §3.2「溅射:目标及同排左右相邻」):
+        /// 只取同排左右,不含上下 / 前后排 —— 与 TargetArea.Adjacent 的展开一致。</summary>
         [Test]
-        public void Pick_Adjacent_HitsPrimaryAndNeighbours_AndNeedsTarget()
+        public void Pick_Adjacent_SameRowLeftRightOnly_AndNeedsTarget()
         {
             var e = new EffectDef(EffectKind.BurnSingle, 3, pick: EffectPick.Adjacent);
             Assert.That(BattleEngine.EffectNeedsTarget(e), Is.True);
             var b = Battle(RebalanceFixture.Char("试", e), 1, FourMobs());
-            // 乙 = 前排列 2:相邻只有前排列 1 的甲(后排列 1 与列 2 不重叠)
-            Assert.That(b.Enemies[1].Column, Is.EqualTo(2));
-            b.Cast("试", 1);
-            Assert.That(new[] { Burn(b, 0), Burn(b, 1), Burn(b, 2), Burn(b, 3) }, Is.EqualTo(new[] { 3, 3, 0, 0 }));
+            // 甲 = 前排中间(列 1):左右是丙(列 0)、乙(列 2);后排同列的丁不选
+            Assert.That(b.Enemies[0].Column, Is.EqualTo(1));
+            Assert.That(b.Enemies[3].Column, Is.EqualTo(1));
+            b.Cast("试", 0);
+            Assert.That(new[] { Burn(b, 0), Burn(b, 1), Burn(b, 2), Burn(b, 3) }, Is.EqualTo(new[] { 3, 3, 3, 0 }),
+                "后排同列不被选中");
+
+            var edge = Battle(RebalanceFixture.Char("试", e), 1, FourMobs());
+            edge.Cast("试", 1);   // 乙 = 前排列 2:只有左邻甲
+            Assert.That(new[] { Burn(edge, 0), Burn(edge, 1), Burn(edge, 2), Burn(edge, 3) }, Is.EqualTo(new[] { 3, 3, 0, 0 }));
         }
 
         /// <summary>G1:燃面没有伤害,HitTargets 恒空 —— 烟熏(池)改用 BurnedByThisCast 后在燃面生效。</summary>

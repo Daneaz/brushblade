@@ -62,9 +62,13 @@ namespace Brushblade.Core
         /// <summary>印记次数(双焰 2、火山 1)。PartChar 为 null 时为 0。</summary>
         public int PartCount { get; }
 
+        /// <summary>同一次出字内这条特性最多入队几次(D2-火 N13,连爆「最多 2 次」);0 = 不限。
+        /// 只约束暴击时 / 击杀时的入队(<c>BattleEngine.EnqueueCastTraits</c>)。</summary>
+        public int MaxPerCast { get; }
+
         public TraitDef(TraitSlot slot, TraitFace face, TraitForm form, TraitSlot? replaces,
             string name, IReadOnlyList<EffectDef> effects,
-            TraitTrigger trigger = TraitTrigger.Cast, string partChar = null, int partCount = 0)
+            TraitTrigger trigger = TraitTrigger.Cast, string partChar = null, int partCount = 0, int maxPerCast = 0)
         {
             Slot = slot;
             Face = face;
@@ -75,6 +79,7 @@ namespace Brushblade.Core
             Effects = effects ?? Array.Empty<EffectDef>();
             PartChar = partChar;
             PartCount = partCount;
+            MaxPerCast = maxPerCast;
         }
 
         public bool AppliesTo(CardFace face) =>

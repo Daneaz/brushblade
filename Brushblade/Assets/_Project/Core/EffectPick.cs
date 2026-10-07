@@ -18,7 +18,7 @@ namespace Brushblade.Core
         AllSummons,         // 全部存活召唤物(D2-0 Task 2,Taunt)
         // ---- D2-火 Task 1(附录 E2):敌方侧 ----
         Row,                // 主目标所在一排的存活敌人(主目标在前,其余按下标);以主目标为中心,**仍要选目标**
-        Adjacent,           // 主目标 + 它的上下左右(Targeting.AdjacentEnemies);同样要选目标
+        Adjacent,           // 主目标 + 同排左右相邻(同 TargetArea.Adjacent 溅射,spec §3.2;不含上下排);同样要选目标
         BurnedByThisCast,   // 本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏、干涸等「带本字灼」)
     }
 
