@@ -80,6 +80,8 @@ VALUELESS_EFFECTS = {
     "Reshape": {"kind": "Reshape", "value": 0},
     # 保命(D1 Task 7,扎根):Value 不用;落点由 `pick SummonedThisCast` 给出。
     "Endure": {"kind": "Endure", "value": 0},
+    # 拉平(D2-火 N2,火烧连营):Value 不用,不选目标。
+    "BurnEqualize": {"kind": "BurnEqualize", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -188,6 +190,10 @@ DAMAGE_MARKER_VALUE_TOKENS = {
     "armorIgnore": "armorIgnorePercent",
     "shieldStrike": "shieldStrikePercent",
     "armorStrike": "armorStrikePercent",
+    # D2-火 N4b:散射每发百分比(火花四溅);Reshape 改散射时的发数(大写 `Shots N` 只挂 DamageSingle / HealSelf,
+    # 写在 Reshape 格里会静默消失 —— 小写这一个挂 Reshape)
+    "shotPercent": "shotPercent",
+    "shots": "shots",
 }
 # 与 Core 的 AmpScope / DamageCondition / TargetArea 枚举名一致;写错直接报错,不静默落成缺省
 AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All", "Burn"}   # Burn:灼的火力(D2-火 G3)
@@ -205,7 +211,8 @@ RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
 # 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
 ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
-                    "BurnSettleNow", "Detonate", "Seed", "Vulnerable"}
+                    "BurnSettleNow", "Detonate", "Seed", "Vulnerable",
+                    "BurnScale"}   # D2-火 N1
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
@@ -226,6 +233,76 @@ KEEP_TOKEN = "keep"
 RIDER_TOKEN = "rider"
 RIDER_CARRIERS = {"Burn"}
 RIDER_KINDS = {"Blind"}
+
+# ---- D2-火 Task 2(附录 N3 / N4 / N4b)----
+# 引爆比例:`retain N`(全额后保留 ⌊N%⌋ 层)/ `portion N`(只引爆 N%),按位置挂到前一条 Detonate 上,二选一。
+RETAIN_TOKEN = "retain"
+PORTION_TOKEN = "portion"
+# 计数缩放:`per BurnStack|BurningEnemy` 挂本格唯一的 Amplify / HealSelf;`cap N` 是 Amplify 的上限(百分点)。
+PER_TOKEN = "per"
+CAP_TOKEN = "cap"
+SCALE_BASES = {"BurnStack", "BurningEnemy"}
+SCALE_HOST_KINDS = {"Amplify", "HealSelf"}
+# 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起),
+# 挂到本格的 Reshape(没有则唯一的 DamageSingle)上。火的两条糖:`hitBurn N` = perHit [BurnSingle N],
+# `hitSettle` = perHit [BurnSettleNow keep]。每击附带里不能再有伤害 / 修饰器 / 开局登记(ConfigLoader 同样拦)。
+PER_HIT_TOKEN = "perHit"
+HIT_BURN_TOKEN = "hitBurn"
+HIT_SETTLE_TOKEN = "hitSettle"
+PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment"}
+
+
+def _attach_per_hit(config, char, effects, riders, start):
+    """把每击附带 riders 挂到本格的 Reshape(没有则唯一的 DamageSingle)上;start = 从第几击起(None = 缺省 1)。"""
+    hosts = [e for e in effects if e["kind"] == "Reshape"] or [e for e in effects if e["kind"] == "DamageSingle"]
+    if len(hosts) != 1:
+        raise ValueError(f"{char}:配置格「{config}」写了每击附带(`perHit` / `hitBurn` / `hitSettle`),"
+                         "但本格没有唯一的一条 Reshape 或 DamageSingle 可挂 —— 它会静默消失。")
+    if not riders:
+        raise ValueError(f"{char}:配置格「{config}」的 `perHit` 后面没有效果")
+    for r in riders:
+        if r["kind"] in PER_HIT_BANNED or "openingBattles" in r or "perHit" in r:
+            raise ValueError(f"{char}:配置格「{config}」的每击附带(perHit)里不能有伤害 / 修饰器 / 开局登记:{r['kind']}")
+    host = hosts[0]
+    if "perHit" in host:
+        raise ValueError(f"{char}:配置格「{config}」的每击附带写了两处(`perHit` 与 `hitBurn` / `hitSettle` 不能混用)")
+    host["perHit"] = riders
+    if start is not None:
+        if start < 1:
+            raise ValueError(f"{char}:`perHit {start}` 须 ≥ 1")
+        host["perHitFrom"] = start
+
+
+def _attach_fire_ops(config, char, effects, consumed):
+    """D2-火 Task 2:`per X` / `cap N` → 计数缩放;`hitBurn N` / `hitSettle` → 每击附带(糖)。"""
+    per = re.findall(rf"`{PER_TOKEN} (\w+)`", config)
+    if per:
+        consumed.add(PER_TOKEN)
+        hosts = [e for e in effects if e["kind"] in SCALE_HOST_KINDS]
+        if len(per) > 1 or per[0] not in SCALE_BASES or len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `per` 只认 {sorted(SCALE_BASES)},"
+                             f"且只挂本格唯一的一条 {sorted(SCALE_HOST_KINDS)}")
+        hosts[0]["scaleBy"] = per[0]
+    cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
+    if cap:
+        consumed.add(CAP_TOKEN)
+        hosts = [e for e in effects if e["kind"] == "Amplify" and "scaleBy" in e]
+        if len(cap) > 1 or len(hosts) != 1 or int(cap[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `cap` 只挂带 `per` 的 Amplify(一条),且须 ≥ 1")
+        hosts[0]["scaleCap"] = int(cap[0])
+    hit_burn = re.findall(rf"`{HIT_BURN_TOKEN} (\d+)`", config)
+    hit_settle = f"`{HIT_SETTLE_TOKEN}`" in config
+    if hit_burn or hit_settle:
+        riders = []
+        if hit_burn:
+            consumed.add(HIT_BURN_TOKEN)
+            if len(hit_burn) > 1:
+                raise ValueError(f"{char}:配置格「{config}」写了多个 `hitBurn`")
+            riders.append({"kind": "BurnSingle", "value": int(hit_burn[0])})
+        if hit_settle:
+            consumed.add(HIT_SETTLE_TOKEN)
+            riders.append({"kind": "BurnSettleNow", "value": 0, "keepStacks": True})
+        _attach_per_hit(config, char, effects, riders, None)
 
 
 def _positional_hosts(config, effects):
@@ -351,6 +428,13 @@ def _attach_modifier_tokens(config, char, effects, consumed):
 
     _attach_positional(config, char, effects, consumed, RIDER_TOKEN, "riderOf", _parse_rider,
                        allowed_kinds=RIDER_KINDS)
+
+    # 引爆比例(D2-火 N3 / G5):按位置挂到前一条 Detonate;同一条只能二选一
+    _attach_positional(config, char, effects, consumed, RETAIN_TOKEN, "retainPercent", int, allowed_kinds={"Detonate"})
+    _attach_positional(config, char, effects, consumed, PORTION_TOKEN, "portionPercent", int, allowed_kinds={"Detonate"})
+    for e in effects:
+        if "retainPercent" in e and "portionPercent" in e:
+            raise ValueError(f"{char}:配置格「{config}」的同一条引爆写了 `retain` 又写了 `portion`,只能二选一")
 
     augments = [e for e in effects if e["kind"] == "Augment"]
     for token, field, allowed in ((AUGMENT_OF_TOKEN, "augmentKind", None),
@@ -546,6 +630,17 @@ def _parse_effects(config, char):
     # 认不得的一律静默忽略 —— 而字表数据全靠这里落地。项目已栽过一次
     # (「手写映射表认不得的标记会无声消失」)。所以结尾对一遍账:
     # 配置格里出现过的 token 减去被消费的,剩下的一律报错。
+    # 每击附带(D2-火 N4b / Q23):`perHit [N]` 把格子切成两段 —— 前段照常解析,后段解析成每击附带的效果列表
+    per_hit = list(re.finditer(rf"`{PER_HIT_TOKEN}(?: (\d+))?`", config))
+    if per_hit:
+        if len(per_hit) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `perHit`,只能有一段")
+        m = per_hit[0]
+        effects = _parse_effects(config[:m.start()], char)
+        riders = _parse_effects(config[m.end():], char)
+        _attach_per_hit(config, char, effects, riders, int(m.group(1)) if m.group(1) else None)
+        return effects
+
     all_tokens = set(re.findall(r"`(\w+)", config))
     consumed = set()
     effects = []
@@ -651,6 +746,8 @@ def _parse_effects(config, char):
             continue  # 本体百分比(D2-火 E5),下面挂到 DamageSingle 上
         if kind == BATTLES_TOKEN:
             continue  # 开局登记场数(D2-火 N12),下面按位置挂到前一条效果上
+        if kind in (RETAIN_TOKEN, PORTION_TOKEN, CAP_TOKEN, HIT_BURN_TOKEN):
+            continue  # D2-火 Task 2 的修饰数值,下面挂到 Detonate / Amplify / 伤害上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -760,6 +857,7 @@ def _parse_effects(config, char):
 
     _attach_battles(config, char, effects, consumed)
     _attach_modifier_tokens(config, char, effects, consumed)
+    _attach_fire_ops(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)

@@ -659,8 +659,10 @@ namespace Brushblade.Core
         private int AmpPercent(EffectDef effect, int enemyIndex)
         {
             int sum = 0;
-            foreach (var (percent, onlyIf) in effect.AmpTerms)
-                if (onlyIf == DamageCondition.None || PreCastConditionMet(onlyIf, enemyIndex)) sum += percent;
+            foreach (var (percent, onlyIf, per, cap) in effect.AmpTerms)
+                if (onlyIf == DamageCondition.None || PreCastConditionMet(onlyIf, enemyIndex))
+                    // 计数缩放(D2-火 N4,燥裂):百分点 × 出字前计数,钳到 cap;不缩放的项原样相加
+                    sum += per == ScaleBasis.None ? percent : ScaledAmpPercent(percent, per, cap, enemyIndex);
             return sum;
         }
 
@@ -1972,7 +1974,9 @@ namespace Brushblade.Core
                     // 漏在白名单外的后果与上面 C1 那次同型:UI 判定成不需要选目标,
                     // targetIndex 停在 -1,ApplyEffects 的 Quench 分支永远读不到敌人,悄悄变成
                     // 每次都空转(见 ApplyEffects 里 EffectKind.Quench 分支的 `targetIndex >= 0` 判断)。
-                    || effect.Kind == EffectKind.Quench)
+                    || effect.Kind == EffectKind.Quench
+                    // 灼层翻倍(D2-火 N1):单体写法翻倍的是目标的灼
+                    || effect.Kind == EffectKind.BurnScale)
                     return true;
             return false;
         }
@@ -3080,7 +3084,7 @@ namespace Brushblade.Core
             var outer = _cast;
             _cast = new CastContext
             {
-                CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions,
+                CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
                 OnCrit = outer.OnCrit, OnKill = outer.OnKill, TraitDef = outer.TraitDef,
             };
             try
@@ -3136,16 +3140,24 @@ namespace Brushblade.Core
 
             // R3:快照在复活(前置动作)之后、第一个效果之前取;外层已有快照时沿用外层(外层快照优先)
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
+            _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
-            foreach (var effect in castEffects)
+            foreach (var castEffect in castEffects) ResolveEffect(castEffect, targetIndex);
+            ApplyFeatureOntoSummon(def, attackMode, allySlot);
+            if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
+
+            // 单条效果的结算(D2-火 Task 2 抽成本地函数,行为不变):每击附带(EffectDef.PerHit)要对「这一击的目标」
+            // 同步结算同一套分支,不经新的 ApplyEffects(不触发重入守卫)。参数 targetIndex 遮蔽外层同名参数是刻意的:
+            // 出字时 = 玩家选的主目标,每击附带时 = 这一击的落点。
+            void ResolveEffect(EffectDef effect, int targetIndex)
             {
                 // 开局登记(D2-火 G13 / N12):本场不执行,登记为之后 N 场的开局效果(同类取最强,OpeningRules.Merge)。
                 // 记**未缩放**的 Value(开局结算走 ApplyDetachedEffects(来源字 ID),卡等级在那时才套);Pick / Shape 随登记保留。
                 if (effect.OpeningBattles > 0)
                 {
                     RegisterOpening(OpeningEffect.Of(effect, def.Id, attacker));
-                    continue;
+                    return;
                 }
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
@@ -3218,6 +3230,9 @@ namespace Brushblade.Core
                                 // percent == 100 时**不做乘除**:x * 100 / 100 在整数下虽然等于 x,
                                 // 但跳过它才能让「缺省路径与改前逐字节相同」成为结构性保证而非算术巧合
                                 if (percent != 100) damage = damage * percent / 100;
+                                // 散射每发百分比(D2-火 N4b,火花四溅):每一发(含首发)都打这个折;缺省 100 不做乘除
+                                if (effect.Shape == TargetArea.Scatter && effect.ShotPercent != 100)
+                                    damage = damage * effect.ShotPercent / 100;
                                 // 每击百分比(D1 Task 3,连斩):只作用于吃多段的主目标;缺省 100 不做乘除
                                 if (primary && effect.HitPercent != 100) damage = damage * effect.HitPercent / 100;
                                 // 按护盾加伤(D1 Task 3,崩岩):每个主目标的第一段额外 + 我方当前护盾 × N%
@@ -3242,6 +3257,10 @@ namespace Brushblade.Core
                                 if (!_cast.HitTargets.Contains(tgt)) _cast.HitTargets.Add(tgt);   // 选择器 HitTargets 用
                                 // 暴击时(D1 Task 9,炽烈):每击各入队,目标 = 这一击的落点;Cast 末尾兑现
                                 if (crit) EnqueueCastTraits(_cast.OnCrit, tgt);
+                                // 每击附带(D2-火 N4b / 跨计划 Q23):这一击之后对这一击的目标同步结算(目标死了由各分支的存活守卫挡下);
+                                // 击序 = 这个目标身上的第几击,从 PerHitFrom 起。缺省空表整句跳过
+                                if (effect.PerHit.Count > 0 && hit + 1 >= effect.PerHitFrom)
+                                    foreach (var rider in effect.PerHit) ResolveEffect(rider, tgt);
                             }
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
@@ -3692,7 +3711,15 @@ namespace Brushblade.Core
                         // 与全体伤害(All)同一条纪律:先取表长快照,引爆致死若牵出分裂,
                         // 新怪不进这一发。
                         foreach (int ti in PickTargets(effect, targetIndex))
-                            if (OnlyIfMet(effect, ti)) Detonate(ti);
+                            if (OnlyIfMet(effect, ti)) Detonate(ti, effect.PortionPercent, effect.RetainPercent);
+                        break;
+                    case EffectKind.BurnScale:
+                        // 灼层翻倍(D2-火 N1):百分比是离散量,读 effect.Value(不过等级 / L3);火力取本字
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti)) ScaleBurnOn(ti, effect.Value, burnPotency);
+                        break;
+                    case EffectKind.BurnEqualize:
+                        EqualizeBurn(burnPotency);   // 拉平(D2-火 N2)
                         break;
                     case EffectKind.Quench:
                         // 蓄热(2026-09-16,热):清空目标灼烧层数,每层转成本场永久的 _burnPerStack
@@ -3884,6 +3911,12 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板)
                     {
+                        // 计数缩放(D2-火 N4,温润):回复量 × 结算那一刻的计数(G2:产出量,本字先上的灼也算);计数 0 不回复
+                        if (effect.ScaleBy != ScaleBasis.None)
+                        {
+                            value *= CurrentBurnCount(effect.ScaleBy);
+                            if (value <= 0) break;
+                        }
                         // 目标可选(2026-08-22,spec §8):与目标是谁无关 —— 治召唤物与治玩家同值
                         // (2026-09-02:相生 ×3 已取消,ResolveEffect 现在对这一支是恒等函数)
                         int healBase = ScaleByBaseAttack(
@@ -4091,8 +4124,6 @@ namespace Brushblade.Core
                         break;
                 }
             }
-            ApplyFeatureOntoSummon(def, attackMode, allySlot);
-            if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
             }
             finally
             {
@@ -4380,26 +4411,45 @@ namespace Brushblade.Core
         ///
         /// 与回合末结算同口径:属火、只算克制不算相生。
         /// 清的是灼烧层数,**不动 BurnNoDecay** —— 之后重新点燃仍然不衰减。</summary>
-        private void Detonate(int enemyIndex)
+        /// <param name="portionPercent">部分引爆(D2-火 G5,燥火攻心):只兑现 k = ⌊N × P%⌋ 层,伤害 = tri(N) − tri(N−k),
+        /// 剩 N − k 层;k = 0 不引爆。缺省 100 = 全部。</param>
+        /// <param name="retainPercent">保留(D2-火 G5,惊爆 / 焚天):全额兑现后层数设为 ⌊N × R%⌋,火力与附着不变。缺省 0 = 清空。
+        /// 两种都在目标被打死时清掉残层(否则余烬会把保留的层数转走)。</param>
+        private void Detonate(int enemyIndex, int portionPercent = 100, int retainPercent = 0)
         {
             var enemy = _enemies[enemyIndex];
             if (!enemy.Alive) return;
             var burn = enemy.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
             int stacks = burn.Magnitude;
+            int fired = portionPercent >= 100 ? stacks : stacks * portionPercent / 100;
+            if (fired <= 0) return;
+            int remain = retainPercent > 0 ? stacks * retainPercent / 100 : stacks - fired;
+            // 兑现的「层·回合」:全部引爆时 = tri(N)(下式第二项为 0,与旧式逐位相同)
+            long units = (long)(stacks * (stacks + 1) / 2) - (long)((stacks - fired) * (stacks - fired + 1) / 2);
             // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
             // 每层伤害用的是同一个量,不能只有一边吃
             float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
             bool detonateKe = detonateWuxing > 1f;
             bool detonateCountered = detonateWuxing < 1f;
-            int damage = (int)Math.Floor(BurnBaseWithPotency((long)(stacks * (stacks + 1) / 2) * EnemyBurnPerStack, burn.Potency)
+            int damage = (int)Math.Floor(BurnBaseWithPotency(units * EnemyBurnPerStack, burn.Potency)
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
-            enemy.Statuses.Remove(StatusKind.Burn);
-            DropRiders(enemy.Statuses, StatusKind.Burn);   // 引爆:附着在灼上的一并移除(D1 Task 9)
+            if (remain > 0) burn.Magnitude = remain;   // 部分引爆 / 保留:灼还在,附着不掉
+            else
+            {
+                enemy.Statuses.Remove(StatusKind.Burn);
+                DropRiders(enemy.Statuses, StatusKind.Burn);   // 引爆:附着在灼上的一并移除(D1 Task 9)
+            }
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe,
                 attacker: Element.Fire, countered: detonateCountered));
+            if (!enemy.Alive && remain > 0)
+            {
+                // 打死了:残层清零(G5),免得余烬 SpreadEmbers 把保留下来的层数转走
+                enemy.Statuses.Remove(StatusKind.Burn);
+                DropRiders(enemy.Statuses, StatusKind.Burn);
+            }
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Detonate);
             else

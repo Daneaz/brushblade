@@ -276,7 +276,8 @@ namespace Brushblade.Core
             {
                 var e = effects[i];
                 if (!InScope(amp.Scope, e.Kind) || e.OpeningBattles > 0) continue;
-                var terms = new List<(int Percent, DamageCondition If)>(e.AmpTerms) { (amp.Value, amp.OnlyIf) };
+                var terms = new List<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)>(e.AmpTerms)
+                    { (amp.Value, amp.OnlyIf, amp.ScaleBy, amp.ScaleCap) };
                 effects[i] = e.With(ampTerms: terms);
             }
         }
@@ -304,7 +305,11 @@ namespace Brushblade.Core
                 forceCrit: r.ForceCrit ? true : (bool?)null,
                 armorIgnorePercent: r.ArmorIgnorePercent > 0 ? r.ArmorIgnorePercent : (int?)null,
                 shieldStrikePercent: r.ShieldStrikePercent > 0 ? r.ShieldStrikePercent : (int?)null,
-                armorStrikePercent: r.ArmorStrikePercent > 0 ? r.ArmorStrikePercent : (int?)null);
+                armorStrikePercent: r.ArmorStrikePercent > 0 ? r.ArmorStrikePercent : (int?)null,
+                // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
+                perHit: r.PerHit.Count > 0 ? r.PerHit : null,
+                perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : (int?)null,
+                shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null);
         }
 
         public static bool InScope(AmpScope scope, EffectKind kind)

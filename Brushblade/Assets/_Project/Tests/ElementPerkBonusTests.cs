@@ -187,6 +187,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.ShieldRecoil,
                 // D2-0 Task 2:嘲讽是状态回合数,不是本系字的量值本体
                 EffectKind.Taunt,
+                // D2-火 Task 2:灼层翻倍是层数百分比(离散)、拉平不用 Value
+                EffectKind.BurnScale, EffectKind.BurnEqualize,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

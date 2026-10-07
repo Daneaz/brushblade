@@ -88,6 +88,9 @@ namespace Brushblade.Core
             /// 按敌人下标存位掩码。只在 ApplyEffects 的同步调用栈内非 null。</summary>
             public int[] PreCastConditions;
 
+            /// <summary>出字前每名敌人的灼层数(死者 0;D2-火 N4 计数缩放)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int[] PreCastBurnStacks;
+
             /// <summary>选择器的两张「本次出字」名单(D1 Task 5):命中过的敌人(按命中顺序去重)/ 真正被冻住的敌人。</summary>
             public List<int> HitTargets = new List<int>();
             public List<int> FrozenTargets = new List<int>();

@@ -60,6 +60,7 @@ namespace Brushblade.Core
             EffectKind.Silence, EffectKind.BurnNoDecay, EffectKind.BurnSettleNow, EffectKind.Detonate,
             EffectKind.Charm, EffectKind.Quench, EffectKind.Weaken, EffectKind.Seed, EffectKind.Vulnerable,
             EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.SummonStrike,
+            EffectKind.BurnScale, EffectKind.BurnEqualize,   // D2-火 Task 2:动的是敌人的灼
         };
 
         /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /

@@ -59,6 +59,8 @@ namespace Brushblade.Core.Tests
             EffectKind.ShieldRecoil,
             // 嘲讽(D2-0 Task 2):Value = 回合数(0 = 本场),离散量
             EffectKind.Taunt,
+            // D2-火 Task 2:灼层翻倍的百分比作用于离散层数;拉平不用 Value
+            EffectKind.BurnScale, EffectKind.BurnEqualize,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

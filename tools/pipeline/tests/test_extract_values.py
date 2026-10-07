@@ -685,3 +685,69 @@ def test_d2fire_battles_without_preceding_effect_raises():
     with pytest.raises(ValueError) as err:
         _parse_effects("`battles 1` `BurnAll 2`", "炎")
     assert "battles" in str(err.value)
+
+
+# ---- D2-火 Task 2:灼操作族 token(附录 N1 / N2 / N3 / N4 / N4b) ----
+
+def test_d2fire_burn_scale_and_equalize():
+    assert _parse_effects("`BurnScale 200` `pick All`", "炎") == [{"kind": "BurnScale", "value": 200, "pick": "All"}]
+    assert _parse_effects("`BurnSingle 2` + `BurnScale 200`", "燥") == [
+        {"kind": "BurnSingle", "value": 2}, {"kind": "BurnScale", "value": 200}]
+    assert _parse_effects("`BurnEqualize`", "烈") == [{"kind": "BurnEqualize", "value": 0}]
+
+
+def test_d2fire_detonate_retain_and_portion():
+    assert _parse_effects("`Detonate` `pick All` `retain 50`", "炸") == [
+        {"kind": "Detonate", "value": 0, "pick": "All", "retainPercent": 50}]
+    assert _parse_effects("`DetonateAll` `retain 33`", "燚") == [
+        {"kind": "Detonate", "value": 0, "targetAll": True, "retainPercent": 33}]
+    assert _parse_effects("`Amplify 10` `scope Damage` `per BurnStack` + `Detonate` `portion 50`", "燥") == [
+        {"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "BurnStack"},
+        {"kind": "Detonate", "value": 0, "portionPercent": 50}]
+
+
+def test_d2fire_per_and_cap():
+    assert _parse_effects("`Amplify 5` `scope Damage` `per BurnStack` `cap 50`", "燥") == [
+        {"kind": "Amplify", "value": 5, "scope": "Damage", "scaleBy": "BurnStack", "scaleCap": 50}]
+    assert _parse_effects("`HealSelf 20` `per BurningEnemy`", "蒸") == [
+        {"kind": "HealSelf", "value": 20, "scaleBy": "BurningEnemy"}]
+
+
+def test_d2fire_hit_sugar_becomes_per_hit():
+    assert _parse_effects("`Reshape` `hits 2` `hitSettle`", "炎") == [
+        {"kind": "Reshape", "value": 0, "hitCount": 2,
+         "perHit": [{"kind": "BurnSettleNow", "value": 0, "keepStacks": True}]}]
+    assert _parse_effects("`Reshape` `hits 4` `hitPercent 30` `hitBurn 1`", "燚") == [
+        {"kind": "Reshape", "value": 0, "hitCount": 4, "hitPercent": 30,
+         "perHit": [{"kind": "BurnSingle", "value": 1}]}]
+    assert _parse_effects("`Reshape` `shape Scatter` `shots 4` `shotPercent 50` `hitBurn 1`", "焱") == [
+        {"kind": "Reshape", "value": 0, "shape": "Scatter", "shots": 4, "shotPercent": 50,
+         "perHit": [{"kind": "BurnSingle", "value": 1}]}]
+
+
+def test_d2fire_generic_per_hit_section():
+    # Q23 通用形态:`perHit [N]` 之后的全部 token 是每击附带的效果,各自照常解析(turns / pick / keep 都认)
+    assert _parse_effects("`Reshape` `hits 3` `perHit 2` `ArmorBreak 5` `turns 2` + `Morale 1`", "金") == [
+        {"kind": "Reshape", "value": 0, "hitCount": 3, "perHitFrom": 2,
+         "perHit": [{"kind": "ArmorBreak", "value": 5, "turns": 2}, {"kind": "Morale", "value": 1}]}]
+    assert _parse_effects("`DamageSingle 40` `perHit` `BurnSettleNow` `keep`", "炎") == [
+        {"kind": "DamageSingle", "value": 40, "perHit": [{"kind": "BurnSettleNow", "value": 0, "keepStacks": True}]}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`BurnSingle 2` `retain 50`", "retain"),                          # retain 只挂 Detonate
+    ("`Detonate` `retain 50` `portion 50`", "portion"),                # 二选一
+    ("`Amplify 5` `per Bogus`", "per"),                                # 取值未知
+    ("`Shield 5` `per BurnStack`", "per"),                             # 只挂 Amplify / HealSelf
+    ("`Amplify 5` `cap 50`", "cap"),                                   # cap 没有 per
+    ("`HealSelf 5` `per BurningEnemy` `cap 50`", "cap"),               # cap 只给 Amplify
+    ("`BurnAll 2` `hitBurn 1`", "perHit"),                             # 没有伤害 / Reshape
+    ("`Reshape` `hitBurn 1` `perHit` `BurnSingle 1`", "perHit"),       # 糖与通用写法混用
+    ("`Reshape` `perHit` `DamageSingle 5`", "perHit"),                 # 每击附带里不能再有伤害
+    ("`Reshape` `perHit`", "perHit"),                                  # 空的每击附带
+    ("`Reshape` `perHit 1` `BurnSingle 1` `perHit` `Morale 1`", "perHit"),  # 只能有一段
+])
+def test_d2fire_task2_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

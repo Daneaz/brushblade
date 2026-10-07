@@ -272,6 +272,20 @@ namespace Brushblade.Presentation
                             AddTrait(traits, "burn", "", Strings.T("collection.trait.detonate.name"),
                                 Strings.T("collection.trait.detonate.desc"));
                         break;
+                    case EffectKind.BurnScale:
+                    {
+                        // 灼操作族(D2-火 Task 2):与其余灼操作共用 "burn" 图标;百分比离散,读 e.Value
+                        string mult = (e.Value / 100f).ToString("0.##");
+                        AddTrait(traits, "burn", "×" + mult,
+                            Strings.T("collection.trait.burn_scale.name"),
+                            Strings.T("collection.trait.burn_scale.desc", ("mult", mult), ("cap", CombatCaps.BurnStacks)));
+                        break;
+                    }
+                    case EffectKind.BurnEqualize:
+                        AddTrait(traits, "burn", "",
+                            Strings.T("collection.trait.burn_equalize.name"),
+                            Strings.T("collection.trait.burn_equalize.desc"));
+                        break;
                     case EffectKind.Bleed:
                         AddTrait(traits, "bleed", v.ToString(),
                             Strings.T("collection.trait.bleed.name"),

@@ -91,6 +91,14 @@ namespace Brushblade.Data
             public string RiderOf { get; set; }        // 附着载体(D1 Task 9,烟熏):目前只认 Blind 挂 Burn
             public int BodyPercent { get; set; }       // D2-火 E5:Value = 本面本体首条 DamageSingle × N%(只给 DamageSingle)
             public int OpeningBattles { get; set; }    // D2-火 N12:> 0 = 本场不执行,登记为之后 N 场的开局效果
+            // D2-火 Task 2(附录 N3 / N4 / N4b)
+            public int RetainPercent { get; set; }          // Detonate:全额引爆后保留 ⌊N × P%⌋ 层
+            public int PortionPercent { get; set; } = 100;  // Detonate:只引爆 ⌊N × P%⌋ 层
+            public string ScaleBy { get; set; }             // Amplify / HealSelf 的计数缩放:BurnStack / BurningEnemy
+            public int ScaleCap { get; set; }               // Amplify 计数缩放的上限(百分点)
+            public List<EffectDto> PerHit { get; set; }     // DamageSingle / Reshape:每击附带的效果(目标 = 这一击的目标)
+            public int PerHitFrom { get; set; } = 1;        // 每击附带从第几击起
+            public int ShotPercent { get; set; } = 100;     // 散射每一发的伤害百分比
         }
 
         private sealed class CampaignFileDto
@@ -764,6 +772,7 @@ namespace Brushblade.Data
                 // bodyPercent(D2-火 E5)只在伤害上解析(TraitRules.ForCast);写在别处会静默无效 —— 拦下
                 if (effect.BodyPercent != 0 && (kind != EffectKind.DamageSingle || effect.BodyPercent < 0))
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle 能按本体百分比取值,且须 > 0)");
+                ValidateFireOps(dto.Id, kind, effect);
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 var augmentKind = EffectKind.DamageSingle;
@@ -802,7 +811,10 @@ namespace Brushblade.Data
                     scope, ParseCondition(effect.OnlyIf, dto.Id),
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
                     augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf,
-                    effect.BodyPercent, effect.OpeningBattles));
+                    effect.BodyPercent, effect.OpeningBattles,
+                    effect.RetainPercent, effect.PortionPercent,
+                    ParseEnum(effect.ScaleBy, ScaleBasis.None, dto.Id, "计数缩放口径"), effect.ScaleCap,
+                    effect.PerHit == null ? null : ParseEffects(dto, effect.PerHit), effect.PerHitFrom, effect.ShotPercent));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -817,6 +829,50 @@ namespace Brushblade.Data
                 }
             }
             return effects;
+        }
+
+        /// <summary>D2-火 Task 2 的字段(附录 N1 / N3 / N4 / N4b):写在不读它的效果上引擎会静默忽略 —— 一律拦下。
+        /// 每击附带的子效果在递归 ParseEffects 里各自校验;这里只拦「子效果里不能有的东西」(伤害 / 修饰器 / 开局登记 / 再嵌套)。</summary>
+        private static void ValidateFireOps(string id, EffectKind kind, EffectDto e)
+        {
+            bool damageLike = kind == EffectKind.DamageSingle || kind == EffectKind.Reshape;
+            if (e.PerHit != null)
+            {
+                if (!damageLike)
+                    throw new ConfigException($"字「{id}」的 {kind} 效果不能写 perHit(只有 DamageSingle / Reshape 有「每一击」)");
+                foreach (var child in e.PerHit)
+                {
+                    bool bad = child.Kind == nameof(EffectKind.DamageSingle) || child.Kind == nameof(EffectKind.Reshape)
+                        || child.Kind == nameof(EffectKind.Amplify) || child.Kind == nameof(EffectKind.Augment)
+                        || child.PerHit != null || child.OpeningBattles != 0;
+                    if (bad)
+                        throw new ConfigException($"字「{id}」的每击附带(perHit)里不能有伤害 / 修饰器 / 开局登记 / 嵌套 perHit:{child.Kind}");
+                }
+            }
+            else if (e.PerHitFrom != 1)
+                throw new ConfigException($"字「{id}」的 {kind} 效果写了 perHitFrom 但没有 perHit");
+            if (e.PerHitFrom < 1)
+                throw new ConfigException($"字「{id}」的 perHitFrom 须 ≥ 1:{e.PerHitFrom}");
+            if (e.ShotPercent != 100 && (!damageLike || e.ShotPercent <= 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 shotPercent(只有 DamageSingle / Reshape 读它,且须 > 0)");
+            if ((e.RetainPercent != 0 || e.PortionPercent != 100) && kind != EffectKind.Detonate)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 retainPercent / portionPercent(只有 Detonate 读它们)");
+            if (e.RetainPercent != 0 && e.PortionPercent != 100)
+                throw new ConfigException($"字「{id}」的引爆 retainPercent 与 portionPercent 只能二选一");
+            if (e.RetainPercent < 0 || e.RetainPercent >= 100)
+                throw new ConfigException($"字「{id}」的引爆 retainPercent 须在 1–99:{e.RetainPercent}");
+            if (e.PortionPercent <= 0 || e.PortionPercent > 100)
+                throw new ConfigException($"字「{id}」的引爆 portionPercent 须在 1–100:{e.PortionPercent}");
+            if (kind == EffectKind.BurnScale && e.Value < 100)
+                throw new ConfigException($"字「{id}」的 BurnScale 百分比须 ≥ 100(只升不降):{e.Value}");
+            if (!string.IsNullOrEmpty(e.ScaleBy) && kind != EffectKind.Amplify && kind != EffectKind.HealSelf)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy(只有 Amplify / HealSelf 读它)");
+            if (e.ScaleCap != 0 && (kind != EffectKind.Amplify || string.IsNullOrEmpty(e.ScaleBy) || e.ScaleCap < 0))
+                throw new ConfigException($"字「{id}」的 scaleCap 只给带 scaleBy 的 Amplify,且须 > 0");
+            // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢,拦下
+            if (e.OpeningBattles != 0 && (e.PerHit != null || e.ShotPercent != 100 || e.RetainPercent != 0
+                    || e.PortionPercent != 100 || !string.IsNullOrEmpty(e.ScaleBy)))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 perHit / shotPercent / retain / portion / scaleBy(登记时会丢)");
         }
 
         /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——

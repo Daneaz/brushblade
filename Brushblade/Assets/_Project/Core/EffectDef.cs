@@ -136,6 +136,19 @@ namespace Brushblade.Core
         // ---- D2-0 Task 2:嘲讽。⚠ 只在末尾追加 ----
         Taunt,          // 嘲讽:Value = 回合数(0 = 本场),离散不吃等级。必须写 pick:Self → 玩家(敌人的单体攻击一律打玩家);
                         // SummonedThisCast → 本次出字召出的木灵;AllSummons → 全部存活木灵。同源刷新。
+        // ---- D2-火 Task 2:灼操作族(附录 N1 / N2)。⚠ 只在末尾追加 ----
+        BurnScale,      // 灼层数按百分比缩放(焦土 / 炎炎 / 灿然 = 200 翻倍):新层数 = ⌊层数 × Value / 100⌋,钳到 CombatCaps.BurnStacks;
+                        // 只升不降(Value ≥ 100,ConfigLoader 拦);0 层空转。火力取 max(原火力, 本字火力)。离散,不吃卡等级。支持 Pick / OnlyIf。
+        BurnEqualize,   // 拉平(火烧连营):取存活敌人的最高灼层数 M,每名存活敌人补到 M(只升不降,0 层也补);新层火力取 max(原, 本字)。
+                        // Value 不用;不选目标、不认选择器。全场 0 层空转。
+    }
+
+    /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
+    public enum ScaleBasis
+    {
+        None,           // 不缩放(缺省)
+        BurnStack,      // Amplify:这一击的目标出字前的灼层数;HealSelf:存活敌人的灼层数之和
+        BurningEnemy,   // 带灼的存活敌人数(Amplify:出字前;HealSelf:结算那一刻)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -325,9 +338,35 @@ namespace Brushblade.Core
         /// 之后 N 场每场开局对全场结算一次(<c>BattleEngine.RegisterOpening</c>,同类取最强)。0 = 普通效果。</summary>
         public int OpeningBattles { get; }
 
-        internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
+        /// <summary>引爆后保留的层数百分比(D2-火 N3 / G5,惊爆 50、焚天 33):&gt; 0 时全额伤害照打,之后层数设为 ⌊原层数 × N%⌋
+        /// (0 层则清空),火力与附着不变;目标被打死残层清零。只给 Detonate;0 = 不保留(缺省,全部清空)。</summary>
+        public int RetainPercent { get; }
 
-        private static readonly (int, DamageCondition)[] NoAmpTerms = new (int, DamageCondition)[0];
+        /// <summary>部分引爆的百分比(D2-火 N3 / G5,燥火攻心 50):只引爆 k = ⌊N × P%⌋ 层,伤害 = tri(N) − tri(N−k)
+        /// (与「引爆只改兑现时机、不改总量」同口径),剩 N − k 层;k = 0 不引爆。只给 Detonate;缺省 100 = 全部引爆。≤0 兜回 100。</summary>
+        public int PortionPercent { get; }
+
+        /// <summary>计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数。None = 不缩放。</summary>
+        public ScaleBasis ScaleBy { get; }
+
+        /// <summary>计数缩放后的上限(只给 Amplify,单位 = 百分点;燥裂 50)。0 = 不设上限。</summary>
+        public int ScaleCap { get; }
+
+        /// <summary>每击附带(D2-火 N4b,跨计划 Q23 通用形态):DamageSingle 每打出一击之后,对**这一击的目标**依次结算这些效果
+        /// (targetIndex = 这一击的落点;我方侧效果照常作用于我方)。不经新的 ApplyEffects,不触发重入守卫;等级 / 五行 L3 照常套。
+        /// 火:炎刃(BurnSettleNow keep)、四炎 / 火花四溅(BurnSingle 1);金:每击破甲 / 流血 / 战意。空表 = 不附带(缺省)。</summary>
+        public IReadOnlyList<EffectDef> PerHit { get; }
+
+        /// <summary>每击附带从第几击起(1 起算;按**这个目标**身上的击序,金·剁骨「从第 N 击起」)。缺省 1 = 每一击;≤0 兜回 1。</summary>
+        public int PerHitFrom { get; }
+
+        /// <summary>散射每一发的伤害百分比(D2-火 N4b,火花四溅 50):Shape == Scatter 时每一发(含首发)都打这个折。缺省 100 不做乘除。</summary>
+        public int ShotPercent { get; }
+
+        internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
+
+        private static readonly (int, DamageCondition, ScaleBasis, int)[] NoAmpTerms = new (int, DamageCondition, ScaleBasis, int)[0];
+        private static readonly EffectDef[] NoPerHit = new EffectDef[0];
 
         public EffectDef(EffectKind kind, int value,
             DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
@@ -342,7 +381,9 @@ namespace Brushblade.Core
             int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0,
             EffectKind augmentKind = EffectKind.DamageSingle, AugmentField augmentField = AugmentField.Count,
             EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
-            StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0)
+            StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0,
+            int retainPercent = 0, int portionPercent = 100, ScaleBasis scaleBy = ScaleBasis.None, int scaleCap = 0,
+            IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100)
         {
             Kind = kind;
             Value = value;
@@ -379,6 +420,13 @@ namespace Brushblade.Core
             RiderOf = riderOf;
             BodyPercent = bodyPercent;
             OpeningBattles = openingBattles;
+            RetainPercent = retainPercent;
+            PortionPercent = portionPercent <= 0 ? 100 : portionPercent;
+            ScaleBy = scaleBy;
+            ScaleCap = scaleCap;
+            PerHit = perHit ?? NoPerHit;
+            PerHitFrom = perHitFrom <= 0 ? 1 : perHitFrom;
+            ShotPercent = shotPercent <= 0 ? 100 : shotPercent;
         }
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
@@ -386,16 +434,17 @@ namespace Brushblade.Core
         internal EffectDef With(TargetArea? shape = null, int? shapePercent = null, int? shots = null,
             int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
-            IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null,
+            IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> ampTerms = null,
             int? value = null, int? turns = null, string traitKey = null, SummonPassive passive = null,
-            EffectPick? pick = null) =>
+            EffectPick? pick = null, IReadOnlyList<EffectDef> perHit = null, int? perHitFrom = null, int? shotPercent = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
-                AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles)
+                AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
+                RetainPercent, PortionPercent, ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

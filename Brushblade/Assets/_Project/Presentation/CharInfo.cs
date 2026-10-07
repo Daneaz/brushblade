@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
@@ -169,7 +170,16 @@ namespace Brushblade.Presentation
                     EffectKind.BurnSettleNow => e.KeepStacks
                         ? Strings.T("char.effect.burnsettlenow.keep")
                         : Strings.T("char.effect.burnsettlenow"),
-                    EffectKind.Detonate => Strings.T("char.effect.detonate"),
+                    // 保留 / 部分引爆(D2-火 G5):惊爆 / 焚天保留 RetainPercent% 层;燥火攻心只引爆 PortionPercent% 层
+                    EffectKind.Detonate => e.RetainPercent > 0
+                        ? Strings.T("char.effect.detonate.retain", ("percent", e.RetainPercent))
+                        : e.PortionPercent < 100
+                            ? Strings.T("char.effect.detonate.portion", ("percent", e.PortionPercent))
+                            : Strings.T("char.effect.detonate"),
+                    // 灼操作族(D2-火 Task 2):百分比 / 层数是离散量,读 e.Value
+                    EffectKind.BurnScale => Strings.T("char.effect.burnscale",
+                        ("mult", (e.Value / 100f).ToString("0.##")), ("cap", CombatCaps.BurnStacks)),
+                    EffectKind.BurnEqualize => Strings.T("char.effect.burnequalize"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
@@ -233,6 +243,16 @@ namespace Brushblade.Presentation
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
                 if (EffectPickRules.Supports(e.Kind))
                     parts.Append(PickText(e.Pick) + OnlyIfText(e.OnlyIf));
+                // 计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数
+                parts.Append(ScaleText(e));
+                // 每击附带(D2-火 N4b):子效果逐条印,斜杠分隔(分号已是外层分隔符)
+                if (e.PerHit.Count > 0)
+                {
+                    string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
+                    parts.Append(e.PerHitFrom > 1
+                        ? Strings.T("char.effect.perhit.from", ("from", e.PerHitFrom), ("list", list))
+                        : Strings.T("char.effect.perhit", ("list", list)));
+                }
                 // 开局登记(D2-火 N12):这条本场不执行,之后 N 场开局对全场结算
                 if (e.OpeningBattles > 0)
                     parts.Append(Strings.T("char.effect.opening", ("battles", e.OpeningBattles)));
@@ -435,9 +455,17 @@ namespace Brushblade.Presentation
                 : Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
                     + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
 
-        /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。</summary>
+        /// <summary>计数缩放后缀(D2-火 N4):「(每 1 层灼烧)」/「(每名带灼烧的敌人)」+ 上限。不缩放时空串。</summary>
+        private static string ScaleText(EffectDef e) =>
+            e.ScaleBy == ScaleBasis.None ? ""
+            : (e.ScaleBy == ScaleBasis.BurnStack ? Strings.T("char.effect.per.burnstack") : Strings.T("char.effect.per.burningenemy"))
+              + (e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
+
+        /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。
+        /// D2-火 N4b:散射每发百分比。</summary>
         private static string MarkerText(EffectDef e) =>
             (e.HitPercent != 100 ? Strings.T("char.effect.hitpercent", ("percent", e.HitPercent)) : "")
+            + (e.ShotPercent != 100 ? Strings.T("char.effect.shotpercent", ("percent", e.ShotPercent)) : "")
             + (e.ForceCrit ? Strings.T("char.effect.forcecrit") : "")
             + (e.ArmorIgnorePercent > 0 ? Strings.T("char.effect.armorignore", ("percent", e.ArmorIgnorePercent)) : "")
             + (e.ShieldStrikePercent > 0 ? Strings.T("char.effect.shieldstrike", ("percent", e.ShieldStrikePercent)) : "");
