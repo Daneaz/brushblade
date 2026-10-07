@@ -195,6 +195,14 @@ namespace Brushblade.Presentation
         // 改前 OnEnemyClicked 选完敌人直接 BeginCast,友方那一段根本进不去,治疗/护盾**永远落玩家**。
         // −1 = 这一张不需要敌人目标(纯友方字),BeginCast 照旧传 −1。
         private int _pendingAllyEnemyTarget = -1;
+        // 手牌朝上的面(Plan E1 F1):键 = 字库卡位,缺省(无条目)= 攻击面。面跟着牌走:
+        // 取消选中不清、回合结束不清;出手成功清该卡位;字库重排后按 _handFaceChar(设面时那格是哪个字)
+        // 对照,失配的条目整条丢弃 —— 宁可回正面,不翻错牌。部件池的牌没有面。
+        private readonly Dictionary<int, CardFace> _handFace = new();
+        private readonly Dictionary<int, string> _handFaceChar = new();
+        // 翻面动效(F9)进行中的协程与卡位;动画中再点同一张 = 直接跳到终态
+        private Coroutine _handFlipAnim;
+        private int _handFlipAnimIndex = -1;
         // 玩家血条区(2026-08-27):拖治疗/加盾字时,松手落在这块上 = 施给玩家自己。
         // 召唤物那边有 _summonCellByCore,玩家没有槽位,所以单记一份。
         private RectTransform _playerAllyRect;
@@ -255,6 +263,8 @@ namespace Brushblade.Presentation
         private Transform _craftRow;     // 拆合台:可合成列表,常驻+可滚动(稿 .craft),2026-08-31 从 _suggestRow 拆出
         private Transform _hintColumn;   // 差字面板(屏幕左侧竖排,平铺列表,2026-08-31 起不再是五行三级目录)
         private Transform _actionRow;
+        // 动作行下面那条操作提示(HandFlip 稿 .bhint);没内容时整行隐藏,免得空行也吃一道 BenchGap
+        private Transform _actionHintRow;
         // 非战斗阶段的宽操作区(2026-08-20):结算 / 部件超限 / 跑图结束用它。
         // 这些界面此前借的是拆合台的 _actionRow,而拆合台是右侧那条窄竖栏 —— 奇遇的
         // 260 宽选项钮塞不进去,所以给它们留一条横贯中区的带。
@@ -1063,6 +1073,10 @@ namespace Brushblade.Presentation
             // 动作行**横排**(2026-08-21 用户拍板):出 / 拆 / 弃 三个单字钮一行排完。
             //   3 × 76 + 间距 8×2 = 244 ≤ BenchW ✓
             _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
+            var actionHintGo = Ui.VStack(workbenchStack.transform, "ActionHint", 0);
+            actionHintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            actionHintGo.SetActive(false);
+            _actionHintRow = actionHintGo.transform;
 
             // 可合成标题 + 可滚动列表(稿 .craft { flex: 1; overflow-y: auto }):吃掉栏里的
             // 余量,把结束回合钮压在栏底。2026-08-31 从「挤在选中详情同一个槽、不会滚动」
@@ -1296,6 +1310,8 @@ namespace Brushblade.Presentation
             if (_run.Phase == RunPhase.InBattle && _run.BattleIndex != _lastBattleIndex)
             {
                 _lastBattleIndex = _run.BattleIndex;
+                _handFace.Clear();      // 新一场重新发牌:上一场的朝上面一律作废(F1)
+                _handFaceChar.Clear();
                 _onNewFloor?.Invoke(); // 新一场开打:携带态已就位,供外层快照
             }
             _tileRects.Clear();
@@ -1307,6 +1323,8 @@ namespace Brushblade.Presentation
             Ui.Clear(_suggestRow);
             Ui.Clear(_craftRow);
             Ui.Clear(_actionRow);
+            Ui.Clear(_actionHintRow);
+            _actionHintRow.gameObject.SetActive(false);
             Ui.Clear(_centerRow);
             Ui.Clear(_hintColumn);
             Ui.Clear(_statusRow);
@@ -3169,6 +3187,7 @@ namespace Brushblade.Presentation
                 : Mathf.Min(HandTileW, (_fieldWidth - CountCaptionW - adSlots * HandAdSlotW
                     - (library.Count + adSlots) * spacing) / library.Count);
             var tileSize = new Vector2(tileW, tileW * (HandTileH / HandTileW));
+            if (!rewardPhase) PruneHandFaces();
             for (int i = 0; i < library.Count; i++)
             {
                 int index = i;
@@ -3183,7 +3202,9 @@ namespace Brushblade.Presentation
                 };
                 // 2026-08-31 接稿:68×85 → 96×117(稿 46×56pt,比改前大约四成)。放不下时按上面
                 // 反算的 tileSize 同比缩(2026-10-04),不再让 HorizontalLayoutGroup 只压宽。
-                var tile = Ui.GlyphTile(_libraryRow, def, selected, tap, tileSize);
+                // 两面字印朝上的那一面(Plan E1);单面字、奖励页的携带字库不印
+                CardFace? face = !rewardPhase && CardFaceRules.HasTwoFaces(def) ? GetFace(index) : null;
+                var tile = Ui.GlyphTile(_libraryRow, def, selected, tap, tileSize, face: face);
                 PadTapHeight(tile.gameObject, tileSize.y);
                 // AP 不够就去饱和压暗、属性动效停(原《字牌形象关键词包》(已删,见 git 349c3cf5^)§4.4):
                 // 「用不了」要在点下去之前就看得出来,不能等弹窗告诉你
@@ -3268,7 +3289,9 @@ namespace Brushblade.Presentation
             // 字影是**纯文字**压在场景上,得用过了 WCAG 的 GlyphColor 而不是 UI 色块那套
             // ElementColor(金 #B3A382 对宣纸底只有 2.48,拖起来是一团糊的)
             DragToAttack.Attach(tile, def.Id, Theme.GlyphColor(def.Element),
-                () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
+                // 翻面动效那 0.18s 不许起拖:动效中点会全量 Refresh,正被拖的字牌会被销毁
+                () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating
+                    && _handFlipAnim == null,
                 screenPos =>
                 {
                     // 松手前先清悬停预览,不管接下来落进哪个分支(2026-08-22)——
@@ -3875,7 +3898,9 @@ namespace Brushblade.Presentation
                 // 「攻/召」双向态(2026-09-27):敌人也点亮着,提示得说清两边各是什么
                 string slotHint = _targeting
                     ? Strings.T("battle.hint.targeting_dual_summon", ("charId", _pendingSummonChar))
-                    : Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar));
+                    : PendingSlotPickGrafts && Battle.AliveSummonCount > 0
+                        ? Strings.T("battle.hint.slot_picking_graft", ("charId", _pendingSummonChar))
+                        : Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar));
                 BenchHint(_actionRow, slotHint, 16, Theme.TextMain);
                 return;
             }
@@ -3899,6 +3924,21 @@ namespace Brushblade.Presentation
             var pickedGlyph = Ui.ThemedLabel(pickedFace.transform, def.Id, PickedGlyphFontSize,
                 Theme.GlyphColor(def.Element), Theme.TitleFont);
             Ui.Stretch(pickedGlyph.rectTransform);
+            // 两面字(HandFlip 稿 .bhead .mt):牌底印朝上的面,五行面朝上时牌面换本系淡底。
+            // 部件池选中(_selectedIndex < 0)没有面,不印。
+            bool twoFaces = _selectedIndex >= 0 && CardFaceRules.HasTwoFaces(def);
+            if (twoFaces)
+            {
+                var upFace = GetFace(_selectedIndex);
+                if (upFace == CardFace.Feature) pickedFace.color = Theme.ElementSoft(def.Element);
+                var sealSlot = Ui.Panel(pickedFace.transform, "SealSlot");
+                Ui.Anchor((RectTransform)sealSlot.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(-Ui.FaceSealXs / 2f, PickedSealBottom),
+                    new Vector2(Ui.FaceSealXs / 2f, PickedSealBottom + Ui.FaceSealXs));
+                Ui.FaceSeal(sealSlot.transform, def, upFace, Ui.FaceSealXs);
+                // 字形让出牌底那一截,别压在面印上
+                pickedGlyph.rectTransform.offsetMin = new Vector2(0f, PickedSealBottom + Ui.FaceSealXs);
+            }
             var pickedInfo = Ui.VStack(picked, "Info", 2);
             var pickedInfoLayout = pickedInfo.GetComponent<VerticalLayoutGroup>();
             pickedInfoLayout.childAlignment = TextAnchor.UpperLeft;
@@ -3923,6 +3963,10 @@ namespace Brushblade.Presentation
             // 硬要单行会甩出卡片外糊到中区上,比换行更难看。
             effectLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             effectLabel.verticalOverflow = VerticalWrapMode.Overflow;
+
+            // 翻面钮(HandFlip 稿 .flipsw):两格并排,选中的那格就是朝上的面,点另一格即翻
+            // 只在静止选中态画:选目标态里方向已经按朝上的面定了,此时翻面会让待选目标与面错位
+            if (twoFaces && !_targeting && !_allyTargeting) DrawFlipSwitch(def, _selectedIndex);
 
             // 转位提示(2026-08-15 用户裁定,2026-09-01 用户拍板还原):选中五系部件时,把
             // **同组全部**可互换的成员列出来 —— 选 氵 显示「⇄ 水 冫」,选 刂 显示「⇄ 金 钅」。
@@ -3995,6 +4039,12 @@ namespace Brushblade.Presentation
                 Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.Info, Color.white, 17, new Vector2(76, 52));
             // 五色语义(2026-10-04):出 = Primary 石青、拆 = Info 浓墨、弃 = 不可逆 → 朱砂描边
             Ui.DangerButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), 17, new Vector2(76, 52), radius: 10);
+            // HandFlip 稿 .bhint:两面字选中时说清「再点 = 翻面、拖出 = 按朝上的面」
+            if (twoFaces)
+            {
+                _actionHintRow.gameObject.SetActive(true);
+                BenchHint(_actionHintRow, Strings.T("battle.hint.flip_selected"), BenchHintFontSize, Theme.TextDim);
+            }
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
             // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
         }
@@ -5283,9 +5333,20 @@ namespace Brushblade.Presentation
             // 静默出字——玩家全程靠「选中→再点即出」这个手势操作,方向按钮刚出现时很容易
             // 沿用同一手势再点一次牌本体,若不挡在这里会跳过「攻」「护」两个可见按钮,
             // 静默按 CastInDirection 的默认分支(护)出字。
+            // 翻面动效(F9)还在播:点的是同一张 = 只跳到终态,不再翻一次;点别的牌先收掉动效再照常处理
+            if (_handFlipAnim != null)
+            {
+                bool sameTile = _handFlipAnimIndex == index;
+                SnapHandFlip();
+                if (sameTile) return;
+            }
+            bool twoFaces = CardFaceRules.HasTwoFaces(_graph.Get(charId));
             if (_selectedChar == charId && _selectedIndex == index
                 && !_targeting && !_allyTargeting)
             {
+                // 两面字(Plan E1,spec §2.1):再点一次 = 翻面,不出字;出字走「出」钮或拖出。
+                // 单面字维持原手势:再点一次 = 直接出字。
+                if (twoFaces) { FlipHandFace(index); return; }
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
             }
@@ -5296,7 +5357,9 @@ namespace Brushblade.Presentation
             _pendingAllyEnemyTarget = -1;
             _pendingAttackMode = false; // 改点了另一张字:上一张待定的方向作废
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
-            _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_cast");
+            _message = Brief(charId) + (twoFaces
+                ? Strings.T("battle.hint.suffix_tap_again_flip")
+                : Strings.T("battle.hint.suffix_tap_again_cast"));
             Refresh();
         }
 
@@ -5321,6 +5384,177 @@ namespace Brushblade.Presentation
             Refresh();
         }
 
+        // ---- 手牌翻面(Plan E1,spec §2.1;HandFlip / FlipSpec 稿) ----
+
+        /// <summary>字库这一格朝上的面;没翻过 = 攻击面(正面)。</summary>
+        private CardFace GetFace(int index) =>
+            index >= 0 && _handFace.TryGetValue(index, out var face) ? face : CardFace.Attack;
+
+        /// <summary>字库重排(出字 / 合字 / 掉字 / 弃字)后,丢掉卡位已越界或那一格已换了字的条目(F1)。</summary>
+        private void PruneHandFaces()
+        {
+            var library = Battle.Library;
+            List<int> stale = null;
+            foreach (var entry in _handFaceChar)
+                if (entry.Key >= library.Count || library[entry.Key] != entry.Value)
+                    (stale ??= new List<int>()).Add(entry.Key);
+            if (stale == null) return;
+            foreach (int index in stale)
+            {
+                _handFace.Remove(index);
+                _handFaceChar.Remove(index);
+            }
+        }
+
+        /// <summary>字库这一格的牌离手了(出字 / 弃字,Core 端 RemoveAt):丢掉它的面,
+        /// 后面卡位的条目跟着前移一格,免得同字多张时把翻过的面错安到隔壁那张上。
+        /// 卡位 −1(部件池)什么也不做。</summary>
+        private void DropHandFaceAt(int index)
+        {
+            if (index < 0) return;
+            var keys = new List<int>(_handFaceChar.Keys);
+            keys.Sort();
+            _handFace.Remove(index);
+            _handFaceChar.Remove(index);
+            foreach (int key in keys)
+            {
+                if (key <= index) continue;
+                _handFace[key - 1] = _handFace[key];
+                _handFaceChar[key - 1] = _handFaceChar[key];
+                _handFace.Remove(key);
+                _handFaceChar.Remove(key);
+            }
+        }
+
+        /// <summary>把这一格翻到另一面并播翻面动效。不耗 AP、不进行动记录(F9)。
+        /// 翻面作废这张牌待定的落位(落位是按旧的那一面算的)。</summary>
+        private void FlipHandFace(int index)
+        {
+            if (index < 0 || index >= Battle.Library.Count) return;
+            string charId = Battle.Library[index];
+            _handFace[index] = GetFace(index) == CardFace.Attack ? CardFace.Feature : CardFace.Attack;
+            _handFaceChar[index] = charId;
+            if (_slotPicking) ResetSlotPicking();
+            _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_flip");
+            PlayHandFlip(index);
+        }
+
+        private const float HandFlipHalf = 0.09f;    // FlipSpec 稿:整段 0.18s,压扁 / 展开各一半
+        private const float HandFlipSquash = 0.04f;  // FlipSpec 稿:横向压到 4%
+
+        /// <summary>翻面动效:旧牌 scaleX 1 → 0.04,中点全量 Refresh(新牌已是新面的底色与面印),
+        /// 再把新建的那张牌 0.04 → 1 展开。字库行会被 Refresh 重建,所以前后两半作用在两个对象上。</summary>
+        private void PlayHandFlip(int index)
+        {
+            SnapHandFlip();
+            var oldTile = index < _libraryTileRects.Count ? _libraryTileRects[index] : null;
+            if (oldTile == null) { Refresh(); return; }
+            _handFlipAnimIndex = index;
+            _handFlipAnim = StartCoroutine(HandFlipRoutine(oldTile, index));
+        }
+
+        private System.Collections.IEnumerator HandFlipRoutine(RectTransform oldTile, int index)
+        {
+            yield return ScaleTileX(oldTile, 1f, HandFlipSquash);
+            // 前半程里别处已经全量 Refresh 过(旧牌被销毁):新面早已画出来,这里不再重绘
+            if (oldTile != null)
+            {
+                Refresh();
+                var newTile = index < _libraryTileRects.Count ? _libraryTileRects[index] : null;
+                yield return ScaleTileX(newTile, HandFlipSquash, 1f);
+            }
+            _handFlipAnim = null;
+            _handFlipAnimIndex = -1;
+        }
+
+        private static System.Collections.IEnumerator ScaleTileX(RectTransform tile, float from, float to)
+        {
+            float t = 0f;
+            while (t < HandFlipHalf && tile != null)
+            {
+                t += Time.unscaledDeltaTime;
+                float p = Mathf.Clamp01(t / HandFlipHalf);
+                tile.localScale = new Vector3(Mathf.Lerp(from, to, p * p * (3f - 2f * p)), 1f, 1f);
+                yield return null;
+            }
+            if (tile != null) tile.localScale = new Vector3(to, 1f, 1f);
+        }
+
+        /// <summary>动效没播完就直接跳到终态:面早已在 FlipHandFace 里切好,重绘一次即是终态
+        /// (新建的牌 scale 恒为 1)。</summary>
+        private void SnapHandFlip()
+        {
+            if (_handFlipAnim == null) return;
+            StopCoroutine(_handFlipAnim);
+            _handFlipAnim = null;
+            _handFlipAnimIndex = -1;
+            Refresh();
+        }
+
+        private const float FlipCellH = 46f;           // 稿 .fsw height 22pt
+        private const float FlipCellGap = 6f;          // 稿 .flipsw gap 3pt
+        private const int FlipCellRadius = 13;         // 稿 .fsw border-radius 6pt
+        private const int FlipCellPadX = 8;            // 稿 .fsw padding 0 4pt
+        private const float FlipCellInnerGap = 8f;     // 稿 .fsw gap 4pt
+        private const float FlipCellStroke = 2.5f;     // 稿 .fsw.on inset 1.2pt
+        private const int FlipRoleFontSize = 14;       // 稿 .fsw 6.8pt
+        private const int FlipSideFontSize = 13;       // 稿 .fsw .r 6.2pt
+        private const int BenchHintFontSize = 13;      // 稿 .bhint 6.2pt
+        private const float PickedSealBottom = 5f;     // 稿 .mt .seal bottom 2.5pt
+
+        /// <summary>拆合台翻面钮(HandFlip 稿 .flipsw):「攻击 · 正」「五行面 · 背」两格并排,
+        /// 朝上的那格 card-face 底 + 墨色内描边(五行面朝上时底换本系淡底),另一格 panel-inset 底。
+        /// 视觉 46 高,触控靠 PadTapHeight 的透明扩边补到 92。
+        /// 宽:栏内 246 − 间距 6 = 240,两格各 120;最宽一格「印 21 + 五行面 3×14 + 背 13 + 两道间距 8×2
+        /// + 两侧内边距 8×2」= 108 ≤ 120。拆合台定宽 276、不随屏比变,16:9 与基准机同一算式。</summary>
+        private void DrawFlipSwitch(CharDef def, int index)
+        {
+            var row = Ui.Row(_suggestRow, "FlipSwitch", FlipCellGap).transform;
+            float cellW = (BenchInnerW - FlipCellGap) / 2f;
+            var up = GetFace(index);
+            foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
+            {
+                bool on = face == up;
+                Image cell;
+                if (on)
+                {
+                    var fill = face == CardFace.Feature ? Theme.ElementSoft(def.Element) : Theme.CardWhite;
+                    cell = Ui.OutlinedPanel(row, $"Face_{face}", fill, Theme.Ink, FlipCellRadius, FlipCellStroke, out _);
+                }
+                else
+                {
+                    cell = Ui.CardPanel(row, $"Face_{face}", Theme.PanelInset, FlipCellRadius);
+                }
+                Ui.Sized(cell.gameObject, width: cellW, height: FlipCellH);
+                PadTapHeight(cell.gameObject, FlipCellH);
+                var content = Ui.Row(cell.transform, "Content", FlipCellInnerGap);
+                Ui.Stretch((RectTransform)content.transform);
+                var contentLayout = content.GetComponent<HorizontalLayoutGroup>();
+                contentLayout.childAlignment = TextAnchor.MiddleLeft;
+                contentLayout.padding = new RectOffset(FlipCellPadX, FlipCellPadX, 0, 0);
+                var sealSlot = Ui.Panel(content.transform, "SealSlot");
+                Ui.Sized(sealSlot, width: Ui.FaceSealXs, height: Ui.FaceSealXs);
+                Ui.FaceSeal(sealSlot.transform, def, face, Ui.FaceSealXs);
+                Ui.ThemedLabel(content.transform,
+                    face == CardFace.Attack ? Strings.T("face.name.attack") : Strings.T("face.name.feature"),
+                    FlipRoleFontSize, on ? Theme.TextMain : Theme.TextDim);
+                var spacer = Ui.Panel(content.transform, "Spacer");
+                Ui.Sized(spacer, flexWidth: 1f);
+                Ui.ThemedLabel(content.transform,
+                    face == CardFace.Attack ? Strings.T("face.side.front") : Strings.T("face.side.back"),
+                    FlipSideFontSize, Theme.TextDim);
+                var button = cell.gameObject.AddComponent<Button>();
+                button.transition = Selectable.Transition.None;
+                button.targetGraphic = cell;
+                var picked = face;
+                button.onClick.AddListener(() =>
+                {
+                    if (GetFace(index) != picked) FlipHandFace(index);
+                    else SnapHandFlip(); // 点的是已朝上的那格:只收掉还在播的动效
+                });
+            }
+        }
+
         private void OnCastPressed(CharDef def)
         {
             // 双方向字(2026-09-02 用户拍板改版):**不再先问方向,直接把敌我两边一起点亮** ——
@@ -5336,6 +5570,15 @@ namespace Brushblade.Presentation
             // 木系双面(2026-09-27):护面是**召唤**,友方那一侧点亮的不是「治谁」而是「落哪格」——
             // 敌人与召唤位同时点亮(_targeting + _slotPicking),点敌人 = 攻、点位置 = 召唤。
             // AP 不够时不进这一态,走下面的通用双向态,由引擎当场报「AP 不够」(同 BeginCast 的守卫)。
+            //
+            // 两面字(Plan E1 F5,2026-10-07):手牌有了「朝上的面」,出字按那一面走单向,
+            // 不再进双向态 / 攻召双向态。CastInDirection 已按这一面需要进选敌 / 选友方 / 选位。
+            // 部件池的牌(_selectedIndex < 0)没有面,仍走下面的原路径。
+            if (_selectedIndex >= 0 && CardFaceRules.HasTwoFaces(def))
+            {
+                CastInDirection(def, attackMode: GetFace(_selectedIndex) == CardFace.Attack);
+                return;
+            }
             if (IsSummonDual(def) && Battle.Ap >= def.ApCost)
             {
                 EnterSummonDual(def, _selectedIndex);
@@ -5364,7 +5607,8 @@ namespace Brushblade.Presentation
         /// 否则会出现「选了攻击方向,却按治疗面判断要不要选目标」这种错位。
         ///
         /// 2026-09-02 改版后它只服务**单方向字**(AttackEffects 为空,恒走 attackMode: false)
-        /// 与拖拽路径;双方向字的双击走 OnCastPressed 里的双向目标态,不经过这里。</summary>
+        /// 与拖拽路径;双方向字的双击走 OnCastPressed 里的双向目标态,不经过这里。
+        /// Plan E1(2026-10-07)起两面字的「出」也走这里,attackMode = 手牌朝上的面。</summary>
         private void CastInDirection(CharDef def, bool attackMode)
         {
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
@@ -5417,6 +5661,7 @@ namespace Brushblade.Presentation
                 Battle.SummonCountOf(def, attackMode: false));
             _targeting = true;
             _pendingAttackMode = true;   // 敌方侧置灰按攻击面算;落位那一侧走 _pendingSummonAttackMode(false)
+            _message = SlotPickMessage(); // _targeting 开了才重算:双向态不走嫁接口径(PendingSlotPickGrafts)
         }
 
         // ---- 召唤落位(2026-08-20) ----
@@ -5511,7 +5756,9 @@ namespace Brushblade.Presentation
             _messageLabel.text = _message;
         }
 
-        private string SlotPickMessage() => _pendingSummonCount > 1
+        private string SlotPickMessage() => PendingSlotPickGrafts && Battle.AliveSummonCount > 0
+            ? Strings.T("battle.hint.slot_picking_graft", ("charId", _pendingSummonChar))
+            : _pendingSummonCount > 1
             ? Strings.T("battle.hint.slot_picking_multi", ("charId", _pendingSummonChar), ("count", _pendingSummonCount))
             : Strings.T("battle.hint.slot_picking_single", ("charId", _pendingSummonChar));
 
@@ -5532,6 +5779,17 @@ namespace Brushblade.Presentation
         private void OnSlotPicked(int slot)
         {
             if (!_slotPicking || !Battle.IsSlotOpen(slot)) return;
+            // 生面点「出」进的落位态(Plan E1 F4/F6):点活着的木灵 = 嫁接(allySlot = 这一格),
+            // 不顶替、不弹顶替确认;点空位照旧召唤。
+            if (PendingSlotPickGrafts && Battle.Summons[slot] is { Alive: true })
+            {
+                string graftChar = _pendingSummonChar;
+                int graftTarget = _pendingSummonTarget;
+                int graftLibraryIndex = _pendingSummonLibraryIndex;
+                ResetSlotPicking();
+                ExecuteCast(graftChar, graftTarget, attackMode: false, libraryIndex: graftLibraryIndex, allySlot: slot);
+                return;
+            }
             var slots = Battle.PlanSummonSlots(slot, _pendingSummonCount);
 
             string charId = _pendingSummonChar;
@@ -5541,6 +5799,15 @@ namespace Brushblade.Presentation
             ResetSlotPicking();
             ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, summonSlots: slots);
         }
+
+        /// <summary>当前落位态点活木灵算不算嫁接(Plan E1):两面字的生面经点击「出」进来的落位态。
+        /// 排除 _targeting(「攻/召」双向态,拖拽路径仍是旧语义:点有人的格 = 顶替,Task 4 再改)
+        /// 与攻击面落位(_pendingSummonAttackMode)。部件池的牌(卡位 −1)没有面,也不算。</summary>
+        private bool PendingSlotPickGrafts =>
+            _slotPicking && !_targeting && !_pendingSummonAttackMode && _pendingSummonLibraryIndex >= 0
+            && _pendingSummonChar != null && _graph.TryGet(_pendingSummonChar, out var graftDef)
+            && CardFaceRules.HasTwoFaces(graftDef)
+            && (CardFaceRules.Landing(graftDef, CardFace.Feature, _run.CardLevel(graftDef.Id)) & FaceLanding.Graft) != 0;
 
         private void ResetSlotPicking()
         {
@@ -5611,6 +5878,7 @@ namespace Brushblade.Presentation
                 CancelSelection();
                 return;
             }
+            if (error == BattleError.None) DropHandFaceAt(libraryIndex); // 出手成功:这张牌的面作废(F1)
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Cast, charId, BattleEngine.FaceOf(_graph.Get(charId), attackMode));
             else
@@ -5821,6 +6089,7 @@ namespace Brushblade.Presentation
         private void OnDiscard(string charId)
         {
             var error = Battle.Discard(charId, _selectedIndex); // 同字多张:丢玩家选中的那张
+            if (error == BattleError.None) DropHandFaceAt(_selectedIndex);
             _message = error == BattleError.None ? Strings.T("battle.msg.discard_success", ("charId", charId)) : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
