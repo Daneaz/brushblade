@@ -605,21 +605,6 @@ namespace Brushblade.Core
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
 
-        /// <summary>金脉 L2「锋芒」的**每张字一次**闸门(2026-09-13)。<see cref="ApplyEffects"/>
-        /// 进门时置 false,<see cref="RollCrit"/> 首次摇到暴击时兑现并置 true。
-        ///
-        /// 为什么要这道闸:全体伤害(DamageSingle + All)对每个目标各摇一次暴击,不限制的话一张群攻字
-        /// 暴击 5 个目标就能顶满战意上限,战意从「维持型资源」退化成「开局一张群攻就满」。
-        ///
-        /// **不进快照**:生命周期只有一次 ApplyEffects 调用,跨不出一张字,更跨不出
-        /// 存档边界(spec §3.4)。</summary>
-        private bool _critMoraleGrantedThisCast;
-
-        /// <summary>R3(spec v7 §10):本次出字**之前**每个敌人满足哪些 <see cref="DamageCondition"/>,
-        /// 按敌人下标存位掩码。只在 ApplyEffects 的同步调用栈内非 null;不进快照存档
-        /// (与 _critMoraleGrantedThisCast 同类的瞬时量)。</summary>
-        private int[] _preCastConditions;
-
         private static readonly DamageCondition[] SnapshotConditions =
         {
             DamageCondition.Burning, DamageCondition.Bleeding,
@@ -654,9 +639,9 @@ namespace Brushblade.Core
                 if (!IsTargetIndependent(condition) || _enemies.Count == 0) return false;
                 enemyIndex = 0;
             }
-            if (_preCastConditions == null) return ConditionMet(condition, _enemies[enemyIndex], Element.Heart);
-            if (enemyIndex >= _preCastConditions.Length) return false;
-            return (_preCastConditions[enemyIndex] & (1 << (int)condition)) != 0; // 同上:int 掩码,枚举 < 32 种
+            if (_cast.PreCastConditions == null) return ConditionMet(condition, _enemies[enemyIndex], Element.Heart);
+            if (enemyIndex >= _cast.PreCastConditions.Length) return false;
+            return (_cast.PreCastConditions[enemyIndex] & (1 << (int)condition)) != 0; // 同上:int 掩码,枚举 < 32 种
         }
 
         private static bool IsTargetIndependent(DamageCondition c) =>
@@ -682,21 +667,6 @@ namespace Brushblade.Core
             long denom = 100 + axis;
             return (int)(((long)value * (denom + percent) + denom - 1) / denom);
         }
-
-        // 砺刃:本次出字的额外暴击率。ApplyEffects 进门时按字的元素设置、出门清零 ——
-        // 不进快照,它只活在一次 Cast 的同步调用里。
-        private int _castCritBonus;
-
-        // 效果目标选择器的两张「本次出字」名单(D1 Task 5):命中过的敌人(按命中顺序去重)/ 真正被冻住的敌人。
-        // 与 _castCritBonus 同口径:ApplyEffects 进门清空、嵌套时保存 / 恢复,不进快照。
-        private List<int> _castHitTargets = new List<int>();
-        private List<int> _castFrozenTargets = new List<int>();
-
-        // D1 Task 7 的两样「本次出字」瞬时量,口径同上(进门清空、嵌套保存 / 恢复、不进快照):
-        // 本次出字召出的召唤物槽位(按落位顺序;幼苗取第一只的属性、保命的 SummonedThisCast 选择器用)、
-        // 本次出字内的**实际**治疗量(溢出不算;治疗转盾用,在 HealAlly / HealPlayerAndSummons 里累加)。
-        private List<int> _castSummonedSlots = new List<int>();
-        private int _castHealTotal;
 
         /// <summary>条件门(D1 Task 5,附录 M24):<c>OnlyIf</c> 为空 = 无条件;否则按出字前快照判这个目标。</summary>
         private bool OnlyIfMet(EffectDef effect, int enemyIndex) =>
@@ -732,7 +702,7 @@ namespace Brushblade.Core
                     break;
                 }
                 case EffectPick.HitTargets:
-                    foreach (int i in _castHitTargets) if (_enemies[i].Alive) result.Add(i);
+                    foreach (int i in _cast.HitTargets) if (_enemies[i].Alive) result.Add(i);
                     break;
                 case EffectPick.MostBurn:
                 {
@@ -747,7 +717,7 @@ namespace Brushblade.Core
                     break;
                 }
                 case EffectPick.FrozenByThisCast:
-                    foreach (int i in _castFrozenTargets) if (_enemies[i].Alive) result.Add(i);
+                    foreach (int i in _cast.FrozenTargets) if (_enemies[i].Alive) result.Add(i);
                     break;
             }
             return result;
@@ -930,7 +900,7 @@ namespace Brushblade.Core
         private bool RollCrit(bool force = false)
         {
             // 必暴(ForceCrit,D1 Task 3):chance 100 走 RollCritWith 的上端短路,不摇号;锋芒照常兑现
-            bool crit = RollCritWith(force ? 100 : Math.Clamp(EffectiveCrit + _castCritBonus, 0, 100));
+            bool crit = RollCritWith(force ? 100 : Math.Clamp(EffectiveCrit + _cast.CritBonus, 0, 100));
             if (crit) GrantMoraleFromCrit();
             return crit;
         }
@@ -939,8 +909,8 @@ namespace Brushblade.Core
         private void GrantMoraleFromCrit()
         {
             if (_config == null || _config.MoraleOnCrit <= 0) return;
-            if (_critMoraleGrantedThisCast) return;
-            _critMoraleGrantedThisCast = true;
+            if (_cast.CritMoraleGranted) return;
+            _cast.CritMoraleGranted = true;
             // 复用 AddPlayerCounter:它自带 MoraleCap 夹取。别绕开它直接改 Magnitude。
             int before = _playerStatuses.TotalMagnitude(StatusKind.Morale);
             AddPlayerCounter(StatusKind.Morale, _config.MoraleOnCrit, _config.MoraleCap);
@@ -3083,33 +3053,21 @@ namespace Brushblade.Core
             if (_inApplyEffects)
                 throw new InvalidOperationException("ApplyEffects 不可重入:特性反应必须入队,在安全点排空");
             _inApplyEffects = true;
-            // 外层快照优先(Plan C 交接项 2):这三样是「一张字」的瞬时量,进门保存、出门恢复。
+            // 外层快照优先(Plan C 交接项 2):出字瞬时量收在 CastContext 里(D2-0 E13),进门 new、出门恢复外层。
             // 守卫之下只有排空路径会走到这里(外层已结束),恢复是防御性的。
-            int outerCritBonus = _castCritBonus;
-            bool outerMoraleGranted = _critMoraleGrantedThisCast;
-            var outerConditions = _preCastConditions;
-            var outerHitTargets = _castHitTargets;
-            var outerFrozenTargets = _castFrozenTargets;
-            var outerSummonedSlots = _castSummonedSlots;
-            int outerHealTotal = _castHealTotal;
-            var outerOnCrit = _castOnCrit;
-            var outerOnKill = _castOnKill;
-            var outerTraitDef = _castTraitDef;
-            var outerBurnedTargets = _castBurnedTargets;
-            int outerShieldGranted = _castShieldGranted;
+            // 名单 / 计数 / 锋芒闸门进门清空;暴击加成、触发特性、出字前快照在下面赋值前沿用外层(同旧口径)。
+            var outer = _cast;
+            _cast = new CastContext
+            {
+                CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions,
+                OnCrit = outer.OnCrit, OnKill = outer.OnKill, TraitDef = outer.TraitDef,
+            };
             try
             {
-            _castHitTargets = new List<int>();
-            _castBurnedTargets = new List<int>();
-            _castShieldGranted = 0;
-            _castFrozenTargets = new List<int>();
-            _castSummonedSlots = new List<int>();
-            _castHealTotal = 0;
-            _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             bool graft = IsGraft(def, attackMode, allySlot);   // 嫁接:Summon 效果改为作用在 allySlot 上(E5)
             bool grafted = false;
-            _castCritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
+            _cast.CritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
             // 断金(2026-10-02):进门时判定,同一张字结算途中暴击涨满的不算本张。
             // 只认金系「字」(部件直出不算)且本张字带伤害效果;纯 buff 金字不消耗战意。
             bool moraleRelease = _config != null && _config.MoraleReleasePercent > 0
@@ -3123,9 +3081,9 @@ namespace Brushblade.Core
             // 没有这类特性时两项都是 null —— 下面的入队整条空转,恒等。
             bool topLevelCast = TriggerDepth == 0 && _castingCharId == def.Id;
             var castFace = FaceOf(def, attackMode);
-            _castOnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
-            _castOnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
-            _castTraitDef = def;
+            _cast.OnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
+            _cast.OnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
+            _cast.TraitDef = def;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
             // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
@@ -3155,7 +3113,7 @@ namespace Brushblade.Core
             }
 
             // R3:快照在复活(前置动作)之后、第一个效果之前取;外层已有快照时沿用外层(外层快照优先)
-            _preCastConditions = outerConditions ?? CapturePreCastConditions(attacker);
+            _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             foreach (var effect in castEffects)
@@ -3250,9 +3208,9 @@ namespace Brushblade.Core
                                     // 只有跨排造成的重复才传 true。
                                     sameSwing: sameSwing && hit == 0,
                                     attackerRef: UnitRef.Player);
-                                if (!_castHitTargets.Contains(tgt)) _castHitTargets.Add(tgt);   // 选择器 HitTargets 用
+                                if (!_cast.HitTargets.Contains(tgt)) _cast.HitTargets.Add(tgt);   // 选择器 HitTargets 用
                                 // 暴击时(D1 Task 9,炽烈):每击各入队,目标 = 这一击的落点;Cast 末尾兑现
-                                if (crit) EnqueueCastTraits(_castOnCrit, tgt);
+                                if (crit) EnqueueCastTraits(_cast.OnCrit, tgt);
                             }
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
@@ -3286,7 +3244,7 @@ namespace Brushblade.Core
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
                             int burnGain = ApplyBurn(ti, value, UnitRef.Player, burnPotency);
                             if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, ti, burnGain));
-                            if (!_castBurnedTargets.Contains(ti)) _castBurnedTargets.Add(ti);   // 烟熏「带本字灼」
+                            if (!_cast.BurnedTargets.Contains(ti)) _cast.BurnedTargets.Add(ti);   // 烟熏「带本字灼」
                         }
                         break;
                     case EffectKind.Bleed:
@@ -3312,8 +3270,8 @@ namespace Brushblade.Core
                                 TurnsLeft = value,
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                             // 「冻结成功」= 袋子里真挂上了 Freeze:Boss 吃的是冰滞(返回 true 但没有 Freeze),不算
-                            if (applied && _enemies[ti].Statuses.Has(StatusKind.Freeze) && !_castFrozenTargets.Contains(ti))
-                                _castFrozenTargets.Add(ti);
+                            if (applied && _enemies[ti].Statuses.Has(StatusKind.Freeze) && !_cast.FrozenTargets.Contains(ti))
+                                _cast.FrozenTargets.Add(ti);
                         }
                         break;
                     case EffectKind.Slow:
@@ -3461,7 +3419,7 @@ namespace Brushblade.Core
                         // 保命(D1 Task 7,扎根):一次性,挂在召唤物身上。SummonedThisCast = 本次出字召出的那几只
                         // (排在召唤之后才有对象);Primary = allySlot 指的召唤物,点玩家空转。
                         var endureSlots = effect.Pick == EffectPick.SummonedThisCast
-                            ? new List<int>(_castSummonedSlots)
+                            ? new List<int>(_cast.SummonedSlots)
                             : allySlot >= 0 ? new List<int> { allySlot } : new List<int>();
                         foreach (int slot in endureSlots)
                         {
@@ -3488,7 +3446,7 @@ namespace Brushblade.Core
                         else
                         {
                             var tauntSlots = new List<int>();
-                            if (effect.Pick == EffectPick.SummonedThisCast) tauntSlots.AddRange(_castSummonedSlots);
+                            if (effect.Pick == EffectPick.SummonedThisCast) tauntSlots.AddRange(_cast.SummonedSlots);
                             else if (effect.Pick == EffectPick.AllSummons)
                                 for (int ts = 0; ts < _summons.Length; ts++) tauntSlots.Add(ts);
                             foreach (int slot in tauntSlots)
@@ -3504,7 +3462,7 @@ namespace Brushblade.Core
                         // 幼苗(D1 Task 7,附录 M14):属性取本次出字召出的第一只 × Value%(那只已吃过等级与攻击力缩放),
                         // 无本命。只占空槽 / 尸体槽 —— 落位表的下一格站着活人就退回最小空槽,还没有就不召(不顶替)。
                         // 嫁接时没有「本次召出的」,属性来源取被嫁接的木灵(allySlot,Task 5 裁定)
-                        int saplingSrc = graft ? allySlot : _castSummonedSlots.Count > 0 ? _castSummonedSlots[0] : -1;
+                        int saplingSrc = graft ? allySlot : _cast.SummonedSlots.Count > 0 ? _cast.SummonedSlots[0] : -1;
                         if (saplingSrc < 0) break;
                         var first = _summons[saplingSrc];
                         if (first == null) break;
@@ -3517,7 +3475,7 @@ namespace Brushblade.Core
                                 planned = summonSlots[summonCursor++];
                             int slot = PlaceSapling(attacker, saplingHp, saplingAttack, def.Id, planned);
                             if (slot < 0) break;
-                            _castSummonedSlots.Add(slot);
+                            _cast.SummonedSlots.Add(slot);
                         }
                         RefreshSummonAura();
                         break;
@@ -3571,7 +3529,7 @@ namespace Brushblade.Core
                     {
                         // 治疗转盾(D1 Task 7,附录 M16,护持):本次出字到此为止的实际治疗量 × Value%。
                         // 不再吃护盾 Amplify / 筑垒 / L3:它是治疗量的折算,不是本字的护盾本体。不攒厚(同理)。
-                        int converted = _castHealTotal * value / 100;
+                        int converted = _cast.HealTotal * value / 100;
                         if (converted <= 0) break;
                         int granted = AddPlayerShield(converted, persist: false);
                         _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
@@ -3583,7 +3541,7 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.ShieldRecoil:
                         // 反震(D1 Task 9,D9):本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
-                        if (_castShieldGranted > 0) ApplyShieldRecoil(effect.Value, def.Id, effect.TraitKey ?? def.Id);
+                        if (_cast.ShieldGranted > 0) ApplyShieldRecoil(effect.Value, def.Id, effect.TraitKey ?? def.Id);
                         break;
                     case EffectKind.AddHeft:
                         AddPlayerCounter(StatusKind.Heft, value, CapFor(StatusKind.Heft));
@@ -3624,7 +3582,7 @@ namespace Brushblade.Core
                             if (effect.RiderOf == StatusKind.Burn)
                             {
                                 // 烟熏(D1 Task 9,附录 M9):只给带本字灼的目标;致盲随灼存续(-1),灼移除时 DropRiders 一并移除
-                                if (!_castBurnedTargets.Contains(ti) || !_enemies[ti].Statuses.Has(StatusKind.Burn)) continue;
+                                if (!_cast.BurnedTargets.Contains(ti) || !_enemies[ti].Statuses.Has(StatusKind.Burn)) continue;
                                 string riderKey = effect.TraitKey ?? def.Id;
                                 AttachRider(_enemies[ti].Statuses, def.Id, riderKey, StatusKind.Burn);
                                 ApplyStatus(_enemies[ti].Statuses, new StatusEffect
@@ -3853,7 +3811,7 @@ namespace Brushblade.Core
                             {
                                 int burnGain = ApplyBurn(i, value, UnitRef.Player, burnPotency);
                                 if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, i, burnGain));
-                                if (!_castBurnedTargets.Contains(i)) _castBurnedTargets.Add(i);   // 烟熏「带本字灼」
+                                if (!_cast.BurnedTargets.Contains(i)) _cast.BurnedTargets.Add(i);   // 烟熏「带本字灼」
                             }
                         break;
                     case EffectKind.Shield:
@@ -4061,11 +4019,11 @@ namespace Brushblade.Core
                                     Magnitude = newborn.Passive.Armor, TurnsLeft = -1, SourceId = def.Id + "#armor",
                                 }, UnitRef.Summon(slot), UnitRef.Player);
                             summonCursor++; // 每落一只推进一格,跨 effect 持续累加
-                            _castSummonedSlots.Add(slot);   // D1 Task 7:幼苗 / 保命选择器用
+                            _cast.SummonedSlots.Add(slot);   // D1 Task 7:幼苗 / 保命选择器用
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
                         // 森然(D2-0 Task 6):入场附带幼苗,属性 = 这只木灵 × 20%。放在本体全部落位之后,
-                        // 免得占掉后面几只本体计划好的槽位;不记入 _castSummonedSlots(不改变「本次召出的」选择器)。
+                        // 免得占掉后面几只本体计划好的槽位;不记入 _cast.SummonedSlots(不改变「本次召出的」选择器)。
                         foreach (int ns in newbornSlots)
                         {
                             var host = _summons[ns];
@@ -4105,18 +4063,7 @@ namespace Brushblade.Core
             }
             finally
             {
-                _castCritBonus = outerCritBonus;
-                _critMoraleGrantedThisCast = outerMoraleGranted;
-                _preCastConditions = outerConditions;
-                _castHitTargets = outerHitTargets;
-                _castFrozenTargets = outerFrozenTargets;
-                _castSummonedSlots = outerSummonedSlots;
-                _castHealTotal = outerHealTotal;
-                _castOnCrit = outerOnCrit;
-                _castOnKill = outerOnKill;
-                _castTraitDef = outerTraitDef;
-                _castBurnedTargets = outerBurnedTargets;
-                _castShieldGranted = outerShieldGranted;
+                _cast = outer;
                 _inApplyEffects = false;
             }
         }
@@ -4766,7 +4713,7 @@ namespace Brushblade.Core
         {
             int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
             PlayerHp += healed;
-            if (_inApplyEffects) _castHealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+            if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
             int playerEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
             if (overflowToDamage && SettleOverheal(amount - healed, Targeting.PlayerTarget))
@@ -4778,7 +4725,7 @@ namespace Brushblade.Core
                 // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
-                if (_inApplyEffects) _castHealTotal += given;
+                if (_inApplyEffects) _cast.HealTotal += given;
                 // 每只被治疗的召唤物各发一条治疗事件,**插在自己那发溢流伤害之前**。
                 //
                 // 2026-09-18 只补了「溢流」那一支(满血召唤物 given=0,不发事件的话伤害凭空冒出来),
@@ -4822,7 +4769,7 @@ namespace Brushblade.Core
             int granted = Math.Max(0, Math.Min(amount, cap - (_shieldNormal + _shieldPersist)));
             if (persist) _shieldPersist += granted;
             else _shieldNormal += granted;
-            if (_inApplyEffects) _castShieldGranted += granted;   // 反震的挂载条件(D1 Task 9)
+            if (_inApplyEffects) _cast.ShieldGranted += granted;   // 反震的挂载条件(D1 Task 9)
             return granted;
         }
 
@@ -4849,7 +4796,7 @@ namespace Brushblade.Core
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
-                if (_inApplyEffects) _castHealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+                if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
                 int playerEvent = _events.Count;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, originSlot, healed, Targeting.PlayerTarget,
                     source: source));
@@ -4861,7 +4808,7 @@ namespace Brushblade.Core
             if (summon == null || !summon.Alive) return; // Cast 已拦下,这里是纵深防御
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
-            if (_inApplyEffects) _castHealTotal += given;
+            if (_inApplyEffects) _cast.HealTotal += given;
             int summonEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
             if (overflowToDamage && SettleOverheal(amount - given, slot))
@@ -5324,8 +5271,8 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
             Raise(HookKind.EnemyKilled, UnitRef.Enemy(enemyIndex), killer, source: source, castCharId: _castingCharId);
             // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
-            // 反应里的击杀不入队(R4:排空时 _castOnKill 为 null)
-            EnqueueCastTraits(_castOnKill, enemyIndex);
+            // 反应里的击杀不入队(R4:排空时 _cast.OnKill 为 null)
+            EnqueueCastTraits(_cast.OnKill, enemyIndex);
             SpreadEmbers(enemyIndex);
         }
 
