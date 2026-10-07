@@ -43,5 +43,5 @@
 ## 朝上的面（战斗字库行）
 战斗字库行的两面字牌传 `face:`（`Ui.GlyphTile(..., face: CardFace?)`，缺省 `null` = 上文所有画法一字不动，既有八处调用不传）。非 null 时：
 - 面印（`component/FaceSeal`，xs 档 21 逻辑单位）**占拼音位**：锚 0.06–0.30，水平居中，拼音不再画；
-- 朝上为五行面（`CardFace.Feature`）时，牌面内层底色换本系 `<el>-soft`（`Image.color` 相乘，框纹与稀有度色相保留）；攻击面牌面不变；未拥有不染；
+- 朝上为五行面（`CardFace.Feature`）时，只把牌面**内窗**换成本系 `<el>-soft`（`FeatureTint` 色块，inset 同内容区），稀有度边框与花纹不染；攻击面牌面不变；未拥有不染；
 - 部件池的牌没有面，不传 `face`，仍印拼音。

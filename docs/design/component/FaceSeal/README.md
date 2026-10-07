@@ -20,7 +20,7 @@
 
 ## 手牌里的位置
 - 面印**占拼音位**：锚 0.06–0.30，水平居中；`face != null` 时拼音不再画。部件池的牌没有面，不传 `face`，仍印拼音。
-- 朝上为五行面时，牌面内层底色换本系 soft 色（`Theme.ElementSoft`，即 `<el>-soft`）：框素材自带底色，实现是 `Image.color` 相乘（相乘不覆盖，框纹与稀有度色相保留）；攻击面与 `face == null` 保持原样。未拥有（`locked`）不染。
+- 朝上为五行面时，**只把牌面内窗**换成本系 soft 色（`Theme.ElementSoft`，即 `<el>-soft`）；稀有度边框与花纹保持原色（稿 `.htile.back` 只换背景）。实现是框 Image 保持白，在内窗（与内容区同一组 `CardFrames.ContentInset` 让位）垫一块圆角色块 `FeatureTint`，层序在属性层之下。攻击面、`face == null`、未拥有都不建这块。
 - `face == null` 时 `GlyphTile` 与改动前逐字节相同，既有八处调用不传。
 
 ## 配色出处

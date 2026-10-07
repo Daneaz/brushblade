@@ -834,25 +834,38 @@ namespace Brushblade.Presentation
             var frameSprite = CardFrames.Frame(def.Rarity);
             var inner = Panel(go.transform, "Face");
             var faceImage = inner.AddComponent<Image>();
-            // 朝上为五行面(2026-10-07,traits 稿 F8):牌面内层底色换本系 soft 色;其余一律 null = 现状
-            Color? featureTint = face == Brushblade.Core.CardFace.Feature && !locked
-                ? Theme.ElementSoft(def.Element) : null;
             if (frameSprite != null)
             {
                 faceImage.sprite = frameSprite;
                 // Image.color 是**相乘**:未拥有时乘一层暖灰,框上的花纹与稀有度色相原样保留、
                 // 只是整张退到宣纸背后。换成纯色板会把框也盖掉,那就分不出稀有度了
-                faceImage.color = locked ? Theme.LockedPaper : featureTint ?? Color.white; // 素材自带牌面底色,不再染色
+                faceImage.color = locked ? Theme.LockedPaper : Color.white; // 素材自带牌面底色,不再染色
             }
             else
             {
                 faceImage.sprite = Theme.Rounded(12);
                 faceImage.type = Image.Type.Sliced;
-                faceImage.color = locked ? Theme.LockedPaper : featureTint ?? Theme.CardWhite;
+                faceImage.color = locked ? Theme.LockedPaper : Theme.CardWhite;
             }
             // 左右 2.5、上下 3.125:留边本身也得守 0.8,否则牌面被压扁、四角纹样跟着变形
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(2.5f, 3.125f), new Vector2(-2.5f, -3.125f));
+
+            // 朝上为五行面(traits 稿 F8,`.htile.back`):只把牌面内窗换成本系 soft 色,稀有度边框与花纹
+            // 保持原色 —— 所以不染框 Image,而是在内窗(与内容区同一组让位)垫一块色块。
+            // 攻击面 / 未传 face / 未拥有不建任何对象。
+            var (tintX, tintY) = CardFrames.ContentInset(def.Rarity);
+            if (face == Brushblade.Core.CardFace.Feature && !locked)
+            {
+                var tint = Panel(inner.transform, "FeatureTint");
+                var tintImage = tint.AddComponent<Image>();
+                tintImage.sprite = Theme.Rounded(8);
+                tintImage.type = Image.Type.Sliced;
+                tintImage.color = Theme.ElementSoft(def.Element);
+                tintImage.raycastTarget = false;
+                Anchor((RectTransform)tint.transform, new Vector2(tintX, tintY),
+                    new Vector2(1f - tintX, 1f - tintY), Vector2.zero, Vector2.zero);
+            }
 
             // 层序(§4.2):属性层在下、材质光效在上、字在最上 —— 字要读得清,这条压倒一切
             var motes = Panel(inner.transform, "Motes");
