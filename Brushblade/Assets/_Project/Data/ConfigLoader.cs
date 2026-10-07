@@ -608,6 +608,10 @@ namespace Brushblade.Data
         /// 即时类(成字 / 拆字无印记)脱离出字结算、没有主目标 —— 选敌效果必须写全体 pick,否则加载期拦下。</summary>
         private static void ValidateGlyph(CharDto dto, TraitDto t, TraitTrigger trigger, IReadOnlyList<EffectDef> effects)
         {
+            // 幼苗取「本次出字召出的第一只」的属性;拆 / 合时没有出字上下文。等 D2-木 给出无源幼苗口径再放开
+            if ((trigger == TraitTrigger.OnCompose || trigger == TraitTrigger.OnDismantle)
+                && effects.Any(e => e.Kind == EffectKind.SummonSapling))
+                throw new ConfigException($"字「{dto.Id}」的字形特性「{t.Name}」写了幼苗(SummonSapling):拆 / 合时没有可取属性的召唤,等 D2-木 定下无源幼苗的取法再放开");
             if (t.PartChar != null)
             {
                 if (trigger != TraitTrigger.OnDismantle)

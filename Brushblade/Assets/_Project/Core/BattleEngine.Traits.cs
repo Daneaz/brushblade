@@ -159,11 +159,11 @@ namespace Brushblade.Core
         /// <summary>拆 / 合成功后、DrainReactions 之前调用。已解锁的字形特性每张字每条每场 1 次(E9):
         /// 即时类脱离出字结算(不选敌,targetIndex −1);印记类挂一条印记(拆出的部件里没有 PartChar 时不挂)。
         /// 没有字形特性时整段空转 —— 不摇随机数、不碰次数阀(恒等)。</summary>
-        private void FireGlyphTraits(string charId, TraitTrigger trigger)
+        private bool FireGlyphTraits(string charId, TraitTrigger trigger)
         {
-            if (!_graph.TryGet(charId, out var def)) return;
+            if (!_graph.TryGet(charId, out var def)) return false;
             var traits = TraitRules.Glyph(def, CardLevelOf(charId), trigger);
-            if (traits.Count == 0) return;
+            if (traits.Count == 0) return false;
             bool applied = false;
             foreach (var t in traits)
             {
@@ -179,8 +179,15 @@ namespace Brushblade.Core
                 ApplyDetachedEffects(def.Id, def.Element ?? Element.Heart, t.Effects, targetIndex: -1);
                 applied = true;
             }
-            if (!applied) return;
-            // 与 Cast 收尾同口径:战意 / 厚可能变了(召唤物攻击读它),全体灼结算可能清场
+            return applied;
+        }
+
+        /// <summary>拆 / 合收尾,与 Cast 同序:DrainReactions → RefreshSummonAura → CheckWin。
+        /// 只在有即时字形特性真结算过时才刷光环 / 判胜(无字形数据时恒等)。</summary>
+        private void FinishForgeAction(bool glyphApplied)
+        {
+            DrainReactions();
+            if (!glyphApplied) return;
             RefreshSummonAura();
             CheckWin();
         }

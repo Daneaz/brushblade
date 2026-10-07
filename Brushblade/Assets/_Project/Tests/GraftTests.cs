@@ -51,6 +51,26 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Graft_AtLv5_UsesLv3EnhancedPassive_ScaledByCardLevel()
+        {
+            // 藤 Lv1 缠绕 20%,Lv3 强化为 40%(E8:Summon 0 + 被动,合并只覆盖非缺省字段)。
+            // 卡 Lv5 嫁接:Lv3 已解锁 → 40,再吃等级缩放 = min(100, ScaleByCardLevel(40, 5))
+            var enhance = new TraitDef(TraitSlot.Lv3, TraitFace.Feature, TraitForm.Active, TraitSlot.Lv1, "强化",
+                new[] { new EffectDef(EffectKind.Summon, 0, passive: new SummonPassive { OnHitFreezeChance = 40 }) });
+            var vine = new CharDef("藤", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 10, summonChar: "木", passive: Vine) },
+                traits: new[] { enhance });
+            var b = new BattleEngine(RebalanceFixture.Graph(vine),
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 },
+                new[] { "藤" }, Array.Empty<string>(), new[] { RebalanceFixture.Mob(attack: 0) }, seed: 1,
+                startingSummons: new[] { Wood(0, 30, 100, Thorny) }, cardLevels: new Dictionary<string, int> { ["藤"] = 5 });
+            Assert.That(b.Cast("藤", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
+            int expected = Math.Min(100, MetaRules.ScaleByCardLevel(40, 5));
+            Assert.That(expected, Is.GreaterThan(40), "夹具自检:Lv5 缩放确实放大");
+            Assert.That(b.Summons[0].Passive.OnHitFreezeChance, Is.EqualTo(expected));
+        }
+
+        [Test]
         public void Graft_Twice_KeepsFirstBasePassive()
         {
             var b = Battle(new[] { Wood(0, 30, 100, Thorny) }, Graftor());
@@ -143,9 +163,9 @@ namespace Brushblade.Core.Tests
         public void Run_Carry_RestoresOriginalPassive()
         {
             var run = NewRun("荆");
-            run.Battle.Cast("荆");
+            Assert.That(run.Battle.Cast("荆"), Is.EqualTo(BattleError.None));
             int slot = FirstSlot(run.Battle);
-            run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             Assert.That(run.Battle.Summons[slot].Passive.OnHitFreezeChance, Is.EqualTo(20));
             Win(run);
             var carried = run.CarriedSummons.Single();
@@ -158,9 +178,9 @@ namespace Brushblade.Core.Tests
         public void Run_Carry_GraftOntoPassivelessSummon_RestoresToNoEffectivePassive()
         {
             var run = NewRun("素");
-            run.Battle.Cast("素");
+            Assert.That(run.Battle.Cast("素"), Is.EqualTo(BattleError.None));
             int slot = FirstSlot(run.Battle);
-            run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             Win(run);
             var carried = run.CarriedSummons.Single();
             Assert.That(carried.Passive?.OnHitFreezeChance ?? 0, Is.EqualTo(0));
@@ -171,9 +191,9 @@ namespace Brushblade.Core.Tests
         public void Snapshot_BasePassive_RoundTripsThroughSaveSerializer_AndStillRestoresAfterBattle()
         {
             var run = NewRun("荆");
-            run.Battle.Cast("荆");
+            Assert.That(run.Battle.Cast("荆"), Is.EqualTo(BattleError.None));
             int slot = FirstSlot(run.Battle);
-            run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
 
             var meta = new MetaState
             {
@@ -191,6 +211,62 @@ namespace Brushblade.Core.Tests
             Assert.That(resumed.Battle.Summons[slot].Passive.OnHitFreezeChance, Is.EqualTo(20));
             Win(resumed);
             Assert.That(resumed.CarriedSummons.Single().Passive.Thorns, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void Run_Carry_StackedGraftWetFirmArmorEndure_RestoresAllAndKeepsEntryArmorAndShield()
+        {
+            // 同一只木灵同场叠:保命 + 入场护甲(Armor 12)+ 嫁接 + 润(改水)+ 固(嘲讽 + 盾)+ 铠(格挡)
+            var basePassive = new SummonPassive { Thorns = 7, Armor = 12 };
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("扎", Element.Wood, effects: new[]
+                {
+                    new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 10, summonChar: "木", passive: basePassive),
+                    new EffectDef(EffectKind.Endure, 0, pick: EffectPick.SummonedThisCast),
+                }),
+                Graftor(),
+                new CharDef("润", Element.Water, effects: new[] { new EffectDef(EffectKind.HealSelf, 10) }),
+                new CharDef("固", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 40) }),
+                new CharDef("铠", Element.Metal, effects: new[] { new EffectDef(EffectKind.Block, 1) }),
+                new CharDef("焚", Element.Fire,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 99, shape: TargetArea.All) }),
+            });
+            var runCfg = new RunConfig
+            {
+                Encounters = new[] { new[] { RebalanceFixture.Mob(hp: 10) }, new[] { RebalanceFixture.Mob(hp: 10) } },
+                RewardPool = new[] { "焚" }, FromDepth = 31,
+            };
+            var battleCfg = new BattleConfig { DropTable = new[] { "木" }, ApPerTurn = 10 };
+            var run = new RunEngine(graph, runCfg, battleCfg,
+                startingLibrary: new[] { "扎", "藤", "润", "固", "铠", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+
+            Assert.That(run.Battle.Cast("扎"), Is.EqualTo(BattleError.None));
+            int slot = FirstSlot(run.Battle);
+            foreach (var id in new[] { "藤", "润", "固", "铠" })
+                Assert.That(run.Battle.Cast(id, -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None), id);
+            var live = run.Battle.Summons[slot];
+            Assert.That(live.Element, Is.EqualTo(Element.Water), "夹具自检:润生效");
+            Assert.That(live.Statuses.Has(StatusKind.Taunt) && live.Statuses.Has(StatusKind.Block)
+                && live.Statuses.Has(StatusKind.Endure), Is.True, "夹具自检:本场三态都挂上了");
+            Assert.That(live.Passive.Armor, Is.EqualTo(0), "嫁接后被动不带护甲");
+            int shieldBefore = live.Shield;
+            Assert.That(shieldBefore, Is.GreaterThan(0));
+
+            Win(run);
+            var carried = run.CarriedSummons.Single();
+            Assert.That(carried.Element, Is.EqualTo(Element.Wood));
+            Assert.That(carried.BaseElement, Is.Null);
+            Assert.That(carried.Passive.Thorns, Is.EqualTo(7));
+            Assert.That(carried.Passive.Armor, Is.EqualTo(12));
+            Assert.That(carried.Passive.OnHitFreezeChance, Is.EqualTo(0));
+            Assert.That(carried.BasePassive, Is.Null);
+            foreach (var kind in new[] { StatusKind.Taunt, StatusKind.Block, StatusKind.Endure })
+                Assert.That(carried.Statuses.Any(st => st.Kind == kind), Is.False, kind.ToString());
+            Assert.That(carried.Statuses.Any(st => st.Kind == StatusKind.DefenseBuff && st.TurnsLeft < 0), Is.True,
+                "入场护甲(DefenseBuff,TurnsLeft −1)保留");
+            Assert.That(carried.Shield, Is.EqualTo(shieldBefore * battleCfg.ShieldCarryPercent / 100), "护盾按比例保留");
         }
     }
 }

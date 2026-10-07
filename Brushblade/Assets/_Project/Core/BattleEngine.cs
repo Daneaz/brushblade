@@ -1527,8 +1527,8 @@ namespace Brushblade.Core
             _forge = result.State;
             if (_config.Tally != null) _config.Tally.Dismantles++;
             Raise(HookKind.Dismantled, UnitRef.Player, UnitRef.None, charId: charId);
-            FireGlyphTraits(charId, TraitTrigger.OnDismantle);
-            DrainReactions();   // 安全点:拆字末尾
+            bool glyphApplied = FireGlyphTraits(charId, TraitTrigger.OnDismantle);
+            FinishForgeAction(glyphApplied);   // 安全点:拆字末尾
             return BattleError.None;
         }
 
@@ -1549,8 +1549,8 @@ namespace Brushblade.Core
             Ap -= 1;
             if (_config.Tally != null) _config.Tally.Composes++;
             Raise(HookKind.Composed, UnitRef.Player, UnitRef.None, charId: charId);
-            FireGlyphTraits(charId, TraitTrigger.OnCompose);
-            DrainReactions();   // 安全点:合字末尾
+            bool glyphApplied = FireGlyphTraits(charId, TraitTrigger.OnCompose);
+            FinishForgeAction(glyphApplied);   // 安全点:合字末尾
             return BattleError.None;
         }
 
@@ -3968,7 +3968,16 @@ namespace Brushblade.Core
                             grafted = true;
                             var target = _summons[allySlot];
                             target.BasePassive ??= target.Passive?.Clone() ?? new SummonPassive();
-                            target.Passive = ScalePassiveByCardLevel(effect.Passive, cardLevel)?.Clone();
+                            // Ruling 4:嫁接不发护甲不附幼苗,被动对象与行为一致;Speed 沿用被嫁接者原被动(底速是属性不是本命)
+                            int keepSpeed = target.Passive?.Speed ?? 0;
+                            var grafted2 = ScalePassiveByCardLevel(effect.Passive, cardLevel)?.Clone();
+                            if (grafted2 != null)
+                            {
+                                grafted2.Speed = keepSpeed;
+                                grafted2.Armor = 0;
+                                grafted2.EntrySaplings = 0;
+                            }
+                            target.Passive = grafted2;
                             target.Hp = target.MaxHp;
                             RefreshSummonAura();
                             _events.Add(new BattleEvent(BattleEventKind.Graft, -1, 0, allySlot));

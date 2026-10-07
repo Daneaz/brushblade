@@ -428,9 +428,27 @@ namespace Brushblade.Core.Tests
             var graftor = Summoner("嫁", new SummonPassive { Armor = 9, EntrySaplings = 2 });
             var b = Battle(new[] { Wood(0, 30, 100) }, graftor);
             Assert.That(b.Cast("嫁", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
-            Assert.That(b.Summons[0].Passive.Armor, Is.EqualTo(9), "本命换上了");
+            Assert.That(b.Summons[0].Passive.Armor, Is.EqualTo(0), "嫁接不发护甲:被动对象与行为一致(Ruling 4)");
+            Assert.That(b.Summons[0].Passive.EntrySaplings, Is.EqualTo(0));
             Assert.That(b.Summons[0].EffectiveDefense, Is.EqualTo(0), "嫁接不发入场护甲");
             Assert.That(Alive(b), Is.EqualTo(1), "嫁接不附带幼苗");
+        }
+
+        [Test]
+        public void Graft_KeepsTargetSpeed_FromOriginalPassive()
+        {
+            var graftor = Summoner("嫁", new SummonPassive { Thorns = 10 });
+            var fast = Wood(0, 30, 100, passive: new SummonPassive { Speed = 150 });
+            var plain = Wood(1, 30, 100, passive: new SummonPassive { Speed = 100, Thorns = 5 });
+            var b = Battle(new[] { fast, plain }, graftor);
+            Assert.That(b.Cast("嫁", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.Cast("嫁", -1, attackMode: false, allySlot: 1), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[0].Passive.Speed, Is.EqualTo(150), "150 速木灵被嫁接后速度不变");
+            Assert.That(b.Summons[1].Passive.Speed, Is.EqualTo(100), "普通木灵速度不变");
+            var b2 = Battle(new[] { Wood(0, 30, 100) }, graftor);
+            Assert.That(b2.Cast("嫁", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b2.Summons[0].Passive.Speed, Is.EqualTo(0), "原被动 null = 0");
+            Assert.That(b.Summons[0].Passive.Thorns, Is.EqualTo(10), "本命换上了");
         }
 
         [Test]

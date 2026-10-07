@@ -95,6 +95,30 @@ namespace Brushblade.Core.Tests
             Assert.That(Morale(b), Is.EqualTo(0), "拆字特性只在拆时触发");
         }
 
+        [Test]
+        public void Dismantle_GlyphTrait_KillsLastEnemy_PhaseWon()
+        {
+            // I1:字形即时伤害打死最后一只怪 → 拆字收尾必须判胜(DrainReactions → RefreshSummonAura → CheckWin)
+            var jin = Jin(Glyph(TraitTrigger.OnDismantle, null, 0,
+                new EffectDef(EffectKind.DamageSingle, 99999, shape: TargetArea.All)));
+            var b = new BattleEngine(RebalanceFixture.Graph(AllDefs(jin)), Config, new[] { "鍂" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob(hp: 50) }, seed: 1, cardLevels: new Dictionary<string, int> { ["鍂"] = 4 });
+            Assert.That(b.Dismantle("鍂"), Is.EqualTo(BattleError.None));
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
+        [Test]
+        public void Dismantle_GlyphTrait_BurnSettleKillsLastEnemy_PhaseWon()
+        {
+            var jin = Jin(Glyph(TraitTrigger.OnDismantle, null, 0,
+                new EffectDef(EffectKind.BurnAll, 99999),
+                new EffectDef(EffectKind.BurnSettleNow, 0, pick: EffectPick.All)));
+            var b = new BattleEngine(RebalanceFixture.Graph(AllDefs(jin)), Config, new[] { "鍂" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob(hp: 50) }, seed: 1, cardLevels: new Dictionary<string, int> { ["鍂"] = 4 });
+            Assert.That(b.Dismantle("鍂"), Is.EqualTo(BattleError.None));
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
         // ---------------- 成字即时 ----------------
 
         private static SummonSnapshot Spirit(int slot) => new()
@@ -266,6 +290,20 @@ namespace Brushblade.Core.Tests
         public void Loader_BadGlyph_Throws(string trait)
         {
             Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(CharJson(trait)));
+        }
+
+        [TestCase("OnCompose", TestName = "Loader_GlyphSapling_OnCompose_Throws")]
+        [TestCase("OnDismantle", TestName = "Loader_GlyphSapling_OnDismantle_Throws")]
+        public void Loader_GlyphWithSummonSapling_Throws(string trigger)
+        {
+            // 本体面带 Summon:幼苗在「同面须有召唤」那条校验下是合法的,只有字形这条新校验能拦住
+            string json = @"{""chars"":[{""id"":""火"",""element"":""Fire"",""component"":true},{""id"":""木"",""element"":""Wood""},
+              {""id"":""炎"",""rarity"":""Gold"",""element"":""Wood"",""recipe"":[""火"",""火""],
+                ""effects"":[{""kind"":""Summon"",""value"":100,""count"":1,""attack"":5,""summonChar"":""木""}],
+                ""traits"":[{""slot"":""Lv4"",""form"":""Passive"",""trigger"":""" + trigger + @""",""name"":""x"",
+                   ""effects"":[{""kind"":""SummonSapling"",""value"":20,""count"":1}]}]}]}";
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(json));
+            Assert.That(ex.Message, Does.Contain("字形特性"));
         }
 
         [Test]

@@ -158,10 +158,10 @@ namespace Brushblade.Core.Tests
         public void Run_Carry_RestoresElement_StripsTaunt()
         {
             var run = NewRun();
-            run.Battle.Cast("垛");
+            Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
             int slot = SlotOfFirstSummon(run.Battle);
-            run.Battle.Cast("润", -1, attackMode: false, allySlot: slot);
-            run.Battle.Cast("固", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("固", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             Win(run);
             var carried = run.CarriedSummons.Single();
             Assert.That(carried.Element, Is.EqualTo(Element.Wood));
@@ -173,10 +173,10 @@ namespace Brushblade.Core.Tests
         public void Run_Wet_ThenUnseal_KeepsUnsealedElement()
         {
             var run = NewRun();
-            run.Battle.Cast("垛");
+            Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
             int slot = SlotOfFirstSummon(run.Battle);
-            run.Battle.Cast("润", -1, attackMode: false, allySlot: slot);
-            run.Battle.Cast("解", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("解", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             var unsealed = run.Battle.Summons[slot].Element;
             Win(run);
             Assert.That(run.CarriedSummons.Single().Element, Is.EqualTo(unsealed));
@@ -186,11 +186,11 @@ namespace Brushblade.Core.Tests
         public void Run_Unseal_ThenWet_RestoresToUnsealedElement()
         {
             var run = NewRun();
-            run.Battle.Cast("垛");
+            Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
             int slot = SlotOfFirstSummon(run.Battle);
-            run.Battle.Cast("解", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("解", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             var unsealed = run.Battle.Summons[slot].Element;
-            run.Battle.Cast("润", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             Win(run);
             Assert.That(run.CarriedSummons.Single().Element, Is.EqualTo(unsealed));
         }
@@ -199,9 +199,9 @@ namespace Brushblade.Core.Tests
         public void Snapshot_BaseElement_RoundTripsThroughSaveSerializer_AndStillRestoresAfterBattle()
         {
             var run = NewRun();
-            run.Battle.Cast("垛");
+            Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
             int slot = SlotOfFirstSummon(run.Battle);
-            run.Battle.Cast("润", -1, attackMode: false, allySlot: slot);
+            Assert.That(run.Battle.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
 
             var meta = new MetaState
             {
