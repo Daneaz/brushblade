@@ -120,13 +120,22 @@ namespace Brushblade.Core.Tests
             foreach (var d in Playable())
             {
                 var lv3 = At(d, TraitSlot.Lv3);
-                bool woodNoFeature = d.Element == Element.Wood;
-                Assert.That(lv3.Count, Is.EqualTo(woodNoFeature ? 1 : 2), $"{d.Id} Lv3 行数");
+                // 2026-10-07(D2-0 Task 9,E8):木字生面行是本命强化(被动,Summon 0 + 强化后的被动 token)
+                Assert.That(lv3.Count, Is.EqualTo(2), $"{d.Id} Lv3 行数");
                 Assert.That(lv3.Any(t => t.Face == TraitFace.Attack), Is.True, $"{d.Id} 缺 Lv3 攻");
-                Assert.That(lv3.Any(t => t.Face == TraitFace.Feature), Is.EqualTo(!woodNoFeature), $"{d.Id} Lv3 五行面");
+                Assert.That(lv3.Any(t => t.Face == TraitFace.Feature), Is.True, $"{d.Id} Lv3 五行面");
                 foreach (var t in lv3)
                 {
                     Assert.That(t.Replaces, Is.EqualTo(TraitSlot.Lv1), $"{d.Id} Lv3 替换 Lv1");
+                    if (d.Element == Element.Wood && t.Face == TraitFace.Feature)
+                    {
+                        Assert.That(t.Form, Is.EqualTo(TraitForm.Passive), $"{d.Id} Lv3 本命强化是被动");
+                        Assert.That(t.Name, Does.EndWith("·强化"), $"{d.Id} Lv3 本命强化名");
+                        Assert.That(t.Effects.Count, Is.EqualTo(1), $"{d.Id} Lv3 本命强化 = 一条 Summon 0");
+                        Assert.That(t.Effects[0].Kind, Is.EqualTo(EffectKind.Summon), $"{d.Id} Lv3 本命强化");
+                        Assert.That(t.Effects[0].Value, Is.EqualTo(0), $"{d.Id} Lv3 本命强化不动血量");
+                        continue;
+                    }
                     Assert.That(t.Form, Is.EqualTo(TraitForm.Active), $"{d.Id} Lv3 主动");
                     Assert.That(t.Name, Is.EqualTo(KeywordOf(d) + "·强化"), $"{d.Id} Lv3 名");
                     Assert.That(t.Effects.Count, Is.GreaterThan(0), $"{d.Id} Lv3 要有效果");
@@ -225,12 +234,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Wood_Lv3_SeedThreeTurns_FlowerCharmTwoTurns_NoFeatureRow()
+        public void Wood_Lv3_SeedThreeTurns_FlowerCharmTwoTurns_AttackRow()
         {
             foreach (var d in OfElement(Element.Wood))
             {
-                var a = At(d, TraitSlot.Lv3).Single().Effects;
-                Assert.That(At(d, TraitSlot.Lv3).Single().Face, Is.EqualTo(TraitFace.Attack), $"{d.Id} Lv3 只有攻");
+                // 2026-10-07(D2-0 Task 9,E8):另有一条生面本命强化行(WoodNatureDataTests 逐字断言)
+                Assert.That(At(d, TraitSlot.Lv3).Count(t => t.Face == TraitFace.Feature), Is.EqualTo(1), $"{d.Id} Lv3 生面本命强化");
+                var a = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects;
                 Assert.That(a.Count, Is.EqualTo(1));
                 if (d.Id == "花")
                 {

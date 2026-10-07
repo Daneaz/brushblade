@@ -1077,8 +1077,8 @@
           "summonChar": "",
           "passive": {
             "speed": 150,
-            "thorns": 50,
-            "auraAttack": 20
+            "shape": "Adjacent",
+            "shapePercent": 50
           }
         }
       ],
@@ -1111,6 +1111,26 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "参天·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "",
+              "passive": {
+                "shape": "Row",
+                "shapePercent": 50
+              }
+            }
+          ]
         }
       ]
     },
@@ -1133,8 +1153,7 @@
           "summonChar": "森",
           "passive": {
             "speed": 150,
-            "thorns": 50,
-            "regen": 60
+            "entrySaplings": 1
           }
         }
       ],
@@ -1167,6 +1186,25 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "森然·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "森",
+              "passive": {
+                "entrySaplings": 2
+              }
+            }
+          ]
         }
       ]
     },
@@ -1189,7 +1227,7 @@
           "summonChar": "林",
           "passive": {
             "speed": 150,
-            "regen": 60
+            "perAllyAttackPercent": 15
           }
         }
       ],
@@ -1220,6 +1258,25 @@
               "kind": "Seed",
               "value": 21,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "成林·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "林",
+              "passive": {
+                "perAllyAttackPercent": 25
+              }
             }
           ]
         },
@@ -1285,6 +1342,26 @@
               "kind": "Seed",
               "value": 15,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "远射·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "箭",
+              "passive": {
+                "backRowBonusPercent": 50,
+                "ranged": true
+              }
             }
           ]
         },
@@ -1375,8 +1452,7 @@
           "attack": 48,
           "summonChar": "楸",
           "passive": {
-            "onHitBurn": 1,
-            "ranged": true
+            "onHitBurn": 1
           }
         }
       ],
@@ -1407,6 +1483,25 @@
               "kind": "Seed",
               "value": 18,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "秋燥·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "楸",
+              "passive": {
+                "onHitBurn": 2
+              }
             }
           ]
         },
@@ -1454,8 +1549,7 @@
           "attack": 0,
           "summonChar": "荆",
           "passive": {
-            "thorns": 50,
-            "taunt": true
+            "thorns": 50
           }
         }
       ],
@@ -1486,6 +1580,25 @@
               "kind": "Seed",
               "value": 18,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "荆棘·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "荆",
+              "passive": {
+                "thorns": 80
+              }
             }
           ]
         },
@@ -1534,7 +1647,8 @@
           "summonChar": "藻",
           "passive": {
             "speed": 150,
-            "regen": 60
+            "sproutPercent": 30,
+            "sproutMax": 2
           }
         }
       ],
@@ -1567,6 +1681,26 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "丛生·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "藻",
+              "passive": {
+                "sproutPercent": 30,
+                "sproutMax": 3
+              }
+            }
+          ]
         }
       ]
     },
@@ -1587,9 +1721,8 @@
           "count": 1,
           "attack": 54,
           "summonChar": "桂",
-          "summonShield": 120,
           "passive": {
-            "thorns": 50
+            "healAlly": 30
           }
         }
       ],
@@ -1622,6 +1755,26 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "桂香·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "桂",
+              "passive": {
+                "healAlly": 30,
+                "healAllyTimes": 2
+              }
+            }
+          ]
         }
       ]
     },
@@ -1643,7 +1796,7 @@
           "attack": 0,
           "summonChar": "柘",
           "passive": {
-            "thorns": 50,
+            "armor": 30,
             "taunt": true
           }
         }
@@ -1679,6 +1832,26 @@
           ]
         },
         {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "坚木·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "柘",
+              "passive": {
+                "armor": 60,
+                "taunt": true
+              }
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "沃土",
@@ -1709,7 +1882,7 @@
           "attack": 28,
           "summonChar": "藤",
           "passive": {
-            "onHitFreezeChance": 10,
+            "onHitFreezeChance": 20,
             "onHitFreezeTurns": 1
           }
         }
@@ -1741,6 +1914,25 @@
               "kind": "Seed",
               "value": 12,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "缠绕·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "藤",
+              "passive": {
+                "onHitFreezeChance": 40
+              }
             }
           ]
         },
@@ -1822,7 +2014,10 @@
           "value": 72,
           "count": 1,
           "attack": 18,
-          "summonChar": "花"
+          "summonChar": "花",
+          "passive": {
+            "onHitCharmChance": 20
+          }
         }
       ],
       "attackEffects": [
@@ -1852,6 +2047,25 @@
               "kind": "Charm",
               "value": 0,
               "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv3",
+          "face": "Feature",
+          "form": "Passive",
+          "replaces": "Lv1",
+          "name": "迷香·强化",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "花",
+              "passive": {
+                "onHitCharmChance": 40
+              }
             }
           ]
         },
