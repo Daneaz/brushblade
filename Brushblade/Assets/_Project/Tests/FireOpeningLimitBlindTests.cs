@@ -150,5 +150,106 @@ namespace Brushblade.Core.Tests
                 @"{""chars"":[{""id"":""甲"",""element"":""Fire""," + FireBody + @",""traits"":[
                   {""slot"":""Lv8"",""face"":""Attack"",""name"":""错"",""effects"":[{""kind"":""BurnSingle"",""value"":2,""openingBattles"":1}]}]}]}"));
         }
+
+        // ---------------- 修复轮 1:开局效果保留 Pick / Shape,加载校验与运行一致 ----------------
+
+        /// <summary>开局效果作用于全体:第 1 场只登记,第 2 场开局三只敌人都吃到。</summary>
+        private static RunEngine OpeningRun(EffectDef opening, int mobs = 3)
+        {
+            var src = new CharDef("焱", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Shield, 1) },
+                traits: new[] { Trait(TraitSlot.Lv8, TraitFace.Feature, TraitForm.Active, opening) });
+            var killer = new CharDef("杀", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100000, shape: TargetArea.All) });
+            var config = new RunConfig
+            {
+                Encounters = Enumerable.Range(0, 3).Select(_ => Enumerable.Range(0, mobs).Select(__ => RebalanceFixture.Mob(hp: 5000)).ToArray()).ToArray(),
+                RewardPool = new[] { "杀" },
+            };
+            return new RunEngine(RebalanceFixture.Graph(src, killer), config, Config,
+                new[] { "焱", "杀", "杀", "杀" }, Array.Empty<string>(), seed: 1,
+                cardLevels: new Dictionary<string, int> { ["焱"] = 8 });
+        }
+
+        private static void WinAll(RunEngine run)
+        {
+            Assert.That(run.Battle.Cast("杀", -1), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+            while (run.Phase == RunPhase.Reward) run.SkipReward();
+        }
+
+        [Test]
+        public void Opening_WeakenPickAll_NextBattleHitsAllEnemies()
+        {
+            var weaken = new EffectDef(EffectKind.Weaken, 20, turns: 2, pick: EffectPick.All, openingBattles: 1);
+            Assert.That(BattleEngine.EffectNeedsTarget(OpeningEffect.Of(weaken, "焱", Element.Heart).ToEffect()), Is.False,
+                "ToEffect 保留 pick All");
+            var run = OpeningRun(weaken);
+            Assert.That(run.Battle.Cast("焱", -1), Is.EqualTo(BattleError.None), "登记不抛");
+            Assert.That(run.Battle.Enemies.Any(e => e.Statuses.Has(StatusKind.Curse)), Is.False, "本场不执行");
+            Assert.That(run.Battle.PendingOpenings.Single().Pick, Is.EqualTo(EffectPick.All));
+            WinAll(run);
+            Assert.That(run.Battle.Enemies.All(e => e.Statuses.Has(StatusKind.Curse)), Is.True, "下一场开局全体减攻");
+        }
+
+        [Test]
+        public void Opening_DamageShapeAll_NextBattleHitsAllEnemies()
+        {
+            var dmg = new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All, openingBattles: 1);
+            var run = OpeningRun(dmg);
+            Assert.That(run.Battle.Cast("焱", -1), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Enemies.All(e => e.Hp == 5000), Is.True, "本场不执行");
+            Assert.That(run.Battle.PendingOpenings.Single().Shape, Is.EqualTo(TargetArea.All));
+            WinAll(run);
+            Assert.That(run.Battle.Enemies.All(e => e.Hp < 5000), Is.True, "下一场开局全体受伤");
+        }
+
+        [Test]
+        public void Opening_PickShape_SurviveRealSaveFile()
+        {
+            var meta = new MetaState { EndlessV2 = new EndlessSaveState() };
+            meta.EndlessV2.CarriedOpenings.Add(new OpeningEffect
+            {
+                SourceCharId = "焱", Element = Element.Fire, Kind = EffectKind.DamageSingle, Value = 50,
+                Shape = TargetArea.All, ShapePercent = 60, Pick = EffectPick.All, BattlesLeft = 2,
+            });
+            var o = Brushblade.Data.SaveSerializer.FromJson(Brushblade.Data.SaveSerializer.ToJson(meta)).EndlessV2.CarriedOpenings.Single();
+            Assert.That(o.Shape, Is.EqualTo(TargetArea.All));
+            Assert.That(o.ShapePercent, Is.EqualTo(60));
+            Assert.That(o.Pick, Is.EqualTo(EffectPick.All));
+
+            var legacy = Brushblade.Data.SaveSerializer.FromJson(
+                "{\"EndlessV2\":{\"CarriedOpenings\":[{\"Kind\":2,\"Value\":2,\"BattlesLeft\":1}]}}").EndlessV2.CarriedOpenings.Single();
+            Assert.That(legacy.Pick, Is.EqualTo(EffectPick.Primary), "老存档缺字段 = 现状");
+            Assert.That(legacy.Shape, Is.EqualTo(TargetArea.Single));
+            Assert.That(legacy.ToEffect().ShapePercent, Is.EqualTo(100));
+        }
+
+        [TestCase(@"{""kind"":""Weaken"",""value"":20,""turns"":2,""pick"":""All"",""openingBattles"":1}")]
+        [TestCase(@"{""kind"":""DamageSingle"",""value"":100,""shape"":""All"",""openingBattles"":1}")]
+        public void ConfigLoader_OpeningWithPickOrShapeAll_Loads(string effect)
+        {
+            var g = Brushblade.Data.ConfigLoader.LoadGraph(@"{""chars"":[{""id"":""甲"",""element"":""Fire""," + FireBody + @",""traits"":[
+                  {""slot"":""Lv8"",""face"":""Feature"",""name"":""炎"",""effects"":[" + effect + "]}]}]}");
+            Assert.That(g.Get("甲").Traits[0].Effects[0].OpeningBattles, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ConfigLoader_OpeningWithOnlyIf_Throws()
+        {
+            Assert.Throws<Brushblade.Data.ConfigException>(() => Brushblade.Data.ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Fire""," + FireBody + @",""traits"":[
+                  {""slot"":""Lv8"",""face"":""Feature"",""name"":""错"",""effects"":[{""kind"":""Weaken"",""value"":20,""turns"":2,""pick"":""All"",""onlyIf"":""Burning"",""openingBattles"":1}]}]}]}"));
+        }
+
+        [Test]
+        public void ConfigLoader_OpeningWithAmpTerms_Throws()
+        {
+            // 同面的 Amplify(scope All 含 Burn,G3)会在 Fold 时给开局效果挂 AmpTerms;登记时加成会丢 —— 加载期拦下
+            Assert.Throws<Brushblade.Data.ConfigException>(() => Brushblade.Data.ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""甲"",""element"":""Fire""," + FireBody + @",""traits"":[
+                  {""slot"":""Lv4"",""form"":""Passive"",""name"":""精"",""effects"":[{""kind"":""Amplify"",""value"":20,""scope"":""All""}]},
+                  {""slot"":""Lv8"",""face"":""Feature"",""name"":""炎"",""effects"":[{""kind"":""BurnAll"",""value"":2,""openingBattles"":1}]}]}]}"));
+        }
     }
 }

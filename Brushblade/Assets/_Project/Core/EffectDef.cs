@@ -313,8 +313,9 @@ namespace Brushblade.Core
         /// 载体移除时一并移除。D1 只支持 Blind + Burn(ConfigLoader 拦其余组合)。</summary>
         public StatusKind? RiderOf { get; }
 
-        /// <summary>这条效果来自哪条特性(<c>BattleEngine.TraitKey</c>,「字/槽/面」);只有 <see cref="TraitRules.Fold"/>
-        /// 给附着类效果(RiderOf / ShieldRecoil)打上,字表对象恒为 null。</summary>
+        /// <summary>这条效果来自哪条特性(<c>BattleEngine.TraitKey</c>,「字/槽/面」);由 <see cref="TraitRules.ForCast"/>
+        /// 在出字折叠(Fold)与反应入队时打上:附着类效果(RiderOf / ShieldRecoil)一律打,其余非 Lv1 / Lv3 槽的特性效果也打
+        /// (D2-火 G11,Weaken / Blind / Vulnerable 按 SourceId + TraitKey 分来源)。字表对象恒为 null。</summary>
         internal string TraitKey { get; private set; }
         /// <summary>本体百分比(D2-火 E5,连爆):&gt; 0 时这条特性效果的 Value = 本面本体**首条** DamageSingle 的 Value × N%,
         /// 在 <see cref="TraitRules.Fold"/>(出字时机)/ 入队反应前(暴击时 / 击杀时)解析成具体 Value;卡等级照常在结算时套。

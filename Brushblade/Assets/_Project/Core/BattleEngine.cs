@@ -3141,14 +3141,10 @@ namespace Brushblade.Core
             foreach (var effect in castEffects)
             {
                 // 开局登记(D2-火 G13 / N12):本场不执行,登记为之后 N 场的开局效果(同类取最强,OpeningRules.Merge)。
-                // 记**未缩放**的 Value:开局结算走 ApplyDetachedEffects(来源字 ID),卡等级在那时才套,不重复缩放。
+                // 记**未缩放**的 Value(开局结算走 ApplyDetachedEffects(来源字 ID),卡等级在那时才套);Pick / Shape 随登记保留。
                 if (effect.OpeningBattles > 0)
                 {
-                    RegisterOpening(new OpeningEffect
-                    {
-                        SourceCharId = def.Id, Element = attacker, Kind = effect.Kind, Value = effect.Value,
-                        Turns = effect.Turns, TargetAll = effect.TargetAll, BattlesLeft = effect.OpeningBattles,
-                    });
+                    RegisterOpening(OpeningEffect.Of(effect, def.Id, attacker));
                     continue;
                 }
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)

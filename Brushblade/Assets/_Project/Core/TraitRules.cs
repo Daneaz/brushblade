@@ -102,8 +102,9 @@ namespace Brushblade.Core
         ///   现行数据里只有 Lv3 做替换、它是最低的非 Lv1 槽,交错不产生差别。
         ///
         /// 纯函数:不改 <paramref name="body"/> 与特性里的任何 EffectDef(它们是字表共享对象),
-        /// 被修饰的效果换成 <see cref="EffectDef.With"/> 产出的副本。没有修饰器、没有 Lv3 替换时结果与
-        /// 「本体 + 特性追加」逐项同一对象 —— 恒等。</summary>
+        /// 被修饰的效果换成 <see cref="EffectDef.With"/> 产出的副本。本体条目在没有修饰器、没有 Lv3 替换时
+        /// 逐项是同一对象;追加的特性效果(非 Lv1 / Lv3 槽,D2-火 G11)是打了 TraitKey 的副本(<see cref="ForCast"/>),
+        /// 数值字段不变。没有已解锁特性时结果与本体逐项同一对象 —— 恒等。</summary>
         public static List<EffectDef> Fold(IReadOnlyList<EffectDef> body, CharDef def, CardFace face, int cardLevel)
         {
             var effects = new List<EffectDef>(body.Count);

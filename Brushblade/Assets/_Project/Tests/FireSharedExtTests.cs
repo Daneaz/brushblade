@@ -222,6 +222,51 @@ namespace Brushblade.Core.Tests
             Assert.That(left[0].TurnsLeft, Is.EqualTo(2));
         }
 
+        [Test]
+        public void TraitWeakenAndVulnerable_StaySeparate_AfterRealSaveFile()
+        {
+            var def = new CharDef("试", Element.Heart,
+                effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 10), new EffectDef(EffectKind.Weaken, 15, turns: 3),
+                    new EffectDef(EffectKind.Vulnerable, 10, turns: 3),
+                },
+                traits: new[] { Trait(TraitSlot.Lv8, TraitFace.Both, TraitForm.Active,
+                    new EffectDef(EffectKind.Weaken, 40, turns: 1), new EffectDef(EffectKind.Vulnerable, 20, turns: 1)) });
+            var graph = RebalanceFixture.Graph(def);
+            var enemy = RebalanceFixture.Mob(attack: 100);
+            var runConfig = new RunConfig { Encounters = new[] { new[] { enemy } }, RewardPool = new[] { "试" } };
+            var levels = new Dictionary<string, int> { ["试"] = 8 };
+            var run = new RunEngine(graph, runConfig, Config, new[] { "试", "试" }, Array.Empty<string>(), 3, cardLevels: levels);
+            run.Battle.Cast("试", 0);
+
+            var meta = new MetaState
+            {
+                EndlessV2 = new EndlessSaveState
+                {
+                    Depth = 3, Seed = 999,
+                    InProgress = new InProgressRun { FromDepth = 1, FirstTowerSegment = true, Run = run.Capture() },
+                },
+            };
+            var reloaded = Brushblade.Data.SaveSerializer.FromJson(Brushblade.Data.SaveSerializer.ToJson(meta));
+            var b = RunEngine.Restore(reloaded.EndlessV2.InProgress.Run, graph, runConfig, Config, levels).Battle;
+            foreach (var kind in new[] { StatusKind.Curse, StatusKind.Vulnerable })
+            {
+                var entries = b.Enemies[0].Statuses.All.Where(x => x.Kind == kind).ToList();
+                Assert.That(entries.Count, Is.EqualTo(2), $"{kind}:读档后仍是两条");
+                Assert.That(entries.Single(x => x.TraitKey == null).TurnsLeft, Is.EqualTo(3));
+                Assert.That(entries.Single(x => x.TraitKey != null).TurnsLeft, Is.EqualTo(1));
+            }
+            b.EndTurn();   // 各自计时:特性那条到期,本体那条剩 2
+            foreach (var kind in new[] { StatusKind.Curse, StatusKind.Vulnerable })
+            {
+                var left = b.Enemies[0].Statuses.All.Where(x => x.Kind == kind).ToList();
+                Assert.That(left.Count, Is.EqualTo(1), $"{kind}");
+                Assert.That(left[0].TraitKey, Is.Null);
+                Assert.That(left[0].TurnsLeft, Is.EqualTo(2));
+            }
+        }
+
         // ---------------- G11:致盲同样分来源 ----------------
 
         [Test]

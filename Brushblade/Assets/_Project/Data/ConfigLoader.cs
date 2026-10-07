@@ -534,6 +534,7 @@ namespace Brushblade.Data
                     traits: ParseTraits(dto));
                 ValidateTraitTargets(def);
                 ValidateSaplingFaces(def);
+                ValidateOpeningAmplify(def);
                 defs.Add(def);
             }
 
@@ -652,6 +653,20 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)所在的面没有召唤(Summon),幼苗会永远空转");
                 if (summon > sapling)
                     throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)排在同面召唤(Summon)之前,结算时取不到召出的第一只");
+            }
+        }
+
+        /// <summary>开局效果不带 Amplify 加成(D2-火 修复轮 1):同面的 Amplify(如 scope All 含 Burn)会在 Fold 时给它挂 AmpTerms,
+        /// 而登记成 OpeningEffect 时加成会丢 —— 卡面写着加成、开局却不生效。按全部特性解锁(Lv8)折叠两面,发现就拦下。</summary>
+        private static void ValidateOpeningAmplify(CharDef def)
+        {
+            if (def.Traits.Count == 0) return;
+            foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
+            {
+                if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;
+                foreach (var e in TraitRules.CastEffects(def, face, (int)TraitSlot.Lv8))
+                    if (e.OpeningBattles > 0 && e.AmpTerms.Count > 0)
+                        throw new ConfigException($"字「{def.Id}」的 {e.Kind} 开局效果会被同面的 Amplify 加成,登记时加成会丢失;开局效果不能与覆盖它的 Amplify 同面");
             }
         }
 
@@ -788,9 +803,18 @@ namespace Brushblade.Data
                     effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent,
                     augmentKind, augmentField, pick, effect.KeepStacks, effect.PercentOfMax, riderOf,
                     effect.BodyPercent, effect.OpeningBattles));
-                // 开局登记(D2-火 N12):开局效果脱离出字结算、没有主目标 —— 选敌效果登记时 RegisterOpening 会抛,加载期就拦下
-                if (effect.OpeningBattles < 0 || (effect.OpeningBattles > 0 && BattleEngine.EffectNeedsTarget(effects[effects.Count - 1])))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能登记为开局效果(openingBattles 须 > 0,且开局时没有敌方目标,选敌效果要写全体)");
+                // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
+                // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
+                if (effect.OpeningBattles != 0)
+                {
+                    var built = effects[effects.Count - 1];
+                    if (effect.OpeningBattles < 0)
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 开局效果 openingBattles 须 > 0:{effect.OpeningBattles}");
+                    if (built.OnlyIf != DamageCondition.None)
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 开局效果不能带条件门 onlyIf(开局结算时没有出字前快照)");
+                    if (BattleEngine.EffectNeedsTarget(OpeningEffect.Of(built, dto.Id, Element.Heart).ToEffect()))
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 开局效果需要敌方目标;开局时没有目标,选敌效果要写 pick All / shape All");
+                }
             }
             return effects;
         }
