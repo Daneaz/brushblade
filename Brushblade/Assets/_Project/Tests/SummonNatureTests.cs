@@ -291,17 +291,146 @@ namespace Brushblade.Core.Tests
         [Test]
         public void OnHitCharm_ZeroChance_NeverRollsRandom()
         {
-            // 字段 0 时不摇 _random:暴击序列与「没有该字段」逐拍一致。
-            var withField = CharmBattle(0);
-            var without = Battle(new[] { Wood(0, 100, attack: 10, passive: new SummonPassive()) },
-                new[] { RebalanceFixture.Mob(attack: 5), RebalanceFixture.Mob(attack: 5) }, null, Summoner("素", null));
-            for (int i = 0; i < 20; i++)
+            // 两边都带 OnHitBurn=1,保证出手一定进 ApplySummonOnHit;唯一差别是 OnHitCharmChance 0 / 缺省。
+            // 字段为 0 时不摇 _random → 每拍 RandomState 逐拍一致;50% 则会摇(对照,证明这个断言看得见)。
+            BattleEngine Make(int? chance) => Battle(
+                new[] { Wood(0, 100, attack: 10, passive: new SummonPassive { OnHitBurn = 1, OnHitCharmChance = chance ?? 0 }) },
+                new[] { RebalanceFixture.Mob(attack: 0) }, null, Summoner("素", null));
+            var zero = Make(0);
+            var absent = Make(null);
+            var rolling = Make(50);
+            for (int i = 0; i < 5; i++)
             {
-                withField.EndTurn();
-                without.EndTurn();
-                Assert.That(withField.Enemies.Select(e => e.Hp).ToArray(), Is.EqualTo(without.Enemies.Select(e => e.Hp).ToArray()));
-                Assert.That(withField.LastEvents.Any(e => e.Kind == BattleEventKind.CharmedAttack), Is.False);
+                zero.EndTurn(); absent.EndTurn(); rolling.EndTurn();
+                Assert.That(zero.Capture().RandomState, Is.EqualTo(absent.Capture().RandomState));
             }
+            Assert.That(rolling.Capture().RandomState, Is.Not.EqualTo(absent.Capture().RandomState), "有概率时确实摇了骰");
+        }
+
+        [Test]
+        public void MergePassive_EveryWritableProperty_IsOverridden()
+        {
+            // 以后给 SummonPassive 加字段却忘了改 MergePassive,这条会红。
+            var props = typeof(SummonPassive).GetProperties()
+                .Where(pr => pr.CanWrite && pr.GetSetMethod() != null).ToList();
+            Assert.That(props.Count, Is.GreaterThan(20));
+            SummonPassive Filled(bool boolValue, int intValue, TargetArea shape)
+            {
+                var p = new SummonPassive();
+                foreach (var pr in props)
+                {
+                    if (pr.PropertyType == typeof(int)) pr.SetValue(p, intValue);
+                    else if (pr.PropertyType == typeof(bool)) pr.SetValue(p, boolValue);
+                    else if (pr.PropertyType == typeof(TargetArea)) pr.SetValue(p, shape);
+                    else Assert.Fail("SummonPassive 出现了未覆盖类型的属性:" + pr.Name);
+                }
+                return p;
+            }
+            var overShape = Enum.GetValues(typeof(TargetArea)).Cast<TargetArea>()
+                .First(a => a != TargetArea.Single && a != TargetArea.Row);
+            var over = Filled(true, 7, overShape);
+            foreach (var baseline in new[] { new SummonPassive(), Filled(false, 99, TargetArea.Row), null })
+            {
+                var merged = TraitRules.MergePassive(baseline, over);
+                foreach (var pr in props)
+                    Assert.That(pr.GetValue(merged), Is.EqualTo(pr.GetValue(over)), "MergePassive 漏了 " + pr.Name);
+            }
+        }
+
+        [Test]
+        public void Sprout_ReusedParentSlot_DoesNotInheritOldSproutQuota()
+        {
+            var host = new SummonPassive { SproutPercent = 50, SproutMax = 1 };
+            var b = Battle(new[] { Wood(0, 100, passive: host) },
+                Summoner("芽", new SummonPassive { SproutPercent = 50, SproutMax = 1 }));
+            b.EndTurn();   // 旧母体分裂 1 只
+            b.Summons[0].Hp = 0;
+            Assert.That(b.Cast("芽", summonSlots: new[] { 0 }), Is.EqualTo(BattleError.None));
+            b.EndTurn();
+            Assert.That(b.Summons.Count(x => x != null && x.Alive && x.Char == "苗"), Is.EqualTo(2),
+                "新母体占了槽 0,旧小藻不占它的名额,自己再分裂 1 只");
+        }
+
+        [Test]
+        public void Sprout_OtherParentsSprouts_DoNotCountAgainstMine()
+        {
+            var host = new SummonPassive { SproutPercent = 50, SproutMax = 1 };
+            var b = Battle(new[] { Wood(0, 100, passive: host), Wood(1, 100, passive: host) }, Summoner("素", null));
+            for (int i = 0; i < 4; i++) b.EndTurn();
+            var sprouts = b.Summons.Where(x => x != null && x.Alive && x.Char == "苗").ToList();
+            Assert.That(sprouts.Count, Is.EqualTo(2), "各母体各 1 只");
+            Assert.That(sprouts.Select(x => x.SproutParentSlot).OrderBy(x => x).ToArray(), Is.EqualTo(new[] { 0, 1 }));
+        }
+
+        [Test]
+        public void Sprout_LandsInSmallestEmptySlot()
+        {
+            var host = new SummonPassive { SproutPercent = 50, SproutMax = 1 };
+            var b = Battle(new[] { Wood(2, 100, passive: host) }, Summoner("素", null));
+            b.EndTurn();
+            Assert.That(b.Summons[0]?.Char, Is.EqualTo("苗"));
+            Assert.That(b.Summons[0].SproutParentSlot, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PerAllyAttack_DropsWhenAnotherSummonDiesMidFight()
+        {
+            var host = new SummonPassive { PerAllyAttackPercent = 10 };
+            var b = Battle(new[] { Wood(0, 100, attack: 100, passive: host), Wood(1, 100), Wood(2, 100) }, Summoner("素", null));
+            b.EndTurn();
+            Assert.That(b.Summons[0].EffectiveAttack, Is.EqualTo(120));
+            b.Summons[1].Hp = 0;
+            b.EndTurn();
+            Assert.That(b.Summons[0].EffectiveAttack, Is.EqualTo(110), "阵亡的不算");
+        }
+
+        [Test]
+        public void EntrySaplings_MultiSummon_SaplingsComeAfterAllBodies()
+        {
+            var b = Battle(null, Summoner("森", new SummonPassive { EntrySaplings = 1 }, count: 2));
+            b.Cast("森");
+            Assert.That(b.Summons[0].Char, Is.EqualTo("木"));
+            Assert.That(b.Summons[1].Char, Is.EqualTo("木"));
+            Assert.That(b.Summons[2].Char, Is.EqualTo("苗"));
+            Assert.That(b.Summons[3].Char, Is.EqualTo("苗"));
+        }
+
+        [Test]
+        public void EntrySaplings_FullRow_StopsQuietly()
+        {
+            int cap = Battle(null, Summoner("素", null)).SummonCapacity;
+            var pre = Enumerable.Range(0, cap - 2).Select(i => Wood(i, 100)).ToArray();
+            var b = Battle(pre, Summoner("森", new SummonPassive { EntrySaplings = 2 }, count: 2));
+            Assert.That(b.Cast("森"), Is.EqualTo(BattleError.None));
+            Assert.That(Alive(b), Is.EqualTo(cap));
+            Assert.That(b.Summons.Count(x => x != null && x.Char == "苗"), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void NonCharmNatureFields_DoNotScaleWithCardLevel()
+        {
+            var passive = new SummonPassive
+            {
+                SproutPercent = 40, SproutMax = 2, BackRowBonusPercent = 30, PerAllyAttackPercent = 10,
+                HealAllyTimes = 2, EntrySaplings = 0,
+            };
+            var b = Battle(null, new[] { RebalanceFixture.Mob(attack: 0) },
+                new Dictionary<string, int> { ["长"] = 10 }, Summoner("长", passive));
+            b.Cast("长");
+            var p = b.Summons.Single(x => x != null).Passive;
+            Assert.That((p.SproutPercent, p.SproutMax, p.BackRowBonusPercent, p.PerAllyAttackPercent, p.HealAllyTimes),
+                Is.EqualTo((40, 2, 30, 10, 2)));
+        }
+
+        [Test]
+        public void Graft_DoesNotGrantArmorOrEntrySaplings()
+        {
+            var graftor = Summoner("嫁", new SummonPassive { Armor = 9, EntrySaplings = 2 });
+            var b = Battle(new[] { Wood(0, 30, 100) }, graftor);
+            Assert.That(b.Cast("嫁", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[0].Passive.Armor, Is.EqualTo(9), "本命换上了");
+            Assert.That(b.Summons[0].EffectiveDefense, Is.EqualTo(0), "嫁接不发入场护甲");
+            Assert.That(Alive(b), Is.EqualTo(1), "嫁接不附带幼苗");
         }
 
         [Test]
