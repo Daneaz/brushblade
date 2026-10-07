@@ -1900,6 +1900,10 @@ namespace Brushblade.Core
         /// <summary>幼苗的显示字(D1 Task 7,M14)。是游戏数据级的字形,不进字符串表。</summary>
         internal const string SaplingChar = "苗";
 
+        /// <summary>森然入场幼苗的属性百分比(spec §3.1「幼苗属性为本体的 20%」)。</summary>
+        internal const int EntrySaplingPercent = 20;
+        private const string SummonCharmSourceId = "summon_charm";
+
         /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。
         ///
         /// 连发(Volley)**不需要选目标** —— 它的目标全自动(后排优先循环补足),
@@ -2406,6 +2410,8 @@ namespace Brushblade.Core
             // 不够 —— 每只召唤物出手前都要重读一次当前乘区(2026-09-05)。
             RefreshSummonAura();
 
+            TrySprout(s);   // 丛生(D2-0 Task 6):那一拍开始时分裂,不摇随机数
+
             SettleSummonBurn(s);
             if (!summon.Alive)   // 烧死在出手之前:这一拍不再治疗、不再挥刀
             {
@@ -2420,7 +2426,9 @@ namespace Brushblade.Core
             // 与 桂 的 SummonShield 要攒厚不矛盾:桂 是玩家出的字,光环是召唤物的被动。
             // 同理**不**触发水脉 L2「溢流」(2026-09-13):与不攒泉是同一条理由 ——
             // 光环是每回合自动触发的被动,不是玩家主动投入。
-            if (heal > 0) HealPlayerAndSummons(heal, overflowToDamage: false);
+            if (heal > 0)
+                for (int hn = 0, times = Math.Max(1, summon.Passive.HealAllyTimes); hn < times; hn++)   // 桂香·强化:N 次
+                    HealPlayerAndSummons(heal, overflowToDamage: false);
 
             int regen = summon.Passive?.Regen ?? 0;
             // 自愈(2026-09-05,藻):只回自己。与上面的光环同序 —— 都排在出手之前,
@@ -2493,12 +2501,16 @@ namespace Brushblade.Core
         /// 战意/厚会在回合中途变化,故 <see cref="ActSummonTurn"/> 出手前也要再调一次。</summary>
         private void RefreshSummonAura()
         {
-            int total = 0;
+            int total = 0, alive = 0;
             foreach (var summon in _summons)
-                if (summon != null && summon.Alive) total += summon.Passive?.AuraAttack ?? 0;
+                if (summon != null && summon.Alive) { total += summon.Passive?.AuraAttack ?? 0; alive++; }
             int percent = SummonAttackPercent;
             foreach (var summon in _summons)
-                if (summon != null) { summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent; }
+                if (summon != null)
+                {
+                    summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent;
+                    summon.OtherAliveSummons = summon.Alive ? alive - 1 : alive;   // 成林:其他存活木灵数
+                }
         }
 
         /// <summary>召唤物死亡的统一汇流点(2026-09-13)。
@@ -2776,6 +2788,9 @@ namespace Brushblade.Core
                 // 连发每发全额;形状类的非主目标按 ShapePercent 折算
                 if (t > 0 && shape != TargetArea.Scatter && percent != 100)
                     damage = damage * percent / 100;
+                // 远射·强化(D2-0 Task 6):打到后排目标 +N%
+                if ((passive?.BackRowBonusPercent ?? 0) > 0 && _enemies[tgt].Row == EnemyRow.Back)
+                    damage = damage * (100 + passive.BackRowBonusPercent) / 100;
                 // 出手事件**一次挥击只发一条**(2026-09-05):它在表现层触发的是「召唤物的字
                 // 飞向目标」那段动作 + 一拍等待,而跨排 Boss 的第二格是同一次挥击的另一半 ——
                 // 再发一条就会让那只召唤物扑第二次(用户:「剑的横扫还是有两次动作」)。
@@ -2813,7 +2828,8 @@ namespace Brushblade.Core
             var passive = summon.Passive;
             return passive != null
                 && (passive.OnHitBurn > 0 || passive.OnHitCurse > 0
-                    || passive.OnHitFreezeChance > 0 || passive.OnHitSlowPercent > 0);
+                    || passive.OnHitFreezeChance > 0 || passive.OnHitSlowPercent > 0
+                    || passive.OnHitCharmChance > 0);
         }
 
         /// <summary>标点小妖给其他存活字怪加攻的那一拍(2026-08-15 提取,行为与提取前逐字节一致)。
@@ -3475,21 +3491,12 @@ namespace Brushblade.Core
                         int saplingAttack = first.Attack * value / 100;
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
-                            int slot = -1;
+                            int planned = -1;
                             if (summonSlots != null && summonCursor < summonSlots.Count)
-                            {
-                                int planned = summonSlots[summonCursor++];
-                                if (IsSlotOpen(planned) && SlotOccupancy(planned) != SlotState.Alive) slot = planned;
-                            }
-                            if (slot < 0) slot = NextEmptySlot();
+                                planned = summonSlots[summonCursor++];
+                            int slot = PlaceSapling(attacker, saplingHp, saplingAttack, def.Id, planned);
                             if (slot < 0) break;
-                            var sapling = new SummonState(SaplingChar, attacker, saplingHp, saplingAttack,
-                                passive: null, sourceChar: def.Id);
-                            sapling.ActionMeter = TurnScheduler.Threshold;   // 与本体召唤同口径:上场即满格
-                            _summons[slot] = sapling;
-                            _summonThresholdCrossed.Remove(slot);
                             _castSummonedSlots.Add(slot);
-                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, saplingHp, slot));
                         }
                         RefreshSummonAura();
                         break;
@@ -3946,6 +3953,7 @@ namespace Brushblade.Core
                             _events.Add(new BattleEvent(BattleEventKind.Graft, -1, 0, allySlot));
                             break;
                         }
+                        var newbornSlots = new List<int>();
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些「资源」随等级涨,
@@ -4004,8 +4012,10 @@ namespace Brushblade.Core
 
                             // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
+                            ClearSproutParent(slot);
                             _summons[slot] = newborn;
                             _summonThresholdCrossed.Remove(slot);   // R5:新单位不继承旧单位的跌破标记
+                            newbornSlots.Add(slot);
                             if (effect.SummonDefense > 0)
                                 ApplyStatus(newborn.Statuses, new StatusEffect
                                 {
@@ -4013,9 +4023,28 @@ namespace Brushblade.Core
                                     Magnitude = MetaRules.ScaleByCardLevel(effect.SummonDefense, cardLevel),
                                     TurnsLeft = -1, SourceId = def.Id,
                                 }, UnitRef.Summon(slot), UnitRef.Player);
+                            // 坚木(D2-0 Task 6):本命自带护甲,已在 ScalePassiveByCardLevel 吃过等级;同样随单位存在。
+                            if ((newborn.Passive?.Armor ?? 0) > 0)
+                                ApplyStatus(newborn.Statuses, new StatusEffect
+                                {
+                                    Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
+                                    Magnitude = newborn.Passive.Armor, TurnsLeft = -1, SourceId = def.Id + "#armor",
+                                }, UnitRef.Summon(slot), UnitRef.Player);
                             summonCursor++; // 每落一只推进一格,跨 effect 持续累加
                             _castSummonedSlots.Add(slot);   // D1 Task 7:幼苗 / 保命选择器用
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
+                        }
+                        // 森然(D2-0 Task 6):入场附带幼苗,属性 = 这只木灵 × 20%。放在本体全部落位之后,
+                        // 免得占掉后面几只本体计划好的槽位;不记入 _castSummonedSlots(不改变「本次召出的」选择器)。
+                        foreach (int ns in newbornSlots)
+                        {
+                            var host = _summons[ns];
+                            int entry = host.Passive?.EntrySaplings ?? 0;
+                            for (int es = 0; es < entry; es++)
+                            {
+                                int sapHp = Math.Max(1, host.MaxHp * EntrySaplingPercent / 100);
+                                if (PlaceSapling(attacker, sapHp, host.Attack * EntrySaplingPercent / 100, def.Id, -1) < 0) break;
+                            }
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
                         // 它是额外血条 —— 吸完即无、不刷新;U1(2026-10-04)起剩余部分在玩家下一
@@ -4060,6 +4089,48 @@ namespace Brushblade.Core
                 _castShieldGranted = outerShieldGranted;
                 _inApplyEffects = false;
             }
+        }
+
+        /// <summary>幼苗落位(D1 Task 7 抽出,D2-0 Task 6 复用给森然):计划槽可用就用,否则最小空槽,再没有返回 −1(不顶替)。
+        /// 成功时发 Summon 事件并清掉指向该槽的旧丛生记号。</summary>
+        private int PlaceSapling(Element element, int hp, int attack, string sourceChar, int plannedSlot)
+        {
+            int slot = -1;
+            if (plannedSlot >= 0 && IsSlotOpen(plannedSlot) && SlotOccupancy(plannedSlot) != SlotState.Alive) slot = plannedSlot;
+            if (slot < 0) slot = NextEmptySlot();
+            if (slot < 0) return -1;
+            var sapling = new SummonState(SaplingChar, element, hp, attack, passive: null, sourceChar: sourceChar);
+            sapling.ActionMeter = TurnScheduler.Threshold;   // 与本体召唤同口径:上场即满格
+            ClearSproutParent(slot);
+            _summons[slot] = sapling;
+            _summonThresholdCrossed.Remove(slot);
+            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, hp, slot));
+            return slot;
+        }
+
+        /// <summary>某槽位换了新单位:此前指向它的小藻记号作废(槽位下标会被复用,别让新木灵继承旧母体的小藻名额)。</summary>
+        private void ClearSproutParent(int slot)
+        {
+            foreach (var other in _summons)
+                if (other != null && other.SproutParentSlot == slot) other.SproutParentSlot = -1;
+        }
+
+        /// <summary>丛生(D2-0 Task 6):本木灵那一拍开始时,有空格且名下存活小藻 &lt; SproutMax 就分裂 1 只。
+        /// 血 / 攻 = 本木灵 × N%,元素同本木灵,SourceChar 同本木灵;落最小空格;不摇随机数。母体阵亡后小藻留场。</summary>
+        private void TrySprout(int s)
+        {
+            var parent = _summons[s];
+            var p = parent?.Passive;
+            if (parent == null || !parent.Alive || p == null || p.SproutPercent <= 0 || p.SproutMax <= 0) return;
+            int mine = 0;
+            foreach (var other in _summons)
+                if (other != null && other.Alive && other.SproutParentSlot == s && other.Char == SaplingChar) mine++;
+            if (mine >= p.SproutMax) return;
+            int slot = PlaceSapling(parent.Element, Math.Max(1, parent.MaxHp * p.SproutPercent / 100),
+                parent.Attack * p.SproutPercent / 100, parent.SourceChar, -1);
+            if (slot < 0) return;
+            _summons[slot].SproutParentSlot = s;
+            RefreshSummonAura();
         }
 
         /// <summary>局外卡等级;没配等级表或表里没有这张字 = 1。</summary>
@@ -4115,6 +4186,12 @@ namespace Brushblade.Core
                     MetaRules.ScaleByCardLevel(scaled.OnHitFreezeChance, cardLevel));
             if (scaled.OnHitSlowPercent > 0)
                 scaled.OnHitSlowPercent = MetaRules.ScaleByCardLevel(scaled.OnHitSlowPercent, cardLevel);
+            // D2-0 Task 6:迷香概率吃等级并钳 100(同冻结);坚木护甲吃等级(同 SummonDefense);其余本命字段不吃
+            if (scaled.OnHitCharmChance > 0)
+                scaled.OnHitCharmChance = Math.Min(100,
+                    MetaRules.ScaleByCardLevel(scaled.OnHitCharmChance, cardLevel));
+            if (scaled.Armor > 0)
+                scaled.Armor = MetaRules.ScaleByCardLevel(scaled.Armor, cardLevel);
             return scaled;
         }
 
@@ -4594,6 +4671,17 @@ namespace Brushblade.Core
                     Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
                     Magnitude = passive.OnHitCurse, TurnsLeft = CurseTurns,
                     SourceId = CurseSourceId,
+                }, UnitRef.Enemy(targetIndex), UnitRef.Summon(summonIndex));
+            }
+
+            // 迷香(D2-0 Task 6):出手 N% 魅惑目标 1 回合。字段为 0 时短路,绝不摇 _random(恒等)。
+            if (passive.OnHitCharmChance > 0 && _enemies[targetIndex].Alive
+                && _random.Next(100) < passive.OnHitCharmChance)
+            {
+                ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Charm, Polarity = StatusPolarity.Debuff,
+                    Magnitude = 1, TurnsLeft = 1, SourceId = SummonCharmSourceId,
                 }, UnitRef.Enemy(targetIndex), UnitRef.Summon(summonIndex));
             }
         }

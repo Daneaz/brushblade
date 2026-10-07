@@ -116,6 +116,32 @@ namespace Brushblade.Core
         /// <summary>连发发数(Shape = Volley 时有意义)。</summary>
         public int Shots { get; set; }
 
+        // ---- D2-0 Task 6:本命新字段(spec §9 木,缺省 0 = 无;存档 POCO,Clone 必须同步)----
+
+        /// <summary>远射·强化:出手打到后排目标时伤害 +N%。</summary>
+        public int BackRowBonusPercent { get; set; }
+
+        /// <summary>成林:每有 1 只**其他**存活木灵,有效攻击 +N%(按基础攻击折算,与 AttackBuff、光环同在加法段)。</summary>
+        public int PerAllyAttackPercent { get; set; }
+
+        /// <summary>坚木:入场自带护甲(DefenseBuff,随单位存在)。吃卡等级,同 EffectDef.SummonDefense。</summary>
+        public int Armor { get; set; }
+
+        /// <summary>桂香·强化:<see cref="HealAlly"/> 每回合结算的次数;≤0 视为 1。</summary>
+        public int HealAllyTimes { get; set; }
+
+        /// <summary>丛生:本木灵每拍开始时分裂 1 只小藻,血 / 攻 = 本木灵 × N%。</summary>
+        public int SproutPercent { get; set; }
+
+        /// <summary>丛生:本木灵名下同时存活的小藻上限。</summary>
+        public int SproutMax { get; set; }
+
+        /// <summary>森然:入场时附带的幼苗只数(属性 = 本木灵 × 20%)。</summary>
+        public int EntrySaplings { get; set; }
+
+        /// <summary>迷香:出手魅惑目标 1 回合的概率(百分点)。吃卡等级,钳 100;字段为 0 时绝不摇骰。</summary>
+        public int OnHitCharmChance { get; set; }
+
         public SummonPassive Clone() => new()
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly, Regen = Regen,
@@ -125,6 +151,9 @@ namespace Brushblade.Core
             OnHitFreezeChance = OnHitFreezeChance, OnHitFreezeTurns = OnHitFreezeTurns,
             OnHitSlowPercent = OnHitSlowPercent, OnHitSlowTurns = OnHitSlowTurns,
             Shape = Shape, ShapePercent = ShapePercent, Shots = Shots,
+            BackRowBonusPercent = BackRowBonusPercent, PerAllyAttackPercent = PerAllyAttackPercent,
+            Armor = Armor, HealAllyTimes = HealAllyTimes, SproutPercent = SproutPercent, SproutMax = SproutMax,
+            EntrySaplings = EntrySaplings, OnHitCharmChance = OnHitCharmChance,
         };
     }
 }

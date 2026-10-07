@@ -634,6 +634,35 @@ namespace Brushblade.Presentation
                 AddTrait(traits, "freeze", p.OnSummonFreeze.ToString(),
                             Strings.T("collection.trait.summon_onsummonfreeze.name"),
                             Strings.T("collection.trait.summon_onsummonfreeze.desc", ("value", p.OnSummonFreeze)));
+            // 本命新字段(D2-0 Task 6,spec §9 木)
+            if (p.BackRowBonusPercent > 0)
+                AddTrait(traits, "attack", "+" + p.BackRowBonusPercent + "%",
+                    Strings.T("collection.trait.summon_backrowbonus.name"),
+                    Strings.T("collection.trait.summon_backrowbonus.desc", ("value", p.BackRowBonusPercent)));
+            if (p.PerAllyAttackPercent > 0)
+                AddTrait(traits, "attack", "+" + p.PerAllyAttackPercent + "%",
+                    Strings.T("collection.trait.summon_perallyattack.name"),
+                    Strings.T("collection.trait.summon_perallyattack.desc", ("value", p.PerAllyAttackPercent)));
+            if (p.Armor > 0)
+                AddTrait(traits, "defense", p.Armor.ToString(),
+                    Strings.T("collection.trait.summon_armor.name"),
+                    Strings.T("collection.trait.summon_armor.desc", ("value", p.Armor)));
+            if (p.HealAllyTimes > 1)
+                AddTrait(traits, "heal", "x" + p.HealAllyTimes,
+                    Strings.T("collection.trait.summon_healallytimes.name"),
+                    Strings.T("collection.trait.summon_healallytimes.desc", ("value", p.HealAllyTimes)));
+            if (p.SproutPercent > 0 && p.SproutMax > 0)
+                AddTrait(traits, "seed", p.SproutPercent + "%",
+                    Strings.T("collection.trait.summon_sprout.name"),
+                    Strings.T("collection.trait.summon_sprout.desc", ("value", p.SproutPercent), ("max", p.SproutMax)));
+            if (p.EntrySaplings > 0)
+                AddTrait(traits, "seed", p.EntrySaplings.ToString(),
+                    Strings.T("collection.trait.summon_entrysaplings.name"),
+                    Strings.T("collection.trait.summon_entrysaplings.desc", ("value", p.EntrySaplings)));
+            if (p.OnHitCharmChance > 0)
+                AddWord(traits, Strings.T("collection.trait.summon_onhitcharm.chip"),
+                    Strings.T("collection.trait.summon_onhitcharm.name"),
+                    Strings.T("collection.trait.summon_onhitcharm.desc", ("chance", p.OnHitCharmChance)));
             AddShapeTrait(traits, p.Shape, p.ShapePercent, p.Shots);
         }
 

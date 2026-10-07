@@ -128,6 +128,17 @@ namespace Brushblade.Presentation
                     iconKey = "speed";
                     name = Strings.T("summon.passive.haste", ("speed", passive.Speed));
                 }
+                // 本命新字段(D2-0 Task 6):复用卡面的 char.passive.* 整句
+                else if (passive.SproutPercent > 0 && passive.SproutMax > 0)
+                    name = Strings.T("char.passive.sprout", ("value", passive.SproutPercent), ("max", passive.SproutMax));
+                else if (passive.PerAllyAttackPercent > 0)
+                    name = Strings.T("char.passive.perallyattack", ("value", passive.PerAllyAttackPercent));
+                else if (passive.BackRowBonusPercent > 0)
+                    name = Strings.T("char.passive.backrowbonus", ("value", passive.BackRowBonusPercent));
+                else if (passive.OnHitCharmChance > 0)
+                    name = Strings.T("char.passive.onhitcharm", ("chance", passive.OnHitCharmChance));
+                else if (passive.HealAllyTimes > 1)
+                    name = Strings.T("char.passive.healallytimes", ("value", passive.HealAllyTimes));
 
                 if (name != null)
                     list.Add(new AbilityEntry

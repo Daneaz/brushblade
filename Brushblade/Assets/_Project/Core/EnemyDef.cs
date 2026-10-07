@@ -245,8 +245,21 @@ namespace Brushblade.Core
         /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示
         /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
         public int EffectiveAttack => System.Math.Max(0,
-            (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus)
+            (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus + PerAllyAttackBonus)
             * System.Math.Max(0, PlayerAttackPercent) / 100);
+
+        /// <summary>成林(D2-0 Task 6):其他存活木灵数,由 <c>BattleEngine.RefreshSummonAura</c> 注入
+        /// (与光环同一时点);只在 <see cref="SummonPassive.PerAllyAttackPercent"/> &gt; 0 时有意义。</summary>
+        public int OtherAliveSummons { get; internal set; }
+
+        /// <summary>成林加成 = 基础攻击 × N% × 其他存活木灵数;无该被动恒 0(恒等)。</summary>
+        public int PerAllyAttackBonus =>
+            (Passive?.PerAllyAttackPercent ?? 0) > 0
+                ? Attack * Passive.PerAllyAttackPercent * OtherAliveSummons / 100 : 0;
+
+        /// <summary>丛生(D2-0 Task 6):本只小藻是哪个槽位的木灵分裂出来的;-1 = 不是小藻。
+        /// 槽位下标会被后来的召唤复用,所以新单位落位时由引擎清掉指向该槽的旧记号。</summary>
+        public int SproutParentSlot { get; internal set; } = -1;
 
         /// <summary>场上全部召唤物的攻击光环之和(2026-09-05),由 <c>BattleEngine</c>
         /// 在每次结算前刷新。长在这里而不是引擎里算:详情弹窗(Presentation.SummonInfo)
@@ -315,6 +328,7 @@ namespace Brushblade.Core
                 Element = Element, BaseElement = BaseElement, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
                 Passive = Passive?.Clone(), BasePassive = BasePassive?.Clone(), Statuses = statuses,
+                SproutParentSlot = SproutParentSlot,
             };
         }
 
@@ -324,6 +338,7 @@ namespace Brushblade.Core
                 s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
             state.BaseElement = s.BaseElement;
             state.BasePassive = s.BasePassive?.Clone();
+            state.SproutParentSlot = s.SproutParentSlot;
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;
         }

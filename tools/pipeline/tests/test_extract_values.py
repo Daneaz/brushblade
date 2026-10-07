@@ -335,6 +335,18 @@ def test_aura_attack_summon_passive():
                          "summonChar": "𣛧", "passive": {"auraAttack": 20}}]
 
 
+def test_nature_passive_tokens_map_to_summon_passive_fields():
+    """本命新字段(D2-0 Task 6):八个 token 都落进 passive,字段名对齐 SummonPassive;
+    `Sprout` 与 `SproutMax` 互不吞(反引号整串匹配),SummonArmor 不被当成 SummonDefense。"""
+    config = ("`Summon 1`(100 血/攻 10) + `BackRowBonus 30` + `PerAllyAttack 10` + `SummonArmor 7`"
+              " + `HealAllyTimes 2` + `Sprout 40` + `SproutMax 3` + `EntrySaplings 2` + `OnHitCharm 25`")
+    effects = _parse_effects(config, "木")
+    assert effects == [{"kind": "Summon", "value": 100, "count": 1, "attack": 10, "summonChar": "木",
+                        "passive": {"backRowBonusPercent": 30, "perAllyAttackPercent": 10, "armor": 7,
+                                    "healAllyTimes": 2, "sproutPercent": 40, "sproutMax": 3,
+                                    "entrySaplings": 2, "onHitCharmChance": 25}}]
+
+
 def test_summon_row_also_parses_shield():
     """土系召唤字要补入场护盾(spec §2)——召唤分支不能提前 return 把它吞掉,
     Shield 是给玩家的独立效果,与 Summon 并存于同一个 effects 数组。"""

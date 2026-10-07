@@ -46,6 +46,15 @@ SUMMON_PASSIVE = {
     # 攻击光环(2026-09-05,𣛧,P2 Task 2):给场上全部召唤物 +N 攻,含自己
     # (SummonPassive.AuraAttack,EnemyDef.cs:44)。字段名对齐引擎,不另起名字。
     "AuraAttack": "auraAttack",
+    # 本命新字段(D2-0 Task 6,spec §9 木;字段名对齐 SummonPassive,Newtonsoft 大小写不敏感读入)
+    "BackRowBonus": "backRowBonusPercent",    # 远射·强化:打后排 +N%
+    "PerAllyAttack": "perAllyAttackPercent",  # 成林:每有 1 只其他存活木灵 +N% 攻
+    "SummonArmor": "armor",                   # 坚木:入场自带护甲(吃卡等级)
+    "HealAllyTimes": "healAllyTimes",         # 桂香·强化:HealAlly 每回合结算 N 次
+    "Sprout": "sproutPercent",                # 丛生:每拍分裂小藻,血攻 = 本体 N%
+    "SproutMax": "sproutMax",                 # 丛生:同时存活上限
+    "EntrySaplings": "entrySaplings",         # 森然:入场附带 N 只幼苗
+    "OnHitCharm": "onHitCharmChance",         # 迷香:出手 N% 魅惑 1 回合(吃卡等级,钳 100)
 }
 
 

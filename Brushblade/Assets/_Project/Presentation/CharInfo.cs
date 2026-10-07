@@ -309,6 +309,15 @@ namespace Brushblade.Presentation
                     ("value", p.OnHitSlowPercent), ("turns", System.Math.Max(1, p.OnHitSlowTurns))));
             if (p.OnSummonFreeze > 0)
                 parts.Add(Strings.T("char.passive.onsummonfreeze", ("value", p.OnSummonFreeze)));
+            // 本命新字段(D2-0 Task 6,spec §9 木)
+            if (p.BackRowBonusPercent > 0) parts.Add(Strings.T("char.passive.backrowbonus", ("value", p.BackRowBonusPercent)));
+            if (p.PerAllyAttackPercent > 0) parts.Add(Strings.T("char.passive.perallyattack", ("value", p.PerAllyAttackPercent)));
+            if (p.Armor > 0) parts.Add(Strings.T("char.passive.armor", ("value", p.Armor)));
+            if (p.HealAllyTimes > 1) parts.Add(Strings.T("char.passive.healallytimes", ("value", p.HealAllyTimes)));
+            if (p.SproutPercent > 0 && p.SproutMax > 0)
+                parts.Add(Strings.T("char.passive.sprout", ("value", p.SproutPercent), ("max", p.SproutMax)));
+            if (p.EntrySaplings > 0) parts.Add(Strings.T("char.passive.entrysaplings", ("value", p.EntrySaplings)));
+            if (p.OnHitCharmChance > 0) parts.Add(Strings.T("char.passive.onhitcharm", ("chance", p.OnHitCharmChance)));
             return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
         }
 
