@@ -1290,6 +1290,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "破敌",
           "effects": [
@@ -1298,6 +1299,19 @@
               "value": 22,
               "scope": "All",
               "onlyIf": "TargetHpAbove70"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "破敌",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -2638,6 +2652,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "克敌",
           "effects": [
@@ -2646,6 +2661,19 @@
               "value": 15,
               "scope": "All",
               "onlyIf": "Countering"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "克敌",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 10,
+              "scope": "All"
             }
           ]
         },
@@ -3451,6 +3479,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "克敌",
           "effects": [
@@ -3459,6 +3488,19 @@
               "value": 15,
               "scope": "All",
               "onlyIf": "Countering"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "克敌",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -3566,6 +3608,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "补刀",
           "effects": [
@@ -3574,6 +3617,19 @@
               "value": 36,
               "scope": "All",
               "onlyIf": "TargetHpBelow30"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "补刀",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -4641,6 +4697,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "克敌",
           "effects": [
@@ -4649,6 +4706,19 @@
               "value": 15,
               "scope": "All",
               "onlyIf": "Countering"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "克敌",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -4980,6 +5050,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "破敌",
           "effects": [
@@ -4988,6 +5059,19 @@
               "value": 22,
               "scope": "All",
               "onlyIf": "TargetHpAbove70"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "破敌",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -5097,6 +5181,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "补刀",
           "effects": [
@@ -5105,6 +5190,19 @@
               "value": 36,
               "scope": "All",
               "onlyIf": "TargetHpBelow30"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "补刀",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },

@@ -235,3 +235,56 @@ def test_build_all_part_char_must_be_in_recipe():
     bad = extract_traits(_H + "| 炎 | Lv4 | 两面 | 拆字 | — | 火山 | `part 山 1` `BurnAll 1` | ✅ |\n")
     with pytest.raises(ValueError):
         build_all("", _SPEC, bad)
+
+
+# ---------------- D2-0 Task 8:目标条件通用词条在不选敌的五行面上按精进生效(U6) ----------------
+def _general_pool():
+    from extract_traits import extract_pool
+    return extract_pool("| 名 | 效果配置 | X |\n|---|---|---|\n"
+                        "| 精进 | `Amplify X` `scope All` | 10 |\n"
+                        "| 克敌 | `Amplify 15` `scope All` `if Countering` | — |\n"
+                        "| 先声 | `Amplify X` `scope All` `if FirstCastThisTurn` | 15 |\n")
+
+
+def _general_pool_effects(short, rarity):
+    from extract_traits import expand_pool_entry
+    return expand_pool_entry(_general_pool()[("通", short)], rarity)
+
+
+_JIAN = {"剑": {"rarity": "Blue", "effects": [{"kind": "Shield", "value": 10}],
+               "attackEffects": [{"kind": "DamageSingle", "value": 4}]}}
+
+
+def test_target_conditional_general_splits_on_non_targeting_wuxing_face():
+    """剑(金,蓝):铠面不选敌 → 克敌拆成攻击面原条目 + 五行面按蓝档精进(10×1.45→15)。"""
+    md = _H + "| 剑 | Lv4 | 两面 | — | — | 通·克敌 | — | ✅ |\n"
+    traits = extract_traits(md, "金", _general_pool(), _JIAN)["剑"]
+    assert [t["face"] for t in traits] == ["Attack", "Feature"]
+    assert all(t["name"] == "克敌" and t["form"] == "Passive" for t in traits)
+    assert traits[0]["effects"] == _general_pool_effects("克敌", "Blue")
+    assert traits[1]["effects"] == _general_pool_effects("精进", "Blue")
+    assert traits[1]["effects"][0]["value"] == 15
+
+
+def test_target_conditional_general_stays_one_both_face_when_wuxing_face_targets():
+    """炸(火):燃面选敌 → 克敌仍是一条两面(无 face)。"""
+    chars = {"炸": {"rarity": "Blue", "effects": [{"kind": "BurnSingle", "value": 3}],
+                   "attackEffects": [{"kind": "DamageSingle", "value": 4}]}}
+    md = _H + "| 炸 | Lv4 | 两面 | — | — | 通·克敌 | — | ✅ |\n"
+    traits = extract_traits(md, "火", _general_pool(), chars)["炸"]
+    assert len(traits) == 1 and "face" not in traits[0]
+
+
+def test_non_target_conditional_general_not_split():
+    """先声不看目标,不拆。"""
+    md = _H + "| 剑 | Lv4 | 两面 | — | — | 通·先声 | — | ✅ |\n"
+    traits = extract_traits(md, "金", _general_pool(), _JIAN)["剑"]
+    assert len(traits) == 1 and "face" not in traits[0]
+
+
+def test_split_pair_conflicts_with_explicit_single_face_row():
+    """拆出的两条按 (槽, 面) 记:同槽再写一条攻面仍报重复。"""
+    md = (_H + "| 剑 | Lv4 | 两面 | — | — | 通·克敌 | — | ✅ |\n"
+          "| 剑 | Lv4 | 攻 | 被动 | — | 甲 | `BurnSingle 2` | ✅ |\n")
+    with pytest.raises(ValueError):
+        extract_traits(md, "金", _general_pool(), _JIAN)
