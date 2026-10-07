@@ -1214,6 +1214,10 @@ namespace Brushblade.Core
                 TraitRandomState = _traitRandom.State,
                 TraitUsesThisTurn = new Dictionary<string, int>(_traitUsesThisTurn),
                 TraitUsesThisBattle = new Dictionary<string, int>(_traitUsesThisBattle),
+                PartMarks = _partMarks.Select(m => new PartMarkSnapshot
+                {
+                    PartChar = m.PartChar, Remaining = m.Remaining, TraitKey = m.TraitKey, SourceCharId = m.SourceCharId,
+                }).ToList(),
                 CastsThisTurn = CastsThisTurn,
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
@@ -1268,6 +1272,8 @@ namespace Brushblade.Core
                 engine._traitUsesThisTurn[kv.Key] = kv.Value;
             foreach (var kv in snapshot.TraitUsesThisBattle ?? new Dictionary<string, int>())
                 engine._traitUsesThisBattle[kv.Key] = kv.Value;
+            foreach (var m in snapshot.PartMarks ?? new List<PartMarkSnapshot>())
+                engine._partMarks.Add(new PartMark(m.PartChar, m.Remaining, m.TraitKey, m.SourceCharId));
             foreach (int slot in snapshot.SummonThresholdCrossed ?? new List<int>())
                 engine._summonThresholdCrossed.Add(slot);
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
@@ -1521,6 +1527,7 @@ namespace Brushblade.Core
             _forge = result.State;
             if (_config.Tally != null) _config.Tally.Dismantles++;
             Raise(HookKind.Dismantled, UnitRef.Player, UnitRef.None, charId: charId);
+            FireGlyphTraits(charId, TraitTrigger.OnDismantle);
             DrainReactions();   // 安全点:拆字末尾
             return BattleError.None;
         }
@@ -1542,6 +1549,7 @@ namespace Brushblade.Core
             Ap -= 1;
             if (_config.Tally != null) _config.Tally.Composes++;
             Raise(HookKind.Composed, UnitRef.Player, UnitRef.None, charId: charId);
+            FireGlyphTraits(charId, TraitTrigger.OnCompose);
             DrainReactions();   // 安全点:合字末尾
             return BattleError.None;
         }
@@ -1576,10 +1584,18 @@ namespace Brushblade.Core
             if (!fromLibrary && !fromPool) return BattleError.NotCastable;
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
+            // 拆字印记(D2-0 Task 7,E10):从池中出手的部件带着印记效果出手 —— 选目标也按并入后的效果表判
+            // (火山把山改成全体后不再要目标)。没有印记时 partExtra 为 null,下面逐字走原路径。
+            IReadOnlyList<EffectDef> partExtra = null;
+            int partMark = fromPool ? FindPartMark(charId, out partExtra) : -1;
+            bool needsTarget = partExtra != null
+                ? TraitRules.FoldExtra(CastEffectsOf(def, attackMode, CardLevelOf(def.Id)), partExtra).Any(EffectNeedsTarget)
+                : NeedsTarget(def, attackMode, CardLevelOf(def.Id));
+
             // 单体效果需要有效的存活目标;未指定或不合法时,存活目标恰好一个则自动锁定(3.8.3 单敌免选)。
             // 2026-09-30 取消「偷袭」:**只有召唤物和敌人有前后排的概念**,我方字卡不受排位限制,
             // 合法目标 = 存活目标(2026-08-20 的「前排阻挡单体直伤」一并废止)。
-            if (NeedsTarget(def, attackMode, CardLevelOf(def.Id)))
+            if (needsTarget)
             {
                 bool legal = targetIndex >= 0 && targetIndex < _enemies.Count && _enemies[targetIndex].Alive;
                 if (!legal)
@@ -1640,10 +1656,11 @@ namespace Brushblade.Core
                 var pool = new List<string>(_forge.Pool);
                 pool.Remove(charId);
                 _forge = new ForgeState(_forge.Library, pool);
+                if (partMark >= 0) ConsumePartMark(partMark);   // 同一次出字最多消耗一条印记
             }
 
             _castingCharId = charId;   // HookArgs.CastCharId:只在本张字的效果表结算期间非 null
-            try { ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot); }
+            try { ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot, partExtra); }
             finally { _castingCharId = null; }
             DrainReactions();   // 安全点:出字内触发的特性反应在这里兑现(收光环 / 判胜之前)
             if (_config.Tally != null)
@@ -3023,6 +3040,7 @@ namespace Brushblade.Core
             Turn += 1;
             CastsThisTurn = 0;
             _traitUsesThisTurn.Clear();
+            _partMarks.Clear();   // 拆字印记只管本回合(E10)
             // 封字(2026-08-06):AP 扣减从裸字段改成 StatusKind.Seal —— 这样它可被净化、
             // 可被免疫,并且跟着 PlayerStatuses 进存档(裸字段从来没进过 BattleSnapshot,
             // 倾覆后存档续爬会白丢惩罚)。到期移除由统一的状态回合递减负责,这里不清。
@@ -3057,7 +3075,8 @@ namespace Brushblade.Core
         }
 
         private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
-            IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
+            IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget,
+            IReadOnlyList<EffectDef> partExtra = null)
         {
             // 重入守卫(Plan A R8):特性反应只能入队、在安全点排空,不能在出字途中同步结算。
             // 守卫必须在 try 之外 —— 否则被拒的这次调用的 finally 会把外层的标志清掉。
@@ -3137,7 +3156,9 @@ namespace Brushblade.Core
 
             // R3:快照在复活(前置动作)之后、第一个效果之前取;外层已有快照时沿用外层(外层快照优先)
             _preCastConditions = outerConditions ?? CapturePreCastConditions(attacker);
-            foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
+            var castEffects = CastEffectsOf(def, attackMode, cardLevel);
+            if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
+            foreach (var effect in castEffects)
             {
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。

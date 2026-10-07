@@ -28,6 +28,8 @@ namespace Brushblade.Data
             public string Form { get; set; }     // null = Active
             public string Trigger { get; set; }  // null = Cast
             public string Replaces { get; set; } // null = 不替换
+            public string PartChar { get; set; } // 拆字印记的部件(D2-0 Task 7);null = 不是印记
+            public int PartCount { get; set; }   // 印记次数
             public string Name { get; set; }
             public List<EffectDto> Effects { get; set; }
         }
@@ -589,7 +591,9 @@ namespace Brushblade.Data
                 TraitSlot? replaces = string.IsNullOrEmpty(t.Replaces)
                     ? (TraitSlot?)null
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>()), trigger));
+                var effects = ParseEffects(dto, t.Effects ?? new List<EffectDto>());
+                ValidateGlyph(dto, t, trigger, effects);
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount));
             }
             foreach (var t in traits)
                 if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))
@@ -598,6 +602,27 @@ namespace Brushblade.Data
                 if (t.Replaces.HasValue && (!(keys.Contains((t.Replaces.Value, t.Face)) || keys.Contains((t.Replaces.Value, TraitFace.Both))) || (int)t.Replaces.Value >= (int)t.Slot))
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」替换了同一作用面上不存在或更高的槽位:{t.Replaces}");
             return traits;
+        }
+
+        /// <summary>字形特性(D2-0 Task 7,spec §11.8):印记只配拆字、次数 ≥ 1、部件必须在本字配方里;
+        /// 即时类(成字 / 拆字无印记)脱离出字结算、没有主目标 —— 选敌效果必须写全体 pick,否则加载期拦下。</summary>
+        private static void ValidateGlyph(CharDto dto, TraitDto t, TraitTrigger trigger, IReadOnlyList<EffectDef> effects)
+        {
+            if (t.PartChar != null)
+            {
+                if (trigger != TraitTrigger.OnDismantle)
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」写了部件印记,但只有拆字特性(OnDismantle)能挂印记");
+                if (t.PartCount < 1)
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的印记次数至少为 1:{t.PartCount}");
+                if (dto.Recipe == null || !dto.Recipe.Contains(t.PartChar))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的印记部件「{t.PartChar}」不在本字配方里");
+                return;
+            }
+            if (t.PartCount != 0)
+                throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」写了印记次数但没有部件");
+            if (trigger != TraitTrigger.OnCompose && trigger != TraitTrigger.OnDismantle) return;
+            if (effects.Any(BattleEngine.EffectNeedsTarget))
+                throw new ConfigException($"字「{dto.Id}」的字形特性「{t.Name}」需要敌方目标;拆 / 合时没有目标,选敌效果要写 pick All");
         }
 
         /// <summary>幼苗(SummonSapling)取「本次出字召出的第一只」的属性:同一面(本体 + 作用于该面的特性)

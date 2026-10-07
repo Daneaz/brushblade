@@ -176,6 +176,10 @@ def build_chars(ids_text, values):
         if spec.get("attackEffects"):
             entry["attackEffects"] = [_output_effect(e) for e in spec["attackEffects"]]
         if spec.get("traits"):
+            for t in spec["traits"]:
+                # 拆字印记(D2-0 Task 7):部件必须是本字配方里的一项,否则拆出来永远没有它,印记静默失效
+                if "partChar" in t and t["partChar"] not in recipe:
+                    raise ValueError(f"{char} 的特性「{t['name']}」印记部件「{t['partChar']}」不在配方 {recipe} 里")
             entry["traits"] = [dict(t, effects=[_output_effect(e) for e in t["effects"]])
                                for t in spec["traits"]]
         entries.append(entry)

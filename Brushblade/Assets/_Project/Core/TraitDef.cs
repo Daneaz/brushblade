@@ -30,12 +30,16 @@ namespace Brushblade.Core
     }
 
     /// <summary>特性何时结算(spec v7 §2.3)。Cast = 出字时(主动特性与「修饰本字」的被动);
-    /// OnCrit / OnKill = 本字这次出字暴击 / 击杀时入队,出字末尾兑现(附录 M23)。</summary>
+    /// OnCrit / OnKill = 本字这次出字暴击 / 击杀时入队,出字末尾兑现(附录 M23)。
+    /// OnCompose / OnDismantle = 字形特性(spec §9「(成字) / (拆字)」,D2-0 Task 7):合成 / 拆掉这张字时结算,
+    /// 每张字每条每场 1 次(E9)。⚠ 只在末尾追加。</summary>
     public enum TraitTrigger
     {
         Cast,
         OnCrit,
         OnKill,
+        OnCompose,
+        OnDismantle,
     }
 
     /// <summary>一条字卡特性(spec v7 §1 / §11.1)。名称是游戏数据(随字表),不进字符串表。</summary>
@@ -51,9 +55,16 @@ namespace Brushblade.Core
         public string Name { get; }
         public IReadOnlyList<EffectDef> Effects { get; }
 
+        /// <summary>部件印记(E10,只配 OnDismantle):非 null = 拆出的这个部件本回合从池中出手时,
+        /// <see cref="Effects"/> 按特性折叠规则并进那次出手(<c>TraitRules.FoldExtra</c>);null = 即时结算。</summary>
+        public string PartChar { get; }
+
+        /// <summary>印记次数(双焰 2、火山 1)。PartChar 为 null 时为 0。</summary>
+        public int PartCount { get; }
+
         public TraitDef(TraitSlot slot, TraitFace face, TraitForm form, TraitSlot? replaces,
             string name, IReadOnlyList<EffectDef> effects,
-            TraitTrigger trigger = TraitTrigger.Cast)
+            TraitTrigger trigger = TraitTrigger.Cast, string partChar = null, int partCount = 0)
         {
             Slot = slot;
             Face = face;
@@ -62,6 +73,8 @@ namespace Brushblade.Core
             Replaces = replaces;
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Effects = effects ?? Array.Empty<EffectDef>();
+            PartChar = partChar;
+            PartCount = partCount;
         }
 
         public bool AppliesTo(CardFace face) =>

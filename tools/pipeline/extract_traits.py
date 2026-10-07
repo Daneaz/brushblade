@@ -16,7 +16,13 @@ FACE_NAMES = {"攻": "Attack", "燃": "Feature", "铠": "Feature", "润": "Featu
               "固": "Feature", "生": "Feature", "两面": None}
 # 形态 → (form, trigger);「被动·暴击/击杀」= 被动 + 触发类型(spec v7 §2.3)。主动只能是出字时,不接后缀
 FORMS = {"主动": (None, None), "被动": ("Passive", None),
-         "被动·暴击": ("Passive", "OnCrit"), "被动·击杀": ("Passive", "OnKill")}
+         "被动·暴击": ("Passive", "OnCrit"), "被动·击杀": ("Passive", "OnKill"),
+         # 字形特性(spec §9「(拆字) / (成字)」,D2-0 Task 7):字在手上时触发,每场 1 次
+         "拆字": ("Passive", "OnDismantle"), "成字": ("Passive", "OnCompose")}
+
+# 拆字印记(E10):`part 火 2` = 拆出的「火」本回合出手时并入本条效果,共 2 次。只配「拆字」形态;
+# 在交给 _parse_effects 之前从配置里摘掉(它不是效果 token)。部件是否在本字配方里由 export_chars 校验。
+_PART_TOKEN = re.compile(r"`part (\S+) (\d+)`")
 SLOTS = {"Lv1", "Lv3", "Lv4", "Lv5", "Lv6", "Lv8"}
 _HEADER = ["字", "槽", "面", "形态", "替换", "名", "效果配置", "实现"]
 
@@ -240,6 +246,18 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
         if effects is None:
             if config not in _EMPTY and "`" not in config:
                 raise ValueError(f"特性表:字「{char}」{slot} 效果配置缺反引号 token:{config}")
+            parts = _PART_TOKEN.findall(config)
+            if parts:
+                if form != "拆字":
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `part` 只能写在「拆字」形态上(当前 {form})")
+                if len(parts) > 1:
+                    raise ValueError(f"特性表:字「{char}」{slot} 只能写一条 `part`")
+                part_char, part_count = parts[0][0], int(parts[0][1])
+                if part_count < 1:
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `part` 次数必须 ≥ 1")
+                trait["partChar"] = part_char
+                trait["partCount"] = part_count
+                config = _PART_TOKEN.sub("", config)
             effects = _parse_effects(config, char)
         trait["effects"] = effects
         result.setdefault(char, []).append(trait)

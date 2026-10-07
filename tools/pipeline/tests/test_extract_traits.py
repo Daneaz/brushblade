@@ -197,3 +197,41 @@ def test_pool_ref_on_self_only_feature_face_gets_pick_all():
     assert effects[1]["kind"] == "Shield" and "pick" not in effects[1]
     md2 = _H + "| 崩 | Lv5 | 固 | — | — | 池·点震 | — | ✅ |\n"
     assert extract_traits(md2, "土", pool, chars)["崩"][0]["effects"][0]["pick"] == "Random"
+
+
+# ---------------- D2-0 Task 7:拆字 / 成字特性与部件印记 ----------------
+
+def test_glyph_forms_map_to_passive_triggers():
+    md = (_H + "| 鍂 | Lv4 | 两面 | 拆字 | — | 双金 | `Morale 2` | ✅ |\n"
+          "| 垚 | Lv4 | 两面 | 成字 | — | 三土 | `Shield 30` | ✅ |\n")
+    t = extract_traits(md)
+    assert t["鍂"][0]["form"] == "Passive" and t["鍂"][0]["trigger"] == "OnDismantle"
+    assert t["垚"][0]["form"] == "Passive" and t["垚"][0]["trigger"] == "OnCompose"
+    assert "partChar" not in t["鍂"][0]
+
+
+def test_part_token_parsed_to_part_char_and_count():
+    md = _H + "| 炎 | Lv4 | 两面 | 拆字 | — | 双焰 | `part 火 2` `BurnSingle 2` | ✅ |\n"
+    t = extract_traits(md)["炎"][0]
+    assert t["partChar"] == "火" and t["partCount"] == 2
+    assert t["effects"] == [{"kind": "BurnSingle", "value": 2}]
+
+
+@pytest.mark.parametrize("row", [
+    "| 炎 | Lv4 | 两面 | 成字 | — | 坏 | `part 火 2` `BurnSingle 2` | ✅ |",   # 印记只配拆字
+    "| 炎 | Lv4 | 两面 | 被动 | — | 坏 | `part 火 2` `BurnSingle 2` | ✅ |",
+    "| 炎 | Lv4 | 两面 | 拆字 | — | 坏 | `part 火 2` `part 火 1` | ✅ |",   # 只能一条
+    "| 炎 | Lv4 | 两面 | 拆字 | — | 坏 | `part 火 0` `BurnSingle 2` | ✅ |",   # 次数 ≥ 1
+])
+def test_bad_part_rows_raise(row):
+    with pytest.raises(ValueError):
+        extract_traits(_H + row + "\n")
+
+
+def test_build_all_part_char_must_be_in_recipe():
+    ok = extract_traits(_H + "| 炎 | Lv4 | 两面 | 拆字 | — | 双焰 | `part 火 2` `BurnSingle 2` | ✅ |\n")
+    yan = next(c for c in build_all("", _SPEC, ok)["chars"] if c["id"] == "炎")
+    assert yan["traits"][0]["partChar"] == "火" and yan["traits"][0]["partCount"] == 2
+    bad = extract_traits(_H + "| 炎 | Lv4 | 两面 | 拆字 | — | 火山 | `part 山 1` `BurnAll 1` | ✅ |\n")
+    with pytest.raises(ValueError):
+        build_all("", _SPEC, bad)

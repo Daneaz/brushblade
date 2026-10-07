@@ -151,6 +151,12 @@ namespace Brushblade.Core
                     else effects.Add(e);
                 }
             }
+            ApplyModifiers(effects, modifiers);
+            return effects;
+        }
+
+        private static void ApplyModifiers(List<EffectDef> effects, IEnumerable<EffectDef> modifiers)
+        {
             foreach (var m in modifiers)
             {
                 switch (m.Kind)
@@ -160,7 +166,29 @@ namespace Brushblade.Core
                     case EffectKind.Augment: ApplyAugment(effects, m); break;
                 }
             }
+        }
+
+        /// <summary>部件印记(D2-0 Task 7,E10):把来源特性的效果并进部件这次出手的效果表 ——
+        /// 非修饰器追加到末尾,修饰器(火山的 Reshape 全体等)随后按出现顺序折叠到整张表上(与 <see cref="Fold"/> ④ 同口径)。
+        /// 纯函数:返回新表,不改 <paramref name="cast"/>。</summary>
+        public static List<EffectDef> FoldExtra(List<EffectDef> cast, IReadOnlyList<EffectDef> extra)
+        {
+            var effects = new List<EffectDef>(cast);
+            var modifiers = new List<EffectDef>();
+            foreach (var e in extra)
+                (IsModifier(e.Kind) ? modifiers : effects).Add(e);
+            ApplyModifiers(effects, modifiers);
             return effects;
+        }
+
+        /// <summary>字形特性(spec §9「(拆字) / (成字)」,D2-0 Task 7):已解锁、Trigger 为 <paramref name="trigger"/>
+        /// (OnCompose / OnDismantle)的特性,不分面;被替换的槽位不算;按槽位升序。没有特性数据时直接返回空表。</summary>
+        public static IReadOnlyList<TraitDef> Glyph(CharDef def, int cardLevel, TraitTrigger trigger)
+        {
+            if (def.Traits.Count == 0) return Array.Empty<TraitDef>();
+            var unlocked = Unlocked(def, cardLevel);
+            var superseded = Superseded(unlocked);
+            return unlocked.Where(t => t.Trigger == trigger && !superseded.Contains((t.Slot, t.Face))).ToList();
         }
 
         /// <summary>本命强化的被动合并(E8):<paramref name="over"/> 里非缺省的字段(数值 ≠ 0、布尔 true、

@@ -35,6 +35,9 @@ namespace Brushblade.Core
         public Dictionary<string, int> TraitUsesThisTurn { get; set; } = new();
         public Dictionary<string, int> TraitUsesThisBattle { get; set; } = new();
 
+        /// <summary>拆字印记(D2-0 Task 7,E10):本回合拆出的部件出手时并入来源特性的效果。旧快照缺 = null/空。</summary>
+        public List<PartMarkSnapshot> PartMarks { get; set; } = new();
+
         /// <summary>本回合已成功出字数(StartTurn 清零)。</summary>
         public int CastsThisTurn { get; set; }
         public List<string> Library { get; set; } = new();
@@ -64,6 +67,15 @@ namespace Brushblade.Core
         public bool PlayerThresholdCrossed { get; set; }              // R5 跌破 50% 已触发(spec v6)
         public List<int> SummonThresholdCrossed { get; set; } = new(); // 同上,召唤物槽位
         public List<OpeningEffect> PendingOpenings { get; set; } = new(); // 本场登记、留给之后几场的开局效果
+    }
+
+    /// <summary>一条拆字印记(E10)。TraitKey = <c>BattleEngine.TraitKey</c>,读档时按它找回来源特性的效果。</summary>
+    public sealed class PartMarkSnapshot
+    {
+        public string PartChar { get; set; }
+        public int Remaining { get; set; }
+        public string TraitKey { get; set; }
+        public string SourceCharId { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
