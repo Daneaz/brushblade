@@ -82,6 +82,12 @@ VALUELESS_EFFECTS = {
     "Endure": {"kind": "Endure", "value": 0},
     # 拉平(D2-火 N2,火烧连营):Value 不用,不选目标。
     "BurnEqualize": {"kind": "BurnEqualize", "value": 0},
+    # 灼附着族(D2-火 Task 3,附录 N5):不带数值,必须配 `rider Burn`(下面 RIDES_ONLY_KINDS 查);
+    # 落点由 `pick BurnedByThisCast` 给出。四个名字整串带反引号匹配,互不吞。
+    "HealBlock": {"kind": "HealBlock", "value": 0},
+    "BurnHold": {"kind": "BurnHold", "value": 0},
+    "BurnBurst": {"kind": "BurnBurst", "value": 0},
+    "BurnBacklash": {"kind": "BurnBacklash", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -123,7 +129,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
 # 不写 turns,回合数由引擎取目标的冻结回合 —— 所以它在这里、不在 DURATION_KINDS。
 # 种(Seed)在 DURATION_KINDS:漏写 turns 引擎兜成 1 回合,与减攻同型。
-TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable"}
+# 上炎(D2-火 Task 3,BurnGrow)吃 turns 但不强制:不写 = 随灼存续。
+TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow"}
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -212,7 +219,9 @@ RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 # 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
 ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
                     "BurnSettleNow", "Detonate", "Seed", "Vulnerable",
-                    "BurnScale"}   # D2-火 N1
+                    "BurnScale",   # D2-火 N1
+                    # D2-火 Task 3 灼附着族(写 pick BurnedByThisCast)
+                    "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"}
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
@@ -228,11 +237,16 @@ PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
 KEEP_TOKEN = "keep"
-# D1 Task 9:附着载体 `rider Burn`(烟熏)。与 Core 的 ConfigLoader 同一张表:目前只有 Blind 能附着、只认 Burn 载体。
-# 附着的致盲随灼存续,不写 turns(下面的 missing_turns 检查对它放行)。
+# D1 Task 9:附着载体 `rider Burn`(烟熏)。与 Core 的 BattleEngine.CanRideOnBurn / RidesOnly 同一张表,只认 Burn 载体。
+# 附着的效果随灼存续,不写 turns(下面的 missing_turns 检查对它放行);上炎可写自己的 turns。
+# D2-火 Task 3 扩到灼附着族:减攻(炽焰,可带 `minBurn N` 门槛)、干涸、上炎、四火、焚城、焚身;后五个**只能**以附着形式出现。
 RIDER_TOKEN = "rider"
 RIDER_CARRIERS = {"Burn"}
-RIDER_KINDS = {"Blind"}
+RIDES_ONLY_KINDS = {"HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"}
+RIDER_KINDS = {"Blind", "Weaken"} | RIDES_ONLY_KINDS
+# 炽焰:`minBurn N` —— 附着减攻的门槛(目标自身灼 ≥ N 层才生效),按位置挂到前一条 Weaken,且那条必须写 rider。
+# 不挂进通用循环的跳过名单会被 `(\w+) (\d+)` 当成 kind="minBurn" 的独立效果。
+MIN_BURN_TOKEN = "minBurn"
 
 # ---- D2-火 Task 2(附录 N3 / N4 / N4b)----
 # 引爆比例:`retain N`(全额后保留 ⌊N%⌋ 层)/ `portion N`(只引爆 N%),按位置挂到前一条 Detonate 上,二选一。
@@ -428,6 +442,13 @@ def _attach_modifier_tokens(config, char, effects, consumed):
 
     _attach_positional(config, char, effects, consumed, RIDER_TOKEN, "riderOf", _parse_rider,
                        allowed_kinds=RIDER_KINDS)
+    for e in effects:
+        if e["kind"] in RIDES_ONLY_KINDS and "riderOf" not in e:
+            raise ValueError(f"{char}:`{e['kind']}` 必须写 `rider Burn`(它只能挂在本次出字的灼上,不写会静默空转)")
+    _attach_positional(config, char, effects, consumed, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
+    for e in effects:
+        if "minBurn" in e and ("riderOf" not in e or e["minBurn"] < 1):
+            raise ValueError(f"{char}:`minBurn` 只给附着在灼上的减攻(`Weaken N` + `rider Burn`),且须 ≥ 1")
 
     # 引爆比例(D2-火 N3 / G5):按位置挂到前一条 Detonate;同一条只能二选一
     _attach_positional(config, char, effects, consumed, RETAIN_TOKEN, "retainPercent", int, allowed_kinds={"Detonate"})
@@ -746,6 +767,8 @@ def _parse_effects(config, char):
             continue  # 本体百分比(D2-火 E5),下面挂到 DamageSingle 上
         if kind == BATTLES_TOKEN:
             continue  # 开局登记场数(D2-火 N12),下面按位置挂到前一条效果上
+        if kind == MIN_BURN_TOKEN:
+            continue  # 附着减攻的门槛(D2-火 Task 3),下面按位置挂到前一条 Weaken 上
         if kind in (RETAIN_TOKEN, PORTION_TOKEN, CAP_TOKEN, HIT_BURN_TOKEN):
             continue  # D2-火 Task 2 的修饰数值,下面挂到 Detonate / Amplify / 伤害上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——

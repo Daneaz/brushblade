@@ -189,6 +189,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Taunt,
                 // D2-火 Task 2:灼层翻倍是层数百分比(离散)、拉平不用 Value
                 EffectKind.BurnScale, EffectKind.BurnEqualize,
+                // D2-火 Task 3:灼附着族 —— 上炎的 Value 是层数,其余不用 Value(焚城反应的 Value = 层数)
+                EffectKind.HealBlock, EffectKind.BurnGrow, EffectKind.BurnHold, EffectKind.BurnBurst, EffectKind.BurnBacklash,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

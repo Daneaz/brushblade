@@ -279,7 +279,7 @@ namespace Brushblade.Presentation
                 UnitDetailChip.DeltaBuffPct(Strings.T("status.attack.name"),
                     enemy.Statuses.TotalMagnitude(StatusKind.AttackBuff)),
                 UnitDetailChip.DeltaDebuffPct(Strings.T("status.curse.name"),
-                    enemy.Statuses.MaxMagnitude(StatusKind.Curse)));   // 与 EnemyState.Attack 同口径:多来源取最强
+                    enemy.ActiveCurse()));   // 与 EnemyState.Attack 同口径:多来源取最强,带门槛(炽焰 MinBurn)的未达门槛不计
             // ⚠ 这一格只含破甲(敌人自己身上的减益),不含攻击方的穿透——不是签名拿不到,
             // 是拍板的设计分工(2026-09-01 review 追加裁定):UnitMe.dc.html 的穿透词条自己写着
             // 「实际减多少看那只怪的甲」,即穿透是执笔人那一屏的属性,这一屏只显示敌人自身的甲。

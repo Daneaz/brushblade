@@ -99,6 +99,7 @@ namespace Brushblade.Data
             public List<EffectDto> PerHit { get; set; }     // DamageSingle / Reshape:每击附带的效果(目标 = 这一击的目标)
             public int PerHitFrom { get; set; } = 1;        // 每击附带从第几击起
             public int ShotPercent { get; set; } = 100;     // 散射每一发的伤害百分比
+            public int MinBurn { get; set; }                // D2-火 Task 3:附着减攻的门槛(目标自身灼 ≥ N 层才生效,炽焰)
         }
 
         private sealed class CampaignFileDto
@@ -759,16 +760,25 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");
-                // 附着载体(D1 Task 9):引擎只实现了「致盲挂在灼上」(烟熏);别的组合会静默按普通效果结算 —— 拦下
+                // 附着载体(D1 Task 9 烟熏;D2-火 Task 3 扩到灼附着族):引擎只实现了 BattleEngine.RiderKinds 里那几种挂在灼上;
+                // 别的组合会静默按普通效果结算 —— 拦下。附着族专用的 Kind 反过来**必须**写 riderOf(不写引擎什么都不做)。
                 StatusKind? riderOf = null;
                 if (!string.IsNullOrEmpty(effect.RiderOf))
                 {
                     if (!Enum.TryParse(effect.RiderOf, out StatusKind carrier) || carrier != StatusKind.Burn)
                         throw new ConfigException($"字「{dto.Id}」的附着载体未知:{effect.RiderOf}(目前只支持 Burn)");
-                    if (kind != EffectKind.Blind)
-                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf(目前只有 Blind 能附着在灼上)");
+                    if (!BattleEngine.CanRideOnBurn(kind))
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf(能附着在灼上的只有致盲 / 减攻 / 干涸 / 上炎 / 四火 / 焚城 / 焚身)");
+                    if (effect.OpeningBattles != 0)
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 附着效果不能登记为开局效果(开局时没有本次出字的灼)");
                     riderOf = carrier;
                 }
+                else if (BattleEngine.RidesOnly(kind))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果必须写 riderOf Burn(它只能挂在本次出字的灼上)");
+                if (effect.MinBurn != 0 && (kind != EffectKind.Weaken || riderOf == null || effect.MinBurn < 0))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 minBurn(只给附着在灼上的减攻,且须 > 0)");
+                if (kind == EffectKind.BurnGrow && effect.Value < 1)
+                    throw new ConfigException($"字「{dto.Id}」的上炎(BurnGrow)每回合至少 +1 层,当前:{effect.Value}");
                 // bodyPercent(D2-火 E5)只在伤害上解析(TraitRules.ForCast);写在别处会静默无效 —— 拦下
                 if (effect.BodyPercent != 0 && (kind != EffectKind.DamageSingle || effect.BodyPercent < 0))
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle 能按本体百分比取值,且须 > 0)");
@@ -814,7 +824,8 @@ namespace Brushblade.Data
                     effect.BodyPercent, effect.OpeningBattles,
                     effect.RetainPercent, effect.PortionPercent,
                     ParseEnum(effect.ScaleBy, ScaleBasis.None, dto.Id, "计数缩放口径"), effect.ScaleCap,
-                    effect.PerHit == null ? null : ParseEffects(dto, effect.PerHit), effect.PerHitFrom, effect.ShotPercent));
+                    effect.PerHit == null ? null : ParseEffects(dto, effect.PerHit), effect.PerHitFrom, effect.ShotPercent,
+                    effect.MinBurn));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)

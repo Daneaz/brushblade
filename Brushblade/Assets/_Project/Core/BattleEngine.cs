@@ -2588,6 +2588,9 @@ namespace Brushblade.Core
                 }, UnitRef.Enemy(enemyIndex), UnitRef.None);
             }
 
+            // 上炎(D2-火 Task 3,N5):灼结算前 +N 层。没有 BurnGrow 时一次判断即返回(恒等)
+            GrowBurnOn(enemyIndex);
+
             // 灼烧 / 流血烧死那一拍也补发 TurnEnded(Plan A 前置项)
             SettleBurnOn(enemyIndex);
             if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }
@@ -2881,6 +2884,7 @@ namespace Brushblade.Core
             {
                 var other = _enemies[j];
                 if (!other.Alive || other == healer) continue;
+                if (other.Statuses.Has(StatusKind.HealBlock)) continue;   // 干涸(D2-火 Task 3):无法回血,不当伤员
                 int missing = other.MaxHp - other.Hp;
                 if (missing > worst) { worst = missing; best = j; }
             }
@@ -2996,18 +3000,19 @@ namespace Brushblade.Core
             if (enemy.Def.Ability != EnemyAbility.Regrow || IsAbilitySilenced(enemy) || enemy.RegrowProgress >= 3) return;
 
             int before = enemy.Hp;
+            bool healBlocked = enemy.Statuses.Has(StatusKind.HealBlock);   // 干涸(D2-火 Task 3):不回血,攻击成长照常
             enemy.RegrowProgress += 1;
             enemy.BaseAttack += 20; // 补全成长(形态变化,非增益):不可驱散(2026-08-12 随全表量级 ×10)
             // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
             // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
-            enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 30); // 2026-08-12 随全表量级 ×10
+            if (!healBlocked) enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 30); // 2026-08-12 随全表量级 ×10
             if (enemy.RegrowProgress == 3)
             {
                 // ×2 翻的是 BaseAttack(形态变化)。2026-08-12 AttackBuff 统一成百分点后,
                 // 外部增益是 BaseAttack 的比值,于是**会**跟着一起放大 —— 这不是回退,是
                 // 「比值就该跟着基数走」的直接后果(旧的 2026-08-05 裁定建立在加数语义上,已失效)。
                 enemy.BaseAttack *= 2;
-                enemy.Hp = enemy.MaxHp;
+                if (!healBlocked) enemy.Hp = enemy.MaxHp;
             }
             _events.Add(new BattleEvent(BattleEventKind.Regrow, enemyIndex,
                 enemy.Hp - before, enemy.RegrowProgress));
@@ -3341,6 +3346,12 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                         {
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            if (effect.RiderOf == StatusKind.Burn)
+                            {
+                                // 炽焰(D2-火 Task 3,N5):附着在灼上的减攻,带门槛 MinBurn(EnemyState.Attack 读)
+                                ApplyRider(ti, def.Id, effect, value);
+                                continue;
+                            }
                             ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
@@ -3634,14 +3645,7 @@ namespace Brushblade.Core
                             if (effect.RiderOf == StatusKind.Burn)
                             {
                                 // 烟熏(D1 Task 9,附录 M9):只给带本字灼的目标;致盲随灼存续(-1),灼移除时 DropRiders 一并移除
-                                if (!_cast.BurnedTargets.Contains(ti) || !_enemies[ti].Statuses.Has(StatusKind.Burn)) continue;
-                                string riderKey = effect.TraitKey ?? def.Id;
-                                AttachRider(_enemies[ti].Statuses, def.Id, riderKey, StatusKind.Burn);
-                                ApplyStatus(_enemies[ti].Statuses, new StatusEffect
-                                {
-                                    Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff,
-                                    Magnitude = value, TurnsLeft = -1, SourceId = def.Id, TraitKey = riderKey,
-                                }, UnitRef.Enemy(ti), UnitRef.Player);
+                                ApplyRider(ti, def.Id, effect, value);
                                 continue;
                             }
                             ApplyBlind(ti, value, effect.Turns, def.Id, effect.TraitKey);   // G11:特性来源独立
@@ -3720,6 +3724,18 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.BurnEqualize:
                         EqualizeBurn(burnPotency);   // 拉平(D2-火 N2)
+                        break;
+                    // 灼附着族(D2-火 Task 3,N5):干涸 / 上炎 / 四火 / 焚城标记 / 焚身载体,只挂在带本次出字所上之灼的目标上
+                    case EffectKind.HealBlock:
+                    case EffectKind.BurnGrow:
+                    case EffectKind.BurnHold:
+                    case EffectKind.BurnBacklash:
+                    case EffectKind.BurnBurst when effect.RiderOf.HasValue:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyRider(ti, def.Id, effect, effect.Value);
+                        break;
+                    case EffectKind.BurnBurst:
+                        BurstBurn(effect, targetIndex);   // 焚城结算(N6,只由 ResolveDefeat 入队的反应走到)
                         break;
                     case EffectKind.Quench:
                         // 蓄热(2026-09-16,热):清空目标灼烧层数,每层转成本场永久的 _burnPerStack
@@ -4351,7 +4367,10 @@ namespace Brushblade.Core
             // 只挡这一步。Task 3 的 BurnSettleNow 同样复用这里,所以「免费兑现」
             // (立即结算也不掉层)也一并生效——这是规格 §4.2 那条爆发链的根
             // decay = false(D1 Task 5,KeepStacks 引燃):只结算伤害、不减层
-            if (decay && !enemy.Statuses.Has(StatusKind.BurnNoDecay))
+            // 四火(D2-火 Task 3,G10):这一次会减层的结算不减层,用掉即移除;不灭 / keep 结算本来就不减层,不消耗它
+            if (decay && !enemy.Statuses.Has(StatusKind.BurnNoDecay) && enemy.Statuses.Has(StatusKind.BurnHold))
+                enemy.Statuses.Remove(StatusKind.BurnHold);
+            else if (decay && !enemy.Statuses.Has(StatusKind.BurnNoDecay))
             {
                 burn.Magnitude -= 1;
                 if (burn.Magnitude <= 0)
@@ -5360,6 +5379,7 @@ namespace Brushblade.Core
             // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
             // 反应里的击杀不入队(R4:排空时 _cast.OnKill 为 null)
             EnqueueCastTraits(_cast.OnKill, enemyIndex);
+            EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
         }
 

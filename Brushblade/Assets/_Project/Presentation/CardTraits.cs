@@ -310,9 +310,35 @@ namespace Brushblade.Presentation
                         break;
                     case EffectKind.Weaken:
                         // 减攻(D1 Task 5):无图标,走纯文字 chip(与魅惑同款 AddWord);Value 吃等级,回合不吃
+                        // 炽焰(D2-火 Task 3):附着在灼上的随灼存续,带门槛时印门槛
                         AddWord(traits, Strings.T("collection.trait.weaken.chip"),
                             Strings.T("collection.trait.weaken.name"),
-                            Strings.T("collection.trait.weaken.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns))));
+                            e.RiderOf != StatusKind.Burn
+                                ? Strings.T("collection.trait.weaken.desc", ("value", v), ("turns", System.Math.Max(1, e.Turns)))
+                                : e.MinBurn > 0
+                                    ? Strings.T("collection.trait.weaken.desc.rider_burn.min", ("value", v), ("min", e.MinBurn))
+                                    : Strings.T("collection.trait.weaken.desc.rider_burn", ("value", v)));
+                        break;
+                    // 灼附着族(D2-火 Task 3):与其余灼操作共用 "burn" 图标;层数 / 回合离散,读 e.Value / e.Turns
+                    case EffectKind.HealBlock:
+                        AddTrait(traits, "burn", "", Strings.T("collection.trait.heal_block.name"),
+                            Strings.T("collection.trait.heal_block.desc"));
+                        break;
+                    case EffectKind.BurnGrow:
+                        AddTrait(traits, "burn", "+" + e.Value, Strings.T("collection.trait.burn_grow.name"),
+                            Strings.T("collection.trait.burn_grow.desc", ("value", e.Value), ("turns", System.Math.Max(1, e.Turns))));
+                        break;
+                    case EffectKind.BurnHold:
+                        AddTrait(traits, "burn", "", Strings.T("collection.trait.burn_hold.name"),
+                            Strings.T("collection.trait.burn_hold.desc"));
+                        break;
+                    case EffectKind.BurnBurst:
+                        AddTrait(traits, "burn", "", Strings.T("collection.trait.burn_burst.name"),
+                            Strings.T("collection.trait.burn_burst.desc"));
+                        break;
+                    case EffectKind.BurnBacklash:
+                        AddTrait(traits, "burn", "", Strings.T("collection.trait.burn_backlash.name"),
+                            Strings.T("collection.trait.burn_backlash.desc"));
                         break;
                     case EffectKind.Seed:
                         // 种(D1 Task 6):图标 seed,Value 吃等级、回合不吃

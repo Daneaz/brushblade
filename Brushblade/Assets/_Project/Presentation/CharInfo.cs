@@ -126,6 +126,10 @@ namespace Brushblade.Presentation
                     EffectKind.Freeze => Strings.T("char.effect.freeze", ("value", shown)),
                     EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
                     // 减攻(D1 Task 5):Value 是百分点、吃卡等级(shown);回合数读 e.Turns,不吃等级
+                    // 炽焰(D2-火 Task 3):附着在灼上的减攻随灼存续,MinBurn > 0 时印门槛
+                    EffectKind.Weaken when e.RiderOf == StatusKind.Burn => e.MinBurn > 0
+                        ? Strings.T("char.effect.weaken.rider_burn.min", ("value", shown), ("min", e.MinBurn))
+                        : Strings.T("char.effect.weaken.rider_burn", ("value", shown)),
                     EffectKind.Weaken => Strings.T("char.effect.weaken", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 种 / 标记(D1 Task 6):Value 吃卡等级(shown),回合不吃。标记 Turns == 0 + 冰缚选择器 = 跟随冻结回合
                     EffectKind.Seed => Strings.T("char.effect.seed", ("value", shown), ("turns", Math.Max(1, e.Turns))),
@@ -180,6 +184,12 @@ namespace Brushblade.Presentation
                     EffectKind.BurnScale => Strings.T("char.effect.burnscale",
                         ("mult", (e.Value / 100f).ToString("0.##")), ("cap", CombatCaps.BurnStacks)),
                     EffectKind.BurnEqualize => Strings.T("char.effect.burnequalize"),
+                    // 灼附着族(D2-火 Task 3):都挂在本字的灼上,灼消失时一并消失。上炎的层数 / 回合是离散量(e.Value / e.Turns)
+                    EffectKind.HealBlock => Strings.T("char.effect.healblock"),
+                    EffectKind.BurnGrow => Strings.T("char.effect.burngrow", ("value", e.Value), ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.BurnHold => Strings.T("char.effect.burnhold"),
+                    EffectKind.BurnBurst => Strings.T("char.effect.burnburst"),
+                    EffectKind.BurnBacklash => Strings.T("char.effect.burnbacklash"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),

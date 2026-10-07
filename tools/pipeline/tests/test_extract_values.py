@@ -751,3 +751,50 @@ def test_d2fire_task2_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-火 Task 3:灼附着族(附录 N5)—— 附录 §2 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 干涸
+    ("`HealBlock` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "HealBlock", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 上炎:保留自己的回合数
+    ("`BurnGrow 1` `turns 3` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnGrow", "value": 1, "turns": 3, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 四火
+    ("`BurnHold` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnHold", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 焚城
+    ("`BurnBurst` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnBurst", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 焚身(载体)
+    ("`BurnBacklash` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnBacklash", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 炽焰:附着减攻 + 门槛,不写 turns
+    ("`Weaken 30` `pick BurnedByThisCast` `rider Burn` `minBurn 5`",
+     {"kind": "Weaken", "value": 30, "pick": "BurnedByThisCast", "riderOf": "Burn", "minBurn": 5}),
+])
+def test_d2fire_rider_family(config, expected):
+    assert _parse_effects(config, "火") == [expected]
+
+
+def test_d2fire_rider_family_after_burn_keeps_order():
+    """附着写在点灼之后(结算顺序 = 列表顺序):先上灼,附着才找得到本字的灼。"""
+    effects = _parse_effects("`BurnSingle 2` + `BurnBurst` `pick BurnedByThisCast` `rider Burn`", "火")
+    assert [e["kind"] for e in effects] == ["BurnSingle", "BurnBurst"]
+    assert effects[1]["riderOf"] == "Burn" and "riderOf" not in effects[0]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`HealBlock` `pick BurnedByThisCast`", "rider"),                 # 附着族必须写 rider
+    ("`BurnGrow 1` `turns 3`", "rider"),
+    ("`Weaken 30` `turns 2` `minBurn 5`", "minBurn"),                  # minBurn 只给附着的减攻
+    ("`Blind 15` `rider Burn` `minBurn 5`", "minBurn"),                # minBurn 只给减攻
+    ("`minBurn 5` `Weaken 30` `rider Burn`", "minBurn"),               # 前面没有可挂的效果
+    ("`Seed 10` `turns 2` `rider Burn`", "rider"),                     # 名单外的 Kind 不能附着
+])
+def test_d2fire_rider_family_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

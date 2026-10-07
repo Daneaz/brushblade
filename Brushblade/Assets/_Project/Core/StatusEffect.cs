@@ -84,6 +84,12 @@ namespace Brushblade.Core
                           // TraitKey = 每回合次数阀的键。同类取最强(只留一条);两桶护盾归零 / 倾覆清盾时移除。
         Taunt,            // 嘲讽(D2-0 Task 2,spec §3.1,E11,玩家与木灵):敌人只能攻击带嘲讽的单位。Magnitude 不用,
                           // TurnsLeft = 回合数(-1 = 本场),SourceId = 字 ID(同源刷新)。玩家身上按玩家回合递减,木灵身上按木灵自己那一拍递减。
+        // ---- D2-火 Task 3:灼附着族(附录 N5,仅敌人;全部挂在灼上,SourceId = 字 ID、TraitKey = 特性键,灼移除时随 DropRiders 移除) ----
+        HealBlock,        // 干涸(可见;chip 待 designer 稿,V3):该敌人无法回血。Magnitude 不用。
+        BurnGrow,         // 上炎(隐藏载体):该敌人每次行动开始、灼结算前 +Magnitude 层;TurnsLeft = 自己的回合数(按敌人行动递减)。
+        BurnHold,         // 四火(隐藏载体,一次性):下一次会减层的灼结算不减层,随后移除。
+        BurnBurstMark,    // 焚城(隐藏载体):该敌人死亡时对全体结算一次它剩下的灼(EffectKind.BurnBurst 反应)。
+        BurnBacklashMark, // 焚身(隐藏载体):出手前先受一次灼烧结算(D2-火 Task 4 接线)。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -162,11 +168,16 @@ namespace Brushblade.Core
         /// 召唤物状态系统。</summary>
         public int TargetSlot { get; set; } = -1;
 
+        /// <summary>门槛(D2-火 Task 3,炽焰):&gt; 0 时这条状态只在持有者自身灼 ≥ MinBurn 层时生效
+        /// (目前只有 <see cref="StatusKind.Curse"/> 读:EnemyState.Attack)。0 = 无门槛(缺省,逐位恒等)。</summary>
+        public int MinBurn { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
             TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency, TraitKey = TraitKey,
+            MinBurn = MinBurn,
         };
     }
 

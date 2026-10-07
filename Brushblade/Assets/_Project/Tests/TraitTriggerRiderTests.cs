@@ -352,7 +352,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Config_RiderOf_OnlyBlindOnBurn()
         {
-            Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Weaken"",""value"":15,""turns"":2,""riderOf"":""Burn""}"));
+            // D2-火 Task 3 起附着白名单扩到灼附着族(Weaken / HealBlock / BurnGrow / BurnHold / BurnBurst / BurnBacklash),
+            // 名单外的 Kind 照旧拦下
+            Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Seed"",""value"":15,""turns"":2,""riderOf"":""Burn""}"));
             Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Blind"",""value"":15,""riderOf"":""Freeze""}"));
             Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Blind"",""value"":15,""riderOf"":""Nope""}"));
         }

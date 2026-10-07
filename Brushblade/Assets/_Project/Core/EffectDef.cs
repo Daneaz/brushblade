@@ -141,6 +141,15 @@ namespace Brushblade.Core
                         // 只升不降(Value ≥ 100,ConfigLoader 拦);0 层空转。火力取 max(原火力, 本字火力)。离散,不吃卡等级。支持 Pick / OnlyIf。
         BurnEqualize,   // 拉平(火烧连营):取存活敌人的最高灼层数 M,每名存活敌人补到 M(只升不降,0 层也补);新层火力取 max(原, 本字)。
                         // Value 不用;不选目标、不认选择器。全场 0 层空转。
+        // ---- D2-火 Task 3:灼附着族(附录 N5 / N6)。⚠ 只在末尾追加 ----
+        // 前四个与 BurnBacklash 一律写 riderOf Burn(ConfigLoader 拦不写的):只挂在带本次出字所上之灼的目标上,
+        // 灼移除时一并移除(DropRiders)。Value 离散,不吃卡等级。支持 Pick / OnlyIf(数据写 pick BurnedByThisCast)。
+        HealBlock,      // 干涸:挂 StatusKind.HealBlock —— 该敌人无法回血(涂改给它回血 / 缺笔妖自补全的回血都被挡下)。Value 不用。
+        BurnGrow,       // 上炎:挂 StatusKind.BurnGrow(Magnitude = Value 层,TurnsLeft = Turns)—— 该敌人每次行动开始、灼结算前 +Value 层。
+        BurnHold,       // 四火:挂 StatusKind.BurnHold(一次性)—— 该敌人下一次会减层的灼结算不减层,随后移除;重新上灼时刷新(G10)。Value 不用。
+        BurnBurst,      // 焚城:带 riderOf = 挂 StatusKind.BurnBurstMark;该敌人死亡时(ResolveDefeat,非反应里打死,R4)入队一条不带 riderOf 的
+                        // BurnBurst(Value = 死者剩余灼层数 S),对全体存活敌人按灼烧公式各扣一次血(火力 = 死者灼的火力),不改层数。
+        BurnBacklash,   // 焚身:挂 StatusKind.BurnBacklashMark(载体;出手前结算归 D2-火 Task 4)。Value 不用。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -363,6 +372,14 @@ namespace Brushblade.Core
         /// <summary>散射每一发的伤害百分比(D2-火 N4b,火花四溅 50):Shape == Scatter 时每一发(含首发)都打这个折。缺省 100 不做乘除。</summary>
         public int ShotPercent { get; }
 
+        /// <summary>门槛(D2-火 Task 3,炽焰):附着在灼上的减攻(Weaken + RiderOf)只在目标自身灼 ≥ N 层时生效
+        /// (写进 <see cref="StatusEffect.MinBurn"/>,EnemyState.Attack 读)。0 = 无门槛(缺省)。只给附着的 Weaken。</summary>
+        public int MinBurn { get; }
+
+        /// <summary>焚城结算的火力(D2-火 N6):只在 ResolveDefeat 入队的 BurnBurst 反应上非 0 —— 死者灼的火力
+        /// (StatusEffect.Potency)。字表对象恒为 0。</summary>
+        internal int BurstPotency { get; private set; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         private static readonly (int, DamageCondition, ScaleBasis, int)[] NoAmpTerms = new (int, DamageCondition, ScaleBasis, int)[0];
@@ -383,7 +400,7 @@ namespace Brushblade.Core
             EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
             StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0,
             int retainPercent = 0, int portionPercent = 100, ScaleBasis scaleBy = ScaleBasis.None, int scaleCap = 0,
-            IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100)
+            IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100, int minBurn = 0)
         {
             Kind = kind;
             Value = value;
@@ -427,7 +444,12 @@ namespace Brushblade.Core
             PerHit = perHit ?? NoPerHit;
             PerHitFrom = perHitFrom <= 0 ? 1 : perHitFrom;
             ShotPercent = shotPercent <= 0 ? 100 : shotPercent;
+            MinBurn = minBurn;
         }
+
+        /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
+        internal static EffectDef BurnBurstOf(int stacks, int potency, string traitKey) =>
+            new EffectDef(EffectKind.BurnBurst, stacks, pick: EffectPick.All) { BurstPotency = potency, TraitKey = traitKey };
 
         /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用;Task 4 起可覆盖 Value / Turns):字表里的 EffectDef 是多张字 / 多场战斗
         /// 共享的不可变对象,折叠一律产出新对象,绝不改原件。null = 沿用原值。</summary>
@@ -444,10 +466,12 @@ namespace Brushblade.Core
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
                 AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
-                RetainPercent, PortionPercent, ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent)
+                RetainPercent, PortionPercent, ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
+                MinBurn)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,
+                BurstPotency = BurstPotency,
             };
     }
 }

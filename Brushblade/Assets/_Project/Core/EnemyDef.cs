@@ -449,9 +449,27 @@ namespace Brushblade.Core
             {
                 int percent = 100
                     + Statuses.TotalMagnitude(StatusKind.AttackBuff)
-                    - Statuses.MaxMagnitude(StatusKind.Curse);   // 多来源取最强,不相加(Ruling 18)
+                    - ActiveCurse();   // 多来源取最强,不相加(Ruling 18)
                 return Math.Max(0, BaseAttack * percent / 100);
             }
+        }
+
+        /// <summary>生效中的最强减攻:带门槛(<see cref="StatusEffect.MinBurn"/> &gt; 0,D2-火 炽焰)的那条只在
+        /// 自身灼 ≥ 门槛时计入。没有门槛条目时与 <c>Statuses.MaxMagnitude(Curse)</c> 逐位相同。</summary>
+        public int ActiveCurse()
+        {
+            int max = 0, burn = -1;
+            foreach (var s in Statuses.All)
+            {
+                if (s.Kind != StatusKind.Curse) continue;
+                if (s.MinBurn > 0)
+                {
+                    if (burn < 0) burn = Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+                    if (burn < s.MinBurn) continue;
+                }
+                if (s.Magnitude > max) max = s.Magnitude;
+            }
+            return max;
         }
         /// <summary>护甲**点数**(2026-08-12,E-b4):每记挥击从伤害里减这么多,下钳 0。
         ///

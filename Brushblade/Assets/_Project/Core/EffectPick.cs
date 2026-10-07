@@ -32,7 +32,10 @@ namespace Brushblade.Core
                 or EffectKind.ArmorBreak or EffectKind.Blind or EffectKind.Weaken
                 or EffectKind.Seed or EffectKind.Vulnerable
                 or EffectKind.BurnSettleNow or EffectKind.Detonate
-                or EffectKind.BurnScale => true,   // D2-火 N1
+                or EffectKind.BurnScale   // D2-火 N1
+                // D2-火 Task 3 灼附着族(数据写 pick BurnedByThisCast)
+                or EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
+                or EffectKind.BurnBurst or EffectKind.BurnBacklash => true,
             _ => false,
         };
 

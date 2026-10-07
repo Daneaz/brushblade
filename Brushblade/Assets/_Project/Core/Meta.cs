@@ -827,6 +827,9 @@ namespace Brushblade.Core
             EffectKind.Taunt => false,
             // D2-火 Task 2:灼层翻倍的 Value 是百分比(作用于离散的层数)、拉平不用 Value
             EffectKind.BurnScale or EffectKind.BurnEqualize => false,
+            // D2-火 Task 3:灼附着族 —— 上炎的 Value 是层数,其余不用 Value(焚城反应的 Value = 死者剩余层数,离散)
+            EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
+                or EffectKind.BurnBurst or EffectKind.BurnBacklash => false,
             _ => true,
         };
 
