@@ -243,13 +243,36 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ConfigLoader_OpeningWithAmpTerms_Throws()
+        public void Opening_SameFaceAmplifyAll_LoadsAndOpeningIsNotAmplified()
         {
-            // 同面的 Amplify(scope All 含 Burn,G3)会在 Fold 时给开局效果挂 AmpTerms;登记时加成会丢 —— 加载期拦下
-            Assert.Throws<Brushblade.Data.ConfigException>(() => Brushblade.Data.ConfigLoader.LoadGraph(
-                @"{""chars"":[{""id"":""甲"",""element"":""Fire""," + FireBody + @",""traits"":[
-                  {""slot"":""Lv4"",""form"":""Passive"",""name"":""精"",""effects"":[{""kind"":""Amplify"",""value"":20,""scope"":""All""}]},
-                  {""slot"":""Lv8"",""face"":""Feature"",""name"":""炎"",""effects"":[{""kind"":""BurnAll"",""value"":2,""openingBattles"":1}]}]}]}"));
+            // Ruling 5(spec §5.2 第 5 律「跨场只存不长」):开局效果不挂 AmpTerms —— 同面有 scope All(含 Burn,G3)也照常加载,
+            // 登记的值与下一场开局的火力都不吃本场的加成;本场执行的本体灼照常被放大
+            var g = Brushblade.Data.ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""炎"",""element"":""Fire""," + FireBody + @",""traits"":[
+                  {""slot"":""Lv4"",""form"":""Passive"",""name"":""精"",""effects"":[{""kind"":""Amplify"",""value"":100,""scope"":""All""}]},
+                  {""slot"":""Lv8"",""face"":""Feature"",""name"":""炎"",""effects"":[{""kind"":""BurnAll"",""value"":2,""openingBattles"":1}]}]}]}");
+            var src = g.Get("炎");
+            var folded = TraitRules.CastEffects(src, CardFace.Feature, 8);
+            Assert.That(folded[0].AmpTerms.Count, Is.EqualTo(1), "本体 BurnAll 照常挂加成");
+            Assert.That(folded.Single(e => e.OpeningBattles > 0).AmpTerms.Count, Is.EqualTo(0), "开局效果不挂加成");
+
+            var killer = new CharDef("杀", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100000) });
+            var config = new RunConfig
+            {
+                Encounters = Enumerable.Range(0, 2).Select(_ => new[] { RebalanceFixture.Mob(hp: 5000) }).ToArray(),
+                RewardPool = new[] { "杀" },
+            };
+            var run = new RunEngine(RebalanceFixture.Graph(src, killer), config, Config,
+                new[] { "炎", "杀", "杀", "杀", "杀" }, Array.Empty<string>(), seed: 1,
+                cardLevels: new Dictionary<string, int> { ["炎"] = 8 });
+            Assert.That(run.Battle.Cast("炎", -1), Is.EqualTo(BattleError.None));
+            int lv8 = MetaRules.CardLevelPercent(8);
+            Assert.That(run.Battle.Enemies[0].Statuses.Find(StatusKind.Burn).Potency, Is.EqualTo(lv8 * 2), "本场本体灼:火力 ×(100+100)%");
+            Assert.That(run.Battle.PendingOpenings.Single().Value, Is.EqualTo(2), "登记的是未放大的 2 层");
+            Win(run);
+            var opened = run.Battle.Enemies[0].Statuses.Find(StatusKind.Burn);
+            Assert.That(opened.Magnitude, Is.EqualTo(2));
+            Assert.That(opened.Potency, Is.EqualTo(lv8), "下一场开局的灼不吃本场的 Amplify(只存不长)");
         }
     }
 }

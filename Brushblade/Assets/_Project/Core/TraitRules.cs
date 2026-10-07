@@ -268,13 +268,14 @@ namespace Brushblade.Core
         }
 
         /// <summary>Amplify:本面每条 scope 匹配的效果挂一项 (百分点, 条件)。不在这里求值 ——
-        /// 目标相关的条件要按每一击的目标判定(BattleEngine.AmpPercent)。</summary>
+        /// 目标相关的条件要按每一击的目标判定(BattleEngine.AmpPercent)。
+        /// 开局效果(OpeningBattles &gt; 0)不挂(Ruling 5,spec §5.2 第 5 律「跨场只存不长」):登记的是定值,不吃本场的加成。</summary>
         private static void ApplyAmplify(List<EffectDef> effects, EffectDef amp)
         {
             for (int i = 0; i < effects.Count; i++)
             {
                 var e = effects[i];
-                if (!InScope(amp.Scope, e.Kind)) continue;
+                if (!InScope(amp.Scope, e.Kind) || e.OpeningBattles > 0) continue;
                 var terms = new List<(int Percent, DamageCondition If)>(e.AmpTerms) { (amp.Value, amp.OnlyIf) };
                 effects[i] = e.With(ampTerms: terms);
             }

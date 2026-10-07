@@ -656,8 +656,8 @@ namespace Brushblade.Data
             }
         }
 
-        /// <summary>开局效果不带 Amplify 加成(D2-火 修复轮 1):同面的 Amplify(如 scope All 含 Burn)会在 Fold 时给它挂 AmpTerms,
-        /// 而登记成 OpeningEffect 时加成会丢 —— 卡面写着加成、开局却不生效。按全部特性解锁(Lv8)折叠两面,发现就拦下。</summary>
+        /// <summary>开局效果不带 Amplify 加成(D2-火 修复轮 1)。Ruling 5 起 Fold 本身就不给开局效果挂 AmpTerms(跨场只存不长),
+        /// 这里退为守卫:真实数据永远不会触发,只防将来有人改回 Fold 时加成在登记时静默丢失。</summary>
         private static void ValidateOpeningAmplify(CharDef def)
         {
             if (def.Traits.Count == 0) return;
