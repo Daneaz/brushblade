@@ -1,0 +1,336 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 920px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; display: flex; align-items: center; gap: 10px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1220px; }
+    .lede b { color: var(--text-main); }
+    .cols { flex: 1; min-height: 0; display: flex; gap: 24px; }
+    .left { width: 600px; flex: none; display: flex; flex-direction: column; gap: 12px; }
+    .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: var(--warn-text); background: var(--warn-bg); padding: 1px 6px; border-radius: 3px; }
+    .d { font-size: 9.5px; color: var(--text-dim); line-height: 1.6; }
+    .d b { color: var(--text-main); }
+    .d code, .note code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9px; color: var(--text-quiet); }
+
+    /* 表:同 StatusChips 的列,收窄 */
+    .tbl { display: grid; grid-template-columns: 40px 30px 52px 52px 52px 62px 1fr 96px; column-gap: 9px; align-items: center; font-size: 10px; }
+    .tbl .h { font-size: 9px; color: var(--text-faint); padding-bottom: 4px; border-bottom: 1px solid var(--paper-dim); }
+    .tbl .c { padding: 3px 0; border-bottom: 1px solid #ECE6D9; color: var(--text-dim); line-height: 1.35; min-height: 24px; display: flex; align-items: center; }
+    .tbl .nm { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--text-main); }
+    .tbl .z { height: 24px; overflow: visible; }
+    .tbl .z .sc { transform: scale(2.4); transform-origin: 0 50%; }
+    .tbl .ic b { color: var(--cinnabar-dark); font-weight: 700; }
+    .tbl .ic i { font-style: normal; color: var(--text-faint); }
+    .tbl .gl { font-size: 9.5px; }
+    .tbl .off { color: var(--text-faint); font-size: 9.5px; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+    /* 易混图标:新图标与最像的现有几枚并排(×2.4) */
+    .nbs { display: flex; gap: 12px; }
+    .nb { flex: 1; border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 8px 10px 7px; display: flex; flex-direction: column; gap: 6px; }
+    .nb .row { display: flex; align-items: flex-end; gap: 10px; height: 34px; }
+    .nb .it { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 8.5px; color: var(--text-faint); }
+    .nb .it .sc { zoom: 2.4; }
+    .nb .it.me { color: var(--cinnabar-dark); font-weight: 700; }
+    .nb .d { font-size: 9px; line-height: 1.5; }
+
+    /* 顺序条 */
+    .ord { display: flex; flex-direction: column; gap: 8px; }
+    .ordl { display: flex; align-items: center; gap: 10px; }
+    .ordl .who { width: 64px; flex: none; font-size: 9.5px; color: var(--text-faint); }
+    .ordl .scs { display: flex; gap: 2px; zoom: 1.6; }
+    .sc.nw { outline: 1px dashed var(--cinnabar-dark); outline-offset: 1px; }
+
+    /* 单位格片段 */
+    .fr { display: flex; align-items: flex-end; gap: 12px; }
+    .frag { zoom: 1.5; width: 74px; display: flex; flex-direction: column; gap: 2px; position: relative; }
+    .frag .scs { display: flex; gap: 2px; min-height: 9.56px; }
+    .frag .hpb { width: 74px; }
+    .frag .cap { font-size: 6.2px; color: var(--text-faint); white-space: nowrap; }
+    .fr .ar { font-size: 10px; color: var(--text-faint); padding-bottom: 8px; white-space: nowrap; }
+    .hpb .pre { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(251,248,241,.7) 0 1.4px, transparent 1.4px 3.2px); }
+    .sc.ring { box-shadow: 0 0 0 1.2px #fff, 0 0 6px 1.5px rgba(201,169,74,.85); filter: brightness(1.25); }
+    /* 特性名 / 数字飘字的静态一帧(样子同 TriggerFx) */
+    .slbl { display: inline-flex; align-items: center; gap: 2px; height: 11px; padding: 0 4px 0 1.5px; border-radius: 3px; align-self: flex-start;
+      background: rgba(251,248,241,.96); box-shadow: 0 1px 3px rgba(22,27,34,.28); font-family: "Noto Serif SC", serif; font-size: 7px; font-weight: 700; color: var(--glyph); white-space: nowrap; }
+    .slbl .seal.xs { width: 8px; height: 8px; font-size: 5.6px; }
+    .fnum { position: absolute; right: 2px; top: -1px; font-size: 9px; font-weight: 700; color: var(--fire-glyph); -webkit-text-stroke: .4px rgba(251,248,241,.9); font-variant-numeric: tabular-nums; }
+    .box { border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 9px 11px; display: flex; gap: 16px; align-items: flex-start; }
+    .box.col { flex-direction: column; gap: 8px; }
+    .box .d { flex: 1; }
+
+    /* 两档宽验算 */
+    .wk { display: grid; grid-template-columns: 112px 1fr 1fr; column-gap: 10px; row-gap: 5px; align-items: start; }
+    .wk .hh { font-size: 9px; color: var(--text-faint); padding-bottom: 3px; border-bottom: 1px solid var(--paper-dim); }
+    .wk .who { font-size: 9.5px; color: var(--text-dim); line-height: 1.35; padding-top: 2px; }
+    .wk .who i { font-style: normal; color: var(--text-faint); font-size: 8.5px; }
+    .wk .cell2 { display: flex; flex-direction: column; gap: 2px; }
+    .colbox { zoom: 1.45; box-sizing: content-box; border-left: 1px dashed #C6BCA8; border-right: 1px dashed #C6BCA8; display: flex; flex-direction: column; gap: 1.43px; }
+    .colbox .ln { display: flex; gap: 1.91px; }
+    .colbox .sc { padding: 0; justify-content: center; }
+    .sc.noic svg { display: none; }
+    .verd { font-size: 8.5px; color: var(--text-faint); white-space: nowrap; }
+    .verd b { color: var(--cinnabar-dark); }
+    .note { font-size: 10px; color: var(--text-dim); line-height: 1.6; margin: 0; padding-left: 16px; }
+    .note b { color: var(--text-main); }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>状 态 chip · 火 系 补 三 枚 <span class="tag">待审 · 10-08</span></h2>
+    <div class="lede">D2-火 新增三种玩家看得见的状态:<b>埋雷</b>(敌)、<b>干涸</b>(敌)、<b>回敬</b>(我方与木灵)。全部沿用单位格档与四类底色,不造新色。
+      <b>埋雷、干涸不带数字</b>,回敬只在有次数上限时带剩余次数 —— 按 2026-09-02 定的规则「数字只给会变小、攒得起来的量」,埋雷的伤害挂着期间恒定。埋雷要算斩杀,改在<b>血条上画预扣段</b>,比数字省宽。
+      另附一条:炽焰的减攻在灼不满 5 层时<b>不出 chip</b>。</div>
+  </div>
+  <div class="cols">
+    <div class="left">
+      <div>
+        <h3>三枚 + 一条门槛 <small>左列原大,右列 ×2.4</small></h3>
+        <div class="tbl">
+          <span class="h">词</span><span class="h">原大</span><span class="h">×2.4</span><span class="h">底色</span><span class="h">数字</span><span class="h">落在</span><span class="h">词条说明(进字符串表)</span><span class="h">图标 · 兜底字</span>
+          <sc-for list="{{ rows }}" as="r">
+            <span class="c nm">{{ r.k }}</span>
+            <span class="c"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg></span></span>
+            <span class="c z"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg></span></span>
+            <span class="c"><i class="sw" style="{{ r.sw }}"></i>{{ r.bg }}</span>
+            <span class="c">{{ r.num }}</span>
+            <span class="c">{{ r.on }}</span>
+            <span class="c gl">{{ r.gl }}</span>
+            <span class="c ic"><b>NEW </b><i>{{ r.icTxt }}</i></span>
+          </sc-for>
+          <span class="c nm">减攻</span>
+          <span class="c off">不出</span>
+          <span class="c off">—</span>
+          <span class="c off">墨蓝(现有)</span>
+          <span class="c off">—</span>
+          <span class="c off">敌 · 炽焰</span>
+          <span class="c gl"><span>炽焰挂上、但灼不满 5 层时<b>不显示</b>;攻击力真的被减了才出(见下)</span></span>
+          <span class="c ic"><i>现有 curse · 咒</i></span>
+        </div>
+      </div>
+
+      <div>
+        <h3>易混图标 <small>新图标放在最像它的现有几枚旁边</small></h3>
+        <div class="nbs">
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-dot"><svg><use href="#ic-mine"></use></svg></span>埋雷</span>
+              <span class="it"><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg></span>灼</span>
+              <span class="it"><span class="sc k-gold"><svg><use href="#ic-crit"></use></svg></span>暴击</span>
+              <span class="it"><span class="sc k-dot"><svg><use href="#ic-mark"></use></svg></span>标记</span>
+            </div>
+            <div class="d">实心圆 + 引信。轮廓是圆,和火苗、星、菱形都分得开。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-ctrl"><svg><use href="#ic-healblock"></use></svg></span>干涸</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-heal"></use></svg></span>润泽</span>
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-blind"></use></svg></span>致盲</span>
+            </div>
+            <div class="d">润泽的加号沿斜杠切开再压一杠,读作「不能回血」。说法同致盲的「眼 + 斜杠」。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-retaliate"></use></svg></span>回敬</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-reflect"></use></svg></span>荆棘</span>
+              <span class="it"><span class="sc k-gold"><svg><use href="#ic-riposte"></use></svg></span>反击加倍</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg></span>格挡</span>
+            </div>
+            <div class="d">折返箭头带一点火花:还回去的是效果,不是伤害。不画火,金系复用不用改。</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3>插在哪 <small>从前往后,溢出从尾部丢;虚线框 = 本次新增</small></h3>
+        <div class="ord">
+          <div class="ordl"><span class="who">敌方</span>
+            <div class="scs">
+              <span class="sc k-dot"><svg><use href="#ic-mortal"></use></svg></span><span class="sc k-frost"><svg><use href="#ic-chill"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>6</span><span class="sc k-dot nw"><svg><use href="#ic-mine"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-mark"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-freeze"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-seed"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-slow"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-curse"></use></svg></span><span class="sc k-ctrl nw"><svg><use href="#ic-healblock"></use></svg></span><span class="sc k-ring"><svg><use href="#ic-frostguard"></use></svg></span>
+            </div></div>
+          <div class="ordl"><span class="who">我方 · 木灵</span>
+            <div class="scs">
+              <span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-lastlife"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-keepshield"></use></svg>120</span><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>2</span><span class="sc k-gold"><svg><use href="#ic-riposte"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-retaliate"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span><span class="sc k-gold"><svg><use href="#ic-heft"></use></svg>4</span><span class="sc k-heal"><svg><use href="#ic-wellspring"></use></svg>6</span><span class="sc k-heal"><svg><use href="#ic-heal"></use></svg></span>
+            </div></div>
+          <div class="d">敌方:致命 · 冰滞 · 灼 · <b>埋雷</b> · 标记 · 冻结 · 种 · 减速 · 减攻 · <b>干涸</b> · 霜抗。我方:嘲讽 · 保命 · 留存护盾 · 减伤 · 格挡 · 反击加倍 · <b>回敬</b> · 战意 · 厚 · 泉 · 润泽。<br>
+            <b>埋雷</b>紧跟灼:同属朱砂「它要掉血」一族,而且决定它能不能活到出手,不能被挤掉。
+            <b>干涸</b>排在减攻后、霜抗前:只对会回血的怪(缺笔妖补全、涂改治疗)有用,溢出时先丢;它和霜抗一样,是「不能被怎样」的说明。
+            <b>回敬</b>紧跟反击加倍:减伤、格挡、反击加倍、回敬四枚都在说「挨打时会怎样」,挨着读。</div>
+        </div>
+      </div>
+
+      <div>
+        <h3>炽焰 · 灼不满 5 层不出 chip</h3>
+        <div class="box">
+          <div class="fr">
+            <div class="frag e-Fire"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>120</span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>4</span></div><div class="hpb"><span style="width:62%"></span></div><span class="cap">灼 4:炽焰挂着,没生效</span></div>
+            <span class="ar">再 +灼 1 →</span>
+            <div class="frag e-Fire"><span class="slbl e-Fire"><span class="seal xs main">燃</span>炽焰</span><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>84</span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>5</span><span class="sc k-ctrl ring"><svg><use href="#ic-curse"></use></svg></span></div><div class="hpb"><span style="width:62%"></span></div><span class="cap">灼 5:攻 120 → 84,减攻出现</span></div>
+          </div>
+          <div class="d">减攻 chip 跟<b>攻击力</b>走:头一枚「攻」的数字真降了才出(Core 的 <code>EnemyState.Attack</code> 本来就只在灼 ≥ 5 时算这条)。
+            越过门槛那一下按触发反馈稿办:chip 闪、「炽焰」从 chip 上飘出。灼掉回 4 层,chip 静默消失,不飘字。
+            别的来源的减攻(如燃面 −15%)照常显示,不受这条影响。<br>
+            详情弹窗里这条照列、文字压暗:「炽焰:灼满 5 层时攻击 −30%(现在 4 层)」。</div>
+        </div>
+      </div>
+
+      <ul class="note">
+        <li><b>图标 3 枚</b>(<code>mine</code>·雷、<code>healblock</code>·涸、<code>retaliate</code>·敬)按「图标三处对账」进管线:<code>build_icons.ICONS</code>、<code>test_icons.EXPECTED</code>、<code>Icons.Glyphs</code>。SVG 路径见 <code>traits-data.js</code>(最后三枚 NEW)。</li>
+        <li><b>字体子集</b>:兜底字 雷 涸 敬,状态名 埋雷 干涸 回敬,详情句里的新字,改完重跑 <code>subset_fonts.py</code>。</li>
+        <li><b>三处同接</b>:<code>StatusText.Of</code>、<code>BattleView</code> 的 chip 列表(敌人格、召唤格、玩家栏)、<code>CharInfo</code> 的效果文案。</li>
+      </ul>
+    </div>
+
+    <div class="right">
+      <div>
+        <h3>两档宽验算 <small>按 <code>Ui.ChipFlow</code> 的算法逐枚排(宽 = 字数×15 + 10 + 图标 21),×1.45;虚线 = 信息列宽 − 4</small></h3>
+        <div class="wk">
+          <span class="hh"></span><span class="hh">基准机 ≈1951 宽</span><span class="hh">16:9 · 1600 宽(无刘海,两侧各扣 123)</span>
+          <sc-for list="{{ checks }}" as="k">
+            <span class="who">{{ k.who }}<br><i>{{ k.sub }}</i></span>
+            <sc-for list="{{ k.cols }}" as="c">
+              <div class="cell2">
+                <div class="colbox" style="{{ c.w }}">
+                  <sc-for list="{{ c.lines }}" as="ln">
+                    <div class="ln">
+                      <sc-for list="{{ ln }}" as="x">
+                        <span class="{{ x.cls }}" style="{{ x.st }}"><svg><use href="{{ x.ic }}"></use></svg>{{ x.t }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+                <span class="verd">{{ c.lbl }} · {{ c.v }}</span>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+        <div class="d" style="margin-top: 6px;">基准机:埋雷在敌人各格都留得住;前排挤不下时先丢减攻、干涸(干涸本就垫底)。<b>埋雷若带三位数</b>(宽 76),前排第二行只剩灼,埋雷也进 +N(「对照」行)。回敬在玩家栏与木灵前排都在,木灵后排只有一行,进 +N。<br>
+          16:9:单列敌人格与木灵格本来就只剩「攻 / 甲 +N」(2026-10-04 屏比修复后的现状),新三枚不改变这一点;全量在详情弹窗。</div>
+      </div>
+
+      <div>
+        <h3>埋雷 · 血条上预扣 <small>代替 chip 上的数字</small></h3>
+        <div class="box col">
+          <div class="fr">
+            <div class="frag e-Fire"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>120</span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>6</span><span class="sc k-dot"><svg><use href="#ic-mine"></use></svg></span></div><div class="hpb"><span style="width:44%"></span><i class="pre" style="left:9%;width:35%"></i><u>211/480</u></div><span class="cap">埋雷 168:斜纹这截先炸掉</span></div>
+            <div class="frag e-Fire"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>120</span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>6</span><span class="sc k-dot"><svg><use href="#ic-mine"></use></svg></span></div><div class="hpb"><span style="width:31%"></span><i class="pre" style="left:0;width:31%"></i><u>150/480</u></div><span class="cap">整截斜纹:出手前就炸死</span></div>
+            <span class="ar">它要出手 →</span>
+            <div class="frag e-Fire"><span class="slbl e-Fire"><span class="seal xs main">燃</span>埋雷</span><span class="fnum">168</span><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>120</span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>6</span><span class="sc k-dot ring"><svg><use href="#ic-mine"></use></svg></span></div><div class="hpb"><span style="width:9%"></span><u>43/480</u></div><span class="cap">炸:chip 闪、特性名飘出,随后消失</span></div>
+          </div>
+          <div class="d">预扣段 = 埋雷伤害 ÷ 最大生命,贴在血条填充的右端,画斜纹(与冰滞行动条同一张斜纹贴图)。按<b>实际会扣的血</b>算(过护甲、护盾,与伤害预估同一个函数)。
+            <b>整截都是斜纹</b> = 它出手前就会被炸死,玩家不必再补刀。数字只在详情里:「埋雷 168 · 下次攻击前爆炸」。
+            冻结、被魅惑、Boss 蓄力那一拍不爆,斜纹原样留着。</div>
+        </div>
+      </div>
+
+      <div>
+        <h3>回敬 · 挂在哪、怎么响</h3>
+        <div class="box col">
+          <div class="fr">
+            <div class="frag ally e-Wood"><div class="scs"><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span><span class="sc k-heal"><svg><use href="#ic-retaliate"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>2</span></div><div class="hpb"><span style="width:70%"></span></div><span class="cap">木灵 · 烈焰护身覆盖全队</span></div>
+            <span class="ar">被敌人挥击打中 →</span>
+            <div class="frag ally e-Wood"><span class="slbl e-Fire"><span class="seal xs main">燃</span>烈焰护身</span><div class="scs"><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-heal ring"><svg><use href="#ic-retaliate"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>2</span></div><div class="hpb"><span style="width:52%"></span></div><span class="cap">回敬 chip 闪,特性名从它飘出</span></div>
+            <span class="ar">→</span>
+            <div class="frag e-Metal"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>90</span><span class="sc k-dot ring"><svg><use href="#ic-burn"></use></svg>6</span></div><div class="hpb"><span style="width:80%"></span></div><span class="cap">攻击者:灼 4 → 6,灼 chip 闪</span></div>
+          </div>
+          <div class="d">翠玉,与荆棘同族(挨打时惩罚对方)。<b>护全队时玩家和每只木灵都挂</b>,只护一只就只挂那只 —— 玩家要看得出「打木灵也会被点火」。
+            有每回合次数上限时带数字(剩余次数,同格挡),烈焰护身没有上限就不带。回合结束消失。
+            金系复用时图标与名字都不变,详情写明挂的是什么:「回敬 · 本回合被攻击时,攻击者 +灼 2」。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 920}}'>
+var BG = { 'k-dot': ['朱砂', 'var(--cinnabar)'], 'k-ctrl': ['墨蓝', 'var(--ink-soft)'], 'k-heal': ['翠玉', 'var(--jade)'] };
+// 词 / 底色 / 图标 / 数字 / 落在 / 词条说明 / 图标 key · 兜底字
+var ROWS = [
+  ['埋雷', 'k-dot', 'mine', '—', '敌', '下次攻击前先爆炸，受到伤害（被冻结、被魅惑、蓄力时不爆）', 'mine · 雷'],
+  ['干涸', 'k-ctrl', 'healblock', '—', '敌(随灼)', '无法回复生命。身上的灼没了就一起消失', 'healblock · 涸'],
+  ['回敬', 'k-heal', 'retaliate', '有上限时:剩余次数', '我 · 木灵', '本回合被攻击时，给攻击者挂上效果（见特性）', 'retaliate · 敬']
+];
+
+// —— Ui.ChipFlow / PackChips 的逐行移植(BattleView 敌人格、召唤格、玩家栏共用)——
+// 宽 = 字数 × 15 + padX(10;「+N」计数用 4)+ 有图标时 18(+ 有字时间距 3);chip 间距 4
+function cw(c) { var w = c.t.length * 15 + (c.cnt ? 4 : 10); if (c.ic) w += 18 + (c.t ? 3 : 0); return w; }
+function pack(chips, take, extra, width, maxLines) {
+  var lines = [], cur = [], x = 0, reserve = extra ? 4 + cw({ t: extra, cnt: 1 }) : 0;
+  function place(ch, w, isExtra) {
+    var limit = !isExtra && reserve > 0 && lines.length === maxLines - 1 ? width - reserve : width;
+    if (cur.length > 0 && x + 4 + w > limit) { lines.push(cur); cur = []; x = w; } else { x += cur.length === 0 ? w : 4 + w; }
+    cur.push(ch);
+  }
+  for (var i = 0; i < take; i++) place(chips[i], cw(chips[i]), false);
+  if (extra) place({ t: extra, cnt: 1, k: 'k-atk' }, cw({ t: extra, cnt: 1 }), true);
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+function flow(chips, width, maxLines) {
+  var lines = pack(chips, chips.length, null, width, maxLines), shown = chips.length, t;
+  if (lines.length > maxLines) {
+    lines = null;
+    for (t = chips.length - 1; t >= 0 && !lines; t--) { var a = pack(chips, t, '+' + (chips.length - t), width, maxLines); if (a.length <= maxLines) { lines = a; shown = t; } }
+    for (t = chips.length - 1; t >= 0 && !lines; t--) { var b = pack(chips, t, null, width, maxLines); if (b.length <= maxLines) { lines = b; shown = t; } }
+    lines = lines || [];
+  }
+  return { lines: lines, shown: shown };
+}
+function C(n, k, ic, t, nw) { return { n: n, k: k, ic: ic, t: t, nw: nw }; }
+var ENEMY = [C('攻', 'k-atk', 'attack', '168'), C('甲', 'k-ctrl', 'defense', '12'), C('灼', 'k-dot', 'burn', '6'), C('埋雷', 'k-dot', 'mine', '', 1),
+  C('标记', 'k-dot', 'mark', ''), C('减攻', 'k-ctrl', 'curse', ''), C('干涸', 'k-ctrl', 'healblock', '', 1)];
+var ENEMY_NUM = ENEMY.map(function (c) { return c.n === '埋雷' ? C('埋雷', 'k-dot', 'mine', '168', 1) : c; });
+var ALLY = [C('攻', 'k-atk', 'attack', '73'), C('嘲讽', 'k-ctrl', 'taunt', ''), C('格挡', 'k-heal', 'block', '1'), C('回敬', 'k-heal', 'retaliate', '', 1), C('战意', 'k-gold', 'morale', '2')];
+var PLAYER = [C('留存护盾', 'k-heal', 'keepshield', '120'), C('减伤', 'k-heal', 'bulwark', ''), C('格挡', 'k-heal', 'block', '2'), C('反击加倍', 'k-gold', 'riposte', ''),
+  C('回敬', 'k-heal', 'retaliate', '', 1), C('战意', 'k-gold', 'morale', '3/5')];
+// 信息列宽(逻辑单位):基准机 / 16:9。16:9 下 FieldScale = 214.5/293,单列立绘随之缩,Boss 与召唤立绘不缩
+var CHECKS = [
+  ['敌人 · 前排', '攻 甲 灼6 埋雷 标记 减攻 干涸', ENEMY, 154, 109.3, 2],
+  ['敌人 · 后排', '同上', ENEMY, 184, 131.2, 2],
+  ['Boss · 跨两列', '同上', ENEMY, 370, 213, 2],
+  ['对照 · 敌人前排', '埋雷若带三位数 168', ENEMY_NUM, 154, 109.3, 2],
+  ['木灵 · 前排', '攻 嘲讽 格挡1 回敬 战意2', ALLY, 179, 101.5, 2],
+  ['木灵 · 后排', '同上,只有一行', ALLY, 204, 126.5, 1],
+  ['玩家状态栏', '留存 减伤 格挡 反击加倍 回敬 战意', PLAYER, 251, 251, 2]
+];
+function px(u) { return (u / 2.093).toFixed(2) + 'px'; }
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: ROWS.map(function (r) {
+        return { k: r[0], cls: 'sc ' + r[1], ic: '#ic-' + r[2], bg: BG[r[1]][0], sw: 'background:' + BG[r[1]][1], num: r[3], on: r[4], gl: r[5], icTxt: r[6] };
+      }),
+      checks: CHECKS.map(function (k) {
+        return { who: k[0], sub: k[1], cols: [k[3], k[4]].map(function (info) {
+          var f = flow(k[2], info - 4, k[5]), hidden = k[2].slice(f.shown);
+          var v = hidden.length === 0 ? '全显示' : '+' + hidden.length + ' 收起:' + hidden.map(function (c) { return c.n; }).join('、');
+          var lostNew = hidden.filter(function (c) { return c.nw; }).length;
+          return {
+            w: 'width:' + px(info - 4), lbl: '列宽 ' + (Math.round(info * 10) / 10) + ' · ' + k[5] + ' 行', v: v + (lostNew ? '' : (hidden.length ? '(新三枚都在)' : '')),
+            lines: f.lines.map(function (ln) {
+              return ln.map(function (c) {
+                return { cls: 'sc ' + c.k + (c.ic ? '' : ' noic') + (c.nw ? ' nw' : ''), st: 'width:' + px(cw(c)), ic: c.ic ? '#ic-' + c.ic : '', t: c.t };
+              });
+            })
+          };
+        }) };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

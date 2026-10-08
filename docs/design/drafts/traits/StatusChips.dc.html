@@ -155,7 +155,7 @@
           <code>build_icons.ICONS</code>、<code>test_icons.EXPECTED</code>、<code>Icons.Glyphs</code> 兜底字(新字要重跑字体子集)。SVG 就是本板用的那几条路径,见 <code>traits-data.js</code>。</li>
         <li><b>泉 / 厚</b> 现在是无图标的文字 chip;技能树已有 <code>perk_wellspring</code> / <code>perk_heft</code> 两枚,直接复用为状态图标。</li>
         <li><b>改名两处</b>:持续治疗 → 润泽、诅咒 → 减攻(spec 的词;机制与图标不变,只改字符串表)。</li>
-        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗;我方与木灵 嘲讽 · <b>保命</b> · 留存护盾 · <b>减伤</b> · 格挡 · <b>反击加倍</b> · 战意 · 厚 · 泉 · 润泽(加粗为 10-04 补)。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
+        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · <i>埋雷</i> · 标记 · 冻结 · 种 · 减速 · 减攻 · <i>干涸</i> · 霜抗;我方与木灵 嘲讽 · <b>保命</b> · 留存护盾 · <b>减伤</b> · 格挡 · <b>反击加倍</b> · <i>回敬</i> · 战意 · 厚 · 泉 · 润泽(加粗为 10-04 补;斜体为 10-08 火系补,见 StatusChipsFire 画板;均待审)。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
         <li>三处同接:<code>StatusText.Of</code> 的 case、<code>BattleView</code> 的 chip 列表、<code>CharInfo</code> 的效果文案(CLAUDE.md 那条 ⚠)。</li>
       </ul>
     </div>

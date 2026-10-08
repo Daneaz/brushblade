@@ -192,7 +192,7 @@ window.ZD = (function () {
 })();
 
 /* 图标精灵:现有 44 枚里用得到的几枚(路径逐字取自 tools/icons/svg/,fill/stroke 换成 currentColor 以便着色)
-   + 本稿新增 8 枚 + 10-04 补 3 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
+   + 本稿新增 8 枚 + 10-04 补 3 枚 + 10-08 补 3 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
 (function () {
   var S = 'fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"';
   var S5 = 'fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"';
@@ -229,6 +229,17 @@ window.ZD = (function () {
     riposte: '<path ' + S + ' d="M30 16L14 32l16 16M50 16L34 32l16 16"/>',
     // 保命:描边心 + 心尖一小截实心(只剩一点,但还在);根形缩小后像「木」字,弃用
     lastlife: '<path ' + S + ' d="M32 54C14 42 8 32 8 23a12 12 0 0 1 24-3 12 12 0 0 1 24 3c0 9-6 19-24 31z"/><path ' + F + ' d="M32 54c-8-5.5-12.5-10-15-14h30c-2.5 4-7 8.5-15 14z"/>',
+    // —— NEW · 10-08 补(待审):D2-火 新增的三种状态 ——
+    // 埋雷:实心炸弹 + 引信(与灼的火苗、暴击的八角星、标记的菱形都不像)
+    mine: '<circle cx="27" cy="38" r="20" ' + F + '/><path ' + F + ' d="M44 13l8 8-7 7-8-8z"/><path ' + S5 + ' d="M50 15c2-5 5-8 9-9"/>',
+    // 干涸(禁疗):润泽那枚实心加号,沿斜杠切开一道缝再压一道斜杠(同致盲「眼 + 斜杠」的说法)
+    healblock: '<path ' + F + ' d="M26 12h12v5.5L17.5 38H12V26h14z"/><path ' + F + ' d="M46.5 26H52v12H38v14H26v-5.5z"/><path ' + S + ' d="M12 52L52 12"/>',
+    // 回敬:折返箭头 + 一点火花(打回去的是「效果」不是伤害;不绑火,金系挂流血 / 破甲也用它)
+    retaliate: '<path ' + S + ' d="M10 20h26a13 13 0 0 1 0 26H18"/><path ' + S + ' d="M26 38l-8 8 8 8"/><path ' + F + ' d="M51 3l2.8 7.2L61 13l-7.2 2.8L51 23l-2.8-7.2L41 13l7.2-2.8z"/>',
+    // 现有,只作对照(StatusChipsFire 的易混图标排)
+    crit: '<path ' + F + ' d="M32 4l7 19 19-7-7 19 7 19-19-7-7 19-7-19-19 7 7-19-7-19 19 7z"/>',
+    blind: '<path ' + S + ' d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" ' + F + '/><path ' + S + ' d="M14 50L50 14"/>',
+    reflect: '<path ' + S + ' d="M10 32h44M22 22L12 32l10 10M42 22l10 10-10 10"/>',
     chevron: '<path ' + S + ' d="M24 14L42 32L24 50"/>'
   };
   window.ZD.ICONS = ICONS;
