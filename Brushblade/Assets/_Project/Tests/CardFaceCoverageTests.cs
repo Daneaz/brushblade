@@ -205,6 +205,48 @@ namespace Brushblade.Core.Tests
                 "PassiveText 没有调用 ShapeSuffix —— 溅射百分比 / 发数 / 跳数会漏印");
         }
 
+        /// <summary>枚举值级的漏印(D2-火 Task 6):PickText / OnlyIfText / AmplifyText / ScaleText 的 switch 少一个分支
+        /// 不会编译报错,只会静默落到 `_ => ""`(选择器 / 条件整段消失,玩家读成「无条件、打主目标」)。
+        /// 字段级检查盖不到。豁免的取值写明为什么不该印。</summary>
+        [Test]
+        public void EverySelectorConditionScopeBasis_HasTextCase()
+        {
+            var src = CharInfoSource();
+            var pick = MethodBody(src, "string PickText(EffectPick");
+            var onlyIf = MethodBody(src, "string OnlyIfText(DamageCondition");
+            var amp = MethodBody(src, "string AmplifyText(");
+            var scale = MethodBody(src, "string ScaleText(");
+            var pickExempt = new HashSet<string>
+            {
+                nameof(EffectPick.Primary),          // 缺省,不印
+                nameof(EffectPick.Self),             // 净化 / 嘲讽的主语,各自的文案里已有(Cleanse 我方 / TauntText)
+                nameof(EffectPick.SummonedThisCast), // 同上(扎根 / TauntText)
+                nameof(EffectPick.AllSummons),       // 同上(TauntText)
+            };
+            var missing = new List<string>();
+            missing.AddRange(Enum.GetNames(typeof(EffectPick))
+                .Where(n => !pickExempt.Contains(n) && !pick.Contains("EffectPick." + n)).Select(n => "EffectPick." + n));
+            missing.AddRange(Enum.GetNames(typeof(DamageCondition))
+                .Where(n => n != nameof(DamageCondition.None) && !onlyIf.Contains("DamageCondition." + n))
+                .Select(n => "DamageCondition." + n));
+            // AmpScope.Damage 是 AmplifyText 的 _ 兜底
+            missing.AddRange(Enum.GetNames(typeof(AmpScope))
+                .Where(n => n != nameof(AmpScope.Damage) && !amp.Contains("AmpScope." + n)).Select(n => "AmpScope." + n));
+            missing.AddRange(Enum.GetNames(typeof(ScaleBasis))
+                .Where(n => n != nameof(ScaleBasis.None) && !scale.Contains("ScaleBasis." + n)).Select(n => "ScaleBasis." + n));
+            Assert.That(missing, Is.Empty,
+                "这些枚举值在 CharInfo 的文案 switch 里没有分支,卡面会静默漏印:\n  " + string.Join("\n  ", missing));
+        }
+
+        /// <summary>特性级字段(D2-火 N13):TraitDef.MaxPerCast(limit)要有卡面文案,否则玩家读不到「最多触发 N 次」。
+        /// 其余 TraitDef 属性是结构信息(槽 / 面 / 形态 / 名 / 触发 / 印记),不在效果文案里印。</summary>
+        [Test]
+        public void TraitDefLimit_IsRenderedInCharInfo()
+        {
+            Assert.That(CharInfoSource().Contains(nameof(TraitDef.MaxPerCast)), Is.True,
+                "CharInfo 没有渲染 TraitDef.MaxPerCast —— 连爆「最多 2 次」在卡面上不存在");
+        }
+
         [Test]
         public void ExemptList_HasNoStaleEntries()
         {

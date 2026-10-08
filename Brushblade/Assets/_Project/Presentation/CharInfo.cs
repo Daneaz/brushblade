@@ -77,21 +77,25 @@ namespace Brushblade.Presentation
                 if (i > 0) parts.Append(';');
                 var e = effects[i];
                 int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
-                // 本体百分比(D2-火 E5,连爆):数值在出字时才按本面本体解析,卡面印「本体×N%」
-                string shown = e.BodyPercent > 0
-                    ? Strings.T("char.effect.bodypercent", ("percent", e.BodyPercent))
-                    : v.ToString();
+                // 本体百分比(D2-火 E5,连爆 / 埋雷):数值在出字时才按本面本体解析,没有具体数可印;
+                // 只有 DamageSingle / Mine 能写(ConfigLoader 拦其余),这两个分支各走自己的整句 key,
+                // 不把「本体×N%」塞进「{value}伤」的数字槽(会印成「全体本体×100%伤」)
+                string shown = v.ToString();
+                int segStart = parts.Length;   // 开局登记要给这一段整体加前缀
                 parts.Append(e.Kind switch
                 {
                     // 全体(spec v7 §11.6:DamageAll 并入 DamageSingle + All):沿用原「全体N伤」那句,
                     // 卡面逐字不变。必须排在下面那条之前 —— 落进它会印成「{ShapeLabel}N伤」。
                     EffectKind.DamageSingle when e.Shape == TargetArea.All
-                        => Strings.T("char.effect.damageall", ("value", shown))
+                        => (e.BodyPercent > 0
+                            ? Strings.T("char.effect.damageall.body", ("percent", e.BodyPercent))
+                            : Strings.T("char.effect.damageall", ("value", shown)))
                         + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e)
                         + ShapeSuffix(e) + MarkerText(e),
-                    EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
-                            ("shape", ShapeLabel(e)), ("value", shown))
+                    EffectKind.DamageSingle => (e.BodyPercent > 0
+                            ? Strings.T("char.effect.damagesingle.body", ("shape", ShapeLabel(e)), ("percent", e.BodyPercent))
+                            : Strings.T("char.effect.damagesingle", ("shape", ShapeLabel(e)), ("value", shown)))
                         + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e)
                         + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e) + MarkerText(e),
@@ -191,7 +195,9 @@ namespace Brushblade.Presentation
                     EffectKind.BurnBurst => Strings.T("char.effect.burnburst"),
                     EffectKind.BurnBacklash => Strings.T("char.effect.burnbacklash"),
                     // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷的伤害吃等级与攻击力(出字时定死);回敬的上限是离散次数
-                    EffectKind.Mine => Strings.T("char.effect.mine", ("value", shown)),
+                    EffectKind.Mine => e.BodyPercent > 0
+                        ? Strings.T("char.effect.mine.body", ("percent", e.BodyPercent))
+                        : Strings.T("char.effect.mine", ("value", shown)),
                     EffectKind.Retaliate => RetaliateText(e, def, cardLevel),
                     // 其余单点效果(D2-火 Task 5):追加一击的百分比 / 自损的百分比离散(读 e.Value);解冻 / 揭示不用 Value
                     EffectKind.ExtraStrike => e.PerBurningHit
@@ -273,12 +279,19 @@ namespace Brushblade.Presentation
                         ? Strings.T("char.effect.perhit.from", ("from", e.PerHitFrom), ("list", list))
                         : Strings.T("char.effect.perhit", ("list", list)));
                 }
-                // 开局登记(D2-火 N12):这条本场不执行,之后 N 场开局对全场结算
+                // 开局登记(D2-火 N12):这条本场不执行,之后 N 场开局对全场结算 —— 整段前缀「下 N 场开局:」,
+                // 不能让玩家把后面的效果读成本场就生效
                 if (e.OpeningBattles > 0)
-                    parts.Append(Strings.T("char.effect.opening", ("battles", e.OpeningBattles)));
+                    parts.Insert(segStart, Strings.T("char.effect.opening", ("battles", e.OpeningBattles)));
             }
             return parts.ToString();
         }
+
+        /// <summary>一条特性的整句效果文案(D2-火 N13):效果逐条印,带 <see cref="TraitDef.MaxPerCast"/>(limit)时补「每次出字最多触发 N 次」。
+        /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
+        public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
+            OneSideEffectsText(trait.Effects, def, cardLevel)
+            + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "");
 
         /// <summary>受击回敬(D2-火 Task 4):回敬的效果逐条印(斜杠分隔,同每击附带);Value &gt; 0 时印每回合上限。</summary>
         private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
@@ -486,9 +499,12 @@ namespace Brushblade.Presentation
 
         /// <summary>计数缩放后缀(D2-火 N4):「(每 1 层灼烧)」/「(每名带灼烧的敌人)」+ 上限。不缩放时空串。</summary>
         private static string ScaleText(EffectDef e) =>
-            e.ScaleBy == ScaleBasis.None ? ""
-            : (e.ScaleBy == ScaleBasis.BurnStack ? Strings.T("char.effect.per.burnstack") : Strings.T("char.effect.per.burningenemy"))
-              + (e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
+            e.ScaleBy switch
+            {
+                ScaleBasis.BurnStack => Strings.T("char.effect.per.burnstack"),
+                ScaleBasis.BurningEnemy => Strings.T("char.effect.per.burningenemy"),
+                _ => "",
+            } + (e.ScaleBy != ScaleBasis.None && e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
 
         /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。
         /// D2-火 N4b:散射每发百分比。</summary>

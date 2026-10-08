@@ -226,6 +226,7 @@ namespace Brushblade.Presentation
             foreach (var e in effects)
             {
                 int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
+                int before = traits.Count;   // 本条效果新增的 chip 从这里起(开局登记 / 每击附带的后缀要补到它们的说明上)
                 switch (e.Kind)
                 {
                     // 伤害与护/治本身不是特性 —— 它们的量级在「数值」、去向在「攻击模式」
@@ -265,13 +266,21 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.burn_settle.desc"));
                         break;
                     case EffectKind.Detonate:
+                    {
+                        // 保留 / 部分引爆(D2-火 G5):惊爆 / 焚天 / 燥火攻心,说明末尾补一句
+                        string tail = e.RetainPercent > 0
+                            ? Strings.T("collection.trait.detonate.retain", ("percent", e.RetainPercent))
+                            : e.PortionPercent < 100
+                                ? Strings.T("collection.trait.detonate.portion", ("percent", e.PortionPercent))
+                                : "";
                         if (e.TargetAll)
                             AddTrait(traits, "burn", "", Strings.T("collection.trait.detonate_all.name"),
-                                Strings.T("collection.trait.detonate_all.desc"));
+                                Strings.T("collection.trait.detonate_all.desc") + tail);
                         else
                             AddTrait(traits, "burn", "", Strings.T("collection.trait.detonate.name"),
-                                Strings.T("collection.trait.detonate.desc"));
+                                Strings.T("collection.trait.detonate.desc") + tail);
                         break;
+                    }
                     case EffectKind.BurnScale:
                     {
                         // 灼操作族(D2-火 Task 2):与其余灼操作共用 "burn" 图标;百分比离散,读 e.Value
@@ -343,7 +352,9 @@ namespace Brushblade.Presentation
                     // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷共用 "burn" 图标(火的出手前爆炸);回敬是通用形态,走纯文字 chip
                     case EffectKind.Mine:
                         AddTrait(traits, "burn", v.ToString(), Strings.T("collection.trait.mine.name"),
-                            Strings.T("collection.trait.mine.desc", ("value", v)));
+                            e.BodyPercent > 0
+                                ? Strings.T("collection.trait.mine.desc.body", ("percent", e.BodyPercent))
+                                : Strings.T("collection.trait.mine.desc", ("value", v)));
                         break;
                     case EffectKind.Retaliate:
                         AddWord(traits, Strings.T("collection.trait.retaliate.chip"),
@@ -586,6 +597,18 @@ namespace Brushblade.Presentation
                         break;
                 }
 
+                // 每击附带(D2-火 N4b):子效果各出自己的 chip,说明末尾注明「每击后触发」。回敬的 perHit 是它自己的反制效果,
+                // 已由回敬那一条说明,不展开
+                if (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate)
+                {
+                    int sub = traits.Count;
+                    Scan(traits, e.PerHit, cardLevel);
+                    AppendDesc(traits, sub, Strings.T("collection.trait.suffix.perhit"));
+                }
+                // 开局登记(D2-火 N12):本场不生效,说明末尾注明
+                if (e.OpeningBattles > 0)
+                    AppendDesc(traits, before, Strings.T("collection.trait.suffix.opening", ("battles", e.OpeningBattles)));
+
                 // 伤害上的修饰(穿透 / 分段 / 斩杀 / 条件翻倍):挂在这一击上,不是独立效果
                 if (e.Kind == EffectKind.DamageSingle)
                     DamageModifiers(traits, e);
@@ -742,6 +765,16 @@ namespace Brushblade.Presentation
         /// ⚠ 名与说明由调用方**逐个字面量**取好再传进来,不在这里拼 key ——
         /// StringsTableTests 的扫描只认写死的 key,拼出来的话全部文案会被判成孤儿、
         /// 而拼出的前缀会被判成缺失(2026-09-04 当场踩到)。
+        /// <summary>给 <paramref name="from"/> 起新增的 chip 的说明末尾补一句后缀(开局登记 / 每击附带)。</summary>
+        private static void AppendDesc(List<Trait> traits, int from, string suffix)
+        {
+            for (int i = from; i < traits.Count; i++)
+            {
+                var t = traits[i];
+                traits[i] = new Trait(t.IconKey, t.Word, t.Amount, t.Name, t.Desc + suffix);
+            }
+        }
+
         private static void AddTrait(List<Trait> traits, string iconKey, string amount,
             string name, string desc) =>
             AddUnique(traits, new Trait(iconKey, null, amount, name, desc));
