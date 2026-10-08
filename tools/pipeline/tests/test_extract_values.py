@@ -834,3 +834,36 @@ def test_d2fire_task4_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-火 Task 5:其余单点效果(附录 N9 / N10 / N11)----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 星火:每命中一名出字前带灼的敌人,对随机敌人追加本体 30%
+    ("`ExtraStrike 30` `pick Random` `perBurningHit`", "焱",
+     [{"kind": "ExtraStrike", "value": 30, "pick": "Random", "perBurningHit": True}]),
+    # 烈焚:对灼层最高者追加本体 50%
+    ("`ExtraStrike 50` `pick MostBurn`", "焚", [{"kind": "ExtraStrike", "value": 50, "pick": "MostBurn"}]),
+    # 玉石俱焚
+    ("`SelfCost 20` + `Amplify 150` `scope Damage` + `BurnAll 3`", "焚",
+     [{"kind": "SelfCost", "value": 20}, {"kind": "Amplify", "value": 150, "scope": "Damage"},
+      {"kind": "BurnAll", "value": 3}]),
+    # 光耀
+    ("`Reveal` + `Vulnerable 15` `turns 1`", "灿",
+     [{"kind": "Vulnerable", "value": 15, "turns": 1}, {"kind": "Reveal", "value": 0}]),
+    # 水火相激的解冻(本格没有 Amplify 时条件门按位置挂在解冻上)
+    ("`Thaw` `if Controlled`", "蒸", [{"kind": "Thaw", "value": 0, "onlyIf": "Controlled"}]),
+    ("`Thaw` `pick All`", "蒸", [{"kind": "Thaw", "value": 0, "pick": "All"}]),
+])
+def test_d2fire_task5_single_ops(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config", [
+    "`BurnSingle 2` `perBurningHit`",                          # perBurningHit 没有 ExtraStrike 宿主
+    "`ExtraStrike 30` + `ExtraStrike 20` `perBurningHit`",     # 宿主不唯一
+])
+def test_d2fire_task5_per_burning_hit_needs_one_extra_strike(config):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert "perBurningHit" in str(err.value)

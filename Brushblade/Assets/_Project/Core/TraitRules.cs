@@ -125,11 +125,11 @@ namespace Brushblade.Core
                     // 附着类(D1 Task 9,附录 M9)与非替换特性:追加,打上特性键(ForCast;载体配对 / G11 分来源)
                     if (IsAttached(raw) || !replacesLv1)
                     {
-                        effects.Add(ForCast(raw, t, def.Id, body));
+                        effects.Add(ForCast(raw, t, def, body));
                         continue;
                     }
                     // Lv3 替换本体(Replaces == Lv1):按 Kind 换掉本体第一条同 Kind 的效果,不打来源键(仍是本体)
-                    var e = ResolveBodyPercent(raw, body);
+                    var e = ResolveBodyPercent(raw, body, def);
                     int at = -1;
                     for (int i = 0; i < effects.Count; i++)
                         if (effects[i].Kind == e.Kind && !touched.Contains(i)) { at = i; break; }
@@ -157,21 +157,28 @@ namespace Brushblade.Core
         /// ② 打特性来源键 TraitKey —— 附着类一律打(载体配对);其余只给非 Lv1 / Lv3 槽位打(G11:Weaken / Blind / Vulnerable
         /// 按 SourceId + TraitKey 分来源,不与本体同源合并)。Lv1 / Lv3 是本体的一部分(替换 / 强化本体),不打。
         /// 主动、被动一视同仁:走到这里的都是出字时机(或暴击 / 击杀反应)的特性(D1 终审 Critical)。</summary>
-        internal static EffectDef ForCast(EffectDef e, TraitDef t, string charId, IReadOnlyList<EffectDef> body)
+        internal static EffectDef ForCast(EffectDef e, TraitDef t, CharDef def, IReadOnlyList<EffectDef> body)
         {
-            e = ResolveBodyPercent(e, body);
+            e = ResolveBodyPercent(e, body, def);
             bool tag = IsAttached(e) || (t.Slot != TraitSlot.Lv1 && t.Slot != TraitSlot.Lv3);
-            return tag ? e.With(traitKey: BattleEngine.TraitKey(charId, t.Slot, t.Face)) : e;
+            return tag ? e.With(traitKey: BattleEngine.TraitKey(def.Id, t.Slot, t.Face)) : e;
         }
 
-        /// <summary>bodyPercent(E5):Value = 本面本体首条 DamageSingle 的 Value × N%(向下取整);没有就 0。未启用原样返回。</summary>
-        private static EffectDef ResolveBodyPercent(EffectDef e, IReadOnlyList<EffectDef> body)
+        /// <summary>bodyPercent(E5):Value = 本体伤害基数 × N%(向下取整),基数见 <see cref="BodyDamageOf"/>。未启用原样返回。</summary>
+        private static EffectDef ResolveBodyPercent(EffectDef e, IReadOnlyList<EffectDef> body, CharDef def)
         {
             if (e.BodyPercent <= 0) return e;
-            int baseValue = 0;
+            return e.With(value: BodyDamageOf(body, def) * e.BodyPercent / 100);
+        }
+
+        /// <summary>「本体」伤害基数(未缩放):本面本体首条 DamageSingle 的 Value;本面没有伤害(燃 / 铠 / 生面)时
+        /// 取攻击面本体首条 DamageSingle(D2-火 Task 4 Ruling 1,炸·埋雷在燃面);都没有为 0。
+        /// bodyPercent(Fold / 反应入队)与追加一击(ExtraStrike)共用这一份口径。</summary>
+        internal static int BodyDamageOf(IReadOnlyList<EffectDef> body, CharDef def)
+        {
             foreach (var b in body)
-                if (b.Kind == EffectKind.DamageSingle) { baseValue = b.Value; break; }
-            return e.With(value: baseValue * e.BodyPercent / 100);
+                if (b.Kind == EffectKind.DamageSingle) return b.Value;
+            return BattleEngine.AttackBaseOf(def);
         }
 
         private static void ApplyModifiers(List<EffectDef> effects, IEnumerable<EffectDef> modifiers)

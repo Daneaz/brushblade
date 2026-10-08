@@ -195,6 +195,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.HealBlock, EffectKind.BurnGrow, EffectKind.BurnHold, EffectKind.BurnBurst, EffectKind.BurnBacklash,
                 // D2-火 Task 4:受击回敬的 Value 是次数上限
                 EffectKind.Retaliate,
+                // D2-火 Task 5:追加一击的 Value 是百分比(L3 套在本体伤害基数上)、自损是百分比、解冻 / 揭示不用 Value
+                EffectKind.ExtraStrike, EffectKind.SelfCost, EffectKind.Thaw, EffectKind.Reveal,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

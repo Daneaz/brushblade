@@ -193,6 +193,13 @@ namespace Brushblade.Presentation
                     // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷的伤害吃等级与攻击力(出字时定死);回敬的上限是离散次数
                     EffectKind.Mine => Strings.T("char.effect.mine", ("value", shown)),
                     EffectKind.Retaliate => RetaliateText(e, def, cardLevel),
+                    // 其余单点效果(D2-火 Task 5):追加一击的百分比 / 自损的百分比离散(读 e.Value);解冻 / 揭示不用 Value
+                    EffectKind.ExtraStrike => e.PerBurningHit
+                        ? Strings.T("char.effect.extrastrike.perburning", ("percent", e.Value))
+                        : Strings.T("char.effect.extrastrike", ("percent", e.Value)),
+                    EffectKind.Thaw => Strings.T("char.effect.thaw"),
+                    EffectKind.SelfCost => Strings.T("char.effect.selfcost", ("value", e.Value)),
+                    EffectKind.Reveal => Strings.T("char.effect.reveal"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),

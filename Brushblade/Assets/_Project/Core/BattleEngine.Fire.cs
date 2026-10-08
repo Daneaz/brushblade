@@ -313,5 +313,85 @@ namespace Brushblade.Core
             CheckWin();
             return false;
         }
+    
+        // ---- Task 5:其余单点效果(N9 追加一击、N10 解冻 / 自损、N11 揭示)----
+
+        /// <summary>追加一击(N9,星火 / 烈焚):伤害 = 本体伤害基数(TraitRules.BodyDamageOf,吃等级与 L3)× Value% × 攻击力,
+        /// 按来源字元素走 DamageEnemy(过生克 / 护甲)。发数:PerBurningHit = 本次出字命中过、出字前带灼的敌人数(0 则整条跳过,
+        /// 一个随机数都不摇),否则 1。每发各自选目标(Random 走 _traitRandom);目标已死 / 不满足条件则这一发作罢,
+        /// 暴击(_random)只在真的出手时摇。追加的一击不进 HitTargets、不触发暴击时特性。</summary>
+        private void ExtraStrike(EffectDef effect, int targetIndex, CharDef def, bool attackMode, int cardLevel, Element attacker)
+        {
+            int strikes = 1;
+            if (effect.PerBurningHit)
+            {
+                strikes = 0;
+                foreach (int i in _cast.HitTargets) if (PreCastBurnStacksOf(i) > 0) strikes++;
+            }
+            if (strikes == 0 || effect.Value <= 0) return;
+            int body = MetaRules.ScaleEffectValue(EffectKind.DamageSingle, TraitRules.BodyDamageOf(EffectsOf(def, attackMode), def), cardLevel);
+            body = ApplyElementPercent(body, ElementPercentOf(attacker), EffectKind.DamageSingle);
+            int damage = ScaleByAttack(body * effect.Value / 100);
+            if (damage <= 0) return;
+            for (int n = 0; n < strikes; n++)
+            {
+                var picked = PickTargets(effect, targetIndex);
+                if (picked.Count == 0) continue;
+                int ti = picked[0];
+                if (!_enemies[ti].Alive || !OnlyIfMet(effect, ti)) continue;
+                DamageEnemy(ti, damage, attacker, crit: RollCrit(), attackerRef: UnitRef.Player);
+            }
+        }
+
+        /// <summary>解冻(N10,水火相激):移除冻结(按「结束」挂等长霜抗,R1)、负的 SpeedModifier(减速;正的是加速,不动)、
+        /// 冰滞(照自然结束给霜抗 N+1,R1b)。冰缚的标记不跟着移除。都没有时空转。</summary>
+        private void ThawOn(int enemyIndex)
+        {
+            var bag = _enemies[enemyIndex].Statuses;
+            var freeze = bag.Find(StatusKind.Freeze);
+            if (freeze != null)
+            {
+                bag.Remove(StatusKind.Freeze);
+                if (freeze.Magnitude > 0)
+                    ApplyStatus(bag, new StatusEffect
+                    {
+                        Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = freeze.Magnitude,
+                    }, UnitRef.Enemy(enemyIndex), UnitRef.None);
+            }
+            foreach (var slow in bag.All.Where(x => x.Kind == StatusKind.SpeedModifier && x.Magnitude < 0).ToList())
+                bag.RemoveEntry(slow);
+            var stall = bag.Find(StatusKind.IceStall);
+            if (stall != null)
+            {
+                bag.RemoveEntry(stall);
+                ApplyStatus(bag, new StatusEffect
+                {
+                    Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = stall.Magnitude + 1,
+                }, UnitRef.Enemy(enemyIndex), UnitRef.None);
+            }
+        }
+
+        /// <summary>自损(N10b,玉石俱焚,G9):失去 ⌊当前生命 × percent%⌋,至少留 1 点;不走护盾 / 护甲,不发 PlayerHit(R4 不算受击),
+        /// 但照常检查 50% 阈值(阈值不是受击)。</summary>
+        private void PaySelfCost(int percent)
+        {
+            int loss = Math.Min((int)((long)PlayerHp * percent / 100), PlayerHp - 1);
+            if (loss <= 0) return;
+            int hpBefore = PlayerHp;
+            PlayerHp -= loss;
+            CheckThreshold(UnitRef.Player, hpBefore, PlayerHp, _config.PlayerMaxHp);
+        }
+
+        /// <summary>揭示(N11,光耀):通假字现形;生僻字直接被读懂。两者都发 EnemyRevealed;普通敌人 / 已揭示过的空转。</summary>
+        private void RevealOn(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null)
+            {
+                enemy.ApparentElement = enemy.Element;
+                _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
+            }
+            else RevealDisguise(enemyIndex);
+        }
     }
 }

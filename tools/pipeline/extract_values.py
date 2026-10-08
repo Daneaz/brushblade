@@ -92,6 +92,10 @@ VALUELESS_EFFECTS = {
     # 回敬的效果写在 `onHit` 段里(见 ON_HIT_TOKEN)。带数值的 `Mine N` / `Retaliate N` 走通用正则。
     "Mine": {"kind": "Mine", "value": 0},
     "Retaliate": {"kind": "Retaliate", "value": 0},
+    # D2-火 Task 5(附录 N10 / N11):解冻(水火相激)、揭示(光耀),Value 不用;可写 `pick X` / `if X`。
+    # 自损 `SelfCost N` 与追加一击 `ExtraStrike N` 带数值,走通用正则。
+    "Thaw": {"kind": "Thaw", "value": 0},
+    "Reveal": {"kind": "Reveal", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -226,7 +230,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "BurnScale",   # D2-火 N1
                     # D2-火 Task 3 灼附着族(写 pick BurnedByThisCast)
                     "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash",
-                    "Mine"}   # D2-火 Task 4 埋雷
+                    "Mine",   # D2-火 Task 4 埋雷
+                    "ExtraStrike", "Thaw", "Reveal"}   # D2-火 Task 5
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
@@ -268,6 +273,9 @@ SCALE_HOST_KINDS = {"Amplify", "HealSelf"}
 PER_HIT_TOKEN = "perHit"
 HIT_BURN_TOKEN = "hitBurn"
 HIT_SETTLE_TOKEN = "hitSettle"
+# D2-火 Task 5(附录 N9,星火):`perBurningHit` —— 追加一击按「本次出字命中过、出字前带灼的敌人」每名一发。
+# 无数值的布尔标记,挂本格唯一的 ExtraStrike;没有宿主就报错(否则静默消失)。
+PER_BURNING_HIT_TOKEN = "perBurningHit"
 PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment"}
 # 受击回敬(D2-火 Task 4,Q23 通用形态):`onHit` 之后的全部 token 是「我方被命中时对攻击者结算的效果」,挂到本格唯一的
 # Retaliate 上,落进 chars.json 的 perHit 字段(与每击附带同一个字段、同一种段式写法)。只收作用于攻击者的非伤害效果,
@@ -911,6 +919,13 @@ def _parse_effects(config, char, on_hit_host=False):
         if len(body_percent) > 1 or len(hosts) != 1:
             raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle / Mine")
         hosts[0]["bodyPercent"] = int(body_percent[0])
+
+    if f"`{PER_BURNING_HIT_TOKEN}`" in config:
+        consumed.add(PER_BURNING_HIT_TOKEN)
+        hosts = [e for e in effects if e["kind"] == "ExtraStrike"]
+        if len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{PER_BURNING_HIT_TOKEN}` 只能配本格唯一的一条 ExtraStrike")
+        hosts[0]["perBurningHit"] = True
 
     _attach_battles(config, char, effects, consumed)
     _attach_modifier_tokens(config, char, effects, consumed)

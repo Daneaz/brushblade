@@ -352,6 +352,25 @@ namespace Brushblade.Presentation
                                 ? Strings.T("collection.trait.retaliate.desc.cap", ("cap", e.Value))
                                 : Strings.T("collection.trait.retaliate.desc"));
                         break;
+                    // 其余单点效果(D2-火 Task 5):没有对应图标,走纯文字 chip(同回敬)
+                    case EffectKind.ExtraStrike:
+                        AddWord(traits, Strings.T("collection.trait.extra_strike.chip"),
+                            Strings.T("collection.trait.extra_strike.name"),
+                            Strings.T("collection.trait.extra_strike.desc", ("percent", e.Value)));
+                        break;
+                    case EffectKind.Thaw:
+                        AddWord(traits, Strings.T("collection.trait.thaw.chip"),
+                            Strings.T("collection.trait.thaw.name"), Strings.T("collection.trait.thaw.desc"));
+                        break;
+                    case EffectKind.SelfCost:
+                        AddWord(traits, Strings.T("collection.trait.self_cost.chip"),
+                            Strings.T("collection.trait.self_cost.name"),
+                            Strings.T("collection.trait.self_cost.desc", ("value", e.Value)));
+                        break;
+                    case EffectKind.Reveal:
+                        AddWord(traits, Strings.T("collection.trait.reveal.chip"),
+                            Strings.T("collection.trait.reveal.name"), Strings.T("collection.trait.reveal.desc"));
+                        break;
                     case EffectKind.Seed:
                         // 种(D1 Task 6):图标 seed,Value 吃等级、回合不吃
                         AddTrait(traits, "seed", v.ToString(),

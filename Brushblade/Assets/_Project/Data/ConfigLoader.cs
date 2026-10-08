@@ -100,6 +100,7 @@ namespace Brushblade.Data
             public int PerHitFrom { get; set; } = 1;        // 每击附带从第几击起
             public int ShotPercent { get; set; } = 100;     // 散射每一发的伤害百分比
             public int MinBurn { get; set; }                // D2-火 Task 3:附着减攻的门槛(目标自身灼 ≥ N 层才生效,炽焰)
+            public bool PerBurningHit { get; set; }         // D2-火 Task 5:追加一击按「命中过的出字前带灼敌人」每名一发(星火)
         }
 
         private sealed class CampaignFileDto
@@ -786,6 +787,13 @@ namespace Brushblade.Data
                 if (kind == EffectKind.Mine && effect.Value <= 0 && effect.BodyPercent <= 0)
                     throw new ConfigException($"字「{dto.Id}」的埋雷(Mine)须写伤害量(value > 0 或 bodyPercent N)");
                 ValidateFireOps(dto.Id, kind, effect);
+                // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)
+                if (effect.PerBurningHit && kind != EffectKind.ExtraStrike)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 perBurningHit(只给 ExtraStrike)");
+                if (kind == EffectKind.ExtraStrike && effect.Value <= 0)
+                    throw new ConfigException($"字「{dto.Id}」的追加一击(ExtraStrike)须写本体百分比 > 0:{effect.Value}");
+                if (kind == EffectKind.SelfCost && (effect.Value < 1 || effect.Value > 99))
+                    throw new ConfigException($"字「{dto.Id}」的自损(SelfCost)须为当前生命的 1–99%:{effect.Value}");
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 var augmentKind = EffectKind.DamageSingle;
@@ -828,7 +836,7 @@ namespace Brushblade.Data
                     effect.RetainPercent, effect.PortionPercent,
                     ParseEnum(effect.ScaleBy, ScaleBasis.None, dto.Id, "计数缩放口径"), effect.ScaleCap,
                     effect.PerHit == null ? null : ParseEffects(dto, effect.PerHit), effect.PerHitFrom, effect.ShotPercent,
-                    effect.MinBurn));
+                    effect.MinBurn, effect.PerBurningHit));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)

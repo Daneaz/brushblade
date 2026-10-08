@@ -36,7 +36,8 @@ namespace Brushblade.Core
                 // D2-火 Task 3 灼附着族(数据写 pick BurnedByThisCast)
                 or EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
                 or EffectKind.BurnBurst or EffectKind.BurnBacklash
-                or EffectKind.Mine => true,   // D2-火 Task 4 埋雷
+                or EffectKind.Mine   // D2-火 Task 4 埋雷
+                or EffectKind.ExtraStrike or EffectKind.Thaw or EffectKind.Reveal => true,   // D2-火 Task 5
             _ => false,
         };
 

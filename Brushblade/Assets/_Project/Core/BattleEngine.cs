@@ -1980,13 +1980,16 @@ namespace Brushblade.Core
                     // 灼层翻倍(D2-火 N1):单体写法翻倍的是目标的灼
                     || effect.Kind == EffectKind.BurnScale
                     // 埋雷(D2-火 N7):埋在目标身上
-                    || effect.Kind == EffectKind.Mine)
+                    || effect.Kind == EffectKind.Mine
+                    // D2-火 Task 5:追加一击 / 解冻 / 揭示写 Primary 时落在主目标上
+                    || effect.Kind == EffectKind.ExtraStrike || effect.Kind == EffectKind.Thaw
+                    || effect.Kind == EffectKind.Reveal)
                     return true;
             return false;
         }
 
         /// <summary>格挡反击的基数:攻击面首条 DamageSingle 的 Value;无攻击面读 Effects;都没有为 0。</summary>
-        private static int AttackBaseOf(CharDef def)
+        internal static int AttackBaseOf(CharDef def)
         {
             foreach (var e in def.AttackEffects)
                 if (e.Kind == EffectKind.DamageSingle) return e.Value;
@@ -3156,6 +3159,9 @@ namespace Brushblade.Core
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
+            // 自损(D2-火 N10b / G9,玉石俱焚):出字开头、出字前快照之后结算;循环里的 SelfCost 分支空转
+            foreach (var castEffect in castEffects)
+                if (castEffect.Kind == EffectKind.SelfCost && castEffect.OpeningBattles == 0) PaySelfCost(castEffect.Value);
             foreach (var castEffect in castEffects) ResolveEffect(castEffect, targetIndex);
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
@@ -3750,6 +3756,20 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.BurnBurst:
                         BurstBurn(effect, targetIndex);   // 焚城结算(N6,只由 ResolveDefeat 入队的反应走到)
+                        break;
+                    // 其余单点效果(D2-火 Task 5,附录 N9 / N10 / N11)
+                    case EffectKind.ExtraStrike:
+                        ExtraStrike(effect, targetIndex, def, attackMode, cardLevel, attacker);
+                        break;
+                    case EffectKind.Thaw:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ThawOn(ti);
+                        break;
+                    case EffectKind.SelfCost:
+                        break;   // 已在出字开头结算(PaySelfCost)
+                    case EffectKind.Reveal:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) RevealOn(ti);
                         break;
                     case EffectKind.Quench:
                         // 蓄热(2026-09-16,热):清空目标灼烧层数,每层转成本场永久的 _burnPerStack

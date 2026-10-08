@@ -143,7 +143,7 @@ namespace Brushblade.Core
                     _cast.Enqueued[t] = used + 1;
                 }
                 Enqueue(new Reaction(_cast.TraitDef.Id, element,
-                    t.Effects.Select(e => TraitRules.ForCast(e, t, _cast.TraitDef.Id, body)).ToList(),
+                    t.Effects.Select(e => TraitRules.ForCast(e, t, _cast.TraitDef, body)).ToList(),
                     enemyIndex, TriggerDepth + 1));
             }
         }

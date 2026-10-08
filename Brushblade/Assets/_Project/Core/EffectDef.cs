@@ -158,6 +158,16 @@ namespace Brushblade.Core
                         // 本回合我方(玩家 / 召唤物)每被敌人的挥击命中一次(免疫挡下也算,打空不算,铁画反噬不算),
                         // 就对**攻击者**结算一次 PerHit 里的效果(作为特性反应入队,下一个安全点兑现,R4)。
                         // Value = 每回合触发上限(0 = 不限),离散。PerHit 里不能有伤害(§5.2 第 3 律的 60% 反伤预算因此不涉及)。
+        // ---- D2-火 Task 5:其余单点效果(附录 N9 / N10 / N11)。⚠ 只在末尾追加 ----
+        ExtraStrike,    // 追加一击(星火 / 烈焚):Value = 本体百分比(离散)。伤害 = 本面本体首条 DamageSingle(吃等级;本面没有则取攻击面,
+                        // Task 4 Ruling 1)× Value% × 攻击力,火 / 心按来源字元素走 DamageEnemy(过生克 / 护甲,照常摇暴击 _random)。
+                        // 支持 Pick / OnlyIf(Random 走 _traitRandom);PerBurningHit = 本次出字命中过的、出字前带灼的敌人每名一发。
+        Thaw,           // 解冻(水火相激):移除目标的冻结 / 减速(负 SpeedModifier)/ 冰滞。冻结按「结束」挂等长霜抗(R1),
+                        // 冰滞照自然结束给 N+1。Value 不用。支持 Pick / OnlyIf。
+        SelfCost,       // 自损(玉石俱焚,G9):出字开头失去当前生命 Value%(向下取整),不走护盾 / 护甲、不算受击(R4,不发 PlayerHit),
+                        // 但会触发 50% 阈值;至少留 1 点,不会致死。Value 离散。
+        Reveal,         // 揭示(光耀):通假字现形(RevealDisguise)、生僻字直接被读懂(ApparentElement = Element),发 EnemyRevealed;
+                        // 其余目标空转。Value 不用。支持 Pick / OnlyIf。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -384,6 +394,10 @@ namespace Brushblade.Core
         /// (写进 <see cref="StatusEffect.MinBurn"/>,EnemyState.Attack 读)。0 = 无门槛(缺省)。只给附着的 Weaken。</summary>
         public int MinBurn { get; }
 
+        /// <summary>追加一击的发数口径(D2-火 N9,星火):true = 本次出字命中过(HitTargets)的敌人里,出字前带灼的每名各追加一发
+        /// (每发各自选目标);false = 一发(缺省)。只给 ExtraStrike。</summary>
+        public bool PerBurningHit { get; }
+
         /// <summary>焚城结算的火力(D2-火 N6):只在 ResolveDefeat 入队的 BurnBurst 反应上非 0 —— 死者灼的火力
         /// (StatusEffect.Potency)。字表对象恒为 0。</summary>
         internal int BurstPotency { get; private set; }
@@ -408,7 +422,8 @@ namespace Brushblade.Core
             EffectPick pick = EffectPick.Primary, bool keepStacks = false, bool percentOfMax = false,
             StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0,
             int retainPercent = 0, int portionPercent = 100, ScaleBasis scaleBy = ScaleBasis.None, int scaleCap = 0,
-            IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100, int minBurn = 0)
+            IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100, int minBurn = 0,
+            bool perBurningHit = false)
         {
             Kind = kind;
             Value = value;
@@ -453,6 +468,7 @@ namespace Brushblade.Core
             PerHitFrom = perHitFrom <= 0 ? 1 : perHitFrom;
             ShotPercent = shotPercent <= 0 ? 100 : shotPercent;
             MinBurn = minBurn;
+            PerBurningHit = perBurningHit;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -475,7 +491,7 @@ namespace Brushblade.Core
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
                 AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
                 RetainPercent, PortionPercent, ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
-                MinBurn)
+                MinBurn, PerBurningHit)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,
