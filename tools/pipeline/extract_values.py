@@ -88,6 +88,10 @@ VALUELESS_EFFECTS = {
     "BurnHold": {"kind": "BurnHold", "value": 0},
     "BurnBurst": {"kind": "BurnBurst", "value": 0},
     "BurnBacklash": {"kind": "BurnBacklash", "value": 0},
+    # D2-火 Task 4(附录 N7 / N8):`Mine` 不带数值时伤害由 `bodyPercent N` 给出;`Retaliate` 不带数值 = 每回合不限次,
+    # 回敬的效果写在 `onHit` 段里(见 ON_HIT_TOKEN)。带数值的 `Mine N` / `Retaliate N` 走通用正则。
+    "Mine": {"kind": "Mine", "value": 0},
+    "Retaliate": {"kind": "Retaliate", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -221,7 +225,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "BurnSettleNow", "Detonate", "Seed", "Vulnerable",
                     "BurnScale",   # D2-火 N1
                     # D2-火 Task 3 灼附着族(写 pick BurnedByThisCast)
-                    "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"}
+                    "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash",
+                    "Mine"}   # D2-火 Task 4 埋雷
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
@@ -264,6 +269,11 @@ PER_HIT_TOKEN = "perHit"
 HIT_BURN_TOKEN = "hitBurn"
 HIT_SETTLE_TOKEN = "hitSettle"
 PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment"}
+# 受击回敬(D2-火 Task 4,Q23 通用形态):`onHit` 之后的全部 token 是「我方被命中时对攻击者结算的效果」,挂到本格唯一的
+# Retaliate 上,落进 chars.json 的 perHit 字段(与每击附带同一个字段、同一种段式写法)。只收作用于攻击者的非伤害效果,
+# 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
+ON_HIT_TOKEN = "onHit"
+RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vulnerable", "Slow", "Freeze"}
 
 
 def _attach_per_hit(config, char, effects, riders, start):
@@ -285,6 +295,20 @@ def _attach_per_hit(config, char, effects, riders, start):
         if start < 1:
             raise ValueError(f"{char}:`perHit {start}` 须 ≥ 1")
         host["perHitFrom"] = start
+
+
+def _attach_on_hit(config, char, effects, riders):
+    """把回敬效果 riders 挂到本格唯一的 Retaliate 上(chars.json 字段 perHit)。"""
+    hosts = [e for e in effects if e["kind"] == "Retaliate"]
+    if len(hosts) != 1:
+        raise ValueError(f"{char}:配置格「{config}」写了 `{ON_HIT_TOKEN}`,但本格没有唯一的一条 `Retaliate` 可挂 —— 它会静默消失。")
+    if not riders:
+        raise ValueError(f"{char}:配置格「{config}」的 `{ON_HIT_TOKEN}` 后面没有效果")
+    for r in riders:
+        if r["kind"] not in RETALIATE_ALLOWED or set(r) & {"onlyIf", "pick", "riderOf", "bodyPercent", "perHit", "openingBattles"}:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ON_HIT_TOKEN}` 段只能是对攻击者的非伤害效果 {sorted(RETALIATE_ALLOWED)},"
+                             f"不能带条件门 / 选择器 / 附着:{r}")
+    hosts[0]["perHit"] = riders
 
 
 def _attach_fire_ops(config, char, effects, consumed):
@@ -643,7 +667,7 @@ def _attach_ally_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 
 
-def _parse_effects(config, char):
+def _parse_effects(config, char, on_hit_host=False):
     """「`DamageSingle 30` + `All` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
 
     char 只被召唤分支用到(当 summonChar),其余 kind 一概不看第二个参数。"""
@@ -652,6 +676,16 @@ def _parse_effects(config, char):
     # (「手写映射表认不得的标记会无声消失」)。所以结尾对一遍账:
     # 配置格里出现过的 token 减去被消费的,剩下的一律报错。
     # 每击附带(D2-火 N4b / Q23):`perHit [N]` 把格子切成两段 —— 前段照常解析,后段解析成每击附带的效果列表
+    # 受击回敬(D2-火 Task 4):`onHit` 同样把格子切成两段,后段挂到本格的 Retaliate 上
+    on_hit = list(re.finditer(rf"`{ON_HIT_TOKEN}`", config))
+    if on_hit:
+        if len(on_hit) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{ON_HIT_TOKEN}`,只能有一段")
+        m = on_hit[0]
+        effects = _parse_effects(config[:m.start()], char, on_hit_host=True)
+        _attach_on_hit(config, char, effects, _parse_effects(config[m.end():], char) if config[m.end():].strip() else [])
+        return effects
+
     per_hit = list(re.finditer(rf"`{PER_HIT_TOKEN}(?: (\d+))?`", config))
     if per_hit:
         if len(per_hit) > 1:
@@ -873,9 +907,9 @@ def _parse_effects(config, char):
     body_percent = re.findall(rf"`{BODY_PERCENT_TOKEN} (\d+)`", config)
     if body_percent:
         consumed.add(BODY_PERCENT_TOKEN)
-        hosts = [e for e in effects if e["kind"] == "DamageSingle"]
+        hosts = [e for e in effects if e["kind"] in ("DamageSingle", "Mine")]   # 埋雷(D2-火 Task 4)= 本体 × N%
         if len(body_percent) > 1 or len(hosts) != 1:
-            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle")
+            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle / Mine")
         hosts[0]["bodyPercent"] = int(body_percent[0])
 
     _attach_battles(config, char, effects, consumed)
@@ -920,4 +954,10 @@ def _parse_effects(config, char):
     unknown = all_tokens - consumed
     if unknown:
         _raise_unconsumed_tokens(char, config, unknown)
+    # D2-火 Task 4:地雷没有伤害量、回敬没写回敬什么,落进 chars.json 都是空转(ConfigLoader 同样拦)
+    for e in effects:
+        if e["kind"] == "Mine" and e["value"] <= 0 and "bodyPercent" not in e:
+            raise ValueError(f"{char}:配置格「{config}」的 `Mine` 须写伤害量(`Mine N` 或 `bodyPercent N`)")
+        if e["kind"] == "Retaliate" and not on_hit_host:
+            raise ValueError(f"{char}:配置格「{config}」的 `Retaliate` 须用 `{ON_HIT_TOKEN}` 段写回敬的效果")
     return effects

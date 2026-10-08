@@ -780,8 +780,11 @@ namespace Brushblade.Data
                 if (kind == EffectKind.BurnGrow && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的上炎(BurnGrow)每回合至少 +1 层,当前:{effect.Value}");
                 // bodyPercent(D2-火 E5)只在伤害上解析(TraitRules.ForCast);写在别处会静默无效 —— 拦下
-                if (effect.BodyPercent != 0 && (kind != EffectKind.DamageSingle || effect.BodyPercent < 0))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle 能按本体百分比取值,且须 > 0)");
+                if (effect.BodyPercent != 0 && ((kind != EffectKind.DamageSingle && kind != EffectKind.Mine) || effect.BodyPercent < 0))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle / Mine 能按本体百分比取值,且须 > 0)");
+                // 埋雷(D2-火 Task 4):没有伤害量的地雷炸了也是 0 —— 拦下
+                if (kind == EffectKind.Mine && effect.Value <= 0 && effect.BodyPercent <= 0)
+                    throw new ConfigException($"字「{dto.Id}」的埋雷(Mine)须写伤害量(value > 0 或 bodyPercent N)");
                 ValidateFireOps(dto.Id, kind, effect);
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
@@ -847,10 +850,31 @@ namespace Brushblade.Data
         private static void ValidateFireOps(string id, EffectKind kind, EffectDto e)
         {
             bool damageLike = kind == EffectKind.DamageSingle || kind == EffectKind.Reshape;
-            if (e.PerHit != null)
+            // 受击回敬(D2-火 Task 4,Q23):perHit 段 = 我方被命中时对攻击者结算的效果
+            bool retaliate = kind == EffectKind.Retaliate;
+            if (retaliate)
+            {
+                if (e.PerHit == null || e.PerHit.Count == 0)
+                    throw new ConfigException($"字「{id}」的受击回敬(Retaliate)必须用 perHit 写回敬的效果");
+                if (e.Value < 0)
+                    throw new ConfigException($"字「{id}」的受击回敬每回合上限须 ≥ 0(0 = 不限):{e.Value}");
+                if (e.PerHitFrom != 1)
+                    throw new ConfigException($"字「{id}」的受击回敬不能写 perHitFrom");
+                foreach (var child in e.PerHit)
+                {
+                    bool ok = Enum.TryParse(child.Kind, out EffectKind childKind) && BattleEngine.RetaliateAllows(childKind)
+                        && string.IsNullOrEmpty(child.OnlyIf) && string.IsNullOrEmpty(child.RiderOf)
+                        && (string.IsNullOrEmpty(child.Pick) || child.Pick == nameof(EffectPick.Primary))
+                        && child.BodyPercent == 0 && child.PerHit == null && child.OpeningBattles == 0;
+                    if (!ok)
+                        throw new ConfigException($"字「{id}」的受击回敬里只能是对攻击者的非伤害效果(灼 / 流血 / 减攻 / 致盲 / 破甲 / 标记 / 减速 / 冻结),"
+                            + $"不能带条件门 / 附着 / 选择器 / 本体百分比 / 嵌套:{child.Kind}");
+                }
+            }
+            else if (e.PerHit != null)
             {
                 if (!damageLike)
-                    throw new ConfigException($"字「{id}」的 {kind} 效果不能写 perHit(只有 DamageSingle / Reshape 有「每一击」)");
+                    throw new ConfigException($"字「{id}」的 {kind} 效果不能写 perHit(只有 DamageSingle / Reshape 有「每一击」,Retaliate 写回敬)");
                 foreach (var child in e.PerHit)
                 {
                     bool bad = child.Kind == nameof(EffectKind.DamageSingle) || child.Kind == nameof(EffectKind.Reshape)

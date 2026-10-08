@@ -3,7 +3,8 @@ using System.Linq;
 
 namespace Brushblade.Core
 {
-    /// <summary>火系专属机制(Plan D2-火):灼操作族(Task 2,附录 N1 / N2 / N4)、灼附着族与焚城(Task 3,N5 / N6)。ApplyEffects 的 switch 只留一行分派,
+    /// <summary>火系专属机制(Plan D2-火):灼操作族(Task 2,附录 N1 / N2 / N4)、灼附着族与焚城(Task 3,N5 / N6)、
+    /// 敌人出手前挂点与受击回敬(Task 4,N7 / N8)。ApplyEffects 的 switch 只留一行分派,
     /// 实现放这里,免得那个 switch 继续膨胀。引爆的 retain / portion(N3)改在 <c>Detonate</c> 原处;每击附带(N4b)
     /// 在 DamageSingle 的多段循环里递归调用 ResolveEffect(BattleEngine.cs)。
     ///
@@ -207,6 +208,110 @@ namespace Brushblade.Core
                 }
                 else CheckBossPhase(ti);
             }
+        }
+            // ---- Task 4:敌人出手前挂点(N7,埋雷 / 焚身)与受击回敬(N8,Q23 通用形态)----
+
+        /// <summary>焚身每回合(玩家回合开始清零)的结算次数上限,按载体的特性键计。</summary>
+        internal const int BacklashPerTurn = 2;
+
+        /// <summary>受击回敬里允许的效果(ConfigLoader 与管线共用口径):作用于攻击者的**非伤害**敌方侧效果。
+        /// 不收伤害类,所以回敬不占 §5.2 第 3 律的 60% 反伤预算;日后要回敬伤害,须先把它接进那份预算再放进来。</summary>
+        public static bool RetaliateAllows(EffectKind kind) => kind switch
+        {
+            EffectKind.BurnSingle or EffectKind.Bleed or EffectKind.Weaken or EffectKind.Blind
+                or EffectKind.ArmorBreak or EffectKind.Vulnerable or EffectKind.Slow or EffectKind.Freeze => true,
+            _ => false,
+        };
+
+        /// <summary>埋雷:给选中的敌人挂 Mine(Magnitude = 出字时按攻击力定死的伤害,同流血的快照语义;同源取大,ApplyStatus)。</summary>
+        private void PlantMine(EffectDef effect, int value, int targetIndex, string sourceId)
+        {
+            foreach (int ti in PickTargets(effect, targetIndex))
+            {
+                if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Mine, Polarity = StatusPolarity.Debuff,
+                    Magnitude = ScaleByAttack(value), TurnsLeft = -1, SourceId = sourceId, TraitKey = effect.TraitKey,
+                }, UnitRef.Enemy(ti), UnitRef.Player);
+            }
+        }
+
+        /// <summary>受击回敬:给玩家挂 Retaliate(本回合有效,TurnsLeft 1 = 玩家下回合开始到期,同 DamageCut)。
+        /// OnHit 记**未缩放**的效果(OpeningEffect 形态,可进存档 JSON),触发时按来源字等级结算;Magnitude = 每回合上限(离散)。</summary>
+        private void ArmRetaliate(EffectDef effect, string sourceId, Element element)
+        {
+            if (effect.PerHit.Count == 0) return;
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = StatusKind.Retaliate, Polarity = StatusPolarity.Buff,
+                Magnitude = Math.Max(0, effect.Value), TurnsLeft = 1, SourceId = sourceId, TraitKey = effect.TraitKey,
+                OnHit = effect.PerHit.Select(e => OpeningEffect.Of(e, sourceId, element)).ToList(),
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>我方(玩家 / 召唤物)被敌人 <paramref name="enemyIndex"/> 的挥击命中:每条 Retaliate 各入队一条反应,
+        /// 目标 = 攻击者,在下一个安全点(该敌人这次动作之后)兑现。上限按特性键每回合计(0 = 不限)。
+        /// 没有 Retaliate 时一次判断即返回(恒等)。回敬效果不含伤害(ConfigLoader 白名单),不占 §5.2 第 3 律的 60% 反伤预算。</summary>
+        private void EnqueueRetaliation(int enemyIndex)
+        {
+            if (!_playerStatuses.Has(StatusKind.Retaliate)) return;
+            foreach (var s in _playerStatuses.All.Where(x => x.Kind == StatusKind.Retaliate).ToList())
+            {
+                if (s.OnHit == null || s.OnHit.Count == 0) continue;
+                if (s.Magnitude > 0 && !TryUseTrait("回敬:" + (s.TraitKey ?? s.SourceId), perTurn: s.Magnitude, perBattle: 0))
+                    continue;
+                // 特性键随效果带过去(G11):回敬挂的减攻 / 致盲与本体分开计时
+                var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
+                Enqueue(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
+            }
+        }
+
+        /// <summary>这次动作算不算「攻击」(G4):普攻与 Boss 技能释放都算;Boss 开始蓄力的那一拍不出手,不算。
+        /// 只读,不改蓄力计数(与 <c>ResolveBossTurn</c> 同判据)。</summary>
+        private bool StrikesThisAction(EnemyState enemy)
+        {
+            if (!enemy.IsBoss || enemy.IsCharging) return true;
+            var skill = enemy.Def.Phases[enemy.PhaseIndex].Skill;
+            if (skill == BossSkill.None || skill == BossSkill.Bulwark) return true;
+            return enemy.ChargeCounter + 1 < _config.BossChargeEvery;
+        }
+
+        /// <summary>出手前挂点(N7):ActOneEnemy 每次动作开头调。先炸地雷(每颗各炸一次、移除;心属性、无视护甲),
+        /// 再结算焚身(一次灼烧结算,正常减层;多条载体只结算一次,按载体的特性键每回合 <see cref="BacklashPerTurn"/> 次)。
+        /// R4:整段抬一层 TriggerDepth —— 这里打死的不触发焚城等死亡类被动(EnqueueBurnBurst / 击杀时特性都按深度跳过)。
+        /// 返回 false = 出手者死了:排空反应、判胜,调用方跳过这次出手。两种状态都没有时一次判断即返回(恒等)。</summary>
+        private bool SettlePreStrikeHooks(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            var bag = enemy.Statuses;
+            if (!bag.Has(StatusKind.Mine) && !bag.Has(StatusKind.BurnBacklashMark)) return true;
+            if (!StrikesThisAction(enemy)) return true;
+            EnterTrigger();
+            try
+            {
+                foreach (var mine in bag.All.Where(s => s.Kind == StatusKind.Mine).ToList())
+                {
+                    if (!enemy.Alive) break;
+                    bag.RemoveEntry(mine);
+                    if (mine.Magnitude > 0)
+                        DamageEnemy(enemyIndex, mine.Magnitude, Element.Heart,
+                            bypassDefense: true, allowBarb: false,
+                            source: EffectSource.Mine, attackerRef: UnitRef.Player);
+                }
+                if (enemy.Alive && bag.Has(StatusKind.Burn))
+                    foreach (var mark in bag.All.Where(s => s.Kind == StatusKind.BurnBacklashMark).ToList())
+                    {
+                        if (!TryUseTrait("焚身:" + (mark.TraitKey ?? mark.SourceId), perTurn: BacklashPerTurn, perBattle: 0)) continue;
+                        SettleBurnOn(enemyIndex);
+                        break;
+                    }
+            }
+            finally { ExitTrigger(); }
+            if (enemy.Alive) return true;
+            DrainReactions();
+            CheckWin();
+            return false;
         }
     }
 }

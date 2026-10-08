@@ -372,6 +372,7 @@ namespace Brushblade.Core
         BlockCounter, // 格挡反击(spec v7 §3.1,R4:特性伤害,受击/死亡类被动据此跳过)
         IronBarb,     // 钩子用:铁画反噬打到玩家(PlayerHit 的 Source;不进 BattleEvent)
         ShieldRecoil, // 反震(D1 Task 9):护盾吸收后按吸收量反弹;表现层按普通伤害飘字(来源标签归 Plan E)
+        Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -856,6 +857,7 @@ namespace Brushblade.Core
                 or EffectKind.Bleed
                 or EffectKind.SpendHeft or EffectKind.SpendWellspring
                 or EffectKind.Detonate or EffectKind.ArmorBreak
+                or EffectKind.Mine   // 埋雷(D2-火 Task 4):延时伤害,与流血 / 引爆同口径
                 or EffectKind.DefenseBuff
                 or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
                 or EffectKind.Blind
@@ -1976,7 +1978,9 @@ namespace Brushblade.Core
                     // 每次都空转(见 ApplyEffects 里 EffectKind.Quench 分支的 `targetIndex >= 0` 判断)。
                     || effect.Kind == EffectKind.Quench
                     // 灼层翻倍(D2-火 N1):单体写法翻倍的是目标的灼
-                    || effect.Kind == EffectKind.BurnScale)
+                    || effect.Kind == EffectKind.BurnScale
+                    // 埋雷(D2-火 N7):埋在目标身上
+                    || effect.Kind == EffectKind.Mine)
                     return true;
             return false;
         }
@@ -2917,6 +2921,10 @@ namespace Brushblade.Core
             {
                 if (!enemy.Alive) break; // 反伤可能在两次行动之间打死它
 
+                // 出手前挂点(D2-火 N7,G4):埋雷 → 焚身;出手者因此死亡则跳过这次出手。
+                // 冻结 / 魅惑那一拍在 ActEnemyTurn 里就分走了,走不到这里;没有这两种状态时一次判断即返回(恒等)
+                if (!SettlePreStrikeHooks(enemyIndex)) break;
+
                 if (enemy.IsBoss && ResolveBossTurn(enemyIndex, enemy))
                 {
                     DrainReactions();   // 安全点:每次动作之后
@@ -3726,6 +3734,12 @@ namespace Brushblade.Core
                         EqualizeBurn(burnPotency);   // 拉平(D2-火 N2)
                         break;
                     // 灼附着族(D2-火 Task 3,N5):干涸 / 上炎 / 四火 / 焚城标记 / 焚身载体,只挂在带本次出字所上之灼的目标上
+                    case EffectKind.Mine:
+                        PlantMine(effect, value, targetIndex, def.Id);
+                        break;
+                    case EffectKind.Retaliate:
+                        ArmRetaliate(effect, def.Id, attacker);
+                        break;
                     case EffectKind.HealBlock:
                     case EffectKind.BurnGrow:
                     case EffectKind.BurnHold:
@@ -4529,7 +4543,8 @@ namespace Brushblade.Core
                 // 照常写袋子、返回值不变(与 GainStacks 的 raiseHook 同口径)。
                 if (effect.Magnitude <= (bag.Find(StatusKind.Burn)?.Magnitude ?? 0)) raiseHook = false;
             }
-            else if (effect.Kind == StatusKind.Curse || effect.Kind == StatusKind.Seed || effect.Kind == StatusKind.Vulnerable)
+            else if (effect.Kind == StatusKind.Curse || effect.Kind == StatusKind.Seed || effect.Kind == StatusKind.Vulnerable
+                || effect.Kind == StatusKind.Mine)   // 埋雷(D2-火 Task 4):同源再埋取大,不叠
             {
                 // 减攻 / 种 / 标记同源刷新取强(D1 Task 5 / 6,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
                 // 同源 = 同 Kind + 同 SourceId + 同 TraitKey(bag.Apply 的去重键),不同来源各自并存
@@ -5468,6 +5483,8 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0));
                 return false;
             }
+            // 受击回敬(D2-火 N8):敌人的挥击命中即入队(免疫挡下也算;铁画反噬 allowReflect = false 不算)
+            if (allowReflect) EnqueueRetaliation(enemyIndex);
 
             // 百分比减伤(2026-09-16,推翻 E-b4 T2 的点数减法):**先折算护甲,再走免疫 / 护盾 / 血量**
             // (spec §4.1 的顺序不变,变的只是这一步怎么算)。DR = 甲/(甲+100),见 ApplyDefense。
@@ -5609,8 +5626,10 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0, summonIndex));
                 return false;
             }
+            // 受击回敬(D2-火 N8):召唤物被敌人挥击命中同样回敬(本方法的调用者只有敌人的普攻 / Boss 技能)
+            EnqueueRetaliation(enemyIndex);
 
-            int taken = WuxingResolver.ResolveEffect(damage, attacker, summon.Element);
+            int taken =WuxingResolver.ResolveEffect(damage, attacker, summon.Element);
             // 生克标记(2026-08-31):敌人打召唤物这一路本来就过生克(上面那句),标记跟着同一个倍率走。
             // 由 Core 标而不是让表现层拿两边属性自己推 —— 那会成为规则的第二个来源,
             // 与 SummonState.EffectiveAttack 那条注释说的是同一件事。

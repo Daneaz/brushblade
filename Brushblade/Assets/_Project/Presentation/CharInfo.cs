@@ -190,6 +190,9 @@ namespace Brushblade.Presentation
                     EffectKind.BurnHold => Strings.T("char.effect.burnhold"),
                     EffectKind.BurnBurst => Strings.T("char.effect.burnburst"),
                     EffectKind.BurnBacklash => Strings.T("char.effect.burnbacklash"),
+                    // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷的伤害吃等级与攻击力(出字时定死);回敬的上限是离散次数
+                    EffectKind.Mine => Strings.T("char.effect.mine", ("value", shown)),
+                    EffectKind.Retaliate => RetaliateText(e, def, cardLevel),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
@@ -256,7 +259,7 @@ namespace Brushblade.Presentation
                 // 计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数
                 parts.Append(ScaleText(e));
                 // 每击附带(D2-火 N4b):子效果逐条印,斜杠分隔(分号已是外层分隔符)
-                if (e.PerHit.Count > 0)
+                if (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate)   // 回敬的 perHit 段已印在它自己的文案里
                 {
                     string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
                     parts.Append(e.PerHitFrom > 1
@@ -268,6 +271,15 @@ namespace Brushblade.Presentation
                     parts.Append(Strings.T("char.effect.opening", ("battles", e.OpeningBattles)));
             }
             return parts.ToString();
+        }
+
+        /// <summary>受击回敬(D2-火 Task 4):回敬的效果逐条印(斜杠分隔,同每击附带);Value &gt; 0 时印每回合上限。</summary>
+        private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
+        {
+            string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
+            return e.Value > 0
+                ? Strings.T("char.effect.retaliate.cap", ("list", list), ("cap", e.Value))
+                : Strings.T("char.effect.retaliate", ("list", list));
         }
 
         /// <summary>反击增强的倍率(D1 Task 7):Value 100 → 「2」,50 → 「1.5」。</summary>

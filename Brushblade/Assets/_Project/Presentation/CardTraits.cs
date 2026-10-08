@@ -340,6 +340,18 @@ namespace Brushblade.Presentation
                         AddTrait(traits, "burn", "", Strings.T("collection.trait.burn_backlash.name"),
                             Strings.T("collection.trait.burn_backlash.desc"));
                         break;
+                    // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷共用 "burn" 图标(火的出手前爆炸);回敬是通用形态,走纯文字 chip
+                    case EffectKind.Mine:
+                        AddTrait(traits, "burn", v.ToString(), Strings.T("collection.trait.mine.name"),
+                            Strings.T("collection.trait.mine.desc", ("value", v)));
+                        break;
+                    case EffectKind.Retaliate:
+                        AddWord(traits, Strings.T("collection.trait.retaliate.chip"),
+                            Strings.T("collection.trait.retaliate.name"),
+                            e.Value > 0
+                                ? Strings.T("collection.trait.retaliate.desc.cap", ("cap", e.Value))
+                                : Strings.T("collection.trait.retaliate.desc"));
+                        break;
                     case EffectKind.Seed:
                         // 种(D1 Task 6):图标 seed,Value 吃等级、回合不吃
                         AddTrait(traits, "seed", v.ToString(),

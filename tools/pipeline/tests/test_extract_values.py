@@ -798,3 +798,39 @@ def test_d2fire_rider_family_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-火 Task 4:埋雷(Mine)与受击回敬(Retaliate + onHit 段)----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`Mine 50`", {"kind": "Mine", "value": 50}),
+    ("`Mine` `bodyPercent 200`", {"kind": "Mine", "value": 0, "bodyPercent": 200}),
+    ("`Mine 30` `pick All`", {"kind": "Mine", "value": 30, "pick": "All"}),
+])
+def test_d2fire_mine(config, expected):
+    assert _parse_effects(config, "炸") == [expected]
+
+
+def test_d2fire_retaliate_on_hit_section():
+    """烈焰护身:`onHit` 之后的 token 是回敬效果,挂到本格唯一的 Retaliate 上(写法同 perHit 段)。"""
+    effects = _parse_effects("`BurnAll 2` + `Retaliate` `onHit` `BurnSingle 2`", "烈")
+    assert effects == [{"kind": "BurnAll", "value": 2},
+                       {"kind": "Retaliate", "value": 0, "perHit": [{"kind": "BurnSingle", "value": 2}]}]
+    capped = _parse_effects("`Retaliate 1` `onHit` `Bleed 3` + `ArmorBreak 2` `turns 2`", "金")
+    assert capped == [{"kind": "Retaliate", "value": 1,
+                       "perHit": [{"kind": "Bleed", "value": 3}, {"kind": "ArmorBreak", "value": 2, "turns": 2}]}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Retaliate`", "onHit"),                                          # 回敬必须写 onHit 段
+    ("`BurnAll 2` `onHit` `BurnSingle 2`", "Retaliate"),               # onHit 没有宿主
+    ("`Retaliate` `onHit` `DamageSingle 5`", "onHit"),                 # 回敬里不能有伤害
+    ("`Retaliate` `onHit` `Weaken 10` `turns 2` `if Burning`", "onHit"),   # 不能带条件门
+    ("`Retaliate` `onHit` `Blind 10` `turns 2` `pick All`", "onHit"),            # 不能带选择器(对象就是攻击者)
+    ("`Retaliate` `onHit`", "onHit"),                                  # 空段
+    ("`Mine`", "Mine"),                                                # 地雷没有伤害量
+])
+def test_d2fire_task4_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

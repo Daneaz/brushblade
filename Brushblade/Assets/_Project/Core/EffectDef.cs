@@ -149,7 +149,15 @@ namespace Brushblade.Core
         BurnHold,       // 四火:挂 StatusKind.BurnHold(一次性)—— 该敌人下一次会减层的灼结算不减层,随后移除;重新上灼时刷新(G10)。Value 不用。
         BurnBurst,      // 焚城:带 riderOf = 挂 StatusKind.BurnBurstMark;该敌人死亡时(ResolveDefeat,非反应里打死,R4)入队一条不带 riderOf 的
                         // BurnBurst(Value = 死者剩余灼层数 S),对全体存活敌人按灼烧公式各扣一次血(火力 = 死者灼的火力),不改层数。
-        BurnBacklash,   // 焚身:挂 StatusKind.BurnBacklashMark(载体;出手前结算归 D2-火 Task 4)。Value 不用。
+        BurnBacklash,   // 焚身:挂 StatusKind.BurnBacklashMark(载体)。带它的敌人每次攻击前先受一次灼烧结算(每回合 2 次,D2-火 Task 4)。Value 不用。
+        // ---- D2-火 Task 4:敌人出手前与受击挂点(附录 N7 / N8)。⚠ 只在末尾追加 ----
+        Mine,           // 埋雷:给目标挂 StatusKind.Mine(Magnitude = ScaleByAttack(Value),出字时定死,同流血的快照语义;同源取大)。
+                        // 该敌人下一次攻击(普攻 / Boss 技能;冻结跳过、被魅惑那一击不算)前爆炸:自己受 Magnitude 点伤害(心属性、
+                        // 无视护甲),地雷移除;被炸死则取消这次出手(G4)。Value 吃卡等级;可写 bodyPercent(E5)。支持 Pick / OnlyIf。
+        Retaliate,      // 受击回敬(跨计划 Q23 通用形态,火:烈焰护身):给玩家挂 StatusKind.Retaliate(TurnsLeft 1,玩家下回合开始到期),
+                        // 本回合我方(玩家 / 召唤物)每被敌人的挥击命中一次(免疫挡下也算,打空不算,铁画反噬不算),
+                        // 就对**攻击者**结算一次 PerHit 里的效果(作为特性反应入队,下一个安全点兑现,R4)。
+                        // Value = 每回合触发上限(0 = 不限),离散。PerHit 里不能有伤害(§5.2 第 3 律的 60% 反伤预算因此不涉及)。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

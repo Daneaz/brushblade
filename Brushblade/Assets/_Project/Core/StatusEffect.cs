@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -89,7 +90,12 @@ namespace Brushblade.Core
         BurnGrow,         // 上炎(隐藏载体):该敌人每次行动开始、灼结算前 +Magnitude 层;TurnsLeft = 自己的回合数(按敌人行动递减)。
         BurnHold,         // 四火(隐藏载体,一次性):下一次会减层的灼结算不减层,随后移除。
         BurnBurstMark,    // 焚城(隐藏载体):该敌人死亡时对全体结算一次它剩下的灼(EffectKind.BurnBurst 反应)。
-        BurnBacklashMark, // 焚身(隐藏载体):出手前先受一次灼烧结算(D2-火 Task 4 接线)。
+        BurnBacklashMark, // 焚身(隐藏载体):出手前先受一次灼烧结算(D2-火 Task 4 接线,每回合 2 次,按 TraitKey 计)。
+        // ---- D2-火 Task 4:出手前与受击挂点(附录 N7 / N8) ----
+        Mine,             // 埋雷(仅敌人,可见;chip 待 designer 稿,V3):Magnitude = 爆炸伤害(出字时定死),TurnsLeft = -1,
+                          // SourceId = 字 ID、TraitKey = 特性键(同源取大)。该敌人下一次攻击前爆炸并移除。
+        Retaliate,        // 受击回敬(仅玩家,作用于玩家与全部召唤物;chip 待 designer 稿):OnHit = 对攻击者结算的效果,
+                          // Magnitude = 每回合触发上限(0 = 不限,按 TraitKey 计),TurnsLeft = 1(玩家回合开始到期),SourceId = 字 ID。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -99,7 +105,8 @@ namespace Brushblade.Core
         /// 入场护甲(DefenseBuff,TurnsLeft = -1)要跨场保留。</summary>
         public static bool IsBattleScoped(StatusKind kind) =>
             kind == StatusKind.Taunt || kind == StatusKind.Block || kind == StatusKind.Endure
-            || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost;
+            || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost
+            || kind == StatusKind.Retaliate;   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -172,12 +179,17 @@ namespace Brushblade.Core
         /// (目前只有 <see cref="StatusKind.Curse"/> 读:EnemyState.Attack)。0 = 无门槛(缺省,逐位恒等)。</summary>
         public int MinBurn { get; set; }
 
+        /// <summary>受击回敬(D2-火 Task 4,<see cref="StatusKind.Retaliate"/>):我方被命中时对攻击者结算的效果。
+        /// 用 <see cref="OpeningEffect"/> 当可序列化的效果形态(EffectDef 只读、进不了存档 JSON),BattlesLeft 不用。
+        /// 其余状态恒为 null。</summary>
+        public List<OpeningEffect> OnHit { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
             TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency, TraitKey = TraitKey,
-            MinBurn = MinBurn,
+            MinBurn = MinBurn, OnHit = OnHit?.Select(o => o.Clone()).ToList(),
         };
     }
 

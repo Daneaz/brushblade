@@ -830,6 +830,8 @@ namespace Brushblade.Core
             // D2-火 Task 3:灼附着族 —— 上炎的 Value 是层数,其余不用 Value(焚城反应的 Value = 死者剩余层数,离散)
             EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
                 or EffectKind.BurnBurst or EffectKind.BurnBacklash => false,
+            // D2-火 Task 4:受击回敬的 Value 是每回合次数上限(回敬的效果在触发时按来源字等级另行缩放);埋雷是伤害量,连续
+            EffectKind.Retaliate => false,
             _ => true,
         };
 

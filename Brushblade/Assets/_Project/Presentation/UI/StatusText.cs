@@ -263,6 +263,16 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.healblock.name"),
                         Duration(turnsLeft),
                         Strings.T("status.healblock.desc"));
+                case StatusKind.Mine:
+                    // 埋雷(D2-火 Task 4,V3):敌人身上,Core 已生效;战场 chip 等 designer 稿拍板,这里先让详情弹窗查得到。IconKey 留 null
+                    return new Info(null, Strings.T("status.mine.name"),
+                        Strings.T("status.duration.until_next_action"),
+                        Strings.T("status.mine.desc", ("magnitude", magnitude)));
+                case StatusKind.Retaliate:
+                    // 受击回敬(D2-火 Task 4,烈焰护身;金系复用):玩家身上,本回合。chip 等 designer 稿,IconKey 留 null
+                    return new Info(null, Strings.T("status.retaliate.name"),
+                        Strings.T("status.duration.this_turn"),
+                        Strings.T("status.retaliate.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句
