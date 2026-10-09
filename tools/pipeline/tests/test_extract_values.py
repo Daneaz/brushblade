@@ -1041,3 +1041,50 @@ def test_d2metal_morale_family_values():
         {"kind": "Morale", "value": 3}, {"kind": "MoraleOverflowShield", "value": 30}]
     assert _parse_effects("`MoraleArmor 5`", "鑫") == [{"kind": "MoraleArmor", "value": 5}]
     assert _parse_effects("`MoraleShield 40`", "鍂") == [{"kind": "MoraleShield", "value": 40}]
+
+
+# ---- D2-水 Task 1(附录 E14 / E15 / E17 / E18 / E19 / E25):敌方侧 token ----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 冷却:E14 条件 NotBoss
+    ("`Weaken 50` `turns 1` `if NotBoss`", "冷",
+     [{"kind": "Weaken", "value": 50, "onlyIf": "NotBoss", "turns": 1}]),
+    # 同寒 / 浩瀚 / 坚冰的选择器(E15)
+    ("`Freeze 2` `pick Column`", "淼", [{"kind": "Freeze", "value": 2, "pick": "Column"}]),
+    ("`Freeze 1` `pick HighestHp`", "淼", [{"kind": "Freeze", "value": 1, "pick": "HighestHp"}]),
+    # 坚冰:E17a StallPush + AdjacentOne
+    ("`Augment 50` `of Freeze` `field StallPush` + `Freeze 2` `pick AdjacentOne`", "冰",
+     [{"kind": "Augment", "value": 50, "augmentKind": "Freeze", "augmentField": "StallPush"},
+      {"kind": "Freeze", "value": 2, "pick": "AdjacentOne"}]),
+    # 冰冻三尺:E17b 带条件的 Augment,if 只挂在后一条上
+    ("`Augment 1` `of Freeze` `field Turns` + `Augment 1` `of Freeze` `field Turns` `if Slowed`", "冻",
+     [{"kind": "Augment", "value": 1, "augmentKind": "Freeze", "augmentField": "Turns"},
+      {"kind": "Augment", "value": 1, "augmentKind": "Freeze", "augmentField": "Turns", "onlyIf": "Slowed"}]),
+    # 倾盆:E18 每击附带里的只续减速
+    ("`Reshape` `hits 3` `hitPercent 40` `perHit` `Slow 1` `extend`", "淋",
+     [{"kind": "Reshape", "value": 0, "hitCount": 3, "hitPercent": 40,
+       "perHit": [{"kind": "Slow", "value": 1, "extend": True}]}]),
+    # 湮灭无踪:E19 斩杀条件门挂 Reshape
+    ("`Reshape` `ExecuteKill 25` `executeIf Frozen`", "湮",
+     [{"kind": "Reshape", "value": 0, "executeBelowPercent": 25, "executeKills": True, "executeIf": "Frozen"}]),
+    # 淋漓:E15 SlowedByThisCast + E25 whileSlowed,不写 turns
+    ("`Seed 30` `pick SlowedByThisCast` `whileSlowed`", "淋",
+     [{"kind": "Seed", "value": 30, "pick": "SlowedByThisCast", "whileSlowed": True}]),
+])
+def test_d2water_task1_enemy_side_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Augment 50` `of Slow` `field StallPush`", "StallPush"),        # StallPush 只配 Freeze
+    ("`Augment 1` `of Slow` `field Turns` `if Slowed`", "if"),          # 带条件 Augment 只支持冻结回合
+    ("`Freeze 1` `extend`", "extend"),                                  # extend 只挂 Slow
+    ("`DamageSingle 10` `executeIf Frozen`", "executeIf"),              # 没有斩杀
+    ("`DamageSingle 10` `ExecuteKill 25` `executeIf Nope`", "executeIf"),
+    ("`Weaken 30` `turns 1` `whileSlowed`", "whileSlowed"),             # whileSlowed 只挂 Seed
+    ("`Seed 30`", "Seed"),                                              # 不带 whileSlowed 的种仍须写 turns
+])
+def test_d2water_task1_enemy_side_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

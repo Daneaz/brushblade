@@ -620,6 +620,8 @@ namespace Brushblade.Core
             DamageCondition.PlayerHpAbove70, DamageCondition.HasSummon,
             // D2-金 Task 1(附录 E6)
             DamageCondition.MoraleFull,
+            // D2-水 Task 1(附录 E14)
+            DamageCondition.IsBoss, DamageCondition.NotBoss,
         };
 
         /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
@@ -628,7 +630,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 16 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 18 种),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -744,6 +746,27 @@ namespace Brushblade.Core
                     break;
                 case EffectPick.BurnedByThisCast:
                     foreach (int i in _cast.BurnedTargets) if (_enemies[i].Alive) result.Add(i);
+                    break;
+                // D2-水 Task 1(附录 E15):几何 / 名单 / 极值,一律不摇号
+                case EffectPick.Column:
+                    // 同寒:主目标所在列的其余存活敌人(列区间相交,跨排 Boss 去重),不含主目标
+                    foreach (int i in Targeting.ExpandTargets(_enemies, primary, TargetArea.Column, 0))
+                        if (i != primary && !result.Contains(i)) result.Add(i);
+                    break;
+                case EffectPick.AdjacentOne:
+                {
+                    int one = AdjacentOneOf(effect, primary);
+                    if (one >= 0) result.Add(one);
+                    break;
+                }
+                case EffectPick.HighestHp:
+                {
+                    int best = HighestHpEnemy();
+                    if (best >= 0) result.Add(best);
+                    break;
+                }
+                case EffectPick.SlowedByThisCast:
+                    foreach (int i in _cast.SlowedTargets) if (_enemies[i].Alive) result.Add(i);
                     break;
             }
             return result;
@@ -1956,7 +1979,8 @@ namespace Brushblade.Core
                 // Row / Adjacent 以主目标为中心,仍要选(D2-火 E2)
                 if (EffectPickRules.Supports(effect.Kind) && EffectPickRules.Effective(effect) is var pick
                     && pick != EffectPick.Primary)
-                    return pick == EffectPick.Row || pick == EffectPick.Adjacent;
+                    return pick == EffectPick.Row || pick == EffectPick.Adjacent
+                        || pick == EffectPick.Column || pick == EffectPick.AdjacentOne;   // D2-水 E15:以主目标为中心
                 // 全体(All)与连发一样不选目标(spec v7 §3.2)
                 if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter
                         && effect.Shape != TargetArea.All)
@@ -2693,6 +2717,8 @@ namespace Brushblade.Core
             foreach (var seed in enemy.Statuses.All.Where(s => s.Kind == StatusKind.Seed).ToList())
             {
                 if (Phase == BattlePhase.Lost) return;
+                // 淋漓(D2-水 E25):仅在减速中的种,敌人已不在减速中就跳过(不摇号、不发事件)
+                if (seed.WhileSlowed && enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier) >= 0) continue;
                 int slot = LowestHpRatioAllySlot();
                 if (slot == int.MinValue || seed.Magnitude <= 0) continue;
                 HealAlly(slot, AmplifyByWellspring(seed.Magnitude));
@@ -3168,17 +3194,27 @@ namespace Brushblade.Core
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
-            List<(EffectDef Effect, StatusEffect Status)> deferredMoraleBlocks = null;   // Ruling 11,见效果循环之后
+            // 推迟施加(Ruling 11 + D2-水 E16 同一条队列,按原顺序):Status 非 null = 按战意计次的格挡(状态已定死,只差次数);
+            // Status 为 null = 名单类效果(pick FrozenByThisCast / SlowedByThisCast),循环末尾再结算,名单才收得全
+            List<(EffectDef Effect, StatusEffect Status)> deferred = null;
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             // 自损(D2-火 N10b / G9,玉石俱焚):出字开头、出字前快照之后结算;循环里的 SelfCost 分支空转
             foreach (var castEffect in castEffects)
                 if (castEffect.Kind == EffectKind.SelfCost && castEffect.OpeningBattles == 0) PaySelfCost(castEffect.Value);
-            foreach (var castEffect in castEffects) ResolveEffect(castEffect, targetIndex);
+            foreach (var castEffect in castEffects)
+            {
+                // 冰封 / 浩荡 / 冰缚 / 淋漓等(D2-水 E16):「被本字冻结 / 减速」的名单要等本面全部效果(含 Lv8 新冻 / 新减速)
+                // 结算完才齐 —— 推迟到循环末尾。没有这类效果时整句不进分支,恒等。
+                if (IsRosterPick(castEffect)) (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((castEffect, null));
+                else ResolveEffect(castEffect, targetIndex);
+            }
             // 双金合璧(Ruling 11 / Q21):按战意计次的格挡等效果循环结束后再施加,次数取出字后的战意 ——
             // 排在 Block 之后的 Morale(池·蓄势)也要算进去。须在断金清空战意之前。普通 Block 仍在循环里当场施加。
-            if (deferredMoraleBlocks != null)
-                foreach (var (effect, status) in deferredMoraleBlocks)
+            // 名单类效果(E16)与之同队、按原顺序结算;敌人都死了时 PickTargets 只取活人,整条空转。
+            if (deferred != null)
+                foreach (var (effect, status) in deferred)
                 {
+                    if (status == null) { ResolveEffect(effect, targetIndex); continue; }
                     status.Magnitude = BlockCountOf(effect);
                     ApplyStatus(AllyStatuses(allySlot), status, AllyRef(allySlot), UnitRef.Player);
                 }
@@ -3365,8 +3401,8 @@ namespace Brushblade.Core
                             {
                                 // Magnitude 不在这里赋:ApplyStatus 会把冻结时长记进去(R1,结束时据此发霜抗)。
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
-                                TurnsLeft = value,
-                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                                TurnsLeft = value + FreezeBonusTurns(effect, ti),   // 冰冻三尺(D2-水 E17b),缺省 0
+                            }, UnitRef.Enemy(ti), UnitRef.Player, extraStallPush: effect.StallPushPercent);
                             // 「冻结成功」= 袋子里真挂上了 Freeze:Boss 吃的是冰滞(返回 true 但没有 Freeze),不算
                             if (applied && _enemies[ti].Statuses.Has(StatusKind.Freeze) && !_cast.FrozenTargets.Contains(ti))
                                 _cast.FrozenTargets.Add(ti);
@@ -3376,11 +3412,14 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                         {
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            // 倾盆(D2-水 E18):只续不挂,没有减速就空转;续上了照样算「被本字减速」
+                            if (effect.Extend) { if (ExtendSlow(ti, value)) RecordSlowed(ti); continue; }
                             ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
                                 Magnitude = -50, TurnsLeft = value, SourceId = def.Id,
                             }, UnitRef.Enemy(ti), UnitRef.Player);
+                            RecordSlowed(ti);   // 选择器 SlowedByThisCast(D2-水 E15)
                         }
                         break;
                     case EffectKind.Weaken:
@@ -3412,7 +3451,8 @@ namespace Brushblade.Core
                             ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Seed, Polarity = StatusPolarity.Debuff,
-                                Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                                Magnitude = value, TurnsLeft = Math.Max(1, SeedTurnsOf(effect, ti)), SourceId = def.Id,
+                                WhileSlowed = effect.WhileSlowed,   // 淋漓(D2-水 E25),缺省 false
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3743,7 +3783,7 @@ namespace Brushblade.Core
                         if (effect.ScaleBy == ScaleBasis.Morale)
                         {
                             // Ruling 11:次数按出字后战意 —— 反击量与附带在此定死,施加推迟到效果循环结束后
-                            (deferredMoraleBlocks ??= new List<(EffectDef, StatusEffect)>()).Add((effect, blockStatus));
+                            (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((effect, blockStatus));
                             break;
                         }
                         ApplyStatus(AllyStatuses(allySlot), blockStatus, AllyRef(allySlot), UnitRef.Player);
@@ -4576,7 +4616,7 @@ namespace Brushblade.Core
         /// <paramref name="raiseHook"/> = false:照常写袋子但不发 StatusApplied(只给「状态其实没变」的
         /// 刷新用,目前唯一调用方是 GainStacks 余数没攒够一层的那一支)。</summary>
         private bool ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier,
-            bool raiseHook = true)
+            bool raiseHook = true, int extraStallPush = 0)
         {
             if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
             {
@@ -4586,7 +4626,8 @@ namespace Brushblade.Core
                 if (frozen.IsBoss)
                 {
                     // 冰滞(R1b):Boss 不会被真正冻结。行动条后退半格(可为负),下次行动前受伤 +15%。
-                    frozen.ActionMeter -= TurnScheduler.Threshold * BattleConfig.IceStallPushPercent / 100;
+                    // 坚冰(D2-水 E17a):extraStallPush = Freeze.StallPushPercent,缺省 0 与原算式逐位相同
+                    frozen.ActionMeter -= TurnScheduler.Threshold * (BattleConfig.IceStallPushPercent + extraStallPush) / 100;
                     effect = new StatusEffect
                     {
                         Kind = StatusKind.IceStall, Polarity = StatusPolarity.Debuff,
@@ -5185,6 +5226,8 @@ namespace Brushblade.Core
             DamageCondition.MoraleFull => MoraleStacks >= MoraleCapOrDefault,   // D2-金 E6(Q13)
             DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
             DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
+            DamageCondition.IsBoss => target.IsBoss,     // D2-水 E14
+            DamageCondition.NotBoss => !target.IsBoss,
             _ => false,
         };
 
@@ -5195,7 +5238,9 @@ namespace Brushblade.Core
         {
             if (effect.ExecuteBelowPercent <= 0) return false;
             var enemy = _enemies[enemyIndex];
-            return enemy.Alive && enemy.Hp * 100 < enemy.MaxHp * effect.ExecuteBelowPercent;
+            return enemy.Alive && enemy.Hp * 100 < enemy.MaxHp * effect.ExecuteBelowPercent
+                // 湮灭无踪(D2-水 E19):条件门按出字前快照判;None = 无门
+                && (effect.ExecuteIf == DamageCondition.None || PreCastConditionMet(effect.ExecuteIf, enemyIndex));
         }
 
         /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。

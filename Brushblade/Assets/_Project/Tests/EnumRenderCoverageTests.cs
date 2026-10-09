@@ -280,6 +280,25 @@ namespace Brushblade.Core.Tests
                 + string.Join("\n  ", missing));
         }
 
+        /// <summary>修饰类枚举(条件 / 选择器 / 计数口径 / Augment 字段)在 CharInfo 里都有文案,或是「缺省不印」的那一档
+        /// (D2-水 Task 1 起,纯追加)。漏一个的表现是卡面后缀静默为空 —— 玩家看不到条件 / 目标。</summary>
+        private static readonly string[] ModifierEnumDefaults =
+        {
+            "DamageCondition.None", "EffectPick.Primary", "ScaleBasis.None",
+            "AugmentField.Count",   // AugmentText 的缺省分支(`_ =>`)就是「次数」
+        };
+
+        [Test]
+        public void EveryModifierEnum_IsRenderedInCharInfoOrDefault()
+        {
+            var src = Source("CharInfo.cs");
+            var missing = new[] { typeof(DamageCondition), typeof(EffectPick), typeof(ScaleBasis), typeof(AugmentField) }
+                .SelectMany(t => Enum.GetNames(t).Select(n => (Type: t.Name, Name: n)))
+                .Where(x => !ModifierEnumDefaults.Contains($"{x.Type}.{x.Name}") && !ContainsKindRef(src, x.Type, x.Name))
+                .Select(x => $"{x.Type}.{x.Name}").OrderBy(n => n).ToArray();
+            Assert.That(missing, Is.Empty, "这些修饰类枚举在 CharInfo 里没有文案:\n  " + string.Join("\n  ", missing));
+        }
+
         /// <summary>豁免名单不许有已经不存在的枚举名(改名/删除后的残留)。</summary>
         [Test]
         public void ExemptLists_HaveNoStaleEntries()

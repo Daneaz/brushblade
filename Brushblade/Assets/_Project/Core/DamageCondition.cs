@@ -74,5 +74,13 @@ namespace Brushblade.Core
 
         /// <summary>战意已满:战意 ≥ MoraleCap(出字前;刚、三金破,Q13)。</summary>
         MoraleFull = 15,
+
+        // ---- D2-水 Task 1(附录 E14):目标相关,进出字前快照(位掩码仍 < 32)----
+
+        /// <summary>目标是 Boss(EnemyState.IsBoss)。</summary>
+        IsBoss = 16,
+
+        /// <summary>目标不是 Boss(杂兵;冷却「小怪下次攻击 −50%」)。</summary>
+        NotBoss = 17,
     }
 }

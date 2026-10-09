@@ -223,12 +223,13 @@ CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Fro
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
               "FirstCastThisTurn", "Countering",
               "PlayerHpAbove70", "HasSummon",   # D2-火 Task 1(附录 E1)
-              "MoraleFull"}                     # D2-金 Task 1(附录 E6)
+              "MoraleFull",                     # D2-金 Task 1(附录 E6)
+              "IsBoss", "NotBoss"}              # D2-水 Task 1(附录 E14)
 # D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
 AUGMENT_FIELD_TOKEN = "field"
-AUGMENT_FIELDS = {"Count", "Turns", "Shots"}
+AUGMENT_FIELDS = {"Count", "Turns", "Shots", "StallPush"}   # StallPush:D2-水 E17a(坚冰,只配 of Freeze)
 RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
@@ -242,7 +243,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "ExtraStrike", "Thaw", "Reveal",   # D2-火 Task 5
                     "Doom"}   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
-               "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
+               "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
+               "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
 # 不进 ENEMY_PICK_KINDS:那张表还管「池条目落到不选目标的面时补 pick All」(extract_traits._retarget_to_all),
 # Reshape 是修饰器,不该被补。只作为 `pick` 的挂载点。
@@ -312,6 +314,14 @@ OF_VICTIM_MAX_HP_TOKEN = "ofVictimMaxHp"
 # `blockMorale N`(坚营)、`killRefund N`(得利)→ 同名 JSON 字段(counterExecute → counterExecuteBelow、killRefund → killRefundAp)。
 # 带数值的四个进通用循环的跳过名单,否则落成独立效果。
 COUNTER_SHAPE_TOKEN = "counterShape"
+# ---- D2-水 Task 1(附录 E17b / E18 / E19 / E25)----
+# `if X` 也可挂在 Augment 上(冰冻三尺「若目标已被减速,再 +1」),只支持 `of Freeze` `field Turns`;
+# `extend`(倾盆):前一条 Slow 只续已有减速、不新挂;`executeIf X`(湮灭无踪):斩杀条件门,挂斩杀的宿主;
+# `whileSlowed`(淋漓):前一条 Seed 只在敌人减速中触发,可不写 turns(回合数 = 施加时目标的减速剩余回合)。
+EXTEND_TOKEN = "extend"
+EXECUTE_IF_TOKEN = "executeIf"
+WHILE_SLOWED_TOKEN = "whileSlowed"
+
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
     "counterExecute": "counterExecuteBelow",
@@ -468,14 +478,15 @@ def _attach_metal_ops(config, char, effects, consumed):
         only({"HealSelf"}, OF_VICTIM_MAX_HP_TOKEN)["ofVictimMaxHp"] = True
 
 
-def _positional_hosts(config, effects):
+def _positional_hosts(config, effects, kinds=None):
     """认选择器的效果(PICK_KINDS)在配置格里的位置:[(pos, effect)],按位置升序。
     修饰 token 挂**它前面最近的**那条效果(`Slow 1` + `pick Random` 的 pick 属于 Slow)。
     同一格里同 Kind 出现两次时,后一条从前一条之后开始找位置。"""
+    kinds = PICK_KINDS if kinds is None else kinds
     found, cursor = [], {}
     for e in effects:
         kind = e["kind"]
-        if kind not in PICK_KINDS:
+        if kind not in kinds:
             continue
         needles = [f"`{kind} ", f"`{kind}`"] + (["`DetonateAll`"] if kind == "Detonate" else [])
         start = cursor.get(kind, 0)
@@ -488,10 +499,10 @@ def _positional_hosts(config, effects):
     return sorted(found, key=lambda t: t[0])
 
 
-def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None):
-    """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS 效果上。parse(raw) 返回要写进字段的值。"""
+def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None, host_kinds=None):
+    """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS(或 host_kinds)效果上。parse(raw) 返回要写进字段的值。"""
     pattern = rf"`{token}(?: (\w+))?`"
-    hosts = _positional_hosts(config, effects)
+    hosts = _positional_hosts(config, effects, host_kinds)
     seen = set()
     for m in re.finditer(pattern, config):
         consumed.add(token)
@@ -579,7 +590,9 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         return raw
 
     if not amps:
-        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition)
+        # D2-水 E17b:条件门也可挂在前一条 Augment 上(冰冻三尺),下面配好 of / field 后再校验组合
+        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition,
+                           host_kinds=PICK_KINDS | {"Augment"})
     _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
     _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
                        allowed_kinds={"BurnSettleNow"})
@@ -595,6 +608,10 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         if e["kind"] in RIDES_ONLY_KINDS and "riderOf" not in e:
             raise ValueError(f"{char}:`{e['kind']}` 必须写 `rider Burn`(它只能挂在本次出字的灼上,不写会静默空转)")
     _attach_positional(config, char, effects, consumed, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
+    # D2-水 E18 / E25:只续不挂的减速、仅在减速中的种
+    _attach_positional(config, char, effects, consumed, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
+    _attach_positional(config, char, effects, consumed, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
+                       allowed_kinds={"Seed"})
     for e in effects:
         if "minBurn" in e and ("riderOf" not in e or e["minBurn"] < 1):
             raise ValueError(f"{char}:`minBurn` 只给附着在灼上的减攻(`Weaken N` + `rider Burn`),且须 ≥ 1")
@@ -623,6 +640,12 @@ def _attach_modifier_tokens(config, char, effects, consumed):
             if allowed is not None and value not in allowed:
                 raise ValueError(f"{char}:`{token} {value}` 的取值未知,只认 {sorted(allowed)}")
             e[field] = value
+    for e in augments:
+        # 与 ConfigLoader 同口径:坚冰的 StallPush 只配 Freeze;带条件的 Augment 只支持冻结回合
+        if e.get("augmentField") == "StallPush" and e.get("augmentKind") != "Freeze":
+            raise ValueError(f"{char}:`field StallPush` 只能配 `of Freeze`")
+        if "onlyIf" in e and (e.get("augmentKind"), e.get("augmentField")) != ("Freeze", "Turns"):
+            raise ValueError(f"{char}:带条件 `if` 的 Augment 只支持 `of Freeze` `field Turns`")
 
     shape = re.search(rf"`{RESHAPE_SHAPE_TOKEN} (\w+)`", config)
     if shape:
@@ -1023,6 +1046,17 @@ def _parse_effects(config, char, on_hit_host=False):
         for effect in execute_hosts:
             effect["executeSplashPercent"] = percent
 
+    execute_if = re.findall(rf"`{EXECUTE_IF_TOKEN} (\w+)`", config)
+    if execute_if:
+        # 湮灭无踪(D2-水 E19):斩杀的条件门,挂与斩杀同一个宿主
+        consumed.add(EXECUTE_IF_TOKEN)
+        if len(execute_if) > 1 or not re.search(r"`Execute(?:Kill|Bonus) \d+`", config) or not execute_hosts:
+            raise ValueError(f"{char}:配置格「{config}」的 `{EXECUTE_IF_TOKEN}` 只能写一个,且须配同格的 `ExecuteKill` / `ExecuteBonus`")
+        if execute_if[0] not in CONDITIONS:
+            raise ValueError(f"{char}:`{EXECUTE_IF_TOKEN} {execute_if[0]}` 的取值未知,只认 {sorted(CONDITIONS)}")
+        for effect in execute_hosts:
+            effect["executeIf"] = execute_if[0]
+
     hit_count = re.search(rf"`{HIT_COUNT_TOKEN} (\d+)`", config)
     if hit_count:
         consumed.add(HIT_COUNT_TOKEN)
@@ -1087,6 +1121,7 @@ def _parse_effects(config, char, on_hit_host=False):
     # 那一刻就已经失效)。比「turns 挂错 kind」更常见,是详表最容易漏写的一种笔误。
     missing_turns = [e["kind"] for e in effects
                      if "turns" not in e and "riderOf" not in e   # 附着的效果随载体存续(D1 Task 9)
+                     and not e.get("whileSlowed")   # 淋漓(D2-水 E25):缺 turns = 跟随目标的减速剩余回合
                      and (e["kind"] in DURATION_KINDS
                           # 标记(Vulnerable):只有冰缚写法(pick FrozenByThisCast)可省 turns,
                           # 回合数由引擎取目标的冻结回合;其余缺 turns 同减攻 / 种报错

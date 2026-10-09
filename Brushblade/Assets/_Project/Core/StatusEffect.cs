@@ -222,6 +222,10 @@ namespace Brushblade.Core
         /// <summary>立威的施加者字 ID(供 Task 3 铁则回查;本任务只存不用)。没有立威时 null。</summary>
         public string ExecuteSourceCharId { get; set; }
 
+        /// <summary>仅在减速中(D2-水 E25,淋漓;仅 <see cref="StatusKind.Seed"/> 用):true 时持有者不在减速中(无负 SpeedModifier)
+        /// 就不触发。缺省 false = 原种,逐位恒等。</summary>
+        public bool WhileSlowed { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
@@ -230,7 +234,7 @@ namespace Brushblade.Core
             MinBurn = MinBurn, OnHit = OnHit?.Select(o => o.Clone()).ToList(),
             CounterColumn = CounterColumn, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
             BlockBleed = BlockBleed, BlockMorale = BlockMorale, KillRefundAp = KillRefundAp,
-            ExecuteSourceCharId = ExecuteSourceCharId,
+            ExecuteSourceCharId = ExecuteSourceCharId, WhileSlowed = WhileSlowed,
         };
     }
 

@@ -114,6 +114,9 @@ namespace Brushblade.Core
             /// <summary>本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏「带本字灼」的判据)。</summary>
             public List<int> BurnedTargets = new List<int>();
 
+            /// <summary>本次出字的 Slow 施加过或续过回合的敌人(D2-水 E15,选择器 SlowedByThisCast)。</summary>
+            public List<int> SlowedTargets = new List<int>();
+
             /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
             public int ShieldGranted;
 

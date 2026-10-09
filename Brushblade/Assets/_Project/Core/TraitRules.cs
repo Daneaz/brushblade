@@ -291,11 +291,23 @@ namespace Brushblade.Core
                     if (target.Kind == EffectKind.Block) effects[at] = target.With(value: target.Value + aug.Value);
                     break;
                 case AugmentField.Turns:
+                    // 带条件的回合加成(D2-水 E17b,冰冻三尺「若目标已被减速,再 +1」):不直接加,记进 BonusTurns / BonusIf,
+                    // 由 Freeze 分支按目标的出字前快照判定(ConfigLoader 只放行 Freeze)
+                    if (aug.OnlyIf != DamageCondition.None)
+                    {
+                        if (target.Kind == EffectKind.Freeze)
+                            effects[at] = target.With(bonusTurns: target.BonusTurns + aug.Value, bonusIf: aug.OnlyIf);
+                        break;
+                    }
                     effects[at] = WithTurns(target, aug.Value);
                     break;
                 case AugmentField.Shots:
                     if (target.Kind == EffectKind.DamageSingle || target.Kind == EffectKind.HealSelf)
                         effects[at] = target.With(shots: target.Shots + aug.Value);
+                    break;
+                case AugmentField.StallPush:   // D2-水 E17a(坚冰):冰滞后退百分比
+                    if (target.Kind == EffectKind.Freeze)
+                        effects[at] = target.With(stallPushPercent: target.StallPushPercent + aug.Value);
                     break;
             }
         }
@@ -347,6 +359,7 @@ namespace Brushblade.Core
                 executeBelowPercent: r.ExecuteBelowPercent > 0 ? r.ExecuteBelowPercent : (int?)null,
                 executeKills: r.ExecuteBelowPercent > 0 ? r.ExecuteKills : (bool?)null,
                 executeSplashPercent: r.ExecuteSplashPercent > 0 ? r.ExecuteSplashPercent : (int?)null,   // J4 斩杀溅射
+                executeIf: r.ExecuteIf != DamageCondition.None ? r.ExecuteIf : (DamageCondition?)null,   // D2-水 E19 湮灭无踪
                 scaleBy: r.ScaleBy != ScaleBasis.None ? r.ScaleBy : (ScaleBasis?)null);
         }
 

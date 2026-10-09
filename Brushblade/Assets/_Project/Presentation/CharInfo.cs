@@ -132,6 +132,8 @@ namespace Brushblade.Presentation
                         ? Strings.T("char.effect.healovertime.all", ("value", shown), ("turns", e.Turns))
                         : Strings.T("char.effect.healovertime.single", ("value", shown), ("turns", e.Turns)),
                     EffectKind.Freeze => Strings.T("char.effect.freeze", ("value", shown)),
+                    // 倾盆(D2-水 E18):只续已减速目标的回合
+                    EffectKind.Slow when e.Extend => Strings.T("char.effect.slow.extend", ("value", shown)),
                     EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
                     // 减攻(D1 Task 5):Value 是百分点、吃卡等级(shown);回合数读 e.Turns,不吃等级
                     // 炽焰(D2-火 Task 3):附着在灼上的减攻随灼存续,MinBurn > 0 时印门槛
@@ -140,6 +142,10 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.weaken.rider_burn", ("value", shown)),
                     EffectKind.Weaken => Strings.T("char.effect.weaken", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 种 / 标记(D1 Task 6):Value 吃卡等级(shown),回合不吃。标记 Turns == 0 + 冰缚选择器 = 跟随冻结回合
+                    // 淋漓(D2-水 E25):仅在目标减速中触发;缺 turns 时回合数跟随目标的减速
+                    EffectKind.Seed when e.WhileSlowed => e.Turns > 0
+                        ? Strings.T("char.effect.seed", ("value", shown), ("turns", e.Turns)) + Strings.T("char.effect.seed.whileslowed.suffix")
+                        : Strings.T("char.effect.seed.whileslowed", ("value", shown)),
                     EffectKind.Seed => Strings.T("char.effect.seed", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     EffectKind.Vulnerable => e.Turns <= 0 && e.Pick == EffectPick.FrozenByThisCast
                         ? Strings.T("char.effect.vulnerable.bind", ("value", shown))
@@ -356,11 +362,12 @@ namespace Brushblade.Presentation
         /// 其余斩杀字是基础值 ×2。Boss 只免疫前者,后者照常吃 —— 所以打 Boss 时铡反不如镰。</summary>
         private static string ExecuteText(EffectDef e) =>
             e.ExecuteBelowPercent <= 0 ? "" :
-            e.ExecuteKills
+            (e.ExecuteKills
                 ? Strings.T("char.effect.execute.kill", ("percent", e.ExecuteBelowPercent))
                     // 斩杀溅射(D2-金 J4,铡刀落)
                     + (e.ExecuteSplashPercent > 0 ? Strings.T("char.effect.execute.splash", ("percent", e.ExecuteSplashPercent)) : "")
-                : Strings.T("char.effect.execute.double", ("percent", e.ExecuteBelowPercent));
+                : Strings.T("char.effect.execute.double", ("percent", e.ExecuteBelowPercent)))
+            + OnlyIfText(e.ExecuteIf);   // 湮灭无踪(D2-水 E19):斩杀条件门
 
         /// <summary>多段后缀(2026-08-23)。每段完全独立:各自过生克、各自减一次护甲,
         /// 也各自过斩杀的「打之前判血」——「第一段把敌人打进阈值、第二段触发处决」是真会
@@ -474,6 +481,11 @@ namespace Brushblade.Presentation
             EffectPick.Row => Strings.T("char.effect.pick.row"),
             EffectPick.Adjacent => Strings.T("char.effect.pick.adjacent"),
             EffectPick.BurnedByThisCast => Strings.T("char.effect.pick.burnedbythiscast"),
+            // D2-水 Task 1(附录 E15)
+            EffectPick.Column => Strings.T("char.effect.pick.column"),
+            EffectPick.AdjacentOne => Strings.T("char.effect.pick.adjacentone"),
+            EffectPick.HighestHp => Strings.T("char.effect.pick.highesthp"),
+            EffectPick.SlowedByThisCast => Strings.T("char.effect.pick.slowed"),
             _ => "",
         };
 
@@ -496,6 +508,8 @@ namespace Brushblade.Presentation
             DamageCondition.PlayerHpAbove70 => Strings.T("char.effect.onlyif.playerhpabove70"),
             DamageCondition.HasSummon => Strings.T("char.effect.onlyif.hassummon"),
             DamageCondition.MoraleFull => Strings.T("char.effect.onlyif.moralefull"),
+            DamageCondition.IsBoss => Strings.T("char.effect.onlyif.isboss"),     // D2-水 E14
+            DamageCondition.NotBoss => Strings.T("char.effect.onlyif.notboss"),
             _ => "",
         };
 
@@ -503,6 +517,9 @@ namespace Brushblade.Presentation
         /// 不拼接动态 key(字符串表检查只认字面量)。</summary>
         private static string AugmentText(EffectDef e)
         {
+            // 坚冰(D2-水 E17a):冰滞后退的百分比,单独一句
+            if (e.AugmentField == AugmentField.StallPush)
+                return Strings.T("char.effect.augment.stallpush", ("value", e.Value));
             string target = e.AugmentKind switch
             {
                 EffectKind.Block => Strings.T("char.effect.augment.target.block"),
@@ -520,7 +537,8 @@ namespace Brushblade.Presentation
                 AugmentField.Shots => Strings.T("char.effect.augment.field.shots"),
                 _ => Strings.T("char.effect.augment.field.count"),
             };
-            return Strings.T("char.effect.augment", ("target", target), ("field", field), ("value", e.Value));
+            // 带条件的 Augment(D2-水 E17b,冰冻三尺):条件接在后面
+            return Strings.T("char.effect.augment", ("target", target), ("field", field), ("value", e.Value)) + OnlyIfText(e.OnlyIf);
         }
 
         /// <summary>Reshape(D1 Task 3):「伤害改为 + 形状 + 改动的修饰」。只印 Reshape 上非缺省的字段,

@@ -20,6 +20,11 @@ namespace Brushblade.Core
         Row,                // 主目标所在一排的存活敌人(主目标在前,其余按下标);以主目标为中心,**仍要选目标**
         Adjacent,           // 主目标 + 同排左右相邻(同 TargetArea.Adjacent 溅射,spec §3.2;不含上下排);同样要选目标
         BurnedByThisCast,   // 本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏、干涸等「带本字灼」)
+        // ---- D2-水 Task 1(附录 E15)。⚠ 只在末尾追加 ----
+        Column,             // 主目标所在列(列区间相交)的**其余**存活敌人,不含主目标;以主目标为中心,仍要选目标(同寒)
+        AdjacentOne,        // 主目标同排左右中第一个(先左后右)存活者;Freeze 再滤掉冻结中 / 霜抗 / 冰滞的;仍要选目标(坚冰)
+        HighestHp,          // 当前生命最高的存活敌人,同值取下标小;不过滤状态(浩瀚)
+        SlowedByThisCast,   // 本次出字的 Slow 落到过(施加或续回合)的敌人(淋漓)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。

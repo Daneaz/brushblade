@@ -115,6 +115,10 @@ namespace Brushblade.Data
             public int KillRefundAp { get; set; }           // 反击击杀:下回合 +N AP
             // D2-金 Task 3(附录 J4)
             public int ExecuteSplashPercent { get; set; }   // 斩杀溅射:斩杀后同排左右受死者最大生命 N%(只配 executeKills)
+            // D2-水 Task 1(附录 E18 / E19 / E25)
+            public bool Extend { get; set; }                // Slow:只续已有减速的回合,不新挂(倾盆)
+            public string ExecuteIf { get; set; }           // DamageSingle / Reshape:斩杀条件门(湮灭无踪)
+            public bool WhileSlowed { get; set; }           // Seed:只在敌人减速中触发(淋漓)
         }
 
         private sealed class CampaignFileDto
@@ -758,9 +762,10 @@ namespace Brushblade.Data
                 if (!string.IsNullOrEmpty(effect.Scope)
                     && (!Enum.TryParse(effect.Scope, out scope) || !Enum.IsDefined(typeof(AmpScope), scope)))
                     throw new ConfigException($"字「{dto.Id}」的 Amplify scope 未知:{effect.Scope}");
-                // OnlyIf 只有 Amplify 与认选择器的敌方侧效果读(EffectPickRules.Supports);写在别的效果上会被引擎静默忽略 —— 拦下
-                if (!string.IsNullOrEmpty(effect.OnlyIf) && kind != EffectKind.Amplify && !EffectPickRules.Supports(kind))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(只有 Amplify 与敌方侧效果能带条件)");
+                // OnlyIf 只有 Amplify、认选择器的敌方侧效果与带条件的 Augment(D2-水 E17b)读;写在别的效果上会被引擎静默忽略 —— 拦下
+                if (!string.IsNullOrEmpty(effect.OnlyIf) && kind != EffectKind.Amplify && kind != EffectKind.Augment
+                    && !EffectPickRules.Supports(kind))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(只有 Amplify、带条件的 Augment 与敌方侧效果能带条件)");
                 var pick = EffectPick.Primary;
                 if (!string.IsNullOrEmpty(effect.Pick))
                 {
@@ -809,6 +814,7 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 须写量(value ≥ 1),当前:{effect.Value}");
                 ValidateFireOps(dto.Id, kind, effect);
                 ValidateMetalOps(dto.Id, kind, effect);
+                ValidateWaterOps(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)
                 if (effect.PerBurningHit && kind != EffectKind.ExtraStrike)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 perBurningHit(只给 ExtraStrike)");
@@ -838,10 +844,14 @@ namespace Brushblade.Data
                     {
                         AugmentField.Count => augmentKind == EffectKind.Block,
                         AugmentField.Turns => TraitRules.HasTurns(augmentKind),
+                        AugmentField.StallPush => augmentKind == EffectKind.Freeze,   // D2-水 E17a 坚冰
                         _ => augmentKind == EffectKind.DamageSingle || augmentKind == EffectKind.HealSelf,
                     };
                     if (!ok)
                         throw new ConfigException($"字「{dto.Id}」的 Augment 组合无效:{augmentKind} 没有 {augmentField} 字段可加");
+                    // 带条件的 Augment(D2-水 E17b,冰冻三尺)只实现了「冻结回合」:写进 Freeze 的 BonusTurns / BonusIf
+                    if (!string.IsNullOrEmpty(effect.OnlyIf) && (augmentKind != EffectKind.Freeze || augmentField != AugmentField.Turns))
+                        throw new ConfigException($"字「{dto.Id}」的带条件 Augment 只支持 of Freeze field Turns:{augmentKind} / {augmentField}");
                     if (effect.Value < 1)
                         throw new ConfigException($"字「{dto.Id}」的 Augment 加量至少为 1,当前:{effect.Value}");
                 }
@@ -866,7 +876,8 @@ namespace Brushblade.Data
                     effect.Fill, effect.CounterPercent, effect.ScaleMin, effect.OfVictimMaxHp,
                     effect.CounterColumn, effect.CounterHits, effect.CounterExecuteBelow,
                     effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp,
-                    effect.ExecuteSplashPercent));
+                    effect.ExecuteSplashPercent,
+                    extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -997,6 +1008,21 @@ namespace Brushblade.Data
             if (e.OpeningBattles != 0 && (e.Fill || e.CounterPercent != 0 || e.ScaleMin != 0 || e.OfVictimMaxHp || riders))
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 fill / counterPercent / scaleMin / ofVictimMaxHp / "
                     + "格挡附带 counterColumn / counterHits / counterExecuteBelow / blockBleed / blockMorale / killRefundAp(登记时会丢)");
+        }
+
+        /// <summary>D2-水 Task 1 的字段(附录 E18 / E19 / E25):写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
+        private static void ValidateWaterOps(string id, EffectKind kind, EffectDto e)
+        {
+            if (e.Extend && kind != EffectKind.Slow)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 extend(只给 Slow)");
+            if (!string.IsNullOrEmpty(e.ExecuteIf)
+                && ((kind != EffectKind.DamageSingle && kind != EffectKind.Reshape) || e.ExecuteBelowPercent <= 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 executeIf(只给带斩杀 executeBelowPercent 的 DamageSingle / Reshape)");
+            if (e.WhileSlowed && kind != EffectKind.Seed)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 whileSlowed(只给 Seed)");
+            // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
+            if (e.OpeningBattles != 0 && (e.Extend || !string.IsNullOrEmpty(e.ExecuteIf) || e.WhileSlowed))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 extend / executeIf / whileSlowed(登记时会丢)");
         }
 
         /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——

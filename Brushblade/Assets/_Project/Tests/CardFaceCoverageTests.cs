@@ -42,6 +42,10 @@ namespace Brushblade.Core.Tests
             ["SummonChar"] = "召唤物字形,Summon 分支印(与施法字同名时省略)",
             ["ShapePercent"] = "由 ShapeSuffix 印(等于 100 时省略)",
             ["Shots"] = "由 ShapeSuffix 印(Volley 报发数 / Chain 报跳数)",
+            // D2-水 Task 1(E17):只由 Fold 从 Augment 写到 Freeze 上,字表对象恒为缺省;卡面印的是 Augment 本身(AugmentText)
+            ["StallPushPercent"] = "Fold 产物(Augment field StallPush),字表里恒 0;卡面由 AugmentText 印「冰滞后退+N%」",
+            ["BonusTurns"] = "Fold 产物(带 if 的 Augment field Turns),字表里恒 0;卡面由 AugmentText + 条件后缀印",
+            ["BonusIf"] = "同 BonusTurns",
         };
 
         /// <summary>SummonPassive 侧的豁免。与 EffectDef 侧**分开两张表**(2026-08-29):

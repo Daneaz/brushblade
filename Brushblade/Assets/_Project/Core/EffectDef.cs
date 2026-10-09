@@ -204,6 +204,8 @@ namespace Brushblade.Core
         Count,  // 次数(Block 的次数,在 Value 上)
         Turns,  // 回合(Freeze / Slow 在 Value 上,DefenseBuff / ArmorBreak / HealOverTime 在 Turns 上,见 TraitRules.TurnsOf)
         Shots,  // 跳数 / 发数(Shots)
+        // ---- D2-水 Task 1(附录 E17a)。⚠ 只在末尾追加 ----
+        StallPush,  // 冰滞的行动条后退百分比(只给 Freeze,写在 Freeze.StallPushPercent 上;缺省 0 = BattleConfig.IceStallPushPercent)
     }
 
     /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
@@ -467,6 +469,28 @@ namespace Brushblade.Core
         /// source = ExecuteSplash;溅射造成的击杀不入队击杀时 / 斩杀时(R4)。Reshape 携带时 Fold 照抄(E7)。0 = 不溅射。</summary>
         public int ExecuteSplashPercent { get; }
 
+        // ---- D2-水 Task 1(附录 E17 / E18 / E19 / E25)。全缺省 = 原行为,逐位恒等 ----
+
+        /// <summary>冰滞额外后退的百分比(E17a,坚冰):只给 Freeze,由 Augment field StallPush 写入。
+        /// Boss 被冻改挂冰滞时行动条后退 IceStallPushPercent + N(%);0 = 原值。</summary>
+        public int StallPushPercent { get; }
+
+        /// <summary>条件回合加成(E17b,冰冻三尺):只给 Freeze,由带 <c>if X</c> 的 Augment field Turns 写入 ——
+        /// 目标出字前满足 <see cref="BonusIf"/> 时冻结回合 + BonusTurns。0 = 无。</summary>
+        public int BonusTurns { get; }
+
+        /// <summary>条件回合加成的条件(E17b);BonusTurns == 0 时不读。</summary>
+        public DamageCondition BonusIf { get; }
+
+        /// <summary>只续不挂(E18,倾盆):只给 Slow —— 目标已有减速(负 SpeedModifier)时 TurnsLeft + Value,没有就空转。</summary>
+        public bool Extend { get; }
+
+        /// <summary>斩杀条件门(E19,湮灭无踪):DamageSingle / Reshape —— 斩杀阈值之外再按出字前快照判这个条件。None = 无门。</summary>
+        public DamageCondition ExecuteIf { get; }
+
+        /// <summary>仅在减速中(E25,淋漓):只给 Seed —— 种只在该敌人仍被减速时触发;缺 turns 时回合数 = 施加时目标的减速剩余回合。</summary>
+        public bool WhileSlowed { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -496,7 +520,9 @@ namespace Brushblade.Core
             bool fill = false, int counterPercent = 0, int scaleMin = 0, bool ofVictimMaxHp = false,
             bool counterColumn = false, int counterHits = 0, int counterExecuteBelow = 0,
             int blockBleed = 0, int blockMorale = 0, int killRefundAp = 0,
-            int executeSplashPercent = 0)
+            int executeSplashPercent = 0,
+            int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
+            bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false)
         {
             Kind = kind;
             Value = value;
@@ -553,6 +579,12 @@ namespace Brushblade.Core
             BlockMorale = blockMorale;
             KillRefundAp = killRefundAp;
             ExecuteSplashPercent = executeSplashPercent;
+            StallPushPercent = stallPushPercent;
+            BonusTurns = bonusTurns;
+            BonusIf = bonusIf;
+            Extend = extend;
+            ExecuteIf = executeIf;
+            WhileSlowed = whileSlowed;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -571,7 +603,9 @@ namespace Brushblade.Core
             int? counterPercent = null,
             bool? counterColumn = null, int? counterHits = null, int? counterExecuteBelow = null,
             int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null,
-            int? executeSplashPercent = null) =>
+            int? executeSplashPercent = null,
+            int? stallPushPercent = null, int? bonusTurns = null, DamageCondition? bonusIf = null,
+            DamageCondition? executeIf = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
@@ -584,7 +618,9 @@ namespace Brushblade.Core
                 MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp,
                 counterColumn ?? CounterColumn, counterHits ?? CounterHits, counterExecuteBelow ?? CounterExecuteBelow,
                 blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
-                executeSplashPercent ?? ExecuteSplashPercent)
+                executeSplashPercent ?? ExecuteSplashPercent,
+                stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
+                Extend, executeIf ?? ExecuteIf, WhileSlowed)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,
