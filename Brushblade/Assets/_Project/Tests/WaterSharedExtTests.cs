@@ -160,6 +160,39 @@ namespace Brushblade.Core.Tests
             Assert.That(Has(b, 1, StatusKind.Vulnerable), Is.False);
         }
 
+        private sealed class StatusOrder : IBattleHookListener
+        {
+            public readonly List<StatusKind> Seen = new();
+            public void OnHook(BattleEngine battle, in HookArgs args)
+            {
+                if (args.Kind == HookKind.StatusApplied && args.Status is StatusKind k
+                    && (k == StatusKind.Freeze || k == StatusKind.Block || k == StatusKind.Vulnerable))
+                    Seen.Add(k);
+            }
+        }
+
+        /// <summary>Ruling 11(按战意计次的格挡)与 E16(名单类)同一条推迟队列:两者都排到循环末尾,彼此按书写顺序结算。</summary>
+        [Test]
+        public void RosterDeferral_SharesQueueWithMoraleBlock_InWrittenOrder()
+        {
+            var freeze = new EffectDef(EffectKind.Freeze, 1);
+            var block = new EffectDef(EffectKind.Block, 1);
+            var mark = new EffectDef(EffectKind.Vulnerable, 30, pick: EffectPick.FrozenByThisCast);
+            var perMorale = new EffectDef(EffectKind.BlockMod, 0, scaleBy: ScaleBasis.Morale, scaleMin: 1);
+            foreach (var (order, expected) in new[]
+            {
+                (new[] { block, mark, freeze, perMorale }, new[] { StatusKind.Freeze, StatusKind.Block, StatusKind.Vulnerable }),
+                (new[] { mark, block, freeze, perMorale }, new[] { StatusKind.Freeze, StatusKind.Vulnerable, StatusKind.Block }),
+            })
+            {
+                var b = Battle(Def(order), 1);
+                var rec = new StatusOrder();
+                b.AddHookListener(rec);
+                Cast(b, 0);
+                Assert.That(rec.Seen, Is.EqualTo(expected), "冻结当场施加;格挡与标记推迟,按书写顺序");
+            }
+        }
+
         // ---------------- E17:StallPush / 带条件的 Augment ----------------
 
         [Test]
@@ -197,6 +230,19 @@ namespace Brushblade.Core.Tests
             var freeze = slowed.Enemies[0].Statuses.Find(StatusKind.Freeze);
             Assert.That(freeze.TurnsLeft, Is.EqualTo(4), "2 + 1 + 已减速 1");
             Assert.That(freeze.Magnitude, Is.EqualTo(4), "霜抗等长(R1)");
+        }
+
+        /// <summary>R3:同一次出字里先减速、后冻结,条件按出字前快照判 —— 本次才挂上的减速不算。</summary>
+        [Test]
+        public void ConditionalAugment_SlowInSameCast_DoesNotCount()
+        {
+            var def = Def(new EffectDef(EffectKind.Slow, 2), new EffectDef(EffectKind.Freeze, 2),
+                new EffectDef(EffectKind.Augment, 1, augmentKind: EffectKind.Freeze, augmentField: AugmentField.Turns,
+                    onlyIf: DamageCondition.Slowed));
+            var b = Battle(def, 1);
+            Cast(b, 0);
+            Assert.That(Has(b, 0, StatusKind.SpeedModifier), Is.True, "前提:本次出字确实挂上了减速");
+            Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2), "出字前未减速 → 不加回合");
         }
 
         // ---------------- E18:Slow extend ----------------
@@ -385,6 +431,21 @@ namespace Brushblade.Core.Tests
             all.Cast("试", -1);
             Assert.That(Wellspring(single), Is.EqualTo(3));
             Assert.That(Wellspring(all), Is.EqualTo(Wellspring(single)), "泉只攒一份名义值");
+        }
+
+        /// <summary>细雨(各 50%):泉攒的是「一份」的名义值 = 基数 × shapePercent%,不是满份基数。</summary>
+        [Test]
+        public void HealReshapeAll_WellspringGainedByShapePercent()
+        {
+            int Stacks(int percent)
+            {
+                var b = AllyBattle(Def(new EffectDef(EffectKind.HealSelf, 400),
+                    new EffectDef(EffectKind.Reshape, 0, shape: TargetArea.All, shapePercent: percent)), hp: 100);
+                b.Cast("试", -1);
+                return Wellspring(b);
+            }
+            Assert.That(Stacks(100), Is.EqualTo(4), "满份 400 → 4 层");
+            Assert.That(Stacks(50), Is.EqualTo(2), "各 50% → 一份 200 → 2 层");
         }
 
         [Test]

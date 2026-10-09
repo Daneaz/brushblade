@@ -3207,6 +3207,8 @@ namespace Brushblade.Core
             {
                 // 冰封 / 浩荡 / 冰缚 / 淋漓等(D2-水 E16):「被本字冻结 / 减速」的名单要等本面全部效果(含 Lv8 新冻 / 新减速)
                 // 结算完才齐 —— 推迟到循环末尾。没有这类效果时整句不进分支,恒等。
+                // ⚠ 代价(Q4 已接受):推迟后它们排到本面**所有**效果之后,同面排在其后的伤害吃不到它挂的标记
+                // (如冰缚 Vulnerable 之后若还有一条伤害)。现数据里冰缚都是攻面最后一条;Task 6 落数据时要核这一点。
                 if (IsRosterPick(castEffect)) (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((castEffect, null));
                 else ResolveEffect(castEffect, targetIndex);
             }
