@@ -91,6 +91,99 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "四火",
+          "effects": [
+            {
+              "kind": "BurnHold",
+              "value": 0,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "四炎",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 4,
+              "hitPercent": 30,
+              "perHit": [
+                {
+                  "kind": "BurnSingle",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "火海",
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 2
+            },
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "All",
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "焚身",
+          "effects": [
+            {
+              "kind": "BurnBacklash",
+              "value": 0,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "焚天",
+          "effects": [
+            {
+              "kind": "Detonate",
+              "value": 0,
+              "pick": "All",
+              "retainPercent": 34
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "烈焰天幕",
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 4
+            },
+            {
+              "kind": "Weaken",
+              "value": 30,
+              "pick": "All",
+              "turns": 3
+            }
+          ]
         }
       ]
     },
@@ -158,6 +251,110 @@
               "kind": "Weaken",
               "value": 15,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "焚风",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "Damage",
+              "onlyIf": "Burning"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "焚风",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "烈焚",
+          "effects": [
+            {
+              "kind": "ExtraStrike",
+              "value": 50,
+              "pick": "MostBurn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "焚城",
+          "effects": [
+            {
+              "kind": "BurnBurst",
+              "value": 0,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "焚甲",
+          "effects": [
+            {
+              "kind": "ArmorBreak",
+              "value": 35,
+              "onlyIf": "Burning",
+              "pick": "HitTargets",
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "玉石俱焚",
+          "effects": [
+            {
+              "kind": "SelfCost",
+              "value": 20
+            },
+            {
+              "kind": "Amplify",
+              "value": 150,
+              "scope": "Damage"
+            },
+            {
+              "kind": "BurnAll",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "焚林",
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 3
+            },
+            {
+              "kind": "BurnSingle",
+              "value": 1,
+              "onlyIf": "HasSummon",
+              "pick": "All"
             }
           ]
         }
@@ -230,6 +427,112 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnCompose",
+          "name": "三焰",
+          "effects": [
+            {
+              "kind": "BurnSettleNow",
+              "value": 0,
+              "pick": "All",
+              "keepStacks": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "星火",
+          "effects": [
+            {
+              "kind": "ExtraStrike",
+              "value": 30,
+              "perBurningHit": true,
+              "pick": "Random"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "飞焰",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 2,
+              "pick": "Random"
+            },
+            {
+              "kind": "BurnSingle",
+              "value": 2,
+              "pick": "Random"
+            },
+            {
+              "kind": "BurnSingle",
+              "value": 2,
+              "pick": "Random"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "炽焰",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 30,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn",
+              "minBurn": 5
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "火花四溅",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Scatter",
+              "shotPercent": 50,
+              "shots": 4,
+              "perHit": [
+                {
+                  "kind": "BurnSingle",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "星星之火",
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 2
+            },
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "All",
+              "turns": 2
+            },
+            {
+              "kind": "BurnAll",
+              "value": 2,
+              "openingBattles": 5
+            }
+          ]
         }
       ]
     },
@@ -300,6 +603,33 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnDismantle",
+          "name": "双焰",
+          "partChar": "火",
+          "partCount": 2,
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "火上浇油",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Damage",
+              "onlyIf": "Burning"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "续火",
@@ -308,6 +638,56 @@
               "kind": "BurnSingle",
               "value": 2,
               "onlyIf": "Burning"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "上炎",
+          "effects": [
+            {
+              "kind": "BurnGrow",
+              "value": 1,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn",
+              "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "炎刃",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 2,
+              "perHit": [
+                {
+                  "kind": "BurnSettleNow",
+                  "value": 0,
+                  "keepStacks": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "炎炎",
+          "effects": [
+            {
+              "kind": "BurnScale",
+              "value": 200
+            },
+            {
+              "kind": "BurnAll",
+              "value": 2,
+              "openingBattles": 1
             }
           ]
         }
@@ -432,6 +812,22 @@
         },
         {
           "slot": "Lv8",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "连爆",
+          "maxPerCast": 2,
+          "effects": [
+            {
+              "kind": "DamageSingle",
+              "value": 0,
+              "shape": "All",
+              "bodyPercent": 100
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
           "face": "Feature",
           "name": "焦热",
           "effects": [
@@ -542,6 +938,18 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "埋雷",
+          "effects": [
+            {
+              "kind": "Mine",
+              "value": 0,
+              "bodyPercent": 200
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
@@ -550,8 +958,21 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "HitTargets",
+              "pick": "BurnedByThisCast",
               "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "惊爆",
+          "effects": [
+            {
+              "kind": "Detonate",
+              "value": 0,
+              "pick": "All",
+              "retainPercent": 50
             }
           ]
         },
@@ -636,6 +1057,19 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "气盛",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 20,
+              "scope": "All",
+              "onlyIf": "PlayerHpAbove70"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Attack",
           "name": "爆燃",
@@ -649,6 +1083,18 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "烈风",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "pick": "Row"
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -658,6 +1104,38 @@
             {
               "kind": "BurnSingle",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "火烧连营",
+          "effects": [
+            {
+              "kind": "BurnEqualize",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "烈焰护身",
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 2
+            },
+            {
+              "kind": "Retaliate",
+              "value": 0,
+              "perHit": [
+                {
+                  "kind": "BurnSingle",
+                  "value": 2
+                }
+              ]
             }
           ]
         }
@@ -730,6 +1208,25 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnDismantle",
+          "name": "火山",
+          "partChar": "山",
+          "partCount": 1,
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 1
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Attack",
           "name": "引燃",
@@ -738,6 +1235,69 @@
               "kind": "BurnSettleNow",
               "value": 0,
               "keepStacks": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "炫目",
+          "effects": [
+            {
+              "kind": "Blind",
+              "value": 20,
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "光耀",
+          "effects": [
+            {
+              "kind": "Vulnerable",
+              "value": 15,
+              "turns": 1
+            },
+            {
+              "kind": "Reveal",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "灿然",
+          "effects": [
+            {
+              "kind": "BurnScale",
+              "value": 200
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "forceCrit": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "流光",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 3,
+              "pick": "Adjacent"
+            },
+            {
+              "kind": "Weaken",
+              "value": 40,
+              "pick": "Adjacent",
+              "turns": 1
             }
           ]
         }
@@ -810,6 +1370,33 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "干涸",
+          "effects": [
+            {
+              "kind": "HealBlock",
+              "value": 0,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "燥裂",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 5,
+              "scope": "Damage",
+              "scaleBy": "BurnStack",
+              "scaleCap": 50
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "续火",
@@ -830,8 +1417,42 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "HitTargets",
+              "pick": "BurnedByThisCast",
               "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "燥火攻心",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 10,
+              "scope": "Damage",
+              "scaleBy": "BurnStack"
+            },
+            {
+              "kind": "Detonate",
+              "value": 0,
+              "portionPercent": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "焦土",
+          "effects": [
+            {
+              "kind": "BurnScale",
+              "value": 200
+            },
+            {
+              "kind": "Weaken",
+              "value": 30,
+              "turns": 2
             }
           ]
         }
@@ -904,6 +1525,35 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "温润",
+          "effects": [
+            {
+              "kind": "HealSelf",
+              "value": 20,
+              "scaleBy": "BurningEnemy"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "水火相激",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Damage",
+              "onlyIf": "Controlled"
+            },
+            {
+              "kind": "Thaw",
+              "value": 0
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "烟障",
@@ -925,6 +1575,42 @@
             {
               "kind": "BurnSingle",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "蒸腾",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 1,
+              "onlyIf": "Burning",
+              "pick": "All"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All",
+              "shapePercent": 60
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "蒸笼",
+          "effects": [
+            {
+              "kind": "BurnAll",
+              "value": 2
+            },
+            {
+              "kind": "Blind",
+              "value": 25,
+              "pick": "All",
+              "turns": 2
             }
           ]
         }
@@ -1042,8 +1728,20 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "HitTargets",
+              "pick": "BurnedByThisCast",
               "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "升温",
+          "effects": [
+            {
+              "kind": "BurnSettleNow",
+              "value": 0,
+              "keepStacks": true
             }
           ]
         },

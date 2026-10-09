@@ -92,7 +92,8 @@ namespace Brushblade.Presentation
         public static Color ColorFor(StatusKind kind, int magnitude) => kind switch
         {
             // 标记(D1 Task 6,StatusChips 稿 k-dot):朱砂,与灼烧同属「持续伤害与威胁」
-            StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable => Theme.Cinnabar,
+            StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable
+                or StatusKind.HealBlock or StatusKind.Mine => Theme.Cinnabar,   // 干涸 / 埋雷(D2-火 Task 6,待 designer 稿)
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
                 or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
                 or StatusKind.Taunt => Control,   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
@@ -101,7 +102,8 @@ namespace Brushblade.Presentation
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime
                 or StatusKind.Seed => Guard,   // 种(D1 Task 6,稿 k-heal 翠玉)
             // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
-            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure => Guard,
+            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure
+                or StatusKind.Retaliate => Guard,   // 回敬(D2-火 Task 6,待 designer 稿)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
@@ -135,6 +137,10 @@ namespace Brushblade.Presentation
             StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),
             StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
             StatusKind.Endure => Strings.T("detail.chip.endure"),
+            // 干涸 / 埋雷 / 回敬(D2-火 Task 6):图标等 designer 稿(V3),先用一个兜底字,免得详情里画出空白色块
+            StatusKind.HealBlock => Strings.T("detail.chip.healblock"),
+            StatusKind.Mine => Strings.T("detail.chip.mine"),
+            StatusKind.Retaliate => Strings.T("detail.chip.retaliate"),
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),

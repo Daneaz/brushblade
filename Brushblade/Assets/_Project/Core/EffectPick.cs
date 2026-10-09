@@ -16,6 +16,10 @@ namespace Brushblade.Core
         Self,               // 玩家自身(Cleanse:攻击面「我方清 1 个减益」,不要求友方目标)
         SummonedThisCast,   // 本次出字召出的召唤物(Endure:扎根)
         AllSummons,         // 全部存活召唤物(D2-0 Task 2,Taunt)
+        // ---- D2-火 Task 1(附录 E2):敌方侧 ----
+        Row,                // 主目标所在一排的存活敌人(主目标在前,其余按下标);以主目标为中心,**仍要选目标**
+        Adjacent,           // 主目标 + 同排左右相邻(同 TargetArea.Adjacent 溅射,spec §3.2;不含上下排);同样要选目标
+        BurnedByThisCast,   // 本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏、干涸等「带本字灼」)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。
@@ -27,7 +31,13 @@ namespace Brushblade.Core
             EffectKind.BurnSingle or EffectKind.Bleed or EffectKind.Freeze or EffectKind.Slow
                 or EffectKind.ArmorBreak or EffectKind.Blind or EffectKind.Weaken
                 or EffectKind.Seed or EffectKind.Vulnerable
-                or EffectKind.BurnSettleNow or EffectKind.Detonate => true,
+                or EffectKind.BurnSettleNow or EffectKind.Detonate
+                or EffectKind.BurnScale   // D2-火 N1
+                // D2-火 Task 3 灼附着族(数据写 pick BurnedByThisCast)
+                or EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
+                or EffectKind.BurnBurst or EffectKind.BurnBacklash
+                or EffectKind.Mine   // D2-火 Task 4 埋雷
+                or EffectKind.ExtraStrike or EffectKind.Thaw or EffectKind.Reveal => true,   // D2-火 Task 5
             _ => false,
         };
 
@@ -40,7 +50,8 @@ namespace Brushblade.Core
             EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
             EffectPick.AllSummons => kind == EffectKind.Taunt,
-            _ => Supports(kind),
+            // Reshape 带敌方侧选择器 = 重选目标(D2-火 E3):本面没有伤害时把主目标效果换成该选择器
+            _ => Supports(kind) || kind == EffectKind.Reshape,
         };
 
         /// <summary>这条效果实际生效的选择器:旧 TargetAll 标志(Blind / Detonate 在用)视为 All。</summary>

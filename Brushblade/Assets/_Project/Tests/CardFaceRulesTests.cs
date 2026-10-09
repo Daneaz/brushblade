@@ -106,6 +106,8 @@ namespace Brushblade.Core.Tests
             EffectKind.CounterBoost, EffectKind.Endure, EffectKind.SummonSapling, EffectKind.HealSummons,
             EffectKind.ShieldSummons, EffectKind.ShieldFromHeal, EffectKind.AddWellspring, EffectKind.AddHeft,
             EffectKind.ShieldRecoil, EffectKind.Taunt,
+            EffectKind.Retaliate,   // D2-火 Task 4:挂在玩家身上(回敬的对象是攻击者,不是出字时选的敌人)
+            EffectKind.SelfCost,    // D2-火 Task 5:扣的是玩家自己的生命
         };
 
         [Test]

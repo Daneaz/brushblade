@@ -91,10 +91,51 @@ namespace Brushblade.Core.Tests
             "荆 Lv5 Feature 沃土", "荆 Lv6 Feature 扎根", "林 Lv5 Feature 新芽", "柘 Lv5 Feature 沃土"
         };
 
+        // ---- spec §9 专属格清单(加粗名;照表手抄:字 槽 面 名)----
+        // D2-火 Task 7:火系 44 格。V4:焚风(两面通用、燃面不起作用的 Lv4 加成)拆成攻击面原条目 + 燃面同档精进,
+        // 两条同名,所以清单是 45 条、44 格(Ruling 9:气盛 scope All 在燃面也加灼火力,回到单行两面)。其余各系的专属格随 D2-金 / 水 / 土 / 木 追加。
+        private static readonly string[] ExclusiveCells =
+        {
+            "热 Lv8 Attack 升温",
+            "爆 Lv8 Attack 连爆",
+            "炸 Lv5 Feature 埋雷", "炸 Lv8 Attack 惊爆",
+            "烈 Lv4 Both 气盛", "烈 Lv5 Feature 烈风", "烈 Lv8 Attack 火烧连营", "烈 Lv8 Feature 烈焰护身",
+            "燥 Lv4 Both 干涸", "燥 Lv5 Attack 燥裂", "燥 Lv8 Attack 燥火攻心", "燥 Lv8 Feature 焦土",
+            "蒸 Lv4 Both 温润", "蒸 Lv5 Attack 水火相激", "蒸 Lv8 Attack 蒸腾", "蒸 Lv8 Feature 蒸笼",
+            "炎 Lv4 Both 双焰", "炎 Lv5 Attack 火上浇油", "炎 Lv6 Feature 上炎", "炎 Lv8 Attack 炎刃", "炎 Lv8 Feature 炎炎",
+            "灿 Lv4 Both 火山", "灿 Lv5 Feature 炫目", "灿 Lv6 Attack 光耀", "灿 Lv8 Attack 灿然", "灿 Lv8 Feature 流光",
+            "焱 Lv4 Both 三焰", "焱 Lv5 Attack 星火", "焱 Lv5 Feature 飞焰", "焱 Lv6 Feature 炽焰", "焱 Lv8 Attack 火花四溅",
+            "焱 Lv8 Feature 星星之火",
+            "焚 Lv4 Attack 焚风", "焚 Lv4 Feature 焚风", "焚 Lv5 Attack 烈焚", "焚 Lv5 Feature 焚城", "焚 Lv6 Attack 焚甲",
+            "焚 Lv8 Attack 玉石俱焚", "焚 Lv8 Feature 焚林",
+            "燚 Lv4 Both 四火", "燚 Lv5 Attack 四炎", "燚 Lv5 Feature 火海", "燚 Lv6 Attack 焚身", "燚 Lv8 Attack 焚天",
+            "燚 Lv8 Feature 烈焰天幕",
+        };
+
+        /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
+        private static readonly string[] V4Split = { "焚风" };
+
+        private static bool IsExclusive(CharDef d, TraitDef t)
+        {
+            var real = d.Id == "\ue625" ? "𣛧" : d.Id == "\ue626" ? "𨰻" : d.Id;
+            return ExclusiveCells.Contains($"{real} {t.Slot} {t.Face} {t.Name}");
+        }
+
         [Test]
         public void PoolCellList_Has131Cells()
         {
             Assert.That(PoolCells.Length, Is.EqualTo(131));
+        }
+
+        [Test]
+        public void ExclusiveCellList_Fire44Cells_45Rows()
+        {
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(45));
+            Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
+                Is.EqualTo(44), "去掉 V4 拆出的燃面行 = 44 格");
+            Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
+            foreach (var c in ExclusiveCells)
+                Assert.That(PoolCells.Contains(c), Is.False, $"{c} 不能同时是池格");
         }
 
         [Test]
@@ -261,7 +302,7 @@ namespace Brushblade.Core.Tests
         public void EveryPoolCell_FromSpecSection9_IsPresent_AndNothingElseBeyondLv3()
         {
             var expected = new Dictionary<string, List<(TraitSlot slot, TraitFace face, string name)>>();
-            foreach (var cell in PoolCells)
+            foreach (var cell in PoolCells.Concat(ExclusiveCells))
             {
                 var p = cell.Split(' ');
                 var slot = (TraitSlot)int.Parse(p[1].Substring(2));
@@ -278,16 +319,16 @@ namespace Brushblade.Core.Tests
                 foreach (var (slot, face, name) in want)
                     Assert.That(got.Any(t => t.Slot == slot && t.Face == face && t.Name == name), Is.True,
                         $"{real} 缺 {slot}/{face}/{name}");
-                Assert.That(got.Count, Is.EqualTo(want.Count), $"{real} Lv4+ 特性数应等于 spec §9 池格数(专属格留 D2)");
+                Assert.That(got.Count, Is.EqualTo(want.Count), $"{real} Lv4+ 特性数应等于 spec §9 池格数 + 已落地的专属格数");
             }
-            Assert.That(expected.Values.Sum(l => l.Count), Is.EqualTo(PoolCells.Length));
+            Assert.That(expected.Values.Sum(l => l.Count), Is.EqualTo(PoolCells.Length + ExclusiveCells.Length));
         }
 
         [Test]
         public void PoolTraits_HaveSlotFormAndPoolShape()
         {
             foreach (var d in Playable())
-                foreach (var t in d.Traits.Where(t => (int)t.Slot >= 4))
+                foreach (var t in d.Traits.Where(t => (int)t.Slot >= 4 && !IsExclusive(d, t)))
                 {
                     if (t.Slot == TraitSlot.Lv4)
                     {
@@ -305,6 +346,73 @@ namespace Brushblade.Core.Tests
                         Assert.That(t.Face, Is.Not.EqualTo(TraitFace.Both), $"{d.Id} {t.Name} Lv5/Lv8 要有作用面");
                     Assert.That(t.Effects.Count, Is.GreaterThan(0), $"{d.Id} {t.Name}");
                 }
+        }
+
+        [Test]
+        public void FireExclusiveTraits_FormAndTrigger_MatchSpec()
+        {
+            foreach (var d in OfElement(Element.Fire))
+                foreach (var t in d.Traits.Where(t => IsExclusive(d, t)))
+                {
+                    Assert.That(t.Effects.Count, Is.GreaterThan(0), $"{d.Id} {t.Name} 要有效果");
+                    string at = $"{d.Id} {t.Slot}/{t.Face} {t.Name}";
+                    switch (t.Name)
+                    {
+                        case "双焰": case "火山":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnDismantle)), at);
+                            Assert.That(t.PartChar, Is.EqualTo(t.Name == "双焰" ? "火" : "山"), at);
+                            Assert.That(t.PartCount, Is.EqualTo(t.Name == "双焰" ? 2 : 1), at);
+                            break;
+                        case "三焰":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnCompose)), at);
+                            break;
+                        case "连爆":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
+                            Assert.That(t.MaxPerCast, Is.EqualTo(2), at + "(最多 2 次)");
+                            break;
+                        default:
+                            // Lv4 / Lv6 是被动,Lv5 / Lv8 是主动;都是出字时机
+                            bool passive = t.Slot == TraitSlot.Lv4 || t.Slot == TraitSlot.Lv6;
+                            Assert.That(t.Form, Is.EqualTo(passive ? TraitForm.Passive : TraitForm.Active), at);
+                            Assert.That(t.Trigger, Is.EqualTo(TraitTrigger.Cast), at);
+                            break;
+                    }
+                }
+        }
+
+        [Test]
+        public void FireExclusive_V4Split_FeatureRowIsSameTierRefine()
+        {
+            // V4:焚风(橙 2.5)燃面 = 精进 round(10 × 档位系数),无条件、scope All
+            var refine = new Dictionary<string, int> { ["焚风"] = 25 };
+            foreach (var (id, name) in new[] { ("焚", "焚风") })
+            {
+                var d = Graph.Get(id);
+                var rows = d.Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == name).ToList();
+                Assert.That(rows.Select(t => t.Face).OrderBy(f => f).ToList(),
+                    Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }.OrderBy(f => f).ToList()), $"{name} 拆成两条单面");
+                var feature = rows.Single(t => t.Face == TraitFace.Feature).Effects.Single();
+                Assert.That(feature.Kind, Is.EqualTo(EffectKind.Amplify));
+                Assert.That(feature.Value, Is.EqualTo(refine[name]), $"{name} 燃面 = 同档精进");
+                Assert.That(feature.Scope, Is.EqualTo(AmpScope.All));
+                Assert.That(feature.OnlyIf, Is.EqualTo(DamageCondition.None), $"{name} 燃面无条件");
+                var attack = rows.Single(t => t.Face == TraitFace.Attack).Effects.Single();
+                Assert.That(attack.OnlyIf, Is.Not.EqualTo(DamageCondition.None), $"{name} 攻击面保留原条件");
+            }
+        }
+
+        [Test]
+        public void FireExclusive_QiSheng_SingleBothRow_ConditionalAmplifyAll()
+        {
+            // Ruling 9:G3 让 scope All 在燃面也加本字灼的火力,V4「燃面不起作用」的前提不成立 → 气盛回到单行两面
+            var rows = Graph.Get("烈").Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == "气盛").ToList();
+            Assert.That(rows.Count, Is.EqualTo(1), "气盛只有一行");
+            Assert.That(rows[0].Face, Is.EqualTo(TraitFace.Both));
+            var e = rows[0].Effects.Single();
+            Assert.That(e.Kind, Is.EqualTo(EffectKind.Amplify));
+            Assert.That(e.Value, Is.EqualTo(20));
+            Assert.That(e.Scope, Is.EqualTo(AmpScope.All));
+            Assert.That(e.OnlyIf, Is.EqualTo(DamageCondition.PlayerHpAbove70));
         }
 
         private static EffectDef PoolEffect(string ch, TraitSlot slot, TraitFace face, string name, EffectKind kind)

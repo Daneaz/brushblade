@@ -549,6 +549,15 @@ namespace Brushblade.CoreTests
             Assert.That((int)StatusKind.TraitRider, Is.EqualTo(32), "新值必须追加在末尾");
             Assert.That((int)StatusKind.ShieldRecoil, Is.EqualTo(33), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Taunt, Is.EqualTo(34), "新值必须追加在末尾");
+            // D2-火 Task 3:灼附着族
+            Assert.That((int)StatusKind.HealBlock, Is.EqualTo(35), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.BurnGrow, Is.EqualTo(36), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.BurnHold, Is.EqualTo(37), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.BurnBurstMark, Is.EqualTo(38), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.BurnBacklashMark, Is.EqualTo(39), "新值必须追加在末尾");
+            // D2-火 Task 4:出手前 / 受击挂点
+            Assert.That((int)StatusKind.Mine, Is.EqualTo(40), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.Retaliate, Is.EqualTo(41), "新值必须追加在末尾");
         }
     }
 }

@@ -197,20 +197,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Blind_MultipleSourcesStack_ClampedHitRateStaysZero()
+        public void Blind_MultipleSources_Coexist_StrongestApplies()
         {
-            // spec §九 第 4 条(评审 Minor 2):致盲多来源合计钳到 100,不出现负命中率。
-            // 眩/昡 数值相同(各 60%)但字 ID 不同——ApplyBlind 用字 ID 做 SourceId 去重,
-            // 同字才刷新,不同字要能叠加。顺带给 AttackHits 的钳位提供一个真实的多来源场景
-            // (100 - 120 = -20,钳到 0)。
+            // spec §九 第 4 条(评审 Minor 2)原口径是「多来源合计钳到 100」;D2-火 V1(2026-10-08 用户拍板)
+            // 改为 §5.2 第 1 律「多来源取最强」:眩/昡 各 60%、字 ID 不同 —— 两条照旧并存(同字才刷新),
+            // 但命中惩罚取最强 60%,不再叠成 120% 必空。必空的钳位端由 BlindAll_HitsEveryEnemy(单条 100%)守着。
             var engine = Engine(new[] { "眩", "昡" }, new[] { Attacker() });
             engine.Cast("眩", 0);
             engine.Cast("昡", 0);
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Blind), Is.EqualTo(120),
-                "两个不同来源各 60%,合计 120,不同字不刷新只叠加");
-            engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(50),
-                "命中率钳到 0,必空,不会因为原始值是负数就摇出异常结果");
+                "两个不同来源各 60%,两条并存,不同字不刷新");
+            Assert.That(engine.Enemies[0].Statuses.MaxMagnitude(StatusKind.Blind), Is.EqualTo(60),
+                "AttackHits 读的是最强那条(V1)");
         }
 
         [Test]

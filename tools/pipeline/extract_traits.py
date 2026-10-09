@@ -23,6 +23,9 @@ FORMS = {"主动": (None, None), "被动": ("Passive", None),
 # 拆字印记(E10):`part 火 2` = 拆出的「火」本回合出手时并入本条效果,共 2 次。只配「拆字」形态;
 # 在交给 _parse_effects 之前从配置里摘掉(它不是效果 token)。部件是否在本字配方里由 export_chars 校验。
 _PART_TOKEN = re.compile(r"`part (\S+) (\d+)`")
+# 特性级出字内次数上限(D2-火 N13):`limit N` → maxPerCast,同一次出字内这条特性最多入队 N 次(连爆)。
+# 与 part 一样不是效果 token,交给 _parse_effects 之前摘掉。
+_LIMIT_TOKEN = re.compile(r"`limit (\d+)`")
 SLOTS = {"Lv1", "Lv3", "Lv4", "Lv5", "Lv6", "Lv8"}
 _HEADER = ["字", "槽", "面", "形态", "替换", "名", "效果配置", "实现"]
 
@@ -273,6 +276,12 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
                 trait["partChar"] = part_char
                 trait["partCount"] = part_count
                 config = _PART_TOKEN.sub("", config)
+            limits = _LIMIT_TOKEN.findall(config)
+            if limits:
+                if len(limits) > 1 or int(limits[0]) < 1:
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `limit` 只能写一条且 ≥ 1")
+                trait["maxPerCast"] = int(limits[0])
+                config = _LIMIT_TOKEN.sub("", config)
             effects = _parse_effects(config, char)
         trait["effects"] = effects
         result.setdefault(char, []).append(trait)

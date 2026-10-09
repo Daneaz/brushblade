@@ -72,28 +72,80 @@ namespace Brushblade.Core
 
         // ---- D1 Task 9:出字内触发(附录 M23)与附着载体(附录 M9 / D9) ----
 
-        /// <summary>本次出字(顶层 Cast,TriggerDepth == 0)已解锁、面匹配的暴击时 / 击杀时特性;其余时候为 null。
-        /// ApplyEffects 进门设、出门恢复外层(与 _castHitTargets 同一套保存 / 恢复)。</summary>
-        private IReadOnlyList<TraitDef> _castOnCrit;
-        private IReadOnlyList<TraitDef> _castOnKill;
-        private CharDef _castTraitDef;
+        /// <summary>一次 ApplyEffects 的出字瞬时量(D2-0 E13 收拢)。ApplyEffects 进门 new 一个、
+        /// 出门恢复外层;不进快照(生命周期跨不出一张字,更跨不出存档边界,spec §3.4)。
+        /// 出字之外 <see cref="_cast"/> 是一个空上下文(名单为空、快照为 null)。</summary>
+        private sealed class CastContext
+        {
+            /// <summary>砺刃:本次出字的额外暴击率(进门按字的元素设置)。</summary>
+            public int CritBonus;
 
-        /// <summary>本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏「带本字灼」的判据)。</summary>
-        private List<int> _castBurnedTargets = new List<int>();
+            /// <summary>金脉 L2「锋芒」的每张字一次闸门:RollCrit 首次摇到暴击时兑现并置 true。
+            /// 不限制的话一张群攻字暴击 5 个目标就能顶满战意上限。</summary>
+            public bool CritMoraleGranted;
 
-        /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
-        private int _castShieldGranted;
+            /// <summary>R3(spec v7 §10):本次出字**之前**每个敌人满足哪些 <see cref="DamageCondition"/>,
+            /// 按敌人下标存位掩码。只在 ApplyEffects 的同步调用栈内非 null。</summary>
+            public int[] PreCastConditions;
+
+            /// <summary>出字前每名敌人的灼层数(死者 0;D2-火 N4 计数缩放)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int[] PreCastBurnStacks;
+
+            /// <summary>选择器的两张「本次出字」名单(D1 Task 5):命中过的敌人(按命中顺序去重)/ 真正被冻住的敌人。</summary>
+            public List<int> HitTargets = new List<int>();
+            public List<int> FrozenTargets = new List<int>();
+
+            /// <summary>本次出字召出的召唤物槽位(按落位顺序;幼苗、SummonedThisCast 选择器用,D1 Task 7)。</summary>
+            public List<int> SummonedSlots = new List<int>();
+
+            /// <summary>本次出字内的**实际**治疗量(溢出不算;治疗转盾用)。</summary>
+            public int HealTotal;
+
+            /// <summary>本次出字(顶层 Cast,TriggerDepth == 0)已解锁、面匹配的暴击时 / 击杀时特性;其余时候为 null。</summary>
+            public IReadOnlyList<TraitDef> OnCrit;
+            public IReadOnlyList<TraitDef> OnKill;
+            public CharDef TraitDef;
+
+            /// <summary>本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏「带本字灼」的判据)。</summary>
+            public List<int> BurnedTargets = new List<int>();
+
+            /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
+            public int ShieldGranted;
+
+            /// <summary>本次出字的面(攻击面 = true)。入队反应时按它取本面本体,解析 bodyPercent(D2-火 E5)。</summary>
+            public bool AttackMode;
+
+            /// <summary>本次出字内每条特性已入队几次(D2-火 N13,TraitDef.MaxPerCast);没有 limit 的特性不记。</summary>
+            public Dictionary<TraitDef, int> Enqueued;
+        }
+
+        /// <summary>当前出字的瞬时量;见 <see cref="CastContext"/>。</summary>
+        private CastContext _cast = new CastContext();
 
         private static IReadOnlyList<TraitDef> NullIfEmpty(IReadOnlyList<TraitDef> traits) => traits.Count == 0 ? null : traits;
 
-        /// <summary>出字内触发入队(R4:只有顶层出字的伤害 / 击杀会走到这里 —— 排空期间 _castOnCrit / _castOnKill 为 null)。
+        /// <summary>出字内触发入队(R4:只有顶层出字的伤害 / 击杀会走到这里 —— 排空期间 _cast.OnCrit / _cast.OnKill 为 null)。
         /// 每条特性一条反应,目标 = 被暴击 / 被击杀的那名敌人。</summary>
         private void EnqueueCastTraits(IReadOnlyList<TraitDef> traits, int enemyIndex)
         {
             if (traits == null || TriggerDepth > 0) return;
-            var element = _castTraitDef.Element ?? Element.Heart;
+            var element = _cast.TraitDef.Element ?? Element.Heart;
+            // 反应里的 CharDef 是合成的,读不到本体:bodyPercent 在入队前按本面本体解析;特性来源键同 Fold(G11)
+            var body = EffectsOf(_cast.TraitDef, _cast.AttackMode);
             foreach (var t in traits)
-                Enqueue(new Reaction(_castTraitDef.Id, element, t.Effects, enemyIndex, TriggerDepth + 1));
+            {
+                // 出字内次数上限(N13,连爆「最多 2 次」):计数随 CastContext,下一张字重新起算
+                if (t.MaxPerCast > 0)
+                {
+                    _cast.Enqueued ??= new Dictionary<TraitDef, int>();
+                    _cast.Enqueued.TryGetValue(t, out int used);
+                    if (used >= t.MaxPerCast) continue;
+                    _cast.Enqueued[t] = used + 1;
+                }
+                Enqueue(new Reaction(_cast.TraitDef.Id, element,
+                    t.Effects.Select(e => TraitRules.ForCast(e, t, _cast.TraitDef, body)).ToList(),
+                    enemyIndex, TriggerDepth + 1));
+            }
         }
 
         /// <summary>附着:给敌人挂一条隐藏载体(Carrier 存在 Magnitude 里)。同字同特性再挂只刷新。</summary>

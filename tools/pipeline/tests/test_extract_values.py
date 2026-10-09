@@ -625,3 +625,268 @@ def test_rider_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-火 Task 1:新条件 / 新选择器 / scope Burn / Reshape 重选目标 / bodyPercent ----
+
+@pytest.mark.parametrize("pick", ["Row", "Adjacent", "BurnedByThisCast"])
+def test_d2fire_new_picks_accepted(pick):
+    assert _parse_effects(f"`BurnSingle 3` + `pick {pick}`", "火") == [
+        {"kind": "BurnSingle", "value": 3, "pick": pick}]
+
+
+def test_d2fire_smoke_rider_with_burned_by_this_cast():
+    assert _parse_effects("`Blind 15` `pick BurnedByThisCast` `rider Burn`", "火") == [
+        {"kind": "Blind", "value": 15, "pick": "BurnedByThisCast", "riderOf": "Burn"}]
+
+
+@pytest.mark.parametrize("cond", ["PlayerHpAbove70", "HasSummon"])
+def test_d2fire_new_conditions_accepted(cond):
+    assert _parse_effects(f"`Amplify 20` `scope All` `if {cond}`", "火") == [
+        {"kind": "Amplify", "value": 20, "scope": "All", "onlyIf": cond}]
+    assert _parse_effects(f"`BurnSingle 1` `pick All` `if {cond}`", "火") == [
+        {"kind": "BurnSingle", "value": 1, "pick": "All", "onlyIf": cond}]
+
+
+def test_d2fire_scope_burn_accepted():
+    assert _parse_effects("`Amplify 100` `scope Burn`", "火") == [
+        {"kind": "Amplify", "value": 100, "scope": "Burn"}]
+
+
+def test_d2fire_reshape_takes_pick():
+    assert _parse_effects("`Reshape` `pick Row`", "火") == [{"kind": "Reshape", "value": 0, "pick": "Row"}]
+
+
+def test_d2fire_reshape_rejects_ally_pick():
+    with pytest.raises(ValueError):
+        _parse_effects("`Reshape` `pick Self`", "火")
+
+
+def test_d2fire_body_percent_attaches_to_damage():
+    assert _parse_effects("`DamageSingle 0` `All` `bodyPercent 100`", "火") == [
+        {"kind": "DamageSingle", "value": 0, "shape": "All", "bodyPercent": 100}]
+
+
+def test_d2fire_body_percent_without_damage_raises():
+    with pytest.raises(ValueError) as err:
+        _parse_effects("`BurnAll 2` `bodyPercent 100`", "火")
+    assert "bodyPercent" in str(err.value)
+
+
+# ---- D2-火 Task 1(第二批):开局登记 `battles N` 挂在它前面最近的那条效果上 ----
+
+def test_d2fire_battles_attaches_to_preceding_effect():
+    effects = _parse_effects("`BurnAll 2` + `Weaken 20` `pick All` `turns 2` + `BurnAll 2` `battles 5`", "焱")
+    assert effects[0] == {"kind": "BurnAll", "value": 2}
+    assert effects[2] == {"kind": "BurnAll", "value": 2, "openingBattles": 5}
+
+
+def test_d2fire_battles_without_preceding_effect_raises():
+    with pytest.raises(ValueError) as err:
+        _parse_effects("`battles 1` `BurnAll 2`", "炎")
+    assert "battles" in str(err.value)
+
+
+# ---- D2-火 Task 2:灼操作族 token(附录 N1 / N2 / N3 / N4 / N4b) ----
+
+def test_d2fire_burn_scale_and_equalize():
+    assert _parse_effects("`BurnScale 200` `pick All`", "炎") == [{"kind": "BurnScale", "value": 200, "pick": "All"}]
+    assert _parse_effects("`BurnSingle 2` + `BurnScale 200`", "燥") == [
+        {"kind": "BurnSingle", "value": 2}, {"kind": "BurnScale", "value": 200}]
+    assert _parse_effects("`BurnEqualize`", "烈") == [{"kind": "BurnEqualize", "value": 0}]
+
+
+def test_d2fire_detonate_retain_and_portion():
+    assert _parse_effects("`Detonate` `pick All` `retain 50`", "炸") == [
+        {"kind": "Detonate", "value": 0, "pick": "All", "retainPercent": 50}]
+    assert _parse_effects("`DetonateAll` `retain 33`", "燚") == [
+        {"kind": "Detonate", "value": 0, "targetAll": True, "retainPercent": 33}]
+    assert _parse_effects("`Amplify 10` `scope Damage` `per BurnStack` + `Detonate` `portion 50`", "燥") == [
+        {"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "BurnStack"},
+        {"kind": "Detonate", "value": 0, "portionPercent": 50}]
+
+
+def test_d2fire_per_and_cap():
+    assert _parse_effects("`Amplify 5` `scope Damage` `per BurnStack` `cap 50`", "燥") == [
+        {"kind": "Amplify", "value": 5, "scope": "Damage", "scaleBy": "BurnStack", "scaleCap": 50}]
+    assert _parse_effects("`HealSelf 20` `per BurningEnemy`", "蒸") == [
+        {"kind": "HealSelf", "value": 20, "scaleBy": "BurningEnemy"}]
+
+
+def test_d2fire_hit_sugar_becomes_per_hit():
+    assert _parse_effects("`Reshape` `hits 2` `hitSettle`", "炎") == [
+        {"kind": "Reshape", "value": 0, "hitCount": 2,
+         "perHit": [{"kind": "BurnSettleNow", "value": 0, "keepStacks": True}]}]
+    assert _parse_effects("`Reshape` `hits 4` `hitPercent 30` `hitBurn 1`", "燚") == [
+        {"kind": "Reshape", "value": 0, "hitCount": 4, "hitPercent": 30,
+         "perHit": [{"kind": "BurnSingle", "value": 1}]}]
+    assert _parse_effects("`Reshape` `shape Scatter` `shots 4` `shotPercent 50` `hitBurn 1`", "焱") == [
+        {"kind": "Reshape", "value": 0, "shape": "Scatter", "shots": 4, "shotPercent": 50,
+         "perHit": [{"kind": "BurnSingle", "value": 1}]}]
+
+
+def test_d2fire_generic_per_hit_section():
+    # Q23 通用形态:`perHit [N]` 之后的全部 token 是每击附带的效果,各自照常解析(turns / pick / keep 都认)
+    assert _parse_effects("`Reshape` `hits 3` `perHit 2` `ArmorBreak 5` `turns 2` + `Morale 1`", "金") == [
+        {"kind": "Reshape", "value": 0, "hitCount": 3, "perHitFrom": 2,
+         "perHit": [{"kind": "ArmorBreak", "value": 5, "turns": 2}, {"kind": "Morale", "value": 1}]}]
+    assert _parse_effects("`DamageSingle 40` `perHit` `BurnSettleNow` `keep`", "炎") == [
+        {"kind": "DamageSingle", "value": 40, "perHit": [{"kind": "BurnSettleNow", "value": 0, "keepStacks": True}]}]
+
+
+def test_d2fire_segment_keeps_authoring_order_one_effect_per_plus():
+    # 终审 5:`perHit` / `onHit` 段写在格子末尾,段内每个 `+` 分段恰好一条效果,按书写顺序落表(不按解析器内部顺序重排),
+    # 修饰 token(turns 等)只归本分段那条效果
+    assert _parse_effects("`DamageSingle 40` `perHit` `BurnSettleNow` `keep` + `BurnSingle 1`", "炎")[0]["perHit"] == [
+        {"kind": "BurnSettleNow", "value": 0, "keepStacks": True}, {"kind": "BurnSingle", "value": 1}]
+    assert _parse_effects("`DamageSingle 40` `perHit` `Weaken 5` `turns 2` + `Weaken 7` `turns 1`", "金")[0]["perHit"] == [
+        {"kind": "Weaken", "value": 5, "turns": 2}, {"kind": "Weaken", "value": 7, "turns": 1}]
+    assert _parse_effects("`Retaliate` `onHit` `Weaken 5` `turns 2` + `BurnSingle 2`", "烈")[0]["perHit"] == [
+        {"kind": "Weaken", "value": 5, "turns": 2}, {"kind": "BurnSingle", "value": 2}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`DamageSingle 40` `perHit` `BurnSingle 1` `Morale 1`", "perHit"),          # 一个分段写了两条效果(漏了 +)
+    ("`Retaliate` `onHit` `BurnSingle 1` `Bleed 2`", "onHit"),                   # 同上(回敬段)
+    ("`DamageSingle 40` `perHit` `BurnSingle 1` + ", "perHit"),                  # 空分段
+])
+def test_d2fire_segment_one_effect_per_plus_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`BurnSingle 2` `retain 50`", "retain"),                          # retain 只挂 Detonate
+    ("`Detonate` `retain 50` `portion 50`", "portion"),                # 二选一
+    ("`Amplify 5` `per Bogus`", "per"),                                # 取值未知
+    ("`Shield 5` `per BurnStack`", "per"),                             # 只挂 Amplify / HealSelf
+    ("`Amplify 5` `cap 50`", "cap"),                                   # cap 没有 per
+    ("`HealSelf 5` `per BurningEnemy` `cap 50`", "cap"),               # cap 只给 Amplify
+    ("`BurnAll 2` `hitBurn 1`", "perHit"),                             # 没有伤害 / Reshape
+    ("`Reshape` `hitBurn 1` `perHit` `BurnSingle 1`", "perHit"),       # 糖与通用写法混用
+    ("`Reshape` `perHit` `DamageSingle 5`", "perHit"),                 # 每击附带里不能再有伤害
+    ("`Reshape` `perHit` `SelfCost 20`", "perHit"),                    # 每击附带里不能自损(每击扣一次血)
+    ("`Reshape` `perHit`", "perHit"),                                  # 空的每击附带
+    ("`Reshape` `perHit 1` `BurnSingle 1` `perHit` `Morale 1`", "perHit"),  # 只能有一段
+])
+def test_d2fire_task2_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-火 Task 3:灼附着族(附录 N5)—— 附录 §2 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 干涸
+    ("`HealBlock` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "HealBlock", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 上炎:保留自己的回合数
+    ("`BurnGrow 1` `turns 3` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnGrow", "value": 1, "turns": 3, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 四火
+    ("`BurnHold` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnHold", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 焚城
+    ("`BurnBurst` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnBurst", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 焚身(载体)
+    ("`BurnBacklash` `pick BurnedByThisCast` `rider Burn`",
+     {"kind": "BurnBacklash", "value": 0, "pick": "BurnedByThisCast", "riderOf": "Burn"}),
+    # 炽焰:附着减攻 + 门槛,不写 turns
+    ("`Weaken 30` `pick BurnedByThisCast` `rider Burn` `minBurn 5`",
+     {"kind": "Weaken", "value": 30, "pick": "BurnedByThisCast", "riderOf": "Burn", "minBurn": 5}),
+])
+def test_d2fire_rider_family(config, expected):
+    assert _parse_effects(config, "火") == [expected]
+
+
+def test_d2fire_rider_family_after_burn_keeps_order():
+    """附着写在点灼之后(结算顺序 = 列表顺序):先上灼,附着才找得到本字的灼。"""
+    effects = _parse_effects("`BurnSingle 2` + `BurnBurst` `pick BurnedByThisCast` `rider Burn`", "火")
+    assert [e["kind"] for e in effects] == ["BurnSingle", "BurnBurst"]
+    assert effects[1]["riderOf"] == "Burn" and "riderOf" not in effects[0]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`HealBlock` `pick BurnedByThisCast`", "rider"),                 # 附着族必须写 rider
+    ("`BurnGrow 1` `turns 3`", "rider"),
+    ("`Weaken 30` `turns 2` `minBurn 5`", "minBurn"),                  # minBurn 只给附着的减攻
+    ("`Blind 15` `rider Burn` `minBurn 5`", "minBurn"),                # minBurn 只给减攻
+    ("`minBurn 5` `Weaken 30` `rider Burn`", "minBurn"),               # 前面没有可挂的效果
+    ("`Seed 10` `turns 2` `rider Burn`", "rider"),                     # 名单外的 Kind 不能附着
+])
+def test_d2fire_rider_family_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-火 Task 4:埋雷(Mine)与受击回敬(Retaliate + onHit 段)----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`Mine 50`", {"kind": "Mine", "value": 50}),
+    ("`Mine` `bodyPercent 200`", {"kind": "Mine", "value": 0, "bodyPercent": 200}),
+    ("`Mine 30` `pick All`", {"kind": "Mine", "value": 30, "pick": "All"}),
+])
+def test_d2fire_mine(config, expected):
+    assert _parse_effects(config, "炸") == [expected]
+
+
+def test_d2fire_retaliate_on_hit_section():
+    """烈焰护身:`onHit` 之后的 token 是回敬效果,挂到本格唯一的 Retaliate 上(写法同 perHit 段)。"""
+    effects = _parse_effects("`BurnAll 2` + `Retaliate` `onHit` `BurnSingle 2`", "烈")
+    assert effects == [{"kind": "BurnAll", "value": 2},
+                       {"kind": "Retaliate", "value": 0, "perHit": [{"kind": "BurnSingle", "value": 2}]}]
+    capped = _parse_effects("`Retaliate 1` `onHit` `Bleed 3` + `ArmorBreak 2` `turns 2`", "金")
+    assert capped == [{"kind": "Retaliate", "value": 1,
+                       "perHit": [{"kind": "Bleed", "value": 3}, {"kind": "ArmorBreak", "value": 2, "turns": 2}]}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Retaliate`", "onHit"),                                          # 回敬必须写 onHit 段
+    ("`BurnAll 2` `onHit` `BurnSingle 2`", "Retaliate"),               # onHit 没有宿主
+    ("`Retaliate` `onHit` `DamageSingle 5`", "onHit"),                 # 回敬里不能有伤害
+    ("`Retaliate` `onHit` `Weaken 10` `turns 2` `if Burning`", "onHit"),   # 不能带条件门
+    ("`Retaliate` `onHit` `Blind 10` `turns 2` `pick All`", "onHit"),            # 不能带选择器(对象就是攻击者)
+    ("`Retaliate` `onHit`", "onHit"),                                  # 空段
+    ("`Mine`", "Mine"),                                                # 地雷没有伤害量
+])
+def test_d2fire_task4_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-火 Task 5:其余单点效果(附录 N9 / N10 / N11)----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 星火:每命中一名出字前带灼的敌人,对随机敌人追加本体 30%
+    ("`ExtraStrike 30` `pick Random` `perBurningHit`", "焱",
+     [{"kind": "ExtraStrike", "value": 30, "pick": "Random", "perBurningHit": True}]),
+    # 烈焚:对灼层最高者追加本体 50%
+    ("`ExtraStrike 50` `pick MostBurn`", "焚", [{"kind": "ExtraStrike", "value": 50, "pick": "MostBurn"}]),
+    # 玉石俱焚
+    ("`SelfCost 20` + `Amplify 150` `scope Damage` + `BurnAll 3`", "焚",
+     [{"kind": "SelfCost", "value": 20}, {"kind": "Amplify", "value": 150, "scope": "Damage"},
+      {"kind": "BurnAll", "value": 3}]),
+    # 光耀
+    ("`Reveal` + `Vulnerable 15` `turns 1`", "灿",
+     [{"kind": "Vulnerable", "value": 15, "turns": 1}, {"kind": "Reveal", "value": 0}]),
+    # 水火相激的解冻(本格没有 Amplify 时条件门按位置挂在解冻上)
+    ("`Thaw` `if Controlled`", "蒸", [{"kind": "Thaw", "value": 0, "onlyIf": "Controlled"}]),
+    ("`Thaw` `pick All`", "蒸", [{"kind": "Thaw", "value": 0, "pick": "All"}]),
+])
+def test_d2fire_task5_single_ops(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config", [
+    "`BurnSingle 2` `perBurningHit`",                          # perBurningHit 没有 ExtraStrike 宿主
+    "`ExtraStrike 30` + `ExtraStrike 20` `perBurningHit`",     # 宿主不唯一
+])
+def test_d2fire_task5_per_burning_hit_needs_one_extra_strike(config):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert "perBurningHit" in str(err.value)

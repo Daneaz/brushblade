@@ -153,6 +153,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Blind,
                 // 加速/急速(2026-09-16,水):百分比连续量值,与 CritBuff/PierceBuff 同型。
                 EffectKind.Haste,
+                // 埋雷(D2-火 Task 4):延时伤害量,与流血 / 引爆同口径
+                EffectKind.Mine,
             };
             var doesNotTake = new System.Collections.Generic.HashSet<EffectKind>
             {
@@ -187,6 +189,14 @@ namespace Brushblade.Core.Tests
                 EffectKind.ShieldRecoil,
                 // D2-0 Task 2:嘲讽是状态回合数,不是本系字的量值本体
                 EffectKind.Taunt,
+                // D2-火 Task 2:灼层翻倍是层数百分比(离散)、拉平不用 Value
+                EffectKind.BurnScale, EffectKind.BurnEqualize,
+                // D2-火 Task 3:灼附着族 —— 上炎的 Value 是层数,其余不用 Value(焚城反应的 Value = 层数)
+                EffectKind.HealBlock, EffectKind.BurnGrow, EffectKind.BurnHold, EffectKind.BurnBurst, EffectKind.BurnBacklash,
+                // D2-火 Task 4:受击回敬的 Value 是次数上限
+                EffectKind.Retaliate,
+                // D2-火 Task 5:追加一击的 Value 是百分比(L3 套在本体伤害基数上)、自损是百分比、解冻 / 揭示不用 Value
+                EffectKind.ExtraStrike, EffectKind.SelfCost, EffectKind.Thaw, EffectKind.Reveal,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

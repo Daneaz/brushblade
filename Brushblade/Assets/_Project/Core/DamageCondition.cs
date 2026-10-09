@@ -61,5 +61,13 @@ namespace Brushblade.Core
 
         /// <summary>本字克制目标(WuxingResolver.KeMultiplier(本字元素, 目标元素) &gt; 1)。</summary>
         Countering = 12,
+
+        // ---- D2-火 Task 1(附录 E1):与目标无关,快照里每个敌人下标同值 ----
+
+        /// <summary>我方生命 &gt; 70%(出字前;气盛)。</summary>
+        PlayerHpAbove70 = 13,
+
+        /// <summary>我方有存活召唤物(木灵;焚林)。</summary>
+        HasSummon = 14,
     }
 }

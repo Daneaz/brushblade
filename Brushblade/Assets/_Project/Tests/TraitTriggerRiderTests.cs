@@ -137,8 +137,10 @@ namespace Brushblade.Core.Tests
 
         private static readonly CharDef Boom = RebalanceFixture.Char("煸", new EffectDef(EffectKind.Detonate, 0));
 
+        // 按烟熏(Lv6)的特性键找:D2-火 G11 起 Lv5 烟障的致盲也带自己的 TraitKey(独立来源),不能再用「TraitKey != null」认附着
         private static StatusEffect RiderBlind(BattleEngine b, int i = 0) =>
-            b.Enemies[i].Statuses.All.FirstOrDefault(s => s.Kind == StatusKind.Blind && s.TraitKey != null);
+            b.Enemies[i].Statuses.All.FirstOrDefault(s => s.Kind == StatusKind.Blind
+                && s.TraitKey == BattleEngine.TraitKey("熏", TraitSlot.Lv6, TraitFace.Attack));
 
         private static StatusEffect Rider(BattleEngine b, int i = 0) => b.Enemies[i].Statuses.Find(StatusKind.TraitRider);
 
@@ -350,7 +352,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Config_RiderOf_OnlyBlindOnBurn()
         {
-            Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Weaken"",""value"":15,""turns"":2,""riderOf"":""Burn""}"));
+            // D2-火 Task 3 起附着白名单扩到灼附着族(Weaken / HealBlock / BurnGrow / BurnHold / BurnBurst / BurnBacklash),
+            // 名单外的 Kind 照旧拦下
+            Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Seed"",""value"":15,""turns"":2,""riderOf"":""Burn""}"));
             Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Blind"",""value"":15,""riderOf"":""Freeze""}"));
             Assert.Throws<ConfigException>(() => Load(@"{""kind"":""Blind"",""value"":15,""riderOf"":""Nope""}"));
         }

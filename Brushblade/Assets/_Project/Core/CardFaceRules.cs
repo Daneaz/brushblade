@@ -60,6 +60,11 @@ namespace Brushblade.Core
             EffectKind.Silence, EffectKind.BurnNoDecay, EffectKind.BurnSettleNow, EffectKind.Detonate,
             EffectKind.Charm, EffectKind.Quench, EffectKind.Weaken, EffectKind.Seed, EffectKind.Vulnerable,
             EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.SummonStrike,
+            EffectKind.BurnScale, EffectKind.BurnEqualize,   // D2-火 Task 2:动的是敌人的灼
+            EffectKind.HealBlock, EffectKind.BurnGrow, EffectKind.BurnHold,   // D2-火 Task 3:挂在敌人的灼上
+            EffectKind.BurnBurst, EffectKind.BurnBacklash,
+            EffectKind.Mine,   // D2-火 Task 4:埋在敌人身上(受击回敬 Retaliate 挂在玩家身上,不敌对)
+            EffectKind.ExtraStrike, EffectKind.Thaw, EffectKind.Reveal,   // D2-火 Task 5:落在敌人身上(自损 SelfCost 作用于玩家,不敌对)
         };
 
         /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /
