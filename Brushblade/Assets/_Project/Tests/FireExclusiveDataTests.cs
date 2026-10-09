@@ -77,6 +77,25 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Yi_SkyBurn_RetainsExactlyOneThird_AtMultiplesOfThree()
+        {
+            // 燚 Lv8·攻 焚天:「之后每名敌人保留 1/3 层」。保留按 ⌊N × R%⌋ 算,R 写 33 时 3 / 6 / 9 层会少 1 层;
+            // 取真实数据那条 Detonate,放进试字里对 3 / 6 / 9 层各引爆一次(真字的本体会先叠灼,凑不出这三档)
+            var skyBurn = Graph.Get("燚").Traits
+                .Single(t => t.Slot == TraitSlot.Lv8 && t.Face == TraitFace.Attack && t.Name == "焚天")
+                .Effects.Single(e => e.Kind == EffectKind.Detonate);
+            var probe = new CharDef("试", Element.Heart, effects: new[] { skyBurn });
+            var b = new BattleEngine(RebalanceFixture.Graph(probe), Config, new[] { "试", "试", "试" },
+                Array.Empty<string>(), new[] { Mob(), Mob(), Mob() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["试"] = 1 });
+            SetBurn(b, 0, 3);
+            SetBurn(b, 1, 6);
+            SetBurn(b, 2, 9);
+            Assert.That(b.Cast("试", -1), Is.EqualTo(BattleError.None));
+            Assert.That(new[] { Burn(b, 0), Burn(b, 1), Burn(b, 2) }, Is.EqualTo(new[] { 1, 2, 3 }), "⌊N/3⌋");
+        }
+
+        [Test]
         public void Yan_FlameBlade_TwoHits_SettleAfterEach()
         {
             // 炎 Lv8·攻 炎刃:`Reshape` `hits 2` `hitSettle` —— 每击后目标的灼结算一次(不减层)

@@ -92,14 +92,14 @@ namespace Brushblade.Core.Tests
         };
 
         // ---- spec §9 专属格清单(加粗名;照表手抄:字 槽 面 名)----
-        // D2-火 Task 7:火系 44 格。V4:气盛、焚风(两面通用、燃面不起作用的 Lv4 加成)拆成攻击面原条目 + 燃面同档精进,
-        // 两条同名,所以清单是 46 条、44 格。其余各系的专属格随 D2-金 / 水 / 土 / 木 追加。
+        // D2-火 Task 7:火系 44 格。V4:焚风(两面通用、燃面不起作用的 Lv4 加成)拆成攻击面原条目 + 燃面同档精进,
+        // 两条同名,所以清单是 45 条、44 格(Ruling 9:气盛 scope All 在燃面也加灼火力,回到单行两面)。其余各系的专属格随 D2-金 / 水 / 土 / 木 追加。
         private static readonly string[] ExclusiveCells =
         {
             "热 Lv8 Attack 升温",
             "爆 Lv8 Attack 连爆",
             "炸 Lv5 Feature 埋雷", "炸 Lv8 Attack 惊爆",
-            "烈 Lv4 Attack 气盛", "烈 Lv4 Feature 气盛", "烈 Lv5 Feature 烈风", "烈 Lv8 Attack 火烧连营", "烈 Lv8 Feature 烈焰护身",
+            "烈 Lv4 Both 气盛", "烈 Lv5 Feature 烈风", "烈 Lv8 Attack 火烧连营", "烈 Lv8 Feature 烈焰护身",
             "燥 Lv4 Both 干涸", "燥 Lv5 Attack 燥裂", "燥 Lv8 Attack 燥火攻心", "燥 Lv8 Feature 焦土",
             "蒸 Lv4 Both 温润", "蒸 Lv5 Attack 水火相激", "蒸 Lv8 Attack 蒸腾", "蒸 Lv8 Feature 蒸笼",
             "炎 Lv4 Both 双焰", "炎 Lv5 Attack 火上浇油", "炎 Lv6 Feature 上炎", "炎 Lv8 Attack 炎刃", "炎 Lv8 Feature 炎炎",
@@ -113,7 +113,7 @@ namespace Brushblade.Core.Tests
         };
 
         /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
-        private static readonly string[] V4Split = { "气盛", "焚风" };
+        private static readonly string[] V4Split = { "焚风" };
 
         private static bool IsExclusive(CharDef d, TraitDef t)
         {
@@ -128,9 +128,9 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ExclusiveCellList_Fire44Cells_46Rows()
+        public void ExclusiveCellList_Fire44Cells_45Rows()
         {
-            Assert.That(ExclusiveCells.Length, Is.EqualTo(46));
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(45));
             Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
                 Is.EqualTo(44), "去掉 V4 拆出的燃面行 = 44 格");
             Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
@@ -383,9 +383,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void FireExclusive_V4Split_FeatureRowIsSameTierRefine()
         {
-            // V4:气盛(紫 1.75)/ 焚风(橙 2.5)燃面 = 精进 round(10 × 档位系数),无条件、scope All
-            var refine = new Dictionary<string, int> { ["气盛"] = 18, ["焚风"] = 25 };
-            foreach (var (id, name) in new[] { ("烈", "气盛"), ("焚", "焚风") })
+            // V4:焚风(橙 2.5)燃面 = 精进 round(10 × 档位系数),无条件、scope All
+            var refine = new Dictionary<string, int> { ["焚风"] = 25 };
+            foreach (var (id, name) in new[] { ("焚", "焚风") })
             {
                 var d = Graph.Get(id);
                 var rows = d.Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == name).ToList();
@@ -399,6 +399,20 @@ namespace Brushblade.Core.Tests
                 var attack = rows.Single(t => t.Face == TraitFace.Attack).Effects.Single();
                 Assert.That(attack.OnlyIf, Is.Not.EqualTo(DamageCondition.None), $"{name} 攻击面保留原条件");
             }
+        }
+
+        [Test]
+        public void FireExclusive_QiSheng_SingleBothRow_ConditionalAmplifyAll()
+        {
+            // Ruling 9:G3 让 scope All 在燃面也加本字灼的火力,V4「燃面不起作用」的前提不成立 → 气盛回到单行两面
+            var rows = Graph.Get("烈").Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == "气盛").ToList();
+            Assert.That(rows.Count, Is.EqualTo(1), "气盛只有一行");
+            Assert.That(rows[0].Face, Is.EqualTo(TraitFace.Both));
+            var e = rows[0].Effects.Single();
+            Assert.That(e.Kind, Is.EqualTo(EffectKind.Amplify));
+            Assert.That(e.Value, Is.EqualTo(20));
+            Assert.That(e.Scope, Is.EqualTo(AmpScope.All));
+            Assert.That(e.OnlyIf, Is.EqualTo(DamageCondition.PlayerHpAbove70));
         }
 
         private static EffectDef PoolEffect(string ch, TraitSlot slot, TraitFace face, string name, EffectKind kind)

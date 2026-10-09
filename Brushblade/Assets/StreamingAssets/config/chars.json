@@ -164,7 +164,7 @@
               "kind": "Detonate",
               "value": 0,
               "pick": "All",
-              "retainPercent": 33
+              "retainPercent": 34
             }
           ]
         },
@@ -1058,7 +1058,6 @@
         },
         {
           "slot": "Lv4",
-          "face": "Attack",
           "form": "Passive",
           "name": "气盛",
           "effects": [
@@ -1067,19 +1066,6 @@
               "value": 20,
               "scope": "All",
               "onlyIf": "PlayerHpAbove70"
-            }
-          ]
-        },
-        {
-          "slot": "Lv4",
-          "face": "Feature",
-          "form": "Passive",
-          "name": "气盛",
-          "effects": [
-            {
-              "kind": "Amplify",
-              "value": 18,
-              "scope": "All"
             }
           ]
         },

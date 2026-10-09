@@ -365,7 +365,7 @@ namespace Brushblade.Core
         /// 之后 N 场每场开局对全场结算一次(<c>BattleEngine.RegisterOpening</c>,同类取最强)。0 = 普通效果。</summary>
         public int OpeningBattles { get; }
 
-        /// <summary>引爆后保留的层数百分比(D2-火 N3 / G5,惊爆 50、焚天 33):&gt; 0 时全额伤害照打,之后层数设为 ⌊原层数 × N%⌋
+        /// <summary>引爆后保留的层数百分比(D2-火 N3 / G5,惊爆 50、焚天 34):&gt; 0 时全额伤害照打,之后层数设为 ⌊原层数 × N%⌋
         /// (0 层则清空),火力与附着不变;目标被打死残层清零。只给 Detonate;0 = 不保留(缺省,全部清空)。</summary>
         public int RetainPercent { get; }
 
