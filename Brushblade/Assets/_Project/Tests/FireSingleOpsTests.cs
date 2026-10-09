@@ -134,6 +134,52 @@ namespace Brushblade.Core.Tests
             Assert.That((s1.RandomState, s1.TraitRandomState), Is.EqualTo((s2.RandomState, s2.TraitRandomState)));
         }
 
+        [Test]
+        public void ExtraStrike_TakesElementL3_AndKe_SameAsBodyHit()
+        {
+            // 终审 6:追加一击的基数吃五行 L3(与本体同一条 ApplyElementPercent),落点过生克(火克金 ×1.5)。
+            // 主目标只吃本体一击,烈焚(MostBurn)那一发落在另一名敌人身上:两者之比 = 50%
+            var def = new CharDef("焚", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.Shield, 10) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+                traits: new[] { Trait(TraitSlot.Lv5, TraitFace.Attack, new EffectDef(EffectKind.ExtraStrike, 50, pick: EffectPick.MostBurn)) });
+            var l3 = new int[Enum.GetValues(typeof(Element)).Length];
+            l3[(int)Element.Fire] = 20;
+            var config = Config();
+            config.ElementEffectPercent = l3;
+            var metal = new[] { new EnemyDef("怔", Element.Metal, Hp, 0), new EnemyDef("怔", Element.Metal, Hp, 0) };
+            var b = new BattleEngine(RebalanceFixture.Graph(def), config, new[] { "焚", "焚", "焚" }, Array.Empty<string>(),
+                metal, seed: 1, cardLevels: new Dictionary<string, int> { ["焚"] = 5 });
+            SetBurn(b, 1, 3);
+            Assert.That(b.Cast("焚", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            int bodyHit = Lost(b, 0);
+            int plainBody = MetaRules.ScaleByCardLevel(100, 5);
+            Assert.That(bodyHit, Is.EqualTo(plainBody * 120 / 100 * 3 / 2).Within(1), "前提:本体一击 = L3 +20% × 火克金 1.5");
+            Assert.That(Lost(b, 1), Is.EqualTo(bodyHit / 2).Within(1), "追加一击 = 同口径的本体 × 50%(L3 与生克都吃)");
+        }
+
+        [Test]
+        public void ExtraStrike_TargetDeadOrOnlyIfFails_NoCritRoll()
+        {
+            // 终审 6:这一发作罢时不摇暴击(_random 与无特性逐位相同);暴击率 50 让「摇了」可见
+            var plainBody = new EffectDef(EffectKind.DamageSingle, 100);
+            CharDef With(EffectDef extra) => Striker(plainBody, extra);
+            // ① 目标已死:本体打死主目标,追加一击 pick Primary 落空
+            var dead = Battle(new[] { With(new EffectDef(EffectKind.ExtraStrike, 50)) }, new[] { Mob(hp: 1), Mob() }, level: 5, crit: 50);
+            var deadPlain = Battle(new[] { With(null) }, new[] { Mob(hp: 1), Mob() }, level: 5, crit: 50);
+            dead.Cast("焱", 0, attackMode: true);
+            deadPlain.Cast("焱", 0, attackMode: true);
+            Assert.That(dead.Enemies[0].Alive, Is.False, "前提:本体打死了主目标");
+            Assert.That(dead.Capture().RandomState, Is.EqualTo(deadPlain.Capture().RandomState), "目标已死:不摇暴击");
+            // ② 条件不满足:if Burning,目标没有灼
+            var gated = Battle(new[] { With(new EffectDef(EffectKind.ExtraStrike, 50, onlyIf: DamageCondition.Burning)) }, Mobs(1), level: 5, crit: 50);
+            var gatedPlain = Battle(new[] { With(null) }, Mobs(1), level: 5, crit: 50);
+            gated.Cast("焱", 0, attackMode: true);
+            gatedPlain.Cast("焱", 0, attackMode: true);
+            Assert.That(Lost(gated, 0), Is.EqualTo(Lost(gatedPlain, 0)), "条件不满足:没有追加");
+            Assert.That(gated.Capture().RandomState, Is.EqualTo(gatedPlain.Capture().RandomState), "条件不满足:不摇暴击");
+        }
+
         // ================= N10 Thaw =================
 
         private static CharDef Thawer(EffectPick pick = EffectPick.Primary) =>
@@ -274,6 +320,10 @@ namespace Brushblade.Core.Tests
             Assert.Throws<ConfigException>(() => LoadOne(@"{""kind"":""ExtraStrike"",""value"":0}"), "追加一击须 > 0%");
             Assert.Throws<ConfigException>(() => LoadOne(@"{""kind"":""SelfCost"",""value"":0}"));
             Assert.Throws<ConfigException>(() => LoadOne(@"{""kind"":""SelfCost"",""value"":100}"), "自损须 1–99%");
+            // 终审 6:自损在出字开头结算、不经条件门 —— 写 onlyIf 会静默无效;写进每击附带会每击扣一次血
+            Assert.Throws<ConfigException>(() => LoadOne(@"{""kind"":""SelfCost"",""value"":20,""onlyIf"":""Burning""}"), "自损不能带条件门");
+            Assert.Throws<ConfigException>(() => LoadOne(
+                @"{""kind"":""DamageSingle"",""value"":10,""perHit"":[{""kind"":""SelfCost"",""value"":20}]}"), "自损不能写进每击附带");
         }
     }
 }

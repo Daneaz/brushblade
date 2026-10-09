@@ -794,6 +794,9 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的追加一击(ExtraStrike)须写本体百分比 > 0:{effect.Value}");
                 if (kind == EffectKind.SelfCost && (effect.Value < 1 || effect.Value > 99))
                     throw new ConfigException($"字「{dto.Id}」的自损(SelfCost)须为当前生命的 1–99%:{effect.Value}");
+                // 自损在出字开头一次性结算(PaySelfCost),不经条件门:写 onlyIf 会静默无效(终审 6)
+                if (kind == EffectKind.SelfCost && !string.IsNullOrEmpty(effect.OnlyIf))
+                    throw new ConfigException($"字「{dto.Id}」的自损(SelfCost)不能带条件门 onlyIf:{effect.OnlyIf}");
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 var augmentKind = EffectKind.DamageSingle;
@@ -887,9 +890,10 @@ namespace Brushblade.Data
                 {
                     bool bad = child.Kind == nameof(EffectKind.DamageSingle) || child.Kind == nameof(EffectKind.Reshape)
                         || child.Kind == nameof(EffectKind.Amplify) || child.Kind == nameof(EffectKind.Augment)
+                        || child.Kind == nameof(EffectKind.SelfCost)   // 终审 6:自损写进每击附带会每击扣一次血
                         || child.PerHit != null || child.OpeningBattles != 0;
                     if (bad)
-                        throw new ConfigException($"字「{id}」的每击附带(perHit)里不能有伤害 / 修饰器 / 开局登记 / 嵌套 perHit:{child.Kind}");
+                        throw new ConfigException($"字「{id}」的每击附带(perHit)里不能有伤害 / 修饰器 / 自损 / 开局登记 / 嵌套 perHit:{child.Kind}");
                 }
             }
             else if (e.PerHitFrom != 1)

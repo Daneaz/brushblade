@@ -766,6 +766,7 @@ def test_d2fire_segment_one_effect_per_plus_errors(config, needle):
     ("`BurnAll 2` `hitBurn 1`", "perHit"),                             # 没有伤害 / Reshape
     ("`Reshape` `hitBurn 1` `perHit` `BurnSingle 1`", "perHit"),       # 糖与通用写法混用
     ("`Reshape` `perHit` `DamageSingle 5`", "perHit"),                 # 每击附带里不能再有伤害
+    ("`Reshape` `perHit` `SelfCost 20`", "perHit"),                    # 每击附带里不能自损(每击扣一次血)
     ("`Reshape` `perHit`", "perHit"),                                  # 空的每击附带
     ("`Reshape` `perHit 1` `BurnSingle 1` `perHit` `Morale 1`", "perHit"),  # 只能有一段
 ])

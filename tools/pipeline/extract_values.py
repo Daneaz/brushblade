@@ -277,7 +277,7 @@ HIT_SETTLE_TOKEN = "hitSettle"
 # D2-火 Task 5(附录 N9,星火):`perBurningHit` —— 追加一击按「本次出字命中过、出字前带灼的敌人」每名一发。
 # 无数值的布尔标记,挂本格唯一的 ExtraStrike;没有宿主就报错(否则静默消失)。
 PER_BURNING_HIT_TOKEN = "perBurningHit"
-PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment"}
+PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment", "SelfCost"}   # 同 ConfigLoader(终审 6)
 # 受击回敬(D2-火 Task 4,Q23 通用形态):`onHit` 之后的全部 token 是「我方被命中时对攻击者结算的效果」,挂到本格唯一的
 # Retaliate 上,落进 chars.json 的 perHit 字段(与每击附带同一个字段、同一种段式写法)。只收作用于攻击者的非伤害效果,
 # 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
