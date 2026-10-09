@@ -297,6 +297,36 @@ namespace Brushblade.Core.Tests
             Assert.That(Burn(run.Battle, 0), Is.EqualTo(0), "battles 1:第 3 场不再有");
         }
 
+        [Test]
+        public void Yan_Blazing_And_Yi3_StarFire_SameGroup_MergeKeepsLongerBattles()
+        {
+            // 炎炎(`BurnAll 2` `battles 1`)与星星之火(`BurnAll 2` `battles 5`)同属 (BurnAll, 全体) 一组:
+            // 开局按「取最强」合并 —— 同值时取场数长的,不相加
+            var config = new RunConfig
+            {
+                Encounters = Enumerable.Range(0, 4).Select(_ => new[] { Mob(hp: 50) }).ToArray(),
+                RewardPool = new[] { "炎" },
+            };
+            var run = new RunEngine(Graph, config, Config, new[] { "炎", "炎", "炎", "焱", "焱" }, Array.Empty<string>(),
+                seed: 1, cardLevels: new Dictionary<string, int> { ["炎"] = 8, ["焱"] = 8 });
+            Assert.That(run.Battle.Cast("焱", 0), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("炎", 0), Is.EqualTo(BattleError.None));
+            var pending = run.Battle.PendingOpenings;
+            Assert.That(pending.Select(o => (o.Kind, o.Value, o.BattlesLeft)).OrderBy(x => x.BattlesLeft).ToArray(),
+                Is.EqualTo(new[] { (EffectKind.BurnAll, 2, 1), (EffectKind.BurnAll, 2, 5) }), "前提:两条都登记");
+            foreach (var order in new[] { pending.ToList(), pending.Reverse().ToList() })
+            {
+                var merged = OpeningRules.Merge(Array.Empty<OpeningEffect>(), order).Single();
+                Assert.That((merged.Kind, merged.Value, merged.BattlesLeft), Is.EqualTo((EffectKind.BurnAll, 2, 5)),
+                    "同组同值:取场数长的(与登记顺序无关)");
+            }
+
+            Win(run);
+            Assert.That(Burn(run.Battle, 0), Is.EqualTo(2), "第 2 场开局 +灼 2:取最强,不相加");
+            Win(run);
+            Assert.That(Burn(run.Battle, 0), Is.EqualTo(2), "第 3 场:炎炎的 1 场已过,星星之火的 5 场还在");
+        }
+
         private static void Win(RunEngine run)
         {
             Assert.That(run.Battle.Cast("炎", 0, attackMode: true), Is.EqualTo(BattleError.None));
