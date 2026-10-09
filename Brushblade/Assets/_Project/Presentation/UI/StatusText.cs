@@ -259,18 +259,18 @@ namespace Brushblade.Presentation
                         Strings.T("status.duration.charges", ("value", magnitude)),
                         Strings.T("status.endure.desc"));
                 case StatusKind.HealBlock:
-                    // 干涸(D2-火 Task 3,V3):Core 已生效;战场 chip 等 designer 稿拍板,这里先让详情弹窗查得到。IconKey 留 null
-                    return new Info(null, Strings.T("status.healblock.name"),
+                    // 干涸(D2-火 Task 3,V3;StatusChipsFire 稿 2026-10-09):敌人身上,墨蓝底、无数字,附着在灼上
+                    return new Info("healblock", Strings.T("status.healblock.name"),
                         Duration(turnsLeft),
                         Strings.T("status.healblock.desc"));
                 case StatusKind.Mine:
-                    // 埋雷(D2-火 Task 4,V3):敌人身上,Core 已生效;战场 chip 等 designer 稿拍板,这里先让详情弹窗查得到。IconKey 留 null
-                    return new Info(null, Strings.T("status.mine.name"),
+                    // 埋雷(D2-火 Task 4,V3;StatusChipsFire 稿):敌人身上,朱砂底;chip 无数字,数字只在详情里
+                    return new Info("mine", Strings.T("status.mine.name"),
                         Strings.T("status.duration.until_next_action"),
                         Strings.T("status.mine.desc", ("magnitude", magnitude)));
                 case StatusKind.Retaliate:
-                    // 受击回敬(D2-火 Task 4,烈焰护身;金系复用):玩家身上,本回合。chip 等 designer 稿,IconKey 留 null
-                    return new Info(null, Strings.T("status.retaliate.name"),
+                    // 受击回敬(D2-火 Task 4,烈焰护身;金系复用;StatusChipsFire 稿):玩家身上,本回合,翠玉底
+                    return new Info("retaliate", Strings.T("status.retaliate.name"),
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.retaliate.desc"));
                 case StatusKind.ApBoost:

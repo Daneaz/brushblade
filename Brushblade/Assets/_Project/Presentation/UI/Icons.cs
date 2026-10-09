@@ -73,6 +73,10 @@ namespace Brushblade.Presentation
             { "mark", "标" },
             { "keepshield", "留" },
             { "taunt", "嘲" },
+            // D2-火 状态 chip(2026-10-09 拍板,StatusChipsFire):埋雷 / 干涸 / 回敬
+            { "mine", "雷" },
+            { "healblock", "涸" },
+            { "retaliate", "敬" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

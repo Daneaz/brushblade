@@ -230,6 +230,25 @@ ICONS = {
         f'<path {STROKE} d="M8 25h12l24-13v40L20 39H8z"/>'
         f'<path {STROKE} d="M52 24c4 5 4 11 0 16"/>'
     ),
+    # 字卡特性 D2-火 状态 chip(2026-10-09 拍板,StatusChipsFire):路径逐字取自 traits-data.js 标「10-08 补」的三枚
+    # 埋雷:实心炸弹 + 引信(引信线宽 5)
+    "mine": (
+        f'<circle cx="27" cy="38" r="20" {FILL}/>'
+        f'<path {FILL} d="M44 13l8 8-7 7-8-8z"/>'
+        f'<path {STROKE5} d="M50 15c2-5 5-8 9-9"/>'
+    ),
+    # 干涸:润泽的实心加号沿斜杠切成两块(几何切开,不靠蒙版)+ 一道斜杠
+    "healblock": (
+        f'<path {FILL} d="M26 12h12v5.5L17.5 38H12V26h14z"/>'
+        f'<path {FILL} d="M46.5 26H52v12H38v14H26v-5.5z"/>'
+        f'<path {STROKE} d="M12 52L52 12"/>'
+    ),
+    # 回敬:折返箭头 + 一点火花(不画火,金系复用不改)
+    "retaliate": (
+        f'<path {STROKE} d="M10 20h26a13 13 0 0 1 0 26H18"/>'
+        f'<path {STROKE} d="M26 38l-8 8 8 8"/>'
+        f'<path {FILL} d="M51 3l2.8 7.2L61 13l-7.2 2.8L51 23l-2.8-7.2L41 13l7.2-2.8z"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

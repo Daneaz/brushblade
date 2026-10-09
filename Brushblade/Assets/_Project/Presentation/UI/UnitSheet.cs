@@ -383,12 +383,15 @@ namespace Brushblade.Presentation
             // 飘在列中间,底下的说明却贴着左边,一条状态读起来像两条。取 MiddleLeft 而不是
             // UpperLeft:名字 13 号、时长 10 号,顶对齐会让小字浮在上沿,居中才像同一行。
             nameLine.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.ThemedLabel(nameLine.transform, status.Name, 13, Theme.TextMain, align: TextAnchor.UpperLeft);
+            // 挂着但不生效的那条(炽焰门槛未到)名字与说明压成 text-faint(= Theme.LockGray),chip 不动
+            Ui.ThemedLabel(nameLine.transform, status.Name, 13, status.Dimmed ? Theme.LockGray : Theme.TextMain,
+                align: TextAnchor.UpperLeft);
             Ui.ThemedLabel(nameLine.transform, status.Duration, 10, Theme.TextDim, align: TextAnchor.UpperLeft);
 
             // 说明文字长度不受控,左列虽在 ScrollList 的 Viewport 内(有 RectMask2D)会被裁掉、
             // 不至于糊到弹窗外,但裁掉同样会丢字——开换行才是真正的修法(2026-09-01 review)。
-            var desc = Ui.ThemedLabel(textCol.transform, status.Desc, 11, Theme.TextDim, align: TextAnchor.UpperLeft);
+            var desc = Ui.ThemedLabel(textCol.transform, status.Desc, 11, status.Dimmed ? Theme.LockGray : Theme.TextDim,
+                align: TextAnchor.UpperLeft);
             desc.horizontalOverflow = HorizontalWrapMode.Wrap;
             desc.verticalOverflow = VerticalWrapMode.Overflow;
         }

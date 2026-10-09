@@ -25,6 +25,16 @@ namespace Brushblade.Core
         private static HashSet<(TraitSlot, TraitFace)> Superseded(IReadOnlyList<TraitDef> unlocked) =>
             new(unlocked.Where(t => t.Replaces.HasValue).Select(t => (t.Replaces.Value, t.Face)));
 
+        /// <summary>按特性键(<c>BattleEngine.TraitKey</c> 产出的「字/槽/面」)找该字的特性名;找不到或 key 为 null 返回 null。
+        /// 表现层用它把状态上的 TraitKey 翻成名字(炽焰详情「炽焰:灼满 5 层时……」)。</summary>
+        public static string NameOf(CharDef def, string traitKey)
+        {
+            if (def == null || traitKey == null) return null;
+            foreach (var t in def.Traits)
+                if (BattleEngine.TraitKey(def.Id, t.Slot, t.Face) == traitKey) return t.Name;
+            return null;
+        }
+
         public static IReadOnlyList<TraitDef> ActiveTraits(CharDef def, CardFace face, int cardLevel)
         {
             var unlocked = Unlocked(def, cardLevel);
