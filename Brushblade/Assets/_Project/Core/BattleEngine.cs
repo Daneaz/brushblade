@@ -373,6 +373,7 @@ namespace Brushblade.Core
         IronBarb,     // 钩子用:铁画反噬打到玩家(PlayerHit 的 Source;不进 BattleEvent)
         ShieldRecoil, // 反震(D1 Task 9):护盾吸收后按吸收量反弹;表现层按普通伤害飘字(来源标签归 Plan E)
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
+        ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -617,6 +618,8 @@ namespace Brushblade.Core
             DamageCondition.FirstCastThisTurn, DamageCondition.Countering,
             // D2-火 Task 1(附录 E1)
             DamageCondition.PlayerHpAbove70, DamageCondition.HasSummon,
+            // D2-金 Task 1(附录 E6)
+            DamageCondition.MoraleFull,
         };
 
         /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
@@ -625,7 +628,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 15 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 16 种),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -650,7 +653,8 @@ namespace Brushblade.Core
         private static bool IsTargetIndependent(DamageCondition c) =>
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
             || c == DamageCondition.FirstCastThisTurn
-            || c == DamageCondition.PlayerHpAbove70 || c == DamageCondition.HasSummon;
+            || c == DamageCondition.PlayerHpAbove70 || c == DamageCondition.HasSummon
+            || c == DamageCondition.MoraleFull;
 
         /// <summary>灼的火力加成(D2-火 G3):scope Burn / All 的 Amplify 乘在火力上,不改层数。无加成项原样返回。</summary>
         private int AmpBurnPotency(EffectDef effect, int potency, int enemyIndex) =>
@@ -1054,6 +1058,7 @@ namespace Brushblade.Core
         public int EffectivePlayerDefense => Math.Max(0,
             _config.PlayerDefense
             + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)
+            + MoraleArmorBonus   // 富甲(D2-金 J8a):没挂时恒 0
             - _playerStatuses.TotalMagnitude(StatusKind.ArmorBreak));
 
         /// <summary>护甲折算(2026-09-16):DR = 甲/(甲+100),即 伤害 × 100 ÷ (100 + 甲)。
@@ -1981,6 +1986,8 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.BurnScale
                     // 埋雷(D2-火 N7):埋在目标身上
                     || effect.Kind == EffectKind.Mine
+                    // 致命(D2-金 J5):挂在目标身上
+                    || effect.Kind == EffectKind.Doom
                     // D2-火 Task 5:追加一击 / 解冻 / 揭示写 Primary 时落在主目标上
                     || effect.Kind == EffectKind.ExtraStrike || effect.Kind == EffectKind.Thaw
                     || effect.Kind == EffectKind.Reveal)
@@ -2741,6 +2748,7 @@ namespace Brushblade.Core
                     if (summon != null) summon.Shield = 0;
                 DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
             }
+            ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
             _playerTurnsStarted++;
             Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             DrainReactions();   // 安全点:「回合开始时」类反应排在玩家灼烧结算之前
@@ -3058,6 +3066,7 @@ namespace Brushblade.Core
             // 顺序:先加 ApBoost(利,2026-08-12)再减封字,最后才钳保底 —— 反过来
             // (先钳后加)会让重封字下的 利 白白多给一点 AP。
             Ap = Math.Max(1, ApPerTurn - _playerStatuses.TotalMagnitude(StatusKind.Seal));
+            ConsumeApRefund();   // 得利(D2-金 J2):保底之后再加,用完即移除;没有时一次判断即返回
 
             // 回合掉字(2026-08-04):从出战牌组掉 N 个字入库,满库则停下让玩家决议。
             // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
@@ -3101,7 +3110,7 @@ namespace Brushblade.Core
             _cast = new CastContext
             {
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
-                OnCrit = outer.OnCrit, OnKill = outer.OnKill, TraitDef = outer.TraitDef,
+                OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
             };
             try
             {
@@ -3124,6 +3133,7 @@ namespace Brushblade.Core
             var castFace = FaceOf(def, attackMode);
             _cast.OnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
             _cast.OnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
+            _cast.OnExecute = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnExecute)) : null;
             _cast.TraitDef = def;
             _cast.AttackMode = attackMode;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
@@ -3158,11 +3168,20 @@ namespace Brushblade.Core
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
+            List<(EffectDef Effect, StatusEffect Status)> deferredMoraleBlocks = null;   // Ruling 11,见效果循环之后
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             // 自损(D2-火 N10b / G9,玉石俱焚):出字开头、出字前快照之后结算;循环里的 SelfCost 分支空转
             foreach (var castEffect in castEffects)
                 if (castEffect.Kind == EffectKind.SelfCost && castEffect.OpeningBattles == 0) PaySelfCost(castEffect.Value);
             foreach (var castEffect in castEffects) ResolveEffect(castEffect, targetIndex);
+            // 双金合璧(Ruling 11 / Q21):按战意计次的格挡等效果循环结束后再施加,次数取出字后的战意 ——
+            // 排在 Block 之后的 Morale(池·蓄势)也要算进去。须在断金清空战意之前。普通 Block 仍在循环里当场施加。
+            if (deferredMoraleBlocks != null)
+                foreach (var (effect, status) in deferredMoraleBlocks)
+                {
+                    status.Magnitude = BlockCountOf(effect);
+                    ApplyStatus(AllyStatuses(allySlot), status, AllyRef(allySlot), UnitRef.Player);
+                }
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
 
@@ -3203,6 +3222,8 @@ namespace Brushblade.Core
                         // 「塔」拖到敌人身上松手,选中的那只曾一发都没挨到。没指(−1)时照旧自动。
                         var shapeTargets = Targeting.ExpandTargets(
                             _enemies, targetIndex, effect.Shape, effect.Shots, volleyLeadsWithPrimary: true);
+                        // 主目标击数:缺省 = HitCount;ScaleBy Morale(D2-金 E10,大卸八块)= HitCount + 战意,进门取一次
+                        int primaryHits = HitCountOf(effect);
                         for (int t = 0; t < shapeTargets.Count; t++)
                         {
                             int tgt = shapeTargets[t];
@@ -3225,7 +3246,7 @@ namespace Brushblade.Core
                                 : effect.Shape == TargetArea.Chain
                                     ? ChainPercent(effect.ShapePercent, t)
                                     : effect.ShapePercent;
-                            int hits = primary ? effect.HitCount : 1;
+                            int hits = primary ? primaryHits : 1;
                             // 同一次挥击的第二格(2026-09-05):AddHits 把跨排 Boss 的下标
                             // **连着**记两次,所以「与上一项同下标」就是它。
                             // 连发排除在外 —— 它的重复下标是「多发」(场上只剩一只时 [0,0,0,0]),
@@ -3237,7 +3258,7 @@ namespace Brushblade.Core
                             for (int hit = 0; hit < hits; hit++)
                             {
                                 if (!_enemies[tgt].Alive) break;
-                                if (primary && TryExecuteKill(effect, tgt)) break; // 处决:击杀后无需再打
+                                if (primary && TryExecuteKill(effect, tgt, attacker)) break; // 处决:击杀后无需再打
                                 // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
                                 // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
                                 // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
@@ -3331,7 +3352,8 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
                                 // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
-                                Magnitude = ScaleByAttack(value), TurnsLeft = 3,   // 固定 3 回合
+                                Magnitude = ScaleByAttack(value),
+                                TurnsLeft = effect.Turns > 0 ? effect.Turns : BleedDefaultTurns,   // D2-金 E8:读 turns,缺省 3
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3704,16 +3726,27 @@ namespace Brushblade.Core
                     {
                         // 格挡(spec v7 §3.1/§4):次数是离散量,读 effect.Value(判据见 MetaRules.ScalesWithCardLevel);
                         // 反击 = 攻击面本体伤害(吃等级)× 30%,出字时定死,不吃攻击力(与反弹同口径)。
+                        // 反击百分比可被 BlockMod 覆盖(D2-金 E12),缺省 30%
                         int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel)
-                            * BattleConfig.BlockCounterPercent / 100;
-                        // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样
+                            * BlockCounterPercentOf(effect) / 100;
+                        // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样。
+                        // 顺序(D2-金):BlockMod 先改基数(本体 × CounterPercent%),Amplify 再在改后的基数上乘
+                        // (剑意 50 + 刀光 100 = 本体 × 50% × 2)—— 见 MetalSharedExtTests.BlockMod_CounterPercent_ThenAmplifyCounter
                         counter = Amplified(counter, AmpPercent(effect, -1));
                         // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
-                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
+                        var blockStatus = new StatusEffect
                         {
                             Kind = StatusKind.Block, Polarity = StatusPolarity.Buff,
-                            Magnitude = effect.Value, CounterDamage = counter, TurnsLeft = -1,
-                        }, AllyRef(allySlot), UnitRef.Player);
+                            Magnitude = BlockCountOf(effect), CounterDamage = counter, TurnsLeft = -1,   // 次数可按战意(E10)
+                        };
+                        CarryBlockRiders(blockStatus, effect, def.Id, cardLevel);   // 格挡附带(D2-金 J1),缺省全空
+                        if (effect.ScaleBy == ScaleBasis.Morale)
+                        {
+                            // Ruling 11:次数按出字后战意 —— 反击量与附带在此定死,施加推迟到效果循环结束后
+                            (deferredMoraleBlocks ??= new List<(EffectDef, StatusEffect)>()).Add((effect, blockStatus));
+                            break;
+                        }
+                        ApplyStatus(AllyStatuses(allySlot), blockStatus, AllyRef(allySlot), UnitRef.Player);
                         break;
                     }
                     case EffectKind.BurnNoDecay:
@@ -3749,6 +3782,19 @@ namespace Brushblade.Core
                     // 埋雷 / 受击回敬(D2-火 Task 4,N7 / N8)
                     case EffectKind.Mine:
                         PlantMine(effect, value, targetIndex, def.Id);
+                        break;
+                    case EffectKind.Doom:
+                        ApplyDoom(effect, targetIndex, def.Id);   // 致命(D2-金 J5)
+                        break;
+                    // 战意族(D2-金 Task 4,J7 / J8)
+                    case EffectKind.MoraleOverflowShield:
+                        ResolveMoraleOverflowShield(value);
+                        break;
+                    case EffectKind.MoraleArmor:
+                        GrantMoraleAura(StatusKind.MoraleArmor, value);
+                        break;
+                    case EffectKind.MoraleShield:
+                        GrantMoraleAura(StatusKind.MoraleShield, value);
                         break;
                     case EffectKind.Retaliate:
                         ArmRetaliate(effect, def.Id, attacker);
@@ -3829,7 +3875,8 @@ namespace Brushblade.Core
                         // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
                         // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
                         // 满层(缺省 5)+50 攻击,刚好追平剡单张的量;上限可由金脉 L4 抬到 7。
-                        AddPlayerCounter(StatusKind.Morale, value, _config?.MoraleCap ?? CombatCaps.MoraleStacks);
+                        // D2-金 E9 / E10:补满、按多命中缩放走 ResolveMorale;缺省路径与原先同一句 AddPlayerCounter
+                        ResolveMorale(effect, value);
                         break;
                     case EffectKind.CritBuff:
                         // 锋(2026-08-12,E-b2):本场暴击率 +Value 个百分点。
@@ -3975,9 +4022,15 @@ namespace Brushblade.Core
                             value *= CurrentBurnCount(effect.ScaleBy);
                             if (value <= 0) break;
                         }
+                        // 按被杀者最大生命(D2-金 E13,割取):基数 = 死者 MaxHp × Value%,不过攻击力缩放
+                        if (effect.OfVictimMaxHp)
+                        {
+                            value = VictimHealBase(effect, targetIndex);
+                            if (value <= 0) break;
+                        }
                         // 目标可选(2026-08-22,spec §8):与目标是谁无关 —— 治召唤物与治玩家同值
                         // (2026-09-02:相生 ×3 已取消,ResolveEffect 现在对这一支是恒等函数)
-                        int healBase = ScaleByBaseAttack(
+                        int healBase = effect.OfVictimMaxHp ? value : ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
                         int amplified = AmplifyByWellspring(healBase);  // 用**攒之前**的层数
                         GainWellspring(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
@@ -4438,7 +4491,7 @@ namespace Brushblade.Core
             }
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Burn);
-            else
+            else if (!AfterEnemyHpLoss(enemyIndex))   // 致命(D2-金 J5)
                 CheckBossPhase(enemyIndex);
         }
 
@@ -4460,7 +4513,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.BleedTick, enemyIndex, bleed));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Bleed);
-            else
+            else if (!AfterEnemyHpLoss(enemyIndex))   // 致命(D2-金 J5)
                 CheckBossPhase(enemyIndex);
         }
 
@@ -4513,7 +4566,7 @@ namespace Brushblade.Core
             }
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Detonate);
-            else
+            else if (!AfterEnemyHpLoss(enemyIndex))   // 致命(D2-金 J5)
                 CheckBossPhase(enemyIndex);
         }
 
@@ -4552,6 +4605,8 @@ namespace Brushblade.Core
                     bag.RemoveEntry(old);
                 }
             }
+            // 流血不论来源合成单条(D2-金 E8,Q12):量取大、回合取长
+            else if (effect.Kind == StatusKind.Bleed) MergeBleed(bag, effect);
             // 格挡同类取最强(spec v7 §5.2.1):次数、反击各取较大值,不累加
             else if (effect.Kind == StatusKind.Block)
             {
@@ -4560,6 +4615,7 @@ namespace Brushblade.Core
                 {
                     effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
                     effect.CounterDamage = Math.Max(effect.CounterDamage, existing.CounterDamage);
+                    MergeBlockRiders(effect, existing);   // 格挡附带(D2-金 Q4):数值取大、开关取并
                 }
             }
             else if (effect.Kind == StatusKind.Burn)
@@ -4572,7 +4628,8 @@ namespace Brushblade.Core
                 if (effect.Magnitude <= (bag.Find(StatusKind.Burn)?.Magnitude ?? 0)) raiseHook = false;
             }
             else if (effect.Kind == StatusKind.Curse || effect.Kind == StatusKind.Seed || effect.Kind == StatusKind.Vulnerable
-                || effect.Kind == StatusKind.Mine)   // 埋雷(D2-火 Task 4):同源再埋取大,不叠
+                || effect.Kind == StatusKind.Mine   // 埋雷(D2-火 Task 4):同源再埋取大,不叠
+                || effect.Kind == StatusKind.Doom)  // 致命(D2-金 J5):同源刷新取长
             {
                 // 减攻 / 种 / 标记同源刷新取强(D1 Task 5 / 6,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
                 // 同源 = 同 Kind + 同 SourceId + 同 TraitKey(bag.Apply 的去重键),不同来源各自并存
@@ -5125,6 +5182,7 @@ namespace Brushblade.Core
             DamageCondition.PlayerHasArmor => _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0,
             DamageCondition.PlayerHpAbove70 => PlayerHp * 100L > _config.PlayerMaxHp * 70L,
             DamageCondition.HasSummon => AliveSummons() > 0,
+            DamageCondition.MoraleFull => MoraleStacks >= MoraleCapOrDefault,   // D2-金 E6(Q13)
             DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
             DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
             _ => false,
@@ -5143,7 +5201,7 @@ namespace Brushblade.Core
         /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。
         /// Boss 是一条总血池,25% 也是很大一截,一刀没掉太破坏节奏,故免疫**抹杀**
         /// ——但不是毫无收益:2026-08-23 起 Boss 改吃双倍伤害,见 <see cref="ExecuteBonus"/>。</summary>
-        private bool TryExecuteKill(EffectDef effect, int enemyIndex)
+        private bool TryExecuteKill(EffectDef effect, int enemyIndex, Element attacker)
         {
             if (!effect.ExecuteKills || !BelowExecuteThreshold(effect, enemyIndex)) return false;
             var enemy = _enemies[enemyIndex];
@@ -5152,6 +5210,7 @@ namespace Brushblade.Core
             enemy.Hp = 0;
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
             ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Execute);
+            if (effect.ExecuteSplashPercent > 0) ExecuteSplash(enemyIndex, effect.ExecuteSplashPercent, attacker);   // J4 铡刀落
             return true;
         }
 
@@ -5224,6 +5283,8 @@ namespace Brushblade.Core
             // 标记(D1 Task 6):紧随冰滞易伤,与它相乘、分别整数取整;多个来源只取最强的一份(spec §5.2 第 1 律)。
             // 无标记整句跳过 —— 恒等。
             damage = ApplyMark(enemy, damage);
+            // 致命 · Boss 版(D2-金 J5):紧随标记、与它相乘;用掉即移除。没有致命整句跳过 —— 恒等
+            damage = ConsumeBossDoom(enemy, damage);
             // 护甲(2026-08-12 E-b4 T2 接线,2026-09-16 改百分比减伤):**全部乘法算完之后,最后折**。
             // 结算式 = floor(基础 × 生克 × 暴击) × 100 ÷ (100 + max(0, 护甲 − 破甲 − 穿透))。
             // 护甲是**百分比减伤**(2026-09-16,推翻 E-b4 的点数减法):DR = 甲/(甲+100),
@@ -5302,6 +5363,8 @@ namespace Brushblade.Core
                 return;
             }
             FlushCritMorale(enemyIndex);
+            // 致命(D2-金 J5):掉血后低于 30% 直接斩杀 —— 已经死了,下面的受击存活类反应(现形 / 焦痕 / 铁画 / 分裂)一律不走
+            if (AfterEnemyHpLoss(enemyIndex)) return;
 
             // 生僻字:受击两次后被「读懂」(8.3);打死了就无所谓读不读得懂
             if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
@@ -5360,6 +5423,7 @@ namespace Brushblade.Core
                     };
                     _enemies.Add(clone);
                     _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+                    AfterEnemyHpLoss(enemyIndex);   // 致命(D2-金 J5):分裂掉的那一半也是掉血(克隆不带状态)
                 }
             }
         }
@@ -5419,6 +5483,8 @@ namespace Brushblade.Core
             // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
             // 反应里的击杀不入队(R4:排空时 _cast.OnKill 为 null)
             EnqueueCastTraits(_cast.OnKill, enemyIndex);
+            // 斩杀时(D2-金 J3,铁则):同上口径,只认斩杀(TryExecuteKill / 致命);敌人回合的立威斩杀由 ResolveCounter 回查入队
+            if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
         }
@@ -5590,19 +5656,9 @@ namespace Brushblade.Core
                         source: EffectSource.Reflect, attackerRef: UnitRef.Player);
             }
             // 格挡反击:与镜共用 60% 反伤预算(§5.2.3),镜先用,反击拿剩下的
-            int counterDealt = 0;
-            if (counter > 0 && _enemies[enemyIndex].Alive)
-            {
-                int budget = damage * CombatCaps.ReflectPercent / 100 - bounced;
-                int dealt = Math.Min(counter, budget);
-                if (dealt > 0)
-                {
-                    DamageEnemy(enemyIndex, dealt, Element.Heart,
-                        bypassDefense: true, allowBarb: false,
-                        source: EffectSource.BlockCounter, attackerRef: UnitRef.Player);
-                    counterDealt = dealt;
-                }
-            }
+            // 结算与木灵侧共用 ResolveCounter(D2-金 J1)
+            int counterDealt = ResolveCounter(enemyIndex, blocking ? block : null, counter,
+                damage * CombatCaps.ReflectPercent / 100 - bounced, UnitRef.Player);
             // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
             // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
             var recoil = allowReflect ? _playerStatuses.Find(StatusKind.ShieldRecoil) : null;
@@ -5664,7 +5720,7 @@ namespace Brushblade.Core
             // DR = 甲/(甲+100),见 ApplyDefense —— 甲再厚也只是把伤害按比例压薄,永远压不到负数,
             // 「甲厚过攻击力」这种口径随点数减法一起作废。位置在生克**之后**,与 DamageEnemy 那边
             // (生克 → 暴击 → 折算护甲)同序:折的是实际打到身上的量,不是敌人名义上的攻击力。
-            taken = ApplyDefense(taken, summon.EffectiveDefense);
+            taken = ApplyDefense(taken, SummonDefense(summon));   // 富甲含木灵(D2-金 Q15);没挂时 +0
             // 本回合减伤(Ruling 10):挂在玩家身上、我方全体受益。召唤物眼下没有别的非护甲减伤,单独钳 60%。
             // 没有减伤时整句跳过 —— 恒等。
             // 格挡(D2-0 Task 3,E1):木灵自己的袋子;只挡敌人的挥击(本方法的全部调用点都是挥击,
@@ -5788,15 +5844,9 @@ namespace Brushblade.Core
                 }
             }
             // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
-            if (blockCounter > 0 && _enemies[enemyIndex].Alive)
-            {
-                int budget = taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt;
-                int dealt = Math.Min(blockCounter, budget);
-                if (dealt > 0)
-                    DamageEnemy(enemyIndex, dealt, Element.Heart,
-                        bypassDefense: true, allowBarb: false,
-                        source: EffectSource.BlockCounter, attackerRef: UnitRef.Summon(summonIndex));
-            }
+            // 结算与玩家侧共用 ResolveCounter(D2-金 J1)
+            ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
+                taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。

@@ -98,12 +98,17 @@ namespace Brushblade.Core
             /// <summary>本次出字召出的召唤物槽位(按落位顺序;幼苗、SummonedThisCast 选择器用,D1 Task 7)。</summary>
             public List<int> SummonedSlots = new List<int>();
 
+            /// <summary>本次出字 Morale 效果累计溢出的层数(聚金,D2-金 J7;补满与锋芒不计)。</summary>
+            public int MoraleOverflow;
+
             /// <summary>本次出字内的**实际**治疗量(溢出不算;治疗转盾用)。</summary>
             public int HealTotal;
 
             /// <summary>本次出字(顶层 Cast,TriggerDepth == 0)已解锁、面匹配的暴击时 / 击杀时特性;其余时候为 null。</summary>
             public IReadOnlyList<TraitDef> OnCrit;
             public IReadOnlyList<TraitDef> OnKill;
+            /// <summary>斩杀时(D2-金 J3,铁则):同上,只认顶层出字;ResolveDefeat 在 source == Execute 时入队。</summary>
+            public IReadOnlyList<TraitDef> OnExecute;
             public CharDef TraitDef;
 
             /// <summary>本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏「带本字灼」的判据)。</summary>

@@ -60,7 +60,8 @@ namespace Brushblade.Core
 
         /// <summary>修饰器:出字前折叠进本体,不进结算循环(D1 Task 3 / 4)。</summary>
         public static bool IsModifier(EffectKind kind) =>
-            kind == EffectKind.Amplify || kind == EffectKind.Reshape || kind == EffectKind.Augment;
+            kind == EffectKind.Amplify || kind == EffectKind.Reshape || kind == EffectKind.Augment
+            || kind == EffectKind.BlockMod;   // D2-金 E12
 
         /// <summary>该字这一面本次出字实际结算的效果表(D1 Task 4,取代 BattleEngine.CastEffectsOf 里的拼装)。
         /// 本体取法与 <c>BattleEngine.EffectsOf</c> 一致(攻击面空 / 效果空时走兜底一击)。</summary>
@@ -79,6 +80,7 @@ namespace Brushblade.Core
             [EffectKind.Weaken] = false,
             [EffectKind.Seed] = false,
             [EffectKind.Vulnerable] = false,
+            [EffectKind.Bleed] = false,   // D2-金 E8:流血读 turns(缺省 3)
         };
 
         public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);
@@ -213,6 +215,7 @@ namespace Brushblade.Core
                     case EffectKind.Amplify: ApplyAmplify(effects, m); break;
                     case EffectKind.Reshape: ApplyReshape(effects, m); break;
                     case EffectKind.Augment: ApplyAugment(effects, m); break;
+                    case EffectKind.BlockMod: ApplyBlockMod(effects, m); break;
                 }
             }
         }
@@ -339,7 +342,30 @@ namespace Brushblade.Core
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
                 perHit: r.PerHit.Count > 0 ? r.PerHit : null,
                 perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : (int?)null,
-                shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null);
+                shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null,
+                // 斩杀(D2-金 E7,铡刀落)与击数按战意(E10,大卸八块)
+                executeBelowPercent: r.ExecuteBelowPercent > 0 ? r.ExecuteBelowPercent : (int?)null,
+                executeKills: r.ExecuteBelowPercent > 0 ? r.ExecuteKills : (bool?)null,
+                executeSplashPercent: r.ExecuteSplashPercent > 0 ? r.ExecuteSplashPercent : (int?)null,   // J4 斩杀溅射
+                scaleBy: r.ScaleBy != ScaleBasis.None ? r.ScaleBy : (ScaleBasis?)null);
+        }
+
+        /// <summary>BlockMod(D2-金 E12):只改本面**第一条** Block;非缺省字段覆盖原值(多条按出现顺序,后者覆盖)。没有就空转。</summary>
+        private static void ApplyBlockMod(List<EffectDef> effects, EffectDef m)
+        {
+            int at = effects.FindIndex(e => e.Kind == EffectKind.Block);
+            if (at < 0) return;
+            effects[at] = effects[at].With(
+                counterPercent: m.CounterPercent > 0 ? m.CounterPercent : (int?)null,
+                scaleBy: m.ScaleBy != ScaleBasis.None ? m.ScaleBy : (ScaleBasis?)null,
+                scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null,
+                // D2-金 Task 2(J1):格挡附带的运行时字段,同样非缺省覆盖
+                counterColumn: m.CounterColumn ? true : (bool?)null,
+                counterHits: m.CounterHits > 0 ? m.CounterHits : (int?)null,
+                counterExecuteBelow: m.CounterExecuteBelow > 0 ? m.CounterExecuteBelow : (int?)null,
+                blockBleed: m.BlockBleed > 0 ? m.BlockBleed : (int?)null,
+                blockMorale: m.BlockMorale > 0 ? m.BlockMorale : (int?)null,
+                killRefundAp: m.KillRefundAp > 0 ? m.KillRefundAp : (int?)null);
         }
 
         public static bool InScope(AmpScope scope, EffectKind kind)

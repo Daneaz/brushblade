@@ -111,6 +111,8 @@ namespace Brushblade.Presentation
                     // 治疗弹射(2026-09-16,水,海/澡):Shape 只在配 Chain 时才有意义,
                     // 缺省 Single 时这两截都要吐空串——不然全体既有治疗字都会平白多出「单体」
                     // 前缀(与 DamageSingle 那份「单体也印」的既有口径不同,这里不能照抄)。
+                    // 割取(D2-金 E13):回复量 = 被杀者最大生命 × Value%,百分比不吃等级(读 e.Value)
+                    EffectKind.HealSelf when e.OfVictimMaxHp => Strings.T("char.effect.healself.victim", ("value", e.Value)),
                     EffectKind.HealSelf => (e.Shape == TargetArea.Single ? "" : ShapeLabel(e))
                         + Strings.T("char.effect.healself", ("value", shown))
                         + ShapeSuffix(e),
@@ -122,7 +124,9 @@ namespace Brushblade.Presentation
                         Strings.T("char.effect.summon.stats",
                             ("hp", shown), ("atk", MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)))
                         + PassiveText(e.Passive) + SummonShieldText(e) + SummonDefenseText(e),
-                    EffectKind.Bleed => Strings.T("char.effect.bleed", ("value", shown)),
+                    // 流血回合(D2-金 E8):读 turns,缺省 BleedDefaultTurns;不吃等级
+                    EffectKind.Bleed => Strings.T("char.effect.bleed", ("value", shown),
+                        ("turns", e.Turns > 0 ? e.Turns : BattleEngine.BleedDefaultTurns)),
                     EffectKind.HealAll => Strings.T("char.effect.healall", ("value", shown)),
                     EffectKind.HealOverTime => e.TargetAll
                         ? Strings.T("char.effect.healovertime.all", ("value", shown), ("turns", e.Turns))
@@ -162,7 +166,13 @@ namespace Brushblade.Presentation
                             : Strings.T("char.effect.cleanse")),
                     EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
                     // 格挡(spec v7 §3.1):次数是离散量,不吃等级 —— 读 e.Value,不读缩放后的 shown。
-                    EffectKind.Block => Strings.T("char.effect.block", ("value", e.Value)),
+                    // D2-金:BlockMod 折叠进来的字段(按战意的次数 / 反击百分比 / 格挡附带)也印在这一条上 ——
+                    // 按战意时引擎忽略 e.Value(BlockCountOf),不能再印「格挡N次」
+                    EffectKind.Block => (e.ScaleBy == ScaleBasis.Morale
+                            ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
+                            : Strings.T("char.effect.block", ("value", e.Value)))
+                        + (e.CounterPercent > 0 ? Strings.T("char.effect.block.counter", ("percent", e.CounterPercent)) : "")
+                        + BlockRidersText(e, cardLevel),
                     EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
@@ -194,6 +204,12 @@ namespace Brushblade.Presentation
                     EffectKind.BurnHold => Strings.T("char.effect.burnhold"),
                     EffectKind.BurnBurst => Strings.T("char.effect.burnburst"),
                     EffectKind.BurnBacklash => Strings.T("char.effect.burnbacklash"),
+                    // 致命(D2-金 J5,割喉):Value = 回合数,不吃等级;斩杀线读 Core 常量
+                    EffectKind.Doom => Strings.T("char.effect.doom", ("turns", e.Value), ("percent", BattleEngine.DoomExecutePercent)),
+                    // 战意族(D2-金 Task 4):量吃卡等级(shown)。富甲含木灵(Q15),金气只给玩家
+                    EffectKind.MoraleOverflowShield => Strings.T("char.effect.moraleoverflowshield", ("value", shown)),
+                    EffectKind.MoraleArmor => Strings.T("char.effect.morale_armor", ("value", shown)),
+                    EffectKind.MoraleShield => Strings.T("char.effect.morale_shield", ("value", shown)),
                     // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷的伤害吃等级与攻击力(出字时定死);回敬的上限是离散次数
                     EffectKind.Mine => e.BodyPercent > 0
                         ? Strings.T("char.effect.mine.body", ("percent", e.BodyPercent))
@@ -209,6 +225,8 @@ namespace Brushblade.Presentation
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
+                    // 补满(D2-金 E9):战意直接设为上限
+                    EffectKind.Morale when e.Fill => Strings.T("char.effect.morale.fill"),
                     EffectKind.Morale => Strings.T("char.effect.morale",
                         ("stacks", shown), ("per", 10), ("max", 5)),   // per 是百分数,文案里带 %
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
@@ -245,6 +263,8 @@ namespace Brushblade.Presentation
                     EffectKind.Reshape => ReshapeText(e),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
+                    // 格挡修饰器(D2-金 E12):按战意的次数 / 反击百分比覆盖 / 格挡附带都在 BlockModText 里印
+                    EffectKind.BlockMod => BlockModText(e, cardLevel),
                     // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
                     EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
                     EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
@@ -290,8 +310,20 @@ namespace Brushblade.Presentation
         /// <summary>一条特性的整句效果文案(D2-火 N13):效果逐条印,带 <see cref="TraitDef.MaxPerCast"/>(limit)时补「每次出字最多触发 N 次」。
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
-            OneSideEffectsText(trait.Effects, def, cardLevel)
+            TriggerText(trait.Trigger)
+            + OneSideEffectsText(trait.Effects, def, cardLevel)
             + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "");
+
+        /// <summary>特性的结算时机前缀(D2-金 J3 起):出字时(Cast)不印;被动反应各一条完整 key。</summary>
+        public static string TriggerText(TraitTrigger trigger) => trigger switch
+        {
+            TraitTrigger.OnCrit => Strings.T("char.trait.trigger.crit"),
+            TraitTrigger.OnKill => Strings.T("char.trait.trigger.kill"),
+            TraitTrigger.OnExecute => Strings.T("char.trait.trigger.execute"),
+            TraitTrigger.OnCompose => Strings.T("char.trait.trigger.compose"),
+            TraitTrigger.OnDismantle => Strings.T("char.trait.trigger.dismantle"),
+            _ => "",
+        };
 
         /// <summary>受击回敬(D2-火 Task 4):回敬的效果逐条印(斜杠分隔,同每击附带);Value &gt; 0 时印每回合上限。</summary>
         private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
@@ -326,6 +358,8 @@ namespace Brushblade.Presentation
             e.ExecuteBelowPercent <= 0 ? "" :
             e.ExecuteKills
                 ? Strings.T("char.effect.execute.kill", ("percent", e.ExecuteBelowPercent))
+                    // 斩杀溅射(D2-金 J4,铡刀落)
+                    + (e.ExecuteSplashPercent > 0 ? Strings.T("char.effect.execute.splash", ("percent", e.ExecuteSplashPercent)) : "")
                 : Strings.T("char.effect.execute.double", ("percent", e.ExecuteBelowPercent));
 
         /// <summary>多段后缀(2026-08-23)。每段完全独立:各自过生克、各自减一次护甲,
@@ -461,6 +495,7 @@ namespace Brushblade.Presentation
             DamageCondition.Countering => Strings.T("char.effect.onlyif.countering"),
             DamageCondition.PlayerHpAbove70 => Strings.T("char.effect.onlyif.playerhpabove70"),
             DamageCondition.HasSummon => Strings.T("char.effect.onlyif.hassummon"),
+            DamageCondition.MoraleFull => Strings.T("char.effect.onlyif.moralefull"),
             _ => "",
         };
 
@@ -495,7 +530,29 @@ namespace Brushblade.Presentation
                 // 重选目标(D2-火 E3,烈风):本面没有伤害时,落在主目标上的效果改落到选择器上
                 ? Strings.T("char.effect.reshape.retarget") + PickText(e.Pick)
                 : Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
-                    + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
+                    + ShapeSuffix(e) + HitCountText(e) + ExecuteText(e) + ArmorStrikeText(e) + MarkerText(e);
+
+        /// <summary>BlockMod(D2-金 E12):改的是本面的格挡。按战意 →「格挡次数 = 战意(至少 N)」,否则「格挡」;
+        /// 反击百分比覆盖带上原值(缺省 <see cref="BattleConfig.BlockCounterPercent"/>),玩家看得出是「改写」;再接格挡附带。</summary>
+        private static string BlockModText(EffectDef e, int cardLevel) =>
+            (e.ScaleBy == ScaleBasis.Morale
+                ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
+                : Strings.T("char.effect.blockmod"))
+            + (e.CounterPercent > 0
+                ? Strings.T("char.effect.blockmod.counter", ("percent", e.CounterPercent), ("base", BattleConfig.BlockCounterPercent))
+                : "")
+            + BlockRidersText(e, cardLevel);
+
+        /// <summary>格挡附带(D2-金 J1):BlockMod 与折叠后的 Block 共用。流血量出字时 = 基础 × 卡等级 × 攻击力(定死),
+        /// 卡面印等级缩放后的值并注明随攻击力;回合固定 <see cref="BattleEngine.BleedDefaultTurns"/>。</summary>
+        private static string BlockRidersText(EffectDef e, int cardLevel) =>
+            (e.CounterHits > 1 ? Strings.T("char.effect.blockmod.hits", ("hits", e.CounterHits)) : "")
+            + (e.CounterColumn ? Strings.T("char.effect.blockmod.column", ("percent", BattleEngine.CounterColumnPercent)) : "")
+            + (e.CounterExecuteBelow > 0 ? Strings.T("char.effect.blockmod.execute", ("percent", e.CounterExecuteBelow)) : "")
+            + (e.BlockBleed > 0 ? Strings.T("char.effect.blockmod.bleed",
+                ("value", MetaRules.ScaleByCardLevel(e.BlockBleed, cardLevel)), ("turns", BattleEngine.BleedDefaultTurns)) : "")
+            + (e.BlockMorale > 0 ? Strings.T("char.effect.blockmod.morale", ("value", e.BlockMorale)) : "")
+            + (e.KillRefundAp > 0 ? Strings.T("char.effect.blockmod.refund", ("value", e.KillRefundAp)) : "");
 
         /// <summary>计数缩放后缀(D2-火 N4):「(每 1 层灼烧)」/「(每名带灼烧的敌人)」+ 上限。不缩放时空串。</summary>
         private static string ScaleText(EffectDef e) =>
@@ -503,6 +560,11 @@ namespace Brushblade.Presentation
             {
                 ScaleBasis.BurnStack => Strings.T("char.effect.per.burnstack"),
                 ScaleBasis.BurningEnemy => Strings.T("char.effect.per.burningenemy"),
+                // D2-金 E10:伤害的击数 + 战意 / 战意 × 多命中的敌人数。格挡次数 = 战意由 Block / BlockMod 分支自己印在句首
+                ScaleBasis.Morale => e.Kind == EffectKind.Block || e.Kind == EffectKind.BlockMod
+                    ? ""
+                    : Strings.T("char.effect.per.morale.hits"),
+                ScaleBasis.ExtraHitTarget => Strings.T("char.effect.per.extrahittarget"),
                 _ => "",
             } + (e.ScaleBy != ScaleBasis.None && e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
 

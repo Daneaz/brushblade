@@ -207,7 +207,7 @@ namespace Brushblade.Core
                     ResolveDefeat(ti, UnitRef.Player, EffectSource.Burn);
                     CheckWin();
                 }
-                else CheckBossPhase(ti);
+                else if (!AfterEnemyHpLoss(ti)) CheckBossPhase(ti);   // 致命(D2-金 J5)
             }
         }
 
@@ -316,19 +316,26 @@ namespace Brushblade.Core
         /// <summary>埋雷血条预扣段(StatusChipsFire 稿):按当前状态,身上的地雷下次攻击前会扣掉多少血。
         /// 与 <see cref="SettlePreStrikeHooks"/> → DamageEnemy 同口径:每颗各炸一次,心属性(生克 1.0×)、无视护甲、吃标记、
         /// 护盾先吸收(按顺序消耗),结果封顶到当前生命(= 整截斜纹 = 出手前就会被炸死)。
-        /// 冰滞易伤不计:Boss 那一拍开头先移除冰滞再出手,地雷炸时它已经不在了。灼烧 / 流血在爆炸之前结算,这里不预测。</summary>
+        /// 冰滞易伤不计:Boss 那一拍开头先移除冰滞再出手,地雷炸时它已经不在了。灼烧 / 流血在爆炸之前结算,这里不预测。
+        /// 致命(D2-金 J5):Boss 第一颗 ×2;杂兵某颗把它压到 30% 以下 → 实际会被斩杀,预扣直接给当前生命(整截斜纹)。</summary>
         public int MineHpLoss(int enemyIndex)
         {
             var enemy = _enemies[enemyIndex];
             if (!enemy.Alive || !enemy.Statuses.Has(StatusKind.Mine)) return 0;
             int shield = enemy.Shield, lost = 0;
+            bool doom = enemy.Statuses.Has(StatusKind.Doom);
+            bool bossDoom = enemy.IsBoss && doom;   // 致命 · Boss 版:第一颗 ×2(同 DamageEnemy)
+            bool mobDoom = !enemy.IsBoss && doom;   // 致命 · 杂兵版:某颗把它压到 30% 以下即被斩杀(同 AfterEnemyHpLoss)
             foreach (var mine in enemy.Statuses.All)
             {
                 if (mine.Kind != StatusKind.Mine || mine.Magnitude <= 0) continue;
                 int damage = ApplyMark(enemy, WuxingResolver.ResolveEffect(mine.Magnitude, Element.Heart, enemy.Element));
+                if (bossDoom) { damage *= 2; bossDoom = false; }
                 int absorbed = Math.Min(shield, damage);
                 shield -= absorbed;
                 lost += damage - absorbed;
+                if (mobDoom && lost > 0 && (long)(enemy.Hp - lost) * 100 < (long)enemy.MaxHp * DoomExecutePercent)
+                    return enemy.Hp;
             }
             return Math.Min(enemy.Hp, lost);
         }

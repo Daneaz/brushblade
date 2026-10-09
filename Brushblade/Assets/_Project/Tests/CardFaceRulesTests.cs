@@ -108,6 +108,8 @@ namespace Brushblade.Core.Tests
             EffectKind.ShieldRecoil, EffectKind.Taunt,
             EffectKind.Retaliate,   // D2-火 Task 4:挂在玩家身上(回敬的对象是攻击者,不是出字时选的敌人)
             EffectKind.SelfCost,    // D2-火 Task 5:扣的是玩家自己的生命
+            EffectKind.BlockMod,    // D2-金 Task 1:格挡修饰器,出字前折进本面的 Block
+            EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,   // D2-金 Task 4:战意族,作用于玩家自己
         };
 
         [Test]

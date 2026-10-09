@@ -110,6 +110,24 @@ namespace Brushblade.Core.Tests
             "焚 Lv8 Attack 玉石俱焚", "焚 Lv8 Feature 焚林",
             "燚 Lv4 Both 四火", "燚 Lv5 Attack 四炎", "燚 Lv5 Feature 火海", "燚 Lv6 Attack 焚身", "燚 Lv8 Attack 焚天",
             "燚 Lv8 Feature 烈焰天幕",
+            // D2-金 Task 6:金系 39 格。Q20:放血(铠面无暴击)、剁骨(铠面无伤害)拆成攻击面原条目 + 铠面同档精进,
+            // 两条同名,所以 41 条、39 格。Q7 直捣巢穴 = 横扫;Q8 剁骨从第 2 击起
+            "利 Lv8 Feature 得利",
+            "锋 Lv8 Attack 锋锐",
+            "剑 Lv5 Feature 剑意", "剑 Lv8 Attack 横扫千军",
+            "锥 Lv5 Feature 锥立", "锥 Lv8 Attack 锥心",
+            "剿 Lv5 Feature 坚营", "剿 Lv8 Attack 直捣巢穴",
+            "剁 Lv4 Attack 剁骨", "剁 Lv4 Feature 剁骨", "剁 Lv5 Feature 剁截", "剁 Lv8 Attack 大卸八块",
+            "剁 Lv8 Feature 刀山",
+            "铡 Lv4 Both 铁则", "铡 Lv5 Feature 立威", "铡 Lv8 Attack 铡刀落", "铡 Lv8 Feature 铡关",
+            "鍂 Lv4 Both 双金", "鍂 Lv5 Attack 金石", "鍂 Lv6 Feature 金气", "鍂 Lv8 Attack 双锋",
+            "鍂 Lv8 Feature 双金合璧",
+            "刲 Lv4 Attack 放血", "刲 Lv4 Feature 放血", "刲 Lv5 Attack 刲刺", "刲 Lv5 Feature 匿锋",
+            "刲 Lv6 Attack 割取", "刲 Lv8 Attack 割喉", "刲 Lv8 Feature 刀光",
+            "鑫 Lv4 Both 聚金", "鑫 Lv5 Attack 三才", "鑫 Lv5 Feature 金身", "鑫 Lv6 Feature 富甲",
+            "鑫 Lv8 Attack 三金破", "鑫 Lv8 Feature 金玉满堂",
+            "𨰻 Lv4 Both 刚", "𨰻 Lv5 Attack 四金", "𨰻 Lv5 Feature 千锤", "𨰻 Lv6 Attack 破军",
+            "𨰻 Lv8 Attack 千钧", "𨰻 Lv8 Feature 金刚",
         };
 
         /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
@@ -128,11 +146,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ExclusiveCellList_Fire44Cells_45Rows()
+        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows()
         {
-            Assert.That(ExclusiveCells.Length, Is.EqualTo(45));
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41));
             Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
-                Is.EqualTo(44), "去掉 V4 拆出的燃面行 = 44 格");
+                Is.EqualTo(44 + 39), "去掉 V4 / Q20 拆出的五行面行 = 火 44 格 + 金 39 格");
             Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
             foreach (var c in ExclusiveCells)
                 Assert.That(PoolCells.Contains(c), Is.False, $"{c} 不能同时是池格");
@@ -413,6 +431,66 @@ namespace Brushblade.Core.Tests
             Assert.That(e.Value, Is.EqualTo(20));
             Assert.That(e.Scope, Is.EqualTo(AmpScope.All));
             Assert.That(e.OnlyIf, Is.EqualTo(DamageCondition.PlayerHpAbove70));
+        }
+
+        [Test]
+        public void MetalExclusiveTraits_FormAndTrigger_MatchSpec()
+        {
+            int seen = 0;
+            foreach (var d in OfElement(Element.Metal))
+                foreach (var t in d.Traits.Where(t => IsExclusive(d, t)))
+                {
+                    seen++;
+                    Assert.That(t.Effects.Count, Is.GreaterThan(0), $"{d.Id} {t.Name} 要有效果");
+                    string at = $"{d.Id} {t.Slot}/{t.Face} {t.Name}";
+                    switch (t.Name)
+                    {
+                        case "双金":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnDismantle)), at);
+                            Assert.That(t.PartChar, Is.Null, at + "(即时类,不挂印记)");
+                            break;
+                        case "铁则":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnExecute)), at);
+                            break;
+                        case "割取":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
+                            break;
+                        case "放血" when t.Face == TraitFace.Attack:
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnCrit)), at);
+                            break;
+                        default:
+                            bool passive = t.Slot == TraitSlot.Lv4 || t.Slot == TraitSlot.Lv6;
+                            Assert.That(t.Form, Is.EqualTo(passive ? TraitForm.Passive : TraitForm.Active), at);
+                            Assert.That(t.Trigger, Is.EqualTo(TraitTrigger.Cast), at);
+                            break;
+                    }
+                }
+            Assert.That(seen, Is.EqualTo(41), "金系专属 39 格 41 行");
+        }
+
+        [Test]
+        public void MetalExclusive_Q20Split_FeatureRowIsSameTierRefine()
+        {
+            // Q20:剁骨(紫 1.75)、放血(橙 2.5)铠面 = 精进 round(10 × 档位系数),无条件、scope All
+            foreach (var (id, name, refine) in new[] { ("剁", "剁骨", 18), ("刲", "放血", 25) })
+            {
+                var rows = Graph.Get(id).Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == name).ToList();
+                Assert.That(rows.Select(t => t.Face).OrderBy(f => f).ToList(),
+                    Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }.OrderBy(f => f).ToList()), $"{name} 拆成两条单面");
+                var feature = rows.Single(t => t.Face == TraitFace.Feature);
+                Assert.That((feature.Form, feature.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.Cast)), $"{name} 铠面");
+                var e = feature.Effects.Single();
+                Assert.That(e.Kind, Is.EqualTo(EffectKind.Amplify));
+                Assert.That(e.Value, Is.EqualTo(refine), $"{name} 铠面 = 同档精进");
+                Assert.That(e.Scope, Is.EqualTo(AmpScope.All));
+                Assert.That(e.OnlyIf, Is.EqualTo(DamageCondition.None), $"{name} 铠面无条件");
+            }
+            var chop = Graph.Get("剁").Traits.Single(t => t.Slot == TraitSlot.Lv4 && t.Face == TraitFace.Attack).Effects.Single();
+            Assert.That(chop.Kind, Is.EqualTo(EffectKind.Reshape));
+            Assert.That(chop.PerHitFrom, Is.EqualTo(2), "Q8:从第 2 击起");
+            Assert.That(chop.PerHit.Single().Kind, Is.EqualTo(EffectKind.Bleed));
+            var bleed = Graph.Get("刲").Traits.Single(t => t.Slot == TraitSlot.Lv4 && t.Face == TraitFace.Attack).Effects.Single();
+            Assert.That((bleed.Kind, bleed.Value, bleed.Turns), Is.EqualTo((EffectKind.Bleed, 50, 2)));
         }
 
         private static EffectDef PoolEffect(string ch, TraitSlot slot, TraitFace face, string name, EffectKind kind)

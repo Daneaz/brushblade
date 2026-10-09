@@ -17,6 +17,8 @@ FACE_NAMES = {"攻": "Attack", "燃": "Feature", "铠": "Feature", "润": "Featu
 # 形态 → (form, trigger);「被动·暴击/击杀」= 被动 + 触发类型(spec v7 §2.3)。主动只能是出字时,不接后缀
 FORMS = {"主动": (None, None), "被动": ("Passive", None),
          "被动·暴击": ("Passive", "OnCrit"), "被动·击杀": ("Passive", "OnKill"),
+         # D2-金 J3(铁则):斩杀时 = 本字出字内的斩杀 + 本字格挡的立威斩杀
+         "被动·斩杀": ("Passive", "OnExecute"),
          # 字形特性(spec §9「(拆字) / (成字)」,D2-0 Task 7):字在手上时触发,每场 1 次
          "拆字": ("Passive", "OnDismantle"), "成字": ("Passive", "OnCompose")}
 
@@ -184,7 +186,7 @@ def _expand_reference(char, slot, face, form, replaces, name, config, element, p
         raise ValueError(f"特性表:字「{char}」不在详表 ✅ 行中,无法按档位展开池条目「{name}」")
     form_name, trigger = FORMS[entry["form_cn"]]
     effects = expand_pool_entry(entry, info["rarity"], char)
-    # 触发类（被动·暴击 / 被动·击杀）的反应自带目标，不随全体面补 pick All
+    # 触发类（被动·暴击 / 被动·击杀 / 被动·斩杀）的反应自带目标，不随全体面补 pick All
     if entry["face_cn"] != "两面" and trigger is None:
         body = info.get("attackEffects", []) if entry["face_cn"] == "攻" else info.get("effects", [])
         effects = _retarget_to_all(effects, body)

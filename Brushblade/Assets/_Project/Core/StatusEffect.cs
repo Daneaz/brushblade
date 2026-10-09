@@ -96,6 +96,19 @@ namespace Brushblade.Core
                           // SourceId = 字 ID、TraitKey = 特性键(同源取大)。该敌人下一次攻击前爆炸并移除。
         Retaliate,        // 受击回敬(仅玩家,作用于玩家与全部召唤物;chip 待 designer 稿):OnHit = 对攻击者结算的效果,
                           // Magnitude = 每回合触发上限(0 = 不限,按 TraitKey 计),TurnsLeft = 1(玩家回合开始到期),SourceId = 字 ID。
+        // ---- D2-金 Task 2(附录 J2) ----
+        ApRefund,         // AP 返还(得利,仅玩家,隐藏载体):格挡反击 / 立威击杀时挂上,Magnitude = 下回合开始多给的 AP,
+                          // TurnsLeft = -1;StartTurn 算完 AP 后加上并移除。已挂着时不再挂 —— 每轮至多一次(Q5)。
+        // ---- D2-金 Task 3(附录 J5) ----
+        Doom,             // 致命(割喉,仅敌人,可见;chip 按 traits StatusChips 拍板稿,Task 5 接):Magnitude 不用(1),
+                          // TurnsLeft = 回合(按该敌人行动递减),SourceId = 字 ID(同源刷新取长)。杂兵:每次掉血后生命 < 30%
+                          // 直接斩杀(BattleEngine.AfterEnemyHpLoss,施加那一刻也判);Boss:不斩杀,下一次 DamageEnemy 伤害 ×2
+                          // (与标记相乘),用掉即移除全部致命。
+        // ---- D2-金 Task 4(附录 J8) ----
+        MoraleArmor,      // 富甲(玩家,隐藏载体):EffectivePlayerDefense 与木灵护甲各 +战意层数 × Magnitude(随战意即时变化,不快照);
+                          // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
+        MoraleShield,     // 金气(仅玩家,隐藏载体):每个玩家回合开始(清盾之后、TurnStarted 之前),战意 ≥ MoraleCap 则加盾 Magnitude;
+                          // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -106,7 +119,8 @@ namespace Brushblade.Core
         public static bool IsBattleScoped(StatusKind kind) =>
             kind == StatusKind.Taunt || kind == StatusKind.Block || kind == StatusKind.Endure
             || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost
-            || kind == StatusKind.Retaliate;   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
+            || kind == StatusKind.Retaliate   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
+            || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield;   // D2-金 Task 4:战意光环只管本场
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -184,12 +198,39 @@ namespace Brushblade.Core
         /// 其余状态恒为 null。</summary>
         public List<OpeningEffect> OnHit { get; set; }
 
+        // ---- 格挡附带(D2-金 Task 2,附录 J1;仅 <see cref="StatusKind.Block"/> 用,出字时由 BlockMod 定死)----
+        // 缺省全 0 / false / null = 原格挡,逐位恒等。同类合并(Q4):数值取大、开关取并、ExecuteSourceCharId 跟最近一次带立威的施加。
+
+        /// <summary>贯穿反击:打完攻击者再打同列其余存活敌人(每击 70%),共用 60% 预算。</summary>
+        public bool CounterColumn { get; set; }
+
+        /// <summary>反击击数(0 / 1 = 一击):每击 = CounterDamage,逐击扣预算。</summary>
+        public int CounterHits { get; set; }
+
+        /// <summary>立威阈值(百分比,0 = 无):反击前攻击者生命 &lt; N% 时斩杀(杂兵,不吃预算);Boss 改为本次反击 ×2。</summary>
+        public int CounterExecuteBelow { get; set; }
+
+        /// <summary>格挡流血量(出字时已按卡等级与攻击力定死,0 = 无):每次格挡被消耗时挂给攻击者,3 回合。</summary>
+        public int BlockBleed { get; set; }
+
+        /// <summary>格挡加战意(0 = 无):每次格挡被消耗时玩家战意 +N。</summary>
+        public int BlockMorale { get; set; }
+
+        /// <summary>反击击杀返还的 AP(0 = 无):挂 <see cref="StatusKind.ApRefund"/>。</summary>
+        public int KillRefundAp { get; set; }
+
+        /// <summary>立威的施加者字 ID(供 Task 3 铁则回查;本任务只存不用)。没有立威时 null。</summary>
+        public string ExecuteSourceCharId { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
             TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency, TraitKey = TraitKey,
             MinBurn = MinBurn, OnHit = OnHit?.Select(o => o.Clone()).ToList(),
+            CounterColumn = CounterColumn, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
+            BlockBleed = BlockBleed, BlockMorale = BlockMorale, KillRefundAp = KillRefundAp,
+            ExecuteSourceCharId = ExecuteSourceCharId,
         };
     }
 

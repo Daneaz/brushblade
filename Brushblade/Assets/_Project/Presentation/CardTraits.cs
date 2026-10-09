@@ -314,7 +314,8 @@ namespace Brushblade.Presentation
                 case EffectKind.Bleed:
                     AddTrait(traits, "bleed", v.ToString(),
                         Strings.T("collection.trait.bleed.name"),
-                        Strings.T("collection.trait.bleed.desc", ("value", v)));
+                        Strings.T("collection.trait.bleed.desc", ("value", v),
+                            ("turns", e.Turns > 0 ? e.Turns : BattleEngine.BleedDefaultTurns)));   // D2-金 E8:回合可写,缺省 3
                     break;
                 case EffectKind.Freeze:
                     AddTrait(traits, "freeze", v.ToString(),
@@ -371,6 +372,27 @@ namespace Brushblade.Presentation
                         e.BodyPercent > 0
                             ? Strings.T("collection.trait.mine.desc.body", ("percent", e.BodyPercent))
                             : Strings.T("collection.trait.mine.desc", ("value", v)));
+                    break;
+                // 致命(D2-金 J5,割喉):mortal 图标(traits StatusChips 稿,与战场 chip 同一枚),朱砂底;无数字
+                case EffectKind.Doom:
+                    AddTrait(traits, "mortal", "", Strings.T("collection.trait.doom.name"),
+                        Strings.T("collection.trait.doom.desc", ("turns", e.Value), ("percent", BattleEngine.DoomExecutePercent)));
+                    break;
+                // 战意族(D2-金 Task 4,聚金 / 富甲 / 金气):稿上没有图标,纯文字 chip
+                case EffectKind.MoraleOverflowShield:
+                    AddWord(traits, Strings.T("collection.trait.moraleoverflowshield.chip"),
+                        Strings.T("collection.trait.moraleoverflowshield.name"),
+                        Strings.T("collection.trait.moraleoverflowshield.desc", ("value", v)));
+                    break;
+                case EffectKind.MoraleArmor:
+                    AddWord(traits, Strings.T("collection.trait.morale_armor.chip"),
+                        Strings.T("collection.trait.morale_armor.name"),
+                        Strings.T("collection.trait.morale_armor.desc", ("value", v)));
+                    break;
+                case EffectKind.MoraleShield:
+                    AddWord(traits, Strings.T("collection.trait.morale_shield.chip"),
+                        Strings.T("collection.trait.morale_shield.name"),
+                        Strings.T("collection.trait.morale_shield.desc", ("value", v)));
                     break;
                 case EffectKind.Retaliate:
                     AddWord(traits, Strings.T("collection.trait.retaliate.chip"),
@@ -604,6 +626,7 @@ namespace Brushblade.Presentation
                 case EffectKind.Amplify:
                 case EffectKind.Reshape:
                 case EffectKind.Augment:
+                case EffectKind.BlockMod:   // D2-金 E12
                     // 修饰器(D1 Task 3):只出现在特性里、出字前折叠进本体,本身不是独立效果,
                     // 不出 chip;它改了什么由 CharInfo 的卡面文案印。
                     break;
@@ -819,7 +842,7 @@ namespace Brushblade.Presentation
         /// 灼烧类朱砂、冰缓类水蓝、控制类紫、增益类墨蓝、防护类赭金、召唤物类木绿。</summary>
         public static Color ChipColor(string iconKey) => iconKey switch
         {
-            "burn" or "burn_nodecay" or "bleed" or "scorch" or "sear" => Theme.Cinnabar,
+            "burn" or "burn_nodecay" or "bleed" or "scorch" or "sear" or "mortal" => Theme.Cinnabar,
             "freeze" or "slow" or "heal" => Theme.GlyphColor(Element.Water),
             "blind" or "silence" or "curse" => Theme.GlyphColor(Element.Heart),
             "armorbreak" or "pierce" or "attack" or "morale" or "crit" => Theme.InkSoft,

@@ -16,8 +16,10 @@ namespace Brushblade.Presentation
         /// 文本 API(Title/Detail/PassiveText/StatusText/WuxingText),Task 5 把
         /// OnSummonClicked 从 Ui.Modal(SummonInfo.Title/Detail) 改成 UnitSheet.Show 之后那是它们
         /// 唯一的调用点,五个方法随之全部归零调用,2026-09-01 review 删除(全仓库 grep 复核过)。
-        /// 数值口径见 task-3-report.md 的逐条对照。</summary>
-        public static UnitDetail Sheet(SummonState summon)
+        /// 数值口径见 task-3-report.md 的逐条对照。
+        /// <paramref name="defense"/> = <see cref="BattleEngine.SummonDefense"/>(含富甲光环,D2-金 Q15)——
+        /// 光环挂在玩家身上,SummonState 自己算不出来,由调用方从引擎取。</summary>
+        public static UnitDetail Sheet(SummonState summon, int defense)
         {
             return new UnitDetail
             {
@@ -41,7 +43,7 @@ namespace Brushblade.Presentation
                 MaxHp = summon.MaxHp,
                 Shield = summon.Shield,
                 ActionMeter = summon.ActionMeter,
-                Figures = BuildFigures(summon),
+                Figures = BuildFigures(summon, defense),
                 Statuses = UnitDetailChip.BuildStatuses(summon.Statuses),
                 Abilities = BuildAbilities(summon),
                 Wuxing = UnitDetailChip.WuxingOf(summon.Element),
@@ -51,7 +53,7 @@ namespace Brushblade.Presentation
         /// <summary>攻/盾/甲/速四格。攻的口径与老文本 <see cref="Detail(SummonState)"/> 一致
         /// (读 EffectiveAttack,不是 Attack)——这是稿子标出来的既有规则(见那个属性的文档),
         /// 这里不重新推一遍。</summary>
-        private static (string, string, string)[] BuildFigures(SummonState summon)
+        private static (string, string, string)[] BuildFigures(SummonState summon, int defenseValue)
         {
             // 老文本(Detail(SummonState))这里是无条件二选一(action_attack / action_passive_only),
             // 第一版这里只映射了 Attack==0 那一支,Attack>0 那句「攒满行动条时攻击最前的敌人」
@@ -62,7 +64,6 @@ namespace Brushblade.Presentation
                 ? Strings.T("summon.detail.figure_attack_passive_note")
                 : Strings.T("summon.detail.action_attack").TrimEnd('\n');
 
-            int defenseValue = summon.EffectiveDefense;
             string defenseNote = defenseValue > 0
                 ? Strings.T("summon.detail.figure_defense_note")
                 : null; // 召唤物没有基础护甲字段,EffectiveDefense 全部来自增益,这句恒成立

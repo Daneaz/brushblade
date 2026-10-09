@@ -45,6 +45,13 @@ def test_form_trigger_suffix_parsed():
     assert "trigger" not in t["双焰"]
 
 
+def test_form_execute_suffix_parsed():
+    """D2-金 J3:「被动·斩杀」= 被动 + OnExecute(铁则)。"""
+    table = _TABLE + "| 炎 | Lv6 | 两面 | 被动·斩杀 | — | 铁则 | `Morale 2` | ✅ |\n"
+    t = {x["name"]: x for x in extract_traits(table)["炎"]}
+    assert t["铁则"]["form"] == "Passive" and t["铁则"]["trigger"] == "OnExecute"
+
+
 def test_active_with_trigger_rejected():
     bad = _TABLE + "| 炎 | Lv6 | 两面 | 主动·暴击 | — | 坏 | `BurnSingle 1` | ✅ |\n"
     with pytest.raises(ValueError):

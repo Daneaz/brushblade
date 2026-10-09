@@ -67,6 +67,10 @@ namespace Brushblade.Core.Tests
             EffectKind.Retaliate,
             // D2-火 Task 5:追加一击的 Value = 本体百分比(本体伤害结算时另吃等级)、自损 = 百分比、解冻 / 揭示不用 Value
             EffectKind.ExtraStrike, EffectKind.SelfCost, EffectKind.Thaw, EffectKind.Reveal,
+            // D2-金 Task 1:格挡修饰器 —— Value 不用,反击百分比 / 次数下限是离散量
+            EffectKind.BlockMod,
+            // D2-金 Task 3:致命的 Value = 回合数
+            EffectKind.Doom,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
@@ -88,6 +92,8 @@ namespace Brushblade.Core.Tests
             EffectKind.HealSummons, EffectKind.ShieldSummons,
             // D2-火 Task 4:埋雷的 Value 是伤害量,吃卡等级(出字时再乘攻击力定死)
             EffectKind.Mine,
+            // D2-金 Task 4:战意族 —— 聚金 / 富甲 / 金气的 Value 是护盾量 / 护甲点数,连续
+            EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
         };
 
         [Test]

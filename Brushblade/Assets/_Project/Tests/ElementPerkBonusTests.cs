@@ -197,6 +197,12 @@ namespace Brushblade.Core.Tests
                 EffectKind.Retaliate,
                 // D2-火 Task 5:追加一击的 Value 是百分比(L3 套在本体伤害基数上)、自损是百分比、解冻 / 揭示不用 Value
                 EffectKind.ExtraStrike, EffectKind.SelfCost, EffectKind.Thaw, EffectKind.Reveal,
+                // D2-金 Task 1:格挡修饰器,出字前折叠,不进结算循环
+                EffectKind.BlockMod,
+                // D2-金 Task 3:致命的 Value 是回合数
+                EffectKind.Doom,
+                // D2-金 Task 4:战意族 —— 聚金是溢出层数换算的盾、富甲 / 金气是光环量,不是本系字的护盾 / 护甲本体
+                EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

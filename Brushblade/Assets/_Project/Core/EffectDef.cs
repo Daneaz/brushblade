@@ -168,6 +168,22 @@ namespace Brushblade.Core
                         // 但会触发 50% 阈值;至少留 1 点,不会致死。Value 离散。
         Reveal,         // 揭示(光耀):通假字现形(RevealDisguise)、生僻字直接被读懂(ApparentElement = Element),发 EnemyRevealed;
                         // 其余目标空转。Value 不用。支持 Pick / OnlyIf。
+        // ---- D2-金 Task 1:格挡修饰器(附录 E12)。⚠ 只在末尾追加 ----
+        BlockMod,       // 格挡修饰器(剑意 / 千锤 / 金刚 / 双金合璧):Fold 时作用于本面**第一条** Block,非缺省字段覆盖 ——
+                        // CounterPercent(反击 = 本体 × N%,缺省 BattleConfig.BlockCounterPercent 30)、
+                        // ScaleBy Morale + ScaleMin(次数 = max(下限, 结算那一刻的战意层数))。本面没有 Block 时空转。
+                        // 多条按出现(槽位)顺序折叠,后者覆盖。Value 不用;不进结算循环。
+                        // Task 2(J1)追加运行时字段:CounterColumn / CounterHits / CounterExecuteBelow / BlockBleed /
+                        // BlockMorale / KillRefundAp(非缺省覆盖,同上)。
+        // ---- D2-金 Task 3:致命(附录 J5)。⚠ 只在末尾追加 ----
+        Doom,           // 致命(割喉):给目标敌人挂 StatusKind.Doom,Value = 回合数(离散,不吃卡等级)。杂兵生命 < 30% 即斩杀
+                        // (施加时已低于则立即斩杀;斩杀走 ResolveDefeat source Execute,触发斩杀时特性);Boss 首次 DamageEnemy ×2。
+                        // 支持 Pick / OnlyIf。
+        // ---- D2-金 Task 4:战意族(附录 J7 / J8)。⚠ 只在末尾追加 ----
+        MoraleOverflowShield, // 聚金:把本次出字 Morale 效果溢出的层数(before + value − cap 的正部;补满与锋芒不计,Q14)× Value 转成护盾。
+                              // Value = 每溢出 1 层的护盾量(连续,吃卡等级)。Morale 效果须排在它之前。
+        MoraleArmor,          // 富甲:给玩家挂 StatusKind.MoraleArmor,Value = 每层战意的护甲点数(连续)。含木灵(Q15)。
+        MoraleShield,         // 金气:给玩家挂 StatusKind.MoraleShield,Value = 战意满时每回合开始的护盾量(连续)。仅玩家。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -176,6 +192,10 @@ namespace Brushblade.Core
         None,           // 不缩放(缺省)
         BurnStack,      // Amplify:这一击的目标出字前的灼层数;HealSelf:存活敌人的灼层数之和
         BurningEnemy,   // 带灼的存活敌人数(Amplify:出字前;HealSelf:结算那一刻)
+        // ---- D2-金 Task 1(附录 E10)。⚠ 只在末尾追加 ----
+        Morale,         // 战意层数(结算那一刻):DamageSingle 击数 = HitCount + 战意(大卸八块,进 DamageSingle 时取一次);
+                        // Block 次数 = max(ScaleMin, 战意)(双金合璧,由 BlockMod 写入,出字后的值)
+        ExtraHitTarget, // Morale 的值 × (本次出字 HitTargets 去重数 − 1)(横扫千军;跨排 Boss 只算 1 名)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -373,7 +393,9 @@ namespace Brushblade.Core
         /// (与「引爆只改兑现时机、不改总量」同口径),剩 N − k 层;k = 0 不引爆。只给 Detonate;缺省 100 = 全部引爆。≤0 兜回 100。</summary>
         public int PortionPercent { get; }
 
-        /// <summary>计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数。None = 不缩放。</summary>
+        /// <summary>计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数。None = 不缩放。
+        /// D2-金 E10:DamageSingle / Reshape 写 Morale(击数 + 战意)、Block / BlockMod 写 Morale(次数 = 战意,配 ScaleMin)、
+        /// Morale 写 ExtraHitTarget(值 × 多命中的敌人数)。哪个 Kind 认哪档由 ConfigLoader 拦。</summary>
         public ScaleBasis ScaleBy { get; }
 
         /// <summary>计数缩放后的上限(只给 Amplify,单位 = 百分点;燥裂 50)。0 = 不设上限。</summary>
@@ -402,6 +424,49 @@ namespace Brushblade.Core
         /// (StatusEffect.Potency)。字表对象恒为 0。</summary>
         internal int BurstPotency { get; private set; }
 
+        // ---- D2-金 Task 1 ----
+
+        /// <summary>补满(E9,千锤 / 金刚 / 金玉满堂):只给 Morale —— 战意直接设为上限(不算溢出、顶满不发事件)。Value 不用。</summary>
+        public bool Fill { get; }
+
+        /// <summary>反击百分比覆盖(E12):Block / BlockMod 读。反击 = 攻击面本体(吃等级)× N%。0 = 缺省 BattleConfig.BlockCounterPercent。</summary>
+        public int CounterPercent { get; }
+
+        /// <summary>计数缩放的下限(E10,双金合璧「至少 2」):只给 ScaleBy == Morale 的 Block / BlockMod。0 = 不设。</summary>
+        public int ScaleMin { get; }
+
+        /// <summary>按被杀者最大生命回复(E13,割取):只给 HealSelf —— 回复量 = 反应目标(死者)MaxHp × Value%;
+        /// 百分比不吃卡等级 / 五行 L3 / 攻击力(Q19),照常吃 Amplify Heal 与泉。</summary>
+        public bool OfVictimMaxHp { get; }
+
+        // ---- D2-金 Task 2:格挡附带(附录 J1)。只写在 BlockMod 上,Fold 时搬到本面第一条 Block;
+        //      出字时再搬进 Block 状态(StatusEffect 同名字段)。全缺省 = 原格挡,逐位恒等 ----
+
+        /// <summary>贯穿反击(锥立,token `counterShape Column`):反击打完攻击者后,再打同列其余存活敌人(每击本体反击的 70%),共用 60% 预算。</summary>
+        public bool CounterColumn { get; }
+
+        /// <summary>反击击数(剁截,`counterHits N`):每击 = 反击量,逐击扣预算,攻击者中途死亡就停。0 / 1 = 一击。</summary>
+        public int CounterHits { get; }
+
+        /// <summary>立威(`counterExecute N`):反击前攻击者生命 &lt; N% 时直接斩杀(杂兵,不吃预算);Boss 改为本次反击 ×2(吃预算)。</summary>
+        public int CounterExecuteBelow { get; }
+
+        /// <summary>格挡流血(刀山 / 匿锋,`blockBleed N`):每次格挡被消耗时给攻击者挂流血;量 = N(吃卡等级)× 攻击力,出字时定死。</summary>
+        public int BlockBleed { get; }
+
+        /// <summary>格挡加战意(坚营,`blockMorale N`):每次格挡被消耗时玩家战意 +N(木灵格挡也加给玩家)。</summary>
+        public int BlockMorale { get; }
+
+        /// <summary>反击击杀返还 AP(得利,`killRefund N`):反击 / 立威击杀时玩家挂 ApRefund,下回合开始 +N AP,每轮至多一次。</summary>
+        public int KillRefundAp { get; }
+
+        // ---- D2-金 Task 3 ----
+
+        /// <summary>斩杀溅射(J4,铡刀落,token `executeSplash N`):配 <see cref="ExecuteKills"/>,TryExecuteKill 斩杀成功后
+        /// (Boss 不会被斩杀,故不触发)对死者同排左右存活敌人各打「死者 MaxHp × N%」—— 本字元素、过生克与护甲、不暴击、
+        /// source = ExecuteSplash;溅射造成的击杀不入队击杀时 / 斩杀时(R4)。Reshape 携带时 Fold 照抄(E7)。0 = 不溅射。</summary>
+        public int ExecuteSplashPercent { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -427,7 +492,11 @@ namespace Brushblade.Core
             StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0,
             int retainPercent = 0, int portionPercent = 100, ScaleBasis scaleBy = ScaleBasis.None, int scaleCap = 0,
             IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100, int minBurn = 0,
-            bool perBurningHit = false)
+            bool perBurningHit = false,
+            bool fill = false, int counterPercent = 0, int scaleMin = 0, bool ofVictimMaxHp = false,
+            bool counterColumn = false, int counterHits = 0, int counterExecuteBelow = 0,
+            int blockBleed = 0, int blockMorale = 0, int killRefundAp = 0,
+            int executeSplashPercent = 0)
         {
             Kind = kind;
             Value = value;
@@ -473,6 +542,17 @@ namespace Brushblade.Core
             ShotPercent = shotPercent <= 0 ? 100 : shotPercent;
             MinBurn = minBurn;
             PerBurningHit = perBurningHit;
+            Fill = fill;
+            CounterPercent = counterPercent;
+            ScaleMin = scaleMin;
+            OfVictimMaxHp = ofVictimMaxHp;
+            CounterColumn = counterColumn;
+            CounterHits = counterHits;
+            CounterExecuteBelow = counterExecuteBelow;
+            BlockBleed = blockBleed;
+            BlockMorale = blockMorale;
+            KillRefundAp = killRefundAp;
+            ExecuteSplashPercent = executeSplashPercent;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -486,16 +566,25 @@ namespace Brushblade.Core
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
             IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> ampTerms = null,
             int? value = null, int? turns = null, string traitKey = null, SummonPassive passive = null,
-            EffectPick? pick = null, IReadOnlyList<EffectDef> perHit = null, int? perHitFrom = null, int? shotPercent = null) =>
+            EffectPick? pick = null, IReadOnlyList<EffectDef> perHit = null, int? perHitFrom = null, int? shotPercent = null,
+            int? executeBelowPercent = null, bool? executeKills = null, ScaleBasis? scaleBy = null, int? scaleMin = null,
+            int? counterPercent = null,
+            bool? counterColumn = null, int? counterHits = null, int? counterExecuteBelow = null,
+            int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null,
+            int? executeSplashPercent = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
-                turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
+                turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
+                executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
                 AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
-                RetainPercent, PortionPercent, ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
-                MinBurn, PerBurningHit)
+                RetainPercent, PortionPercent, scaleBy ?? ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
+                MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp,
+                counterColumn ?? CounterColumn, counterHits ?? CounterHits, counterExecuteBelow ?? CounterExecuteBelow,
+                blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
+                executeSplashPercent ?? ExecuteSplashPercent)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,
