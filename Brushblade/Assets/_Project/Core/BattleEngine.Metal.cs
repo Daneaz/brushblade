@@ -66,5 +66,21 @@ namespace Brushblade.Core
             int heal = (int)((long)_enemies[targetIndex].MaxHp * effect.Value / 100);
             return effect.AmpTerms.Count == 0 ? heal : Amplified(heal, AmpPercent(effect, targetIndex));
         }
+
+        // ---- Task 2:格挡附带运行时(附录 J1)----
+
+        /// <summary>格挡反击(玩家侧 DamagePlayerDirect 与木灵侧 DamageSummon 共用):<paramref name="counter"/> = 本次反击量
+        /// (CounterDamage 已乘反击增强),<paramref name="budget"/> = 60% 反伤预算扣掉先结算的镜 / 荆棘之后的余额。
+        /// 攻击者已死或反击量 / 余额为 0 时什么都不做。返回实际打出的反击伤害合计(反震从同一份预算里扣它)。</summary>
+        private int ResolveCounter(int enemyIndex, StatusEffect block, int counter, int budget, UnitRef attackerRef)
+        {
+            if (counter <= 0 || !_enemies[enemyIndex].Alive) return 0;
+            int dealt = Math.Min(counter, budget);
+            if (dealt <= 0) return 0;
+            DamageEnemy(enemyIndex, dealt, Element.Heart,
+                bypassDefense: true, allowBarb: false,
+                source: EffectSource.BlockCounter, attackerRef: attackerRef);
+            return dealt;
+        }
     }
 }

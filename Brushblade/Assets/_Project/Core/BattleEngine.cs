@@ -5609,19 +5609,9 @@ namespace Brushblade.Core
                         source: EffectSource.Reflect, attackerRef: UnitRef.Player);
             }
             // 格挡反击:与镜共用 60% 反伤预算(§5.2.3),镜先用,反击拿剩下的
-            int counterDealt = 0;
-            if (counter > 0 && _enemies[enemyIndex].Alive)
-            {
-                int budget = damage * CombatCaps.ReflectPercent / 100 - bounced;
-                int dealt = Math.Min(counter, budget);
-                if (dealt > 0)
-                {
-                    DamageEnemy(enemyIndex, dealt, Element.Heart,
-                        bypassDefense: true, allowBarb: false,
-                        source: EffectSource.BlockCounter, attackerRef: UnitRef.Player);
-                    counterDealt = dealt;
-                }
-            }
+            // 结算与木灵侧共用 ResolveCounter(D2-金 J1)
+            int counterDealt = ResolveCounter(enemyIndex, block, counter,
+                damage * CombatCaps.ReflectPercent / 100 - bounced, UnitRef.Player);
             // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
             // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
             var recoil = allowReflect ? _playerStatuses.Find(StatusKind.ShieldRecoil) : null;
@@ -5807,15 +5797,9 @@ namespace Brushblade.Core
                 }
             }
             // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
-            if (blockCounter > 0 && _enemies[enemyIndex].Alive)
-            {
-                int budget = taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt;
-                int dealt = Math.Min(blockCounter, budget);
-                if (dealt > 0)
-                    DamageEnemy(enemyIndex, dealt, Element.Heart,
-                        bypassDefense: true, allowBarb: false,
-                        source: EffectSource.BlockCounter, attackerRef: UnitRef.Summon(summonIndex));
-            }
+            // 结算与玩家侧共用 ResolveCounter(D2-金 J1)
+            ResolveCounter(enemyIndex, block, blockCounter,
+                taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。
