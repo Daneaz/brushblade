@@ -1032,3 +1032,12 @@ def test_d2metal_doom_value_is_turns_and_takes_pick():
     assert _parse_effects("`Doom 2` + `pick All`", "刲") == [{"kind": "Doom", "value": 2, "pick": "All"}]
     assert _parse_effects("`Doom 2` + `if TargetHpAbove70`", "刲") == [
         {"kind": "Doom", "value": 2, "onlyIf": "TargetHpAbove70"}]
+
+
+# ---- D2-金 Task 4(附录 J7 / J8):战意族,通用 `Kind N` 解析,无需映射表 ----
+
+def test_d2metal_morale_family_values():
+    assert _parse_effects("`Morale 3` + `MoraleOverflowShield 30`", "鑫") == [
+        {"kind": "Morale", "value": 3}, {"kind": "MoraleOverflowShield", "value": 30}]
+    assert _parse_effects("`MoraleArmor 5`", "鑫") == [{"kind": "MoraleArmor", "value": 5}]
+    assert _parse_effects("`MoraleShield 40`", "鍂") == [{"kind": "MoraleShield", "value": 40}]
