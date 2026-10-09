@@ -637,6 +637,10 @@ namespace Brushblade.Presentation
                     // D2-水 Task 2(冻结附着 / 冷却):只出现在特性里(附着须 riderOf Freeze,本体写不出来),
                     // 本节扫的是本体效果,不出 chip;卡面文案由 CharInfo 印。
                     break;
+                case EffectKind.BuffBlock:
+                case EffectKind.DebuffWard:
+                    // D2-水 Task 3(洗尽铅华 / 濯身 / 浇熄):只出现在特性里,本体不出 chip;卡面文案由 CharInfo 印。
+                    break;
                 default:
                     // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                     AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

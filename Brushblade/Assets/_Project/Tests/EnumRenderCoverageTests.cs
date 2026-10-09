@@ -103,6 +103,8 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Mine),       // 埋雷(D2-火,StatusChipsFire 稿 2026-10-09)
             nameof(StatusKind.HealBlock),  // 干涸(D2-火,StatusChipsFire 稿 2026-10-09)
             nameof(StatusKind.Doom),       // 致命(D2-金 M2,traits StatusChips 稿)
+            // 待稿(D2-水 V5):BuffBlock(洗尽铅华)也挂在敌人身上、玩家可见,但 chip 稿已请 designer 出、尚未拍板 ——
+            // 按 V3 门控 Core 照做、chip 不画,所以暂不列入;StatusText 已有详情文案。稿拍板、BattleView 接上 chip 时加进来。
         };
 
         private static string Root()

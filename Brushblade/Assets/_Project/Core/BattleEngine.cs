@@ -2018,7 +2018,9 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.ExtraStrike || effect.Kind == EffectKind.Thaw
                     || effect.Kind == EffectKind.Reveal
                     // 冷却(D2-水 W2):推迟的是主目标(Boss)的蓄力
-                    || effect.Kind == EffectKind.ChargeDelay)
+                    || effect.Kind == EffectKind.ChargeDelay
+                    // 洗尽铅华(D2-水 W3):挂在主目标身上
+                    || effect.Kind == EffectKind.BuffBlock)
                     return true;
             return false;
         }
@@ -2077,7 +2079,9 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Unseal
                     // 格挡(D2-0 Task 3,Ruling E1,spec §2.2):铠可落到木灵身上,格挡挂在木灵自己的袋子里;
                     // 战意照旧给玩家。场上没有存活木灵时 Cast 自动锁玩家(免选口径)。
-                    || effect.Kind == EffectKind.Block)
+                    || effect.Kind == EffectKind.Block
+                    // 免疫减益(D2-水 W4,濯身 / 浇熄):挂在落点(玩家或木灵)身上
+                    || effect.Kind == EffectKind.DebuffWard)
                     return true;
             return false;
         }
@@ -2913,13 +2917,14 @@ namespace Brushblade.Core
                 // 加成本场累计、回合末不回滚(既有语义)。SourceId 必须每次唯一——用回合数做
                 // 后缀不够:场上若有两只同字标点小妖同回合各给同一目标加一次,回合数后缀会撞车
                 // 变成互相覆盖而非累加(与 Task 4 的 HoT SourceId 教训同型)。
-                ApplyStatus(other.Statuses, new StatusEffect
+                // 被洗尽铅华(D2-水 W3)拦下时不发 EnemyBuff;未拦时 ApplyStatus 恒 true,事件流不变
+                if (ApplyStatus(other.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = PunctuationBuffPercent, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                }, UnitRef.Enemy(j), UnitRef.Enemy(enemyIndex));
-                _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
+                }, UnitRef.Enemy(j), UnitRef.Enemy(enemyIndex)))
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
             }
         }
 
@@ -3014,15 +3019,16 @@ namespace Brushblade.Core
                 // 那时召唤物没有状态容器,只能这么写;现在有了,就该落在实际挨打的那个身上。
                 if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsAbilitySilenced(enemy))
                 {
+                    // 被免疫减益(D2-水 W4)拦下时不发灼事件(没挂上);未拦时 RefreshBurn 恒 true,事件流不变
                     if (tankIdx == Targeting.PlayerTarget)
                     {
-                        RefreshBurn(_playerStatuses, SearStacks, UnitRef.Player, UnitRef.Enemy(enemyIndex));
-                        _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
+                        if (RefreshBurn(_playerStatuses, SearStacks, UnitRef.Player, UnitRef.Enemy(enemyIndex)))
+                            _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
                     }
                     else
                     {
-                        RefreshBurn(_summons[tankIdx].Statuses, SearStacks, UnitRef.Summon(tankIdx), UnitRef.Enemy(enemyIndex));
-                        _events.Add(new BattleEvent(BattleEventKind.SummonBurn, tankIdx, SearStacks));
+                        if (RefreshBurn(_summons[tankIdx].Statuses, SearStacks, UnitRef.Summon(tankIdx), UnitRef.Enemy(enemyIndex)))
+                            _events.Add(new BattleEvent(BattleEventKind.SummonBurn, tankIdx, SearStacks));
                     }
                 }
 
@@ -3897,6 +3903,18 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti)) DelayBossCharge(ti, effect.Value);
                         break;
+                    case EffectKind.BuffBlock:   // 洗尽铅华(D2-水 W3):回合离散,读 effect.Turns
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBuffBlock(ti, effect, def.Id);
+                        break;
+                    case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
+                        {
+                            Kind = StatusKind.DebuffWard, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                            TraitKey = effect.TraitKey, WardOf = effect.WardOf, WardCount = effect.WardCount,
+                        }, AllyRef(allySlot), UnitRef.Player);
+                        break;
                     case EffectKind.SelfCost:
                         break;   // 已在出字开头结算(PaySelfCost)
                     case EffectKind.Reveal:
@@ -4666,6 +4684,16 @@ namespace Brushblade.Core
         private bool ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier,
             bool raiseHook = true, int extraStallPush = 0)
         {
+            // 拦截段(D2-水 W3 / W4):袋里没有 BuffBlock / DebuffWard 时各一次 Has 判断即落空,不摇号、不改事件流
+            if (effect.Polarity == StatusPolarity.Buff)
+            {
+                // 洗尽铅华(Q21):霜抗豁免 —— 否则冻结可无限连锁(破 R1)
+                if (target.Side == UnitSide.Enemy && effect.Kind != StatusKind.FrostResist && bag.Has(StatusKind.BuffBlock))
+                    return false;
+            }
+            else if (target.Side != UnitSide.Enemy && bag.Has(StatusKind.DebuffWard) && WardOff(bag, effect, target))
+                return false;
+
             if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
             {
                 if (bag.Has(StatusKind.Freeze) || bag.Has(StatusKind.FrostResist) || bag.Has(StatusKind.IceStall))
@@ -4856,11 +4884,13 @@ namespace Brushblade.Core
         /// 有放回抽取,同场可能出现多只灯花,累加语义下 N 只就净 +(N−1)/回合,玩家这边
         /// 没有任何手段拆开这个雪球。
         /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低别处已经堆起来的更高层数。
-        /// 接 <see cref="StatusBag"/> 而非敌人下标 —— 玩家与召唤物两侧共用同一份实现。</summary>
-        private void RefreshBurn(StatusBag statuses, int stacks, UnitRef target, UnitRef applier)
+        /// 接 <see cref="StatusBag"/> 而非敌人下标 —— 玩家与召唤物两侧共用同一份实现。
+        /// 返回是否写进了袋子:被免疫减益(D2-水 W4)拦下时 false,调用方据此不发灼事件。
+        /// internal 只为测试直调(灯花恒刷 1 层,多层增量够不着)。</summary>
+        internal bool RefreshBurn(StatusBag statuses, int stacks, UnitRef target, UnitRef applier)
         {
             int current = statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
-            ApplyStatus(statuses, new StatusEffect
+            return ApplyStatus(statuses, new StatusEffect
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = Math.Max(current, stacks), TurnsLeft = -1,
@@ -5472,13 +5502,13 @@ namespace Brushblade.Core
             {
                 // 一回合内可能连续多次命中同一目标(玩家多张牌接力打同一敌人),SourceId 必须
                 // 每次唯一,否则同回合第二次自燃会覆盖第一次而非叠加(Task 4 的 HoT 教训同型)。
-                ApplyStatus(enemy.Statuses, new StatusEffect
+                if (ApplyStatus(enemy.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = ScorchGain, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex));
-                _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
+                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex)))   // 被洗尽铅华(D2-水 W3)拦下时不发 EnemyBuff
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
             // 铁画:受击存活即反噬(2026-08-29)。与召唤物荆棘刻意相反 —— 荆棘被打死那一击照样扎,

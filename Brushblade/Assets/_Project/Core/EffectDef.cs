@@ -193,6 +193,12 @@ namespace Brushblade.Core
         ThawSlow,       // 冰水:挂 StatusKind.ThawSlow(Magnitude = Value 回合)。冻结结束时先挂霜抗(现状)、再挂减速 Value 回合(Q19)。离散。
         ChargeDelay,    // 冷却:Boss 蓄力推迟 Value 拍(离散)。未蓄力 → ChargeCounter −Value;蓄力中 → 撤回,ChargeCounter = BossChargeEvery − Value
                         // (下一拍重新蓄力并重发 BossCharging)。每 Boss 每场 1 次(TryUseTrait);小怪无效果(Q5)。支持 Pick / OnlyIf。
+        // ---- D2-水 Task 3:拦截族(附录 W3 / W4)。⚠ 只在末尾追加 ----
+        BuffBlock,      // 洗尽铅华:给目标敌人挂 StatusKind.BuffBlock,Turns 回合(必填,按该敌人行动递减)内拦下 Buff 极性的施加,霜抗除外(Q21)。
+                        // Value 不用(离散)。支持 Pick / OnlyIf;敌对。
+        DebuffWard,     // 濯身 / 浇熄:给落点(玩家或木灵,AllyStatuses)挂 StatusKind.DebuffWard,Turns 回合(必填)内拦下落在该单位身上的减益。
+                        // Value = 每拦 1 层(灼按刷新增量)/ 1 条给该单位的护盾(连续,吃卡等级;0 = 不转);WardOf = 只拦这一种(null = 全部);
+                        // WardCount = 前 N 次(0 = 期间不限)。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -507,6 +513,14 @@ namespace Brushblade.Core
         /// <summary>仅在减速中(E25,淋漓):只给 Seed —— 种只在该敌人仍被减速时触发;缺 turns 时回合数 = 施加时目标的减速剩余回合。</summary>
         public bool WhileSlowed { get; }
 
+        // ---- D2-水 Task 3(附录 W4)。缺省 = 原行为 ----
+
+        /// <summary>只拦这一种减益(W4,浇熄 `wardOf Burn`):只给 DebuffWard。null = 全部减益。</summary>
+        public StatusKind? WardOf { get; }
+
+        /// <summary>前 N 次(W4,`wardCount N`,土·杜绝预留):只给 DebuffWard。0 = 期间不限。</summary>
+        public int WardCount { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -539,7 +553,7 @@ namespace Brushblade.Core
             int executeSplashPercent = 0,
             int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
             bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
-            bool ofHeal = false)
+            bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0)
         {
             Kind = kind;
             Value = value;
@@ -603,6 +617,8 @@ namespace Brushblade.Core
             ExecuteIf = executeIf;
             WhileSlowed = whileSlowed;
             OfHeal = ofHeal;
+            WardOf = wardOf;
+            WardCount = wardCount;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -638,7 +654,7 @@ namespace Brushblade.Core
                 blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
                 executeSplashPercent ?? ExecuteSplashPercent,
                 stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
-                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal)
+                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

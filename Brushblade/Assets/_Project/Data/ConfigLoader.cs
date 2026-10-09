@@ -120,6 +120,9 @@ namespace Brushblade.Data
             public string ExecuteIf { get; set; }           // DamageSingle / Reshape:斩杀条件门(湮灭无踪)
             public bool WhileSlowed { get; set; }           // Seed:只在敌人减速中触发(淋漓)
             public bool OfHeal { get; set; }                // HealSummons:按本次名义治疗量 × Value%(沐恩,E24)
+            // D2-水 Task 3(附录 W4)
+            public string WardOf { get; set; }              // DebuffWard:只拦这一种减益(浇熄 = Burn);空 = 全部
+            public int WardCount { get; set; }              // DebuffWard:前 N 次(0 = 期间不限,土·杜绝)
         }
 
         private sealed class CampaignFileDto
@@ -893,7 +896,7 @@ namespace Brushblade.Data
                     effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp,
                     effect.ExecuteSplashPercent,
                     extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed,
-                    ofHeal: effect.OfHeal));
+                    ofHeal: effect.OfHeal, wardOf: ParseWardOf(effect.WardOf, kind, dto.Id), wardCount: effect.WardCount));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -1044,6 +1047,31 @@ namespace Brushblade.Data
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
             if (e.OpeningBattles != 0 && (e.Extend || !string.IsNullOrEmpty(e.ExecuteIf) || e.WhileSlowed || e.OfHeal))
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 extend / executeIf / whileSlowed / ofHeal(登记时会丢)");
+            // D2-水 Task 3(W3 / W4):拦截族必须写回合(漏写引擎兜 1 回合,静默变短);wardOf / wardCount 只给 DebuffWard
+            if ((kind == EffectKind.BuffBlock || kind == EffectKind.DebuffWard) && e.Turns < 1)
+                throw new ConfigException($"字「{id}」的 {kind} 须写回合数(turns ≥ 1),当前:{e.Turns}");
+            if ((!string.IsNullOrEmpty(e.WardOf) || e.WardCount != 0) && kind != EffectKind.DebuffWard)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 wardOf / wardCount(只给 DebuffWard)");
+            if (e.WardCount < 0)
+                throw new ConfigException($"字「{id}」的 DebuffWard 的 wardCount 不能为负:{e.WardCount}");
+            if (e.OpeningBattles != 0 && kind == EffectKind.DebuffWard && (!string.IsNullOrEmpty(e.WardOf) || e.WardCount != 0))
+                throw new ConfigException($"字「{id}」的 DebuffWard 开局效果不能带 wardOf / wardCount(登记时会丢)");
+        }
+
+        /// <summary>免疫减益只拦得到会落在我方身上的减益(D2-水 W4)。名单外的(增益 / 隐藏载体)写了也永远拦不到 —— 拦下。</summary>
+        private static readonly HashSet<StatusKind> WardableKinds = new HashSet<StatusKind>
+        {
+            StatusKind.Burn, StatusKind.Bleed, StatusKind.Freeze, StatusKind.SpeedModifier, StatusKind.Curse,
+            StatusKind.Seal, StatusKind.Blind, StatusKind.Silence, StatusKind.ArmorBreak, StatusKind.Vulnerable,
+            StatusKind.Charm, StatusKind.HealBlock, StatusKind.Doom,
+        };
+
+        private static StatusKind? ParseWardOf(string name, EffectKind kind, string charId)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            if (!Enum.TryParse(name, out StatusKind ward) || !Enum.IsDefined(typeof(StatusKind), ward) || !WardableKinds.Contains(ward))
+                throw new ConfigException($"字「{charId}」的 {kind} 的 wardOf 未知或不是减益:{name}");
+            return ward;
         }
 
         /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——

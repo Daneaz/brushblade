@@ -69,6 +69,7 @@ namespace Brushblade.Core
             EffectKind.ExtraStrike, EffectKind.Thaw, EffectKind.Reveal,   // D2-火 Task 5:落在敌人身上(自损 SelfCost 作用于玩家,不敌对)
             EffectKind.FrostBite, EffectKind.ThawStrike, EffectKind.ThawSlow,   // D2-水 Task 2:挂在敌人的冻结上
             EffectKind.ChargeDelay,   // D2-水 Task 2:推迟 Boss 蓄力
+            EffectKind.BuffBlock,     // D2-水 Task 3:挂在敌人身上(DebuffWard 挂我方,不敌对)
         };
 
         /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /

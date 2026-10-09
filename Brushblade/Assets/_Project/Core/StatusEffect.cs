@@ -114,6 +114,13 @@ namespace Brushblade.Core
         FrostBite,        // 怀山:冻结中每次行动开始受 Magnitude 点伤害(出字时定死)。
         ThawStrike,       // 寒彻:冻结结束(自然到期 / 被解冻)时受 Magnitude 点伤害一次;死亡不算。
         ThawSlow,         // 冰水:冻结结束时(霜抗之后)挂减速 Magnitude 回合。
+        // ---- D2-水 Task 3:拦截族(附录 W3 / W4;可见,chip 待 designer 稿,V5 门控:Core 照做、chip 不画) ----
+        BuffBlock,        // 洗尽铅华(仅敌人,Debuff 极性):期间 ApplyStatus 拦下该敌人身上一切 Buff 极性的施加(返回 false、不发
+                          // StatusApplied),**霜抗除外**(Q21,R1 安全网)。Magnitude 不用,TurnsLeft = 回合(按该敌人行动递减),
+                          // SourceId = 字 ID(同源刷新)。
+        DebuffWard,       // 濯身 / 浇熄(玩家或木灵,Buff 极性):期间 ApplyStatus 拦下落在该单位身上的减益(灼按 RefreshBurn 增量计层,
+                          // 拦下后不改层)。Magnitude = 每拦 1 层 / 1 条给该单位的护盾(0 = 不转),WardOf = 只拦这一种(null = 全部减益),
+                          // WardCount = 剩余次数(0 = 期间不限,>0 用尽即移除;土·杜绝),TurnsLeft = 回合(玩家按玩家回合、木灵按木灵那一拍递减)。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -125,7 +132,8 @@ namespace Brushblade.Core
             kind == StatusKind.Taunt || kind == StatusKind.Block || kind == StatusKind.Endure
             || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost
             || kind == StatusKind.Retaliate   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
-            || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield;   // D2-金 Task 4:战意光环只管本场
+            || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield   // D2-金 Task 4:战意光环只管本场
+            || kind == StatusKind.DebuffWard;   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -231,6 +239,13 @@ namespace Brushblade.Core
         /// 就不触发。缺省 false = 原种,逐位恒等。</summary>
         public bool WhileSlowed { get; set; }
 
+        /// <summary>只拦这一种减益(D2-水 W4,浇熄 = Burn;仅 <see cref="StatusKind.DebuffWard"/> 用)。null = 全部减益(濯身)。</summary>
+        public StatusKind? WardOf { get; set; }
+
+        /// <summary>剩余可拦次数(D2-水 W4,土·杜绝预留;仅 <see cref="StatusKind.DebuffWard"/> 用)。0 = 期间不限;&gt; 0 时每拦一次 −1,
+        /// 减到 0 即移除这条。</summary>
+        public int WardCount { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
@@ -240,6 +255,7 @@ namespace Brushblade.Core
             CounterColumn = CounterColumn, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
             BlockBleed = BlockBleed, BlockMorale = BlockMorale, KillRefundAp = KillRefundAp,
             ExecuteSourceCharId = ExecuteSourceCharId, WhileSlowed = WhileSlowed,
+            WardOf = WardOf, WardCount = WardCount,
         };
     }
 

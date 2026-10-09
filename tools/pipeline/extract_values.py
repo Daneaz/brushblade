@@ -106,6 +106,11 @@ VALUELESS_EFFECTS = {
     # 与 `pick FrozenByThisCast`。冰水 `ThawSlow N`、冷却 `ChargeDelay N` 带数值,走通用正则。
     "FrostBite": {"kind": "FrostBite", "value": 0},
     "ThawStrike": {"kind": "ThawStrike", "value": 0},
+    # D2-水 Task 3(附录 W3 / W4):洗尽铅华 `BuffBlock` 不带数值(必写 turns,可写 pick / if);
+    # 濯身 `DebuffWard` 不带数值 = 不转盾(全量免疫),浇熄 `DebuffWard 50` 带数值走通用正则(每挡 1 层的护盾量)。
+    # 可配 `wardOf X`(只拦一种)/ `wardCount N`(前 N 次)。整串带反引号匹配,`DebuffWard` 不吞 `DebuffWard 50`。
+    "BuffBlock": {"kind": "BuffBlock", "value": 0},
+    "DebuffWard": {"kind": "DebuffWard", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -143,7 +148,8 @@ EXECUTE_SPLASH_TOKEN = "executeSplash"
 # 减攻(D1 Task 5,EffectKind.Weaken):Value = 百分点、Turns = 回合,漏写 turns 引擎兜成 1 回合 ——
 # 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed"}
+                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
+                  "BuffBlock", "DebuffWard"}   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -251,7 +257,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "ExtraStrike", "Thaw", "Reveal",   # D2-火 Task 5
                     "Doom",   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
                     # D2-水 Task 2:冻结附着族(写 pick FrozenByThisCast)与冷却(Value = 拍数)
-                    "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay"}
+                    "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
+                    "BuffBlock"}   # D2-水 Task 3 洗尽铅华
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -342,6 +349,14 @@ EXECUTE_IF_TOKEN = "executeIf"
 WHILE_SLOWED_TOKEN = "whileSlowed"
 # `ofHeal`(沐恩,E24):HealSummons 的量 = 本次名义治疗量 × N%,挂本格唯一的 HealSummons
 OF_HEAL_TOKEN = "ofHeal"
+# ---- D2-水 Task 3(附录 W4)----
+# `wardOf X`(浇熄 = Burn):前一条 DebuffWard 只拦这一种减益;`wardCount N`(土·杜绝):只拦前 N 次。
+# 带数值的 `wardCount` 必须进通用循环的跳过名单,否则落成 kind="wardCount" 的独立效果。
+# WARDABLE 与 ConfigLoader.WardableKinds 同一张表(会落在我方身上的减益)。
+WARD_OF_TOKEN = "wardOf"
+WARD_COUNT_TOKEN = "wardCount"
+WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak",
+            "Vulnerable", "Charm", "HealBlock", "Doom"}
 
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
@@ -645,6 +660,22 @@ def _attach_modifier_tokens(config, char, effects, consumed):
     _attach_positional(config, char, effects, consumed, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
     _attach_positional(config, char, effects, consumed, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
                        allowed_kinds={"Seed"})
+
+    # D2-水 Task 3(W4):免疫减益只拦一种 / 只拦前 N 次,按位置挂到前一条 DebuffWard
+    def _parse_ward_of(raw):
+        if raw not in WARDABLE:
+            raise ValueError(f"{char}:`{WARD_OF_TOKEN} {raw}` 不是会落在我方身上的减益,只认 {sorted(WARDABLE)}")
+        return raw
+
+    def _parse_ward_count(raw):
+        if raw is None or not raw.isdigit() or int(raw) < 1:
+            raise ValueError(f"{char}:`{WARD_COUNT_TOKEN}` 须写次数 N ≥ 1")
+        return int(raw)
+
+    _attach_positional(config, char, effects, consumed, WARD_OF_TOKEN, "wardOf", _parse_ward_of,
+                       host_kinds={"DebuffWard"})
+    _attach_positional(config, char, effects, consumed, WARD_COUNT_TOKEN, "wardCount", _parse_ward_count,
+                       host_kinds={"DebuffWard"})
     for e in effects:
         if "minBurn" in e and ("riderOf" not in e or e["minBurn"] < 1):
             raise ValueError(f"{char}:`minBurn` 只给附着在灼上的减攻(`Weaken N` + `rider Burn`),且须 ≥ 1")
@@ -990,6 +1021,8 @@ def _parse_effects(config, char, on_hit_host=False):
             continue  # D2-金 Task 1:BlockMod 的反击百分比 / 次数下限,下面挂到 BlockMod 上
         if kind in BLOCK_RIDER_TOKENS:
             continue  # D2-金 Task 2:格挡附带的数值,下面挂到 BlockMod 上
+        if kind == WARD_COUNT_TOKEN:
+            continue  # D2-水 Task 3:免疫减益的次数,下面按位置挂到 DebuffWard 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":

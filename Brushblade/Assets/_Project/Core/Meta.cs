@@ -840,6 +840,8 @@ namespace Brushblade.Core
             EffectKind.BlockMod => false,
             // D2-水 Task 2:冰水的 Value 是减速回合、冷却的 Value 是拍数,离散;怀山 / 寒彻是伤害量(连续,走缺省)
             EffectKind.ThawSlow or EffectKind.ChargeDelay => false,
+            // D2-水 Task 3:BuffBlock 不用 Value(回合离散);DebuffWard 的 Value 是每层护盾量(连续,走缺省)
+            EffectKind.BuffBlock => false,
             _ => true,
         };
 

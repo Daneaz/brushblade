@@ -47,7 +47,8 @@ namespace Brushblade.Core
                 or EffectKind.Doom   // D2-金 Task 3 致命
                 // D2-水 Task 2:冻结附着族(数据写 pick FrozenByThisCast)与冷却
                 or EffectKind.FrostBite or EffectKind.ThawStrike or EffectKind.ThawSlow
-                or EffectKind.ChargeDelay => true,
+                or EffectKind.ChargeDelay
+                or EffectKind.BuffBlock => true,   // D2-水 Task 3 洗尽铅华
             _ => false,
         };
 

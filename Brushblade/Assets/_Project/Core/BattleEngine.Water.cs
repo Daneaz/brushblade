@@ -167,5 +167,46 @@ namespace Brushblade.Core
             }
             else enemy.ChargeCounter -= beats;
         }
+
+        // ── 拦截族(D2-水 Task 3,附录 W3 / W4)。ApplyStatus 开头的拦截段只在袋里带 BuffBlock / DebuffWard 时走到这里 ──
+
+        /// <summary>洗尽铅华(W3):挂 BuffBlock(Debuff 极性,自身不被它拦、也不被驱散)。回合按该敌人行动递减(ActEnemyTurn
+        /// 每拍末尾 / 冻结跳过那拍都 TickTurns),「2 回合」= 2 次行动。同源刷新(bag.Apply 覆盖)。</summary>
+        private void ApplyBuffBlock(int enemyIndex, EffectDef effect, string sourceId) =>
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
+            {
+                Kind = StatusKind.BuffBlock, Polarity = StatusPolarity.Debuff,
+                TurnsLeft = Math.Max(1, effect.Turns), SourceId = sourceId, TraitKey = effect.TraitKey,
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
+
+        /// <summary>免疫减益(W4):落在我方(玩家 / 木灵)身上的这条减益,若袋里有能拦它的 DebuffWard(WardOf 为 null 或等于其 Kind,
+        /// 按袋序取第一条)就拦下并返回 true —— 调用方随即返回 false、不写袋子、不发 StatusApplied。
+        /// 层数:灼按「钳位后的新总层数 − 现有层数」计(RefreshBurn / ApplyBurn 传进来的 Magnitude 都是总层数);增量 ≤ 0 时
+        /// 这次施加本来就不涨层,不算拦截、不耗次数、不给盾(照常写袋子,与改动前逐位一致)。其余减益一次 = 1 条。
+        /// 次数:WardCount &gt; 0 时 −1,减到 0 移除这条。转盾:Magnitude × 层 / 条,给被保护的单位(玩家普通桶 / 木灵),发 Shield 事件。</summary>
+        private bool WardOff(StatusBag bag, StatusEffect effect, UnitRef target)
+        {
+            StatusEffect ward = null;
+            foreach (var s in bag.All)
+                if (s.Kind == StatusKind.DebuffWard && (s.WardOf == null || s.WardOf == effect.Kind)) { ward = s; break; }
+            if (ward == null) return false;
+
+            int units = 1;
+            if (effect.Kind == StatusKind.Burn)
+            {
+                units = Math.Min(effect.Magnitude, CombatCaps.BurnStacks) - (bag.Find(StatusKind.Burn)?.Magnitude ?? 0);
+                if (units <= 0) return false;
+            }
+            if (ward.WardCount > 0 && --ward.WardCount == 0) bag.RemoveEntry(ward);
+
+            int shield = ward.Magnitude * units;
+            if (shield <= 0) return true;
+            if (target.Side == UnitSide.Summon && target.Index >= 0 && target.Index < SummonCap
+                && _summons[target.Index] != null && _summons[target.Index].Alive)
+                _events.Add(new BattleEvent(BattleEventKind.Shield, target.Index, AddSummonShield(target.Index, shield)));
+            else
+                _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, AddPlayerShield(shield, persist: false)));
+            return true;
+        }
     }
 }

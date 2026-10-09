@@ -1165,3 +1165,38 @@ def test_d2water_freeze_rider_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-水 Task 3:拦截族(附录 W3 / W4)—— 附录 §2 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 洗尽铅华
+    ("`DispelAll` + `BuffBlock` `turns 2`",
+     [{"kind": "Dispel", "value": -1}, {"kind": "BuffBlock", "value": 0, "turns": 2}]),
+    # 濯身(免疫部分):不带数值 = 全量、不转盾
+    ("`DebuffWard` `turns 1`", [{"kind": "DebuffWard", "value": 0, "turns": 1}]),
+    # 浇熄:只拦灼,每挡 1 层转盾 50
+    ("`DebuffWard 50` `wardOf Burn` `turns 3`",
+     [{"kind": "DebuffWard", "value": 50, "wardOf": "Burn", "turns": 3}]),
+    # 土·杜绝预留:前 N 次
+    ("`DebuffWard` `wardCount 2` `turns 2`",
+     [{"kind": "DebuffWard", "value": 0, "wardCount": 2, "turns": 2}]),
+    # 支持 pick / if
+    ("`BuffBlock` `pick All` `if Frozen` `turns 2`",
+     [{"kind": "BuffBlock", "value": 0, "pick": "All", "onlyIf": "Frozen", "turns": 2}]),
+])
+def test_d2water_ward_and_block(config, expected):
+    assert _parse_effects(config, "澡") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`BuffBlock`", "turns"),                                    # 拦截族必写回合
+    ("`DebuffWard 50` `wardOf Burn`", "turns"),
+    ("`DebuffWard 50` `wardOf AttackBuff` `turns 3`", "wardOf"),  # 不是减益
+    ("`DebuffWard` `wardCount 0` `turns 3`", "wardCount"),       # 0 次
+    ("`Shield 50` `wardOf Burn`", "wardOf"),                     # 没有可挂的 DebuffWard
+])
+def test_d2water_ward_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

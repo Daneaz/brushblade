@@ -207,6 +207,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
                 // D2-水 Task 2:冰水是减速回合、冷却是拍数
                 EffectKind.ThawSlow, EffectKind.ChargeDelay,
+                // D2-水 Task 3:洗尽铅华不用 Value;免疫减益的转盾是拦截的折算,不是本系字的护盾本体
+                EffectKind.BuffBlock, EffectKind.DebuffWard,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

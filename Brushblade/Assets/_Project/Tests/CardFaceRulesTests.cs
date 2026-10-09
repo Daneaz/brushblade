@@ -127,6 +127,7 @@ namespace Brushblade.Core.Tests
             EffectKind.SelfCost,    // D2-火 Task 5:扣的是玩家自己的生命
             EffectKind.BlockMod,    // D2-金 Task 1:格挡修饰器,出字前折进本面的 Block
             EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,   // D2-金 Task 4:战意族,作用于玩家自己
+            EffectKind.DebuffWard,  // D2-水 Task 3:免疫减益挂在落点(玩家或木灵)身上
         };
 
         [Test]

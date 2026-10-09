@@ -278,6 +278,20 @@ namespace Brushblade.Presentation
                     return new Info("retaliate", Strings.T("status.retaliate.name"),
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.retaliate.desc"));
+                case StatusKind.BuffBlock:
+                    // 洗尽铅华(D2-水 W3):敌人身上。战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
+                    return new Info(null, Strings.T("status.buffblock.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.buffblock.desc"));
+                case StatusKind.DebuffWard:
+                    // 濯身 / 浇熄(D2-水 W4):玩家或木灵身上。战场 chip 待 designer 稿(V5 门控),IconKey null。
+                    // 只拦哪一种 / 剩几次 / 转盾量要读 StatusEffect 的字段,这里只拿到 (kind, magnitude, turnsLeft):
+                    // 说明按「转盾量」分两句,细节归 Task 5
+                    return new Info(null, Strings.T("status.debuffward.name"),
+                        Duration(turnsLeft),
+                        magnitude > 0
+                            ? Strings.T("status.debuffward.desc.shield", ("value", magnitude))
+                            : Strings.T("status.debuffward.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

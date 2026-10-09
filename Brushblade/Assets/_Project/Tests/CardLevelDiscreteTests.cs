@@ -73,6 +73,8 @@ namespace Brushblade.Core.Tests
             EffectKind.Doom,
             // D2-水 Task 2:冰水的 Value = 减速回合、冷却的 Value = 拍数
             EffectKind.ThawSlow, EffectKind.ChargeDelay,
+            // D2-水 Task 3:洗尽铅华不用 Value(回合离散)
+            EffectKind.BuffBlock,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
@@ -98,6 +100,8 @@ namespace Brushblade.Core.Tests
             EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
             // D2-水 Task 2:怀山 / 寒彻的 Value 是伤害量,吃卡等级(出字时再乘攻击力定死,同埋雷)
             EffectKind.FrostBite, EffectKind.ThawStrike,
+            // D2-水 Task 3:免疫减益的 Value 是每拦 1 层 / 1 条的护盾量,连续
+            EffectKind.DebuffWard,
         };
 
         [Test]

@@ -243,6 +243,9 @@ namespace Brushblade.Presentation
                     EffectKind.ThawSlow => Strings.T("char.effect.thawslow", ("turns", e.Value)),
                     // 冷却(D2-水 W2):拍数离散,每 Boss 每场 1 次
                     EffectKind.ChargeDelay => Strings.T("char.effect.chargedelay", ("value", e.Value)),
+                    // 拦截族(D2-水 W3 / W4):回合离散(e.Turns);免疫减益的转盾量吃等级(v)
+                    EffectKind.BuffBlock => Strings.T("char.effect.buffblock", ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.DebuffWard => DebuffWardText(e, v),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
@@ -360,6 +363,19 @@ namespace Brushblade.Presentation
             return e.Value > 0
                 ? Strings.T("char.effect.retaliate.cap", ("list", list), ("cap", e.Value))
                 : Strings.T("char.effect.retaliate", ("list", list));
+        }
+
+        /// <summary>免疫减益(D2-水 W4):濯身「N 回合内免疫减益」/ 浇熄「N 回合内免疫灼烧,每挡 1 层转为护盾 X」;
+        /// WardCount &gt; 0 时补「(前 N 次)」。只拦一种时状态名取 StatusText(与详情弹窗同一份文案)。</summary>
+        private static string DebuffWardText(EffectDef e, int shield)
+        {
+            int turns = Math.Max(1, e.Turns);
+            string text = e.WardOf is StatusKind of
+                ? Strings.T("char.effect.debuffward.of", ("turns", turns), ("status", StatusText.Of(of, 0, 0).Name ?? ""))
+                : Strings.T("char.effect.debuffward", ("turns", turns));
+            if (e.WardCount > 0) text += Strings.T("char.effect.debuffward.count", ("count", e.WardCount));
+            if (shield > 0) text += Strings.T("char.effect.debuffward.shield", ("value", shield));
+            return text;
         }
 
         /// <summary>反击增强的倍率(D1 Task 7):Value 100 → 「2」,50 → 「1.5」。</summary>
