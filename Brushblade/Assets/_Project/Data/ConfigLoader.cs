@@ -849,7 +849,7 @@ namespace Brushblade.Data
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
                     // 流血缺省 3 回合(D2-金 E8):加载时规范成 3,Augment +N 回合才从 3 起加(修复轮 1;运行时兜底保留)
-                    kind == EffectKind.Bleed && effect.Turns == 0 ? 3 : effect.Turns, effect.TargetAll,
+                    kind == EffectKind.Bleed && effect.Turns == 0 ? BattleEngine.BleedDefaultTurns : effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield, effect.SummonDefense,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
                     effect.HitCount, effect.Pierce,
@@ -995,7 +995,8 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofVictimMaxHp(只给 HealSelf,且不与 scaleBy 同用)");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
             if (e.OpeningBattles != 0 && (e.Fill || e.CounterPercent != 0 || e.ScaleMin != 0 || e.OfVictimMaxHp || riders))
-                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 fill / counterPercent / scaleMin / ofVictimMaxHp(登记时会丢)");
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 fill / counterPercent / scaleMin / ofVictimMaxHp / "
+                    + "格挡附带 counterColumn / counterHits / counterExecuteBelow / blockBleed / blockMorale / killRefundAp(登记时会丢)");
         }
 
         /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——

@@ -3344,7 +3344,7 @@ namespace Brushblade.Core
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
                                 // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
                                 Magnitude = ScaleByAttack(value),
-                                TurnsLeft = effect.Turns > 0 ? effect.Turns : 3,   // D2-金 E8:读 turns,缺省 3
+                                TurnsLeft = effect.Turns > 0 ? effect.Turns : BleedDefaultTurns,   // D2-金 E8:读 turns,缺省 3
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -5705,7 +5705,7 @@ namespace Brushblade.Core
             // DR = 甲/(甲+100),见 ApplyDefense —— 甲再厚也只是把伤害按比例压薄,永远压不到负数,
             // 「甲厚过攻击力」这种口径随点数减法一起作废。位置在生克**之后**,与 DamageEnemy 那边
             // (生克 → 暴击 → 折算护甲)同序:折的是实际打到身上的量,不是敌人名义上的攻击力。
-            taken = ApplyDefense(taken, summon.EffectiveDefense + MoraleArmorBonus);   // 富甲含木灵(D2-金 Q15);没挂时 +0
+            taken = ApplyDefense(taken, SummonDefense(summon));   // 富甲含木灵(D2-金 Q15);没挂时 +0
             // 本回合减伤(Ruling 10):挂在玩家身上、我方全体受益。召唤物眼下没有别的非护甲减伤,单独钳 60%。
             // 没有减伤时整句跳过 —— 恒等。
             // 格挡(D2-0 Task 3,E1):木灵自己的袋子;只挡敌人的挥击(本方法的全部调用点都是挥击,

@@ -171,6 +171,21 @@ namespace Brushblade.Core.Tests
             Assert.That(armored, Is.GreaterThan(0));
         }
 
+        [Test]
+        public void SummonDefense_IncludesRichArmor_LiveWithMorale()
+        {
+            var plated = new CharDef("盾", Element.Heart, effects: new[] { new EffectDef(EffectKind.DefenseBuff, 10) });
+            var b = Battle(new[] { Sprout(), RichArmor(5) });
+            b.Cast("林", -1);
+            var summon = b.Summons[0];
+            Assert.That(b.SummonDefense(summon), Is.EqualTo(summon.EffectiveDefense), "没挂富甲:= 木灵自身有效护甲");
+            b.Cast("富", -1);
+            SetMorale(b, 3);
+            Assert.That(b.SummonDefense(summon), Is.EqualTo(summon.EffectiveDefense + 15), "富甲含木灵(Q15):战意 × 5");
+            SetMorale(b, 0);
+            Assert.That(b.SummonDefense(summon), Is.EqualTo(summon.EffectiveDefense), "清空战意即时失效(Q13)");
+        }
+
         // ---------------- J8b 金气 ----------------
 
         [Test]

@@ -478,6 +478,30 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Doom_MineHpLoss_PredictsMobExecute()
+        {
+            // 杂兵带致命:雷(10)把 305 压到 295 < 300 → 实际被斩杀,预扣应是整截(= 当前生命)
+            var b = Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp), Mob());
+            b.Enemies[0].Hp = NearLine;
+            Mine(b, 0);
+            Assert.That(b.MineHpLoss(0), Is.EqualTo(10), "无致命:只扣雷的伤害");
+            Doom(b, 0);
+            Assert.That(b.MineHpLoss(0), Is.EqualTo(NearLine), "带致命:雷压到 30% 以下 → 预测斩杀,整截");
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False, "与实际结算一致");
+        }
+
+        [Test]
+        public void Doom_MineHpLoss_StaysAboveLine_NoExecutePrediction()
+        {
+            var b = Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp), Mob());
+            b.Enemies[0].Hp = 900;
+            Mine(b, 0);
+            Doom(b, 0);
+            Assert.That(b.MineHpLoss(0), Is.EqualTo(10), "压不到线下:照常只扣雷的伤害");
+        }
+
+        [Test]
         public void StatusEffect_Clone_KeepsDoom()
         {
             var s = new StatusEffect { Kind = StatusKind.Doom, Polarity = StatusPolarity.Debuff, Magnitude = 1, TurnsLeft = 2, SourceId = "刲" };

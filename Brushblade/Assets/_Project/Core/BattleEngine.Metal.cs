@@ -83,6 +83,10 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>木灵受击时实际吃的护甲 = 自身 <see cref="SummonState.EffectiveDefense"/> + 富甲光环(Q15)。
+        /// DamageSummon 与表现层(木灵详情 / 战场护甲 chip)共用,显示的数与受击结算同源。</summary>
+        public int SummonDefense(SummonState summon) => summon.EffectiveDefense + MoraleArmorBonus;
+
         /// <summary>金气(J8b):玩家回合开始、清盾之后、TurnStarted 之前,战意 ≥ 上限就加盾(只给玩家)。没挂金气时一次判断即返回。</summary>
         private void ApplyMoraleShield()
         {
@@ -164,7 +168,7 @@ namespace Brushblade.Core
                 ApplyStatus(attacker.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
-                    Magnitude = block.BlockBleed, TurnsLeft = 3,   // Q12 缺省 3 回合;量出字时已定死
+                    Magnitude = block.BlockBleed, TurnsLeft = BleedDefaultTurns,   // Q12 缺省 3 回合;量出字时已定死
                 }, UnitRef.Enemy(enemyIndex), attackerRef);
 
             bool killed = false;
@@ -247,6 +251,9 @@ namespace Brushblade.Core
 
         /// <summary>致命的斩杀线(J5,割喉):杂兵生命低于最大生命的这个百分比即被斩杀。</summary>
         public const int DoomExecutePercent = 30;
+
+        /// <summary>流血缺省回合数(E8 / Q12):Bleed 不写 turns、格挡流血一律 3 回合。ConfigLoader 加载时规范、卡面文案同读这一个数。</summary>
+        public const int BleedDefaultTurns = 3;
 
         /// <summary>致命(J5):给选中的存活敌人挂 Doom(回合 = Value,不吃卡等级;同源刷新取长),挂上即判一次(施加时已低于 30% 立即斩杀)。</summary>
         private void ApplyDoom(EffectDef effect, int targetIndex, string sourceId)
