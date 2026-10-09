@@ -675,7 +675,7 @@ namespace Brushblade.Data
             {
                 if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;
                 foreach (var e in TraitRules.CastEffects(def, face, (int)TraitSlot.Lv8))
-                    if (e.OpeningBattles > 0 && e.AmpTerms.Count > 0)
+                    if (e.OpeningBattles > 0 && e.HasAmpTerms())
                         throw new ConfigException($"字「{def.Id}」的 {e.Kind} 开局效果会被同面的 Amplify 加成,登记时加成会丢失;开局效果不能与覆盖它的 Amplify 同面");
             }
         }
