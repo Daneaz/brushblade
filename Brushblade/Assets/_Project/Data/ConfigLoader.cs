@@ -119,6 +119,7 @@ namespace Brushblade.Data
             public bool Extend { get; set; }                // Slow:只续已有减速的回合,不新挂(倾盆)
             public string ExecuteIf { get; set; }           // DamageSingle / Reshape:斩杀条件门(湮灭无踪)
             public bool WhileSlowed { get; set; }           // Seed:只在敌人减速中触发(淋漓)
+            public bool OfHeal { get; set; }                // HealSummons:按本次名义治疗量 × Value%(沐恩,E24)
         }
 
         private sealed class CampaignFileDto
@@ -877,7 +878,8 @@ namespace Brushblade.Data
                     effect.CounterColumn, effect.CounterHits, effect.CounterExecuteBelow,
                     effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp,
                     effect.ExecuteSplashPercent,
-                    extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed));
+                    extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed,
+                    ofHeal: effect.OfHeal));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -971,14 +973,17 @@ namespace Brushblade.Data
                     // 格挡次数按战意只写在 BlockMod 上(与管线 countPerMorale 一致;Block 上的 ScaleBy 只由 Fold 写入)
                     nameof(ScaleBasis.Morale) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape || kind == EffectKind.BlockMod,
                     nameof(ScaleBasis.ExtraHitTarget) => kind == EffectKind.Morale,
+                    nameof(ScaleBasis.Wellspring) => kind == EffectKind.Amplify,   // D2-水 E22a 洪峰
+                    nameof(ScaleBasis.Cleansed) => kind == EffectKind.HealSelf,    // D2-水 E22b 濯身
                     _ => true,
                 };
                 if (!ok)
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
-                        + "Morale 给 DamageSingle / Reshape / BlockMod;ExtraHitTarget 给 Morale)");
+                        + "Morale 给 DamageSingle / Reshape / BlockMod;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf)");
             }
-            if (e.Fill && (kind != EffectKind.Morale || !string.IsNullOrEmpty(e.ScaleBy)))
-                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 fill(只给 Morale,且不与 scaleBy 同用)");
+            // 补满:战意(D2-金 E9)与泉(D2-水 E21,WellspringFill)
+            if (e.Fill && ((kind != EffectKind.Morale && kind != EffectKind.AddWellspring) || !string.IsNullOrEmpty(e.ScaleBy)))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 fill(只给 Morale / AddWellspring,且不与 scaleBy 同用)");
             bool block = kind == EffectKind.Block || kind == EffectKind.BlockMod;
             if (e.CounterPercent != 0 && (!block || e.CounterPercent < 0))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 counterPercent(只给 Block / BlockMod,且须 > 0)");
@@ -1010,7 +1015,7 @@ namespace Brushblade.Data
                     + "格挡附带 counterColumn / counterHits / counterExecuteBelow / blockBleed / blockMorale / killRefundAp(登记时会丢)");
         }
 
-        /// <summary>D2-水 Task 1 的字段(附录 E18 / E19 / E25):写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
+        /// <summary>D2-水 Task 1 的字段(附录 E18 / E19 / E24 / E25):写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
         private static void ValidateWaterOps(string id, EffectKind kind, EffectDto e)
         {
             if (e.Extend && kind != EffectKind.Slow)
@@ -1020,9 +1025,11 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 executeIf(只给带斩杀 executeBelowPercent 的 DamageSingle / Reshape)");
             if (e.WhileSlowed && kind != EffectKind.Seed)
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 whileSlowed(只给 Seed)");
+            if (e.OfHeal && (kind != EffectKind.HealSummons || e.PercentOfMax))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofHeal(只给 HealSummons,且不与 percentOfMax 同用)");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
-            if (e.OpeningBattles != 0 && (e.Extend || !string.IsNullOrEmpty(e.ExecuteIf) || e.WhileSlowed))
-                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 extend / executeIf / whileSlowed(登记时会丢)");
+            if (e.OpeningBattles != 0 && (e.Extend || !string.IsNullOrEmpty(e.ExecuteIf) || e.WhileSlowed || e.OfHeal))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 extend / executeIf / whileSlowed / ofHeal(登记时会丢)");
         }
 
         /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——

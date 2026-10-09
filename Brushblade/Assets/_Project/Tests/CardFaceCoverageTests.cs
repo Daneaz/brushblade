@@ -226,6 +226,7 @@ namespace Brushblade.Core.Tests
                 nameof(EffectPick.Self),             // 净化 / 嘲讽的主语,各自的文案里已有(Cleanse 我方 / TauntText)
                 nameof(EffectPick.SummonedThisCast), // 同上(扎根 / TauntText)
                 nameof(EffectPick.AllSummons),       // 同上(TauntText)
+                nameof(EffectPick.AllAllies),        // D2-水 E15:只给 Cleanse,主语印在 Cleanse 分支里(「我方全体清除…」)
             };
             var missing = new List<string>();
             missing.AddRange(Enum.GetNames(typeof(EffectPick))

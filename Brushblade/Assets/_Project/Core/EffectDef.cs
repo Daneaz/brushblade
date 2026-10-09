@@ -196,6 +196,9 @@ namespace Brushblade.Core
         Morale,         // 战意层数(结算那一刻):DamageSingle 击数 = HitCount + 战意(大卸八块,进 DamageSingle 时取一次);
                         // Block 次数 = max(ScaleMin, 战意)(双金合璧,由 BlockMod 写入,出字后的值)
         ExtraHitTarget, // Morale 的值 × (本次出字 HitTargets 去重数 − 1)(横扫千军;跨排 Boss 只算 1 名)
+        // ---- D2-水 Task 1(附录 E22)。⚠ 只在末尾追加 ----
+        Wellspring,     // Amplify:出字前的泉层数(洪峰;R3,同 PreCastConditions 一并取)
+        Cleansed,       // HealSelf:本次出字 Cleanse 实际清掉的条数(结算那一刻;濯身)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -488,6 +491,10 @@ namespace Brushblade.Core
         /// <summary>斩杀条件门(E19,湮灭无踪):DamageSingle / Reshape —— 斩杀阈值之外再按出字前快照判这个条件。None = 无门。</summary>
         public DamageCondition ExecuteIf { get; }
 
+        /// <summary>按本次治疗量(E24,沐恩):只给 HealSummons —— 每只木灵回复 = 本次出字名义治疗量(放大后,
+        /// HealSelf / HealAll / HealOverTime 首跳累计)× Value%;不再过泉放大、不攒泉。Value 是百分比,不吃卡等级。</summary>
+        public bool OfHeal { get; }
+
         /// <summary>仅在减速中(E25,淋漓):只给 Seed —— 种只在该敌人仍被减速时触发;缺 turns 时回合数 = 施加时目标的减速剩余回合。</summary>
         public bool WhileSlowed { get; }
 
@@ -522,7 +529,8 @@ namespace Brushblade.Core
             int blockBleed = 0, int blockMorale = 0, int killRefundAp = 0,
             int executeSplashPercent = 0,
             int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
-            bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false)
+            bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
+            bool ofHeal = false)
         {
             Kind = kind;
             Value = value;
@@ -585,6 +593,7 @@ namespace Brushblade.Core
             Extend = extend;
             ExecuteIf = executeIf;
             WhileSlowed = whileSlowed;
+            OfHeal = ofHeal;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -620,7 +629,7 @@ namespace Brushblade.Core
                 blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
                 executeSplashPercent ?? ExecuteSplashPercent,
                 stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
-                Extend, executeIf ?? ExecuteIf, WhileSlowed)
+                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

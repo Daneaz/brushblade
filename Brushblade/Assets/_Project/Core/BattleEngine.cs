@@ -3137,6 +3137,7 @@ namespace Brushblade.Core
             {
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
                 OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
+                PreCastWellspring = outer.PreCastWellspring,
             };
             try
             {
@@ -3193,6 +3194,7 @@ namespace Brushblade.Core
             // R3:快照在复活(前置动作)之后、第一个效果之前取;外层已有快照时沿用外层(外层快照优先)
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
+            _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
             // 推迟施加(Ruling 11 + D2-水 E16 同一条队列,按原顺序):Status 非 null = 按战意计次的格挡(状态已定死,只差次数);
             // Status 为 null = 名单类效果(pick FrozenByThisCast / SlowedByThisCast),循环末尾再结算,名单才收得全
@@ -3539,9 +3541,16 @@ namespace Brushblade.Core
                         // D1 Task 7(附录 M17):Pick.Self 落到玩家自身(攻击面不选友方);Value > 0 只清前 Value 个,
                         // 0 保持全清。条数是离散量:读 effect.Value,不读吃过等级的 value。
                     {
+                        // 水大无际(D2-水 E15):AllAllies = 玩家 + 全部存活木灵,各清各的;清掉的条数记进 _cast.Cleansed(濯身 E22b)
+                        if (effect.Pick == EffectPick.AllAllies)
+                        {
+                            _cast.Cleansed += CleanseBag(_playerStatuses, effect.Value);
+                            foreach (var summon in _summons)
+                                if (summon != null && summon.Alive) _cast.Cleansed += CleanseBag(summon.Statuses, effect.Value);
+                            break;
+                        }
                         var cleansed = effect.Pick == EffectPick.Self ? _playerStatuses : AllyStatuses(allySlot);
-                        if (effect.Value > 0) cleansed.RemoveFirst(StatusPolarity.Debuff, effect.Value);
-                        else cleansed.RemoveAll(StatusPolarity.Debuff);
+                        _cast.Cleansed += CleanseBag(cleansed, effect.Value);
                         break;
                     }
                     case EffectKind.DamageCut:
@@ -3634,6 +3643,8 @@ namespace Brushblade.Core
                         {
                             var summon = _summons[slot];
                             if (summon == null || !summon.Alive) continue;
+                            // 沐恩(D2-水 E24):按本次名义治疗量 × Value%,不过泉放大
+                            if (effect.OfHeal) { HealAlly(slot, _cast.HealNominal * effect.Value / 100); continue; }
                             int amount = effect.PercentOfMax ? summon.MaxHp * value / 100 : value;
                             HealAlly(slot, AmplifyByWellspring(amount));
                         }
@@ -3683,7 +3694,9 @@ namespace Brushblade.Core
                     }
                     case EffectKind.AddWellspring:
                         // 直接加泉(D1 Task 7,附录 M18,蓄泉):不经治疗折算,只受上限
-                        AddPlayerCounter(StatusKind.Wellspring, value, CapFor(StatusKind.Wellspring));
+                        // 补满(D2-水 E21,泽及四方):加到上限
+                        AddPlayerCounter(StatusKind.Wellspring,
+                            effect.Fill ? CapFor(StatusKind.Wellspring) : value, CapFor(StatusKind.Wellspring));
                         break;
                     case EffectKind.ShieldRecoil:
                         // 反震(D1 Task 9,D9):本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
@@ -4059,7 +4072,8 @@ namespace Brushblade.Core
                         // 计数缩放(D2-火 N4,温润):回复量 × 结算那一刻的计数(G2:产出量,本字先上的灼也算);计数 0 不回复
                         if (effect.ScaleBy != ScaleBasis.None)
                         {
-                            value *= CurrentBurnCount(effect.ScaleBy);
+                            // 濯身(D2-水 E22b):按本次清掉的减益条数;其余档按灼(D2-火 N4)
+                            value *= effect.ScaleBy == ScaleBasis.Cleansed ? _cast.Cleansed : CurrentBurnCount(effect.ScaleBy);
                             if (value <= 0) break;
                         }
                         // 按被杀者最大生命(D2-金 E13,割取):基数 = 死者 MaxHp × Value%,不过攻击力缩放
@@ -4073,8 +4087,15 @@ namespace Brushblade.Core
                         int healBase = effect.OfVictimMaxHp ? value : ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
                         int amplified = AmplifyByWellspring(healBase);  // 用**攒之前**的层数
+                        // 治疗改形(D2-水 E20,海纳百川 / 细雨):每个友方各治「放大值 × ShapePercent%」,泉只攒一份名义值,溢流按单位
+                        if (effect.Shape == TargetArea.All)
+                        {
+                            HealEveryAlly(healBase, amplified, effect.ShapePercent);
+                            break;
+                        }
                         GainWellspring(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
                         HealAlly(allySlot, amplified);
+                        _cast.HealNominal += amplified;   // 沐恩(D2-水 E24)
 
                         // 治疗弹射(2026-09-16,水,海/澡对偶攻面「弹射」的那一条):主目标满额
                         // 之后,再弹至多 Shots-1 个 HP 不满的我方召唤物,各按 ShapePercent 打一次折 ——
@@ -4103,6 +4124,7 @@ namespace Brushblade.Core
                         int amplifiedAll = AmplifyByWellspring(healAllBase);
                         GainWellspring(healAllBase);
                         HealPlayerAndSummons(amplifiedAll);
+                        _cast.HealNominal += amplifiedAll;   // 沐恩(D2-水 E24)
                         break;
                     }
                     case EffectKind.HealOverTime:
@@ -4122,6 +4144,7 @@ namespace Brushblade.Core
                         // 当下跳一次(与 SettlePlayerHots 同一条结算),余下 turns−1 次照旧挂状态,总次数不变。
                         if (effect.TargetAll) HealPlayerAndSummons(amplifiedPerTurn);
                         else HealAlly(allySlot, amplifiedPerTurn);
+                        _cast.HealNominal += amplifiedPerTurn;   // 沐恩(D2-水 E24):首跳
                         int remainingTicks = Math.Max(1, effect.Turns) - 1;
                         if (remainingTicks <= 0) break;
                         ApplyStatus(_playerStatuses, new StatusEffect

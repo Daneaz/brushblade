@@ -165,6 +165,10 @@ namespace Brushblade.Presentation
                         ? (e.TargetAll ? Strings.T("char.effect.dispel.all.full") : Strings.T("char.effect.dispel.single.full"))
                         : (e.TargetAll ? Strings.T("char.effect.dispel.all.count", ("count", e.Value)) : Strings.T("char.effect.dispel.single.count", ("count", e.Value))),
                     // 净化(D1 Task 7 起可计数、可 Pick.Self):条数是离散量,读 e.Value
+                    // 水大无际(D2-水 E15):玩家 + 全部木灵各清
+                    EffectKind.Cleanse when e.Pick == EffectPick.AllAllies => e.Value > 0
+                        ? Strings.T("char.effect.cleanse.allies.count", ("count", e.Value))
+                        : Strings.T("char.effect.cleanse.allies"),
                     EffectKind.Cleanse => e.Pick == EffectPick.Self
                         ? (e.Value > 0 ? Strings.T("char.effect.cleanse.self.count", ("count", e.Value))
                             : Strings.T("char.effect.cleanse.self"))
@@ -278,12 +282,15 @@ namespace Brushblade.Presentation
                         ? Strings.T("char.effect.endure.summoned") : Strings.T("char.effect.endure"),
                     EffectKind.SummonSapling => Strings.T("char.effect.summonsapling",
                         ("count", e.SummonCount), ("value", shown)),
+                    // 沐恩(D2-水 E24):按本次治疗量的百分比,不吃等级(读 e.Value)
+                    EffectKind.HealSummons when e.OfHeal => Strings.T("char.effect.healsummons.ofheal", ("value", e.Value)),
                     EffectKind.HealSummons => e.PercentOfMax
                         ? Strings.T("char.effect.healsummons.pct", ("value", shown))
                         : Strings.T("char.effect.healsummons", ("value", shown)),
                     EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
                     EffectKind.SummonStrike => Strings.T("char.effect.summonstrike", ("value", shown)),
                     EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
+                    EffectKind.AddWellspring when e.Fill => Strings.T("char.effect.addwellspring.fill"),   // D2-水 E21 泽及四方
                     EffectKind.AddWellspring => Strings.T("char.effect.addwellspring", ("value", shown)),
                     EffectKind.AddHeft => Strings.T("char.effect.addheft", ("value", shown)),
                     // 反震(D1 Task 9):百分比离散(shown == e.Value)
@@ -335,6 +342,10 @@ namespace Brushblade.Presentation
         private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
         {
             string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
+            // 潜流(D2-水 E23):多回合时句首改成「之后 N 回合内」(潜流不限次;带上限的多回合回敬细化归 Task 5)
+            if (e.Turns > 1)
+                return Strings.T("char.effect.retaliate.turns", ("turns", e.Turns), ("list", list))
+                    + (e.Value > 0 ? Strings.T("char.effect.retaliate.turns.cap", ("cap", e.Value)) : "");
             return e.Value > 0
                 ? Strings.T("char.effect.retaliate.cap", ("list", list), ("cap", e.Value))
                 : Strings.T("char.effect.retaliate", ("list", list));
@@ -583,6 +594,9 @@ namespace Brushblade.Presentation
                     ? ""
                     : Strings.T("char.effect.per.morale.hits"),
                 ScaleBasis.ExtraHitTarget => Strings.T("char.effect.per.extrahittarget"),
+                // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
+                ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),
+                ScaleBasis.Cleansed => Strings.T("char.effect.per.cleansed"),
                 _ => "",
             } + (e.ScaleBy != ScaleBasis.None && e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
 

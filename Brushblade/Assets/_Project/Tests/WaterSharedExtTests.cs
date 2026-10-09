@@ -314,14 +314,193 @@ namespace Brushblade.Core.Tests
             Assert.That(seed.WhileSlowed, Is.True, "WhileSlowed 进存档 JSON 往返");
         }
 
+        // ================= 我方侧(E15 AllAllies / E20 / E21 / E22 / E23 / E24)=================
+
+        private static SummonSnapshot Sapling(int slot, int hp, int maxHp = 100) => new()
+        {
+            Slot = slot, Char = "木", Element = Element.Wood, Hp = hp, MaxHp = maxHp, Attack = 0, Speed = 100,
+        };
+
+        private static BattleEngine AllyBattle(CharDef def, int? hp = null, IReadOnlyList<SummonSnapshot> summons = null,
+            BattleConfig config = null, int healAccum = 0) =>
+            new(RebalanceFixture.Graph(def), config ?? Config, new[] { "试", "试", "试" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1, startingHp: hp, startingSummons: summons, startingHealAccum: healAccum);
+
+        private static int Wellspring(BattleEngine b) => b.PlayerStatuses.TotalMagnitude(StatusKind.Wellspring);
+
+        private static void SetWellspring(BattleEngine b, int stacks) =>
+            b.PlayerStatuses.Apply(new StatusEffect
+                { Kind = StatusKind.Wellspring, Polarity = StatusPolarity.Buff, Magnitude = stacks, TurnsLeft = -1 });
+
+        private static StatusEffect Curse(string source) => new()
+            { Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff, Magnitude = 10, TurnsLeft = 3, SourceId = source };
+
+        [Test]
+        public void Cleanse_AllAllies_CleansPlayerAndEverySummon()
+        {
+            Assert.That(EffectPickRules.Allows(EffectKind.Cleanse, EffectPick.AllAllies), Is.True);
+            Assert.That(EffectPickRules.Allows(EffectKind.Weaken, EffectPick.AllAllies), Is.False);
+            var b = AllyBattle(Def(new EffectDef(EffectKind.Cleanse, 0, pick: EffectPick.AllAllies)),
+                summons: new[] { Sapling(0, 50), Sapling(1, 50) });
+            b.PlayerStatuses.Apply(Curse("甲"));
+            b.Summons[0].Statuses.Apply(Curse("乙"));
+            b.Summons[1].Statuses.Apply(Curse("丙"));
+            Assert.That(b.Cast("试", -1, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerStatuses.Has(StatusKind.Curse), Is.False);
+            Assert.That(b.Summons[0].Statuses.Has(StatusKind.Curse), Is.False);
+            Assert.That(b.Summons[1].Statuses.Has(StatusKind.Curse), Is.False);
+        }
+
+        // ---- E20 治疗改形 ----
+
+        /// <summary>海纳百川 / 细雨:HealSelf 100 + Reshape shape All(shapePercent)+ 润泽(HoT)。</summary>
+        private static CharDef HealAll(int percent, bool hot = false)
+        {
+            var list = new List<EffectDef> { new EffectDef(EffectKind.HealSelf, 100) };
+            if (hot) list.Add(new EffectDef(EffectKind.HealOverTime, 10, turns: 2));
+            list.Add(new EffectDef(EffectKind.Reshape, 0, shape: TargetArea.All, shapePercent: percent));
+            return Def(list.ToArray());
+        }
+
+        [Test]
+        public void HealReshapeAll_EveryAllyHealedByShare()
+        {
+            var b = AllyBattle(HealAll(50), hp: 200, summons: new[] { Sapling(0, 10), Sapling(1, 10) });
+            Assert.That(b.Cast("试", -1, allySlot: 1), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerHp, Is.EqualTo(250), "各 50%(含落点本人)");
+            Assert.That(b.Summons[0].Hp, Is.EqualTo(60));
+            Assert.That(b.Summons[1].Hp, Is.EqualTo(60));
+        }
+
+        [Test]
+        public void HealReshapeAll_WellspringGainedOnlyOnce()
+        {
+            // 300 名义值 / 100 一层:单份攒 3 层;按人头攒会是 9 层
+            CharDef Make(bool all) => all
+                ? Def(new EffectDef(EffectKind.HealSelf, 300), new EffectDef(EffectKind.Reshape, 0, shape: TargetArea.All))
+                : Def(new EffectDef(EffectKind.HealSelf, 300));
+            var single = AllyBattle(Make(false), hp: 100, summons: new[] { Sapling(0, 10), Sapling(1, 10) });
+            single.Cast("试", -1);
+            var all = AllyBattle(Make(true), hp: 100, summons: new[] { Sapling(0, 10), Sapling(1, 10) });
+            all.Cast("试", -1);
+            Assert.That(Wellspring(single), Is.EqualTo(3));
+            Assert.That(Wellspring(all), Is.EqualTo(Wellspring(single)), "泉只攒一份名义值");
+        }
+
+        [Test]
+        public void HealReshapeAll_HotStillOnlyOnLandingSlot()
+        {
+            var b = AllyBattle(HealAll(50, hot: true), hp: 200, summons: new[] { Sapling(0, 10), Sapling(1, 10) });
+            Assert.That(b.Cast("试", -1, allySlot: 1), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[0].Hp, Is.EqualTo(60), "槽 0 只吃改形那一份");
+            Assert.That(b.Summons[1].Hp, Is.EqualTo(70), "落点多吃润泽首跳 10");
+            Assert.That(b.PlayerHp, Is.EqualTo(250));
+            var hot = b.PlayerStatuses.Find(StatusKind.HealOverTime);
+            Assert.That((hot.TargetSlot, hot.TargetAll), Is.EqualTo((1, false)), "润泽只给落点");
+        }
+
+        [Test]
+        public void HealReshapeAll_OverflowSettledPerUnit()
+        {
+            // 全员满血 + 溢流 100%:三份溢出各打一下,唯一的敌人吃 3 × 100
+            var config = new BattleConfig
+                { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, ApPerTurn = 20, OverhealDamagePercent = 100 };
+            var b = AllyBattle(HealAll(100), summons: new[] { Sapling(0, 100), Sapling(1, 100) }, config: config);
+            int before = b.Enemies[0].Hp;
+            b.Cast("试", -1);
+            Assert.That(before - b.Enemies[0].Hp, Is.EqualTo(300));
+        }
+
+        [Test]
+        public void ReshapeWithoutAll_DoesNotTouchHealSelf()
+        {
+            var def = Def(new EffectDef(EffectKind.HealSelf, 100), new EffectDef(EffectKind.Reshape, 0, shapePercent: 50));
+            Assert.That(TraitRules.CastEffects(def, CardFace.Feature, 1)[0].Shape, Is.EqualTo(TargetArea.Single));
+        }
+
+        // ---- E21 WellspringFill ----
+
+        [Test]
+        public void WellspringFill_SetsToCap()
+        {
+            var b = AllyBattle(Def(new EffectDef(EffectKind.AddWellspring, 0, fill: true)));
+            SetWellspring(b, 2);
+            b.Cast("试", -1);
+            Assert.That(Wellspring(b), Is.EqualTo(CombatCaps.WellspringStacks));
+        }
+
+        // ---- E22 ScaleBasis Wellspring / Cleansed ----
+
+        [Test]
+        public void AmplifyPerWellspring_UsesPreCastStacks()
+        {
+            // 伤害在前、加泉在后:+2 泉不算进本次(出字前快照,R3)
+            CharDef Make(bool amp) => Def(amp
+                ? new[] { new EffectDef(EffectKind.DamageSingle, 100),
+                    new EffectDef(EffectKind.Amplify, 10, scaleBy: ScaleBasis.Wellspring), new EffectDef(EffectKind.AddWellspring, 2) }
+                : new[] { new EffectDef(EffectKind.DamageSingle, 100), new EffectDef(EffectKind.AddWellspring, 2) });
+            int Dealt(bool amp)
+            {
+                var b = AllyBattle(Make(amp));
+                SetWellspring(b, 5);
+                int before = b.Enemies[0].Hp;
+                Cast(b, 0);
+                return before - b.Enemies[0].Hp;
+            }
+            Assert.That(Dealt(true), Is.EqualTo(Dealt(false) * 150 / 100), "5 层 × 10% = +50%");
+        }
+
+        [Test]
+        public void HealPerCleansed_ScalesByRemovedCount()
+        {
+            var def = Def(new EffectDef(EffectKind.Cleanse, 0), new EffectDef(EffectKind.HealSelf, 50, scaleBy: ScaleBasis.Cleansed));
+            int Healed(int debuffs)
+            {
+                var b = AllyBattle(def, hp: 100);
+                for (int i = 0; i < debuffs; i++) b.PlayerStatuses.Apply(Curse("源" + i));
+                b.Cast("试", -1);
+                return b.PlayerHp - 100;
+            }
+            Assert.That(Healed(0), Is.EqualTo(0), "没清掉 = 不回复");
+            Assert.That(Healed(1), Is.EqualTo(50));
+            Assert.That(Healed(2), Is.EqualTo(100));
+        }
+
+        // ---- E23 Retaliate turns ----
+
+        [Test]
+        public void Retaliate_Turns_DefaultOneOtherwiseAsWritten()
+        {
+            foreach (var (turns, expected) in new[] { (0, 1), (2, 2) })
+            {
+                var b = AllyBattle(Def(new EffectDef(EffectKind.Retaliate, 0, turns: turns,
+                    perHit: new[] { new EffectDef(EffectKind.Slow, 1) })));
+                b.Cast("试", -1);
+                Assert.That(b.PlayerStatuses.Find(StatusKind.Retaliate).TurnsLeft, Is.EqualTo(expected));
+            }
+        }
+
+        // ---- E24 HealSummons ofHeal ----
+
+        [Test]
+        public void HealSummonsOfHeal_UsesCastNominalHeal_NoWellspringAmp()
+        {
+            // 泉 4 层:HealSelf 100 → 名义 100 × 1.2 = 120;沐恩 50% = 60,不再过泉放大
+            var def = Def(new EffectDef(EffectKind.HealSelf, 100), new EffectDef(EffectKind.HealSummons, 50, ofHeal: true));
+            var b = AllyBattle(def, hp: 100, summons: new[] { Sapling(0, 10, 200) });
+            SetWellspring(b, 4);
+            b.Cast("试", -1);
+            Assert.That(b.Summons[0].Hp, Is.EqualTo(10 + 60));
+        }
+
         // ---------------- 字表加载(敌方侧字段)----------------
 
-        private static RecipeGraph Load(string traitEffects) => ConfigLoader.LoadGraph(
+        private static RecipeGraph Load(string traitEffects, string face = "Attack") => ConfigLoader.LoadGraph(
             @"{""chars"":[{""id"":""淼"",""element"":""Water"",""effects"":[{""kind"":""HealSelf"",""value"":10}],
               ""attackEffects"":[{""kind"":""DamageSingle"",""value"":10},{""kind"":""Freeze"",""value"":1}],
-              ""traits"":[{""slot"":""Lv8"",""face"":""Attack"",""form"":""Active"",""name"":""附"",""effects"":[" + traitEffects + "]}]}]}");
+              ""traits"":[{""slot"":""Lv8"",""face"":""" + face + @""",""form"":""Active"",""name"":""附"",""effects"":[" + traitEffects + "]}]}]}");
 
-        private static EffectDef LoadOne(string effect) => Load(effect).Get("淼").Traits[0].Effects[0];
+        private static EffectDef LoadOne(string effect, string face = "Attack") => Load(effect, face).Get("淼").Traits[0].Effects[0];
 
         [Test]
         public void Loader_ReadsEnemySideFields()
@@ -346,6 +525,29 @@ namespace Brushblade.Core.Tests
         public void Loader_RejectsMisplacedEnemySideFields(string effect)
         {
             Assert.Throws<ConfigException>(() => Load(effect));
+        }
+
+        [Test]
+        public void Loader_ReadsAllySideFields()
+        {
+            Assert.That(LoadOne(@"{""kind"":""HealSummons"",""value"":50,""ofHeal"":true}", "Feature").OfHeal, Is.True);
+            Assert.That(LoadOne(@"{""kind"":""AddWellspring"",""value"":0,""fill"":true}", "Feature").Fill, Is.True);
+            Assert.That(LoadOne(@"{""kind"":""Amplify"",""value"":10,""scaleBy"":""Wellspring""}").ScaleBy, Is.EqualTo(ScaleBasis.Wellspring));
+            Assert.That(LoadOne(@"{""kind"":""HealSelf"",""value"":50,""scaleBy"":""Cleansed""}", "Feature").ScaleBy, Is.EqualTo(ScaleBasis.Cleansed));
+            Assert.That(LoadOne(@"{""kind"":""Cleanse"",""value"":0,""pick"":""AllAllies""}", "Feature").Pick, Is.EqualTo(EffectPick.AllAllies));
+            Assert.That(LoadOne(@"{""kind"":""Retaliate"",""value"":0,""turns"":2,""perHit"":[{""kind"":""Slow"",""value"":1}]}", "Feature").Turns,
+                Is.EqualTo(2));
+        }
+
+        [TestCase(@"{""kind"":""HealSelf"",""value"":50,""ofHeal"":true}")]
+        [TestCase(@"{""kind"":""HealSummons"",""value"":50,""ofHeal"":true,""percentOfMax"":true}")]
+        [TestCase(@"{""kind"":""Shield"",""value"":10,""fill"":true}")]
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""scaleBy"":""Wellspring""}")]
+        [TestCase(@"{""kind"":""Amplify"",""value"":10,""scaleBy"":""Cleansed""}")]
+        [TestCase(@"{""kind"":""Weaken"",""value"":10,""turns"":1,""pick"":""AllAllies""}")]
+        public void Loader_RejectsMisplacedAllySideFields(string effect)
+        {
+            Assert.Throws<ConfigException>(() => Load(effect, "Feature"));
         }
     }
 }

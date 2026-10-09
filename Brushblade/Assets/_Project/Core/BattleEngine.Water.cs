@@ -66,6 +66,26 @@ namespace Brushblade.Core
             return extended;
         }
 
+        // ---- 我方侧(E20 / E22 / E15 AllAllies)----
+
+        /// <summary>净化一个状态袋:count &gt; 0 只清前 count 条,0 = 全清;返回实际清掉的条数(濯身计数,E22b)。</summary>
+        private static int CleanseBag(StatusBag bag, int count) =>
+            count > 0 ? bag.RemoveFirst(StatusPolarity.Debuff, count) : bag.RemoveAll(StatusPolarity.Debuff);
+
+        /// <summary>出字前的泉层数(E22a);出字之外读现值。</summary>
+        private int PreCastWellspringStacks() =>
+            _cast.PreCastWellspring ?? _playerStatuses.TotalMagnitude(StatusKind.Wellspring);
+
+        /// <summary>治疗改形为全体(E20,Q8):玩家 + 全部存活木灵各治「放大值 × percent%」(各自溢流,复用 HealPlayerAndSummons);
+        /// 泉只攒一份名义值(基数 × percent%,与治疗弹射每跳的口径一致);名义治疗量(沐恩)也只记一份。percent == 100 不做乘除。</summary>
+        private void HealEveryAlly(int healBase, int amplified, int percent)
+        {
+            int share = percent == 100 ? amplified : amplified * percent / 100;
+            GainWellspring(percent == 100 ? healBase : healBase * percent / 100);
+            HealPlayerAndSummons(share);
+            _cast.HealNominal += share;
+        }
+
         /// <summary>种的回合数(E25):写了 turns 用 turns;仅在减速中且缺 turns 时 = 施加时目标的减速剩余回合;其余 0(调用方兜 1)。</summary>
         private int SeedTurnsOf(EffectDef effect, int enemyIndex)
         {

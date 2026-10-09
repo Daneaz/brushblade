@@ -88,7 +88,9 @@ namespace Brushblade.Core
         /// <summary>一条带计数缩放的 Amplify 加成项:百分点 × 计数(出字前),cap &gt; 0 时钳到 cap。</summary>
         private int ScaledAmpPercent(int percent, ScaleBasis per, int cap, int enemyIndex)
         {
-            long count = per == ScaleBasis.BurnStack ? PreCastBurnStacksOf(enemyIndex) : PreCastBurningEnemies();
+            long count = per == ScaleBasis.BurnStack ? PreCastBurnStacksOf(enemyIndex)
+                : per == ScaleBasis.Wellspring ? PreCastWellspringStacks()   // D2-水 E22a 洪峰
+                : PreCastBurningEnemies();
             long sum = percent * count;
             if (cap > 0) sum = Math.Min(sum, cap);
             return (int)sum;
@@ -248,7 +250,9 @@ namespace Brushblade.Core
             ApplyStatus(_playerStatuses, new StatusEffect
             {
                 Kind = StatusKind.Retaliate, Polarity = StatusPolarity.Buff,
-                Magnitude = Math.Max(0, effect.Value), TurnsLeft = 1, SourceId = sourceId, TraitKey = effect.TraitKey,
+                // 潜流(D2-水 E23):读 turns,缺省 1(本回合)
+                Magnitude = Math.Max(0, effect.Value), TurnsLeft = effect.Turns > 0 ? effect.Turns : 1,
+                SourceId = sourceId, TraitKey = effect.TraitKey,
                 OnHit = effect.PerHit.Select(e => OpeningEffect.Of(e, sourceId, element)).ToList(),
             }, UnitRef.Player, UnitRef.Player);
         }

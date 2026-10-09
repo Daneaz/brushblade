@@ -1088,3 +1088,42 @@ def test_d2water_task1_enemy_side_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-水 Task 1(附录 E15 AllAllies / E20 / E21 / E22 / E23 / E24):我方侧 token ----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 水大无际:净化全体友方
+    ("`Cleanse` `pick AllAllies`", "淼", [{"kind": "Cleanse", "value": 0, "pick": "AllAllies"}]),
+    # 海纳百川 / 细雨:Reshape 全体(引擎在本面没有伤害时改 HealSelf)
+    ("`Reshape` `shape All` `shapePercent 50`", "淋",
+     [{"kind": "Reshape", "value": 0, "shape": "All", "shapePercent": 50}]),
+    # 泽及四方:E21 泉补满
+    ("`Amplify 50` `scope Heal` + `WellspringFill`", "㵘",
+     [{"kind": "Amplify", "value": 50, "scope": "Heal"}, {"kind": "AddWellspring", "value": 0, "fill": True}]),
+    # 洪峰 / 濯身:E22 计数缩放
+    ("`Amplify 10` `scope Damage` `per Wellspring`", "㵘",
+     [{"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "Wellspring"}]),
+    ("`Cleanse` + `HealSelf 50` `per Cleansed`", "澡",
+     [{"kind": "HealSelf", "value": 50, "scaleBy": "Cleansed"}, {"kind": "Cleanse", "value": 0}]),
+    # 潜流:E23 回敬读 turns
+    ("`Retaliate` `turns 2` `onHit` `Slow 1`", "湮",
+     [{"kind": "Retaliate", "value": 0, "turns": 2, "perHit": [{"kind": "Slow", "value": 1}]}]),
+    # 沐恩:E24 按本次治疗量
+    ("`HealSummons 50` `ofHeal`", "沐", [{"kind": "HealSummons", "value": 50, "ofHeal": True}]),
+])
+def test_d2water_task1_ally_side_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Weaken 30` `turns 1` `pick AllAllies`", "AllAllies"),   # AllAllies 只给 Cleanse
+    ("`HealSelf 50` `per Wellspring`", "per"),                # Wellspring 只挂 Amplify
+    ("`Amplify 10` `per Cleansed`", "per"),                   # Cleansed 只挂 HealSelf
+    ("`HealSelf 50` `ofHeal`", "ofHeal"),                     # ofHeal 只挂 HealSummons
+    ("`HealSummons 50` `ofHeal` `pct`", "ofHeal"),
+])
+def test_d2water_task1_ally_side_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

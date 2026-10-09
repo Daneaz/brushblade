@@ -100,6 +100,8 @@ VALUELESS_EFFECTS = {
     # `counter N` / `countPerMorale` / `min N` 给出(_attach_metal_ops)。整串带反引号匹配,`Morale` 不会吞 `MoraleFill`。
     "MoraleFill": {"kind": "Morale", "value": 0, "fill": True},
     "BlockMod": {"kind": "BlockMod", "value": 0},
+    # D2-水 Task 1(附录 E21):泉补满(泽及四方)= AddWellspring + fill。整串带反引号匹配,不与 `AddWellspring N` 互吞。
+    "WellspringFill": {"kind": "AddWellspring", "value": 0, "fill": True},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -145,7 +147,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
 # 种(Seed)在 DURATION_KINDS:漏写 turns 引擎兜成 1 回合,与减攻同型。
 # 上炎(D2-火 Task 3,BurnGrow)吃 turns 但不强制:不写 = 随灼存续。
 # 流血(D2-金 E8)吃 turns 但不强制:不写 = 引擎缺省 3 回合。
-TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow", "Bleed"}
+# 受击回敬(D2-水 E23,潜流)吃 turns 但不强制:不写 = 本回合(1)。
+TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow", "Bleed", "Retaliate"}
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -252,7 +255,9 @@ RESHAPE_PICK_KINDS = {"Reshape"}
 # D1 Task 7:我方侧选择器,各只给一个 kind(与 Core 的 EffectPickRules.Allows 同一张表)。
 # 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
 # D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
-ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"}}
+# D2-水 E15:`pick AllAllies` = 玩家 + 全部存活木灵,只给 Cleanse(水大无际)。
+ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"},
+              "AllAllies": {"Cleanse"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
 PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
@@ -279,7 +284,8 @@ CAP_TOKEN = "cap"
 # 每一档只挂特定的宿主(与 ConfigLoader.ValidateMetalOps 同一张表);D2-金 E10 加 ExtraHitTarget(横扫千军,挂 Morale)。
 # Morale 档不经 `per`:伤害击数写 `hitsPerMorale`、格挡次数写 `countPerMorale`(见 _attach_metal_ops)。
 SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify", "HealSelf"},
-               "ExtraHitTarget": {"Morale"}}
+               "ExtraHitTarget": {"Morale"},
+               "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"}}   # D2-水 E22:洪峰 / 濯身
 SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
 # 段必须写在格子末尾,段内每个 `+` 分段恰好一条效果、按书写顺序落表(_parse_segment,终审 5),
@@ -321,6 +327,8 @@ COUNTER_SHAPE_TOKEN = "counterShape"
 EXTEND_TOKEN = "extend"
 EXECUTE_IF_TOKEN = "executeIf"
 WHILE_SLOWED_TOKEN = "whileSlowed"
+# `ofHeal`(沐恩,E24):HealSummons 的量 = 本次名义治疗量 × N%,挂本格唯一的 HealSummons
+OF_HEAL_TOKEN = "ofHeal"
 
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
@@ -476,6 +484,12 @@ def _attach_metal_ops(config, char, effects, consumed):
     if f"`{OF_VICTIM_MAX_HP_TOKEN}`" in config:
         consumed.add(OF_VICTIM_MAX_HP_TOKEN)
         only({"HealSelf"}, OF_VICTIM_MAX_HP_TOKEN)["ofVictimMaxHp"] = True
+    if f"`{OF_HEAL_TOKEN}`" in config:   # D2-水 E24 沐恩(放在这里是为了复用「唯一宿主」检查)
+        consumed.add(OF_HEAL_TOKEN)
+        host = only({"HealSummons"}, OF_HEAL_TOKEN)
+        if f"`{PERCENT_OF_MAX_TOKEN}`" in config:
+            raise ValueError(f"{char}:配置格「{config}」的 `ofHeal` 不能与 `pct` 同用")
+        host["ofHeal"] = True
 
 
 def _positional_hosts(config, effects, kinds=None):

@@ -25,6 +25,7 @@ namespace Brushblade.Core
         AdjacentOne,        // 主目标同排左右中第一个(先左后右)存活者;Freeze 再滤掉冻结中 / 霜抗 / 冰滞的;仍要选目标(坚冰)
         HighestHp,          // 当前生命最高的存活敌人,同值取下标小;不过滤状态(浩瀚)
         SlowedByThisCast,   // 本次出字的 Slow 落到过(施加或续回合)的敌人(淋漓)
+        AllAllies,          // 我方侧:玩家 + 全部存活木灵(只给 Cleanse,水大无际)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。
@@ -56,6 +57,7 @@ namespace Brushblade.Core
             EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
             EffectPick.AllSummons => kind == EffectKind.Taunt,
+            EffectPick.AllAllies => kind == EffectKind.Cleanse,   // D2-水 E15(水大无际)
             // Reshape 带敌方侧选择器 = 重选目标(D2-火 E3):本面没有伤害时把主目标效果换成该选择器
             _ => Supports(kind) || kind == EffectKind.Reshape,
         };

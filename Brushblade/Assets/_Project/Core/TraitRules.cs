@@ -333,6 +333,14 @@ namespace Brushblade.Core
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
             if (at < 0)
             {
+                // 治疗改形(D2-水 E20,海纳百川 / 细雨 / 泽被…):本面没有伤害、Reshape 不带选择器、写的是 shape All 时,
+                // 改本面第一条 HealSelf 为全体(shapePercent 同伤害的口径:没写就是全额 100)。其余形状不碰治疗
+                if (r.Pick == EffectPick.Primary && r.Shape == TargetArea.All)
+                {
+                    int heal = effects.FindIndex(e => e.Kind == EffectKind.HealSelf);
+                    if (heal >= 0) effects[heal] = effects[heal].With(shape: TargetArea.All, shapePercent: r.ShapePercent);
+                    return;
+                }
                 // 重选目标(D2-火 E3,烈风「燃改为横扫」):本面没有伤害时,把落在主目标上的敌方效果换成 Reshape 的选择器
                 if (r.Pick == EffectPick.Primary) return;
                 for (int i = 0; i < effects.Count; i++)
