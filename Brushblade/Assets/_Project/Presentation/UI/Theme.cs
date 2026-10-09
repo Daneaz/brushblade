@@ -337,6 +337,38 @@ namespace Brushblade.Presentation
             return sprite;
         }
 
+        private static Sprite _hatch;
+
+        /// <summary>斜纹贴图(StatusChipsFire 稿「埋雷 · 血条上预扣」的 .pre):
+        /// <c>repeating-linear-gradient(135deg, 纸白 .7 0 1.4pt, 透明 1.4pt 3.2pt)</c>。
+        /// 白色 alpha 蒙版,调用方用 Image.color 着色(稿 = PanelPaper,alpha 0.7),Image.type = Tiled 平铺。
+        /// 换算:周期 3.2pt × 2.093 = 6.70 逻辑单位(垂直于条纹),45° 条纹的方形无缝块边长 = 周期 × √2 ≈ 9.47;
+        /// 实条占周期的 1.4 / 3.2。贴图 38px,pixelsPerUnit 按画布 referencePixelsPerUnit 100 折成 9.47 单位一块。
+        /// 稿上写明与冰滞行动条「结霜」共用一张(冰滞那条尚未实现,到时直接取这里)。</summary>
+        public static Sprite Hatch()
+        {
+            if (_hatch != null) return _hatch;
+            const int n = 38;
+            const float solid = 1.4f / 3.2f;
+            var tex = NewTex(n, n);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    // 135deg 渐变的等值线是「/」走向:沿 x − y 取周期(纹理坐标 y 朝上)
+                    float t = Mathf.Repeat(x - y + 0.5f, n) / n;
+                    // 一像素宽的边缘做线性过渡,免得锯齿
+                    float edge = 1f / n;
+                    float a = Mathf.Clamp01(Mathf.Min(t, solid - t) / edge + 0.5f);
+                    tex.SetPixel(x, y, new Color(1, 1, 1, a));
+                }
+            tex.Apply();
+            const float tileUnits = 3.2f * 2.093f * 1.41421356f;
+            _hatch = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n * 100f / tileUnits,
+                0, SpriteMeshType.FullRect);
+            return _hatch;
+        }
+
         private static readonly Dictionary<(int, int), Sprite> _ring = new();
 
         /// <summary>圆角空心描环 9-slice(Plan E1 拖拽落点,HandFlip 稿 .tg-ok/.tg-hover 的 box-shadow 环)。

@@ -651,6 +651,25 @@ namespace Brushblade.Presentation
             return (fill, label);
         }
 
+        /// <summary>埋雷预扣段(StatusChipsFire 稿 .hpb .pre):在血条 Fill 的右端叠一截斜纹。
+        /// <paramref name="loss"/> = <see cref="BattleEngine.MineHpLoss"/>(过标记、护盾,封顶当前生命),
+        /// 按当前血量折成 Fill 自身宽度的比例 —— 挂在 Fill 下,所以 0..1 就是「这截占剩余血的多少」。
+        /// 斜纹色 = 纸白(PanelPaper)× 0.7 透明,稿 rgba(251,248,241,.7)。血值叠字是 bar 的后一个子物体,压在斜纹之上。</summary>
+        private static void MineStripe(RectTransform fill, int loss, int hp)
+        {
+            if (fill == null || loss <= 0 || hp <= 0) return;
+            float frac = Mathf.Clamp01(loss / (float)hp);
+            // 用 Fill 自己的圆角图形当蒙版:斜纹是方块,不裁的话会在胶囊右端两个圆角外露出来
+            if (fill.GetComponent<Mask>() == null) fill.gameObject.AddComponent<Mask>();
+            var pre = Ui.Panel(fill, "MinePre");
+            var image = pre.AddComponent<Image>();
+            image.sprite = Theme.Hatch();
+            image.type = Image.Type.Tiled;
+            image.color = new Color(Theme.PanelPaper.r, Theme.PanelPaper.g, Theme.PanelPaper.b, 0.7f);
+            image.raycastTarget = false;
+            Ui.Anchor((RectTransform)pre.transform, new Vector2(1f - frac, 0f), Vector2.one, Vector2.zero, Vector2.zero);
+        }
+
         /// <summary>行动条(2026-08-17):meter / Threshold 的进度 + 百分比叠字。
         /// 2026-08-31 改口径:.foe/.ally/.me 三种单位的行动条稿上**同色**藏青
         /// (Theme.InkSoft = #3D4E69,一字不差)——此前这里错写成赭金,与护盾条撞色
@@ -1943,6 +1962,10 @@ namespace Brushblade.Presentation
             // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
             int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
             if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
+            // 回敬(D2-火,StatusChipsFire 稿):翠玉底,紧跟格挡 / 反击加倍(都在说「挨打时会怎样」)。
+            // 有每回合上限时带剩余次数,不限次数不带;用完隐藏(同格挡)。召唤物格同样画,见 AddSummonStatusChips。
+            var retaliate = RetaliateChip();
+            if (retaliate.HasValue) statusChips.Add(retaliate.Value);
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
@@ -2170,7 +2193,7 @@ namespace Brushblade.Presentation
                 if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
-                AddSummonStatusChips(chipSpecs, summon);
+                AddSummonStatusChips(chipSpecs, summon, RetaliateChip());
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
                     front ? ChipMaxLines : SummonBackChipMaxLines,
                     UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
@@ -2563,6 +2586,16 @@ namespace Brushblade.Presentation
         /// 敌人格与召唤物格共用这一条:「前排挡不挡得住」是同一个规则的两个方向。</summary>
         private static string RangeIcon(bool ranged) => ranged ? "ranged" : "melee";
 
+        /// <summary>回敬 chip(StatusChipsFire 稿,2026-10-09 拍板):翠玉底、retaliate 图标;
+        /// 有每回合次数上限时数字 = 剩余次数,不限次数不带数字;没有生效的回敬(含次数用完)返回 null。
+        /// 玩家栏与每只召唤物共用这一枚 —— Core 只把状态挂在玩家身上,作用于玩家与全部召唤物。</summary>
+        private Ui.ChipSpec? RetaliateChip()
+        {
+            if (!Battle.RetaliateArmed) return null;
+            int? left = Battle.RetaliateChargesLeft();
+            return new Ui.ChipSpec(left.HasValue ? $"{left.Value}" : "", Theme.Jade, Color.white, "retaliate");
+        }
+
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
         ///
         /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
@@ -2574,7 +2607,7 @@ namespace Brushblade.Presentation
         /// 顺序即优先级:<see cref="Ui.ChipFlow"/> 装不下时从**尾部**丢弃。先负面后正面 ——
         /// 负面直接回答「它还能不能替我挡刀」,比「它变强了多少」更急。
         /// 完整说明(每条的机制与时长)在召唤物详情弹窗里。</summary>
-        private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon)
+        private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon, Ui.ChipSpec? retaliate)
         {
             var st = summon.Statuses;
             // **判据:这条状态的「量」本身会不会随回合变小 —— 会的才带数字**
@@ -2622,6 +2655,8 @@ namespace Brushblade.Presentation
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
             Flag(StatusKind.Reflect, "reflect", Theme.Jade);
             Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
+            // 回敬(StatusChipsFire 稿):状态只挂在玩家身上,但护全队 —— 每只召唤物也画,玩家要看得出「打木灵也会被点火」
+            if (retaliate.HasValue) chips.Add(retaliate.Value);
             Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
             Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
             Flag(StatusKind.CritBuff, "crit", Theme.Gold);
@@ -2986,6 +3021,10 @@ namespace Brushblade.Presentation
                 // 不灭(2026-08-09):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
                     chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "burn_nodecay"));
+                // 埋雷(D2-火,StatusChipsFire 稿 2026-10-09):朱砂底、mine 图标、**无数字** —— 伤害挂着期间恒定,
+                // 斩杀判断交给血条上的预扣斜纹(见下方 MineHpLoss)。紧跟灼一族:同属「它要掉血」,且决定它能不能活到出手。
+                if (enemy.Statuses.Has(StatusKind.Mine))
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "mine"));
                 // 流血(2026-09-06 补,与 AddSummonStatusChips 的 Decaying 同口径):每回合固定
                 // 掉血,带数字——此前这条在敌人身上零显示,只有召唤物格有(EnumRenderCoverageTests
                 // 的 EveryEnemyDebuff_HasBattleViewChip 收紧判据范围后抓到的真实缺陷)。
@@ -3019,8 +3058,15 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "blind"));
                 if (enemy.Statuses.Has(StatusKind.Silence))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
-                if (enemy.Statuses.TotalMagnitude(StatusKind.Curse) > 0)
+                // 减攻 chip 跟**攻击力**走(StatusChipsFire 稿):炽焰的减攻带门槛(灼 ≥ MinBurn 才算进
+                // EnemyState.Attack),门槛没到时不出 chip;别的来源的减攻照常。判据直接读 Core 的 ActiveCurse,
+                // 与头一枚「攻」数字同源。门槛未到的那条在详情弹窗里照列、文字压暗(UnitDetailChip.BuildStatuses)。
+                if (enemy.Statuses.Has(StatusKind.Curse) && enemy.ActiveCurse() > 0)
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "curse"));
+                // 干涸(D2-火,StatusChipsFire 稿):墨蓝底(k-ctrl)、healblock 图标、无数字。排在减攻后:
+                // 只对会回血的怪有用,溢出时先丢;它和霜抗同属「不能被怎样」的说明。
+                if (enemy.Statuses.Has(StatusKind.HealBlock))
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "healblock"));
                 // 破甲(2026-09-06 补,与 AddSummonStatusChips 的 Flag 同口径):量在挂着期间
                 // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
                 // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
@@ -3057,7 +3103,11 @@ namespace Brushblade.Presentation
                 if (showAlive)
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
-                    _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(infoWidth, EnemyHpBarHeight)));
+                    var hpBar = HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(infoWidth, EnemyHpBarHeight));
+                    _enemyHpBars.Add(hpBar);
+                    // 埋雷预扣段(StatusChipsFire 稿):斜纹贴在血条填充的右端,宽 = 爆炸实际会扣的血 ÷ 当前血量
+                    // (挂在 Fill 下,动画里血条缩短时跟着按比例缩)。整截斜纹 = 出手前就会被炸死。
+                    MineStripe(hpBar.fill, Battle.MineHpLoss(i), enemy.Hp);
                     // 护盾条已整体移除(2026-09-05 用户拍板):盾的数值留在立绘左下角那枚金角标上。
                     // 一格里堆三条平行的细条(血/盾/行动)读不出层次,而盾在数值上本来就是
                     // 「还能挨几下」这个量,一枚带数字的角标比一条无刻度的进度条说得更清楚。
@@ -6179,7 +6229,7 @@ namespace Brushblade.Presentation
             // 身上挂着什么状态)。EnemyPreview 本身不删——BestiaryView.cs 两处怪物图鉴调用点
             // 还在用它。
             if (_modal != null) Object.Destroy(_modal);
-            _unitSheetSource = () => EnemyInfo.Sheet(Battle.Enemies[index]);
+            _unitSheetSource = () => EnemyInfo.Sheet(Battle.Enemies[index], _graph);
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 

@@ -17,6 +17,8 @@ namespace Brushblade.Presentation
         public string Name;       // 「灼烧 3 层」
         public string Duration;   // 「层数即时长」/「剩 2 回合」/「本场持久」
         public string Desc;
+        // 挂着但眼下不生效(炽焰的减攻在灼不满门槛时,StatusChipsFire 稿):照列,名字与说明压成 text-faint
+        public bool Dimmed;
     }
 
     /// <summary>一条特性或技能(稿的 .abil)。</summary>
@@ -93,17 +95,18 @@ namespace Brushblade.Presentation
         {
             // 标记(D1 Task 6,StatusChips 稿 k-dot):朱砂,与灼烧同属「持续伤害与威胁」
             StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable
-                or StatusKind.HealBlock or StatusKind.Mine => Theme.Cinnabar,   // 干涸 / 埋雷(D2-火 Task 6,待 designer 稿)
+                or StatusKind.Mine => Theme.Cinnabar,   // 埋雷(StatusChipsFire 稿 k-dot 朱砂)
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
                 or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
-                or StatusKind.Taunt => Control,   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
+                or StatusKind.Taunt   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
+                or StatusKind.HealBlock => Control,   // 干涸(StatusChipsFire 稿 k-ctrl 墨蓝,与减攻同组)
             StatusKind.SpeedModifier => magnitude < 0 ? Control : Guard,
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime
                 or StatusKind.Seed => Guard,   // 种(D1 Task 6,稿 k-heal 翠玉)
             // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
             StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure
-                or StatusKind.Retaliate => Guard,   // 回敬(D2-火 Task 6,待 designer 稿)
+                or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
@@ -131,16 +134,15 @@ namespace Brushblade.Presentation
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
                 or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable
-                or StatusKind.Taunt => "",   // 种 / 标记 / 嘲讽无数字(稿)
+                or StatusKind.Taunt   // 种 / 标记 / 嘲讽无数字(稿)
+                // 干涸 / 埋雷 / 回敬(StatusChipsFire 稿):正式图标已进管线,chip 不带字。埋雷的伤害写在说明里;
+                // 回敬的剩余次数只在战场 chip 上(要读 Core 的本回合计数,StatusBag 里没有)
+                or StatusKind.HealBlock or StatusKind.Mine or StatusKind.Retaliate => "",
             // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
             // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
             StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),
             StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
             StatusKind.Endure => Strings.T("detail.chip.endure"),
-            // 干涸 / 埋雷 / 回敬(D2-火 Task 6):图标等 designer 稿(V3),先用一个兜底字,免得详情里画出空白色块
-            StatusKind.HealBlock => Strings.T("detail.chip.healblock"),
-            StatusKind.Mine => Strings.T("detail.chip.mine"),
-            StatusKind.Retaliate => Strings.T("detail.chip.retaliate"),
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),
@@ -163,15 +165,17 @@ namespace Brushblade.Presentation
         /// 三处各写一遍循环只会越改越漂。Name == null(StatusText.Of 对占位值的兜底)按契约跳过。
         ///
         /// <paramref name="isPlayer"/> 透传给 <see cref="StatusText.Of"/>(2026-09-01 review 修):
-        /// AttackBuff 的说明文案敌我口径不同(百分比 vs 点数),只有 PlayerInfo 传 true。</summary>
-        public static List<StatusEntry> BuildStatuses(StatusBag statuses, bool isPlayer = false)
+        /// AttackBuff 的说明文案敌我口径不同(百分比 vs 点数),只有 PlayerInfo 传 true。
+        /// <paramref name="graph"/>(可空)只用来把带门槛的减攻翻出特性名(「炽焰:灼满 5 层时……」),
+        /// 取不到时退回状态名。</summary>
+        public static List<StatusEntry> BuildStatuses(StatusBag statuses, bool isPlayer = false, RecipeGraph graph = null)
         {
             var list = new List<StatusEntry>();
             foreach (var effect in statuses.All)
             {
                 var info = StatusText.Of(effect.Kind, effect.Magnitude, effect.TurnsLeft, isPlayer);
                 if (info.Name == null) continue;
-                list.Add(new StatusEntry
+                var entry = new StatusEntry
                 {
                     IconKey = info.IconKey,
                     ChipText = TextFor(effect.Kind, effect.Magnitude),
@@ -179,7 +183,22 @@ namespace Brushblade.Presentation
                     Name = info.Name,
                     Duration = info.Duration,
                     Desc = info.Desc,
-                });
+                };
+                // 炽焰(StatusChipsFire 稿):门槛没到的减攻不算进攻击力、战场上不出 chip,详情里照列、文字压暗,
+                // 说明换成「炽焰:灼满 5 层时攻击 −30%(现在 4 层)」。判据与 EnemyState.ActiveCurse 同口径。
+                if (effect.Kind == StatusKind.Curse && effect.MinBurn > 0)
+                {
+                    int burn = statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+                    if (burn < effect.MinBurn)
+                    {
+                        string trait = graph != null && effect.SourceId != null && graph.TryGet(effect.SourceId, out var src)
+                            ? TraitRules.NameOf(src, effect.TraitKey) : null;
+                        entry.Dimmed = true;
+                        entry.Desc = Strings.T("status.curse.gated", ("trait", trait ?? info.Name),
+                            ("min", effect.MinBurn), ("magnitude", effect.Magnitude), ("burn", burn));
+                    }
+                }
+                list.Add(entry);
             }
             return list;
         }

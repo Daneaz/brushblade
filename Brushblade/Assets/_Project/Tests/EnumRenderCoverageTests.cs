@@ -55,7 +55,7 @@ namespace Brushblade.Core.Tests
                 "隐藏载体(D1 Task 9,D9 反震):拍板稿没有这枚 chip,按 TraitRider 同样隐藏;" +
                 "StatusText.Of 落 default 返回 None 是预期,触发反馈归 Plan E 的 TriggerFx",
             // D2-火 Task 3(V3):上炎 / 四火 / 焚城 / 焚身是隐藏载体,不画 chip、不进详情,触发反馈归 Plan E。
-            // 干涸(HealBlock)是可见状态,不在这里:StatusText 有文案,战场 chip 等 designer 稿拍板(V3 门控)。
+            // 干涸(HealBlock)是可见状态,不在这里:StatusText 有文案,战场 chip 按 StatusChipsFire 稿(2026-10-09 拍板)接入。
             [nameof(StatusKind.BurnGrow)] = "隐藏载体(D2-火 V3,上炎):玩家看到的是每回合多出来的灼层,触发反馈归 Plan E",
             [nameof(StatusKind.BurnHold)] = "隐藏载体(D2-火 V3,四火):一次性,玩家看到的是灼没有减层,触发反馈归 Plan E",
             [nameof(StatusKind.BurnBurstMark)] = "隐藏载体(D2-火 V3,焚城):死亡时的结算伤害本身就是反馈,来源标签归 Plan E",
@@ -91,6 +91,8 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.IceStall),
             nameof(StatusKind.Seed),       // 种(D1 Task 6):敌人身上的回复来源
             nameof(StatusKind.Vulnerable), // 标记(D1 Task 6)
+            nameof(StatusKind.Mine),       // 埋雷(D2-火,StatusChipsFire 稿 2026-10-09)
+            nameof(StatusKind.HealBlock),  // 干涸(D2-火,StatusChipsFire 稿 2026-10-09)
         };
 
         private static string Root()
