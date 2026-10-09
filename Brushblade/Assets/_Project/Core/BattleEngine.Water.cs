@@ -186,6 +186,13 @@ namespace Brushblade.Core
         /// 次数:WardCount &gt; 0 时 −1,减到 0 移除这条。转盾:Magnitude × 层 / 条,给被保护的单位(玩家普通桶 / 木灵),发 Shield 事件。</summary>
         private bool WardOff(StatusBag bag, StatusEffect effect, UnitRef target)
         {
+            // 落在木灵身上而木灵已不在 / 已死(灯花一击打死带浇熄的木灵):不拦截,照常写袋(与改动前一致)——
+            // 护盾只给被保护的那只木灵,绝不落到玩家身上(review fix 1)
+            bool onSummon = target.Side == UnitSide.Summon;
+            if (onSummon && (target.Index < 0 || target.Index >= SummonCap
+                    || _summons[target.Index] == null || !_summons[target.Index].Alive))
+                return false;
+
             StatusEffect ward = null;
             foreach (var s in bag.All)
                 if (s.Kind == StatusKind.DebuffWard && (s.WardOf == null || s.WardOf == effect.Kind)) { ward = s; break; }
@@ -201,8 +208,7 @@ namespace Brushblade.Core
 
             int shield = ward.Magnitude * units;
             if (shield <= 0) return true;
-            if (target.Side == UnitSide.Summon && target.Index >= 0 && target.Index < SummonCap
-                && _summons[target.Index] != null && _summons[target.Index].Alive)
+            if (onSummon)
                 _events.Add(new BattleEvent(BattleEventKind.Shield, target.Index, AddSummonShield(target.Index, shield)));
             else
                 _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, AddPlayerShield(shield, persist: false)));

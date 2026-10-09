@@ -1200,3 +1200,16 @@ def test_d2water_ward_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+def test_d2water_wardable_matches_config_loader():
+    """管线 `WARDABLE` 与 ConfigLoader.WardableKinds 是同一张白名单:一边加一边漏会静默分叉
+    (管线放行、加载期才炸,或反过来管线拦下引擎能用的写法)。从 C# 源码抽集合字面量对账。"""
+    import re
+    from extract_values import WARDABLE
+    src = (Path(__file__).resolve().parents[3]
+           / "Brushblade/Assets/_Project/Data/ConfigLoader.cs").read_text(encoding="utf-8")
+    m = re.search(r"WardableKinds\s*=\s*new HashSet<StatusKind>\s*\{(.*?)\};", src, re.S)
+    assert m, "ConfigLoader.cs 里找不到 WardableKinds 集合字面量"
+    loader = set(re.findall(r"StatusKind\.(\w+)", m.group(1)))
+    assert loader and loader == WARDABLE, f"只在管线:{WARDABLE - loader};只在 ConfigLoader:{loader - WARDABLE}"

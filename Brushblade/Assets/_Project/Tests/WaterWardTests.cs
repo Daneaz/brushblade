@@ -302,6 +302,30 @@ namespace Brushblade.Core.Tests
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Shield && e.TargetIndex == 0 && e.Amount == 50), Is.True);
         }
 
+        /// <summary>review fix 1(Important):灯花一击打死带浇熄的木灵 —— 死木灵不拦截(照常写袋,与改动前一致),
+        /// 护盾绝不落到玩家身上。</summary>
+        [Test]
+        public void Ward_OnSummonKilledBySear_NoShieldToPlayer()
+        {
+            var frail = new CharDef("弱", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 5, summonCount: 1, summonAttack: 0) });
+            var douse = RebalanceFixture.Char("浇", new EffectDef(EffectKind.DebuffWard, 50, turns: 3, wardOf: StatusKind.Burn));
+            var defs = new[] { douse, frail };
+            var b = new BattleEngine(RebalanceFixture.Graph(defs), Config,
+                defs.SelectMany(d => Enumerable.Repeat(d.Id, 10)).ToArray(), Array.Empty<string>(),
+                new[] { Mob(EnemyAbility.Sear, attack: 500) }, seed: 1);
+            Cast(b, "弱");
+            Cast(b, "浇", allySlot: 0);
+            int playerShield = b.PlayerShield;
+            b.EndTurn();
+            Assert.That(b.Summons[0].Alive, Is.False, "灯花一击打死木灵");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Shield && e.TargetIndex == Targeting.PlayerTarget), Is.False,
+                "护盾不落到玩家");
+            Assert.That(b.PlayerShield, Is.EqualTo(playerShield));
+            Assert.That(b.Summons[0].Statuses.Has(StatusKind.Burn), Is.True, "死木灵不拦截,照常写袋(与改动前一致)");
+            Assert.That(b.Summons[0].Statuses.Has(StatusKind.DebuffWard), Is.True, "未拦截,不耗次数");
+        }
+
         [Test]
         public void StatusEffect_Clone_CopiesWardFields()
         {
