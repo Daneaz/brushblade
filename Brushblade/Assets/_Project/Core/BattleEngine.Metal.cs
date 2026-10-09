@@ -302,7 +302,12 @@ namespace Brushblade.Core
         /// <summary>本场格挡反击被 60% 反伤预算削掉的伤害合计(想打的量 − 实打的量;目标中途死亡不算削)。</summary>
         public int CounterDamageClipped { get; private set; }
 
-        /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。</summary>
+        /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。
+        ///
+        /// 已知口径(D2-金终审 m1,移交 Plan F):预算按这里的 d 记账,而 DamageEnemy 内部的 Boss 致命 ×2(ConsumeBossDoom)
+        /// 与标记(ApplyMark)在那之后才乘上去 —— 实打可以超过敌人攻击的 60%(例:预算 36,d = 35,Boss 带致命实打 70)。
+        /// <see cref="CounterDamageDealt"/> / 返回值记的都是乘 2 之前的 d。现行为由
+        /// MetalExecuteTests.Doom_Boss_CounterDoubledAfterBudget_CurrentBehavior 钉住。</summary>
         private int CounterHitsOn(int target, int perHit, int hits, int budget, UnitRef attackerRef, ref bool killed)
         {
             int dealt = 0;
