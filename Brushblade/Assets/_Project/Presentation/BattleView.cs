@@ -670,6 +670,22 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)pre.transform, new Vector2(1f - frac, 0f), Vector2.one, Vector2.zero, Vector2.zero);
         }
 
+        /// <summary>致命刻线(traits StatusChips 稿 .hpb .notch):血条 30% 处一道墨线,宽 1.5pt、上下各探出 1pt
+        /// (× 2.093 → 3 / 2 单位)。挂在血条本体(Fill 的父物体)上、紧跟 Fill 之后 —— 压在填充与埋雷斜纹之上、血值叠字之下。
+        /// 位置读 Core 的 <see cref="BattleEngine.DoomExecutePercent"/>,不写死 30。</summary>
+        private static void DoomNotch(RectTransform fill)
+        {
+            if (fill == null || fill.parent == null) return;
+            var notch = Ui.Panel(fill.parent, "DoomNotch");
+            var image = notch.AddComponent<Image>();
+            image.color = Theme.Ink;
+            image.raycastTarget = false;
+            float x = BattleEngine.DoomExecutePercent / 100f;
+            Ui.Anchor((RectTransform)notch.transform, new Vector2(x, 0f), new Vector2(x, 1f),
+                new Vector2(-1.5f, -2f), new Vector2(1.5f, 2f));
+            notch.transform.SetSiblingIndex(fill.GetSiblingIndex() + 1);
+        }
+
         /// <summary>行动条(2026-08-17):meter / Threshold 的进度 + 百分比叠字。
         /// 2026-08-31 改口径:.foe/.ally/.me 三种单位的行动条稿上**同色**藏青
         /// (Theme.InkSoft = #3D4E69,一字不差)——此前这里错写成赭金,与护盾条撞色
@@ -2180,8 +2196,10 @@ namespace Brushblade.Presentation
                     RangeIcon(summon.Passive?.Ranged ?? false)));
                 // 护甲读 EffectiveDefense:眼下只由玩家挂的增益构成,平时 0 不出;字表将来给召唤物
                 // 配基础护甲时这一行不用改(2026-09-05 用户拍板「后续有些召唤物会直接带上护甲」)。
-                if (summon.EffectiveDefense > 0)
-                    chipSpecs.Add(new($"{summon.EffectiveDefense}", Theme.InkSoft, Color.white, "defense"));
+                // 富甲(D2-金 Q15)挂在玩家身上、木灵受击同样吃:读引擎的 SummonDefense,与受击结算同源
+                int summonDefense = Battle.SummonDefense(summon);
+                if (summonDefense > 0)
+                    chipSpecs.Add(new($"{summonDefense}", Theme.InkSoft, Color.white, "defense"));
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
                 // N-1(2026-09-16 复审):桤/森/藻/林(底速 150,SummonPassiveChip 恒出 "speed"
                 // 被动格)吃到 Haste 之后,AddSummonStatusChips 的正向 SpeedModifier 分支也会
@@ -2488,7 +2506,7 @@ namespace Brushblade.Presentation
             _unitSheetSource = () =>
             {
                 var s = Battle.Summons[index];
-                return s != null && s.Alive ? SummonInfo.Sheet(s) : null;
+                return s != null && s.Alive ? SummonInfo.Sheet(s, Battle.SummonDefense(s)) : null;
             };
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
@@ -3012,7 +3030,10 @@ namespace Brushblade.Presentation
                         Theme.Cinnabar, Color.white));
                 // 冰滞(spec v7 R1b):Boss 被冻结的替身 —— 水字形色实底、chill 图标、无数字。
                 // 顺序按 StatusChips 稿「敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗,
-                // 威胁在前,溢出从尾部丢」:冰滞排在灼之前(致命尚未实现)。
+                // 威胁在前,溢出从尾部丢」。
+                // 致命(D2-金 J5,traits StatusChips 稿):朱砂底(k-dot)、mortal 图标、无数字;杂兵另在血条 30% 处刻墨线(见 DoomNotch)
+                if (enemy.Statuses.Has(StatusKind.Doom))
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "mortal"));
                 if (enemy.Statuses.Has(StatusKind.IceStall))
                     chipSpecs.Add(new("", Theme.GlyphColor(Element.Water), Color.white, "chill"));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
@@ -3108,6 +3129,9 @@ namespace Brushblade.Presentation
                     // 埋雷预扣段(StatusChipsFire 稿):斜纹贴在血条填充的右端,宽 = 爆炸实际会扣的血 ÷ 当前血量
                     // (挂在 Fill 下,动画里血条缩短时跟着按比例缩)。整截斜纹 = 出手前就会被炸死。
                     MineStripe(hpBar.fill, Battle.MineHpLoss(i), enemy.Hp);
+                    // 致命墨线(traits StatusChips 稿 .hpb .notch):只给杂兵 —— Boss 不会被斩杀(改为下一次受伤翻倍),30% 线对它没有意义
+                    if (enemy.Statuses.Has(StatusKind.Doom) && !enemy.IsBoss)
+                        DoomNotch(hpBar.fill);
                     // 护盾条已整体移除(2026-09-05 用户拍板):盾的数值留在立绘左下角那枚金角标上。
                     // 一格里堆三条平行的细条(血/盾/行动)读不出层次,而盾在数值上本来就是
                     // 「还能挨几下」这个量,一枚带数字的角标比一条无刻度的进度条说得更清楚。
@@ -3765,7 +3789,10 @@ namespace Brushblade.Presentation
                 case Element.Metal:
                     foreach (var e in TraitRules.CastEffects(_faceDragDef, CardFace.Feature, _run.CardLevel(_faceDragDef.Id)))
                         if (e.Kind == EffectKind.Block)
-                            return Strings.T("battle.landing.block", ("n", e.Value));
+                            // 按战意(D2-金 E10,BlockMod countPerMorale):次数出字后才定,签上写「= 战意」不写死数字
+                            return e.ScaleBy == ScaleBasis.Morale
+                                ? Strings.T("battle.landing.block.morale")
+                                : Strings.T("battle.landing.block", ("n", e.Value));
                     return null;
                 case Element.Water: return Strings.T("battle.landing.to_water");
                 case Element.Earth: return Strings.T("battle.landing.taunt");

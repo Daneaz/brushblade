@@ -249,6 +249,12 @@ ICONS = {
         f'<path {STROKE} d="M26 38l-8 8 8 8"/>'
         f'<path {FILL} d="M51 3l2.8 7.2L61 13l-7.2 2.8L51 23l-2.8-7.2L41 13l7.2-2.8z"/>'
     ),
+    # 致命(D2-金 J5,traits 稿 StatusChips NEW,M2):横档 + 柄 + 实心下垂刃 + 地面线。路径逐字取自 traits-data.js 的 mortal
+    "mortal": (
+        f'<path {STROKE} d="M18 15h28M32 5v10"/>'
+        f'<path {FILL} d="M26 15h12v25l-6 10-6-10z"/>'
+        f'<path {STROKE5} d="M8 58h48"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

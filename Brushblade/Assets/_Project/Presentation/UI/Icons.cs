@@ -77,6 +77,8 @@ namespace Brushblade.Presentation
             { "mine", "雷" },
             { "healblock", "涸" },
             { "retaliate", "敬" },
+            // D2-金(M2,traits StatusChips 稿):致命
+            { "mortal", "危" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

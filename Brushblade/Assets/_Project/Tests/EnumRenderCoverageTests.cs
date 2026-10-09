@@ -98,6 +98,7 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Vulnerable), // 标记(D1 Task 6)
             nameof(StatusKind.Mine),       // 埋雷(D2-火,StatusChipsFire 稿 2026-10-09)
             nameof(StatusKind.HealBlock),  // 干涸(D2-火,StatusChipsFire 稿 2026-10-09)
+            nameof(StatusKind.Doom),       // 致命(D2-金 M2,traits StatusChips 稿)
         };
 
         private static string Root()

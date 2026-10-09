@@ -95,7 +95,8 @@ namespace Brushblade.Presentation
         {
             // 标记(D1 Task 6,StatusChips 稿 k-dot):朱砂,与灼烧同属「持续伤害与威胁」
             StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable
-                or StatusKind.Mine => Theme.Cinnabar,   // 埋雷(StatusChipsFire 稿 k-dot 朱砂)
+                or StatusKind.Mine   // 埋雷(StatusChipsFire 稿 k-dot 朱砂)
+                or StatusKind.Doom => Theme.Cinnabar,   // 致命(traits StatusChips 稿 k-dot 朱砂)
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
                 or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
                 or StatusKind.Taunt   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
@@ -137,7 +138,8 @@ namespace Brushblade.Presentation
                 or StatusKind.Taunt   // 种 / 标记 / 嘲讽无数字(稿)
                 // 干涸 / 埋雷 / 回敬(StatusChipsFire 稿):正式图标已进管线,chip 不带字。埋雷的伤害写在说明里;
                 // 回敬的剩余次数只在战场 chip 上(要读 Core 的本回合计数,StatusBag 里没有)
-                or StatusKind.HealBlock or StatusKind.Mine or StatusKind.Retaliate => "",
+                or StatusKind.HealBlock or StatusKind.Mine or StatusKind.Retaliate
+                or StatusKind.Doom => "",   // 致命(traits StatusChips 稿):无数字,剩余回合在时长行
             // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
             // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
             StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),
