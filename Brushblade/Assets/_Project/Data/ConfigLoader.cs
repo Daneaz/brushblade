@@ -832,7 +832,8 @@ namespace Brushblade.Data
                 effects.Add(new EffectDef(kind, effect.Value,
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
-                    effect.Turns, effect.TargetAll,
+                    // 流血缺省 3 回合(D2-金 E8):加载时规范成 3,Augment +N 回合才从 3 起加(修复轮 1;运行时兜底保留)
+                    kind == EffectKind.Bleed && effect.Turns == 0 ? 3 : effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield, effect.SummonDefense,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
                     effect.HitCount, effect.Pierce,
@@ -934,26 +935,26 @@ namespace Brushblade.Data
             // 计数缩放:每一档只有特定的 Kind 读(BattleEngine.Fire / Metal);未知名由 ParseEnum 报
             if (!string.IsNullOrEmpty(e.ScaleBy))
             {
-                bool blockLike = kind == EffectKind.Block || kind == EffectKind.BlockMod;
                 bool ok = e.ScaleBy switch
                 {
                     nameof(ScaleBasis.BurnStack) or nameof(ScaleBasis.BurningEnemy) => kind == EffectKind.Amplify || kind == EffectKind.HealSelf,
-                    nameof(ScaleBasis.Morale) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape || blockLike,
+                    // 格挡次数按战意只写在 BlockMod 上(与管线 countPerMorale 一致;Block 上的 ScaleBy 只由 Fold 写入)
+                    nameof(ScaleBasis.Morale) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape || kind == EffectKind.BlockMod,
                     nameof(ScaleBasis.ExtraHitTarget) => kind == EffectKind.Morale,
                     _ => true,
                 };
                 if (!ok)
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
-                        + "Morale 给 DamageSingle / Reshape / Block / BlockMod;ExtraHitTarget 给 Morale)");
+                        + "Morale 给 DamageSingle / Reshape / BlockMod;ExtraHitTarget 给 Morale)");
             }
             if (e.Fill && (kind != EffectKind.Morale || !string.IsNullOrEmpty(e.ScaleBy)))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 fill(只给 Morale,且不与 scaleBy 同用)");
             bool block = kind == EffectKind.Block || kind == EffectKind.BlockMod;
             if (e.CounterPercent != 0 && (!block || e.CounterPercent < 0))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 counterPercent(只给 Block / BlockMod,且须 > 0)");
-            bool perMorale = block && e.ScaleBy == nameof(ScaleBasis.Morale);
+            bool perMorale = kind == EffectKind.BlockMod && e.ScaleBy == nameof(ScaleBasis.Morale);
             if (e.ScaleMin != 0 && !perMorale)
-                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleMin(只给 scaleBy Morale 的 Block / BlockMod)");
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleMin(只给 scaleBy Morale 的 BlockMod)");
             if (perMorale && e.ScaleMin < 1)
                 throw new ConfigException($"字「{id}」的格挡次数按战意(scaleBy Morale)须写下限 scaleMin ≥ 1:{e.ScaleMin}");
             if (kind == EffectKind.BlockMod && e.CounterPercent == 0 && string.IsNullOrEmpty(e.ScaleBy))

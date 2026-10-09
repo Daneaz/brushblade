@@ -139,6 +139,22 @@ namespace Brushblade.Core.Tests
             Assert.That(TraitRules.CastEffects(def, CardFace.Feature, 4).Single().Turns, Is.EqualTo(3));
         }
 
+        /// <summary>修复轮 1(review Important):缺省 turns 由 ConfigLoader 规范成 3,Augment +1 回合 → 4(不是 0 + 1 = 1)。</summary>
+        [Test]
+        public void Bleed_DefaultTurnsPlusAugment_IsFour()
+        {
+            var g = Brushblade.Data.ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""刲"",""element"":""Metal"",""effects"":[{""kind"":""Bleed"",""value"":20},
+                  {""kind"":""Augment"",""value"":1,""augmentKind"":""Bleed"",""augmentField"":""Turns""}]}]}");
+            var def = g.Get("刲");
+            Assert.That(def.Effects[0].Turns, Is.EqualTo(3), "加载时缺省 turns 规范成 3");
+            Assert.That(TraitRules.CastEffects(def, CardFace.Feature, 1).Single().Turns, Is.EqualTo(4));
+            var b = new BattleEngine(g, Config, new[] { "刲", "刲" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: new Dictionary<string, int> { ["刲"] = 1 });
+            Assert.That(b.Cast("刲", 0), Is.EqualTo(BattleError.None));
+            Assert.That(Bleeds(b).Single().TurnsLeft, Is.EqualTo(4));
+        }
+
         [Test]
         public void Bleed_WeakerDoesNotOverrideStronger_TakesMaxAmountAndLongestTurns()
         {
@@ -175,15 +191,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Bleed_SnapshotRoundTrip_StaysOneEntry()
         {
+            // 读档前上强的(40,缺省 3 回合)、读档后上弱的(20,2 回合):撤掉合并的话后上的会覆盖成 (20, 2)
             var defs = new[] { Bleeder(20, turns: 2), new CharDef("强", Element.Heart, effects: new[] { new EffectDef(EffectKind.Bleed, 40) }) };
             var b = Battle(defs, 1, new[] { RebalanceFixture.Mob() });
-            b.Cast("试", 0);
+            b.Cast("强", 0);
             var restored = BattleEngine.Restore(b.Capture(), RebalanceFixture.Graph(defs), Config,
                 defs.ToDictionary(d => d.Id, _ => 1), new Dictionary<string, EnemyDef> { ["怔"] = RebalanceFixture.Mob() });
             Assert.That(Bleeds(restored).Count, Is.EqualTo(1));
-            Assert.That(restored.Cast("强", 0), Is.EqualTo(BattleError.None));
+            Assert.That(restored.Cast("试", 0), Is.EqualTo(BattleError.None));
             var s = Bleeds(restored).Single();
-            Assert.That((s.Magnitude, s.TurnsLeft), Is.EqualTo((40, 3)), "读档后再上流血仍合成一条");
+            Assert.That((s.Magnitude, s.TurnsLeft), Is.EqualTo((40, 3)), "读档后再上弱的流血:仍一条,量 / 回合取强");
         }
 
         // ---------------- E9:MoraleFill ----------------
@@ -287,6 +304,20 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(MetaRules.ScaleByCardLevel(100, 8) * 60 / 100), "按槽位顺序折叠,后者 60 覆盖");
         }
 
+        /// <summary>顺序(修复轮 1):BlockMod 先改反击基数(本体 × 50%),Amplify Counter 再在这个基数上同轴相加(+100% → ×2)。</summary>
+        [Test]
+        public void BlockMod_CounterPercent_ThenAmplifyCounter()
+        {
+            var def = new CharDef("试", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Block, 1), new EffectDef(EffectKind.Amplify, 100, scope: AmpScope.Counter) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+                traits: new[] { Trait(TraitSlot.Lv5, TraitFace.Feature, TraitForm.Active, new EffectDef(EffectKind.BlockMod, 0, counterPercent: 50)) });
+            var b = Battle(def, 5);
+            b.Cast("试", -1);
+            int based = MetaRules.ScaleByCardLevel(100, 5) * 50 / 100;   // 124 × 50% = 62
+            Assert.That(b.PlayerStatuses.Find(StatusKind.Block).CounterDamage, Is.EqualTo(based * 2), "62 × (100 + 100)% = 124");
+        }
+
         [Test]
         public void BlockMod_NoBlockOnFace_IsNoOp()
         {
@@ -382,6 +413,7 @@ namespace Brushblade.Core.Tests
         [TestCase(@"{""kind"":""Shield"",""value"":5,""counterPercent"":50}")]
         [TestCase(@"{""kind"":""Shield"",""value"":5,""ofVictimMaxHp"":true}")]
         [TestCase(@"{""kind"":""Block"",""value"":1,""scaleMin"":2}")]
+        [TestCase(@"{""kind"":""Block"",""value"":1,""scaleBy"":""Morale"",""scaleMin"":2}")]   // 修复轮 1:按战意只写在 BlockMod 上
         [TestCase(@"{""kind"":""BlockMod"",""scaleBy"":""Morale""}")]
         [TestCase(@"{""kind"":""Amplify"",""value"":5,""scaleBy"":""Morale""}")]
         [TestCase(@"{""kind"":""Morale"",""value"":1,""scaleBy"":""BurnStack""}")]

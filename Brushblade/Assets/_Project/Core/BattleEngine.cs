@@ -3713,7 +3713,9 @@ namespace Brushblade.Core
                         // 反击百分比可被 BlockMod 覆盖(D2-金 E12),缺省 30%
                         int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel)
                             * BlockCounterPercentOf(effect) / 100;
-                        // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样
+                        // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样。
+                        // 顺序(D2-金):BlockMod 先改基数(本体 × CounterPercent%),Amplify 再在改后的基数上乘
+                        // (剑意 50 + 刀光 100 = 本体 × 50% × 2)—— 见 MetalSharedExtTests.BlockMod_CounterPercent_ThenAmplifyCounter
                         counter = Amplified(counter, AmpPercent(effect, -1));
                         // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
