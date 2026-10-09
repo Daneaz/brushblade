@@ -3742,13 +3742,14 @@ namespace Brushblade.Core
                     case EffectKind.BurnEqualize:
                         EqualizeBurn(burnPotency);   // 拉平(D2-火 N2)
                         break;
-                    // 灼附着族(D2-火 Task 3,N5):干涸 / 上炎 / 四火 / 焚城标记 / 焚身载体,只挂在带本次出字所上之灼的目标上
+                    // 埋雷 / 受击回敬(D2-火 Task 4,N7 / N8)
                     case EffectKind.Mine:
                         PlantMine(effect, value, targetIndex, def.Id);
                         break;
                     case EffectKind.Retaliate:
                         ArmRetaliate(effect, def.Id, attacker);
                         break;
+                    // 灼附着族(D2-火 Task 3,N5):干涸 / 上炎 / 四火 / 焚城标记 / 焚身载体,只挂在带本次出字所上之灼的目标上
                     case EffectKind.HealBlock:
                     case EffectKind.BurnGrow:
                     case EffectKind.BurnHold:
@@ -5652,7 +5653,7 @@ namespace Brushblade.Core
             // 受击回敬(D2-火 N8):召唤物被敌人挥击命中同样回敬(本方法的调用者只有敌人的普攻 / Boss 技能)
             EnqueueRetaliation(enemyIndex);
 
-            int taken =WuxingResolver.ResolveEffect(damage, attacker, summon.Element);
+            int taken = WuxingResolver.ResolveEffect(damage, attacker, summon.Element);
             // 生克标记(2026-08-31):敌人打召唤物这一路本来就过生克(上面那句),标记跟着同一个倍率走。
             // 由 Core 标而不是让表现层拿两边属性自己推 —— 那会成为规则的第二个来源,
             // 与 SummonState.EffectiveAttack 那条注释说的是同一件事。

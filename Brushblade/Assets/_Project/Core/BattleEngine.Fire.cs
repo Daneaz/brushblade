@@ -105,7 +105,7 @@ namespace Brushblade.Core
             }
             return n;
         }
-    
+
         // ---- Task 3:灼附着族(N5)与焚城(N6)----
         // 附着 = 只挂在带「本次出字所上之灼」的目标上(_cast.BurnedTargets 且身上有灼),同时挂一条隐藏 TraitRider;
         // 灼从目标身上移除(结算到 0 / 引爆 / 蓄热夺火 / 余烬转走)时 DropRiders 按 SourceId + TraitKey 一并移除。
@@ -209,7 +209,8 @@ namespace Brushblade.Core
                 else CheckBossPhase(ti);
             }
         }
-            // ---- Task 4:敌人出手前挂点(N7,埋雷 / 焚身)与受击回敬(N8,Q23 通用形态)----
+
+        // ---- Task 4:敌人出手前挂点(N7,埋雷 / 焚身)与受击回敬(N8,Q23 通用形态)----
 
         /// <summary>焚身每回合(玩家回合开始清零)的结算次数上限,按载体的特性键计。</summary>
         internal const int BacklashPerTurn = 2;
@@ -315,7 +316,7 @@ namespace Brushblade.Core
             CheckWin();
             return false;
         }
-    
+
         // ---- Task 5:其余单点效果(N9 追加一击、N10 解冻 / 自损、N11 揭示)----
 
         /// <summary>追加一击(N9,星火 / 烈焚):伤害 = 本体伤害基数(TraitRules.BodyDamageOf,吃等级与 L3)× Value% × 攻击力,
