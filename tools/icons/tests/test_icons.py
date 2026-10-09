@@ -49,6 +49,8 @@ EXPECTED = {
     "keepshield",
     # 字卡特性 D2-0 Task 2(2026-10-06):嘲讽,取自 traits 稿 StatusChips 的 NEW 一枚。
     "taunt",
+    # 字卡特性 D2-火 状态 chip(2026-10-09 拍板):埋雷 / 干涸 / 回敬,取自 traits 稿 StatusChipsFire 的 NEW 三枚。
+    "mine", "healblock", "retaliate",
 }
 
 
