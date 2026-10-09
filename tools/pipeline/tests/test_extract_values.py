@@ -890,3 +890,74 @@ def test_d2fire_task5_per_burning_hit_needs_one_extra_strike(config):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert "perBurningHit" in str(err.value)
+
+
+# ---- D2-金 Task 1:共用小扩展(附录 E6 / E7 / E8 / E9 / E10 / E12 / E13;E11 只验证每击附带的写法)----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 剑意:BlockMod 反击百分比
+    ("`Morale 1` + `BlockMod` `counter 50`", "剑",
+     [{"kind": "Morale", "value": 1}, {"kind": "BlockMod", "value": 0, "counterPercent": 50}]),
+    # 横扫千军:战意 × 多命中的敌人数
+    ("`Reshape` `shape Row` `shapePercent 50` + `Morale 1` `per ExtraHitTarget`", "剑",
+     [{"kind": "Morale", "value": 1, "scaleBy": "ExtraHitTarget"},
+      {"kind": "Reshape", "value": 0, "shape": "Row", "shapePercent": 50}]),
+    # 大卸八块:击数 = 1 + 战意
+    ("`Reshape` `hitPercent 35` `hitsPerMorale`", "剁",
+     [{"kind": "Reshape", "value": 0, "hitPercent": 35, "scaleBy": "Morale"}]),
+    # 双金合璧:格挡次数 = 战意(至少 2)+ 开局登记
+    ("`BlockMod` `countPerMorale` `min 2` + `Morale 2` `battles 1`", "鍂",
+     [{"kind": "Morale", "value": 2, "openingBattles": 1},
+      {"kind": "BlockMod", "value": 0, "scaleBy": "Morale", "scaleMin": 2}]),
+    # 放血:流血读 turns
+    ("`Bleed 50` `turns 2`", "刲", [{"kind": "Bleed", "value": 50, "turns": 2}]),
+    # 割取
+    ("`HealSelf 10` `ofVictimMaxHp`", "刲", [{"kind": "HealSelf", "value": 10, "ofVictimMaxHp": True}]),
+    # 三金破 / 刚:MoraleFull 条件
+    ("`Reshape` `hits 3` `hitPercent 50` + `Amplify 100` `scope Damage` `if MoraleFull`", "鑫",
+     [{"kind": "Amplify", "value": 100, "scope": "Damage", "onlyIf": "MoraleFull"},
+      {"kind": "Reshape", "value": 0, "hitCount": 3, "hitPercent": 50}]),
+    ("`Amplify 30` `scope All` `if MoraleFull`", "𨰻",
+     [{"kind": "Amplify", "value": 30, "scope": "All", "onlyIf": "MoraleFull"}]),
+    # 千锤 / 金刚:补满 + BlockMod
+    ("`MoraleFill` + `BlockMod` `counter 50`", "𨰻",
+     [{"kind": "Morale", "value": 0, "fill": True}, {"kind": "BlockMod", "value": 0, "counterPercent": 50}]),
+    ("`Augment 3` `of Block` `field Count` + `BlockMod` `counter 60` + `MoraleFill`", "𨰻",
+     [{"kind": "Augment", "value": 3, "augmentKind": "Block", "augmentField": "Count"},
+      {"kind": "Morale", "value": 0, "fill": True}, {"kind": "BlockMod", "value": 0, "counterPercent": 60}]),
+    # 铡刀落:斩杀挂在 Reshape 上
+    ("`Reshape` `ExecuteKill 35`", "铡",
+     [{"kind": "Reshape", "value": 0, "executeBelowPercent": 35, "executeKills": True}]),
+    # E11:金系每击附带(破甲带自己的 turns、战意、流血从第 2 击起)
+    ("`Reshape` `hits 2` `hitPercent 60` `perHit` `ArmorBreak 20` `turns 3`", "鍂",
+     [{"kind": "Reshape", "value": 0, "hitCount": 2, "hitPercent": 60,
+       "perHit": [{"kind": "ArmorBreak", "value": 20, "turns": 3}]}]),
+    ("`Reshape` `hits 2` `perHit` `Morale 1`", "鍂",
+     [{"kind": "Reshape", "value": 0, "hitCount": 2, "perHit": [{"kind": "Morale", "value": 1}]}]),
+    ("`Reshape` `perHit 2` `Bleed 35`", "剁",
+     [{"kind": "Reshape", "value": 0, "perHit": [{"kind": "Bleed", "value": 35}], "perHitFrom": 2}]),
+])
+def test_d2metal_task1_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+def test_d2metal_execute_still_attaches_to_damage_without_reshape():
+    assert _parse_effects("`DamageSingle 30` `ExecuteKill 20`", "铡") == [
+        {"kind": "DamageSingle", "value": 30, "executeBelowPercent": 20, "executeKills": True}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Block 1` `counter 50`", "counter"),                          # counter 没有 BlockMod 宿主
+    ("`BlockMod` `min 2`", "min"),                                  # min 没配 countPerMorale
+    ("`Block 1` `countPerMorale`", "countPerMorale"),               # countPerMorale 没有 BlockMod 宿主
+    ("`BlockMod` `countPerMorale`", "min"),                         # 次数按战意必须写下限
+    ("`Shield 5` `hitsPerMorale`", "hitsPerMorale"),                # 没有伤害 / Reshape
+    ("`Shield 5` `ofVictimMaxHp`", "ofVictimMaxHp"),                # 没有 HealSelf
+    ("`Amplify 5` `per ExtraHitTarget`", "per"),                    # ExtraHitTarget 只给 Morale
+    ("`Morale 1` `per BurnStack`", "per"),                          # BurnStack 不给 Morale
+    ("`BlockMod`", "BlockMod"),                                     # 什么也没改
+])
+def test_d2metal_task1_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

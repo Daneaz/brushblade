@@ -96,6 +96,10 @@ VALUELESS_EFFECTS = {
     # 自损 `SelfCost N` 与追加一击 `ExtraStrike N` 带数值,走通用正则。
     "Thaw": {"kind": "Thaw", "value": 0},
     "Reveal": {"kind": "Reveal", "value": 0},
+    # D2-金 Task 1(附录 E9 / E12):补满 = Morale + fill(千锤 / 金刚 / 金玉满堂);格挡修饰器 BlockMod 的字段由
+    # `counter N` / `countPerMorale` / `min N` 给出(_attach_metal_ops)。整串带反引号匹配,`Morale` 不会吞 `MoraleFill`。
+    "MoraleFill": {"kind": "Morale", "value": 0, "fill": True},
+    "BlockMod": {"kind": "BlockMod", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -138,7 +142,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
 # 不写 turns,回合数由引擎取目标的冻结回合 —— 所以它在这里、不在 DURATION_KINDS。
 # 种(Seed)在 DURATION_KINDS:漏写 turns 引擎兜成 1 回合,与减攻同型。
 # 上炎(D2-火 Task 3,BurnGrow)吃 turns 但不强制:不写 = 随灼存续。
-TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow"}
+# 流血(D2-金 E8)吃 turns 但不强制:不写 = 引擎缺省 3 回合。
+TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow", "Bleed"}
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -215,7 +220,8 @@ AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All", "Burn"}   # 
 CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Frozen",
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
               "FirstCastThisTurn", "Countering",
-              "PlayerHpAbove70", "HasSummon"}   # D2-火 Task 1(附录 E1)
+              "PlayerHpAbove70", "HasSummon",   # D2-火 Task 1(附录 E1)
+              "MoraleFull"}                     # D2-金 Task 1(附录 E6)
 # D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
@@ -265,8 +271,11 @@ PORTION_TOKEN = "portion"
 # 计数缩放:`per BurnStack|BurningEnemy` 挂本格唯一的 Amplify / HealSelf;`cap N` 是 Amplify 的上限(百分点)。
 PER_TOKEN = "per"
 CAP_TOKEN = "cap"
-SCALE_BASES = {"BurnStack", "BurningEnemy"}
-SCALE_HOST_KINDS = {"Amplify", "HealSelf"}
+# 每一档只挂特定的宿主(与 ConfigLoader.ValidateMetalOps 同一张表);D2-金 E10 加 ExtraHitTarget(横扫千军,挂 Morale)。
+# Morale 档不经 `per`:伤害击数写 `hitsPerMorale`、格挡次数写 `countPerMorale`(见 _attach_metal_ops)。
+SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify", "HealSelf"},
+               "ExtraHitTarget": {"Morale"}}
+SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
 # 段必须写在格子末尾,段内每个 `+` 分段恰好一条效果、按书写顺序落表(_parse_segment,终审 5),
 # 挂到本格的 Reshape(没有则唯一的 DamageSingle)上。火的两条糖:`hitBurn N` = perHit [BurnSingle N],
@@ -277,12 +286,23 @@ HIT_SETTLE_TOKEN = "hitSettle"
 # D2-火 Task 5(附录 N9,星火):`perBurningHit` —— 追加一击按「本次出字命中过、出字前带灼的敌人」每名一发。
 # 无数值的布尔标记,挂本格唯一的 ExtraStrike;没有宿主就报错(否则静默消失)。
 PER_BURNING_HIT_TOKEN = "perBurningHit"
-PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment", "SelfCost"}   # 同 ConfigLoader(终审 6)
+PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment", "SelfCost", "BlockMod"}   # 同 ConfigLoader(终审 6)
 # 受击回敬(D2-火 Task 4,Q23 通用形态):`onHit` 之后的全部 token 是「我方被命中时对攻击者结算的效果」,挂到本格唯一的
 # Retaliate 上,落进 chars.json 的 perHit 字段(与每击附带同一个字段、同一种段式写法)。只收作用于攻击者的非伤害效果,
 # 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
 ON_HIT_TOKEN = "onHit"
 RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vulnerable", "Slow", "Freeze"}
+
+# ---- D2-金 Task 1(附录 E10 / E12 / E13)----
+# `hitsPerMorale`(大卸八块):本格 Reshape(没有则唯一的 DamageSingle)的击数 + 战意 → scaleBy Morale。
+# `counter N`(剑意 / 千锤 / 金刚):BlockMod 的反击百分比;`countPerMorale` + `min N`(双金合璧):BlockMod 的次数 = 战意(至少 N)。
+# `ofVictimMaxHp`(割取):HealSelf 的回复量 = 被杀者最大生命 × Value%。
+# 带数值的 `counter` / `min` 必须进通用循环的跳过名单,否则落成 kind="counter" 的独立效果。
+HITS_PER_MORALE_TOKEN = "hitsPerMorale"
+COUNTER_TOKEN = "counter"
+COUNT_PER_MORALE_TOKEN = "countPerMorale"
+MIN_TOKEN = "min"
+OF_VICTIM_MAX_HP_TOKEN = "ofVictimMaxHp"
 
 
 def _parse_segment(segment, config, char, token):
@@ -343,10 +363,11 @@ def _attach_fire_ops(config, char, effects, consumed):
     per = re.findall(rf"`{PER_TOKEN} (\w+)`", config)
     if per:
         consumed.add(PER_TOKEN)
-        hosts = [e for e in effects if e["kind"] in SCALE_HOST_KINDS]
+        allowed = SCALE_HOSTS.get(per[0], set())
+        hosts = [e for e in effects if e["kind"] in allowed]
         if len(per) > 1 or per[0] not in SCALE_BASES or len(hosts) != 1:
             raise ValueError(f"{char}:配置格「{config}」的 `per` 只认 {sorted(SCALE_BASES)},"
-                             f"且只挂本格唯一的一条 {sorted(SCALE_HOST_KINDS)}")
+                             f"且只挂本格唯一的一条对应宿主 {SCALE_HOSTS}")
         hosts[0]["scaleBy"] = per[0]
     cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
     if cap:
@@ -368,6 +389,47 @@ def _attach_fire_ops(config, char, effects, consumed):
             consumed.add(HIT_SETTLE_TOKEN)
             riders.append({"kind": "BurnSettleNow", "value": 0, "keepStacks": True})
         _attach_per_hit(config, char, effects, riders, None)
+
+
+def _attach_metal_ops(config, char, effects, consumed):
+    """D2-金 Task 1:`hitsPerMorale` / `counter N` / `countPerMorale` / `min N` / `ofVictimMaxHp`。宿主不唯一或不存在一律报错。"""
+    def only(kinds, token):
+        hosts = [e for e in effects if e["kind"] in kinds]
+        if len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 {sorted(kinds)} 可挂 —— 它会静默消失。")
+        return hosts[0]
+
+    if f"`{HITS_PER_MORALE_TOKEN}`" in config:
+        consumed.add(HITS_PER_MORALE_TOKEN)
+        reshapes = [e for e in effects if e["kind"] == "Reshape"]
+        host = reshapes[0] if len(reshapes) == 1 else only({"DamageSingle"}, HITS_PER_MORALE_TOKEN)
+        host["scaleBy"] = "Morale"
+    counter = re.findall(rf"`{COUNTER_TOKEN} (\d+)`", config)
+    if counter:
+        consumed.add(COUNTER_TOKEN)
+        host = only({"BlockMod"}, COUNTER_TOKEN)
+        if len(counter) > 1 or int(counter[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `counter` 只能写一个,且须 ≥ 1")
+        host["counterPercent"] = int(counter[0])
+    if f"`{COUNT_PER_MORALE_TOKEN}`" in config:
+        consumed.add(COUNT_PER_MORALE_TOKEN)
+        only({"BlockMod"}, COUNT_PER_MORALE_TOKEN)["scaleBy"] = "Morale"
+    minimum = re.findall(rf"`{MIN_TOKEN} (\d+)`", config)
+    if minimum:
+        consumed.add(MIN_TOKEN)
+        host = only({"BlockMod"}, MIN_TOKEN)
+        if host.get("scaleBy") != "Morale" or len(minimum) > 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `min` 只配 `countPerMorale`(一个)")
+        host["scaleMin"] = int(minimum[0])
+    for e in effects:
+        if e["kind"] == "BlockMod":
+            if e.get("scaleBy") == "Morale" and e.get("scaleMin", 0) < 1:
+                raise ValueError(f"{char}:配置格「{config}」的 `countPerMorale` 须配下限 `min N`(N ≥ 1)")
+            if "counterPercent" not in e and "scaleBy" not in e:
+                raise ValueError(f"{char}:配置格「{config}」的 `BlockMod` 什么也没改(写 `counter N` 或 `countPerMorale` `min N`)")
+    if f"`{OF_VICTIM_MAX_HP_TOKEN}`" in config:
+        consumed.add(OF_VICTIM_MAX_HP_TOKEN)
+        only({"HealSelf"}, OF_VICTIM_MAX_HP_TOKEN)["ofVictimMaxHp"] = True
 
 
 def _positional_hosts(config, effects):
@@ -832,6 +894,8 @@ def _parse_effects(config, char, on_hit_host=False):
             continue  # 附着减攻的门槛(D2-火 Task 3),下面按位置挂到前一条 Weaken 上
         if kind in (RETAIN_TOKEN, PORTION_TOKEN, CAP_TOKEN, HIT_BURN_TOKEN):
             continue  # D2-火 Task 2 的修饰数值,下面挂到 Detonate / Amplify / 伤害上
+        if kind in (COUNTER_TOKEN, MIN_TOKEN):
+            continue  # D2-金 Task 1:BlockMod 的反击百分比 / 次数下限,下面挂到 BlockMod 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -900,15 +964,16 @@ def _parse_effects(config, char, on_hit_host=False):
             effects.append(dict(spec))
             consumed.add(token)
 
+    # 斩杀(D2-金 E7,铡刀落):本格有 Reshape 时挂 Reshape(由 Fold 折到本面第一条伤害),否则挂伤害(原口径)
+    execute_hosts = [e for e in effects if e["kind"] == "Reshape"] or [e for e in effects if _is_damage(e["kind"])]
     for token, kills in EXECUTE_TOKENS.items():
         found = re.search(rf"`{token} (\d+)`", config)
         if not found:
             continue
         consumed.add(token)
-        for effect in effects:
-            if _is_damage(effect["kind"]):
-                effect["executeBelowPercent"] = int(found.group(1))
-                effect["executeKills"] = kills
+        for effect in execute_hosts:
+            effect["executeBelowPercent"] = int(found.group(1))
+            effect["executeKills"] = kills
 
     hit_count = re.search(rf"`{HIT_COUNT_TOKEN} (\d+)`", config)
     if hit_count:
@@ -949,6 +1014,7 @@ def _parse_effects(config, char, on_hit_host=False):
     _attach_battles(config, char, effects, consumed)
     _attach_modifier_tokens(config, char, effects, consumed)
     _attach_fire_ops(config, char, effects, consumed)
+    _attach_metal_ops(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)
