@@ -74,6 +74,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void CounterStats_DealtPlusClipped_EqualsWhatTheHitsWanted()
+        {
+            // Q1 反击实效读数:预算 36,3 击 × 30 想打 90 → 实打 36、被预算削掉 54
+            var b = Battle(Guard("剁", Mod(hits: 3)), Mob(100));
+            b.Cast("剁", -1, attackMode: false);
+            EndTurn(b);
+            Assert.That((b.CounterDamageDealt, b.CounterDamageClipped), Is.EqualTo((36, 54)));
+
+            var rich = Battle(Guard("剁", Mod(hits: 3)), Mob(1000));
+            rich.Cast("剁", -1, attackMode: false);
+            EndTurn(rich);
+            Assert.That((rich.CounterDamageDealt, rich.CounterDamageClipped), Is.EqualTo((90, 0)), "预算够用:不削");
+        }
+
+        [Test]
         public void CounterHits_StopWhenAttackerDies()
         {
             var b = Battle(Guard("剁", Mod(hits: 3)), Mob(1000, hp: 50), Mob(0));

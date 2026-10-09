@@ -77,8 +77,8 @@ namespace Brushblade.Balance
                 + $" · 卡 {CardLevel} 级 · 角色 {CharacterLevel} 级 · 起手 6 张随机\n");
             // 末两列是**机器人自检**,不是平衡指标(见 BotProbe):攻面出字恒 0 = 双方向字
             // 的攻面又断了;僵局判死高企 = 机器人打不死人、靠 60 回合上限判死收场。
-            Console.WriteLine("| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/300 |");
-            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
+            Console.WriteLine("| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/300 | 反击总伤/局 | 反击被削% |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var profile in profiles)
                 SimulateProfile(graph, campaign, endless, profile);
         }
@@ -147,6 +147,10 @@ namespace Brushblade.Balance
             // 出召唤字的次数(2026-09-17):土系交出召唤位后,前排只剩木系能给 ——
             // 这一列让「这档到底有没有前排」直接可读,不用从卡池反推。
             public int SummonCasts;
+            // 格挡反击实效(D2-金 Q1,2026-10-09):实打的反击伤害 / 被 60% 反伤预算削掉的量,全部种子累计。
+            // 只是读数,不是平衡指标 —— 用来看「反击类特性(剁截 / 锥立 / 刀光…)的收益是不是被预算吃掉了」。
+            public long CounterDealt;
+            public long CounterClipped;
         }
 
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
@@ -166,7 +170,9 @@ namespace Brushblade.Balance
                               $"| {Reach(11)} | {Reach(31)} | {Reach(51)} " +
                               $"| {probe.AttackFaceCasts / (double)Seeds:F1} " +
                               $"| {probe.SummonCasts / (double)Seeds:F1} " +
-                              $"| {probe.Stalls} |");
+                              $"| {probe.Stalls} " +
+                              $"| {probe.CounterDealt / (double)Seeds:F0} " +
+                              $"| {(probe.CounterDealt + probe.CounterClipped == 0 ? 0 : probe.CounterClipped * 100.0 / (probe.CounterDealt + probe.CounterClipped)):F0}% |");
         }
 
         /// <summary>一路深入直到阵亡,返回卒层(= 阵亡所在层)。</summary>
@@ -222,6 +228,8 @@ namespace Brushblade.Balance
                         turns++;
                         PlayTurn(graph, battle, probe);
                     }
+                    probe.CounterDealt += battle.CounterDamageDealt;
+                    probe.CounterClipped += battle.CounterDamageClipped;
                     if (turns > StallTurns)
                     {
                         probe.Stalls++;

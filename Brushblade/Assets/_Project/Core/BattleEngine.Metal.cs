@@ -295,6 +295,12 @@ namespace Brushblade.Core
             return damage * 2;
         }
 
+        /// <summary>本场格挡反击实际打出的伤害合计(Q1 观察读数,只读;不进存档、不影响结算)。</summary>
+        public int CounterDamageDealt { get; private set; }
+
+        /// <summary>本场格挡反击被 60% 反伤预算削掉的伤害合计(想打的量 − 实打的量;目标中途死亡不算削)。</summary>
+        public int CounterDamageClipped { get; private set; }
+
         /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。</summary>
         private int CounterHitsOn(int target, int perHit, int hits, int budget, UnitRef attackerRef, ref bool killed)
         {
@@ -303,7 +309,9 @@ namespace Brushblade.Core
             {
                 if (!_enemies[target].Alive) break;
                 int d = Math.Min(perHit, budget - dealt);
-                if (d <= 0) break;
+                if (d <= 0) { CounterDamageClipped += perHit * (hits - h); break; }   // 余额用完:剩下的击数全被预算削掉
+                CounterDamageClipped += perHit - d;
+                CounterDamageDealt += d;
                 DamageEnemy(target, d, Element.Heart,
                     bypassDefense: true, allowBarb: false,
                     source: EffectSource.BlockCounter, attackerRef: attackerRef);
