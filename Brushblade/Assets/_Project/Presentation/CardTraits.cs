@@ -376,7 +376,7 @@ namespace Brushblade.Presentation
                 // 致命(D2-金 J5,割喉):mortal 图标(traits StatusChips 稿,与战场 chip 同一枚),朱砂底;无数字
                 case EffectKind.Doom:
                     AddTrait(traits, "mortal", "", Strings.T("collection.trait.doom.name"),
-                        Strings.T("collection.trait.doom.desc", ("turns", e.Value)));
+                        Strings.T("collection.trait.doom.desc", ("turns", e.Value), ("percent", BattleEngine.DoomExecutePercent)));
                     break;
                 // 战意族(D2-金 Task 4,聚金 / 富甲 / 金气):稿上没有图标,纯文字 chip
                 case EffectKind.MoraleOverflowShield:
