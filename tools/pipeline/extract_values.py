@@ -105,6 +105,8 @@ VALUELESS_EFFECTS = {
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
 # 值 = executeKills(True = 直接击杀,False = 残血加伤 ×2)
 EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
+# 斩杀溅射(D2-金 J4,铡刀落):`executeSplash N` → executeSplashPercent,只能配同格的 `ExecuteKill`,挂同一个宿主
+EXECUTE_SPLASH_TOKEN = "executeSplash"
 
 # 需要 turns 的 Kind(白名单):写死给 HealOverTime 会让新加的持续类状态静默丢掉回合数。
 # 注意:下面 turns 正则是对整格「效果配置」搜一次,一格只支持一个 turns 值——若将来
@@ -905,8 +907,8 @@ def _parse_effects(config, char, on_hit_host=False):
             consumed.add(kind)
             continue
         consumed.add(kind)
-        if kind in EXECUTE_TOKENS:
-            continue  # 斩杀是修饰而非效果,下面统一挂到伤害上
+        if kind in EXECUTE_TOKENS or kind == EXECUTE_SPLASH_TOKEN:
+            continue  # 斩杀(含溅射)是修饰而非效果,下面统一挂到伤害上
         if kind == HIT_COUNT_TOKEN:
             continue  # 分段数是修饰而非效果,下面统一挂到伤害上
         if kind == PIERCE_TOKEN:
@@ -1009,6 +1011,16 @@ def _parse_effects(config, char, on_hit_host=False):
         for effect in execute_hosts:
             effect["executeBelowPercent"] = int(found.group(1))
             effect["executeKills"] = kills
+    splash = re.findall(rf"`{EXECUTE_SPLASH_TOKEN} (\d+)`", config)
+    if splash:
+        consumed.add(EXECUTE_SPLASH_TOKEN)
+        percent = int(splash[0])
+        if len(splash) > 1 or not re.search(r"`ExecuteKill \d+`", config) or not execute_hosts:
+            raise ValueError(f"{char}:配置格「{config}」的 `{EXECUTE_SPLASH_TOKEN}` 只能配同格的 `ExecuteKill`(直接斩杀)")
+        if not 0 < percent <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{EXECUTE_SPLASH_TOKEN}` 须在 1–100 之间")
+        for effect in execute_hosts:
+            effect["executeSplashPercent"] = percent
 
     hit_count = re.search(rf"`{HIT_COUNT_TOKEN} (\d+)`", config)
     if hit_count:

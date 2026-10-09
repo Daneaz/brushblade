@@ -373,6 +373,7 @@ namespace Brushblade.Core
         IronBarb,     // 钩子用:铁画反噬打到玩家(PlayerHit 的 Source;不进 BattleEvent)
         ShieldRecoil, // 反震(D1 Task 9):护盾吸收后按吸收量反弹;表现层按普通伤害飘字(来源标签归 Plan E)
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
+        ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -3244,7 +3245,7 @@ namespace Brushblade.Core
                             for (int hit = 0; hit < hits; hit++)
                             {
                                 if (!_enemies[tgt].Alive) break;
-                                if (primary && TryExecuteKill(effect, tgt)) break; // 处决:击杀后无需再打
+                                if (primary && TryExecuteKill(effect, tgt, attacker)) break; // 处决:击杀后无需再打
                                 // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
                                 // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
                                 // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
@@ -5167,7 +5168,7 @@ namespace Brushblade.Core
         /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。
         /// Boss 是一条总血池,25% 也是很大一截,一刀没掉太破坏节奏,故免疫**抹杀**
         /// ——但不是毫无收益:2026-08-23 起 Boss 改吃双倍伤害,见 <see cref="ExecuteBonus"/>。</summary>
-        private bool TryExecuteKill(EffectDef effect, int enemyIndex)
+        private bool TryExecuteKill(EffectDef effect, int enemyIndex, Element attacker)
         {
             if (!effect.ExecuteKills || !BelowExecuteThreshold(effect, enemyIndex)) return false;
             var enemy = _enemies[enemyIndex];
@@ -5176,6 +5177,7 @@ namespace Brushblade.Core
             enemy.Hp = 0;
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
             ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Execute);
+            if (effect.ExecuteSplashPercent > 0) ExecuteSplash(enemyIndex, effect.ExecuteSplashPercent, attacker);   // J4 铡刀落
             return true;
         }
 

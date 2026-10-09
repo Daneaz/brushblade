@@ -332,6 +332,8 @@ namespace Brushblade.Presentation
             e.ExecuteBelowPercent <= 0 ? "" :
             e.ExecuteKills
                 ? Strings.T("char.effect.execute.kill", ("percent", e.ExecuteBelowPercent))
+                    // 斩杀溅射(D2-金 J4,铡刀落)
+                    + (e.ExecuteSplashPercent > 0 ? Strings.T("char.effect.execute.splash", ("percent", e.ExecuteSplashPercent)) : "")
                 : Strings.T("char.effect.execute.double", ("percent", e.ExecuteBelowPercent));
 
         /// <summary>多段后缀(2026-08-23)。每段完全独立:各自过生克、各自减一次护甲,

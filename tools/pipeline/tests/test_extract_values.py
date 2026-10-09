@@ -941,6 +941,25 @@ def test_d2metal_task1_tokens(config, char, expected):
     assert _parse_effects(config, char) == expected
 
 
+def test_d2metal_execute_splash_rides_with_execute_kill():
+    """D2-金 J4(铡刀落):`executeSplash N` 跟斩杀挂在同一个宿主上(Reshape 优先)。"""
+    assert _parse_effects("`Reshape` `ExecuteKill 35` `executeSplash 20`", "铡") == [
+        {"kind": "Reshape", "value": 0, "executeBelowPercent": 35, "executeKills": True, "executeSplashPercent": 20}]
+    assert _parse_effects("`DamageSingle 30` `ExecuteKill 20` `executeSplash 10`", "铡") == [
+        {"kind": "DamageSingle", "value": 30, "executeBelowPercent": 20, "executeKills": True, "executeSplashPercent": 10}]
+
+
+@pytest.mark.parametrize("config", [
+    "`DamageSingle 30` `executeSplash 20`",                    # 没有斩杀
+    "`DamageSingle 30` `ExecuteBonus 20` `executeSplash 20`",  # 残血加伤不是斩杀
+    "`DamageSingle 30` `ExecuteKill 20` `executeSplash 0`",    # 0 = 静默无效
+    "`DamageSingle 30` `ExecuteKill 20` `executeSplash 101`",
+])
+def test_d2metal_execute_splash_errors(config):
+    with pytest.raises(ValueError, match="executeSplash"):
+        _parse_effects(config, "铡")
+
+
 def test_d2metal_execute_still_attaches_to_damage_without_reshape():
     assert _parse_effects("`DamageSingle 30` `ExecuteKill 20`", "铡") == [
         {"kind": "DamageSingle", "value": 30, "executeBelowPercent": 20, "executeKills": True}]

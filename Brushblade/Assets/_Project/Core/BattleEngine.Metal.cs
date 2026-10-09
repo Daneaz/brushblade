@@ -177,6 +177,27 @@ namespace Brushblade.Core
                     t.Effects.Select(e => TraitRules.ForCast(e, t, def, body)).ToList(), enemyIndex, TriggerDepth + 1));
         }
 
+        /// <summary>斩杀溅射(J4,Q18):对死者 <paramref name="victim"/> 同排左右的存活敌人(Adjacent 口径,同 D2-火 E2;
+        /// 死者照样占位,几何照读)各打「死者 MaxHp × <paramref name="percent"/>%」:<paramref name="attacker"/> 元素、过生克与护甲、
+        /// 不暴击、不算挥击(不触发铁画)、source = ExecuteSplash。整段抬一层 TriggerDepth(R4)—— 溅射打死的不入队
+        /// 击杀时 / 斩杀时 / 焚城。跨排 Boss 的双记去重。</summary>
+        private void ExecuteSplash(int victim, int percent, Element attacker)
+        {
+            int damage = (int)((long)_enemies[victim].MaxHp * percent / 100);
+            if (damage <= 0) return;
+            var targets = Targeting.ExpandTargets(_enemies, victim, TargetArea.Adjacent, 0).Where(i => i != victim).Distinct().ToList();
+            if (targets.Count == 0) return;
+            EnterTrigger();
+            try
+            {
+                foreach (int i in targets)
+                    if (_enemies[i].Alive)
+                        DamageEnemy(i, damage, attacker, allowBarb: false,
+                            source: EffectSource.ExecuteSplash, attackerRef: UnitRef.Player);
+            }
+            finally { ExitTrigger(); }
+        }
+
         /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。</summary>
         private int CounterHitsOn(int target, int perHit, int hits, int budget, UnitRef attackerRef, ref bool killed)
         {

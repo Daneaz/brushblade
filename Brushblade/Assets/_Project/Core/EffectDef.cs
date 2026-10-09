@@ -451,6 +451,13 @@ namespace Brushblade.Core
         /// <summary>反击击杀返还 AP(得利,`killRefund N`):反击 / 立威击杀时玩家挂 ApRefund,下回合开始 +N AP,每轮至多一次。</summary>
         public int KillRefundAp { get; }
 
+        // ---- D2-金 Task 3 ----
+
+        /// <summary>斩杀溅射(J4,铡刀落,token `executeSplash N`):配 <see cref="ExecuteKills"/>,TryExecuteKill 斩杀成功后
+        /// (Boss 不会被斩杀,故不触发)对死者同排左右存活敌人各打「死者 MaxHp × N%」—— 本字元素、过生克与护甲、不暴击、
+        /// source = ExecuteSplash;溅射造成的击杀不入队击杀时 / 斩杀时(R4)。Reshape 携带时 Fold 照抄(E7)。0 = 不溅射。</summary>
+        public int ExecuteSplashPercent { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -479,7 +486,8 @@ namespace Brushblade.Core
             bool perBurningHit = false,
             bool fill = false, int counterPercent = 0, int scaleMin = 0, bool ofVictimMaxHp = false,
             bool counterColumn = false, int counterHits = 0, int counterExecuteBelow = 0,
-            int blockBleed = 0, int blockMorale = 0, int killRefundAp = 0)
+            int blockBleed = 0, int blockMorale = 0, int killRefundAp = 0,
+            int executeSplashPercent = 0)
         {
             Kind = kind;
             Value = value;
@@ -535,6 +543,7 @@ namespace Brushblade.Core
             BlockBleed = blockBleed;
             BlockMorale = blockMorale;
             KillRefundAp = killRefundAp;
+            ExecuteSplashPercent = executeSplashPercent;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -552,7 +561,8 @@ namespace Brushblade.Core
             int? executeBelowPercent = null, bool? executeKills = null, ScaleBasis? scaleBy = null, int? scaleMin = null,
             int? counterPercent = null,
             bool? counterColumn = null, int? counterHits = null, int? counterExecuteBelow = null,
-            int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null) =>
+            int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null,
+            int? executeSplashPercent = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
@@ -564,7 +574,8 @@ namespace Brushblade.Core
                 RetainPercent, PortionPercent, scaleBy ?? ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
                 MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp,
                 counterColumn ?? CounterColumn, counterHits ?? CounterHits, counterExecuteBelow ?? CounterExecuteBelow,
-                blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp)
+                blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
+                executeSplashPercent ?? ExecuteSplashPercent)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

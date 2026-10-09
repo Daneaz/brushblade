@@ -346,6 +346,7 @@ namespace Brushblade.Core
                 // 斩杀(D2-金 E7,铡刀落)与击数按战意(E10,大卸八块)
                 executeBelowPercent: r.ExecuteBelowPercent > 0 ? r.ExecuteBelowPercent : (int?)null,
                 executeKills: r.ExecuteBelowPercent > 0 ? r.ExecuteKills : (bool?)null,
+                executeSplashPercent: r.ExecuteSplashPercent > 0 ? r.ExecuteSplashPercent : (int?)null,   // J4 斩杀溅射
                 scaleBy: r.ScaleBy != ScaleBasis.None ? r.ScaleBy : (ScaleBasis?)null);
         }
 

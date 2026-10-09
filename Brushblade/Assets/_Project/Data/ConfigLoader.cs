@@ -113,6 +113,8 @@ namespace Brushblade.Data
             public int BlockBleed { get; set; }             // 格挡时给攻击者挂流血(量吃卡等级与攻击力)
             public int BlockMorale { get; set; }            // 格挡时战意 +N
             public int KillRefundAp { get; set; }           // 反击击杀:下回合 +N AP
+            // D2-金 Task 3(附录 J4)
+            public int ExecuteSplashPercent { get; set; }   // 斩杀溅射:斩杀后同排左右受死者最大生命 N%(只配 executeKills)
         }
 
         private sealed class CampaignFileDto
@@ -856,7 +858,8 @@ namespace Brushblade.Data
                     effect.MinBurn, effect.PerBurningHit,
                     effect.Fill, effect.CounterPercent, effect.ScaleMin, effect.OfVictimMaxHp,
                     effect.CounterColumn, effect.CounterHits, effect.CounterExecuteBelow,
-                    effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp));
+                    effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp,
+                    effect.ExecuteSplashPercent));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -977,6 +980,10 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的格挡附带数值越界(都须 ≥ 0,counterExecuteBelow 须 < 100)");
             if (kind == EffectKind.BlockMod && e.CounterPercent == 0 && string.IsNullOrEmpty(e.ScaleBy) && !riders)
                 throw new ConfigException($"字「{id}」的 BlockMod 什么也没改(写 counterPercent / scaleBy Morale / 格挡附带)");
+            // D2-金 Task 3(J4):斩杀溅射只配直接斩杀(executeKills + executeBelowPercent),1–100
+            if (e.ExecuteSplashPercent != 0 && (!e.ExecuteKills || e.ExecuteBelowPercent <= 0
+                    || e.ExecuteSplashPercent < 0 || e.ExecuteSplashPercent > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 效果 executeSplashPercent 只能配直接斩杀(executeKills),且须在 1–100:{e.ExecuteSplashPercent}");
             if (e.OfVictimMaxHp && (kind != EffectKind.HealSelf || !string.IsNullOrEmpty(e.ScaleBy)))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofVictimMaxHp(只给 HealSelf,且不与 scaleBy 同用)");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
