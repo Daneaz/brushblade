@@ -3930,6 +3930,110 @@
               "value": 2
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "刚",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "All",
+              "onlyIf": "MoraleFull"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "四金",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 4,
+              "hitPercent": 30,
+              "perHit": [
+                {
+                  "kind": "ArmorBreak",
+                  "value": 15,
+                  "turns": 3
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "千锤",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 0,
+              "fill": true
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "counterPercent": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "破军",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Damage",
+              "onlyIf": "ArmorBroken"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "千钧",
+          "effects": [
+            {
+              "kind": "ArmorBreak",
+              "value": 45,
+              "turns": 3
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "armorIgnorePercent": 100
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "金刚",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 3,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "Morale",
+              "value": 0,
+              "fill": true
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "counterPercent": 60
+            }
+          ]
         }
       ]
     },
@@ -3996,6 +4100,102 @@
               "value": 2
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "聚金",
+          "effects": [
+            {
+              "kind": "MoraleOverflowShield",
+              "value": 30
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "三才",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Adjacent",
+              "shapePercent": 100
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "金身",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 1,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "DefenseBuff",
+              "value": 30,
+              "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "富甲",
+          "effects": [
+            {
+              "kind": "MoraleArmor",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "三金破",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Damage",
+              "onlyIf": "MoraleFull"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 3,
+              "hitPercent": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "金玉满堂",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 3,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "Morale",
+              "value": 2,
+              "openingBattles": 5
+            },
+            {
+              "kind": "Morale",
+              "value": 0,
+              "fill": true
+            }
+          ]
         }
       ]
     },
@@ -4060,6 +4260,105 @@
             {
               "kind": "Block",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnCrit",
+          "name": "放血",
+          "effects": [
+            {
+              "kind": "Bleed",
+              "value": 50,
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "放血",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "刲刺",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Damage",
+              "onlyIf": "Bleeding"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "匿锋",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 2
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "blockBleed": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "割取",
+          "effects": [
+            {
+              "kind": "HealSelf",
+              "value": 10,
+              "ofVictimMaxHp": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "割喉",
+          "effects": [
+            {
+              "kind": "Doom",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "刀光",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 2,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Counter"
             }
           ]
         }
@@ -4130,6 +4429,38 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnDismantle",
+          "name": "双金",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "金石",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 2,
+              "hitPercent": 60,
+              "perHit": [
+                {
+                  "kind": "ArmorBreak",
+                  "value": 20,
+                  "turns": 3
+                }
+              ]
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "蓄势",
@@ -4137,6 +4468,54 @@
             {
               "kind": "Morale",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "金气",
+          "effects": [
+            {
+              "kind": "MoraleShield",
+              "value": 40
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "双锋",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 2,
+              "perHit": [
+                {
+                  "kind": "Morale",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "双金合璧",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 2,
+              "openingBattles": 1
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "scaleBy": "Morale",
+              "scaleMin": 2
             }
           ]
         }
@@ -4207,6 +4586,18 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnExecute",
+          "name": "铁则",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 2
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Attack",
           "name": "破甲",
@@ -4215,6 +4606,18 @@
               "kind": "ArmorBreak",
               "value": 26,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "立威",
+          "effects": [
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "counterExecuteBelow": 20
             }
           ]
         },
@@ -4228,6 +4631,42 @@
               "kind": "Amplify",
               "value": 50,
               "scope": "Counter"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "铡刀落",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "executeBelowPercent": 35,
+              "executeKills": true,
+              "executeSplashPercent": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "铡关",
+          "effects": [
+            {
+              "kind": "DamageCut",
+              "value": 50
+            },
+            {
+              "kind": "Retaliate",
+              "value": 0,
+              "perHit": [
+                {
+                  "kind": "Bleed",
+                  "value": 35,
+                  "turns": 2
+                }
+              ]
             }
           ]
         }
@@ -4298,6 +4737,38 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "剁骨",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "perHit": [
+                {
+                  "kind": "Bleed",
+                  "value": 35
+                }
+              ],
+              "perHitFrom": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "剁骨",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 18,
+              "scope": "All"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Attack",
           "name": "连斩",
@@ -4311,6 +4782,19 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "剁截",
+          "effects": [
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "counterPercent": 40,
+              "counterHits": 3
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -4320,6 +4804,37 @@
             {
               "kind": "Morale",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "大卸八块",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitPercent": 35,
+              "scaleBy": "Morale"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "刀山",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 2,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "blockBleed": 35
             }
           ]
         }
@@ -4429,6 +4944,22 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "剑意",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 1
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "counterPercent": 50
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -4438,6 +4969,24 @@
             {
               "kind": "Morale",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "横扫千军",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 1,
+              "scaleBy": "ExtraHitTarget"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Row",
+              "shapePercent": 50
             }
           ]
         },
@@ -4559,6 +5108,24 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "锥立",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 1,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "counterColumn": true
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
@@ -4568,6 +5135,20 @@
               "kind": "Amplify",
               "value": 50,
               "scope": "Counter"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "锥心",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Column",
+              "shapePercent": 70,
+              "armorIgnorePercent": 100
             }
           ]
         },
@@ -4680,6 +5261,24 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "坚营",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 1,
+              "augmentKind": "Block",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "blockMorale": 1
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -4689,6 +5288,19 @@
             {
               "kind": "Morale",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "直捣巢穴",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Row",
+              "shapePercent": 50
             }
           ]
         },
@@ -4836,6 +5448,22 @@
               "armorIgnorePercent": 50
             }
           ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "得利",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 2
+            },
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "killRefundAp": 1
+            }
+          ]
         }
       ]
     },
@@ -4951,6 +5579,18 @@
             {
               "kind": "Morale",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "锋锐",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "forceCrit": true
             }
           ]
         },
