@@ -267,7 +267,8 @@ PER_TOKEN = "per"
 CAP_TOKEN = "cap"
 SCALE_BASES = {"BurnStack", "BurningEnemy"}
 SCALE_HOST_KINDS = {"Amplify", "HealSelf"}
-# 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起),
+# 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
+# 段必须写在格子末尾,段内每个 `+` 分段恰好一条效果、按书写顺序落表(_parse_segment,终审 5),
 # 挂到本格的 Reshape(没有则唯一的 DamageSingle)上。火的两条糖:`hitBurn N` = perHit [BurnSingle N],
 # `hitSettle` = perHit [BurnSettleNow keep]。每击附带里不能再有伤害 / 修饰器 / 开局登记(ConfigLoader 同样拦)。
 PER_HIT_TOKEN = "perHit"
@@ -282,6 +283,24 @@ PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment"}
 # 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
 ON_HIT_TOKEN = "onHit"
 RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vulnerable", "Slow", "Freeze"}
+
+
+def _parse_segment(segment, config, char, token):
+    """`perHit` / `onHit` 段(终审 5):段写在格子末尾,`token` 之后到格尾全是这一段;段内按 `+` 分段,
+    **每个分段恰好一条效果**,按书写顺序落表。整段一次性交给 _parse_effects 会按解析器内部的 Kind 顺序重排,
+    同 Kind 两条时修饰 token(turns 等)还会串到别的条目上 —— 逐段解析才能保住作者的顺序与归属。"""
+    if not segment.strip():
+        return []
+    effects = []
+    for chunk in re.split(r"\s\+\s|\s\+$", segment):
+        if not chunk.strip():
+            raise ValueError(f"{char}:配置格「{config}」的 `{token}` 段有空的 `+` 分段")
+        parsed = _parse_effects(chunk, char)
+        if len(parsed) != 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{token}` 段每个 `+` 分段须恰好一条效果(写在格子末尾,"
+                             f"段内效果之间用 + 分开):「{chunk.strip()}」解析出 {len(parsed)} 条")
+        effects.extend(parsed)
+    return effects
 
 
 def _attach_per_hit(config, char, effects, riders, start):
@@ -691,7 +710,7 @@ def _parse_effects(config, char, on_hit_host=False):
             raise ValueError(f"{char}:配置格「{config}」写了多个 `{ON_HIT_TOKEN}`,只能有一段")
         m = on_hit[0]
         effects = _parse_effects(config[:m.start()], char, on_hit_host=True)
-        _attach_on_hit(config, char, effects, _parse_effects(config[m.end():], char) if config[m.end():].strip() else [])
+        _attach_on_hit(config, char, effects, _parse_segment(config[m.end():], config, char, ON_HIT_TOKEN))
         return effects
 
     per_hit = list(re.finditer(rf"`{PER_HIT_TOKEN}(?: (\d+))?`", config))
@@ -700,7 +719,7 @@ def _parse_effects(config, char, on_hit_host=False):
             raise ValueError(f"{char}:配置格「{config}」写了多个 `perHit`,只能有一段")
         m = per_hit[0]
         effects = _parse_effects(config[:m.start()], char)
-        riders = _parse_effects(config[m.end():], char)
+        riders = _parse_segment(config[m.end():], config, char, PER_HIT_TOKEN)
         _attach_per_hit(config, char, effects, riders, int(m.group(1)) if m.group(1) else None)
         return effects
 

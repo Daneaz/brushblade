@@ -323,6 +323,50 @@ namespace Brushblade.Core.Tests
             Assert.That(Burn(b, 0), Is.EqualTo(1), "打死那一击的附带不落在尸体上");
         }
 
+        [Test]
+        public void PerHit_KillingBlow_NoRiderAtAll_EvenKindsWithoutOwnAliveGuard()
+        {
+            // 终审 5:每击附带的入口统一判存活 —— 破甲 / 魅惑这类分支自己不判存活,以前会挂到尸体上
+            var def = Char(new EffectDef(EffectKind.DamageSingle, 100, perHit: new[]
+            {
+                new EffectDef(EffectKind.ArmorBreak, 5, turns: 2), new EffectDef(EffectKind.Charm, 0, turns: 1),
+                new EffectDef(EffectKind.Morale, 1),
+            }));
+            var b = Battle(def, 1, new[] { new EnemyDef("怔", Element.Heart, 1, 0), new EnemyDef("怔", Element.Heart, Hp, 0) });
+            Assert.That(b.Cast("试", 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Alive, Is.False, "前提:这一击打死了目标");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.ArmorBreak), Is.False, "破甲不挂尸体");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Charm), Is.False, "魅惑不挂尸体");
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0),
+                "口径:目标被这一击打死 → 这一击的附带整组作罢(我方侧也不结算)");
+        }
+
+        private static CharDef TraitChar(params TraitDef[] traits) => new("试", Element.Heart,
+            effects: new[] { new EffectDef(EffectKind.Shield, 10) },
+            attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+            traits: traits);
+
+        [Test]
+        public void PerHit_FromTrait_RidersCarryTraitKey_G11()
+        {
+            // 终审 5:特性带来的每击附带也是特性来源(G11),减攻与本体分开计时。Reshape(修饰器)与追加的伤害两条路都要打键
+            var reshape = new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Active, null, "连斩",
+                new[] { new EffectDef(EffectKind.Reshape, 0, hitCount: 2,
+                    perHit: new[] { new EffectDef(EffectKind.Weaken, 10, turns: 2) }) });
+            var b = Battle(TraitChar(reshape), 5, Mobs(1));
+            Assert.That(b.Cast("试", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            var curse = b.Enemies[0].Statuses.All.Single(x => x.Kind == StatusKind.Curse);
+            Assert.That(curse.TraitKey, Is.EqualTo(BattleEngine.TraitKey("试", TraitSlot.Lv5, TraitFace.Attack)), "Reshape 带来的附带");
+
+            var extra = new TraitDef(TraitSlot.Lv8, TraitFace.Attack, TraitForm.Active, null, "补刀",
+                new[] { new EffectDef(EffectKind.DamageSingle, 10,
+                    perHit: new[] { new EffectDef(EffectKind.Vulnerable, 10, turns: 1) }) });
+            var c = Battle(TraitChar(extra), 8, Mobs(1));
+            Assert.That(c.Cast("试", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            var mark = c.Enemies[0].Statuses.All.Single(x => x.Kind == StatusKind.Vulnerable);
+            Assert.That(mark.TraitKey, Is.EqualTo(BattleEngine.TraitKey("试", TraitSlot.Lv8, TraitFace.Attack)), "追加伤害带的附带");
+        }
+
         // ---------------- ConfigLoader ----------------
 
         private static RecipeGraph Load(string attackEffects) => Brushblade.Data.ConfigLoader.LoadGraph(

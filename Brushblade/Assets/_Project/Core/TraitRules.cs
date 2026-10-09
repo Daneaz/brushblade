@@ -121,7 +121,13 @@ namespace Brushblade.Core
                 bool replacesLv1 = t.Replaces == TraitSlot.Lv1;
                 foreach (var raw in t.Effects)
                 {
-                    if (IsModifier(raw.Kind)) { modifiers.Add(raw); continue; }
+                    if (IsModifier(raw.Kind))
+                    {
+                        // Reshape 带来的每击附带同样是特性来源(G11):本体的 DamageSingle 不打键,键只能打在附带上
+                        bool bodySlot = t.Slot == TraitSlot.Lv1 || t.Slot == TraitSlot.Lv3;   // 同 ForCast:Lv1 / Lv3 是本体,不打
+                        modifiers.Add(bodySlot ? raw : TagPerHit(raw, BattleEngine.TraitKey(def.Id, t.Slot, t.Face)));
+                        continue;
+                    }
                     // 附着类(D1 Task 9,附录 M9)与非替换特性:追加,打上特性键(ForCast;载体配对 / G11 分来源)
                     if (IsAttached(raw) || !replacesLv1)
                     {
@@ -161,8 +167,15 @@ namespace Brushblade.Core
         {
             e = ResolveBodyPercent(e, body, def);
             bool tag = IsAttached(e) || (t.Slot != TraitSlot.Lv1 && t.Slot != TraitSlot.Lv3);
-            return tag ? e.With(traitKey: BattleEngine.TraitKey(def.Id, t.Slot, t.Face)) : e;
+            if (!tag) return e;
+            string key = BattleEngine.TraitKey(def.Id, t.Slot, t.Face);
+            return TagPerHit(e, key).With(traitKey: key);
         }
+
+        /// <summary>每击附带的子效果随宿主打特性来源键(终审 5,G11):否则每击挂的减攻 / 致盲 / 标记会与本体同源合并。
+        /// 没有每击附带时原样返回。</summary>
+        private static EffectDef TagPerHit(EffectDef e, string key) =>
+            e.PerHit.Count == 0 ? e : e.With(perHit: e.PerHit.Select(c => c.With(traitKey: key)).ToList());
 
         /// <summary>bodyPercent(E5):Value = 本体伤害基数 × N%(向下取整),基数见 <see cref="BodyDamageOf"/>。未启用原样返回。</summary>
         private static EffectDef ResolveBodyPercent(EffectDef e, IReadOnlyList<EffectDef> body, CharDef def)

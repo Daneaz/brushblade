@@ -3276,9 +3276,12 @@ namespace Brushblade.Core
                                 if (!_cast.HitTargets.Contains(tgt)) _cast.HitTargets.Add(tgt);   // 选择器 HitTargets 用
                                 // 暴击时(D1 Task 9,炽烈):每击各入队,目标 = 这一击的落点;Cast 末尾兑现
                                 if (crit) EnqueueCastTraits(_cast.OnCrit, tgt);
-                                // 每击附带(D2-火 N4b / 跨计划 Q23):这一击之后对这一击的目标同步结算(目标死了由各分支的存活守卫挡下);
-                                // 击序 = 这个目标身上的第几击,从 PerHitFrom 起。缺省空表整句跳过
-                                if (effect.PerHit.Count > 0 && hit + 1 >= effect.PerHitFrom)
+                                // 每击附带(D2-火 N4b / 跨计划 Q23):这一击之后对这一击的目标同步结算;
+                                // 击序 = 这个目标身上的第几击,从 PerHitFrom 起。缺省空表整句跳过。
+                                // 存活在入口统一判(终审 5):这一击打死了目标 → 整组附带作罢(含我方侧的,如战意),
+                                // 不依赖各分支自己的存活守卫(破甲 / 魅惑分支没有)。
+                                // 形状展开的非主目标(溅射 / 弹射 / 散射)每一击同样带附带。
+                                if (effect.PerHit.Count > 0 && hit + 1 >= effect.PerHitFrom && _enemies[tgt].Alive)
                                     foreach (var rider in effect.PerHit) ResolveEffect(rider, tgt);
                             }
                         }

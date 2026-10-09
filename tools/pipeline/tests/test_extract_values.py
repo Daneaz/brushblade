@@ -734,6 +734,28 @@ def test_d2fire_generic_per_hit_section():
         {"kind": "DamageSingle", "value": 40, "perHit": [{"kind": "BurnSettleNow", "value": 0, "keepStacks": True}]}]
 
 
+def test_d2fire_segment_keeps_authoring_order_one_effect_per_plus():
+    # 终审 5:`perHit` / `onHit` 段写在格子末尾,段内每个 `+` 分段恰好一条效果,按书写顺序落表(不按解析器内部顺序重排),
+    # 修饰 token(turns 等)只归本分段那条效果
+    assert _parse_effects("`DamageSingle 40` `perHit` `BurnSettleNow` `keep` + `BurnSingle 1`", "炎")[0]["perHit"] == [
+        {"kind": "BurnSettleNow", "value": 0, "keepStacks": True}, {"kind": "BurnSingle", "value": 1}]
+    assert _parse_effects("`DamageSingle 40` `perHit` `Weaken 5` `turns 2` + `Weaken 7` `turns 1`", "金")[0]["perHit"] == [
+        {"kind": "Weaken", "value": 5, "turns": 2}, {"kind": "Weaken", "value": 7, "turns": 1}]
+    assert _parse_effects("`Retaliate` `onHit` `Weaken 5` `turns 2` + `BurnSingle 2`", "烈")[0]["perHit"] == [
+        {"kind": "Weaken", "value": 5, "turns": 2}, {"kind": "BurnSingle", "value": 2}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`DamageSingle 40` `perHit` `BurnSingle 1` `Morale 1`", "perHit"),          # 一个分段写了两条效果(漏了 +)
+    ("`Retaliate` `onHit` `BurnSingle 1` `Bleed 2`", "onHit"),                   # 同上(回敬段)
+    ("`DamageSingle 40` `perHit` `BurnSingle 1` + ", "perHit"),                  # 空分段
+])
+def test_d2fire_segment_one_effect_per_plus_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
 @pytest.mark.parametrize("config, needle", [
     ("`BurnSingle 2` `retain 50`", "retain"),                          # retain 只挂 Detonate
     ("`Detonate` `retain 50` `portion 50`", "portion"),                # 二选一
