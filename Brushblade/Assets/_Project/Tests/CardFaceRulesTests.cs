@@ -29,6 +29,23 @@ namespace Brushblade.Core.Tests
             Assert.That(L(id, CardFace.Feature), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
         }
 
+        /// <summary>D2-水 E26(溃·溃围):润面带 `pick All` 的敌方效果(不需要选敌)不给落点加 Enemy ——
+        /// 需要友方目标的面仍只落友方;没有友方需求时照旧(火海这类全体减攻面仍可拖到敌人身上)。</summary>
+        [Test]
+        public void AllyFace_WithPickAllHostileRider_DoesNotLandOnEnemy()
+        {
+            var def = new CharDef("溃试", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 30), new EffectDef(EffectKind.Slow, 1, pick: EffectPick.All) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+            Assert.That(CardFaceRules.Landing(def, CardFace.Feature, 1), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
+
+            var noAlly = new CharDef("溃试二", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Weaken, 25, turns: 2, pick: EffectPick.All) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+            Assert.That(CardFaceRules.Landing(noAlly, CardFace.Feature, 1).HasFlag(FaceLanding.Enemy), Is.True,
+                "没有友方需求的面:pick All 敌对效果照旧构成 Enemy 落点");
+        }
+
         [Test]
         public void Metal_Li_AttackHitsEnemy()
         {

@@ -43,7 +43,8 @@ namespace Brushblade.Core
             bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode);
 
             var landing = FaceLanding.None;
-            if (needsEnemy || hostile) landing |= FaceLanding.Enemy;
+            // D2-水 E26(溃围):需要友方目标的面,pick All 的敌方附带不另加 Enemy 落点(那条效果不选敌)
+            if (needsEnemy || (hostile && !needsAlly)) landing |= FaceLanding.Enemy;
             if (needsAlly) landing |= FaceLanding.Self | FaceLanding.Summons;
             else if (!needsEnemy && !summons && !hostile) landing |= FaceLanding.Self;
             if (summons) landing |= FaceLanding.EmptySlot;
