@@ -357,7 +357,14 @@ namespace Brushblade.Core
             effects[at] = effects[at].With(
                 counterPercent: m.CounterPercent > 0 ? m.CounterPercent : (int?)null,
                 scaleBy: m.ScaleBy != ScaleBasis.None ? m.ScaleBy : (ScaleBasis?)null,
-                scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null);
+                scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null,
+                // D2-金 Task 2(J1):格挡附带的运行时字段,同样非缺省覆盖
+                counterColumn: m.CounterColumn ? true : (bool?)null,
+                counterHits: m.CounterHits > 0 ? m.CounterHits : (int?)null,
+                counterExecuteBelow: m.CounterExecuteBelow > 0 ? m.CounterExecuteBelow : (int?)null,
+                blockBleed: m.BlockBleed > 0 ? m.BlockBleed : (int?)null,
+                blockMorale: m.BlockMorale > 0 ? m.BlockMorale : (int?)null,
+                killRefundAp: m.KillRefundAp > 0 ? m.KillRefundAp : (int?)null);
         }
 
         public static bool InScope(AmpScope scope, EffectKind kind)

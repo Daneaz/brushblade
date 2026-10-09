@@ -961,3 +961,46 @@ def test_d2metal_task1_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-金 Task 2:格挡附带(附录 J1)----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 得利
+    ("`Morale 2` + `BlockMod` `killRefund 1`", "利",
+     [{"kind": "Morale", "value": 2}, {"kind": "BlockMod", "value": 0, "killRefundAp": 1}]),
+    # 锥立
+    ("`Augment 1` `of Block` `field Count` + `BlockMod` `counterShape Column`", "锥",
+     [{"kind": "Augment", "value": 1, "augmentKind": "Block", "augmentField": "Count"},
+      {"kind": "BlockMod", "value": 0, "counterColumn": True}]),
+    # 坚营
+    ("`Augment 1` `of Block` `field Count` + `BlockMod` `blockMorale 1`", "剿",
+     [{"kind": "Augment", "value": 1, "augmentKind": "Block", "augmentField": "Count"},
+      {"kind": "BlockMod", "value": 0, "blockMorale": 1}]),
+    # 剁截
+    ("`BlockMod` `counterHits 3` `counter 40`", "剁",
+     [{"kind": "BlockMod", "value": 0, "counterPercent": 40, "counterHits": 3}]),
+    # 刀山 / 匿锋
+    ("`Augment 2` `of Block` `field Count` + `BlockMod` `blockBleed 35`", "剁",
+     [{"kind": "Augment", "value": 2, "augmentKind": "Block", "augmentField": "Count"},
+      {"kind": "BlockMod", "value": 0, "blockBleed": 35}]),
+    ("`Morale 2` + `BlockMod` `blockBleed 50`", "刲",
+     [{"kind": "Morale", "value": 2}, {"kind": "BlockMod", "value": 0, "blockBleed": 50}]),
+    # 立威
+    ("`BlockMod` `counterExecute 20`", "铡", [{"kind": "BlockMod", "value": 0, "counterExecuteBelow": 20}]),
+])
+def test_d2metal_task2_block_rider_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Block 1` `counterHits 3`", "counterHits"),          # 没有 BlockMod 宿主
+    ("`Block 1` `counterShape Column`", "counterShape"),
+    ("`BlockMod` `counterShape Row`", "counterShape"),      # 只认 Column
+    ("`BlockMod` `counterExecute 100`", "counterExecute"),  # 阈值须 < 100
+    ("`BlockMod` `killRefund 0`", "killRefund"),            # 须 ≥ 1
+])
+def test_d2metal_task2_block_rider_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

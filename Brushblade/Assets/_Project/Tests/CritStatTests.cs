@@ -558,6 +558,8 @@ namespace Brushblade.CoreTests
             // D2-火 Task 4:出手前 / 受击挂点
             Assert.That((int)StatusKind.Mine, Is.EqualTo(40), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Retaliate, Is.EqualTo(41), "新值必须追加在末尾");
+            // D2-金 Task 2:AP 返还(得利,隐藏载体)
+            Assert.That((int)StatusKind.ApRefund, Is.EqualTo(42), "新值必须追加在末尾");
         }
     }
 }

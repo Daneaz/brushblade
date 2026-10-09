@@ -3061,6 +3061,7 @@ namespace Brushblade.Core
             // 顺序:先加 ApBoost(利,2026-08-12)再减封字,最后才钳保底 —— 反过来
             // (先钳后加)会让重封字下的 利 白白多给一点 AP。
             Ap = Math.Max(1, ApPerTurn - _playerStatuses.TotalMagnitude(StatusKind.Seal));
+            ConsumeApRefund();   // 得利(D2-金 J2):保底之后再加,用完即移除;没有时一次判断即返回
 
             // 回合掉字(2026-08-04):从出战牌组掉 N 个字入库,满库则停下让玩家决议。
             // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
@@ -3718,11 +3719,13 @@ namespace Brushblade.Core
                         // (剑意 50 + 刀光 100 = 本体 × 50% × 2)—— 见 MetalSharedExtTests.BlockMod_CounterPercent_ThenAmplifyCounter
                         counter = Amplified(counter, AmpPercent(effect, -1));
                         // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
-                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
+                        var blockStatus = new StatusEffect
                         {
                             Kind = StatusKind.Block, Polarity = StatusPolarity.Buff,
                             Magnitude = BlockCountOf(effect), CounterDamage = counter, TurnsLeft = -1,   // 次数可按战意(E10)
-                        }, AllyRef(allySlot), UnitRef.Player);
+                        };
+                        CarryBlockRiders(blockStatus, effect, def.Id, cardLevel);   // 格挡附带(D2-金 J1),缺省全空
+                        ApplyStatus(AllyStatuses(allySlot), blockStatus, AllyRef(allySlot), UnitRef.Player);
                         break;
                     }
                     case EffectKind.BurnNoDecay:
@@ -4578,6 +4581,7 @@ namespace Brushblade.Core
                 {
                     effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
                     effect.CounterDamage = Math.Max(effect.CounterDamage, existing.CounterDamage);
+                    MergeBlockRiders(effect, existing);   // 格挡附带(D2-金 Q4):数值取大、开关取并
                 }
             }
             else if (effect.Kind == StatusKind.Burn)
@@ -5610,7 +5614,7 @@ namespace Brushblade.Core
             }
             // 格挡反击:与镜共用 60% 反伤预算(§5.2.3),镜先用,反击拿剩下的
             // 结算与木灵侧共用 ResolveCounter(D2-金 J1)
-            int counterDealt = ResolveCounter(enemyIndex, block, counter,
+            int counterDealt = ResolveCounter(enemyIndex, blocking ? block : null, counter,
                 damage * CombatCaps.ReflectPercent / 100 - bounced, UnitRef.Player);
             // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
             // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
@@ -5798,7 +5802,7 @@ namespace Brushblade.Core
             }
             // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
             // 结算与玩家侧共用 ResolveCounter(D2-金 J1)
-            ResolveCounter(enemyIndex, block, blockCounter,
+            ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
                 taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);

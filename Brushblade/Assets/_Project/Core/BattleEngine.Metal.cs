@@ -67,20 +67,131 @@ namespace Brushblade.Core
             return effect.AmpTerms.Count == 0 ? heal : Amplified(heal, AmpPercent(effect, targetIndex));
         }
 
-        // ---- Task 2:格挡附带运行时(附录 J1)----
+        // ---- Task 2:格挡附带运行时(附录 J1 / J2)----
 
-        /// <summary>格挡反击(玩家侧 DamagePlayerDirect 与木灵侧 DamageSummon 共用):<paramref name="counter"/> = 本次反击量
-        /// (CounterDamage 已乘反击增强),<paramref name="budget"/> = 60% 反伤预算扣掉先结算的镜 / 荆棘之后的余额。
-        /// 攻击者已死或反击量 / 余额为 0 时什么都不做。返回实际打出的反击伤害合计(反震从同一份预算里扣它)。</summary>
+        /// <summary>贯穿反击打同列其余目标的百分比(锥立「其余目标 70%」)。</summary>
+        public const int CounterColumnPercent = 70;
+
+        /// <summary>出字时把 Block 条目上的格挡附带搬进状态(J1)。流血量此刻按卡等级与攻击力定死(Q12);
+        /// 立威记下施加者字 ID(Task 3 铁则回查)。全缺省时什么都不写 —— 状态与原格挡逐位相同。</summary>
+        private void CarryBlockRiders(StatusEffect block, EffectDef effect, string charId, int cardLevel)
+        {
+            block.CounterColumn = effect.CounterColumn;
+            block.CounterHits = effect.CounterHits;
+            block.CounterExecuteBelow = effect.CounterExecuteBelow;
+            block.BlockBleed = effect.BlockBleed > 0
+                ? ScaleByAttack(MetaRules.ScaleByCardLevel(effect.BlockBleed, cardLevel)) : 0;
+            block.BlockMorale = effect.BlockMorale;
+            block.KillRefundAp = effect.KillRefundAp;
+            block.ExecuteSourceCharId = effect.CounterExecuteBelow > 0 ? charId : null;
+        }
+
+        /// <summary>格挡同类合并的附带部分(Q4):数值取大、开关取并;<see cref="StatusEffect.ExecuteSourceCharId"/>
+        /// 跟最近一次带立威的施加(新条没有立威就沿用旧条的)。<paramref name="incoming"/> 是将要放进袋子的新条。</summary>
+        private static void MergeBlockRiders(StatusEffect incoming, StatusEffect existing)
+        {
+            incoming.CounterColumn |= existing.CounterColumn;
+            incoming.CounterHits = Math.Max(incoming.CounterHits, existing.CounterHits);
+            incoming.CounterExecuteBelow = Math.Max(incoming.CounterExecuteBelow, existing.CounterExecuteBelow);
+            incoming.BlockBleed = Math.Max(incoming.BlockBleed, existing.BlockBleed);
+            incoming.BlockMorale = Math.Max(incoming.BlockMorale, existing.BlockMorale);
+            incoming.KillRefundAp = Math.Max(incoming.KillRefundAp, existing.KillRefundAp);
+            incoming.ExecuteSourceCharId ??= existing.ExecuteSourceCharId;
+        }
+
+        /// <summary>格挡被消耗后的结算(玩家侧 DamagePlayerDirect 与木灵侧 DamageSummon 共用;排在镜 / 荆棘之后、反震之前)。
+        /// <paramref name="block"/> = 这一下消耗掉的格挡(没格挡 = null,直接返回 0);<paramref name="counter"/> = 每击反击量
+        /// (CounterDamage 已乘反击增强);<paramref name="budget"/> = 60% 反伤预算扣掉先结算的镜 / 荆棘之后的余额。
+        ///
+        /// 顺序:格挡加战意 → 攻击者流血(两者不是伤害,不占预算,预算为 0 也给)→ 立威判血(杂兵斩杀,不吃预算,Q3;
+        /// Boss 改本次反击 ×2)→ 攻击者 N 击 → 贯穿时同列其余存活敌人(下标序)各 N 击 × 70%。
+        /// 所有伤害击共用一份预算,扣完即止(Q2)。反击 / 立威造成击杀且带 KillRefundAp 时挂 ApRefund(J2)。
+        /// 返回实际打出的反击伤害合计(反震从同一份预算里扣它)。附带字段全缺省时与原反击段逐位相同、不摇随机数。</summary>
         private int ResolveCounter(int enemyIndex, StatusEffect block, int counter, int budget, UnitRef attackerRef)
         {
-            if (counter <= 0 || !_enemies[enemyIndex].Alive) return 0;
-            int dealt = Math.Min(counter, budget);
-            if (dealt <= 0) return 0;
-            DamageEnemy(enemyIndex, dealt, Element.Heart,
-                bypassDefense: true, allowBarb: false,
-                source: EffectSource.BlockCounter, attackerRef: attackerRef);
+            if (block == null) return 0;
+            var attacker = _enemies[enemyIndex];
+            if (block.BlockMorale > 0) AddPlayerCounter(StatusKind.Morale, block.BlockMorale, MoraleCapOrDefault);
+            if (block.BlockBleed > 0 && attacker.Alive)
+                ApplyStatus(attacker.Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
+                    Magnitude = block.BlockBleed, TurnsLeft = 3,   // Q12 缺省 3 回合;量出字时已定死
+                }, UnitRef.Enemy(enemyIndex), attackerRef);
+
+            bool killed = false;
+            int multiplier = 1;
+            if (block.CounterExecuteBelow > 0 && attacker.Alive
+                && (long)attacker.Hp * 100 < (long)attacker.MaxHp * block.CounterExecuteBelow)
+            {
+                if (attacker.IsBoss) multiplier = 2;   // Boss 不可斩杀:本次反击 ×2,仍受预算(Q3)
+                else
+                {
+                    // 同 TryExecuteKill:报实际抹掉的血量;斩杀不是伤害,不占预算
+                    int lost = attacker.Hp;
+                    attacker.Hp = 0;
+                    _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
+                    ResolveDefeat(enemyIndex, attackerRef, EffectSource.Execute);
+                    CheckWin();   // 敌人回合里斩掉最后一名敌人(同 BurnBurst 先例)
+                    killed = true;
+                }
+            }
+
+            int dealt = 0;
+            if (counter > 0)
+            {
+                int hits = Math.Max(1, block.CounterHits);
+                dealt += CounterHitsOn(enemyIndex, counter * multiplier, hits, budget - dealt, attackerRef, ref killed);
+                if (block.CounterColumn)
+                {
+                    int splash = counter * CounterColumnPercent / 100;
+                    for (int i = 0; i < _enemies.Count && splash > 0; i++)
+                    {
+                        if (i == enemyIndex || !_enemies[i].Alive) continue;
+                        if (!(_enemies[i].Column < attacker.ColumnEnd && attacker.Column < _enemies[i].ColumnEnd)) continue;
+                        dealt += CounterHitsOn(i, splash, hits, budget - dealt, attackerRef, ref killed);
+                    }
+                }
+            }
+            if (killed && block.KillRefundAp > 0) GrantApRefund(block.KillRefundAp);
             return dealt;
+        }
+
+        /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。</summary>
+        private int CounterHitsOn(int target, int perHit, int hits, int budget, UnitRef attackerRef, ref bool killed)
+        {
+            int dealt = 0;
+            for (int h = 0; h < hits; h++)
+            {
+                if (!_enemies[target].Alive) break;
+                int d = Math.Min(perHit, budget - dealt);
+                if (d <= 0) break;
+                DamageEnemy(target, d, Element.Heart,
+                    bypassDefense: true, allowBarb: false,
+                    source: EffectSource.BlockCounter, attackerRef: attackerRef);
+                dealt += d;
+                if (!_enemies[target].Alive) killed = true;
+            }
+            return dealt;
+        }
+
+        /// <summary>得利(J2,Q5):挂 ApRefund。已挂着(本轮已返还过)就不再挂 —— 每轮至多一次。</summary>
+        private void GrantApRefund(int ap)
+        {
+            if (_playerStatuses.Has(StatusKind.ApRefund)) return;
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = StatusKind.ApRefund, Polarity = StatusPolarity.Buff, Magnitude = ap, TurnsLeft = -1,
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>StartTurn 算完 AP 后兑现 ApRefund 并移除(J2)。没有时一次判断即返回。</summary>
+        private void ConsumeApRefund()
+        {
+            var refund = _playerStatuses.Find(StatusKind.ApRefund);
+            if (refund == null) return;
+            Ap += refund.Magnitude;
+            _playerStatuses.RemoveEntry(refund);
         }
     }
 }

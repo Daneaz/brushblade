@@ -60,6 +60,8 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.BurnHold)] = "隐藏载体(D2-火 V3,四火):一次性,玩家看到的是灼没有减层,触发反馈归 Plan E",
             [nameof(StatusKind.BurnBurstMark)] = "隐藏载体(D2-火 V3,焚城):死亡时的结算伤害本身就是反馈,来源标签归 Plan E",
             [nameof(StatusKind.BurnBacklashMark)] = "隐藏载体(D2-火 V3,焚身):出手前的灼烧结算本身就是反馈,来源标签归 Plan E",
+            // D2-金 Task 2(M2):得利的 AP 返还是隐藏载体,玩家看到的是下回合多出的 1 点 AP,触发反馈归 Plan E
+            [nameof(StatusKind.ApRefund)] = "隐藏载体(D2-金 M2,得利):下回合开始多给的 AP 本身就是反馈,触发反馈归 Plan E",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。

@@ -106,6 +106,13 @@ namespace Brushblade.Data
             public int CounterPercent { get; set; }         // Block / BlockMod:反击百分比覆盖(0 = 缺省 30)
             public int ScaleMin { get; set; }               // Block / BlockMod:次数按战意时的下限
             public bool OfVictimMaxHp { get; set; }         // HealSelf:回复量 = 被杀者 MaxHp × Value%
+            // D2-金 Task 2(附录 J1):格挡附带,只给 BlockMod
+            public bool CounterColumn { get; set; }         // 贯穿反击(同列其余 70%)
+            public int CounterHits { get; set; }            // 反击击数
+            public int CounterExecuteBelow { get; set; }    // 立威:攻击者生命 < N% 斩杀(Boss 反击 ×2)
+            public int BlockBleed { get; set; }             // 格挡时给攻击者挂流血(量吃卡等级与攻击力)
+            public int BlockMorale { get; set; }            // 格挡时战意 +N
+            public int KillRefundAp { get; set; }           // 反击击杀:下回合 +N AP
         }
 
         private sealed class CampaignFileDto
@@ -847,7 +854,9 @@ namespace Brushblade.Data
                     ParseEnum(effect.ScaleBy, ScaleBasis.None, dto.Id, "计数缩放口径"), effect.ScaleCap,
                     effect.PerHit == null ? null : ParseEffects(dto, effect.PerHit), effect.PerHitFrom, effect.ShotPercent,
                     effect.MinBurn, effect.PerBurningHit,
-                    effect.Fill, effect.CounterPercent, effect.ScaleMin, effect.OfVictimMaxHp));
+                    effect.Fill, effect.CounterPercent, effect.ScaleMin, effect.OfVictimMaxHp,
+                    effect.CounterColumn, effect.CounterHits, effect.CounterExecuteBelow,
+                    effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -957,12 +966,21 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleMin(只给 scaleBy Morale 的 BlockMod)");
             if (perMorale && e.ScaleMin < 1)
                 throw new ConfigException($"字「{id}」的格挡次数按战意(scaleBy Morale)须写下限 scaleMin ≥ 1:{e.ScaleMin}");
-            if (kind == EffectKind.BlockMod && e.CounterPercent == 0 && string.IsNullOrEmpty(e.ScaleBy))
-                throw new ConfigException($"字「{id}」的 BlockMod 什么也没改(写 counterPercent 或 scaleBy Morale)");
+            // D2-金 Task 2(J1):格挡附带只写在 BlockMod 上(Fold 搬到 Block);负数 / 越界一律拦
+            bool riders = e.CounterColumn || e.CounterHits != 0 || e.CounterExecuteBelow != 0
+                || e.BlockBleed != 0 || e.BlockMorale != 0 || e.KillRefundAp != 0;
+            if (riders && kind != EffectKind.BlockMod)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 counterColumn / counterHits / counterExecuteBelow / "
+                    + "blockBleed / blockMorale / killRefundAp(只给 BlockMod)");
+            if (e.CounterHits < 0 || e.BlockBleed < 0 || e.BlockMorale < 0 || e.KillRefundAp < 0
+                || e.CounterExecuteBelow < 0 || e.CounterExecuteBelow >= 100)
+                throw new ConfigException($"字「{id}」的格挡附带数值越界(都须 ≥ 0,counterExecuteBelow 须 < 100)");
+            if (kind == EffectKind.BlockMod && e.CounterPercent == 0 && string.IsNullOrEmpty(e.ScaleBy) && !riders)
+                throw new ConfigException($"字「{id}」的 BlockMod 什么也没改(写 counterPercent / scaleBy Morale / 格挡附带)");
             if (e.OfVictimMaxHp && (kind != EffectKind.HealSelf || !string.IsNullOrEmpty(e.ScaleBy)))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofVictimMaxHp(只给 HealSelf,且不与 scaleBy 同用)");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
-            if (e.OpeningBattles != 0 && (e.Fill || e.CounterPercent != 0 || e.ScaleMin != 0 || e.OfVictimMaxHp))
+            if (e.OpeningBattles != 0 && (e.Fill || e.CounterPercent != 0 || e.ScaleMin != 0 || e.OfVictimMaxHp || riders))
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 fill / counterPercent / scaleMin / ofVictimMaxHp(登记时会丢)");
         }
 

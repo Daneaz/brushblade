@@ -508,7 +508,14 @@ namespace Brushblade.Presentation
         /// 细化文案归 Task 5。</summary>
         private static string BlockModText(EffectDef e) =>
             Strings.T("char.effect.blockmod")
-            + (e.CounterPercent > 0 ? Strings.T("char.effect.blockmod.counter", ("percent", e.CounterPercent)) : "");
+            + (e.CounterPercent > 0 ? Strings.T("char.effect.blockmod.counter", ("percent", e.CounterPercent)) : "")
+            // 格挡附带(D2-金 Task 2,J1)最小文案;流血印基础值(出字时另吃卡等级与攻击力),细化归 Task 5
+            + (e.CounterHits > 1 ? Strings.T("char.effect.blockmod.hits", ("hits", e.CounterHits)) : "")
+            + (e.CounterColumn ? Strings.T("char.effect.blockmod.column", ("percent", BattleEngine.CounterColumnPercent)) : "")
+            + (e.CounterExecuteBelow > 0 ? Strings.T("char.effect.blockmod.execute", ("percent", e.CounterExecuteBelow)) : "")
+            + (e.BlockBleed > 0 ? Strings.T("char.effect.blockmod.bleed", ("value", e.BlockBleed)) : "")
+            + (e.BlockMorale > 0 ? Strings.T("char.effect.blockmod.morale", ("value", e.BlockMorale)) : "")
+            + (e.KillRefundAp > 0 ? Strings.T("char.effect.blockmod.refund", ("value", e.KillRefundAp)) : "");
 
         /// <summary>计数缩放后缀(D2-火 N4):「(每 1 层灼烧)」/「(每名带灼烧的敌人)」+ 上限。不缩放时空串。</summary>
         private static string ScaleText(EffectDef e) =>

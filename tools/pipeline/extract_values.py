@@ -304,6 +304,19 @@ COUNT_PER_MORALE_TOKEN = "countPerMorale"
 MIN_TOKEN = "min"
 OF_VICTIM_MAX_HP_TOKEN = "ofVictimMaxHp"
 
+# ---- D2-金 Task 2(附录 J1):格挡附带,只挂 BlockMod(Fold 时搬到本面第一条 Block)----
+# `counterShape Column`(锥立)→ counterColumn;`counterHits N`(剁截)、`counterExecute N`(立威)、`blockBleed N`(刀山 / 匿锋)、
+# `blockMorale N`(坚营)、`killRefund N`(得利)→ 同名 JSON 字段(counterExecute → counterExecuteBelow、killRefund → killRefundAp)。
+# 带数值的四个进通用循环的跳过名单,否则落成独立效果。
+COUNTER_SHAPE_TOKEN = "counterShape"
+BLOCK_RIDER_TOKENS = {
+    "counterHits": "counterHits",
+    "counterExecute": "counterExecuteBelow",
+    "blockBleed": "blockBleed",
+    "blockMorale": "blockMorale",
+    "killRefund": "killRefundAp",
+}
+
 
 def _parse_segment(segment, config, char, token):
     """`perHit` / `onHit` 段(终审 5):段写在格子末尾,`token` 之后到格尾全是这一段;段内按 `+` 分段,
@@ -421,12 +434,32 @@ def _attach_metal_ops(config, char, effects, consumed):
         if host.get("scaleBy") != "Morale" or len(minimum) > 1:
             raise ValueError(f"{char}:配置格「{config}」的 `min` 只配 `countPerMorale`(一个)")
         host["scaleMin"] = int(minimum[0])
+    # D2-金 Task 2(J1):格挡附带
+    shape = re.findall(rf"`{COUNTER_SHAPE_TOKEN} (\w+)`", config)
+    if shape:
+        consumed.add(COUNTER_SHAPE_TOKEN)
+        host = only({"BlockMod"}, COUNTER_SHAPE_TOKEN)
+        if shape != ["Column"]:
+            raise ValueError(f"{char}:配置格「{config}」的 `counterShape` 只认一个 `Column`(贯穿)")
+        host["counterColumn"] = True
+    for token, field in BLOCK_RIDER_TOKENS.items():
+        found = re.findall(rf"`{token} (\d+)`", config)
+        if not found:
+            continue
+        consumed.add(token)
+        host = only({"BlockMod"}, token)
+        if len(found) > 1 or int(found[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{token}` 只能写一个,且须 ≥ 1")
+        if token == "counterExecute" and int(found[0]) >= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `counterExecute` 须 < 100")
+        host[field] = int(found[0])
+    riders = {"counterColumn"} | set(BLOCK_RIDER_TOKENS.values())
     for e in effects:
         if e["kind"] == "BlockMod":
             if e.get("scaleBy") == "Morale" and e.get("scaleMin", 0) < 1:
                 raise ValueError(f"{char}:配置格「{config}」的 `countPerMorale` 须配下限 `min N`(N ≥ 1)")
-            if "counterPercent" not in e and "scaleBy" not in e:
-                raise ValueError(f"{char}:配置格「{config}」的 `BlockMod` 什么也没改(写 `counter N` 或 `countPerMorale` `min N`)")
+            if "counterPercent" not in e and "scaleBy" not in e and not riders & e.keys():
+                raise ValueError(f"{char}:配置格「{config}」的 `BlockMod` 什么也没改(写 `counter N` / `countPerMorale` `min N` / 格挡附带)")
     if f"`{OF_VICTIM_MAX_HP_TOKEN}`" in config:
         consumed.add(OF_VICTIM_MAX_HP_TOKEN)
         only({"HealSelf"}, OF_VICTIM_MAX_HP_TOKEN)["ofVictimMaxHp"] = True
@@ -896,6 +929,8 @@ def _parse_effects(config, char, on_hit_host=False):
             continue  # D2-火 Task 2 的修饰数值,下面挂到 Detonate / Amplify / 伤害上
         if kind in (COUNTER_TOKEN, MIN_TOKEN):
             continue  # D2-金 Task 1:BlockMod 的反击百分比 / 次数下限,下面挂到 BlockMod 上
+        if kind in BLOCK_RIDER_TOKENS:
+            continue  # D2-金 Task 2:格挡附带的数值,下面挂到 BlockMod 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
