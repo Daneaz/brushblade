@@ -71,6 +71,8 @@ namespace Brushblade.Core.Tests
             EffectKind.BlockMod,
             // D2-金 Task 3:致命的 Value = 回合数
             EffectKind.Doom,
+            // D2-水 Task 2:冰水的 Value = 减速回合、冷却的 Value = 拍数
+            EffectKind.ThawSlow, EffectKind.ChargeDelay,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
@@ -94,6 +96,8 @@ namespace Brushblade.Core.Tests
             EffectKind.Mine,
             // D2-金 Task 4:战意族 —— 聚金 / 富甲 / 金气的 Value 是护盾量 / 护甲点数,连续
             EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
+            // D2-水 Task 2:怀山 / 寒彻的 Value 是伤害量,吃卡等级(出字时再乘攻击力定死,同埋雷)
+            EffectKind.FrostBite, EffectKind.ThawStrike,
         };
 
         [Test]

@@ -65,6 +65,10 @@ namespace Brushblade.Core.Tests
             // D2-金 Task 4(M2):战意光环是隐藏载体,玩家看到的是护甲总数(PlayerInfo 本来就显示总甲)与回合开始的护盾
             [nameof(StatusKind.MoraleArmor)] = "隐藏载体(D2-金 M2,富甲):玩家护甲数字本来就显示总甲,战意变化时随之跳动",
             [nameof(StatusKind.MoraleShield)] = "隐藏载体(D2-金 M2,金气):回合开始多出的护盾本身就是反馈,触发反馈归 Plan E",
+            // D2-水 Task 2(V5):冻结附着族是隐藏载体,玩家看到的是冻结 chip 与结算伤害 / 冻结结束后的减速,冻结详情列附着归 Plan E
+            [nameof(StatusKind.FrostBite)] = "隐藏载体(D2-水 V5,怀山):冻结中每拍的伤害本身就是反馈,来源标签归 Plan E",
+            [nameof(StatusKind.ThawStrike)] = "隐藏载体(D2-水 V5,寒彻):冻结结束时的伤害本身就是反馈,来源标签归 Plan E",
+            [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。

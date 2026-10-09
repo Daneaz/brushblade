@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -94,6 +95,77 @@ namespace Brushblade.Core
             foreach (var s in _enemies[enemyIndex].Statuses.All)
                 if (s.Kind == StatusKind.SpeedModifier && s.Magnitude < 0) left = Math.Max(left, s.TurnsLeft);
             return left;
+        }
+
+        // ---- Task 2:冻结族(附录 W1 冻结载体附着、W2 冷却)----
+        // 附着走 D2-火 的通用件(ApplyRider / DropRiders),载体 = Freeze、名单 = _cast.FrozenTargets(Boss 的冰滞不算,Q3)。
+        // 冻结的两个结束点(ActEnemyTurn 冻结分支 tick 后自然到期、ThawOn 解冻)都在霜抗挂上之后调 OnFreezeEnd;
+        // 敌人死亡不是「冻结结束」,附着随尸体留在袋子里、不再结算。全部在没有附着时一次判断即返回,不摇随机数(trace 必经)。
+
+        /// <summary>冻结结束(自然到期 / 被解冻,霜抗已按现状挂上):先结算寒彻(每条一次伤害)、再挂冰水的减速(Q19:霜抗在前、减速在后,
+        /// 两者并存),最后 DropRiders(Freeze) 把挂在冻结上的附着(含怀山)一并移除。没有附着载体时一次判断即返回(恒等)。</summary>
+        private void OnFreezeEnd(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            var bag = enemy.Statuses;
+            if (!bag.Has(StatusKind.TraitRider)) return;
+            FreezeRiderStrikes(enemyIndex, StatusKind.ThawStrike);
+            if (enemy.Alive)
+                foreach (var thawSlow in bag.All.Where(s => s.Kind == StatusKind.ThawSlow).ToList())
+                {
+                    if (thawSlow.Magnitude <= 0) continue;
+                    ApplyStatus(bag, new StatusEffect
+                    {
+                        Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                        Magnitude = -50, TurnsLeft = thawSlow.Magnitude, SourceId = thawSlow.SourceId,
+                    }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
+                }
+            DropRiders(bag, StatusKind.Freeze);
+        }
+
+        /// <summary>怀山:敌人行动开始(种之后、冻结跳过之前;含被冻结跳过的那拍)仍处于冻结就结算一次。没有 FrostBite 时一次判断即返回。</summary>
+        private void SettleFrostBite(int enemyIndex)
+        {
+            var bag = _enemies[enemyIndex].Statuses;
+            if (!bag.Has(StatusKind.FrostBite) || !bag.Has(StatusKind.Freeze)) return;
+            FreezeRiderStrikes(enemyIndex, StatusKind.FrostBite);
+        }
+
+        /// <summary>冻结附着的伤害(Q18):每条 <paramref name="kind"/> 各打一次 Magnitude(出字时按本体 × N% × 卡等级 × 攻击力定死)。
+        /// 水属性、过生克与护甲、吃标记(DamageEnemy 全套)、不暴击、不算挥击(allowBarb: false)、source = FreezeRider。
+        /// 整段抬一层 TriggerDepth(R4):这里打死的不触发死亡 / 受击类特性被动。致命(AfterEnemyHpLoss)在 DamageEnemy 里照走。</summary>
+        private void FreezeRiderStrikes(int enemyIndex, StatusKind kind)
+        {
+            var enemy = _enemies[enemyIndex];
+            var strikes = enemy.Statuses.All.Where(s => s.Kind == kind && s.Magnitude > 0).ToList();
+            if (strikes.Count == 0) return;
+            EnterTrigger();
+            try
+            {
+                foreach (var s in strikes)
+                {
+                    if (!enemy.Alive) break;
+                    DamageEnemy(enemyIndex, s.Magnitude, Element.Water, allowBarb: false,
+                        source: EffectSource.FreezeRider, attackerRef: UnitRef.Player);
+                }
+            }
+            finally { ExitTrigger(); }
+        }
+
+        /// <summary>冷却(W2,Q5):只对 Boss。未蓄力 → ChargeCounter −beats(可为负);蓄力中 → 撤回蓄力、ChargeCounter = BossChargeEvery − beats
+        /// (下一拍 ResolveBossTurn 重新蓄力并重发 BossCharging,再下一拍释放)。坚壁 / 无技能阶段照推计数。
+        /// 每 Boss 每场 1 次(R1b,次数阀按敌人下标计);小怪空转、不占次数。</summary>
+        private void DelayBossCharge(int enemyIndex, int beats)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.IsBoss || !enemy.Alive || beats <= 0) return;
+            if (!TryUseTrait("冷却:" + enemyIndex, perTurn: 0, perBattle: 1)) return;
+            if (enemy.IsCharging)
+            {
+                enemy.IsCharging = false;
+                enemy.ChargeCounter = _config.BossChargeEvery - beats;
+            }
+            else enemy.ChargeCounter -= beats;
         }
     }
 }

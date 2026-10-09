@@ -155,6 +155,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Haste,
                 // 埋雷(D2-火 Task 4):延时伤害量,与流血 / 引爆同口径
                 EffectKind.Mine,
+                // D2-水 Task 2:怀山 / 寒彻是延时伤害量,同埋雷
+                EffectKind.FrostBite, EffectKind.ThawStrike,
             };
             var doesNotTake = new System.Collections.Generic.HashSet<EffectKind>
             {
@@ -203,6 +205,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Doom,
                 // D2-金 Task 4:战意族 —— 聚金是溢出层数换算的盾、富甲 / 金气是光环量,不是本系字的护盾 / 护甲本体
                 EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
+                // D2-水 Task 2:冰水是减速回合、冷却是拍数
+                EffectKind.ThawSlow, EffectKind.ChargeDelay,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

@@ -232,6 +232,17 @@ namespace Brushblade.Presentation
                     EffectKind.Thaw => Strings.T("char.effect.thaw"),
                     EffectKind.SelfCost => Strings.T("char.effect.selfcost", ("value", e.Value)),
                     EffectKind.Reveal => Strings.T("char.effect.reveal"),
+                    // 冻结附着族(D2-水 W1):只挂在本字冻上的敌人身上(Boss 的冰滞不算)。伤害吃等级与攻击力(出字时定死),
+                    // 写 bodyPercent 时印本体百分比;冰水的回合离散(读 e.Value)
+                    EffectKind.FrostBite => e.BodyPercent > 0
+                        ? Strings.T("char.effect.frostbite.body", ("percent", e.BodyPercent))
+                        : Strings.T("char.effect.frostbite", ("value", shown)),
+                    EffectKind.ThawStrike => e.BodyPercent > 0
+                        ? Strings.T("char.effect.thawstrike.body", ("percent", e.BodyPercent))
+                        : Strings.T("char.effect.thawstrike", ("value", shown)),
+                    EffectKind.ThawSlow => Strings.T("char.effect.thawslow", ("turns", e.Value)),
+                    // 冷却(D2-水 W2):拍数离散,每 Boss 每场 1 次
+                    EffectKind.ChargeDelay => Strings.T("char.effect.chargedelay", ("value", e.Value)),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),

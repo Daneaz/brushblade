@@ -1127,3 +1127,41 @@ def test_d2water_task1_ally_side_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-水 Task 2:冻结附着族(附录 W1)与冷却(W2)—— 附录 §2.3 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 寒彻
+    ("`ThawStrike` `bodyPercent 50` `pick FrozenByThisCast` `rider Freeze`",
+     {"kind": "ThawStrike", "value": 0, "bodyPercent": 50, "pick": "FrozenByThisCast", "riderOf": "Freeze"}),
+    # 冰水
+    ("`ThawSlow 2` `pick FrozenByThisCast` `rider Freeze`",
+     {"kind": "ThawSlow", "value": 2, "pick": "FrozenByThisCast", "riderOf": "Freeze"}),
+    # 怀山
+    ("`FrostBite` `bodyPercent 20` `pick FrozenByThisCast` `rider Freeze`",
+     {"kind": "FrostBite", "value": 0, "bodyPercent": 20, "pick": "FrozenByThisCast", "riderOf": "Freeze"}),
+])
+def test_d2water_freeze_riders(config, expected):
+    assert _parse_effects(config, "冰") == [expected]
+
+
+def test_d2water_charge_delay_with_mob_weaken():
+    """冷却:`ChargeDelay 1` + 小怪减攻 `Weaken 50` `turns 1` `if NotBoss`(Q5)。"""
+    effects = _parse_effects("`ChargeDelay 1` + `Weaken 50` `turns 1` `if NotBoss`", "冷")
+    assert effects == [{"kind": "ChargeDelay", "value": 1},
+                       {"kind": "Weaken", "value": 50, "turns": 1, "onlyIf": "NotBoss"}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`ThawSlow 2` `pick FrozenByThisCast`", "rider Freeze"),                            # 附着族必须写 rider
+    ("`FrostBite` `bodyPercent 20` `pick FrozenByThisCast` `rider Burn`", "rider Burn"),  # 冻结附着挂到灼上
+    ("`HealBlock` `pick FrozenByThisCast` `rider Freeze`", "rider Freeze"),               # 灼附着挂到冻结上
+    ("`ThawStrike` `bodyPercent 50` `rider Freeze`", "FrozenByThisCast"),                 # 冻结附着必须 pick FrozenByThisCast
+    ("`ThawStrike` `pick FrozenByThisCast` `rider Freeze`", "伤害量"),                     # 没有伤害量
+    ("`ChargeDelay 0`", "ChargeDelay"),                                                    # 0 拍
+])
+def test_d2water_freeze_rider_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

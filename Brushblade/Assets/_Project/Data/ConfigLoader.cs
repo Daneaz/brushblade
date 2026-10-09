@@ -783,29 +783,43 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 keepStacks(只有 BurnSettleNow 读它)");
                 // 附着载体(D1 Task 9 烟熏;D2-火 Task 3 扩到灼附着族):引擎只实现了 BattleEngine.RiderKinds 里那几种挂在灼上;
                 // 别的组合会静默按普通效果结算 —— 拦下。附着族专用的 Kind 反过来**必须**写 riderOf(不写引擎什么都不做)。
+                // D2-水 Task 2(W1)扩到冻结载体:怀山 / 寒彻 / 冰水只能写 riderOf Freeze,且必须 pick FrozenByThisCast(E16 推迟施加靠它)。
                 StatusKind? riderOf = null;
                 if (!string.IsNullOrEmpty(effect.RiderOf))
                 {
-                    if (!Enum.TryParse(effect.RiderOf, out StatusKind carrier) || carrier != StatusKind.Burn)
-                        throw new ConfigException($"字「{dto.Id}」的附着载体未知:{effect.RiderOf}(目前只支持 Burn)");
-                    if (!BattleEngine.CanRideOnBurn(kind))
-                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf(能附着在灼上的只有致盲 / 减攻 / 干涸 / 上炎 / 四火 / 焚城 / 焚身)");
+                    if (!Enum.TryParse(effect.RiderOf, out StatusKind carrier)
+                        || (carrier != StatusKind.Burn && carrier != StatusKind.Freeze))
+                        throw new ConfigException($"字「{dto.Id}」的附着载体未知:{effect.RiderOf}(只支持 Burn / Freeze)");
+                    if (carrier == StatusKind.Burn && !BattleEngine.CanRideOnBurn(kind))
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf Burn(能附着在灼上的只有致盲 / 减攻 / 干涸 / 上炎 / 四火 / 焚城 / 焚身)");
+                    if (carrier == StatusKind.Freeze && !BattleEngine.CanRideOnFreeze(kind))
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 riderOf Freeze(能附着在冻结上的只有怀山 / 寒彻 / 冰水)");
+                    if (carrier == StatusKind.Freeze && pick != EffectPick.FrozenByThisCast)
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 附着在冻结上,须写 pick FrozenByThisCast(当前:{pick})");
                     if (effect.OpeningBattles != 0)
-                        throw new ConfigException($"字「{dto.Id}」的 {kind} 附着效果不能登记为开局效果(开局时没有本次出字的灼)");
+                        throw new ConfigException($"字「{dto.Id}」的 {kind} 附着效果不能登记为开局效果(开局时没有本次出字的载体)");
                     riderOf = carrier;
                 }
                 else if (BattleEngine.RidesOnly(kind))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果必须写 riderOf Burn(它只能挂在本次出字的灼上)");
+                    throw new ConfigException(BattleEngine.CanRideOnFreeze(kind)
+                        ? $"字「{dto.Id}」的 {kind} 效果必须写 riderOf Freeze(它只能挂在本次出字的冻结上)"
+                        : $"字「{dto.Id}」的 {kind} 效果必须写 riderOf Burn(它只能挂在本次出字的灼上)");
                 if (effect.MinBurn != 0 && (kind != EffectKind.Weaken || riderOf == null || effect.MinBurn < 0))
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 minBurn(只给附着在灼上的减攻,且须 > 0)");
                 if (kind == EffectKind.BurnGrow && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的上炎(BurnGrow)每回合至少 +1 层,当前:{effect.Value}");
                 // bodyPercent(D2-火 E5)只在伤害上解析(TraitRules.ForCast);写在别处会静默无效 —— 拦下
-                if (effect.BodyPercent != 0 && ((kind != EffectKind.DamageSingle && kind != EffectKind.Mine) || effect.BodyPercent < 0))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle / Mine 能按本体百分比取值,且须 > 0)");
-                // 埋雷(D2-火 Task 4):没有伤害量的地雷炸了也是 0 —— 拦下
-                if (kind == EffectKind.Mine && effect.Value <= 0 && effect.BodyPercent <= 0)
-                    throw new ConfigException($"字「{dto.Id}」的埋雷(Mine)须写伤害量(value > 0 或 bodyPercent N)");
+                bool bodyPercentHost = kind == EffectKind.DamageSingle || kind == EffectKind.Mine
+                    || kind == EffectKind.FrostBite || kind == EffectKind.ThawStrike;   // 怀山 / 寒彻(D2-水 W1)= 本体 × N%
+                if (effect.BodyPercent != 0 && (!bodyPercentHost || effect.BodyPercent < 0))
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 bodyPercent(只有 DamageSingle / Mine / FrostBite / ThawStrike 能按本体百分比取值,且须 > 0)");
+                // 埋雷(D2-火 Task 4)/ 怀山 / 寒彻(D2-水 W1):没有伤害量的延时伤害结算了也是 0 —— 拦下
+                if ((kind == EffectKind.Mine || kind == EffectKind.FrostBite || kind == EffectKind.ThawStrike)
+                    && effect.Value <= 0 && effect.BodyPercent <= 0)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 须写伤害量(value > 0 或 bodyPercent N)");
+                // 冰水的减速回合 / 冷却的拍数(D2-水 W1 / W2):0 等于没写
+                if ((kind == EffectKind.ThawSlow || kind == EffectKind.ChargeDelay) && effect.Value < 1)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 须写 value ≥ 1,当前:{effect.Value}");
                 // 致命(D2-金 J5):Value = 回合数,0 回合等于没挂
                 if (kind == EffectKind.Doom && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的致命(Doom)须写回合数(value ≥ 1),当前:{effect.Value}");

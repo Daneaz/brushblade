@@ -109,6 +109,11 @@ namespace Brushblade.Core
                           // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
         MoraleShield,     // 金气(仅玩家,隐藏载体):每个玩家回合开始(清盾之后、TurnStarted 之前),战意 ≥ MoraleCap 则加盾 Magnitude;
                           // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
+        // ---- D2-水 Task 2:冻结附着族(附录 W1,仅敌人,隐藏载体,不画 chip;全部挂在冻结上,SourceId = 字 ID、
+        // TraitKey = 特性键,TurnsLeft = -1;冻结结束 / 被解冻时 OnFreezeEnd 结算后随 DropRiders 移除) ----
+        FrostBite,        // 怀山:冻结中每次行动开始受 Magnitude 点伤害(出字时定死)。
+        ThawStrike,       // 寒彻:冻结结束(自然到期 / 被解冻)时受 Magnitude 点伤害一次;死亡不算。
+        ThawSlow,         // 冰水:冻结结束时(霜抗之后)挂减速 Magnitude 回合。
     }
 
     /// <summary>状态的分类规则。</summary>

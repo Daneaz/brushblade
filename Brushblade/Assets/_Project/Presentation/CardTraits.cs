@@ -630,6 +630,13 @@ namespace Brushblade.Presentation
                     // 修饰器(D1 Task 3):只出现在特性里、出字前折叠进本体,本身不是独立效果,
                     // 不出 chip;它改了什么由 CharInfo 的卡面文案印。
                     break;
+                case EffectKind.FrostBite:
+                case EffectKind.ThawStrike:
+                case EffectKind.ThawSlow:
+                case EffectKind.ChargeDelay:
+                    // D2-水 Task 2(冻结附着 / 冷却):只出现在特性里(附着须 riderOf Freeze,本体写不出来),
+                    // 本节扫的是本体效果,不出 chip;卡面文案由 CharInfo 印。
+                    break;
                 default:
                     // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                     AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

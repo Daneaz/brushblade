@@ -184,6 +184,15 @@ namespace Brushblade.Core
                               // Value = 每溢出 1 层的护盾量(连续,吃卡等级)。Morale 效果须排在它之前。
         MoraleArmor,          // 富甲:给玩家挂 StatusKind.MoraleArmor,Value = 每层战意的护甲点数(连续)。含木灵(Q15)。
         MoraleShield,         // 金气:给玩家挂 StatusKind.MoraleShield,Value = 战意满时每回合开始的护盾量(连续)。仅玩家。
+        // ---- D2-水 Task 2:冻结载体附着(附录 W1)与冷却(W2)。⚠ 只在末尾追加 ----
+        // 前三个一律写 riderOf Freeze + pick FrozenByThisCast(ConfigLoader 拦不写的):只挂在本次出字真冻上的目标上
+        // (Boss 的冰滞不算,Q3),冻结结束(自然到期 / 被解冻)或敌人死亡时随载体移除(DropRiders)。支持 Pick / OnlyIf。
+        FrostBite,      // 怀山:挂 StatusKind.FrostBite(Magnitude = ScaleByAttack(Value),出字时定死,同埋雷)。该敌人冻结中每次行动开始
+                        // (含被冻结跳过的那拍)受 Magnitude 点水属性伤害(过生克与护甲、吃标记、不暴击,R4)。Value 吃卡等级;可写 bodyPercent。
+        ThawStrike,     // 寒彻:挂 StatusKind.ThawStrike(Magnitude 同上)。冻结自然到期或被解冻时受一次同口径伤害;敌人死亡不算。
+        ThawSlow,       // 冰水:挂 StatusKind.ThawSlow(Magnitude = Value 回合)。冻结结束时先挂霜抗(现状)、再挂减速 Value 回合(Q19)。离散。
+        ChargeDelay,    // 冷却:Boss 蓄力推迟 Value 拍(离散)。未蓄力 → ChargeCounter −Value;蓄力中 → 撤回,ChargeCounter = BossChargeEvery − Value
+                        // (下一拍重新蓄力并重发 BossCharging)。每 Boss 每场 1 次(TryUseTrait);小怪无效果(Q5)。支持 Pick / OnlyIf。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

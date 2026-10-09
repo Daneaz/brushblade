@@ -374,6 +374,7 @@ namespace Brushblade.Core
         ShieldRecoil, // 反震(D1 Task 9):护盾吸收后按吸收量反弹;表现层按普通伤害飘字(来源标签归 Plan E)
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
         ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
+        FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -885,6 +886,7 @@ namespace Brushblade.Core
                 or EffectKind.SpendHeft or EffectKind.SpendWellspring
                 or EffectKind.Detonate or EffectKind.ArmorBreak
                 or EffectKind.Mine   // 埋雷(D2-火 Task 4):延时伤害,与流血 / 引爆同口径
+                or EffectKind.FrostBite or EffectKind.ThawStrike   // 怀山 / 寒彻(D2-水 W1):延时伤害,同埋雷
                 or EffectKind.DefenseBuff
                 or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
                 or EffectKind.Blind
@@ -2014,7 +2016,9 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Doom
                     // D2-火 Task 5:追加一击 / 解冻 / 揭示写 Primary 时落在主目标上
                     || effect.Kind == EffectKind.ExtraStrike || effect.Kind == EffectKind.Thaw
-                    || effect.Kind == EffectKind.Reveal)
+                    || effect.Kind == EffectKind.Reveal
+                    // 冷却(D2-水 W2):推迟的是主目标(Boss)的蓄力
+                    || effect.Kind == EffectKind.ChargeDelay)
                     return true;
             return false;
         }
@@ -2615,6 +2619,10 @@ namespace Brushblade.Core
             // 种(D1 Task 6):每次行动开始(含稍后被冻结 / 冰滞跳过的这一拍)触发,先于灼烧结算。
             TriggerSeeds(enemy);
 
+            // 怀山(D2-水 W1):冻结中每次行动开始(种之后、冻结跳过之前,含被跳过的这一拍)结算。没有 FrostBite 时一次判断即返回
+            SettleFrostBite(enemyIndex);
+            if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }
+
             // 冰滞到此为止(R1b):Boss 这一拍照常行动,易伤窗口关闭,挂霜抗 N+1(本拍末尾 TickTurns 会减 1)
             var stall = enemy.Statuses.Find(StatusKind.IceStall);
             if (stall != null)
@@ -2657,6 +2665,8 @@ namespace Brushblade.Core
                     {
                         Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = frozeFor,
                     }, UnitRef.Enemy(enemyIndex), UnitRef.None);
+                // 冻结附着(D2-水 W1):自然到期 → 寒彻 / 冰水结算一次、附着随载体移除(霜抗在前,Q19)。没有附着时一次判断即返回
+                if (!enemy.Statuses.Has(StatusKind.Freeze)) OnFreezeEnd(enemyIndex);
                 EndBeat(UnitRef.Enemy(enemyIndex));
                 return;
             }
@@ -3873,6 +3883,19 @@ namespace Brushblade.Core
                     case EffectKind.Thaw:
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ThawOn(ti);
+                        break;
+                    // 冻结附着族(D2-水 W1):只挂在本次出字真冻上的目标上(ApplyRider 按 _cast.FrozenTargets 筛)。
+                    // 怀山 / 寒彻的量出字时定死(同埋雷);冰水的回合离散,读 Value
+                    case EffectKind.FrostBite:
+                    case EffectKind.ThawStrike:
+                    case EffectKind.ThawSlow:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive)
+                                ApplyRider(ti, def.Id, effect, effect.Kind == EffectKind.ThawSlow ? effect.Value : ScaleByAttack(value));
+                        break;
+                    case EffectKind.ChargeDelay:   // 冷却(D2-水 W2)
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti)) DelayBossCharge(ti, effect.Value);
                         break;
                     case EffectKind.SelfCost:
                         break;   // 已在出字开头结算(PaySelfCost)

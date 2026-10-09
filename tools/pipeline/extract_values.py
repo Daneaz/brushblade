@@ -102,6 +102,10 @@ VALUELESS_EFFECTS = {
     "BlockMod": {"kind": "BlockMod", "value": 0},
     # D2-水 Task 1(附录 E21):泉补满(泽及四方)= AddWellspring + fill。整串带反引号匹配,不与 `AddWellspring N` 互吞。
     "WellspringFill": {"kind": "AddWellspring", "value": 0, "fill": True},
+    # D2-水 Task 2(附录 W1):冻结附着 —— 怀山 / 寒彻不带数值时伤害由 `bodyPercent N` 给出,必须配 `rider Freeze`
+    # 与 `pick FrozenByThisCast`。冰水 `ThawSlow N`、冷却 `ChargeDelay N` 带数值,走通用正则。
+    "FrostBite": {"kind": "FrostBite", "value": 0},
+    "ThawStrike": {"kind": "ThawStrike", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -191,6 +195,7 @@ SHOTS_TOKEN = "Shots"
 # D2-火 E5:`bodyPercent N` —— 特性效果的 Value = 本面本体首条 DamageSingle × N%(连爆)。只挂本格唯一的 DamageSingle;
 # 不挂白名单会被通用正则当成 kind="bodyPercent" 的独立效果。
 BODY_PERCENT_TOKEN = "bodyPercent"
+BODY_PERCENT_HOSTS = {"DamageSingle", "Mine", "FrostBite", "ThawStrike"}   # 与 ConfigLoader 同一张表
 
 # D2-火 N12:`battles N` —— 它前面最近的那条效果本场不执行,登记为之后 N 场的开局效果(炎炎、星星之火)。
 # 一格里可以有同 Kind 的两条(星星之火两条 BurnAll),所以按位置挂,不按 Kind 挂。
@@ -244,7 +249,9 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash",
                     "Mine",   # D2-火 Task 4 埋雷
                     "ExtraStrike", "Thaw", "Reveal",   # D2-火 Task 5
-                    "Doom"}   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
+                    "Doom",   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
+                    # D2-水 Task 2:冻结附着族(写 pick FrozenByThisCast)与冷却(Value = 拍数)
+                    "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay"}
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -267,9 +274,15 @@ KEEP_TOKEN = "keep"
 # 附着的效果随灼存续,不写 turns(下面的 missing_turns 检查对它放行);上炎可写自己的 turns。
 # D2-火 Task 3 扩到灼附着族:减攻(炽焰,可带 `minBurn N` 门槛)、干涸、上炎、四火、焚城、焚身;后五个**只能**以附着形式出现。
 RIDER_TOKEN = "rider"
-RIDER_CARRIERS = {"Burn"}
-RIDES_ONLY_KINDS = {"HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"}
-RIDER_KINDS = {"Blind", "Weaken"} | RIDES_ONLY_KINDS
+# D2-水 Task 2(W1)加冻结载体 `rider Freeze`:怀山 / 寒彻 / 冰水,只能以附着形式出现,且须写 `pick FrozenByThisCast`。
+# 与 Core 的 BattleEngine.CanRideOnBurn / CanRideOnFreeze 同一张表(按载体分)。
+RIDER_KINDS_BY_CARRIER = {
+    "Burn": {"Blind", "Weaken", "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"},
+    "Freeze": {"FrostBite", "ThawStrike", "ThawSlow"},
+}
+RIDER_CARRIERS = set(RIDER_KINDS_BY_CARRIER)
+RIDES_ONLY_KINDS = {"HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash", "FrostBite", "ThawStrike", "ThawSlow"}
+RIDER_KINDS = set().union(*RIDER_KINDS_BY_CARRIER.values())
 # 炽焰:`minBurn N` —— 附着减攻的门槛(目标自身灼 ≥ N 层才生效),按位置挂到前一条 Weaken,且那条必须写 rider。
 # 不挂进通用循环的跳过名单会被 `(\w+) (\d+)` 当成 kind="minBurn" 的独立效果。
 MIN_BURN_TOKEN = "minBurn"
@@ -620,7 +633,13 @@ def _attach_modifier_tokens(config, char, effects, consumed):
                        allowed_kinds=RIDER_KINDS)
     for e in effects:
         if e["kind"] in RIDES_ONLY_KINDS and "riderOf" not in e:
-            raise ValueError(f"{char}:`{e['kind']}` 必须写 `rider Burn`(它只能挂在本次出字的灼上,不写会静默空转)")
+            carrier = next(c for c, kinds in RIDER_KINDS_BY_CARRIER.items() if e["kind"] in kinds)
+            raise ValueError(f"{char}:`{e['kind']}` 必须写 `rider {carrier}`(它只能挂在本次出字的载体上,不写会静默空转)")
+        if "riderOf" in e and e["kind"] not in RIDER_KINDS_BY_CARRIER[e["riderOf"]]:
+            raise ValueError(f"{char}:`{e['kind']}` 不能写 `rider {e['riderOf']}`"
+                             f"(能挂在这个载体上的只有 {sorted(RIDER_KINDS_BY_CARRIER[e['riderOf']])})")
+        if e.get("riderOf") == "Freeze" and e.get("pick") != "FrozenByThisCast":
+            raise ValueError(f"{char}:`{e['kind']}` 附着在冻结上,须写 `pick FrozenByThisCast`")
     _attach_positional(config, char, effects, consumed, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
     # D2-水 E18 / E25:只续不挂的减速、仅在减速中的种
     _attach_positional(config, char, effects, consumed, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
@@ -1095,9 +1114,10 @@ def _parse_effects(config, char, on_hit_host=False):
     body_percent = re.findall(rf"`{BODY_PERCENT_TOKEN} (\d+)`", config)
     if body_percent:
         consumed.add(BODY_PERCENT_TOKEN)
-        hosts = [e for e in effects if e["kind"] in ("DamageSingle", "Mine")]   # 埋雷(D2-火 Task 4)= 本体 × N%
+        # 埋雷(D2-火 Task 4)、怀山 / 寒彻(D2-水 W1)= 本体 × N%
+        hosts = [e for e in effects if e["kind"] in BODY_PERCENT_HOSTS]
         if len(body_percent) > 1 or len(hosts) != 1:
-            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle / Mine")
+            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 {' / '.join(sorted(BODY_PERCENT_HOSTS))}")
         hosts[0]["bodyPercent"] = int(body_percent[0])
 
     if f"`{PER_BURNING_HIT_TOKEN}`" in config:
@@ -1153,8 +1173,10 @@ def _parse_effects(config, char, on_hit_host=False):
         _raise_unconsumed_tokens(char, config, unknown)
     # D2-火 Task 4:地雷没有伤害量、回敬没写回敬什么,落进 chars.json 都是空转(ConfigLoader 同样拦)
     for e in effects:
-        if e["kind"] == "Mine" and e["value"] <= 0 and "bodyPercent" not in e:
-            raise ValueError(f"{char}:配置格「{config}」的 `Mine` 须写伤害量(`Mine N` 或 `bodyPercent N`)")
+        if e["kind"] in ("Mine", "FrostBite", "ThawStrike") and e["value"] <= 0 and "bodyPercent" not in e:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写伤害量(`{e['kind']} N` 或 `bodyPercent N`)")
+        if e["kind"] in ("ThawSlow", "ChargeDelay") and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
         if e["kind"] == "Retaliate" and not on_hit_host:
             raise ValueError(f"{char}:配置格「{config}」的 `Retaliate` 须用 `{ON_HIT_TOKEN}` 段写回敬的效果")
     return effects
