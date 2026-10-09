@@ -3105,7 +3105,7 @@ namespace Brushblade.Core
             _cast = new CastContext
             {
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
-                OnCrit = outer.OnCrit, OnKill = outer.OnKill, TraitDef = outer.TraitDef,
+                OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
             };
             try
             {
@@ -3128,6 +3128,7 @@ namespace Brushblade.Core
             var castFace = FaceOf(def, attackMode);
             _cast.OnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
             _cast.OnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
+            _cast.OnExecute = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnExecute)) : null;
             _cast.TraitDef = def;
             _cast.AttackMode = attackMode;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
@@ -5442,6 +5443,8 @@ namespace Brushblade.Core
             // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
             // 反应里的击杀不入队(R4:排空时 _cast.OnKill 为 null)
             EnqueueCastTraits(_cast.OnKill, enemyIndex);
+            // 斩杀时(D2-金 J3,铁则):同上口径,只认斩杀(TryExecuteKill / 致命);敌人回合的立威斩杀由 ResolveCounter 回查入队
+            if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
         }

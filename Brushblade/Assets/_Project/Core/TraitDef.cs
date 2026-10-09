@@ -31,6 +31,7 @@ namespace Brushblade.Core
 
     /// <summary>特性何时结算(spec v7 §2.3)。Cast = 出字时(主动特性与「修饰本字」的被动);
     /// OnCrit / OnKill = 本字这次出字暴击 / 击杀时入队,出字末尾兑现(附录 M23)。
+    /// OnExecute = 本字斩杀时入队(D2-金 J3)。
     /// OnCompose / OnDismantle = 字形特性(spec §9「(成字) / (拆字)」,D2-0 Task 7):合成 / 拆掉这张字时结算,
     /// 每张字每条每场 1 次(E9)。⚠ 只在末尾追加。</summary>
     public enum TraitTrigger
@@ -40,6 +41,9 @@ namespace Brushblade.Core
         OnKill,
         OnCompose,
         OnDismantle,
+        // ---- D2-金 Task 3(附录 J3)----
+        OnExecute,      // 斩杀时(铁则):本字出字内的斩杀(ResolveDefeat source Execute),以及本字格挡的立威斩杀
+                        // (敌人回合,按 Block 的 ExecuteSourceCharId 回查)入队;对 Boss 的 ×2 与斩杀溅射的击杀不算(Q6 / R4)
     }
 
     /// <summary>一条字卡特性(spec v7 §1 / §11.1)。名称是游戏数据(随字表),不进字符串表。</summary>

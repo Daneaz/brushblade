@@ -40,6 +40,19 @@ namespace Brushblade.Core.Tests
             Assert.That(g.Get("炎").Traits[0].Trigger, Is.EqualTo(TraitTrigger.OnKill));
         }
 
+        [Test]
+        public void PipelineShapedTrigger_LoadsAsOnExecute()
+        {
+            // D2-金 J3:extract_traits 的「被动·斩杀」→ trigger OnExecute(铁则)
+            var g = ConfigLoader.LoadGraph(@"{""chars"":[{""id"":""铡"",""rarity"":""Purple"",""element"":""Metal"",
+                ""effects"":[{""kind"":""Block"",""value"":1}],
+                ""attackEffects"":[{""kind"":""DamageSingle"",""value"":100}],
+                ""traits"":[
+                  {""slot"":""Lv4"",""form"":""Passive"",""trigger"":""OnExecute"",""name"":""铁则"",""effects"":[{""kind"":""Morale"",""value"":2}]}
+                ]}]}");
+            Assert.That(g.Get("铡").Traits[0].Trigger, Is.EqualTo(TraitTrigger.OnExecute));
+        }
+
         [TestCase(@"{""slot"":""Lv4"",""form"":""Passive"",""trigger"":""Weird"",""name"":""x"",""effects"":[]}")]
         [TestCase(@"{""slot"":""Lv4"",""trigger"":""OnCrit"",""name"":""x"",""effects"":[]}")]
         public void BadTrigger_Throws(string trait)

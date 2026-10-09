@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -133,6 +134,7 @@ namespace Brushblade.Core
                     _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
                     ResolveDefeat(enemyIndex, attackerRef, EffectSource.Execute);
                     CheckWin();   // 敌人回合里斩掉最后一名敌人(同 BurnBurst 先例)
+                    EnqueueBlockExecuteTraits(block.ExecuteSourceCharId, enemyIndex);   // 铁则(J3):已分胜负时 Enqueue 自会丢弃
                     killed = true;
                 }
             }
@@ -155,6 +157,24 @@ namespace Brushblade.Core
             }
             if (killed && block.KillRefundAp > 0) GrantApRefund(block.KillRefundAp);
             return dealt;
+        }
+
+        // ---- Task 3:斩杀族(附录 J3 / J4 / J5)----
+
+        /// <summary>立威斩杀的「斩杀时」(J3,Q6):按 Block 上记的施加者字 ID 回查字表,取该字已解锁的 OnExecute 特性入队
+        /// (目标 = 被斩杀者,Depth = TriggerDepth + 1),在 ActOneEnemy 那一拍末尾的 DrainReactions 兑现。
+        /// 面按五行面(Feature)取:立威是铠面特性,格挡来自五行面;两面通用的铁则照常命中。
+        /// 没记来源 / 查不到字 / 没有该类特性时一次判断即返回,不摇随机数。反应里(TriggerDepth &gt; 0)的斩杀不入队(R4)。</summary>
+        private void EnqueueBlockExecuteTraits(string charId, int enemyIndex)
+        {
+            if (charId == null || TriggerDepth > 0 || !_graph.TryGet(charId, out var def)) return;
+            var traits = TraitRules.Triggered(def, CardFace.Feature, CardLevelOf(charId), TraitTrigger.OnExecute);
+            if (traits.Count == 0) return;
+            var element = def.Element ?? Element.Heart;
+            var body = EffectsOf(def, false);
+            foreach (var t in traits)
+                Enqueue(new Reaction(def.Id, element,
+                    t.Effects.Select(e => TraitRules.ForCast(e, t, def, body)).ToList(), enemyIndex, TriggerDepth + 1));
         }
 
         /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。</summary>
