@@ -3168,11 +3168,20 @@ namespace Brushblade.Core
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
+            List<(EffectDef Effect, StatusEffect Status)> deferredMoraleBlocks = null;   // Ruling 11,见效果循环之后
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             // 自损(D2-火 N10b / G9,玉石俱焚):出字开头、出字前快照之后结算;循环里的 SelfCost 分支空转
             foreach (var castEffect in castEffects)
                 if (castEffect.Kind == EffectKind.SelfCost && castEffect.OpeningBattles == 0) PaySelfCost(castEffect.Value);
             foreach (var castEffect in castEffects) ResolveEffect(castEffect, targetIndex);
+            // 双金合璧(Ruling 11 / Q21):按战意计次的格挡等效果循环结束后再施加,次数取出字后的战意 ——
+            // 排在 Block 之后的 Morale(池·蓄势)也要算进去。须在断金清空战意之前。普通 Block 仍在循环里当场施加。
+            if (deferredMoraleBlocks != null)
+                foreach (var (effect, status) in deferredMoraleBlocks)
+                {
+                    status.Magnitude = BlockCountOf(effect);
+                    ApplyStatus(AllyStatuses(allySlot), status, AllyRef(allySlot), UnitRef.Player);
+                }
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
 
@@ -3731,6 +3740,12 @@ namespace Brushblade.Core
                             Magnitude = BlockCountOf(effect), CounterDamage = counter, TurnsLeft = -1,   // 次数可按战意(E10)
                         };
                         CarryBlockRiders(blockStatus, effect, def.Id, cardLevel);   // 格挡附带(D2-金 J1),缺省全空
+                        if (effect.ScaleBy == ScaleBasis.Morale)
+                        {
+                            // Ruling 11:次数按出字后战意 —— 反击量与附带在此定死,施加推迟到效果循环结束后
+                            (deferredMoraleBlocks ??= new List<(EffectDef, StatusEffect)>()).Add((effect, blockStatus));
+                            break;
+                        }
                         ApplyStatus(AllyStatuses(allySlot), blockStatus, AllyRef(allySlot), UnitRef.Player);
                         break;
                     }

@@ -192,6 +192,37 @@ namespace Brushblade.Core.Tests
             Assert.That(Morale(run.Battle), Is.EqualTo(2), "第 2 场开局战意 +2");
         }
 
+        // ================= 双金合璧:格挡次数 = 出字后战意(Q21 / Ruling 11) =================
+
+        /// <summary>鍂 Lv8·铠折叠后 = [Morale 3, Block(countPerMorale, min 2), Morale 1(池·蓄势 Lv5), MoraleShield, Morale 2(登记)]。
+        /// 蓄势排在 Block 之后,所以格挡次数必须等效果循环结束后再读战意(终审 I1)。</summary>
+        [TestCase(0, 4)]
+        [TestCase(1, 5)]
+        [TestCase(2, 5)]
+        public void ShuangJinHeBi_BlockCount_EqualsPostCastMorale(int startMorale, int expected)
+        {
+            var b = Battle("鍂", 8, Mob());
+            if (startMorale > 0) SetMorale(b, startMorale);
+            Assert.That(b.Cast("鍂", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            int count = b.PlayerStatuses.Find(StatusKind.Block).Magnitude;
+            Assert.That(Morale(b), Is.EqualTo(expected), "出字后战意(Lv3 +3、蓄势 +1,钳到上限)");
+            Assert.That(count, Is.EqualTo(Morale(b)), "格挡次数 = 出字后战意");
+            Assert.That(count, Is.GreaterThanOrEqualTo(2), "min 2");
+        }
+
+        [Test]
+        public void ShuangJinHeBi_Lv5_PlainBlockCount_Unchanged()
+        {
+            // 对照:Lv5 没有双金合璧,铠面是普通 `Block 2`,与战意无关
+            foreach (int start in new[] { 0, 2 })
+            {
+                var b = Battle("鍂", 5, Mob());
+                if (start > 0) SetMorale(b, start);
+                Assert.That(b.Cast("鍂", -1, attackMode: false), Is.EqualTo(BattleError.None));
+                Assert.That(b.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(2), $"战意 {start} 起");
+            }
+        }
+
         // ================= 聚金:溢出转盾 =================
 
         [Test]

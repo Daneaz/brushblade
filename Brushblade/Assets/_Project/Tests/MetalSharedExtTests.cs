@@ -277,6 +277,51 @@ namespace Brushblade.Core.Tests
             Assert.That(low.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(2), "战意 1 < 下限 2");
         }
 
+        /// <summary>Ruling 11:countPerMorale 的 Block 推迟到效果循环结束后再施加 —— 排在它**后面**的 Morale 也算数。</summary>
+        [Test]
+        public void BlockCountPerMorale_MoraleAfterBlock_StillCounted()
+        {
+            CharDef Make(int morale) => new("试", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Block, 1), new EffectDef(EffectKind.Morale, morale) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+                traits: new[] { Trait(TraitSlot.Lv8, TraitFace.Feature, TraitForm.Active,
+                    new EffectDef(EffectKind.BlockMod, 0, scaleBy: ScaleBasis.Morale, scaleMin: 2)) });
+
+            var two = Battle(Make(2), 8);
+            two.Cast("试", -1);
+            Assert.That(two.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(2), "0 起 + 2 → 出字后战意 2");
+
+            var three = Battle(Make(3), 8);
+            SetMorale(three, 1);
+            three.Cast("试", -1);
+            Assert.That(three.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(4), "1 起 + 3 → 4");
+
+            var low = Battle(Make(1), 8);
+            low.Cast("试", -1);
+            Assert.That(low.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(2), "出字后战意 1 < min 2");
+        }
+
+        /// <summary>Ruling 11 只动 countPerMorale:普通 Block 仍在循环里当场施加 —— 事件流与状态表顺序和改前逐位一致。
+        /// 期望指纹是在改前的提交(69004bfe)上跑出来的。</summary>
+        [Test]
+        public void PlainBlock_Timing_UnchangedByDeferral()
+        {
+            var def = new CharDef("试", Element.Heart,
+                effects: new[]
+                {
+                    new EffectDef(EffectKind.Morale, 1), new EffectDef(EffectKind.Block, 2),
+                    new EffectDef(EffectKind.Shield, 30), new EffectDef(EffectKind.Block, 1),
+                },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
+            var b = Battle(def, 5);
+            b.Cast("试", -1);
+            string events = string.Join(";", b.LastEvents.Select(e => $"{e.Kind}/{e.TargetIndex}/{e.Amount}"));
+            string statuses = string.Join(";", b.PlayerStatuses.All.Select(s => $"{s.Kind}/{s.Magnitude}/{s.CounterDamage}"));
+            Assert.That(events + " | " + statuses, Is.EqualTo(PlainBlockFingerprint));
+        }
+
+        private const string PlainBlockFingerprint = "Shield/-1/38 | Morale/1/0;Block/2/37;Heft/0/0";   // Block 排在 Heft(Shield 那条)之前 = 循环内当场施加
+
         // ---------------- E12:BlockMod counter ----------------
 
         private static CharDef Guard(params int[] counters) => new("试", Element.Heart,

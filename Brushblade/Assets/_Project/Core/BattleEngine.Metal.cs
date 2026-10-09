@@ -18,8 +18,9 @@ namespace Brushblade.Core
         private int HitCountOf(EffectDef effect) =>
             effect.ScaleBy == ScaleBasis.Morale ? effect.HitCount + MoraleStacks : effect.HitCount;
 
-        /// <summary>格挡次数(E10 / E12,双金合璧):ScaleBy == Morale 时 = max(ScaleMin, 结算那一刻的战意);否则 Value。
-        /// 本面 Morale 排在 Block 之前时读到的是出字后的值(Q21,产出量)。</summary>
+        /// <summary>格挡次数(E10 / E12,双金合璧):ScaleBy == Morale 时 = max(ScaleMin, 当前战意);否则 Value。
+        /// ScaleBy == Morale 的 Block 由 ApplyEffects 推迟到效果循环结束后才读这里,所以拿到的是出字后的战意
+        /// (Q21 产出量口径,Ruling 11)—— 不论本面的 Morale 排在 Block 前还是后。</summary>
         private int BlockCountOf(EffectDef effect) =>
             effect.ScaleBy == ScaleBasis.Morale ? Math.Max(effect.ScaleMin, MoraleStacks) : effect.Value;
 
