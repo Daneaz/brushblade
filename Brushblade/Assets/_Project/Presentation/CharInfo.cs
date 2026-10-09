@@ -199,6 +199,10 @@ namespace Brushblade.Presentation
                     // 敌人出手前 / 受击挂点(D2-火 Task 4):埋雷的伤害吃等级与攻击力(出字时定死);回敬的上限是离散次数
                     // 致命(D2-金 J5,割喉):Value = 回合数,不吃等级
                     EffectKind.Doom => Strings.T("char.effect.doom", ("turns", e.Value)),
+                    // 战意族(D2-金 Task 4):量吃卡等级(shown);细化归 Task 5
+                    EffectKind.MoraleOverflowShield => Strings.T("char.effect.moraleoverflowshield", ("value", shown)),
+                    EffectKind.MoraleArmor => Strings.T("char.effect.morale_armor", ("value", shown)),
+                    EffectKind.MoraleShield => Strings.T("char.effect.morale_shield", ("value", shown)),
                     EffectKind.Mine => e.BodyPercent > 0
                         ? Strings.T("char.effect.mine.body", ("percent", e.BodyPercent))
                         : Strings.T("char.effect.mine", ("value", shown)),

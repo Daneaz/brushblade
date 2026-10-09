@@ -201,6 +201,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.BlockMod,
                 // D2-金 Task 3:致命的 Value 是回合数
                 EffectKind.Doom,
+                // D2-金 Task 4:战意族 —— 聚金是溢出层数换算的盾、富甲 / 金气是光环量,不是本系字的护盾 / 护甲本体
+                EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

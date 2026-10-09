@@ -803,6 +803,10 @@ namespace Brushblade.Data
                 // 致命(D2-金 J5):Value = 回合数,0 回合等于没挂
                 if (kind == EffectKind.Doom && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的致命(Doom)须写回合数(value ≥ 1),当前:{effect.Value}");
+                // 战意族(D2-金 Task 4):量为 0 的聚金 / 富甲 / 金气什么也不做 —— 拦下
+                if ((kind == EffectKind.MoraleOverflowShield || kind == EffectKind.MoraleArmor || kind == EffectKind.MoraleShield)
+                    && effect.Value < 1)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 须写量(value ≥ 1),当前:{effect.Value}");
                 ValidateFireOps(dto.Id, kind, effect);
                 ValidateMetalOps(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)

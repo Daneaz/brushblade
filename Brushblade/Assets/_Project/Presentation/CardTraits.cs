@@ -377,6 +377,22 @@ namespace Brushblade.Presentation
                     AddWord(traits, Strings.T("collection.trait.doom.chip"), Strings.T("collection.trait.doom.name"),
                         Strings.T("collection.trait.doom.desc", ("turns", e.Value)));
                     break;
+                // 战意族(D2-金 Task 4,聚金 / 富甲 / 金气):无图标,纯文字 chip;细化归 Task 5
+                case EffectKind.MoraleOverflowShield:
+                    AddWord(traits, Strings.T("collection.trait.moraleoverflowshield.chip"),
+                        Strings.T("collection.trait.moraleoverflowshield.name"),
+                        Strings.T("collection.trait.moraleoverflowshield.desc", ("value", v)));
+                    break;
+                case EffectKind.MoraleArmor:
+                    AddWord(traits, Strings.T("collection.trait.morale_armor.chip"),
+                        Strings.T("collection.trait.morale_armor.name"),
+                        Strings.T("collection.trait.morale_armor.desc", ("value", v)));
+                    break;
+                case EffectKind.MoraleShield:
+                    AddWord(traits, Strings.T("collection.trait.morale_shield.chip"),
+                        Strings.T("collection.trait.morale_shield.name"),
+                        Strings.T("collection.trait.morale_shield.desc", ("value", v)));
+                    break;
                 case EffectKind.Retaliate:
                     AddWord(traits, Strings.T("collection.trait.retaliate.chip"),
                         Strings.T("collection.trait.retaliate.name"),

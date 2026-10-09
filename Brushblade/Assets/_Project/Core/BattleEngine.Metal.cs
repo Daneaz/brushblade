@@ -42,7 +42,54 @@ namespace Brushblade.Core
                 value *= Math.Max(0, _cast.HitTargets.Count - 1);
                 if (value <= 0) return;
             }
+            // 聚金(J7):溢出 = 加之前 + 本次 − 上限 的正部。只有这条分支累计 —— 补满(上面已返回)与锋芒(GrantMoraleFromCrit)不经过这里
+            int overflow = MoraleStacks + value - cap;
+            if (overflow > 0) _cast.MoraleOverflow += overflow;
             AddPlayerCounter(StatusKind.Morale, value, cap);
+        }
+
+        /// <summary>聚金(J7,Q14):本次出字累计的战意溢出 × Value → 护盾。没有溢出时直接返回。</summary>
+        private void ResolveMoraleOverflowShield(int value)
+        {
+            int amount = _cast.MoraleOverflow * value;
+            if (amount <= 0) return;
+            int granted = AddPlayerShield(amount, persist: false);
+            _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+        }
+
+        /// <summary>富甲 / 金气(J8):玩家身上挂一枚本场隐藏光环,同类取最强(Magnitude 取大,不叠)。</summary>
+        private void GrantMoraleAura(StatusKind kind, int magnitude)
+        {
+            var existing = _playerStatuses.Find(kind);
+            if (existing != null)
+            {
+                existing.Magnitude = Math.Max(existing.Magnitude, magnitude);
+                return;
+            }
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = kind, Polarity = StatusPolarity.Buff, Magnitude = magnitude, TurnsLeft = -1,
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>富甲加给护甲的点数 = 战意层数 × Magnitude(随战意即时变化,断金清空战意后即时失效,Q13)。
+        /// 玩家的 EffectivePlayerDefense 与木灵受击时的护甲共用。没挂富甲时恒 0。</summary>
+        private int MoraleArmorBonus
+        {
+            get
+            {
+                var aura = _playerStatuses.Find(StatusKind.MoraleArmor);
+                return aura == null ? 0 : MoraleStacks * aura.Magnitude;
+            }
+        }
+
+        /// <summary>金气(J8b):玩家回合开始、清盾之后、TurnStarted 之前,战意 ≥ 上限就加盾(只给玩家)。没挂金气时一次判断即返回。</summary>
+        private void ApplyMoraleShield()
+        {
+            var aura = _playerStatuses.Find(StatusKind.MoraleShield);
+            if (aura == null || MoraleStacks < MoraleCapOrDefault) return;
+            int granted = AddPlayerShield(aura.Magnitude, persist: false);
+            if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
         }
 
         /// <summary>流血合并(E8,Q12):不论 SourceId / TraitKey,同一单位身上只留一条 —— 量取大、回合取长。

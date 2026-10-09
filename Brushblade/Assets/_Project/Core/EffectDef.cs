@@ -179,6 +179,11 @@ namespace Brushblade.Core
         Doom,           // 致命(割喉):给目标敌人挂 StatusKind.Doom,Value = 回合数(离散,不吃卡等级)。杂兵生命 < 30% 即斩杀
                         // (施加时已低于则立即斩杀;斩杀走 ResolveDefeat source Execute,触发斩杀时特性);Boss 首次 DamageEnemy ×2。
                         // 支持 Pick / OnlyIf。
+        // ---- D2-金 Task 4:战意族(附录 J7 / J8)。⚠ 只在末尾追加 ----
+        MoraleOverflowShield, // 聚金:把本次出字 Morale 效果溢出的层数(before + value − cap 的正部;补满与锋芒不计,Q14)× Value 转成护盾。
+                              // Value = 每溢出 1 层的护盾量(连续,吃卡等级)。Morale 效果须排在它之前。
+        MoraleArmor,          // 富甲:给玩家挂 StatusKind.MoraleArmor,Value = 每层战意的护甲点数(连续)。含木灵(Q15)。
+        MoraleShield,         // 金气:给玩家挂 StatusKind.MoraleShield,Value = 战意满时每回合开始的护盾量(连续)。仅玩家。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

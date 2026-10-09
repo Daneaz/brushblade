@@ -1058,6 +1058,7 @@ namespace Brushblade.Core
         public int EffectivePlayerDefense => Math.Max(0,
             _config.PlayerDefense
             + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)
+            + MoraleArmorBonus   // 富甲(D2-金 J8a):没挂时恒 0
             - _playerStatuses.TotalMagnitude(StatusKind.ArmorBreak));
 
         /// <summary>护甲折算(2026-09-16):DR = 甲/(甲+100),即 伤害 × 100 ÷ (100 + 甲)。
@@ -2747,6 +2748,7 @@ namespace Brushblade.Core
                     if (summon != null) summon.Shield = 0;
                 DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
             }
+            ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
             _playerTurnsStarted++;
             Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             DrainReactions();   // 安全点:「回合开始时」类反应排在玩家灼烧结算之前
@@ -3768,6 +3770,16 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Doom:
                         ApplyDoom(effect, targetIndex, def.Id);   // 致命(D2-金 J5)
+                        break;
+                    // 战意族(D2-金 Task 4,J7 / J8)
+                    case EffectKind.MoraleOverflowShield:
+                        ResolveMoraleOverflowShield(value);
+                        break;
+                    case EffectKind.MoraleArmor:
+                        GrantMoraleAura(StatusKind.MoraleArmor, value);
+                        break;
+                    case EffectKind.MoraleShield:
+                        GrantMoraleAura(StatusKind.MoraleShield, value);
                         break;
                     case EffectKind.Retaliate:
                         ArmRetaliate(effect, def.Id, attacker);
@@ -5693,7 +5705,7 @@ namespace Brushblade.Core
             // DR = 甲/(甲+100),见 ApplyDefense —— 甲再厚也只是把伤害按比例压薄,永远压不到负数,
             // 「甲厚过攻击力」这种口径随点数减法一起作废。位置在生克**之后**,与 DamageEnemy 那边
             // (生克 → 暴击 → 折算护甲)同序:折的是实际打到身上的量,不是敌人名义上的攻击力。
-            taken = ApplyDefense(taken, summon.EffectiveDefense);
+            taken = ApplyDefense(taken, summon.EffectiveDefense + MoraleArmorBonus);   // 富甲含木灵(D2-金 Q15);没挂时 +0
             // 本回合减伤(Ruling 10):挂在玩家身上、我方全体受益。召唤物眼下没有别的非护甲减伤,单独钳 60%。
             // 没有减伤时整句跳过 —— 恒等。
             // 格挡(D2-0 Task 3,E1):木灵自己的袋子;只挡敌人的挥击(本方法的全部调用点都是挥击,

@@ -92,6 +92,8 @@ namespace Brushblade.Core.Tests
             EffectKind.HealSummons, EffectKind.ShieldSummons,
             // D2-火 Task 4:埋雷的 Value 是伤害量,吃卡等级(出字时再乘攻击力定死)
             EffectKind.Mine,
+            // D2-金 Task 4:战意族 —— 聚金 / 富甲 / 金气的 Value 是护盾量 / 护甲点数,连续
+            EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,
         };
 
         [Test]

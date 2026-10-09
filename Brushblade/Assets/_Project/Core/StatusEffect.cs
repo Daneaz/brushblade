@@ -104,6 +104,11 @@ namespace Brushblade.Core
                           // TurnsLeft = 回合(按该敌人行动递减),SourceId = 字 ID(同源刷新取长)。杂兵:每次掉血后生命 < 30%
                           // 直接斩杀(BattleEngine.AfterEnemyHpLoss,施加那一刻也判);Boss:不斩杀,下一次 DamageEnemy 伤害 ×2
                           // (与标记相乘),用掉即移除全部致命。
+        // ---- D2-金 Task 4(附录 J8) ----
+        MoraleArmor,      // 富甲(玩家,隐藏载体):EffectivePlayerDefense 与木灵护甲各 +战意层数 × Magnitude(随战意即时变化,不快照);
+                          // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
+        MoraleShield,     // 金气(仅玩家,隐藏载体):每个玩家回合开始(清盾之后、TurnStarted 之前),战意 ≥ MoraleCap 则加盾 Magnitude;
+                          // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -114,7 +119,8 @@ namespace Brushblade.Core
         public static bool IsBattleScoped(StatusKind kind) =>
             kind == StatusKind.Taunt || kind == StatusKind.Block || kind == StatusKind.Endure
             || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost
-            || kind == StatusKind.Retaliate;   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
+            || kind == StatusKind.Retaliate   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
+            || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield;   // D2-金 Task 4:战意光环只管本场
     }
 
     public enum StatusPolarity { Buff, Debuff }
