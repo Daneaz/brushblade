@@ -111,6 +111,8 @@ namespace Brushblade.Presentation
                     // 治疗弹射(2026-09-16,水,海/澡):Shape 只在配 Chain 时才有意义,
                     // 缺省 Single 时这两截都要吐空串——不然全体既有治疗字都会平白多出「单体」
                     // 前缀(与 DamageSingle 那份「单体也印」的既有口径不同,这里不能照抄)。
+                    // 割取(D2-金 E13):回复量 = 被杀者最大生命 × Value%,百分比不吃等级(读 e.Value)
+                    EffectKind.HealSelf when e.OfVictimMaxHp => Strings.T("char.effect.healself.victim", ("value", e.Value)),
                     EffectKind.HealSelf => (e.Shape == TargetArea.Single ? "" : ShapeLabel(e))
                         + Strings.T("char.effect.healself", ("value", shown))
                         + ShapeSuffix(e),
@@ -209,6 +211,8 @@ namespace Brushblade.Presentation
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
+                    // 补满(D2-金 E9):战意直接设为上限
+                    EffectKind.Morale when e.Fill => Strings.T("char.effect.morale.fill"),
                     EffectKind.Morale => Strings.T("char.effect.morale",
                         ("stacks", shown), ("per", 10), ("max", 5)),   // per 是百分数,文案里带 %
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
@@ -245,6 +249,8 @@ namespace Brushblade.Presentation
                     EffectKind.Reshape => ReshapeText(e),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
+                    // 格挡修饰器(D2-金 E12):反击百分比覆盖;次数按战意由 ScaleText 印
+                    EffectKind.BlockMod => BlockModText(e),
                     // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
                     EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
                     EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
@@ -461,6 +467,7 @@ namespace Brushblade.Presentation
             DamageCondition.Countering => Strings.T("char.effect.onlyif.countering"),
             DamageCondition.PlayerHpAbove70 => Strings.T("char.effect.onlyif.playerhpabove70"),
             DamageCondition.HasSummon => Strings.T("char.effect.onlyif.hassummon"),
+            DamageCondition.MoraleFull => Strings.T("char.effect.onlyif.moralefull"),
             _ => "",
         };
 
@@ -495,7 +502,13 @@ namespace Brushblade.Presentation
                 // 重选目标(D2-火 E3,烈风):本面没有伤害时,落在主目标上的效果改落到选择器上
                 ? Strings.T("char.effect.reshape.retarget") + PickText(e.Pick)
                 : Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
-                    + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
+                    + ShapeSuffix(e) + HitCountText(e) + ExecuteText(e) + ArmorStrikeText(e) + MarkerText(e);
+
+        /// <summary>BlockMod(D2-金 E12):「格挡」+ 反击百分比覆盖(CounterPercent)。次数按战意(ScaleBy Morale + ScaleMin)由 ScaleText 接在后面。
+        /// 细化文案归 Task 5。</summary>
+        private static string BlockModText(EffectDef e) =>
+            Strings.T("char.effect.blockmod")
+            + (e.CounterPercent > 0 ? Strings.T("char.effect.blockmod.counter", ("percent", e.CounterPercent)) : "");
 
         /// <summary>计数缩放后缀(D2-火 N4):「(每 1 层灼烧)」/「(每名带灼烧的敌人)」+ 上限。不缩放时空串。</summary>
         private static string ScaleText(EffectDef e) =>
@@ -503,6 +516,11 @@ namespace Brushblade.Presentation
             {
                 ScaleBasis.BurnStack => Strings.T("char.effect.per.burnstack"),
                 ScaleBasis.BurningEnemy => Strings.T("char.effect.per.burningenemy"),
+                // D2-金 E10:伤害的击数 + 战意 / 格挡次数 = 战意(至少 ScaleMin) / 战意 × 多命中的敌人数
+                ScaleBasis.Morale => e.Kind == EffectKind.Block || e.Kind == EffectKind.BlockMod
+                    ? Strings.T("char.effect.per.morale.block", ("min", e.ScaleMin))
+                    : Strings.T("char.effect.per.morale.hits"),
+                ScaleBasis.ExtraHitTarget => Strings.T("char.effect.per.extrahittarget"),
                 _ => "",
             } + (e.ScaleBy != ScaleBasis.None && e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
 

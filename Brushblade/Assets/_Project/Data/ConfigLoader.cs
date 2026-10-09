@@ -101,6 +101,11 @@ namespace Brushblade.Data
             public int ShotPercent { get; set; } = 100;     // 散射每一发的伤害百分比
             public int MinBurn { get; set; }                // D2-火 Task 3:附着减攻的门槛(目标自身灼 ≥ N 层才生效,炽焰)
             public bool PerBurningHit { get; set; }         // D2-火 Task 5:追加一击按「命中过的出字前带灼敌人」每名一发(星火)
+            // D2-金 Task 1(附录 E9 / E10 / E12 / E13)
+            public bool Fill { get; set; }                  // Morale:补满到上限
+            public int CounterPercent { get; set; }         // Block / BlockMod:反击百分比覆盖(0 = 缺省 30)
+            public int ScaleMin { get; set; }               // Block / BlockMod:次数按战意时的下限
+            public bool OfVictimMaxHp { get; set; }         // HealSelf:回复量 = 被杀者 MaxHp × Value%
         }
 
         private sealed class CampaignFileDto
@@ -787,6 +792,7 @@ namespace Brushblade.Data
                 if (kind == EffectKind.Mine && effect.Value <= 0 && effect.BodyPercent <= 0)
                     throw new ConfigException($"字「{dto.Id}」的埋雷(Mine)须写伤害量(value > 0 或 bodyPercent N)");
                 ValidateFireOps(dto.Id, kind, effect);
+                ValidateMetalOps(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)
                 if (effect.PerBurningHit && kind != EffectKind.ExtraStrike)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 perBurningHit(只给 ExtraStrike)");
@@ -839,7 +845,8 @@ namespace Brushblade.Data
                     effect.RetainPercent, effect.PortionPercent,
                     ParseEnum(effect.ScaleBy, ScaleBasis.None, dto.Id, "计数缩放口径"), effect.ScaleCap,
                     effect.PerHit == null ? null : ParseEffects(dto, effect.PerHit), effect.PerHitFrom, effect.ShotPercent,
-                    effect.MinBurn, effect.PerBurningHit));
+                    effect.MinBurn, effect.PerBurningHit,
+                    effect.Fill, effect.CounterPercent, effect.ScaleMin, effect.OfVictimMaxHp));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -890,6 +897,7 @@ namespace Brushblade.Data
                 {
                     bool bad = child.Kind == nameof(EffectKind.DamageSingle) || child.Kind == nameof(EffectKind.Reshape)
                         || child.Kind == nameof(EffectKind.Amplify) || child.Kind == nameof(EffectKind.Augment)
+                        || child.Kind == nameof(EffectKind.BlockMod)
                         || child.Kind == nameof(EffectKind.SelfCost)   // 终审 6:自损写进每击附带会每击扣一次血
                         || child.PerHit != null || child.OpeningBattles != 0;
                     if (bad)
@@ -912,14 +920,49 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的引爆 portionPercent 须在 1–100:{e.PortionPercent}");
             if (kind == EffectKind.BurnScale && e.Value < 100)
                 throw new ConfigException($"字「{id}」的 BurnScale 百分比须 ≥ 100(只升不降):{e.Value}");
-            if (!string.IsNullOrEmpty(e.ScaleBy) && kind != EffectKind.Amplify && kind != EffectKind.HealSelf)
-                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy(只有 Amplify / HealSelf 读它)");
             if (e.ScaleCap != 0 && (kind != EffectKind.Amplify || string.IsNullOrEmpty(e.ScaleBy) || e.ScaleCap < 0))
                 throw new ConfigException($"字「{id}」的 scaleCap 只给带 scaleBy 的 Amplify,且须 > 0");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢,拦下
             if (e.OpeningBattles != 0 && (e.PerHit != null || e.ShotPercent != 100 || e.RetainPercent != 0
                     || e.PortionPercent != 100 || !string.IsNullOrEmpty(e.ScaleBy)))
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 perHit / shotPercent / retain / portion / scaleBy(登记时会丢)");
+        }
+
+        /// <summary>D2-金 Task 1 的字段(附录 E9 / E10 / E12 / E13)与计数缩放各档的宿主:写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
+        private static void ValidateMetalOps(string id, EffectKind kind, EffectDto e)
+        {
+            // 计数缩放:每一档只有特定的 Kind 读(BattleEngine.Fire / Metal);未知名由 ParseEnum 报
+            if (!string.IsNullOrEmpty(e.ScaleBy))
+            {
+                bool blockLike = kind == EffectKind.Block || kind == EffectKind.BlockMod;
+                bool ok = e.ScaleBy switch
+                {
+                    nameof(ScaleBasis.BurnStack) or nameof(ScaleBasis.BurningEnemy) => kind == EffectKind.Amplify || kind == EffectKind.HealSelf,
+                    nameof(ScaleBasis.Morale) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape || blockLike,
+                    nameof(ScaleBasis.ExtraHitTarget) => kind == EffectKind.Morale,
+                    _ => true,
+                };
+                if (!ok)
+                    throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
+                        + "Morale 给 DamageSingle / Reshape / Block / BlockMod;ExtraHitTarget 给 Morale)");
+            }
+            if (e.Fill && (kind != EffectKind.Morale || !string.IsNullOrEmpty(e.ScaleBy)))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 fill(只给 Morale,且不与 scaleBy 同用)");
+            bool block = kind == EffectKind.Block || kind == EffectKind.BlockMod;
+            if (e.CounterPercent != 0 && (!block || e.CounterPercent < 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 counterPercent(只给 Block / BlockMod,且须 > 0)");
+            bool perMorale = block && e.ScaleBy == nameof(ScaleBasis.Morale);
+            if (e.ScaleMin != 0 && !perMorale)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleMin(只给 scaleBy Morale 的 Block / BlockMod)");
+            if (perMorale && e.ScaleMin < 1)
+                throw new ConfigException($"字「{id}」的格挡次数按战意(scaleBy Morale)须写下限 scaleMin ≥ 1:{e.ScaleMin}");
+            if (kind == EffectKind.BlockMod && e.CounterPercent == 0 && string.IsNullOrEmpty(e.ScaleBy))
+                throw new ConfigException($"字「{id}」的 BlockMod 什么也没改(写 counterPercent 或 scaleBy Morale)");
+            if (e.OfVictimMaxHp && (kind != EffectKind.HealSelf || !string.IsNullOrEmpty(e.ScaleBy)))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofVictimMaxHp(只给 HealSelf,且不与 scaleBy 同用)");
+            // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
+            if (e.OpeningBattles != 0 && (e.Fill || e.CounterPercent != 0 || e.ScaleMin != 0 || e.OfVictimMaxHp))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 fill / counterPercent / scaleMin / ofVictimMaxHp(登记时会丢)");
         }
 
         /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——

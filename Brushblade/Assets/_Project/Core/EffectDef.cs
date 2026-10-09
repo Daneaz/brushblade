@@ -168,6 +168,11 @@ namespace Brushblade.Core
                         // 但会触发 50% 阈值;至少留 1 点,不会致死。Value 离散。
         Reveal,         // 揭示(光耀):通假字现形(RevealDisguise)、生僻字直接被读懂(ApparentElement = Element),发 EnemyRevealed;
                         // 其余目标空转。Value 不用。支持 Pick / OnlyIf。
+        // ---- D2-金 Task 1:格挡修饰器(附录 E12)。⚠ 只在末尾追加 ----
+        BlockMod,       // 格挡修饰器(剑意 / 千锤 / 金刚 / 双金合璧):Fold 时作用于本面**第一条** Block,非缺省字段覆盖 ——
+                        // CounterPercent(反击 = 本体 × N%,缺省 BattleConfig.BlockCounterPercent 30)、
+                        // ScaleBy Morale + ScaleMin(次数 = max(下限, 结算那一刻的战意层数))。本面没有 Block 时空转。
+                        // 多条按出现(槽位)顺序折叠,后者覆盖。Value 不用;不进结算循环。J1 的运行时字段由 Task 2 追加。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -176,6 +181,10 @@ namespace Brushblade.Core
         None,           // 不缩放(缺省)
         BurnStack,      // Amplify:这一击的目标出字前的灼层数;HealSelf:存活敌人的灼层数之和
         BurningEnemy,   // 带灼的存活敌人数(Amplify:出字前;HealSelf:结算那一刻)
+        // ---- D2-金 Task 1(附录 E10)。⚠ 只在末尾追加 ----
+        Morale,         // 战意层数(结算那一刻):DamageSingle 击数 = HitCount + 战意(大卸八块,进 DamageSingle 时取一次);
+                        // Block 次数 = max(ScaleMin, 战意)(双金合璧,由 BlockMod 写入,出字后的值)
+        ExtraHitTarget, // Morale 的值 × (本次出字 HitTargets 去重数 − 1)(横扫千军;跨排 Boss 只算 1 名)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -373,7 +382,9 @@ namespace Brushblade.Core
         /// (与「引爆只改兑现时机、不改总量」同口径),剩 N − k 层;k = 0 不引爆。只给 Detonate;缺省 100 = 全部引爆。≤0 兜回 100。</summary>
         public int PortionPercent { get; }
 
-        /// <summary>计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数。None = 不缩放。</summary>
+        /// <summary>计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数。None = 不缩放。
+        /// D2-金 E10:DamageSingle / Reshape 写 Morale(击数 + 战意)、Block / BlockMod 写 Morale(次数 = 战意,配 ScaleMin)、
+        /// Morale 写 ExtraHitTarget(值 × 多命中的敌人数)。哪个 Kind 认哪档由 ConfigLoader 拦。</summary>
         public ScaleBasis ScaleBy { get; }
 
         /// <summary>计数缩放后的上限(只给 Amplify,单位 = 百分点;燥裂 50)。0 = 不设上限。</summary>
@@ -402,6 +413,21 @@ namespace Brushblade.Core
         /// (StatusEffect.Potency)。字表对象恒为 0。</summary>
         internal int BurstPotency { get; private set; }
 
+        // ---- D2-金 Task 1 ----
+
+        /// <summary>补满(E9,千锤 / 金刚 / 金玉满堂):只给 Morale —— 战意直接设为上限(不算溢出、顶满不发事件)。Value 不用。</summary>
+        public bool Fill { get; }
+
+        /// <summary>反击百分比覆盖(E12):Block / BlockMod 读。反击 = 攻击面本体(吃等级)× N%。0 = 缺省 BattleConfig.BlockCounterPercent。</summary>
+        public int CounterPercent { get; }
+
+        /// <summary>计数缩放的下限(E10,双金合璧「至少 2」):只给 ScaleBy == Morale 的 Block / BlockMod。0 = 不设。</summary>
+        public int ScaleMin { get; }
+
+        /// <summary>按被杀者最大生命回复(E13,割取):只给 HealSelf —— 回复量 = 反应目标(死者)MaxHp × Value%;
+        /// 百分比不吃卡等级 / 五行 L3 / 攻击力(Q19),照常吃 Amplify Heal 与泉。</summary>
+        public bool OfVictimMaxHp { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -427,7 +453,8 @@ namespace Brushblade.Core
             StatusKind? riderOf = null, int bodyPercent = 0, int openingBattles = 0,
             int retainPercent = 0, int portionPercent = 100, ScaleBasis scaleBy = ScaleBasis.None, int scaleCap = 0,
             IReadOnlyList<EffectDef> perHit = null, int perHitFrom = 1, int shotPercent = 100, int minBurn = 0,
-            bool perBurningHit = false)
+            bool perBurningHit = false,
+            bool fill = false, int counterPercent = 0, int scaleMin = 0, bool ofVictimMaxHp = false)
         {
             Kind = kind;
             Value = value;
@@ -473,6 +500,10 @@ namespace Brushblade.Core
             ShotPercent = shotPercent <= 0 ? 100 : shotPercent;
             MinBurn = minBurn;
             PerBurningHit = perBurningHit;
+            Fill = fill;
+            CounterPercent = counterPercent;
+            ScaleMin = scaleMin;
+            OfVictimMaxHp = ofVictimMaxHp;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -486,16 +517,19 @@ namespace Brushblade.Core
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
             IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> ampTerms = null,
             int? value = null, int? turns = null, string traitKey = null, SummonPassive passive = null,
-            EffectPick? pick = null, IReadOnlyList<EffectDef> perHit = null, int? perHitFrom = null, int? shotPercent = null) =>
+            EffectPick? pick = null, IReadOnlyList<EffectDef> perHit = null, int? perHitFrom = null, int? shotPercent = null,
+            int? executeBelowPercent = null, bool? executeKills = null, ScaleBasis? scaleBy = null, int? scaleMin = null,
+            int? counterPercent = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
-                turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
+                turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
+                executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
                 AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
-                RetainPercent, PortionPercent, ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
-                MinBurn, PerBurningHit)
+                RetainPercent, PortionPercent, scaleBy ?? ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
+                MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

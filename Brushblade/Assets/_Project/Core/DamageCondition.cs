@@ -69,5 +69,10 @@ namespace Brushblade.Core
 
         /// <summary>我方有存活召唤物(木灵;焚林)。</summary>
         HasSummon = 14,
+
+        // ---- D2-金 Task 1(附录 E6):与目标无关,快照里每个敌人下标同值 ----
+
+        /// <summary>战意已满:战意 ≥ MoraleCap(出字前;刚、三金破,Q13)。</summary>
+        MoraleFull = 15,
     }
 }

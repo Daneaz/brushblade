@@ -617,6 +617,8 @@ namespace Brushblade.Core
             DamageCondition.FirstCastThisTurn, DamageCondition.Countering,
             // D2-火 Task 1(附录 E1)
             DamageCondition.PlayerHpAbove70, DamageCondition.HasSummon,
+            // D2-金 Task 1(附录 E6)
+            DamageCondition.MoraleFull,
         };
 
         /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
@@ -625,7 +627,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 15 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 16 种),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -650,7 +652,8 @@ namespace Brushblade.Core
         private static bool IsTargetIndependent(DamageCondition c) =>
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
             || c == DamageCondition.FirstCastThisTurn
-            || c == DamageCondition.PlayerHpAbove70 || c == DamageCondition.HasSummon;
+            || c == DamageCondition.PlayerHpAbove70 || c == DamageCondition.HasSummon
+            || c == DamageCondition.MoraleFull;
 
         /// <summary>灼的火力加成(D2-火 G3):scope Burn / All 的 Amplify 乘在火力上,不改层数。无加成项原样返回。</summary>
         private int AmpBurnPotency(EffectDef effect, int potency, int enemyIndex) =>
@@ -3203,6 +3206,8 @@ namespace Brushblade.Core
                         // 「塔」拖到敌人身上松手,选中的那只曾一发都没挨到。没指(−1)时照旧自动。
                         var shapeTargets = Targeting.ExpandTargets(
                             _enemies, targetIndex, effect.Shape, effect.Shots, volleyLeadsWithPrimary: true);
+                        // 主目标击数:缺省 = HitCount;ScaleBy Morale(D2-金 E10,大卸八块)= HitCount + 战意,进门取一次
+                        int primaryHits = HitCountOf(effect);
                         for (int t = 0; t < shapeTargets.Count; t++)
                         {
                             int tgt = shapeTargets[t];
@@ -3225,7 +3230,7 @@ namespace Brushblade.Core
                                 : effect.Shape == TargetArea.Chain
                                     ? ChainPercent(effect.ShapePercent, t)
                                     : effect.ShapePercent;
-                            int hits = primary ? effect.HitCount : 1;
+                            int hits = primary ? primaryHits : 1;
                             // 同一次挥击的第二格(2026-09-05):AddHits 把跨排 Boss 的下标
                             // **连着**记两次,所以「与上一项同下标」就是它。
                             // 连发排除在外 —— 它的重复下标是「多发」(场上只剩一只时 [0,0,0,0]),
@@ -3331,7 +3336,8 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
                                 // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
-                                Magnitude = ScaleByAttack(value), TurnsLeft = 3,   // 固定 3 回合
+                                Magnitude = ScaleByAttack(value),
+                                TurnsLeft = effect.Turns > 0 ? effect.Turns : 3,   // D2-金 E8:读 turns,缺省 3
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3704,15 +3710,16 @@ namespace Brushblade.Core
                     {
                         // 格挡(spec v7 §3.1/§4):次数是离散量,读 effect.Value(判据见 MetaRules.ScalesWithCardLevel);
                         // 反击 = 攻击面本体伤害(吃等级)× 30%,出字时定死,不吃攻击力(与反弹同口径)。
+                        // 反击百分比可被 BlockMod 覆盖(D2-金 E12),缺省 30%
                         int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel)
-                            * BattleConfig.BlockCounterPercent / 100;
+                            * BlockCounterPercentOf(effect) / 100;
                         // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样
                         counter = Amplified(counter, AmpPercent(effect, -1));
                         // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.Block, Polarity = StatusPolarity.Buff,
-                            Magnitude = effect.Value, CounterDamage = counter, TurnsLeft = -1,
+                            Magnitude = BlockCountOf(effect), CounterDamage = counter, TurnsLeft = -1,   // 次数可按战意(E10)
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     }
@@ -3829,7 +3836,8 @@ namespace Brushblade.Core
                         // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
                         // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
                         // 满层(缺省 5)+50 攻击,刚好追平剡单张的量;上限可由金脉 L4 抬到 7。
-                        AddPlayerCounter(StatusKind.Morale, value, _config?.MoraleCap ?? CombatCaps.MoraleStacks);
+                        // D2-金 E9 / E10:补满、按多命中缩放走 ResolveMorale;缺省路径与原先同一句 AddPlayerCounter
+                        ResolveMorale(effect, value);
                         break;
                     case EffectKind.CritBuff:
                         // 锋(2026-08-12,E-b2):本场暴击率 +Value 个百分点。
@@ -3975,9 +3983,15 @@ namespace Brushblade.Core
                             value *= CurrentBurnCount(effect.ScaleBy);
                             if (value <= 0) break;
                         }
+                        // 按被杀者最大生命(D2-金 E13,割取):基数 = 死者 MaxHp × Value%,不过攻击力缩放
+                        if (effect.OfVictimMaxHp)
+                        {
+                            value = VictimHealBase(effect, targetIndex);
+                            if (value <= 0) break;
+                        }
                         // 目标可选(2026-08-22,spec §8):与目标是谁无关 —— 治召唤物与治玩家同值
                         // (2026-09-02:相生 ×3 已取消,ResolveEffect 现在对这一支是恒等函数)
-                        int healBase = ScaleByBaseAttack(
+                        int healBase = effect.OfVictimMaxHp ? value : ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
                         int amplified = AmplifyByWellspring(healBase);  // 用**攒之前**的层数
                         GainWellspring(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
@@ -4552,6 +4566,8 @@ namespace Brushblade.Core
                     bag.RemoveEntry(old);
                 }
             }
+            // 流血不论来源合成单条(D2-金 E8,Q12):量取大、回合取长
+            else if (effect.Kind == StatusKind.Bleed) MergeBleed(bag, effect);
             // 格挡同类取最强(spec v7 §5.2.1):次数、反击各取较大值,不累加
             else if (effect.Kind == StatusKind.Block)
             {
@@ -5125,6 +5141,7 @@ namespace Brushblade.Core
             DamageCondition.PlayerHasArmor => _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0,
             DamageCondition.PlayerHpAbove70 => PlayerHp * 100L > _config.PlayerMaxHp * 70L,
             DamageCondition.HasSummon => AliveSummons() > 0,
+            DamageCondition.MoraleFull => MoraleStacks >= MoraleCapOrDefault,   // D2-金 E6(Q13)
             DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
             DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
             _ => false,

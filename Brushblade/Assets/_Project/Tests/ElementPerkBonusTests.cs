@@ -197,6 +197,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Retaliate,
                 // D2-火 Task 5:追加一击的 Value 是百分比(L3 套在本体伤害基数上)、自损是百分比、解冻 / 揭示不用 Value
                 EffectKind.ExtraStrike, EffectKind.SelfCost, EffectKind.Thaw, EffectKind.Reveal,
+                // D2-金 Task 1:格挡修饰器,出字前折叠,不进结算循环
+                EffectKind.BlockMod,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

@@ -604,6 +604,7 @@ namespace Brushblade.Presentation
                 case EffectKind.Amplify:
                 case EffectKind.Reshape:
                 case EffectKind.Augment:
+                case EffectKind.BlockMod:   // D2-金 E12
                     // 修饰器(D1 Task 3):只出现在特性里、出字前折叠进本体,本身不是独立效果,
                     // 不出 chip;它改了什么由 CharInfo 的卡面文案印。
                     break;

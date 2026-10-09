@@ -834,6 +834,8 @@ namespace Brushblade.Core
             EffectKind.Retaliate => false,
             // D2-火 Task 5:追加一击的 Value 是本体百分比(本体伤害在结算时另吃等级)、自损是百分比、解冻 / 揭示不用 Value
             EffectKind.ExtraStrike or EffectKind.SelfCost or EffectKind.Thaw or EffectKind.Reveal => false,
+            // D2-金 Task 1:格挡修饰器 —— Value 不用,百分比 / 次数下限是离散量
+            EffectKind.BlockMod => false,
             _ => true,
         };
 
