@@ -324,21 +324,24 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PerHit_KillingBlow_NoRiderAtAll_EvenKindsWithoutOwnAliveGuard()
+        public void PerHit_KillingBlow_EnemySideOnDeadTargetSkipped_AllySideStillResolves()
         {
-            // 终审 5:每击附带的入口统一判存活 —— 破甲 / 魅惑这类分支自己不判存活,以前会挂到尸体上
+            // 终审 5 + 疑虑 1 裁定:击杀那一击,只拦「作用于已死目标」的敌方侧附带(破甲 / 魅惑这类分支自己不判存活,
+            // 以前会挂到尸体上);我方侧(战意 / 护盾)照常结算;敌方侧但选别的目标的(pick All)照常落在活着的敌人身上
             var def = Char(new EffectDef(EffectKind.DamageSingle, 100, perHit: new[]
             {
                 new EffectDef(EffectKind.ArmorBreak, 5, turns: 2), new EffectDef(EffectKind.Charm, 0, turns: 1),
-                new EffectDef(EffectKind.Morale, 1),
+                new EffectDef(EffectKind.Morale, 1), new EffectDef(EffectKind.Shield, 5),
+                new EffectDef(EffectKind.Weaken, 10, turns: 2, pick: EffectPick.All),
             }));
             var b = Battle(def, 1, new[] { new EnemyDef("怔", Element.Heart, 1, 0), new EnemyDef("怔", Element.Heart, Hp, 0) });
             Assert.That(b.Cast("试", 0), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[0].Alive, Is.False, "前提:这一击打死了目标");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.ArmorBreak), Is.False, "破甲不挂尸体");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Charm), Is.False, "魅惑不挂尸体");
-            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0),
-                "口径:目标被这一击打死 → 这一击的附带整组作罢(我方侧也不结算)");
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "我方侧:击杀那一击照给战意");
+            Assert.That(b.PlayerShield, Is.GreaterThan(0), "我方侧:击杀那一击照给护盾");
+            Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Curse), Is.True, "pick All 的敌方侧附带照常落在活着的敌人身上");
         }
 
         private static CharDef TraitChar(params TraitDef[] traits) => new("试", Element.Heart,

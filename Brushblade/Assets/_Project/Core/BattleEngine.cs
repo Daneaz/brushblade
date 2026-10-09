@@ -3278,11 +3278,15 @@ namespace Brushblade.Core
                                 if (crit) EnqueueCastTraits(_cast.OnCrit, tgt);
                                 // 每击附带(D2-火 N4b / 跨计划 Q23):这一击之后对这一击的目标同步结算;
                                 // 击序 = 这个目标身上的第几击,从 PerHitFrom 起。缺省空表整句跳过。
-                                // 存活在入口统一判(终审 5):这一击打死了目标 → 整组附带作罢(含我方侧的,如战意),
-                                // 不依赖各分支自己的存活守卫(破甲 / 魅惑分支没有)。
+                                // 存活在入口统一判(终审 5,疑虑 1 裁定):这一击打死了目标 → 只跳过「作用于这名死者」的
+                                // 敌方侧附带(敌对 Kind 且落点 = 这一击的目标),不依赖各分支自己的存活守卫(破甲 / 魅惑分支没有);
+                                // 我方侧(战意 / 回血 / 护盾)与选别的目标的敌方侧附带(pick All 等,PickTargets 只取活人)照常结算。
                                 // 形状展开的非主目标(溅射 / 弹射 / 散射)每一击同样带附带。
-                                if (effect.PerHit.Count > 0 && hit + 1 >= effect.PerHitFrom && _enemies[tgt].Alive)
-                                    foreach (var rider in effect.PerHit) ResolveEffect(rider, tgt);
+                                if (effect.PerHit.Count > 0 && hit + 1 >= effect.PerHitFrom)
+                                    foreach (var rider in effect.PerHit)
+                                        if (_enemies[tgt].Alive || !CardFaceRules.HostileKinds.Contains(rider.Kind)
+                                            || EffectPickRules.Effective(rider) != EffectPick.Primary)
+                                            ResolveEffect(rider, tgt);
                             }
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
