@@ -167,6 +167,67 @@ namespace Brushblade.Core.Tests
             Assert.That(On(plain, 1, BattleEventKind.BurnTick).Count, Is.EqualTo(0));
         }
 
+        // ================= 反应击杀链(R4)=================
+
+        private static BattleEngine Duo(string a, int la, string c, int lc, params EnemyDef[] enemies) =>
+            new(Graph, Config, new[] { a, a, a, c, c, c }, Array.Empty<string>(), enemies, seed: 1,
+                cardLevels: new Dictionary<string, int> { [a] = la, [c] = lc });
+
+        [Test]
+        public void Bao_ChainBlast_AtMostTwicePerCast()
+        {
+            // 爆 Lv8·攻 连爆:`DamageSingle 0` `All` `bodyPercent 100` `limit 2`(击杀时)。本体全体一击秒掉 3 只 → 只连爆 2 次
+            var b = Battle("爆", 8, Mob(hp: 1), Mob(hp: 1), Mob(hp: 1), Mob());
+            Assert.That(b.Cast("爆", -1, attackMode: true), Is.EqualTo(BattleError.None));
+            var hits = On(b, 3, BattleEventKind.Damage);
+            Assert.That(hits.Count, Is.EqualTo(1 + 2), "本体一击 + 连爆 2 次(limit 2)");
+            Assert.That(hits[1].Amount, Is.EqualTo(hits[0].Amount).Within(1), "连爆 = 本体 100%");
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Bao_ChainBlast_ReactionKill_DoesNotChainAgain_NorTriggerBurningCity()
+        {
+            // 同一夹具先量出敌人 1(带灼,吃爆燃)挨的本体一击 d;正式那场给它 d + 1 血:本体打不死、连爆打死
+            var probe = Duo("焚", 5, "爆", 8, Mob(hp: 1), Mob(), Mob());
+            Assert.That(probe.Cast("焚", 1), Is.EqualTo(BattleError.None));
+            Assert.That(probe.Cast("爆", -1, attackMode: true), Is.EqualTo(BattleError.None));
+            var probeHits = On(probe, 1, BattleEventKind.Damage);
+            Assert.That(probeHits.Count, Is.EqualTo(2), "前提:本体一击 + 连爆 1 次");
+            int d = probeHits[0].Amount;
+
+            // 敌人 1 先吃焚 Lv5·燃 的焚城载体与灼;再用爆出字:敌人 0 被本体打死 → 连爆 1 次 → 打死敌人 1
+            var b = Duo("焚", 5, "爆", 8, Mob(hp: 1), Mob(hp: d + 1), Mob());
+            Assert.That(b.Cast("焚", 1), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[1].Statuses.Has(StatusKind.BurnBurstMark), Is.True, "前提:焚城载体挂上");
+            Assert.That(b.Cast("爆", -1, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[1].Alive, Is.False, "前提:连爆打死了敌人 1");
+            Assert.That(On(b, 2, BattleEventKind.Damage).Count, Is.EqualTo(1 + 1),
+                "反应里的击杀不再入队连爆(R4,虽然 limit 2 还剩 1 次)");
+            Assert.That(On(b, 2, BattleEventKind.BurnTick).Count, Is.EqualTo(0), "反应里的击杀不触发焚城(R4)");
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Fen_FierceBurn_InCastExtraStrikeKill_TriggersBurningCityOnce()
+        {
+            // 口径(终审 Important 2):烈焚 / 星火的追加一击是出字本身(TriggerDepth 0),它打死带焚城载体的敌人 → 焚城入队 1 次;
+            // 对照上一条:连爆(反应)打死的不入队
+            var probe = Duo("焚", 5, "焚", 5, Mob(), Mob());
+            Assert.That(probe.Cast("焚", 0), Is.EqualTo(BattleError.None));
+            Assert.That(probe.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
+            var probeHits = On(probe, 0, BattleEventKind.Damage);
+            Assert.That(probeHits.Count, Is.EqualTo(2), "前提:本体一击 + 烈焚追加一击(MostBurn = 敌人 0)");
+            int body = probeHits[0].Amount;
+
+            var b = Duo("焚", 5, "焚", 5, Mob(hp: body + 1), Mob());
+            Assert.That(b.Cast("焚", 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Alive, Is.False, "前提:追加一击打死了敌人 0");
+            Assert.That(On(b, 1, BattleEventKind.BurnTick).Count, Is.EqualTo(1), "焚城入队并兑现恰好 1 次");
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0));
+        }
+
         // ================= 敌人出手前 / 受击挂点 =================
 
         [Test]

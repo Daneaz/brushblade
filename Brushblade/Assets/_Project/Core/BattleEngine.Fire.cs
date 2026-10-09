@@ -321,7 +321,15 @@ namespace Brushblade.Core
         /// <summary>追加一击(N9,星火 / 烈焚):伤害 = 本体伤害基数(TraitRules.BodyDamageOf,吃等级与 L3)× Value% × 攻击力,
         /// 按来源字元素走 DamageEnemy(过生克 / 护甲)。发数:PerBurningHit = 本次出字命中过、出字前带灼的敌人数(0 则整条跳过,
         /// 一个随机数都不摇),否则 1。每发各自选目标(Random 走 _traitRandom);目标已死 / 不满足条件则这一发作罢,
-        /// 暴击(_random)只在真的出手时摇。追加的一击不进 HitTargets、不触发暴击时特性。</summary>
+        /// 暴击(_random)只在真的出手时摇。追加的一击不进 HitTargets、不触发暴击时特性。
+        ///
+        /// 基数口径(Ruling 8,附录「本体基数」):只含本体伤害(卡等级 + L3 元素加成 + 攻击力),**不含**士气释放的百分比、
+        /// 本体的 AmpTerms 与 DoubleVs —— 追加一击是「再打一次本体的 N%」,不是复制本体那一击的全部加成。
+        ///
+        /// 击杀口径(终审 Important 2):出字内(星火 / 烈焚,TriggerDepth 0)的追加一击算出字本身 —— 打死带焚城载体的敌人
+        /// 会让焚城入队、击杀时特性照常触发;R4 只拦反应与出字之外的伤害(埋雷、焚身、连爆打死的不触发)。不会死循环:
+        /// 反应里的 ExtraStrike 按 0 结算(Task 5 Ruling 2),焚城的伤害也不连锁焚城。
+        /// 测试:FireExclusiveDataTests.Fen_FierceBurn_InCastExtraStrikeKill_TriggersBurningCityOnce。</summary>
         private void ExtraStrike(EffectDef effect, int targetIndex, CharDef def, bool attackMode, int cardLevel, Element attacker)
         {
             int strikes = 1;
