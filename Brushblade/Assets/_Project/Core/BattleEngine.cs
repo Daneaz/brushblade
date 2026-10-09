@@ -5223,10 +5223,7 @@ namespace Brushblade.Core
                 damage = damage * (100 + BattleConfig.IceStallDamageTakenPercent) / 100;
             // 标记(D1 Task 6):紧随冰滞易伤,与它相乘、分别整数取整;多个来源只取最强的一份(spec §5.2 第 1 律)。
             // 无标记整句跳过 —— 恒等。
-            int markPercent = 0;
-            foreach (var mark in enemy.Statuses.All)
-                if (mark.Kind == StatusKind.Vulnerable && mark.Magnitude > markPercent) markPercent = mark.Magnitude;
-            if (markPercent > 0) damage = damage * (100 + markPercent) / 100;
+            damage = ApplyMark(enemy, damage);
             // 护甲(2026-08-12 E-b4 T2 接线,2026-09-16 改百分比减伤):**全部乘法算完之后,最后折**。
             // 结算式 = floor(基础 × 生克 × 暴击) × 100 ÷ (100 + max(0, 护甲 − 破甲 − 穿透))。
             // 护甲是**百分比减伤**(2026-09-16,推翻 E-b4 的点数减法):DR = 甲/(甲+100),

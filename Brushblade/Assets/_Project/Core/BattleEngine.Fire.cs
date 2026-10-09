@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Brushblade.Core
@@ -262,12 +263,74 @@ namespace Brushblade.Core
             foreach (var s in _playerStatuses.All.Where(x => x.Kind == StatusKind.Retaliate).ToList())
             {
                 if (s.OnHit == null || s.OnHit.Count == 0) continue;
-                if (s.Magnitude > 0 && !TryUseTrait("回敬:" + (s.TraitKey ?? s.SourceId), perTurn: s.Magnitude, perBattle: 0))
+                if (s.Magnitude > 0 && !TryUseTrait(RetaliateUseKey(s), perTurn: s.Magnitude, perBattle: 0))
                     continue;
                 // 特性键随效果带过去(G11):回敬挂的减攻 / 致盲与本体分开计时
                 var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
                 Enqueue(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
             }
+        }
+
+        /// <summary>回敬每回合次数阀的键(结算与 <see cref="RetaliateChargesLeft"/> 共用,两边各拼一份必然漂)。</summary>
+        internal static string RetaliateUseKey(StatusEffect s) => "回敬:" + (s.TraitKey ?? s.SourceId);
+
+        /// <summary>这一条回敬本回合还剩几次;不限次数(Magnitude 0)返回 null。只读。</summary>
+        private int? ChargesLeftOf(StatusEffect s)
+        {
+            if (s.Magnitude <= 0) return null;
+            _traitUsesThisTurn.TryGetValue(RetaliateUseKey(s), out int used);
+            return Math.Max(0, s.Magnitude - used);
+        }
+
+        private IEnumerable<StatusEffect> LiveRetaliates() =>
+            _playerStatuses.All.Where(s => s.Kind == StatusKind.Retaliate && s.OnHit != null && s.OnHit.Count > 0);
+
+        /// <summary>回敬 chip 该不该出(StatusChipsFire 稿):玩家身上有回敬、且至少一条还能触发(不限次数,或本回合还有剩余)。
+        /// 用完的那条不起作用,chip 隐藏(同格挡用完)。状态只挂在玩家身上,表现层据此给玩家栏与每只召唤物都画。</summary>
+        public bool RetaliateArmed => LiveRetaliates().Any(s => ChargesLeftOf(s) is not 0);
+
+        /// <summary>回敬 chip 上的数字:有每回合上限时 = 剩余次数(多条取最大 —— 任一条还能触发,下一次受击就会回敬);
+        /// 有任一条不限次数或没有生效的回敬时返回 null(不带数字)。</summary>
+        public int? RetaliateChargesLeft()
+        {
+            int? best = null;
+            foreach (var s in LiveRetaliates())
+            {
+                int? left = ChargesLeftOf(s);
+                if (left == null) return null;
+                if (left > 0 && (best == null || left > best)) best = left;
+            }
+            return best;
+        }
+
+        /// <summary>标记(Vulnerable)增伤:多个来源只取最强的一份,整数取整;无标记时原样返回。
+        /// DamageEnemy 与 <see cref="MineHpLoss"/> 共用。</summary>
+        private static int ApplyMark(EnemyState enemy, int damage)
+        {
+            int markPercent = 0;
+            foreach (var mark in enemy.Statuses.All)
+                if (mark.Kind == StatusKind.Vulnerable && mark.Magnitude > markPercent) markPercent = mark.Magnitude;
+            return markPercent > 0 ? damage * (100 + markPercent) / 100 : damage;
+        }
+
+        /// <summary>埋雷血条预扣段(StatusChipsFire 稿):按当前状态,身上的地雷下次攻击前会扣掉多少血。
+        /// 与 <see cref="SettlePreStrikeHooks"/> → DamageEnemy 同口径:每颗各炸一次,心属性(生克 1.0×)、无视护甲、吃标记、
+        /// 护盾先吸收(按顺序消耗),结果封顶到当前生命(= 整截斜纹 = 出手前就会被炸死)。
+        /// 冰滞易伤不计:Boss 那一拍开头先移除冰滞再出手,地雷炸时它已经不在了。灼烧 / 流血在爆炸之前结算,这里不预测。</summary>
+        public int MineHpLoss(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Alive || !enemy.Statuses.Has(StatusKind.Mine)) return 0;
+            int shield = enemy.Shield, lost = 0;
+            foreach (var mine in enemy.Statuses.All)
+            {
+                if (mine.Kind != StatusKind.Mine || mine.Magnitude <= 0) continue;
+                int damage = ApplyMark(enemy, WuxingResolver.ResolveEffect(mine.Magnitude, Element.Heart, enemy.Element));
+                int absorbed = Math.Min(shield, damage);
+                shield -= absorbed;
+                lost += damage - absorbed;
+            }
+            return Math.Min(enemy.Hp, lost);
         }
 
         /// <summary>这次动作算不算「攻击」(G4):普攻与 Boss 技能释放都算;Boss 开始蓄力的那一拍不出手,不算。
