@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 按 asmdef 边界单独编 Brushblade.Data(引用 Core):Data 访问 Core 的 internal 在这里就报 CS1061,
+       不再漏到 Unity(2026-10-09 ConfigLoader 读 EffectDef.AmpTerms 栽过一次)。 -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>Brushblade.Data</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../../../Brushblade/Assets/_Project/Data/**/*.cs" />
+    <ProjectReference Include="../core/Core.csproj" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>

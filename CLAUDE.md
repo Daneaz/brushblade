@@ -65,6 +65,9 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - TDD 的项目范围:Core/Data 每个模块必须走;Presentation 不强求自动化测试,**但改完必须过离线编译**
   ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
   离线编译依赖 `Brushblade/Library/ScriptAssemblies/`(Unity 至少打开过本工程一次)。
+  prescompile 把 Core、Data 按 asmdef 各编成独立程序集(`tools/prescompile/{core,data}/`),Data / Presentation
+  访问 Core 的 `internal` 会在这里报 CS1061;coretests 把 Core+Data 编在一起,**抓不到这类错**(2026-10-09
+  `ConfigLoader` 读 `EffectDef.AmpTerms`,工装全绿、Unity 编译失败)。
   只看 `error CS`,`warning MSB3245` 是 Unity 程序集自带的无关引用,忽略。
 - ⚠️ **离线编译只证明「能编过」,不证明「接上了」。** Presentation 没有自动化测试,
   下面两类缺陷全绿的测试一条都抓不到,只能靠人看 —— 2026-09-02 势/水势那批**两样都栽了**:

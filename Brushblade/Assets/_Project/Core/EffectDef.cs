@@ -404,6 +404,10 @@ namespace Brushblade.Core
 
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
+        /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
+        /// Data 是独立程序集,看不到 Core 的 internal(工装把两层编在一起,发现不了)。</summary>
+        public bool HasAmpTerms() => AmpTerms.Count > 0;
+
         private static readonly (int, DamageCondition, ScaleBasis, int)[] NoAmpTerms = new (int, DamageCondition, ScaleBasis, int)[0];
         private static readonly EffectDef[] NoPerHit = new EffectDef[0];
 

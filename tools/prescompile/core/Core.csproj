@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 按 asmdef 边界单独编 Brushblade.Core:Data / Presentation 引用它时只看得到 public 成员,
+       与 Unity 一致(Core 的 InternalsVisibleTo 只放行 Tests)。由上层 Brushblade.PresCompile.csproj 引用。 -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>Brushblade.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../../../Brushblade/Assets/_Project/Core/**/*.cs" />
+  </ItemGroup>
+
+</Project>

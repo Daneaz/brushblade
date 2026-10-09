@@ -35,6 +35,8 @@ tools/chestsim/bin/
 tools/chestsim/obj/
 tools/prescompile/bin/
 tools/prescompile/obj/
+tools/prescompile/*/bin/
+tools/prescompile/*/obj/
 tools/trace/bin/
 tools/trace/obj/
 
