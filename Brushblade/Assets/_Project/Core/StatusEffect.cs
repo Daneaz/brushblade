@@ -99,6 +99,11 @@ namespace Brushblade.Core
         // ---- D2-金 Task 2(附录 J2) ----
         ApRefund,         // AP 返还(得利,仅玩家,隐藏载体):格挡反击 / 立威击杀时挂上,Magnitude = 下回合开始多给的 AP,
                           // TurnsLeft = -1;StartTurn 算完 AP 后加上并移除。已挂着时不再挂 —— 每轮至多一次(Q5)。
+        // ---- D2-金 Task 3(附录 J5) ----
+        Doom,             // 致命(割喉,仅敌人,可见;chip 按 traits StatusChips 拍板稿,Task 5 接):Magnitude 不用(1),
+                          // TurnsLeft = 回合(按该敌人行动递减),SourceId = 字 ID(同源刷新取长)。杂兵:每次掉血后生命 < 30%
+                          // 直接斩杀(BattleEngine.AfterEnemyHpLoss,施加那一刻也判);Boss:不斩杀,下一次 DamageEnemy 伤害 ×2
+                          // (与标记相乘),用掉即移除全部致命。
     }
 
     /// <summary>状态的分类规则。</summary>

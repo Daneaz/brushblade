@@ -199,6 +199,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.ExtraStrike, EffectKind.SelfCost, EffectKind.Thaw, EffectKind.Reveal,
                 // D2-金 Task 1:格挡修饰器,出字前折叠,不进结算循环
                 EffectKind.BlockMod,
+                // D2-金 Task 3:致命的 Value 是回合数
+                EffectKind.Doom,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

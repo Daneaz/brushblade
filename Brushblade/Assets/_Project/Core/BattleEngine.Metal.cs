@@ -198,6 +198,49 @@ namespace Brushblade.Core
             finally { ExitTrigger(); }
         }
 
+        /// <summary>致命的斩杀线(J5,割喉):杂兵生命低于最大生命的这个百分比即被斩杀。</summary>
+        public const int DoomExecutePercent = 30;
+
+        /// <summary>致命(J5):给选中的存活敌人挂 Doom(回合 = Value,不吃卡等级;同源刷新取长),挂上即判一次(施加时已低于 30% 立即斩杀)。</summary>
+        private void ApplyDoom(EffectDef effect, int targetIndex, string sourceId)
+        {
+            foreach (int ti in PickTargets(effect, targetIndex))
+            {
+                if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                ApplyStatus(_enemies[ti].Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Doom, Polarity = StatusPolarity.Debuff,
+                    Magnitude = 1, TurnsLeft = Math.Max(1, effect.Value), SourceId = sourceId, TraitKey = effect.TraitKey,
+                }, UnitRef.Enemy(ti), UnitRef.Player);
+                AfterEnemyHpLoss(ti);
+            }
+        }
+
+        /// <summary>敌人掉血之后(存活时)的统一挂点(J5,Q16)。调用点:DamageEnemy(含埋雷 / 反弹 / 格挡反击 / 召唤物 / 追加一击 /
+        /// 斩杀溅射等全部走它的伤害)、叠字怪分裂、SettleBurnOn、SettleBleedOn、Detonate、BurstBurn(焚城),以及施加致命的那一刻。
+        /// 带致命的杂兵生命 &lt; 30% → 斩杀(killer 玩家、source Execute:出字内会触发斩杀时 / 击杀时特性),当场判胜。
+        /// 返回是否斩杀(调用方据此跳过「存活」后续)。没有致命 / Boss / 已死时一次判断即返回,不摇随机数。</summary>
+        private bool AfterEnemyHpLoss(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Statuses.Has(StatusKind.Doom) || enemy.IsBoss || !enemy.Alive) return false;
+            if ((long)enemy.Hp * 100 >= (long)enemy.MaxHp * DoomExecutePercent) return false;
+            int lost = enemy.Hp;   // 同 TryExecuteKill:报实际抹掉的血量
+            enemy.Hp = 0;
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
+            ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Execute);
+            CheckWin();
+            return true;
+        }
+
+        /// <summary>致命 · Boss 版(J5):Boss 身上有致命时这一下 DamageEnemy ×2,并移除全部致命(多来源也只翻一次)。</summary>
+        private static int ConsumeBossDoom(EnemyState enemy, int damage)
+        {
+            if (!enemy.IsBoss || !enemy.Statuses.Has(StatusKind.Doom)) return damage;
+            enemy.Statuses.Remove(StatusKind.Doom);
+            return damage * 2;
+        }
+
         /// <summary>对一个目标打至多 <paramref name="hits"/> 击反击,每击 min(量, 余额);目标死亡或余额用完即停。返回打出的合计。</summary>
         private int CounterHitsOn(int target, int perHit, int hits, int budget, UnitRef attackerRef, ref bool killed)
         {

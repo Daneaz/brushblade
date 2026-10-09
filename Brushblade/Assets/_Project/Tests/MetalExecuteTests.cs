@@ -232,6 +232,259 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Enemies[victim].Alive, Is.False);
             Assert.That(b.Enemies[neighbors[0]].MaxHp - b.Enemies[neighbors[0]].Hp, Is.EqualTo(b.Enemies[victim].MaxHp * 20 / 100));
         }
+        // ---------------- J5:致命(割喉「目标获得致命,持续 2 回合(Boss:首次受伤 ×2)」) ----------------
+
+        private const int DoomHp = 1000;
+        /// <summary>致命判定线以上一点(30.5%):任何一次掉血都会把它压到 30% 以下,而那一下本身打不死它。</summary>
+        private const int NearLine = 305;
+
+        private static void Doom(BattleEngine b, int i, int turns = 5) =>
+            b.Enemies[i].Statuses.Apply(new StatusEffect
+                { Kind = StatusKind.Doom, Polarity = StatusPolarity.Debuff, Magnitude = 1, TurnsLeft = turns, SourceId = "刲" });
+
+        private static readonly CharDef Hitter = new("斩", Element.Heart,
+            effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) });
+
+        private static readonly CharDef Boom = new("煸", Element.Heart, effects: new[] { new EffectDef(EffectKind.Detonate, 0) });
+
+        private static void SetBurn(BattleEngine b, int i, int stacks) =>
+            b.Enemies[i].Statuses.Apply(new StatusEffect
+                { Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff, Magnitude = stacks, TurnsLeft = -1, Potency = 100 });
+
+        private static void Bleed(BattleEngine b, int i) =>
+            b.Enemies[i].Statuses.Apply(new StatusEffect
+                { Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff, Magnitude = 10, TurnsLeft = 3 });
+
+        private static void Mine(BattleEngine b, int i) =>
+            b.Enemies[i].Statuses.Apply(new StatusEffect
+                { Kind = StatusKind.Mine, Polarity = StatusPolarity.Debuff, Magnitude = 10, TurnsLeft = -1, SourceId = "雷" });
+
+        /// <summary>同一条掉血路径跑两遍:没有致命时那一下打不死、只压到 30% 以下;有致命时被斩杀。</summary>
+        private static void AssertDoomExecutesVia(Func<BattleEngine> make, Action<BattleEngine> hurt, int victim = 0)
+        {
+            var control = make();
+            control.Enemies[victim].Hp = NearLine;
+            hurt(control);
+            Assert.That(control.Enemies[victim].Alive, Is.True, "对照:这一下本身打不死");
+            Assert.That(control.Enemies[victim].Hp * 100, Is.LessThan(DoomHp * 30), "对照:这一下把它压到了 30% 以下");
+
+            var b = make();
+            b.Enemies[victim].Hp = NearLine;
+            Doom(b, victim);
+            hurt(b);
+            Assert.That(b.Enemies[victim].Alive, Is.False, "致命:掉血后低于 30% 直接斩杀");
+            Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied && e.TargetIndex == victim), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Doom_DamageEnemy_Executes()
+        {
+            AssertDoomExecutesVia(() => Battle(new[] { Hitter }, 1, Mob(hp: DoomHp), Mob()), b => b.Cast("斩", 0));
+        }
+
+        [Test]
+        public void Doom_Burn_Executes()
+        {
+            AssertDoomExecutesVia(() => Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp), Mob()), b =>
+            {
+                SetBurn(b, 0, 1);
+                b.EndTurn();
+            });
+        }
+
+        [Test]
+        public void Doom_Bleed_Executes()
+        {
+            AssertDoomExecutesVia(() => Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp), Mob()), b =>
+            {
+                Bleed(b, 0);
+                b.EndTurn();
+            });
+        }
+
+        [Test]
+        public void Doom_Detonate_Executes()
+        {
+            AssertDoomExecutesVia(() => Battle(new[] { Boom }, 1, Mob(hp: DoomHp), Mob()), b =>
+            {
+                SetBurn(b, 0, 1);
+                b.Cast("煸", 0);
+            });
+        }
+
+        [Test]
+        public void Doom_Mine_Executes()
+        {
+            AssertDoomExecutesVia(() => Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp), Mob()), b =>
+            {
+                Mine(b, 0);
+                b.EndTurn();
+            });
+        }
+
+        [Test]
+        public void Doom_BurnBurst_Executes()
+        {
+            var igniter = new CharDef("燃", Element.Heart, effects: new[]
+            {
+                new EffectDef(EffectKind.BurnSingle, 1),
+                new EffectDef(EffectKind.BurnBurst, 0, pick: EffectPick.BurnedByThisCast, riderOf: StatusKind.Burn),
+            });
+            var killer = new CharDef("杀", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 1000) });
+            // 0 号带焚城,被打死时对全体结算 1 层灼:1 号吃这一下
+            AssertDoomExecutesVia(() =>
+            {
+                var b = Battle(new[] { igniter, killer }, 1, Mob(hp: 100), Mob(hp: DoomHp), Mob());
+                b.Cast("燃", 0);
+                return b;
+            }, b => b.Cast("杀", 0), victim: 1);
+        }
+
+        [Test]
+        public void Doom_Split_Executes()
+        {
+            // 叠字怪首次受击存活 → 分裂成两个半血:那一半也是掉血
+            var b = Battle(new[] { Hitter }, 1, new EnemyDef("叠", Element.Heart, DoomHp, 0, EnemyAbility.Split), Mob());
+            b.Enemies[0].Hp = 600;
+            Doom(b, 0);
+            b.Cast("斩", 0);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.EnemySplit), Is.True, "前提:分裂了");
+            Assert.That(b.Enemies[0].Alive, Is.False, "分裂后只剩不到一半 → 低于 30% 斩杀");
+        }
+
+        [Test]
+        public void Doom_AboveLine_NoExecute()
+        {
+            var b = Battle(new[] { Hitter }, 1, Mob(hp: DoomHp), Mob());
+            b.Enemies[0].Hp = 900;
+            Doom(b, 0);
+            b.Cast("斩", 0);
+            Assert.That(b.Enemies[0].Alive, Is.True);
+        }
+
+        private static CharDef Throat(int turns = 2, EffectPick pick = EffectPick.Primary,
+            DamageCondition onlyIf = DamageCondition.None, params TraitDef[] traits) => new("刲", Element.Heart,
+            effects: new[] { new EffectDef(EffectKind.Doom, turns, pick: pick, onlyIf: onlyIf) },
+            traits: traits);
+
+        [Test]
+        public void DoomEffect_AppliesStatus_ForTurns()
+        {
+            var b = Battle(Throat(), Mob(hp: DoomHp), Mob());
+            b.Cast("刲", 0);
+            var doom = b.Enemies[0].Statuses.Find(StatusKind.Doom);
+            Assert.That(doom, Is.Not.Null);
+            Assert.That(doom.TurnsLeft, Is.EqualTo(2), "Value = 回合数,不吃卡等级");
+            Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Doom), Is.False);
+        }
+
+        [Test]
+        public void DoomEffect_AlreadyBelowLine_ExecutesOnApply_TriggersOnExecute()
+        {
+            var b = Battle(Throat(traits: IronRule()), Mob(hp: DoomHp), Mob());
+            b.Enemies[0].Hp = 250;
+            b.Cast("刲", 0);
+            Assert.That(b.Enemies[0].Alive, Is.False, "施加时已低于 30% 立即斩杀");
+            Assert.That(Morale(b), Is.EqualTo(2), "致命的斩杀也是斩杀(source Execute):铁则入队");
+        }
+
+        [Test]
+        public void DoomEffect_PickAll_OnlyIf()
+        {
+            var b = Battle(Throat(pick: EffectPick.All, onlyIf: DamageCondition.TargetHpAbove70), Mob(hp: DoomHp), Mob(hp: DoomHp));
+            b.Enemies[1].Hp = 500;
+            b.Cast("刲", -1);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.True);
+            Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Doom), Is.False, "条件不满足的跳过");
+        }
+
+        [Test]
+        public void Doom_Expires()
+        {
+            var b = Battle(new[] { Throat(turns: 1), Hitter }, 1, Mob(hp: DoomHp), Mob());
+            b.Cast("刲", 0);
+            b.EndTurn();
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.False, "回合数按敌人行动递减,到期移除");
+            b.Enemies[0].Hp = NearLine;
+            b.Cast("斩", 0);
+            Assert.That(b.Enemies[0].Alive, Is.True);
+        }
+
+        [Test]
+        public void Doom_LastEnemyByBleedInEnemyTurn_Wins()
+        {
+            var b = Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp));
+            b.Enemies[0].Hp = NearLine;
+            Doom(b, 0);
+            Bleed(b, 0);
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won), "斩掉最后一名敌人当场判胜");
+        }
+
+        [Test]
+        public void Doom_Boss_FirstDamageEnemyDoubled_ThenRemoved()
+        {
+            var b = Battle(new[] { Throat(), Hitter }, 1, RebalanceFixture.Boss(hp: 10000), Mob());
+            b.Cast("刲", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.True, "Boss 也挂上");
+            b.Enemies[0].Hp = 2000;   // 20%:杂兵会被斩,Boss 不斩
+            int before = b.Enemies[0].Hp;
+            b.Cast("斩", 0);
+            int first = before - b.Enemies[0].Hp;
+            Assert.That(b.Enemies[0].Alive, Is.True, "Boss 不被致命斩杀");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.False, "×2 用掉即移除");
+            before = b.Enemies[0].Hp;
+            b.Cast("斩", 0);
+            Assert.That(first, Is.EqualTo((before - b.Enemies[0].Hp) * 2), "首次受伤 ×2,第二下照常");
+        }
+
+        [Test]
+        public void Doom_Boss_MultipliesWithMark()
+        {
+            var b = Battle(new[] { Hitter }, 1, RebalanceFixture.Boss(hp: 10000), Mob());
+            b.Enemies[0].Statuses.Apply(new StatusEffect
+                { Kind = StatusKind.Vulnerable, Polarity = StatusPolarity.Debuff, Magnitude = 50, TurnsLeft = 5, SourceId = "标" });
+            int before = b.Enemies[0].Hp;
+            b.Cast("斩", 0);
+            int marked = before - b.Enemies[0].Hp;
+            Doom(b, 0);
+            before = b.Enemies[0].Hp;
+            b.Cast("斩", 0);
+            Assert.That(before - b.Enemies[0].Hp, Is.EqualTo(marked * 2), "与标记相乘");
+        }
+
+        [Test]
+        public void Doom_Boss_BleedDoesNotConsume()
+        {
+            var b = Battle(new[] { Hitter }, 1, RebalanceFixture.Boss(hp: 10000, attack: 1), Mob());
+            Doom(b, 0);
+            Bleed(b, 0);
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.True, "Boss 版只认 DamageEnemy");
+        }
+
+        [Test]
+        public void Doom_MineHpLoss_PreviewsBossDouble()
+        {
+            var b = Battle(new[] { Hitter }, 1, RebalanceFixture.Boss(hp: 10000, attack: 1), Mob());
+            Mine(b, 0);
+            Assert.That(b.MineHpLoss(0), Is.EqualTo(10));
+            Doom(b, 0);
+            Assert.That(b.MineHpLoss(0), Is.EqualTo(20), "预扣与 DamageEnemy 同口径");
+            b.EndTurn();
+            Assert.That(10000 - b.Enemies[0].Hp, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void StatusEffect_Clone_KeepsDoom()
+        {
+            var s = new StatusEffect { Kind = StatusKind.Doom, Polarity = StatusPolarity.Debuff, Magnitude = 1, TurnsLeft = 2, SourceId = "刲" };
+            var c = s.Clone();
+            Assert.That((c.Kind, c.Magnitude, c.TurnsLeft, c.SourceId), Is.EqualTo((StatusKind.Doom, 1, 2, "刲")));
+        }
+
         // ---------------- ConfigLoader ----------------
 
         private static RecipeGraph Load(string attackEffects) =>
@@ -246,6 +499,24 @@ namespace Brushblade.Core.Tests
             Assert.That(g.Get("铡").AttackEffects[0].ExecuteSplashPercent, Is.EqualTo(20));
             var r = Load(@"{""kind"":""DamageSingle"",""value"":40},{""kind"":""Reshape"",""executeBelowPercent"":35,""executeKills"":true,""executeSplashPercent"":20}");
             Assert.That(TraitRules.CastEffects(r.Get("铡"), CardFace.Attack, 1)[0].ExecuteSplashPercent, Is.EqualTo(20), "Reshape 照抄(E7)");
+        }
+
+        [Test]
+        public void ConfigLoader_ParsesDoom()
+        {
+            var g = Brushblade.Data.ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""刲"",""element"":""Metal"",""effects"":[{""kind"":""Doom"",""value"":2,""pick"":""All""}],"
+                + @"""attackEffects"":[{""kind"":""DamageSingle"",""value"":40}]}]}");
+            var e = g.Get("刲").Effects[0];
+            Assert.That((e.Kind, e.Value, e.Pick), Is.EqualTo((EffectKind.Doom, 2, EffectPick.All)));
+        }
+
+        [Test]
+        public void ConfigLoader_RejectsDoomWithoutTurns()
+        {
+            Assert.Throws<Brushblade.Data.ConfigException>(() => Brushblade.Data.ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""刲"",""element"":""Metal"",""effects"":[{""kind"":""Doom"",""value"":0,""pick"":""All""}],"
+                + @"""attackEffects"":[{""kind"":""DamageSingle"",""value"":40}]}]}"));
         }
 
         [TestCase(@"{""kind"":""DamageSingle"",""value"":40,""executeSplashPercent"":20}")]                                       // 没有斩杀

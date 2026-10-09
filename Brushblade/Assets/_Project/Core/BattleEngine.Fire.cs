@@ -207,7 +207,7 @@ namespace Brushblade.Core
                     ResolveDefeat(ti, UnitRef.Player, EffectSource.Burn);
                     CheckWin();
                 }
-                else CheckBossPhase(ti);
+                else if (!AfterEnemyHpLoss(ti)) CheckBossPhase(ti);   // 致命(D2-金 J5)
             }
         }
 
@@ -322,10 +322,12 @@ namespace Brushblade.Core
             var enemy = _enemies[enemyIndex];
             if (!enemy.Alive || !enemy.Statuses.Has(StatusKind.Mine)) return 0;
             int shield = enemy.Shield, lost = 0;
+            bool bossDoom = enemy.IsBoss && enemy.Statuses.Has(StatusKind.Doom);   // 致命 · Boss 版:第一颗 ×2(同 DamageEnemy)
             foreach (var mine in enemy.Statuses.All)
             {
                 if (mine.Kind != StatusKind.Mine || mine.Magnitude <= 0) continue;
                 int damage = ApplyMark(enemy, WuxingResolver.ResolveEffect(mine.Magnitude, Element.Heart, enemy.Element));
+                if (bossDoom) { damage *= 2; bossDoom = false; }
                 int absorbed = Math.Min(shield, damage);
                 shield -= absorbed;
                 lost += damage - absorbed;

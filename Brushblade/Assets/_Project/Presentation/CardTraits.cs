@@ -372,6 +372,11 @@ namespace Brushblade.Presentation
                             ? Strings.T("collection.trait.mine.desc.body", ("percent", e.BodyPercent))
                             : Strings.T("collection.trait.mine.desc", ("value", v)));
                     break;
+                // 致命(D2-金 J5,割喉):没有对应图标(chip 图标归 Task 5),走纯文字 chip
+                case EffectKind.Doom:
+                    AddWord(traits, Strings.T("collection.trait.doom.chip"), Strings.T("collection.trait.doom.name"),
+                        Strings.T("collection.trait.doom.desc", ("turns", e.Value)));
+                    break;
                 case EffectKind.Retaliate:
                     AddWord(traits, Strings.T("collection.trait.retaliate.chip"),
                         Strings.T("collection.trait.retaliate.name"),

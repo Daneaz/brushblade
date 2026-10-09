@@ -1985,6 +1985,8 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.BurnScale
                     // 埋雷(D2-火 N7):埋在目标身上
                     || effect.Kind == EffectKind.Mine
+                    // 致命(D2-金 J5):挂在目标身上
+                    || effect.Kind == EffectKind.Doom
                     // D2-火 Task 5:追加一击 / 解冻 / 揭示写 Primary 时落在主目标上
                     || effect.Kind == EffectKind.ExtraStrike || effect.Kind == EffectKind.Thaw
                     || effect.Kind == EffectKind.Reveal)
@@ -3764,6 +3766,9 @@ namespace Brushblade.Core
                     case EffectKind.Mine:
                         PlantMine(effect, value, targetIndex, def.Id);
                         break;
+                    case EffectKind.Doom:
+                        ApplyDoom(effect, targetIndex, def.Id);   // 致命(D2-金 J5)
+                        break;
                     case EffectKind.Retaliate:
                         ArmRetaliate(effect, def.Id, attacker);
                         break;
@@ -4459,7 +4464,7 @@ namespace Brushblade.Core
             }
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Burn);
-            else
+            else if (!AfterEnemyHpLoss(enemyIndex))   // 致命(D2-金 J5)
                 CheckBossPhase(enemyIndex);
         }
 
@@ -4481,7 +4486,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.BleedTick, enemyIndex, bleed));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Bleed);
-            else
+            else if (!AfterEnemyHpLoss(enemyIndex))   // 致命(D2-金 J5)
                 CheckBossPhase(enemyIndex);
         }
 
@@ -4534,7 +4539,7 @@ namespace Brushblade.Core
             }
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Detonate);
-            else
+            else if (!AfterEnemyHpLoss(enemyIndex))   // 致命(D2-金 J5)
                 CheckBossPhase(enemyIndex);
         }
 
@@ -4596,7 +4601,8 @@ namespace Brushblade.Core
                 if (effect.Magnitude <= (bag.Find(StatusKind.Burn)?.Magnitude ?? 0)) raiseHook = false;
             }
             else if (effect.Kind == StatusKind.Curse || effect.Kind == StatusKind.Seed || effect.Kind == StatusKind.Vulnerable
-                || effect.Kind == StatusKind.Mine)   // 埋雷(D2-火 Task 4):同源再埋取大,不叠
+                || effect.Kind == StatusKind.Mine   // 埋雷(D2-火 Task 4):同源再埋取大,不叠
+                || effect.Kind == StatusKind.Doom)  // 致命(D2-金 J5):同源刷新取长
             {
                 // 减攻 / 种 / 标记同源刷新取强(D1 Task 5 / 6,与上面减速合并同写法):Magnitude 取大、TurnsLeft 取长。
                 // 同源 = 同 Kind + 同 SourceId + 同 TraitKey(bag.Apply 的去重键),不同来源各自并存
@@ -5250,6 +5256,8 @@ namespace Brushblade.Core
             // 标记(D1 Task 6):紧随冰滞易伤,与它相乘、分别整数取整;多个来源只取最强的一份(spec §5.2 第 1 律)。
             // 无标记整句跳过 —— 恒等。
             damage = ApplyMark(enemy, damage);
+            // 致命 · Boss 版(D2-金 J5):紧随标记、与它相乘;用掉即移除。没有致命整句跳过 —— 恒等
+            damage = ConsumeBossDoom(enemy, damage);
             // 护甲(2026-08-12 E-b4 T2 接线,2026-09-16 改百分比减伤):**全部乘法算完之后,最后折**。
             // 结算式 = floor(基础 × 生克 × 暴击) × 100 ÷ (100 + max(0, 护甲 − 破甲 − 穿透))。
             // 护甲是**百分比减伤**(2026-09-16,推翻 E-b4 的点数减法):DR = 甲/(甲+100),
@@ -5328,6 +5336,8 @@ namespace Brushblade.Core
                 return;
             }
             FlushCritMorale(enemyIndex);
+            // 致命(D2-金 J5):掉血后低于 30% 直接斩杀 —— 已经死了,下面的受击存活类反应(现形 / 焦痕 / 铁画 / 分裂)一律不走
+            if (AfterEnemyHpLoss(enemyIndex)) return;
 
             // 生僻字:受击两次后被「读懂」(8.3);打死了就无所谓读不读得懂
             if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
@@ -5386,6 +5396,7 @@ namespace Brushblade.Core
                     };
                     _enemies.Add(clone);
                     _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+                    AfterEnemyHpLoss(enemyIndex);   // 致命(D2-金 J5):分裂掉的那一半也是掉血(克隆不带状态)
                 }
             }
         }

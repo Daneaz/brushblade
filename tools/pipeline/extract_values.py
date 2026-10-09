@@ -239,7 +239,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     # D2-火 Task 3 灼附着族(写 pick BurnedByThisCast)
                     "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash",
                     "Mine",   # D2-火 Task 4 埋雷
-                    "ExtraStrike", "Thaw", "Reveal"}   # D2-火 Task 5
+                    "ExtraStrike", "Thaw", "Reveal",   # D2-火 Task 5
+                    "Doom"}   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。

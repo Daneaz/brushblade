@@ -37,7 +37,8 @@ namespace Brushblade.Core
                 or EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
                 or EffectKind.BurnBurst or EffectKind.BurnBacklash
                 or EffectKind.Mine   // D2-火 Task 4 埋雷
-                or EffectKind.ExtraStrike or EffectKind.Thaw or EffectKind.Reveal => true,   // D2-火 Task 5
+                or EffectKind.ExtraStrike or EffectKind.Thaw or EffectKind.Reveal   // D2-火 Task 5
+                or EffectKind.Doom => true,   // D2-金 Task 3 致命
             _ => false,
         };
 

@@ -800,6 +800,9 @@ namespace Brushblade.Data
                 // 埋雷(D2-火 Task 4):没有伤害量的地雷炸了也是 0 —— 拦下
                 if (kind == EffectKind.Mine && effect.Value <= 0 && effect.BodyPercent <= 0)
                     throw new ConfigException($"字「{dto.Id}」的埋雷(Mine)须写伤害量(value > 0 或 bodyPercent N)");
+                // 致命(D2-金 J5):Value = 回合数,0 回合等于没挂
+                if (kind == EffectKind.Doom && effect.Value < 1)
+                    throw new ConfigException($"字「{dto.Id}」的致命(Doom)须写回合数(value ≥ 1),当前:{effect.Value}");
                 ValidateFireOps(dto.Id, kind, effect);
                 ValidateMetalOps(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)

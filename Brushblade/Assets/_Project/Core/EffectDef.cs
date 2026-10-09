@@ -175,6 +175,10 @@ namespace Brushblade.Core
                         // 多条按出现(槽位)顺序折叠,后者覆盖。Value 不用;不进结算循环。
                         // Task 2(J1)追加运行时字段:CounterColumn / CounterHits / CounterExecuteBelow / BlockBleed /
                         // BlockMorale / KillRefundAp(非缺省覆盖,同上)。
+        // ---- D2-金 Task 3:致命(附录 J5)。⚠ 只在末尾追加 ----
+        Doom,           // 致命(割喉):给目标敌人挂 StatusKind.Doom,Value = 回合数(离散,不吃卡等级)。杂兵生命 < 30% 即斩杀
+                        // (施加时已低于则立即斩杀;斩杀走 ResolveDefeat source Execute,触发斩杀时特性);Boss 首次 DamageEnemy ×2。
+                        // 支持 Pick / OnlyIf。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

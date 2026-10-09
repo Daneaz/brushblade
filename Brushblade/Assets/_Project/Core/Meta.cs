@@ -832,6 +832,8 @@ namespace Brushblade.Core
                 or EffectKind.BurnBurst or EffectKind.BurnBacklash => false,
             // D2-火 Task 4:受击回敬的 Value 是每回合次数上限(回敬的效果在触发时按来源字等级另行缩放);埋雷是伤害量,连续
             EffectKind.Retaliate => false,
+            // D2-金 Task 3:致命的 Value 是回合数
+            EffectKind.Doom => false,
             // D2-火 Task 5:追加一击的 Value 是本体百分比(本体伤害在结算时另吃等级)、自损是百分比、解冻 / 揭示不用 Value
             EffectKind.ExtraStrike or EffectKind.SelfCost or EffectKind.Thaw or EffectKind.Reveal => false,
             // D2-金 Task 1:格挡修饰器 —— Value 不用,百分比 / 次数下限是离散量

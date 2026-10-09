@@ -263,6 +263,12 @@ namespace Brushblade.Presentation
                     return new Info("healblock", Strings.T("status.healblock.name"),
                         Duration(turnsLeft),
                         Strings.T("status.healblock.desc"));
+                case StatusKind.Doom:
+                    // 致命(D2-金 J5,割喉):敌人身上。战场 chip(血条 30% 处墨线)按 traits StatusChips 拍板稿归 Task 5;
+                    // 这里先让详情弹窗查得到,IconKey 留 null
+                    return new Info(null, Strings.T("status.doom.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.doom.desc"));
                 case StatusKind.Mine:
                     // 埋雷(D2-火 Task 4,V3;StatusChipsFire 稿):敌人身上,朱砂底;chip 无数字,数字只在详情里
                     return new Info("mine", Strings.T("status.mine.name"),

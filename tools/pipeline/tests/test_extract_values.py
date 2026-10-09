@@ -1023,3 +1023,12 @@ def test_d2metal_task2_block_rider_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- D2-金 Task 3(附录 J5):致命 ----
+
+def test_d2metal_doom_value_is_turns_and_takes_pick():
+    assert _parse_effects("`Doom 2`", "刲") == [{"kind": "Doom", "value": 2}]
+    assert _parse_effects("`Doom 2` + `pick All`", "刲") == [{"kind": "Doom", "value": 2, "pick": "All"}]
+    assert _parse_effects("`Doom 2` + `if TargetHpAbove70`", "刲") == [
+        {"kind": "Doom", "value": 2, "onlyIf": "TargetHpAbove70"}]

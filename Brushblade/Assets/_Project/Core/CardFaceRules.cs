@@ -64,6 +64,7 @@ namespace Brushblade.Core
             EffectKind.HealBlock, EffectKind.BurnGrow, EffectKind.BurnHold,   // D2-火 Task 3:挂在敌人的灼上
             EffectKind.BurnBurst, EffectKind.BurnBacklash,
             EffectKind.Mine,   // D2-火 Task 4:埋在敌人身上(受击回敬 Retaliate 挂在玩家身上,不敌对)
+            EffectKind.Doom,   // D2-金 Task 3:致命挂在敌人身上
             EffectKind.ExtraStrike, EffectKind.Thaw, EffectKind.Reveal,   // D2-火 Task 5:落在敌人身上(自损 SelfCost 作用于玩家,不敌对)
         };
 
