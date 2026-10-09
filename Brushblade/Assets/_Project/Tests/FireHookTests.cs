@@ -326,6 +326,54 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Retaliate_BossDevourOnSummon_Triggers()
+        {
+            // Ruling 7:吞噬绕开 DamageSummon,但对被吞的木灵来说仍是「被敌人命中」,一样回敬
+            var sprout = new CharDef("林", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Summon, 500, summonCount: 1, summonAttack: 0, summonChar: "木") });
+            var devourer = new EnemyDef("噬", Element.Heart, 100000, 5,
+                phases: new[] { new BossPhaseDef("甲", Element.Heart, 100000, 5, skill: BossSkill.Devour) });
+            var b = Battle(new[] { Guard(), sprout }, new[] { devourer });
+            b.EndTurn();   // 普攻(场上无召唤物)
+            b.EndTurn();   // 蓄力
+            b.Cast("林", -1);
+            b.Cast("烈", -1);
+            int slot = Array.FindIndex(b.Summons.ToArray(), x => x != null && x.Alive);
+            Assert.That(slot, Is.GreaterThanOrEqualTo(0), "前提:木灵在场");
+            b.EndTurn();   // 释放吞噬
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast), Is.True, "前提:这一拍放的是吞噬");
+            Assert.That(b.Summons[slot].Alive, Is.False, "前提:木灵被吞");
+            Assert.That(Burn(b, 0), Is.EqualTo(2), "吞噬也算受击:攻击者 +灼 2");
+        }
+
+        [Test]
+        public void Retaliate_AttackerDiesBeforeResolve_NoOp_PerTurnCountStillSpent()
+        {
+            // 回敬在攻击者这次动作结束后兑现;镜的反弹先把它打死 → 反应落空(不挂灼、不报错),
+            // 但每回合计数在入队时就扣了(cap 1:第二个敌人不再回敬)
+            var b = Battle(new[] { Guard(cap: 1) }, new[] { Mob(hp: 3, attack: 10), Mob(attack: 10) });
+            b.Cast("烈", -1);
+            b.PlayerStatuses.Apply(new StatusEffect
+                { Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff, Magnitude = 60, TurnsLeft = 5, SourceId = "镜" });
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False, "前提:反弹打死了攻击者");
+            Assert.That(Burn(b, 0), Is.EqualTo(0), "死者不挂灼");
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0));
+            Assert.That(Burn(b, 1), Is.EqualTo(0), "计数已被落空的那次用掉");
+        }
+
+        [Test]
+        public void Retaliate_SameSourceRecast_Overwrites_NotStacks()
+        {
+            var b = Battle(new[] { Guard() }, new[] { Mob(attack: 10) });
+            b.Cast("烈", -1);
+            b.Cast("烈", -1);
+            Assert.That(b.PlayerStatuses.All.Count(s => s.Kind == StatusKind.Retaliate), Is.EqualTo(1), "同源只留一条");
+            b.EndTurn();
+            Assert.That(Burn(b, 0), Is.EqualTo(2), "一次命中只回敬一次");
+        }
+
+        [Test]
         public void Retaliate_MissDoesNotTrigger_ImmunityBlockDoes()
         {
             var b = Battle(new[] { Guard() }, new[] { Mob(attack: 10), Mob(attack: 10) });

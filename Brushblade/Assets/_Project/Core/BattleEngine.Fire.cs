@@ -215,7 +215,8 @@ namespace Brushblade.Core
         internal const int BacklashPerTurn = 2;
 
         /// <summary>受击回敬里允许的效果(ConfigLoader 与管线共用口径):作用于攻击者的**非伤害**敌方侧效果。
-        /// 不收伤害类,所以回敬不占 §5.2 第 3 律的 60% 反伤预算;日后要回敬伤害,须先把它接进那份预算再放进来。</summary>
+        /// 不收伤害类,所以回敬不占 §5.2 第 3 律的 60% 反伤预算;日后要回敬伤害,须先把它接进那份预算再放进来。
+        /// 灼 / 流血这类 DOT 之后每回合结算出来的伤害也**不进**反伤预算:预算只管「受击那一刻折返的伤害」(镜 + 格挡反击)。</summary>
         public static bool RetaliateAllows(EffectKind kind) => kind switch
         {
             EffectKind.BurnSingle or EffectKind.Bleed or EffectKind.Weaken or EffectKind.Blind
@@ -252,7 +253,8 @@ namespace Brushblade.Core
 
         /// <summary>我方(玩家 / 召唤物)被敌人 <paramref name="enemyIndex"/> 的挥击命中:每条 Retaliate 各入队一条反应,
         /// 目标 = 攻击者,在下一个安全点(该敌人这次动作之后)兑现。上限按特性键每回合计(0 = 不限)。
-        /// 没有 Retaliate 时一次判断即返回(恒等)。回敬效果不含伤害(ConfigLoader 白名单),不占 §5.2 第 3 律的 60% 反伤预算。</summary>
+        /// 没有 Retaliate 时一次判断即返回(恒等)。回敬效果不含伤害(ConfigLoader 白名单),不占 §5.2 第 3 律的 60% 反伤预算。
+        /// 每回合计数在**入队时**就扣:攻击者若在兑现前死了(镜反弹、格挡反击打死),反应落空,计数照样用掉。</summary>
         private void EnqueueRetaliation(int enemyIndex)
         {
             if (!_playerStatuses.Has(StatusKind.Retaliate)) return;

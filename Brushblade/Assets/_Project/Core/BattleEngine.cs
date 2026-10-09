@@ -5894,6 +5894,8 @@ namespace Brushblade.Core
                     if (front >= 0)
                     {
                         var victim = _summons[front];
+                        // 受击回敬(Ruling 7):吞噬绕开 DamageSummon,但对木灵来说同样是被敌人命中
+                        EnqueueRetaliation(index);
                         int lost = victim.Hp;
                         victim.Hp = 0;
                         _events.Add(new BattleEvent(BattleEventKind.SummonHit, index, lost, front));
