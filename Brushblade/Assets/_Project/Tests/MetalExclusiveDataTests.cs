@@ -240,6 +240,25 @@ namespace Brushblade.Core.Tests
             Assert.That(none.PlayerShield, Is.EqualTo(0), "对照:从 0 起不溢出");
         }
 
+        /// <summary>聚金钉值(final fix 4):鑫 Lv4 铠面本体 Morale 4,上限 5 —— 起手 3 溢出 2 层、起手 4 溢出 3 层;
+        /// 每层 = 30 × Lv4 系数。两档护盾之比 2 : 3(实测 72 / 108)。</summary>
+        [Test]
+        public void JuJin_ShieldPerOverflowLayer_Exact()
+        {
+            int Shield(int start)
+            {
+                var b = Battle("鑫", 4, Mob());
+                SetMorale(b, start);
+                Assert.That(b.Cast("鑫", -1, attackMode: false), Is.EqualTo(BattleError.None));
+                return b.PlayerShield;
+            }
+            int perLayer = MetaRules.ScaleByCardLevel(30, 4);
+            int three = Shield(3), four = Shield(4);
+            Assert.That(three, Is.EqualTo(2 * perLayer), "起手 3:溢出 3 + 4 − 5 = 2 层");
+            Assert.That(four, Is.EqualTo(3 * perLayer), "起手 4:溢出 3 层");
+            Assert.That(three * 3, Is.EqualTo(four * 2));
+        }
+
         // ================= 大卸八块 × 断金 =================
 
         [Test]
@@ -272,6 +291,34 @@ namespace Brushblade.Core.Tests
             Assert.That(brokenHits[0].Amount, Is.EqualTo(fullHits[0].Amount * 4).Within(4), "断金 +300%:每击 ×4");
             Assert.That(Morale(full), Is.EqualTo(Config.MoraleCap).Or.GreaterThan(0), "对照:没点断金不清战意");
             Assert.That(Morale(broken), Is.LessThan(Morale(full)), "断金结算后战意被清空");
+        }
+
+        /// <summary>大卸八块钉值(final fix 4):每击 = 本体单击 × 35%。本体单击 = 攻击面 DamageSingle 按 Lv8 缩放
+        /// (攻击 100 = 基准、心属性靶子、0 甲、无暴击);起手战意 0,第一击时还没有战意攻击加成。</summary>
+        [Test]
+        public void DaXieBaKuai_EachHitIs35PercentOfBody()
+        {
+            int body = MetaRules.ScaleEffectValue(EffectKind.DamageSingle,
+                Graph.Get("剁").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value, 8);
+            var b = Battle("剁", 8, Mob());
+            Assert.That(b.Cast("剁", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            var hits = Hits(b, 0);
+            Assert.That(hits.Count, Is.GreaterThan(0));
+            Assert.That(hits[0].Amount, Is.EqualTo(body * 35 / 100).Within(1), $"本体单击 {body} × 35%");
+        }
+
+        /// <summary>割取钉值(final fix 4):刲 Lv6 攻击面击杀 → 回复被杀者最大生命 × 10%(Q19:不吃等级 / 攻击力)。</summary>
+        [Test]
+        public void GeQu_KillHealsTenPercentOfVictimMaxHp()
+        {
+            const int victimMaxHp = 1000;
+            var b = Battle("刲", 6, Mob(hp: victimMaxHp), Mob());
+            b.Enemies[0].Hp = 1;
+            b.DamagePlayerForTest(b.PlayerHp / 2);
+            int hpBefore = b.PlayerHp;
+            Assert.That(b.Cast("刲", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Alive, Is.False);
+            Assert.That(b.PlayerHp - hpBefore, Is.EqualTo(victimMaxHp * 10 / 100));
         }
     }
 }

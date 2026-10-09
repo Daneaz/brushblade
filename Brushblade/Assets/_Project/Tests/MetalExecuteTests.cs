@@ -122,6 +122,50 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won), "斩掉最后一名敌人当场判胜");
             Assert.That(b.PendingReactionCount, Is.EqualTo(0), "已分胜负:反应丢弃");
+            // 终审 M8:立威斩杀后的 CheckWin 必须在入队之前 —— 否则铁则会照常入队、在 ActOneEnemy 安全点兑现
+            Assert.That(Morale(b), Is.EqualTo(0), "当场判胜:铁则没有兑现");
+        }
+
+        private static CharDef Summoner() => new("垛", Element.Wood,
+            effects: new[] { new EffectDef(EffectKind.Summon, 400, summonCount: 1, summonAttack: 0, summonChar: "木") });
+
+        /// <summary>终审补测:格挡落在木灵身上,木灵挨打时的立威斩杀同样回查铁则(探针已验证,移植)。</summary>
+        [Test]
+        public void OnExecute_SummonBlockCounterExecute_TriggersIronRule()
+        {
+            var b = Battle(new[] { Guillotine(), Summoner() }, 4, Mob(attack: 1, hp: 1000), Mob());
+            b.Enemies[0].Hp = 150;   // 15% < 20%
+            Assert.That(b.Cast("垛"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(b.Summons.ToArray(), s => s != null && s.Alive);
+            Assert.That(b.Cast("铡", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[slot].Statuses.Has(StatusKind.Block), Is.True, "前提:格挡落在木灵身上");
+            Assert.That(Morale(b), Is.EqualTo(0));
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False, "前提:木灵格挡的立威斩杀");
+            Assert.That(Morale(b), Is.EqualTo(2), "铁则:战意 +2(战意记在玩家身上)");
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0), "已在安全点排空");
+        }
+
+        /// <summary>终审补测(Task 3 移交):斩杀时特性的效果自己又斩杀了别的敌人 —— 反应里的斩杀不再入队(R4,深度 &gt; 0)。</summary>
+        [Test]
+        public void OnExecute_ReactionThatExecutes_DoesNotReEnqueue()
+        {
+            var chain = new TraitDef(TraitSlot.Lv4, TraitFace.Both, TraitForm.Passive, null, "连斩",
+                new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 1, shape: TargetArea.All, executeBelowPercent: 35, executeKills: true),
+                    new EffectDef(EffectKind.Morale, 2),
+                }, TraitTrigger.OnExecute);
+            var def = new CharDef("铡", Element.Heart,
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10, executeBelowPercent: 35, executeKills: true) },
+                traits: new[] { chain });
+            var b = Battle(def, Mob(hp: 1000), Mob(hp: 1000), Mob());
+            b.Enemies[0].Hp = 300;
+            b.Enemies[1].Hp = 300;
+            b.Cast("铡", 0, attackMode: true);
+            Assert.That(b.Enemies[0].Alive || b.Enemies[1].Alive, Is.False, "前提:出字斩 0,反应斩 1");
+            Assert.That(Morale(b), Is.EqualTo(2), "只有出字那次斩杀入队;反应里的斩杀不再触发");
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0));
         }
 
         // ---------------- J4:斩杀溅射(铡刀落「斩杀后,相邻敌人受到被斩者最大生命 20% 的伤害」) ----------------
@@ -171,6 +215,32 @@ namespace Brushblade.Core.Tests
             var hits = b.LastEvents.Where(e => e.Kind == BattleEventKind.Damage && e.Source == EffectSource.ExecuteSplash).ToList();
             Assert.That(hits.Count, Is.EqualTo(2));
             Assert.That(hits.All(e => !e.Crit), Is.True, "不暴击");
+        }
+
+        /// <summary>终审补测:溅射过生克 —— 金系斩杀溅到木系邻居 ×1.5,心系邻居 ×1.0。</summary>
+        [Test]
+        public void ExecuteSplash_PassesWuxing_MetalOnWood()
+        {
+            var metal = new CharDef("铡", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.Shield, 1) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10, executeBelowPercent: 35, executeKills: true,
+                    executeSplashPercent: 20) });
+            int SplashOnNeighbor(Element neighbors)
+            {
+                var b = Battle(metal, new[]
+                {
+                    new EnemyDef("怔0", neighbors, Hp, 0), new EnemyDef("怔1", neighbors, Hp, 0),
+                    new EnemyDef("怔2", neighbors, Hp, 0), new EnemyDef("怔3", Element.Heart, Hp, 0, row: EnemyRow.Back),
+                });
+                var (victim, ns) = MiddleOfFront(b);   // 被斩者自己的属性不影响:斩杀不是伤害,溅射量按死者最大生命
+                b.Enemies[victim].Hp = b.Enemies[victim].MaxHp * 30 / 100;
+                b.Cast("铡", victim, attackMode: true);
+                Assert.That(b.Enemies[victim].Alive, Is.False, "前提:被斩杀");
+                return b.Enemies[ns[0]].MaxHp - b.Enemies[ns[0]].Hp;
+            }
+            int heart = SplashOnNeighbor(Element.Heart), wood = SplashOnNeighbor(Element.Wood);
+            Assert.That(heart, Is.EqualTo(Hp * 20 / 100), "心:1.0×");
+            Assert.That(wood, Is.EqualTo(heart * 3 / 2), "金克木:1.5×");
         }
 
         [Test]
@@ -440,6 +510,24 @@ namespace Brushblade.Core.Tests
             Assert.That(first, Is.EqualTo((before - b.Enemies[0].Hp) * 2), "首次受伤 ×2,第二下照常");
         }
 
+        /// <summary>钉住现行为(终审 m1,移交 Plan F):格挡反击按 60% 预算记账之后,DamageEnemy 里的 Boss 致命 ×2 才乘上去,
+        /// 所以实打可超预算;<see cref="BattleEngine.CounterDamageDealt"/> 记的是乘 2 之前的值。
+        /// 夹具:Lv4 本体 100 → 反击 118 × 30% = 35;Boss 攻击 100,格挡后 60 → 预算 36。</summary>
+        [Test]
+        public void Doom_Boss_CounterDoubledAfterBudget_CurrentBehavior()
+        {
+            var guard = new CharDef("挡", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Block, 1) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
+            var b = Battle(new[] { guard }, 4, RebalanceFixture.Boss(hp: 10000, attack: 100));
+            b.Cast("挡", -1, attackMode: false);
+            Doom(b, 0);
+            b.EndTurn();
+            Assert.That(10000 - b.Enemies[0].Hp, Is.EqualTo(70), "35 ≤ 预算 36,之后 ×2 = 70(超 60% 预算,Plan F 定口径)");
+            Assert.That(b.CounterDamageDealt, Is.EqualTo(35), "读数记乘 2 之前");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.False, "Boss 版用一次即移除");
+        }
+
         [Test]
         public void Doom_Boss_MultipliesWithMark()
         {
@@ -489,6 +577,21 @@ namespace Brushblade.Core.Tests
             Assert.That(b.MineHpLoss(0), Is.EqualTo(NearLine), "带致命:雷压到 30% 以下 → 预测斩杀,整截");
             b.EndTurn();
             Assert.That(b.Enemies[0].Alive, Is.False, "与实际结算一致");
+        }
+
+        /// <summary>终审补测(Task 5 移交):致命只剩最后 1 回合时,预扣仍预测斩杀 —— 地雷在敌人那一拍出手前爆,
+        /// 致命的回合递减在那之后,所以实际结算也斩杀。两边一致。</summary>
+        [Test]
+        public void Doom_MineHpLoss_LastDoomTurn_PreviewMatchesSettlement()
+        {
+            var b = Battle(new[] { Hitter }, 1, Mob(attack: 1, hp: DoomHp), Mob());
+            b.Enemies[0].Hp = NearLine;
+            Mine(b, 0);
+            Doom(b, 0, turns: 1);
+            int preview = b.MineHpLoss(0);
+            b.EndTurn();
+            Assert.That(preview, Is.EqualTo(NearLine), "预扣:预测斩杀,整截");
+            Assert.That(b.Enemies[0].Alive, Is.False, "实际:最后 1 回合的致命仍在,雷压线即斩杀");
         }
 
         [Test]

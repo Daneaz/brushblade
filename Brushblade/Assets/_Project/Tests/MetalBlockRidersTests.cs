@@ -140,6 +140,25 @@ namespace Brushblade.Core.Tests
             Assert.That(Lost(b, 3), Is.EqualTo(6), "共用一份预算,先攻击者再同列");
         }
 
+        /// <summary>终审补测(Task 2 移交):攻击者先被镜反弹打死 —— 攻击者那几击不打,同列其余照样吃 70%。
+        /// 现口径:贯穿的「同列」按攻击者所在列取,不看攻击者死活(同列伤害不是从攻击者身上溅出去的)。</summary>
+        [Test]
+        public void CounterColumn_AttackerDiedToReflectFirst_ColumnStillTakes70Percent()
+        {
+            int attacker = FrontMateOfBack();
+            var mobs = FourMobs(attacker, 1000);
+            mobs[attacker] = new EnemyDef("怔" + attacker, Element.Heart, 10, 1000);   // 10 血:镜先结算就打死
+            var def = new CharDef("锥", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Block, 9), Mod(column: true), new EffectDef(EffectKind.Reflect, 50, turns: 2) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
+            var b = Battle(def, mobs);
+            b.Cast("锥", -1, attackMode: false);
+            var ev = EndTurn(b);
+            Assert.That(b.Enemies[attacker].Alive, Is.False, "前提:攻击者死于镜");
+            Assert.That(CounterEvents(ev.Where(e => e.TargetIndex == attacker)), Is.EqualTo(0), "死者不再吃反击");
+            Assert.That(Lost(b, 3), Is.EqualTo(21), "同列其余仍吃 30 × 70%");
+        }
+
         // ---------------- 立威 ----------------
 
         [Test]
@@ -182,6 +201,22 @@ namespace Brushblade.Core.Tests
             Assert.That(10000 - tight.Enemies[0].Hp, Is.EqualTo(36), "×2 后的 60 仍被预算 36 钳住");
         }
 
+        /// <summary>终审补测:Boss ×2 只乘在攻击者身上 —— 贯穿到同列的那只按未翻倍的反击 × 70%。</summary>
+        [Test]
+        public void Execute_OnBoss_Double_NotAppliedToColumn()
+        {
+            var b = Battle(Guard("铡", Mod(execute: 20, column: true)),
+                RebalanceFixture.Boss(attack: 1000), new EnemyDef("怔", Element.Heart, Hp, 0, row: EnemyRow.Back));
+            var boss = b.Enemies[0];
+            Assert.That(b.Enemies[1].Column < boss.ColumnEnd && boss.Column < b.Enemies[1].ColumnEnd, Is.True,
+                "夹具:后排那只与 Boss 同列");
+            boss.Hp = 10000;   // 10% < 20%
+            b.Cast("铡", -1, attackMode: false);
+            EndTurn(b);
+            Assert.That(10000 - b.Enemies[0].Hp, Is.EqualTo(60), "Boss:反击 30 × 2");
+            Assert.That(Lost(b, 1), Is.EqualTo(21), "同列:30 × 70%,不 ×2");
+        }
+
         [Test]
         public void Execute_RecordsSourceCharId()
         {
@@ -207,7 +242,7 @@ namespace Brushblade.Core.Tests
             var bleed = b.Enemies[0].Statuses.Find(StatusKind.Bleed);
             Assert.That(bleed, Is.Not.Null, "预算 0 也挂");
             Assert.That(bleed.Magnitude, Is.EqualTo(35), "量出字时定死,之后涨攻击力不变");
-            Assert.That(bleed.TurnsLeft, Is.EqualTo(3).Or.EqualTo(2), "缺省 3 回合");
+            Assert.That(bleed.TurnsLeft, Is.EqualTo(2), "缺省 3 回合,挂上那一拍的回合末已递减一次");
         }
 
         [Test]
@@ -262,6 +297,25 @@ namespace Brushblade.Core.Tests
             EndTurn(b);
             Assert.That(b.Enemies[0].Alive, Is.False);
             Assert.That(b.Ap, Is.EqualTo(baseAp + 1));
+        }
+
+        /// <summary>终审补测:得利返还排在封字保底之后 —— AP = max(1, 基础 − 封) + 1。</summary>
+        [Test]
+        public void KillRefund_AddsAfterSealFloor()
+        {
+            BattleEngine Make(EffectDef mod)
+            {
+                var b = Battle(Guard("利", mod), Mob(1000, hp: 20), Mob(0));
+                b.PlayerStatuses.Apply(new StatusEffect
+                    { Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff, Magnitude = 100, TurnsLeft = 2 });
+                b.Cast("利", -1, attackMode: false);
+                EndTurn(b);
+                return b;
+            }
+            Assert.That(Make(null).Ap, Is.EqualTo(1), "对照:封 100 → 保底 1");
+            var b = Make(Mod(refund: 1));
+            Assert.That(b.Enemies[0].Alive, Is.False, "前提:反击击杀");
+            Assert.That(b.Ap, Is.EqualTo(2), "max(1, 20 − 100) + 1");
         }
 
         [Test]

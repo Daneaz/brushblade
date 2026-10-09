@@ -58,6 +58,18 @@ namespace Brushblade.Core.Tests
             Assert.That(b.PlayerShield, Is.EqualTo(60), "每溢出 1 层给 30");
         }
 
+        /// <summary>终审补测(Task 4 移交):一次出字里三条 Morale 3,从 0 起 —— 第 1 条 0→3 不溢出,第 2 条 3+3 溢出 1,
+        /// 第 3 条已满 3 层全溢出:合计 4 层,护盾 = 4 × 30。</summary>
+        [Test]
+        public void Gather_SeveralMoraleInOneCast_OverflowsAccumulate()
+        {
+            var b = Battle(new[] { Gather(new EffectDef(EffectKind.Morale, 3), new EffectDef(EffectKind.Morale, 3),
+                new EffectDef(EffectKind.Morale, 3)) });
+            Assert.That(b.Cast("聚", -1), Is.EqualTo(BattleError.None));
+            Assert.That(Morale(b), Is.EqualTo(Config.MoraleCap));
+            Assert.That(b.PlayerShield, Is.EqualTo(4 * 30), "溢出 1 + 3 = 4 层");
+        }
+
         [Test]
         public void Gather_NoOverflow_NoShield()
         {
@@ -251,16 +263,35 @@ namespace Brushblade.Core.Tests
 
         // ---------------- 状态属性:本场 / 存档 ----------------
 
+        /// <summary>终审修正:后半段原来新建一场全新 Battle,恒真;改走 RunEngine 跨场 —— 第 1 场挂上的两枚光环
+        /// 不进跨战斗携带态,第 2 场开局身上没有。</summary>
         [Test]
         public void AuraKinds_AreBattleScoped_AndNotCarriedToFreshBattle()
         {
             Assert.That(StatusRules.IsBattleScoped(StatusKind.MoraleArmor), Is.True);
             Assert.That(StatusRules.IsBattleScoped(StatusKind.MoraleShield), Is.True);
-            var b = Battle(new[] { RichArmor(), GoldAura() });
-            b.Cast("富", -1); b.Cast("气", -1);
-            var next = Battle(new[] { RichArmor(), GoldAura() });
-            Assert.That(next.PlayerStatuses.Has(StatusKind.MoraleArmor), Is.False, "下一场从零开始");
-            Assert.That(next.PlayerStatuses.Has(StatusKind.MoraleShield), Is.False);
+            var hit = new CharDef("斩", Element.Heart, attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
+            var defs = new[] { RichArmor(), GoldAura(), hit };
+            var run = new RunEngine(RebalanceFixture.Graph(defs.Append(new CharDef("木", Element.Wood)).ToArray()),
+                new RunConfig
+                {
+                    Encounters = Enumerable.Range(0, 3).Select(_ => new[] { RebalanceFixture.Mob(hp: 50) }).ToArray(),
+                    RewardPool = new[] { "斩" },
+                },
+                Config, defs.SelectMany(d => new[] { d.Id, d.Id, d.Id }).ToArray(), Array.Empty<string>(), seed: 1,
+                cardLevels: defs.ToDictionary(d => d.Id, _ => 1));
+            Assert.That(run.Battle.Cast("富", -1), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("气", -1), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.PlayerStatuses.Has(StatusKind.MoraleArmor) && run.Battle.PlayerStatuses.Has(StatusKind.MoraleShield),
+                Is.True, "前提:第 1 场挂上");
+            Assert.That(run.Battle.Cast("斩", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+            while (run.Phase == RunPhase.Reward) run.SkipReward();
+            Assert.That(run.Battle.PlayerStatuses.Has(StatusKind.MoraleArmor), Is.False, "第 2 场从零开始");
+            Assert.That(run.Battle.PlayerStatuses.Has(StatusKind.MoraleShield), Is.False);
+            Assert.That(run.CarriedStatuses.Any(st => st.Kind == StatusKind.MoraleArmor || st.Kind == StatusKind.MoraleShield),
+                Is.False, "跨战斗携带态不收");
         }
 
         [Test]
