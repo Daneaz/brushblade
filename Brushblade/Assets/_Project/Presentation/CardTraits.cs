@@ -644,6 +644,16 @@ namespace Brushblade.Presentation
                 case EffectKind.TurnPulse:
                     // D2-水 Task 3(洗尽铅华 / 濯身 / 浇熄):只出现在特性里,本体不出 chip;卡面文案由 CharInfo 印。
                     break;
+                case EffectKind.ShieldSpend:     // D2-土 Task 5(塔倾 / 地裂 / 土生金 / 浮屠 / 铜墙铁壁 / 堡垒 / 碎玉 /
+                case EffectKind.ShieldToMorale:  // 粉身碎骨 / 杜塞 / 杜门不出):同上 —— 都是土专属特性,只出现在特性里,
+                case EffectKind.ShieldCarry:     // 本节扫的是本体效果,不出 chip;卡面文案由 CharInfo 印
+                case EffectKind.HitCap:
+                case EffectKind.HurtShield:
+                case EffectKind.ShieldShatter:
+                case EffectKind.OverkillSplash:
+                case EffectKind.SkillCut:
+                case EffectKind.ApCost:
+                    break;
                 default:
                     // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                     AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

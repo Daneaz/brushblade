@@ -612,7 +612,7 @@ namespace Brushblade.Presentation
                     case BattleEventKind.ShieldBroken:
                         Popup(Strings.T("juice.popup.shield_broken", ("amount", e.Amount)), Theme.SplitBlue, null);
                         PlayClip(_shieldClip, 0.7f);
-                        onImpact?.Invoke(e); // 触达才把护盾条推到 0(倾覆专用,BattleView.OnImpact 处理)
+                        onImpact?.Invoke(e); // 触达才扣护盾记账(倾覆归零 / 特性扣盾按量扣,BattleView.OnImpact 处理)
                         break;
                     case BattleEventKind.EnemySplit:
                         Popup(Strings.T("juice.popup.enemy_split"), Theme.UpgradeText, enemyAnchor(e.TargetIndex));

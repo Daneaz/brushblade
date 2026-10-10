@@ -322,6 +322,30 @@ namespace Brushblade.Presentation
                     EffectKind.ShieldRecoil => Strings.T("char.effect.shieldrecoil", ("value", shown)),
                     // 嘲讽(D2-0 Task 2):Value = 回合数,0 = 本场;按落点分主语
                     EffectKind.Taunt => TauntText(e),
+                    // ---- D2-土 Task 5:土专属新机制(措辞贴特性原文)。百分比 / AP 离散,读 e.Value;堡垒的护盾量吃等级(shown) ----
+                    // 扣盾(G1 塔倾 / 地裂):100 = 清空
+                    EffectKind.ShieldSpend => e.Value >= 100
+                        ? Strings.T("char.effect.shieldspend.all")
+                        : Strings.T("char.effect.shieldspend", ("value", e.Value)),
+                    // 土生金(G8):每 ResourceThresholdValue 点护盾折 1 层战意(向上取整)
+                    EffectKind.ShieldToMorale => Strings.T("char.effect.shieldtomorale",
+                        ("value", e.Value), ("per", BattleEngine.ResourceThresholdValue)),
+                    // 浮屠(G9):「上回合末剩余护盾」= 回合开始被清掉的普通护盾
+                    EffectKind.ShieldCarry => Strings.T("char.effect.shieldcarry", ("turns", Math.Max(1, e.Turns)), ("value", e.Value)),
+                    // 铜墙铁壁(G2):单次伤害上限,本回合
+                    EffectKind.HitCap => Strings.T("char.effect.hitcap", ("value", e.Value)),
+                    // 堡垒(G3):每次受击后加护盾(出字时定死,同 Shield)
+                    EffectKind.HurtShield => Strings.T("char.effect.hurtshield", ("turns", Math.Max(1, e.Turns)), ("value", shown)),
+                    // 碎玉(G4)
+                    EffectKind.ShieldShatter => Strings.T("char.effect.shieldshatter", ("value", e.Value)),
+                    // 粉身碎骨(G5):触发前缀「击杀时:」由 TriggerText 印
+                    EffectKind.OverkillSplash => e.Value >= 100
+                        ? Strings.T("char.effect.overkillsplash.all")
+                        : Strings.T("char.effect.overkillsplash", ("value", e.Value)),
+                    // 杜塞(G6):条件后缀「(目标是 Boss 时)」由 OnlyIfText 补
+                    EffectKind.SkillCut => Strings.T("char.effect.skillcut", ("value", e.Value)),
+                    // 杜门不出(G7):代价,不算减益
+                    EffectKind.ApCost => Strings.T("char.effect.apcost", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印

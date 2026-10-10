@@ -250,6 +250,12 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.damagecut.name"),
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.damagecut.desc"));
+                case StatusKind.HitCap:
+                    // 铜墙铁壁(D2-土 G2):玩家身上,TurnsLeft 1 = 本回合。与减伤同组(Q20:chip 复用「减伤」那枚,稿待拍板 ——
+                    // 战场 chip 未接),名取同一条「减伤」,说明区分「单次 ≤ N%」;IconKey null(同 DamageCut)
+                    return new Info(null, Strings.T("status.damagecut.name"),
+                        Strings.T("status.duration.this_turn"),
+                        Strings.T("status.hitcap.desc", ("magnitude", magnitude)));
                 case StatusKind.CounterBoost:
                     return new Info(null, Strings.T("status.counterboost.name"),
                         Strings.T("status.duration.this_turn"),
@@ -336,10 +342,16 @@ namespace Brushblade.Presentation
                 {
                     string list = CharInfo.DetachedEffectsText(effect.OnHit, LevelOf(effect, cardLevelOf));
                     return new Info(info.IconKey, info.Name, info.Duration,
-                        effect.Magnitude > 0
+                        RetaliateGate(effect) + (effect.Magnitude > 0
                             ? Strings.T("status.retaliate.desc.list.cap", ("list", list), ("cap", effect.Magnitude))
-                            : Strings.T("status.retaliate.desc.list", ("list", list)));
+                            : Strings.T("status.retaliate.desc.list", ("list", list))));
                 }
+                case StatusKind.Retaliate when effect.MinArmor > 0:
+                    return new Info(info.IconKey, info.Name, info.Duration, RetaliateGate(effect) + info.Desc);
+                case StatusKind.Seal when effect.Polarity == StatusPolarity.Buff:
+                    // 杜门不出的 AP 代价(D2-土 G7):Buff 极性的封字,不是倾覆挂的 —— 说明不能写「Boss 技能「倾覆」」
+                    return new Info(info.IconKey, info.Name, info.Duration,
+                        Strings.T("status.seal.desc.cost", ("magnitude", effect.Magnitude)));
                 case StatusKind.TurnPulse when effect.OnHit is { Count: > 0 }:
                     return new Info(info.IconKey, info.Name, info.Duration,
                         Strings.T("status.turnpulse.desc",
@@ -348,6 +360,10 @@ namespace Brushblade.Presentation
                     return info;
             }
         }
+
+        /// <summary>山岳(D2-土 E32):回敬带护甲门槛时句首补「护甲 ≥ N 时,」(与卡面同一条文案)。</summary>
+        private static string RetaliateGate(StatusEffect effect) =>
+            effect.MinArmor > 0 ? Strings.T("char.effect.retaliate.minarmor", ("armor", effect.MinArmor)) : "";
 
         private static int LevelOf(StatusEffect effect, Func<string, int> cardLevelOf) =>
             cardLevelOf != null && effect.SourceId != null ? Math.Max(1, cardLevelOf(effect.SourceId)) : 1;

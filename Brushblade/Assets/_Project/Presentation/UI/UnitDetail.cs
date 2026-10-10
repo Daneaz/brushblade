@@ -107,6 +107,7 @@ namespace Brushblade.Presentation
                 or StatusKind.Seed => Guard,   // 种(D1 Task 6,稿 k-heal 翠玉)
             // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
             StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure
+                or StatusKind.HitCap   // 铜墙铁壁(D2-土 G2):与减伤同组(Q20)
                 or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
@@ -142,7 +143,7 @@ namespace Brushblade.Presentation
                 or StatusKind.Doom => "",   // 致命(traits StatusChips 稿):无数字,剩余回合在时长行
             // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
             // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
-            StatusKind.DamageCut => Strings.T("detail.chip.damagecut"),
+            StatusKind.DamageCut or StatusKind.HitCap => Strings.T("detail.chip.damagecut"),   // 铜墙铁壁复用减伤兜底字(Q20)
             StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
             StatusKind.Endure => Strings.T("detail.chip.endure"),
             StatusKind.SpeedModifier => magnitude < 0
