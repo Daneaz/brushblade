@@ -850,6 +850,9 @@ namespace Brushblade.Core
             EffectKind.HitCap or EffectKind.ShieldShatter => false,
             // D2-土 Task 4:溢出平分(百分比,作用于已打出的伤害)/ 大招削减(百分比)/ AP 代价(点数)都离散
             EffectKind.OverkillSplash or EffectKind.SkillCut or EffectKind.ApCost => false,
+            // D2-木 Task 1 预留(附录 §3 同步清单):光环 / 荆刺是百分比,攀附是打击百分比,远程 / 并入 / 立即行动不用 Value,折桂是张数 —— 全离散
+            EffectKind.SummonEmpower or EffectKind.SummonThorns or EffectKind.ThornMark or EffectKind.Bind
+                or EffectKind.SummonRanged or EffectKind.SummonMerge or EffectKind.SummonAct or EffectKind.GrantChar => false,
             _ => true,
         };
 

@@ -648,5 +648,87 @@ namespace Brushblade.Core.Tests
             Assert.That(saplings, Has.Count.EqualTo(2));
             Assert.That(saplings[0].MaxHp, Is.EqualTo(MetaRules.ScaleByCardLevel(400, 4) * 20 / 100));
         }
+
+        // ================= 末尾预留(Ruling 17):只加名、不加行为 =================
+
+        [Test]
+        public void Reserve_EnumsAppendedAtTheEnd()
+        {
+            Assert.That((int)EffectKind.SummonEmpower, Is.EqualTo((int)EffectKind.ApCost + 1));
+            Assert.That(new[] { EffectKind.SummonEmpower, EffectKind.SummonThorns, EffectKind.SummonRanged, EffectKind.Bind,
+                EffectKind.ThornMark, EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar }.Select(k => (int)k),
+                Is.EqualTo(Enumerable.Range((int)EffectKind.ApCost + 1, 8)));
+            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.GrantChar));
+            Assert.That(new[] { StatusKind.SummonEmpower, StatusKind.SummonThorns, StatusKind.SummonRanged, StatusKind.Bind,
+                StatusKind.ThornMark }.Select(k => (int)k), Is.EqualTo(Enumerable.Range((int)StatusKind.SkillCut + 1, 5)));
+            Assert.That(Enum.GetValues(typeof(StatusKind)).Cast<int>().Max(), Is.EqualTo((int)StatusKind.ThornMark));
+            Assert.That(((int)EffectPick.OtherSummons, (int)EffectPick.StrongestSummon),
+                Is.EqualTo(((int)EffectPick.AllAllies + 1, (int)EffectPick.AllAllies + 2)));
+            Assert.That(((int)EffectSource.DeathBlast, (int)EffectSource.ReturnFire),
+                Is.EqualTo(((int)EffectSource.ShieldSpend + 1, (int)EffectSource.ShieldSpend + 2)));
+            Assert.That((int)ScaleBasis.SummonCount, Is.EqualTo((int)ScaleBasis.Shield + 1));
+        }
+
+        private static SummonPassive FullWoodPassive() => new()
+        {
+            AttackPercent = 20, HealAllyPercent = 30, HealMirror = 100, ThornsBleed = 35, CritAura = 10,
+            GroveCut = 5, GroveCutCap = 20, ThicketCut = 25, ThicketMin = 3, Guard = 30, ReturnFire = 200,
+            DeathBlast = 300, SproutDeathSlow = 1, DeathPart = true,
+        };
+
+        private static string WoodFields(SummonPassive p) =>
+            $"{p.AttackPercent}/{p.HealAllyPercent}/{p.HealMirror}/{p.ThornsBleed}/{p.CritAura}/{p.GroveCut}/{p.GroveCutCap}/"
+            + $"{p.ThicketCut}/{p.ThicketMin}/{p.Guard}/{p.ReturnFire}/{p.DeathBlast}/{p.SproutDeathSlow}/{p.DeathPart}";
+
+        [Test]
+        public void Reserve_NewPassiveFields_CloneAndMerge()
+        {
+            var full = FullWoodPassive();
+            Assert.That(WoodFields(full.Clone()), Is.EqualTo(WoodFields(full)), "Clone 同步全部新字段");
+            Assert.That(WoodFields(TraitRules.MergePassive(new SummonPassive { Thorns = 50 }, full)), Is.EqualTo(WoodFields(full)),
+                "MergePassive 并入全部新字段");
+            Assert.That(TraitRules.MergePassive(full, new SummonPassive()).Guard, Is.EqualTo(30), "缺省不覆盖");
+            // 本命追加(E37)经新字段走通:Summon 0 + Guard 30
+            var def = WoodChar("柘", new[] { Body(new SummonPassive { Taunt = true }) }, null,
+                Trait(TraitSlot.Lv6, TraitFace.Feature, TraitForm.Passive, Append(new SummonPassive { Guard = 30 })));
+            var p = TraitRules.CastEffects(def, CardFace.Feature, 6).Single().Passive;
+            Assert.That((p.Taunt, p.Guard), Is.EqualTo((true, 30)));
+        }
+
+        [Test]
+        public void Reserve_NewPassiveFields_SurviveRealSaveFile()
+        {
+            var w = Wood(0, hp: 500);
+            w.Passive = FullWoodPassive();
+            var graph = RebalanceFixture.Graph();
+            var enemy = RebalanceFixture.Mob(attack: 0);
+            var runConfig = new RunConfig { Encounters = new[] { new[] { enemy }, new[] { enemy } }, RewardPool = new[] { "甲" } };
+            var run = new RunEngine(graph, runConfig, Config, new[] { "甲", "甲" }, Array.Empty<string>(), 3, startingSummons: new[] { w });
+            var meta = new MetaState
+            {
+                EndlessV2 = new EndlessSaveState
+                {
+                    Depth = 3, Seed = 999,
+                    InProgress = new InProgressRun { FromDepth = 1, FirstTowerSegment = true, Run = run.Capture() },
+                },
+            };
+            var reloaded = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
+            var restored = RunEngine.Restore(reloaded.EndlessV2.InProgress.Run, graph, runConfig, Config, new Dictionary<string, int>());
+            Assert.That(WoodFields(restored.Battle.Summons.Single(x => x != null).Passive), Is.EqualTo(WoodFields(FullWoodPassive())), "本命新字段进存档 JSON 往返");
+        }
+
+        [Test]
+        public void Reserve_OnSummonDeath_IsIdenticalWithNewFieldsAbsent()
+        {
+            // 单点调用空实现:阵亡流程(钩子 / 归根 / 刷光环)不变 —— 无新字段时与 base 逐位恒等由 WoodSharedIdentityTests 守,
+            // 这里只钉「带了新本命字段也还没有行为」(Task 3 接入时会改这条)
+            var w = Wood(0, hp: 10);
+            w.Passive = FullWoodPassive();
+            var b = Battle(RebalanceFixture.Char("乙", new EffectDef(EffectKind.DamageSingle, 1)), 1, new[] { w },
+                RebalanceFixture.Mob(attack: 500));
+            b.EndTurn();
+            Assert.That(b.Summons[0].Alive, Is.False, "夹具前提:木灵阵亡");
+            Assert.That(b.Enemies[0].Statuses.All.Any(), Is.False, "预留字段没有行为");
+        }
     }
 }

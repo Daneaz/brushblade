@@ -379,6 +379,9 @@ namespace Brushblade.Core
         ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
         OverkillSplash,// 粉身碎骨(D2-土 G5):击杀溢出平分给其余敌人;R4 特性伤害,溅射击杀不入队击杀时;表现层按普通伤害飘字(来源标签归 Plan E)
         ShieldSpend,   // 扣盾(D2-土 G1 塔倾 / 地裂、G8 土生金):**ShieldBroken** 事件的 Source,区分「部分扣盾」与倾覆清空(倾覆为 None)
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为)。⚠ 只在末尾追加 ----
+        DeathBlast,    // 落木(M3,Task 3):巨木灵阵亡对全体敌人的反应伤害;R4 特性伤害
+        ReturnFire,    // 良弓(M4,Task 3):带良弓的木灵被挥击命中后射还;进 60% 反伤预算
     }
 
     public readonly struct BattleEvent
@@ -2599,6 +2602,7 @@ namespace Brushblade.Core
         {
             Raise(HookKind.SummonDied, UnitRef.Summon(slot), killer);
             HealFromSummonDeath(slot);
+            OnSummonDeathTraits(slot, killer);   // D2-木 M3 / M7 等阵亡挂点(BattleEngine.Wood.cs);没有本命字段时空转
             RefreshSummonAura();
         }
 

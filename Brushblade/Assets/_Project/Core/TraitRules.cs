@@ -300,6 +300,21 @@ namespace Brushblade.Core
             if (over.SproutMax != 0) m.SproutMax = over.SproutMax;
             if (over.EntrySaplings != 0) m.EntrySaplings = over.EntrySaplings;
             if (over.OnHitCharmChance != 0) m.OnHitCharmChance = over.OnHitCharmChance;
+            // D2-木 Task 1 预留的本命字段(E37 本命追加靠这里并入)
+            if (over.AttackPercent != 0) m.AttackPercent = over.AttackPercent;
+            if (over.HealAllyPercent != 0) m.HealAllyPercent = over.HealAllyPercent;
+            if (over.HealMirror != 0) m.HealMirror = over.HealMirror;
+            if (over.ThornsBleed != 0) m.ThornsBleed = over.ThornsBleed;
+            if (over.CritAura != 0) m.CritAura = over.CritAura;
+            if (over.GroveCut != 0) m.GroveCut = over.GroveCut;
+            if (over.GroveCutCap != 0) m.GroveCutCap = over.GroveCutCap;
+            if (over.ThicketCut != 0) m.ThicketCut = over.ThicketCut;
+            if (over.ThicketMin != 0) m.ThicketMin = over.ThicketMin;
+            if (over.Guard != 0) m.Guard = over.Guard;
+            if (over.ReturnFire != 0) m.ReturnFire = over.ReturnFire;
+            if (over.DeathBlast != 0) m.DeathBlast = over.DeathBlast;
+            if (over.SproutDeathSlow != 0) m.SproutDeathSlow = over.SproutDeathSlow;
+            if (over.DeathPart) m.DeathPart = true;
             return m;
         }
 

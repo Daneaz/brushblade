@@ -9,6 +9,14 @@ namespace Brushblade.Core
     /// 恒等:各项只在对应字段 / 条件非缺省时才走到,一律不摇随机数。</summary>
     public sealed partial class BattleEngine
     {
+        // ---- 预留骨架(Ruling 17):木系新机制 M1–M11 的挂点集中在这里,Task 2–4 逐项填 ----
+
+        /// <summary>木灵阵亡的特性挂点(M3 秋实 / 落木 / 藻荇、M7 攀附清理等,Task 3 / 4):OnSummonDeath 的单点调用,
+        /// 在归根治疗之后、刷光环之前。顶替召唤与绿潮并入不走这里(Q15)。Task 1 只预留,空实现。</summary>
+        private void OnSummonDeathTraits(int slot, UnitRef killer)
+        {
+        }
+
         /// <summary>该槽位是不是本字的木灵(Q2:主动特性读的「X灵」;幼苗不算)。</summary>
         private bool IsOwnSummon(int slot, string charId)
         {

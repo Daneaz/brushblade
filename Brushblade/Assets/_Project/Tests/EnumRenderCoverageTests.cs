@@ -35,12 +35,32 @@ namespace Brushblade.Core.Tests
         /// <summary>玩家永远看不到卡面文案的 EffectKind → 理由。P0 休眠的那批
         /// (PierceBuff/Cleanse/Dispel/ApBoost/BurnNoDecay)不算豁免 —— 它们只是当前
         /// 字表无载体,CharInfo 里仍然有渲染分支,P2 复活时不需要再补线。</summary>
-        private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>
+        {
+            [nameof(EffectKind.SummonEmpower)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonThorns)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonRanged)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.Bind)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.ThornMark)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonMerge)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonAct)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.GrantChar)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+        };
 
         /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
         /// 空表是核实过的结论,不是偷懒:全部 91 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
         /// CardTraits.cs 里(不出特性 chip 的那几个写成空 `case … break;`,同样匹配得到)。</summary>
-        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>
+        {
+            [nameof(EffectKind.SummonEmpower)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonThorns)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonRanged)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.Bind)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.ThornMark)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonMerge)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.SummonAct)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(EffectKind.GrantChar)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+        };
 
         /// <summary>玩家永远看不到状态详情的 StatusKind → 理由。</summary>
         private static readonly Dictionary<string, string> StatusKindExempt = new Dictionary<string, string>
@@ -77,6 +97,11 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):护盾被打破时的反伤本身就是反馈,触发反馈归 Plan E",
             // D2-土 Task 4(Q21):杜塞的大招削减是 Boss 身上的隐藏载体(永久豁免);「大招减半」显示在蓄力预警上归 Plan E
             [nameof(StatusKind.SkillCut)] = "隐藏载体(D2-土 Q21,杜塞):Boss 下一次大招伤害削减,预警提示归 Plan E",
+            [nameof(StatusKind.SummonEmpower)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(StatusKind.SummonThorns)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(StatusKind.SummonRanged)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(StatusKind.Bind)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            [nameof(StatusKind.ThornMark)] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
             // 铜墙铁壁(HitCap)/ 堡垒(HurtShield)不在这里:StatusText 有详情文案(同 W5 受击回复),
             // 战场 chip 分别待 Q20「减伤」稿 / 与 W5 合出的「受击收益」稿
         };

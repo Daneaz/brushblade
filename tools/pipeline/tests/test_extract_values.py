@@ -1485,6 +1485,15 @@ def test_d2wood_shared_tokens(config, expected):
     assert _parse_effects(config, "木") == expected
 
 
+def test_d2wood_reserved_passive_and_kind_tokens():
+    """D2-木 Task 1 预留(Ruling 17):本命新字段走 SUMMON_PASSIVE,`DeathPart` 是布尔;三个无值新 Kind 进 VALUELESS_EFFECTS。"""
+    effects = _parse_effects("`Summon 1`(0 血/攻 0) `Guard 30` `GroveCut 5` `GroveCutCap 20` `DeathPart`", "柘")
+    assert effects == [{"kind": "Summon", "value": 0, "count": 1, "attack": 0, "summonChar": "柘",
+                        "passive": {"guard": 30, "groveCut": 5, "groveCutCap": 20, "deathPart": True}}]
+    assert _parse_effects("`SummonAct`", "𣛧") == [{"kind": "SummonAct", "value": 0}]
+    assert _parse_effects("`ThornMark 30` `turns 2`", "荆") == [{"kind": "ThornMark", "value": 30, "turns": 2}]
+
+
 @pytest.mark.parametrize("config, needle", [
     ("`DamageSingle 10` `fromBody`", "fromBody"),            # 只挂 SummonSapling
     ("`DamageSingle 10` `sprout`", "sprout"),

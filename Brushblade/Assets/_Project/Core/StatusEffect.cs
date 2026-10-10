@@ -138,6 +138,12 @@ namespace Brushblade.Core
         ShieldShatter,    // 碎玉(隐藏载体,Q21):Magnitude = 反伤百分比,TurnsLeft = -1,同类只留最强一条;随两桶护盾归零移除。
         // ---- D2-土 Task 4:敌人侧(附录 G6,仅 Boss)。⚠ 只在末尾追加 ----
         SkillCut,         // 杜塞(Boss,隐藏,Q21):Magnitude = 下一次大招伤害的削减百分比,TurnsLeft = -1;CastBossSkill 开头取最大并整类移除。
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;附录 M1 / M6 / M7)。⚠ 只在末尾追加 ----
+        SummonEmpower,    // M1 木灵攻击光环(玩家袋,按玩家回合计;TargetSlot −1 = 全部木灵)。Task 2
+        SummonThorns,     // M1 木灵荆棘光环(玩家袋)。Task 2
+        SummonRanged,     // M1 木灵远程(玩家袋,本场)。Task 2
+        Bind,             // M7 攀附(敌人,TargetSlot = 藤灵槽,Magnitude = 打击百分比)。Task 4
+        ThornMark,        // M6 荆刺(敌人,Magnitude = 反弹百分比,按该敌人行动递减)。Task 3
     }
 
     /// <summary>状态的分类规则。</summary>

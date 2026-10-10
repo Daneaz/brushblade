@@ -69,6 +69,20 @@ namespace Brushblade.Core.Tests
             ["OnHitSlowTurns"] = "回合数,与 OnHitSlowPercent 合成一句由 PassiveText 印",
             ["ShapePercent"] = "非主目标百分比,与 Shape 合成一句由 PassiveText 印",
             ["Shots"] = "发数/跳数,与 Shape 合成一句由 PassiveText 印",
+            ["AttackPercent"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["HealAllyPercent"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["HealMirror"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["ThornsBleed"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["CritAura"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["GroveCut"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["GroveCutCap"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["ThicketCut"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["ThicketMin"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["Guard"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["ReturnFire"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["DeathBlast"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["SproutDeathSlow"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
+            ["DeathPart"] = "临时豁免:D2-木 Task 5 接文案时删(Task 1 预留,只加名不加行为)",
         };
 
         /// <summary>CardTraits.cs 的源码。理由同 CharInfoSource:Tests asmdef 引不到
@@ -226,6 +240,8 @@ namespace Brushblade.Core.Tests
         {
             "ScaleBasis.SummonCount",
             "DamageCondition.OwnSummonAlive",
+            "EffectPick.OtherSummons",
+            "EffectPick.StrongestSummon",
         };
 
         [Test]

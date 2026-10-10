@@ -26,6 +26,9 @@ namespace Brushblade.Core
         HighestHp,          // 当前生命最高的存活敌人,同值取下标小;不过滤状态(浩瀚)
         SlowedByThisCast,   // 本次出字的 Slow 落到过(施加或续回合)的敌人(淋漓)
         AllAllies,          // 我方侧:玩家 + 全部存活木灵(只给 Cleanse,水大无际)
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;附录 M1)。⚠ 只在末尾追加 ----
+        OtherSummons,       // 我方侧:出字时在场、且不是本次召出的每只存活木灵(擎天)。Task 2
+        StrongestSummon,    // 我方侧:出字结束时有效攻击最高的存活木灵,同值取槽位小(桂冠)。Task 2
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。

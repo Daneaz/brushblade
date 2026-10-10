@@ -55,6 +55,20 @@ SUMMON_PASSIVE = {
     "SproutMax": "sproutMax",                 # 丛生:同时存活上限
     "EntrySaplings": "entrySaplings",         # 森然:入场附带 N 只幼苗
     "OnHitCharm": "onHitCharmChance",         # 迷香:出手 N% 魅惑 1 回合(吃卡等级,钳 100)
+    # D2-木 Task 1 预留的本命字段(Ruling 17;结算归 Task 2–4)。布尔 `DeathPart` 在召唤分支里单独认
+    "AttackPercent": "attackPercent",         # 参天之力
+    "HealAllyPercent": "healAllyPercent",     # 馥郁
+    "HealMirror": "healMirror",               # 水草
+    "ThornsBleed": "thornsBleed",             # 披荆(吃卡等级)
+    "CritAura": "critAura",                   # 蟾宫
+    "GroveCut": "groveCut",                   # 林荫
+    "GroveCutCap": "groveCutCap",
+    "ThicketCut": "thicketCut",               # 森严
+    "ThicketMin": "thicketMin",
+    "Guard": "guard",                         # 守护
+    "ReturnFire": "returnFire",               # 良弓
+    "DeathBlast": "deathBlast",               # 落木
+    "SproutDeathSlow": "sproutDeathSlow",     # 藻荇
 }
 
 
@@ -117,6 +131,10 @@ VALUELESS_EFFECTS = {
     # D2-土 Task 2(附录 G1):地裂 `ShieldSpend` 不带数值 = 清两桶(100%);塔倾 `ShieldSpend 50` 带数值走通用正则。
     # 整串带反引号匹配,`ShieldSpend` 不吞 `ShieldSpend 50`。土生金 `ShieldToMorale N`、浮屠 `ShieldCarry N` 带数值走通用正则。
     "ShieldSpend": {"kind": "ShieldSpend", "value": 100},
+    # D2-木 Task 1 预留(Ruling 17;结算归 Task 2 / 4):箭灵 `SummonRanged`、绿潮 `SummonMerge`、四木成林 `SummonAct`,不带数值
+    "SummonRanged": {"kind": "SummonRanged", "value": 0},
+    "SummonMerge": {"kind": "SummonMerge", "value": 0},
+    "SummonAct": {"kind": "SummonAct", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -158,7 +176,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
                   "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
                   "ShieldCarry",               # D2-土 Task 2:回合初留盾(浮屠),同上
-                  "HurtShield"}                # D2-土 Task 3:受击得盾(堡垒),同上
+                  "HurtShield",                # D2-土 Task 3:受击得盾(堡垒),同上
+                  "SummonEmpower", "SummonThorns", "ThornMark"}   # D2-木 Task 1 预留:木灵光环 / 荆刺,同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -276,7 +295,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
                     "BuffBlock",   # D2-水 Task 3 洗尽铅华
                     "Silence",     # D2-土 E33 杜塞(`if NotBoss`)
-                    "SkillCut"}    # D2-土 G6 杜塞(`if IsBoss`)
+                    "SkillCut",    # D2-土 G6 杜塞(`if IsBoss`)
+                    "Bind", "ThornMark"}   # D2-木 Task 1 预留:攀附 / 荆刺
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -1106,6 +1126,9 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
         if "`Taunt`" in config:             # 无数值的布尔标记(2026-08-25,荆/堡)
             passive["taunt"] = True
             consumed.add("Taunt")
+        if "`DeathPart`" in config:         # 无数值的布尔标记(D2-木 预留,秋实)
+            passive["deathPart"] = True
+            consumed.add("DeathPart")
         # 目标形状(2026-08-22,spec §9.1):召唤物自动攻击也能带形状,与伤害侧同一套 token,
         # 落进 passive 的 shape/shots/shapePercent —— **不**新增独立 effect(与 Ranged 同处理)。
         # Chain/ShapePercent/Shots 这三个带数值的 token 不会被下面的通用循环二次吞掉
