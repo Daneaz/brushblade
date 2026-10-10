@@ -461,6 +461,8 @@ namespace Brushblade.Core
             bool counter = kind == EffectKind.Block;
             bool seed = kind == EffectKind.Seed;
             bool burn = kind == EffectKind.BurnSingle || kind == EffectKind.BurnAll;   // 作用于火力(D2-火 G3)
+            // 生面(D2-木 E38,Q5):召唤的血与攻、群疗、群盾只进 All(不动 Heal / Shield 档);幼苗百分比、嘲讽、保命不进
+            bool summon = kind == EffectKind.Summon || kind == EffectKind.HealSummons || kind == EffectKind.ShieldSummons;
             return scope switch
             {
                 AmpScope.Damage => damage,
@@ -469,7 +471,7 @@ namespace Brushblade.Core
                 AmpScope.Counter => counter,
                 AmpScope.Seed => seed,
                 AmpScope.Burn => burn,
-                AmpScope.All => damage || heal || shield || counter || seed || burn,
+                AmpScope.All => damage || heal || shield || counter || seed || burn || summon,
                 _ => false,
             };
         }

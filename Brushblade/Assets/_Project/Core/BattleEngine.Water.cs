@@ -225,7 +225,8 @@ namespace Brushblade.Core
         public static bool TurnPulseAllows(EffectKind kind) => kind switch
         {
             EffectKind.Slow or EffectKind.Freeze or EffectKind.Weaken or EffectKind.Blind
-                or EffectKind.HealSelf or EffectKind.Shield or EffectKind.AddWellspring => true,
+                or EffectKind.HealSelf or EffectKind.Shield or EffectKind.AddWellspring
+                or EffectKind.Vulnerable => true,   // D2-木 E50(一叶知秋)
             _ => false,
         };
 

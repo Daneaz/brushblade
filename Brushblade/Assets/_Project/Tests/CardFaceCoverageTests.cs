@@ -225,6 +225,7 @@ namespace Brushblade.Core.Tests
         internal static readonly HashSet<string> WoodPendingText = new HashSet<string>
         {
             "ScaleBasis.SummonCount",
+            "DamageCondition.OwnSummonAlive",
         };
 
         [Test]

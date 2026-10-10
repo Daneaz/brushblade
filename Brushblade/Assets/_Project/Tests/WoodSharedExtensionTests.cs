@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Brushblade.Core;
+using Brushblade.Data;
 using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
@@ -177,6 +178,326 @@ namespace Brushblade.Core.Tests
             Assert.That(lv5, Is.SameAs(def.Effects[0]));
             var lv8 = TraitRules.CastEffects(def, CardFace.Feature, 8).Single();
             Assert.That((lv8.SummonCount, lv8.SummonPercent, lv8.Value, lv8.SummonAttack), Is.EqualTo((2, 60, 300, 20)));
+        }
+
+        // ================= 提交 ②:结算分支 =================
+
+        private static int Amp(int v, int percent) => (v * (100 + percent) + 99) / 100;
+
+        // ---------------- E38:生面 Amplify 作用域 ----------------
+
+        private static (int Hp, int Attack) SummonedStats(CharDef def, int level, int casts = 1)
+        {
+            var b = Battle(def, level);
+            for (int i = 0; i < casts; i++) Assert.That(b.Cast(def.Id, -1, replaceSummon: true), Is.EqualTo(BattleError.None));
+            var s = b.Summons.Last(x => x != null && x.Alive);
+            return (s.MaxHp, s.Attack);
+        }
+
+        [Test]
+        public void E38_FeatureFaceAmplifyAll_ScalesSummonHpAndAttack()
+        {
+            // 藤·精进:Amplify 12 All(两面),Lv4 生面召唤的血与攻都吃
+            var plain = WoodChar("藤", new[] { Body() });
+            var refined = WoodChar("藤", new[] { Body() }, null,
+                Trait(TraitSlot.Lv4, TraitFace.Both, TraitForm.Passive, new EffectDef(EffectKind.Amplify, 12, scope: AmpScope.All)));
+            var (hp, atk) = SummonedStats(plain, 4);
+            Assert.That(SummonedStats(refined, 4), Is.EqualTo((Amp(hp, 12), Amp(atk, 12))));
+            Assert.That(SummonedStats(refined, 3), Is.EqualTo(SummonedStats(plain, 3)), "Lv3 未解锁 = 原值");
+        }
+
+        [Test]
+        public void E38_FirstCastCondition_OnlyFirstSummonOfTurnIsAmplified()
+        {
+            // 花·先声:Amplify 15 All if FirstCastThisTurn
+            var plain = WoodChar("花", new[] { Body() });
+            var herald = WoodChar("花", new[] { Body() }, null,
+                Trait(TraitSlot.Lv4, TraitFace.Both, TraitForm.Passive,
+                    new EffectDef(EffectKind.Amplify, 15, scope: AmpScope.All, onlyIf: DamageCondition.FirstCastThisTurn)));
+            var (hp, atk) = SummonedStats(plain, 4);
+            Assert.That(SummonedStats(herald, 4), Is.EqualTo((Amp(hp, 15), Amp(atk, 15))), "本回合第一张");
+            Assert.That(SummonedStats(herald, 4, casts: 2), Is.EqualTo((hp, atk)), "第二张不吃");
+        }
+
+        [Test]
+        public void E38_HealAndShieldSummons_InScope_SaplingNot()
+        {
+            Assert.That(TraitRules.InScope(AmpScope.All, EffectKind.Summon), Is.True);
+            Assert.That(TraitRules.InScope(AmpScope.All, EffectKind.HealSummons), Is.True);
+            Assert.That(TraitRules.InScope(AmpScope.All, EffectKind.ShieldSummons), Is.True);
+            Assert.That(TraitRules.InScope(AmpScope.All, EffectKind.SummonSapling), Is.False, "幼苗百分比不吃(Q5)");
+            Assert.That(TraitRules.InScope(AmpScope.All, EffectKind.Taunt), Is.False);
+            Assert.That(TraitRules.InScope(AmpScope.All, EffectKind.Endure), Is.False);
+            Assert.That(TraitRules.InScope(AmpScope.Heal, EffectKind.HealSummons), Is.False, "只扩 All,不动 Heal / Shield 档");
+            Assert.That(TraitRules.InScope(AmpScope.Shield, EffectKind.ShieldSummons), Is.False);
+
+            int Shielded(bool amp)
+            {
+                var traits = amp ? new[] { Trait(TraitSlot.Lv4, TraitFace.Feature, TraitForm.Passive,
+                    new EffectDef(EffectKind.Amplify, 20, scope: AmpScope.All)) } : Array.Empty<TraitDef>();
+                var def = WoodChar("荫", new[] { new EffectDef(EffectKind.ShieldSummons, 50) }, null, traits);
+                var b = Battle(def, 4, new[] { Wood(0) });
+                b.Cast("荫");
+                return b.Summons[0].Shield;
+            }
+            Assert.That(Shielded(true), Is.EqualTo(Amp(Shielded(false), 20)));
+
+            int Healed(bool amp)
+            {
+                var traits = amp ? new[] { Trait(TraitSlot.Lv4, TraitFace.Feature, TraitForm.Passive,
+                    new EffectDef(EffectKind.Amplify, 20, scope: AmpScope.All)) } : Array.Empty<TraitDef>();
+                var def = WoodChar("疗", new[] { new EffectDef(EffectKind.HealSummons, 30) }, null, traits);
+                var w = Wood(0, hp: 1000);
+                w.Hp = 100;
+                var b = Battle(def, 4, new[] { w });
+                b.Cast("疗");
+                return b.Summons[0].Hp - 100;
+            }
+            Assert.That(Healed(true), Is.EqualTo(Amp(Healed(false), 20)));
+        }
+
+        // ---------------- E40:按木灵攻击 / 护甲加伤 ----------------
+
+        private static CharDef Striker(EffectDef reshape) => WoodChar("森", new[] { Body() },
+            new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+            Trait(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Active, reshape));
+
+        [Test]
+        public void E40_SummonAtkStrike_AddsSumOfAliveSummonAttack()
+        {
+            var b = Battle(Striker(new EffectDef(EffectKind.Reshape, 0, summonAtkStrikePercent: 50)), 5,
+                new[] { Wood(0, attack: 30), Wood(1, source: "藻", attack: 10), Wood(2, ch: "苗", attack: 20) });
+            b.Cast("森", 0, attackMode: true);
+            Assert.That(DamageOn(b, 0), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5) + (30 + 10 + 20) * 50 / 100));
+        }
+
+        [Test]
+        public void E40_HostStrikes_ReadStrongestOwnSummonOnly()
+        {
+            var own = Wood(0, source: "森", attack: 40);
+            own.Statuses = new List<StatusEffect>
+                { new() { Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = 12, TurnsLeft = -1, SourceId = "森#armor" } };
+            var weak = Wood(1, source: "森", attack: 10);
+            var foreign = Wood(2, source: "林", attack: 99);
+            var sprout = Wood(3, source: "森", ch: "苗", attack: 90);
+            var b = Battle(Striker(new EffectDef(EffectKind.Reshape, 0, hostAtkStrikePercent: 200, hostArmorStrikePercent: 400)), 5,
+                new[] { own, weak, foreign, sprout });
+            b.Cast("森", 0, attackMode: true);
+            Assert.That(DamageOn(b, 0), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5) + 40 * 200 / 100 + 12 * 400 / 100),
+                "本字木灵(非幼苗)取最大:攻 40、护甲 12;别家木灵与幼苗不算");
+
+            var none = Battle(Striker(new EffectDef(EffectKind.Reshape, 0, hostAtkStrikePercent: 200)), 5, new[] { foreign });
+            none.Cast("森", 0, attackMode: true);
+            Assert.That(DamageOn(none, 0), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5)), "本字木灵不在场 = 0");
+        }
+
+        // ---------------- E41 / E47:幼苗取本体 / 小藻 ----------------
+
+        [Test]
+        public void E41_SaplingFromBody_WhenNothingSummonedThisCast()
+        {
+            var def = WoodChar("林", new[] { Body(hp: 400, attack: 30) },
+                new[] { new EffectDef(EffectKind.DamageSingle, 100), new EffectDef(EffectKind.SummonSapling, 20, summonCount: 2, fromBody: true) });
+            var b = Battle(def, 5);
+            b.Cast("林", 0, attackMode: true);
+            var saplings = b.Summons.Where(x => x != null && x.Alive).ToList();
+            Assert.That(saplings, Has.Count.EqualTo(2));
+            Assert.That(saplings.All(x => x.Char == "苗" && x.Element == Element.Wood && x.SourceChar == "林"), Is.True);
+            Assert.That(saplings[0].MaxHp, Is.EqualTo(MetaRules.ScaleByCardLevel(400, 5) * 20 / 100));
+            Assert.That(saplings[0].Attack, Is.EqualTo(MetaRules.ScaleByCardLevel(30, 5) * 20 / 100));
+
+            var plain = WoodChar("林", new[] { Body(hp: 400, attack: 30) },
+                new[] { new EffectDef(EffectKind.DamageSingle, 100), new EffectDef(EffectKind.SummonSapling, 20, summonCount: 2) });
+            var c = Battle(plain, 5);
+            c.Cast("林", 0, attackMode: true);
+            Assert.That(c.Summons.Any(x => x != null && x.Alive), Is.False, "不写 fromBody:原口径空转");
+        }
+
+        [Test]
+        public void E47_SproutSapling_MarksParentSlot()
+        {
+            var def = WoodChar("藻", new[] { Body(hp: 400, attack: 30), new EffectDef(EffectKind.SummonSapling, 30, summonCount: 2, sprout: true) });
+            var b = Battle(def, 1, new[] { Wood(0) });
+            b.Cast("藻");
+            var host = b.Summons.ToList().FindIndex(x => x != null && x.Char == "木" && x.SourceChar == "藻");
+            var sprouts = b.Summons.Where(x => x != null && x.Char == "苗").ToList();
+            Assert.That(host, Is.GreaterThanOrEqualTo(0));
+            Assert.That(sprouts, Has.Count.EqualTo(2));
+            Assert.That(sprouts.All(x => x.SproutParentSlot == host), Is.True, "小藻记母体槽位");
+
+            var plain = WoodChar("藻", new[] { Body(hp: 400, attack: 30), new EffectDef(EffectKind.SummonSapling, 30, summonCount: 2) });
+            var c = Battle(plain, 1);
+            c.Cast("藻");
+            Assert.That(c.Summons.Where(x => x != null && x.Char == "苗").All(x => x.SproutParentSlot == -1), Is.True, "缺省不记");
+        }
+
+        // ---------------- E42:嫁接算本次召出 ----------------
+
+        [Test]
+        public void E42_Graft_CountsAsSummonedThisCast()
+        {
+            var def = WoodChar("柘", new[] { Body(), new EffectDef(EffectKind.Taunt, 2, pick: EffectPick.SummonedThisCast) });
+            var b = Battle(def, 1, new[] { Wood(0) });
+            Assert.That(b.Cast("柘", -1, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Graft), Is.True);
+            Assert.That(b.Summons[0].Statuses.Has(StatusKind.Taunt), Is.True, "被嫁接者吃到 pick SummonedThisCast 的嘲讽");
+        }
+
+        // ---------------- E43:复活全部 / 按百分比 ----------------
+
+        [Test]
+        public void E43_ReviveZero_RevivesAllCorpses_WithPercentHp()
+        {
+            var def = WoodChar("森", new[] { new EffectDef(EffectKind.Revive, 0, reviveHpPercent: 30) });
+            var b = Battle(def, 1, new[] { Wood(0, hp: 101), Wood(1, hp: 200), Wood(2, hp: 50) });
+            b.Summons[0].Hp = 0;
+            b.Summons[1].Hp = 0;
+            Assert.That(b.Cast("森"), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[0].Hp, Is.EqualTo(31), "⌈101 × 30%⌉");
+            Assert.That(b.Summons[1].Hp, Is.EqualTo(60));
+            Assert.That(b.Summons[2].Hp, Is.EqualTo(50), "活着的不动");
+
+            var half = WoodChar("森", new[] { new EffectDef(EffectKind.Revive, 1) });
+            var c = Battle(half, 1, new[] { Wood(0, hp: 101), Wood(1, hp: 200) });
+            c.Summons[0].Hp = 0;
+            c.Summons[1].Hp = 0;
+            c.Cast("森");
+            Assert.That((c.Summons[0].Hp, c.Summons[1].Hp), Is.EqualTo((51, 0)), "缺省:救 1 只、半血");
+        }
+
+        // ---------------- E45:魅惑反打加成 ----------------
+
+        [Test]
+        public void E45_CharmMagnitude_DoublesCounterAttack()
+        {
+            int VictimDamage(int charmValue)
+            {
+                var def = RebalanceFixture.Char("花", new EffectDef(EffectKind.Charm, charmValue, turns: 1));
+                var b = Battle(def, 1, null, RebalanceFixture.Mob(attack: 100), RebalanceFixture.Mob(attack: 0));
+                b.Cast("花", 0);
+                Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Charm).Magnitude, Is.EqualTo(charmValue > 0 ? 100 + charmValue : 1));
+                b.EndTurn();
+                return 100000 - b.Enemies[1].Hp;
+            }
+            Assert.That(VictimDamage(0), Is.EqualTo(100), "缺省 Magnitude 1 → ×1");
+            Assert.That(VictimDamage(100), Is.EqualTo(200), "移花接木:Magnitude 200 → ×2");
+        }
+
+        // ---------------- E46:柘弓 own / byArmor ----------------
+
+        private static StatusEffect EntryArmor(int n, string id) => new()
+            { Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = n, TurnsLeft = -1, SourceId = id };
+
+        [Test]
+        public void E46_SummonStrikeOwnByArmor_StrongestOwnShootsOnce()
+        {
+            var strong = Wood(0, source: "柘", attack: 5);
+            strong.Statuses = new List<StatusEffect> { EntryArmor(20, "柘#armor") };
+            var weak = Wood(1, source: "柘", attack: 50);
+            weak.Statuses = new List<StatusEffect> { EntryArmor(8, "柘#a2") };
+            var foreign = Wood(2, source: "林", attack: 70);
+            var def = WoodChar("柘", new[] { Body() },
+                new[] { new EffectDef(EffectKind.DamageSingle, 100), new EffectDef(EffectKind.SummonStrike, 200, ownSummons: true, byArmor: true) });
+            var b = Battle(def, 5, new[] { strong, weak, foreign });
+            b.Cast("柘", 0, attackMode: true);
+            var strikes = b.LastEvents.Where(e => e.Kind == BattleEventKind.SummonAttack).ToList();
+            Assert.That(strikes.Select(e => e.SecondIndex), Is.EqualTo(new[] { 0 }), "只最强一只本字木灵出手");
+            Assert.That(DamageOn(b, 0), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5) + 20 * 200 / 100), "基数 = 护甲 20 × 200%");
+
+            var all = WoodChar("柘", new[] { Body() },
+                new[] { new EffectDef(EffectKind.DamageSingle, 100), new EffectDef(EffectKind.SummonStrike, 200) });
+            var c = Battle(all, 5, new[] { Wood(0, attack: 5), Wood(1, attack: 50) });
+            c.Cast("柘", 0, attackMode: true);
+            Assert.That(c.LastEvents.Count(e => e.Kind == BattleEventKind.SummonAttack), Is.EqualTo(2), "缺省:全部木灵各出手");
+        }
+
+        // ---------------- E48:召唤改形 ----------------
+
+        [Test]
+        public void E48_SummonPercent_TwoAt60Percent()
+        {
+            var plain = WoodChar("林", new[] { Body(hp: 500, attack: 40) });
+            var stand = WoodChar("林", new[] { Body(hp: 500, attack: 40) }, null,
+                Trait(TraitSlot.Lv8, TraitFace.Feature, TraitForm.Active,
+                    new EffectDef(EffectKind.Augment, 1, augmentKind: EffectKind.Summon, augmentField: AugmentField.Count),
+                    new EffectDef(EffectKind.Reshape, 0, summonPercent: 60)));
+            var (hp, atk) = SummonedStats(plain, 8);
+            var b = Battle(stand, 8);
+            b.Cast("林");
+            var alive = b.Summons.Where(x => x != null && x.Alive).ToList();
+            Assert.That(alive, Has.Count.EqualTo(2));
+            Assert.That(alive.All(x => x.MaxHp == hp * 60 / 100 && x.Attack == atk * 60 / 100), Is.True);
+        }
+
+        // ---------------- E50:回合脉冲的条件门 ----------------
+
+        private static CharDef Catalpa() => WoodChar("楸", new[]
+        {
+            new EffectDef(EffectKind.TurnPulse, 0, turns: 3, perHit: new[]
+            {
+                new EffectDef(EffectKind.Vulnerable, 30, turns: 1, pick: EffectPick.Random, onlyIf: DamageCondition.OwnSummonAlive),
+            }),
+        });
+
+        [Test]
+        public void E50_TurnPulseVulnerable_OnlyWhileOwnSummonAlive()
+        {
+            Assert.That(BattleEngine.TurnPulseAllows(EffectKind.Vulnerable), Is.True);
+            var with = Battle(Catalpa(), 1, new[] { Wood(0, source: "楸", hp: 5000) });
+            with.Cast("楸");
+            with.EndTurn();
+            Assert.That(with.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.True, "楸灵在场:标记");
+
+            var without = Battle(Catalpa(), 1, new[] { Wood(0, source: "林", hp: 5000), Wood(1, source: "楸", ch: "苗", hp: 5000) });
+            without.Cast("楸");
+            without.EndTurn();
+            Assert.That(without.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.False, "楸灵不在场(别家木灵 / 楸的幼苗不算):空转");
+        }
+
+        [Test]
+        public void E50_OpeningEffectOnlyIf_ClonesAndSurvivesRealSaveFile()
+        {
+            var o = new OpeningEffect { Kind = EffectKind.Vulnerable, OnlyIf = DamageCondition.OwnSummonAlive };
+            Assert.That(o.Clone().OnlyIf, Is.EqualTo(DamageCondition.OwnSummonAlive));
+            Assert.That(o.ToEffect().OnlyIf, Is.EqualTo(DamageCondition.OwnSummonAlive));
+            Assert.That(OpeningEffect.Of(new EffectDef(EffectKind.Weaken, 10), "x", Element.Wood).OnlyIf, Is.EqualTo(DamageCondition.None));
+
+            var def = Catalpa();
+            var graph = RebalanceFixture.Graph(def);
+            var enemy = RebalanceFixture.Mob(attack: 0);
+            var runConfig = new RunConfig { Encounters = new[] { new[] { enemy }, new[] { enemy } }, RewardPool = new[] { "楸" } };
+            var levels = new Dictionary<string, int> { ["楸"] = 1 };
+            var run = new RunEngine(graph, runConfig, Config, new[] { "楸", "楸" }, Array.Empty<string>(), 3, cardLevels: levels);
+            Assert.That(run.Battle.Cast("楸"), Is.EqualTo(BattleError.None));
+            var meta = new MetaState
+            {
+                EndlessV2 = new EndlessSaveState
+                {
+                    Depth = 3, Seed = 999,
+                    InProgress = new InProgressRun { FromDepth = 1, FirstTowerSegment = true, Run = run.Capture() },
+                },
+            };
+            var reloaded = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
+            var restored = RunEngine.Restore(reloaded.EndlessV2.InProgress.Run, graph, runConfig, Config, levels);
+            Assert.That(restored.Battle.PlayerStatuses.Find(StatusKind.TurnPulse).OnHit[0].OnlyIf,
+                Is.EqualTo(DamageCondition.OwnSummonAlive), "OnlyIf 进存档 JSON 往返");
+        }
+
+        [Test]
+        public void E50_OwnSummonAlive_IsTargetIndependentSnapshotCondition()
+        {
+            Assert.That((int)DamageCondition.OwnSummonAlive, Is.EqualTo(18));
+            // 生面 Amplify 带 if OwnSummonAlive:本字木灵在场才加成(与目标无关,不选敌的召唤也判得到)
+            var def = WoodChar("楸", new[] { Body() }, null,
+                Trait(TraitSlot.Lv4, TraitFace.Feature, TraitForm.Passive,
+                    new EffectDef(EffectKind.Amplify, 50, scope: AmpScope.All, onlyIf: DamageCondition.OwnSummonAlive)));
+            var (hp, _) = SummonedStats(WoodChar("楸", new[] { Body() }), 4);
+            var b = Battle(def, 4, new[] { Wood(0, source: "楸") });
+            b.Cast("楸");
+            Assert.That(b.Summons[1].MaxHp, Is.EqualTo(Amp(hp, 50)), "楸灵在场");
+            var c = Battle(def, 4, new[] { Wood(0, source: "林") });
+            c.Cast("楸");
+            Assert.That(c.Summons[1].MaxHp, Is.EqualTo(hp), "楸灵不在场");
         }
     }
 }

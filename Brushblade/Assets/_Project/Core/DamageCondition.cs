@@ -82,5 +82,11 @@ namespace Brushblade.Core
 
         /// <summary>目标不是 Boss(杂兵;冷却「小怪下次攻击 −50%」)。</summary>
         NotBoss = 17,
+
+        // ---- D2-木 Task 1(附录 E50):与目标无关,快照里每个敌人下标同值(位掩码仍 < 32)----
+
+        /// <summary>本字的木灵在场:存在 SourceChar == 本字、且不是幼苗的存活木灵(出字前;一叶知秋)。
+        /// 「本字」= 当前出字 / 反应的来源字(反应里 ApplyDetachedEffects 的 def.Id 即来源字)。</summary>
+        OwnSummonAlive = 18,
     }
 }
