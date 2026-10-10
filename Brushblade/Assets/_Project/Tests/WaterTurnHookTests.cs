@@ -159,6 +159,21 @@ namespace Brushblade.Core.Tests
             Assert.That(PlayerHeals(b), Is.Empty, "免疫挡下 / 灼烧都不触发");
         }
 
+        /// <summary>多来源取最强:30% 与 50% 两条同时在身上,只回 50%,且整体每回合 1 次。</summary>
+        [Test]
+        public void HurtHeal_MultipleSources_StrongestOnly_OncePerTurn()
+        {
+            var weak = RebalanceFixture.Char("风", new EffectDef(EffectKind.HurtHeal, 30, turns: 3));
+            var defs = new[] { Bathe, weak };
+            var b = new BattleEngine(RebalanceFixture.Graph(defs), Config, new[] { "沐", "沐", "风", "风" }, Array.Empty<string>(),
+                new[] { Mob(40), Mob(40) }, seed: 1, startingHp: StartHp);
+            Cast(b, "风");
+            Cast(b, "沐");
+            Assert.That(b.PlayerStatuses.All.Count(x => x.Kind == StatusKind.HurtHeal), Is.EqualTo(2), "前提:两条不同来源");
+            b.EndTurn();
+            Assert.That(PlayerHeals(b), Is.EqualTo(new[] { 20 }), "只回最强的 50%,不叠加、不各回一次");
+        }
+
         /// <summary>回复在 R4 触发深度里结算(不吃泉放大、不攒泉)。</summary>
         [Test]
         public void HurtHeal_NoWellspringAmplifyOrGain_RaisedInTrigger()
@@ -196,6 +211,22 @@ namespace Brushblade.Core.Tests
             int hp = b.PlayerHp;
             b.EndTurn();
             Assert.That(b.PlayerHp, Is.EqualTo(hp - 1), "攻击者被冻,跳过一次行动");
+        }
+
+        /// <summary>攻击者在本拍被镜反弹打死:拍尾的冻结反应落空,不报错;冰晶照样随两桶归零移除。</summary>
+        [Test]
+        public void ShieldFrost_AttackerKilledByReflect_FreezeFizzles()
+        {
+            var b = Battle(Crystal, new EnemyDef("脆", Element.Heart, 50, 1000, EnemyAbility.None), Mob(0));
+            b.PlayerStatuses.Apply(new StatusEffect { Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff, Magnitude = 50, TurnsLeft = -1 });
+            Cast(b, "冰");
+            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.True);
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False, "前提:镜反弹打死攻击者");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "死者不挂冻结");
+            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.False);
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0));
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
         }
 
         [Test]
@@ -300,7 +331,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TurnPulse_ResolvesAtTriggerDepth_BeforeTurnStartedListenersSeeIt()
+        public void TurnPulse_ResolvesAtTurnStartedSafePoint()
         {
             var b = Battle(Downpour(), Mob(0));
             var log = new HookLog();
@@ -314,10 +345,10 @@ namespace Brushblade.Core.Tests
             Assert.That(started, Is.LessThan(log.All.IndexOf(slow)), "入队在 TurnStarted 之前,兑现在紧随的安全点");
         }
 
-        /// <summary>跨场不残留:玩家侧跨场只带护甲 / 厚 / 泉(RunEngine 战后白名单),三者本就带不过去;
-        /// 另列进 IsBattleScoped(同 Retaliate / DebuffWard,防御性)。</summary>
+        /// <summary>只断分类:三者列进 IsBattleScoped(同 Retaliate / DebuffWard,防御性)。没有走 RunEngine 换场 ——
+        /// 玩家侧跨场只带护甲 / 厚 / 泉(RunEngine 战后白名单按 Kind + TurnsLeft &lt; 0 收),三者本就带不过去。</summary>
         [Test]
-        public void HookStatuses_AreBattleScoped()
+        public void HookStatuses_AreBattleScoped_ByKind()
         {
             Assert.That(StatusRules.IsBattleScoped(StatusKind.HurtHeal), Is.True);
             Assert.That(StatusRules.IsBattleScoped(StatusKind.ShieldFrost), Is.True);
