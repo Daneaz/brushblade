@@ -114,6 +114,9 @@ VALUELESS_EFFECTS = {
     # D2-水 Task 4(附录 W7):大雨滂沱 `TurnPulse` 不带数值(必写 turns),每回合开始的效果写在 `onTurn` 段里(见 ON_TURN_TOKEN)。
     # 栉风沐雨 `HurtHeal N`、冰晶 `ShieldFrost N` 带数值,走通用正则。
     "TurnPulse": {"kind": "TurnPulse", "value": 0},
+    # D2-土 Task 2(附录 G1):地裂 `ShieldSpend` 不带数值 = 清两桶(100%);塔倾 `ShieldSpend 50` 带数值走通用正则。
+    # 整串带反引号匹配,`ShieldSpend` 不吞 `ShieldSpend 50`。土生金 `ShieldToMorale N`、浮屠 `ShieldCarry N` 带数值走通用正则。
+    "ShieldSpend": {"kind": "ShieldSpend", "value": 100},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -153,7 +156,9 @@ EXECUTE_SPLASH_TOKEN = "executeSplash"
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
                   "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
-                  "HurtHeal", "TurnPulse"}     # D2-水 Task 4:受击回复 / 回合脉冲,同上
+                  "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
+                  "ShieldCarry",               # D2-土 Task 2:回合初留盾(浮屠),同上
+                  "HurtShield"}                # D2-土 Task 3:受击得盾(堡垒),同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -247,7 +252,8 @@ CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Fro
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
 AUGMENT_FIELD_TOKEN = "field"
-AUGMENT_FIELDS = {"Count", "Turns", "Shots", "StallPush"}   # StallPush:D2-水 E17a(坚冰,只配 of Freeze)
+AUGMENT_FIELDS = {"Count", "Turns", "Shots", "StallPush",   # StallPush:D2-水 E17a(坚冰,只配 of Freeze)
+                  "Battle"}   # Battle:D2-土 E34(圭臬,只配 of DefenseBuff,Value 不用)
 RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
@@ -262,7 +268,9 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "Doom",   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
                     # D2-水 Task 2:冻结附着族(写 pick FrozenByThisCast)与冷却(Value = 拍数)
                     "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
-                    "BuffBlock"}   # D2-水 Task 3 洗尽铅华
+                    "BuffBlock",   # D2-水 Task 3 洗尽铅华
+                    "Silence",     # D2-土 E33 杜塞(`if NotBoss`)
+                    "SkillCut"}    # D2-土 G6 杜塞(`if IsBoss`)
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -371,6 +379,20 @@ WARD_COUNT_TOKEN = "wardCount"
 WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak",
             "Vulnerable", "Charm", "HealBlock", "Doom"}
 
+# ---- D2-土 Task 1(附录 E29 / E30 / E31 / E36)----
+# `persist`(垒砌 / 厚德载物):本格 Reshape 的 persistOnce —— Fold 时把无伤害面的第一条护盾改为留存。
+# `armorShield N`(塔基固面):本格 Reshape 的 armorShieldPercent —— 盾量 + 当前护甲 × N%。
+# `armorStrikeEach`(三山):本格 Reshape(没有则唯一的 DamageSingle)的逐发镇压,须配 `armorStrike N`。
+# `hitsPerShield N`(地裂):本格 Reshape(没有则唯一的 DamageSingle)击数 + ⌊出字前护盾 / N⌋ → scaleBy Shield + scaleDivisor N,
+# 可配 `cap N`(最多多打几击)。带数值的两个进通用循环的跳过名单,否则落成独立效果。
+PERSIST_TOKEN = "persist"
+ARMOR_SHIELD_TOKEN = "armorShield"
+ARMOR_STRIKE_EACH_TOKEN = "armorStrikeEach"
+HITS_PER_SHIELD_TOKEN = "hitsPerShield"
+# `ofShield`(碉楼 / 载物,E28):本格唯一 ShieldSummons 的量 = 本次名义护盾 × N%;`minArmor N`(山岳,E32):本格唯一 Retaliate 的护甲门槛。
+OF_SHIELD_TOKEN = "ofShield"
+MIN_ARMOR_TOKEN = "minArmor"
+
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
     "counterExecute": "counterExecuteBelow",
@@ -463,7 +485,7 @@ def _attach_fire_ops(config, char, effects, consumed):
                              f"且只挂本格唯一的一条对应宿主 {SCALE_HOSTS}")
         hosts[0]["scaleBy"] = per[0]
     cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
-    if cap:
+    if cap and f"`{HITS_PER_SHIELD_TOKEN} " not in config:   # 地裂的 cap 归 _attach_earth_ops
         consumed.add(CAP_TOKEN)
         hosts = [e for e in effects if e["kind"] == "Amplify" and "scaleBy" in e]
         if len(cap) > 1 or len(hosts) != 1 or int(cap[0]) < 1:
@@ -551,31 +573,83 @@ def _attach_metal_ops(config, char, effects, consumed):
         host["ofHeal"] = True
 
 
-def _positional_hosts(config, effects, kinds=None):
+def _attach_earth_ops(config, char, effects, consumed):
+    """D2-土 Task 1:`ofShield` / `minArmor N` / `persist` / `armorShield N` / `armorStrikeEach` / `hitsPerShield N` [+ `cap N`]。
+    宿主不唯一或不存在一律报错。"""
+    reshapes = [e for e in effects if e["kind"] == "Reshape"]
+
+    def damage_host(token):
+        if len(reshapes) == 1:
+            return reshapes[0]
+        hosts = [e for e in effects if e["kind"] == "DamageSingle"]
+        if reshapes or len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 Reshape 或 DamageSingle 可挂 —— 它会静默消失。")
+        return hosts[0]
+
+    def reshape_host(token):
+        if len(reshapes) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 Reshape 可挂 —— 它会静默消失。")
+        return reshapes[0]
+
+    def only(kind, token):
+        hosts = [e for e in effects if e["kind"] == kind]
+        if len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 {kind} 可挂 —— 它会静默消失。")
+        return hosts[0]
+
+    if f"`{OF_SHIELD_TOKEN}`" in config:
+        consumed.add(OF_SHIELD_TOKEN)
+        only("ShieldSummons", OF_SHIELD_TOKEN)["ofShield"] = True
+    min_armor = re.findall(rf"`{MIN_ARMOR_TOKEN} (\d+)`", config)
+    if min_armor:
+        consumed.add(MIN_ARMOR_TOKEN)
+        if len(min_armor) > 1 or int(min_armor[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{MIN_ARMOR_TOKEN}` 只能写一个,且须 ≥ 1")
+        only("Retaliate", MIN_ARMOR_TOKEN)["minArmor"] = int(min_armor[0])
+    if f"`{PERSIST_TOKEN}`" in config:
+        consumed.add(PERSIST_TOKEN)
+        reshape_host(PERSIST_TOKEN)["persistOnce"] = True
+    armor_shield = re.findall(rf"`{ARMOR_SHIELD_TOKEN} (\d+)`", config)
+    if armor_shield:
+        consumed.add(ARMOR_SHIELD_TOKEN)
+        if len(armor_shield) > 1 or int(armor_shield[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ARMOR_SHIELD_TOKEN}` 只能写一个,且须 ≥ 1")
+        reshape_host(ARMOR_SHIELD_TOKEN)["armorShieldPercent"] = int(armor_shield[0])
+    if f"`{ARMOR_STRIKE_EACH_TOKEN}`" in config:
+        consumed.add(ARMOR_STRIKE_EACH_TOKEN)
+        host = damage_host(ARMOR_STRIKE_EACH_TOKEN)
+        if host.get("armorStrikePercent", 0) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ARMOR_STRIKE_EACH_TOKEN}` 须配 `armorStrike N`")
+        host["armorStrikeEach"] = True
+    per_shield = re.findall(rf"`{HITS_PER_SHIELD_TOKEN} (\d+)`", config)
+    if per_shield:
+        consumed.add(HITS_PER_SHIELD_TOKEN)
+        host = damage_host(HITS_PER_SHIELD_TOKEN)
+        if len(per_shield) > 1 or int(per_shield[0]) < 1 or "scaleBy" in host:
+            raise ValueError(f"{char}:配置格「{config}」的 `{HITS_PER_SHIELD_TOKEN}` 只能写一个、须 ≥ 1,且不与别的计数缩放同用")
+        host["scaleBy"] = "Shield"
+        host["scaleDivisor"] = int(per_shield[0])
+        cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
+        if cap:
+            consumed.add(CAP_TOKEN)
+            if len(cap) > 1 or int(cap[0]) < 1:
+                raise ValueError(f"{char}:配置格「{config}」的 `cap` 只能写一个,且须 ≥ 1")
+            host["scaleCap"] = int(cap[0])
+
+
+def _positional_hosts(position, effects, kinds=None):
     """认选择器的效果(PICK_KINDS)在配置格里的位置:[(pos, effect)],按位置升序。
     修饰 token 挂**它前面最近的**那条效果(`Slow 1` + `pick Random` 的 pick 属于 Slow)。
-    同一格里同 Kind 出现两次时,后一条从前一条之后开始找位置。"""
+    位置取 _parse_effects 收集时记下的真实位置(Ruling 15):不再按 `Kind 字样回找 —— 那样同格「带值 + 无值同 kind」
+    会互换位置,kind 与 token 不同名(`MoraleFill` → Morale、`DispelAll` → Dispel)时根本找不到。"""
     kinds = PICK_KINDS if kinds is None else kinds
-    found, cursor = [], {}
-    for e in effects:
-        kind = e["kind"]
-        if kind not in kinds:
-            continue
-        needles = [f"`{kind} ", f"`{kind}`"] + (["`DetonateAll`"] if kind == "Detonate" else [])
-        start = cursor.get(kind, 0)
-        hits = [pos for pos in (config.find(n, start) for n in needles) if pos >= 0]
-        if not hits:
-            continue
-        pos = min(hits)
-        cursor[kind] = pos + 1
-        found.append((pos, e))
-    return sorted(found, key=lambda t: t[0])
+    return sorted(((position[id(e)], e) for e in effects if e["kind"] in kinds), key=lambda t: t[0])
 
 
-def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None, host_kinds=None):
+def _attach_positional(config, char, effects, consumed, position, token, field, parse, allowed_kinds=None, host_kinds=None):
     """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS(或 host_kinds)效果上。parse(raw) 返回要写进字段的值。"""
     pattern = rf"`{token}(?: (\w+))?`"
-    hosts = _positional_hosts(config, effects, host_kinds)
+    hosts = _positional_hosts(position, effects, host_kinds)
     seen = set()
     for m in re.finditer(pattern, config):
         consumed.add(token)
@@ -593,23 +667,14 @@ def _attach_positional(config, char, effects, consumed, token, field, parse, all
         host[field] = parse(m.group(1))
 
 
-def _attach_battles(config, char, effects, consumed):
-    """`battles N`(D2-火 N12)→ 它前面最近的那条效果的 openingBattles。位置按 `` `Kind `` 在格里的出现顺序认,
-    同 Kind 多条时后一条从前一条之后找(与 _positional_hosts 同手法,但不限 PICK_KINDS)。"""
+def _attach_battles(config, char, effects, consumed, position):
+    """`battles N`(D2-火 N12)→ 它前面最近的那条效果的 openingBattles。位置取收集时记下的真实位置
+    (Ruling 15,与 _positional_hosts 同口径,但不限 PICK_KINDS)。"""
     found = list(re.finditer(rf"`{BATTLES_TOKEN} (\d+)`", config))
     if not found:
         return
     consumed.add(BATTLES_TOKEN)
-    hosts, cursor = [], {}
-    for e in effects:
-        kind = e["kind"]
-        start = cursor.get(kind, 0)
-        hits = [pos for pos in (config.find(n, start) for n in (f"`{kind} ", f"`{kind}`")) if pos >= 0]
-        if not hits:
-            continue
-        cursor[kind] = min(hits) + 1
-        hosts.append((min(hits), e))
-    hosts.sort(key=lambda t: t[0])
+    hosts = _positional_hosts(position, effects, {e["kind"] for e in effects})
     for m in found:
         before = [e for pos, e in hosts if pos < m.start()]
         if not before:
@@ -620,7 +685,7 @@ def _attach_battles(config, char, effects, consumed):
         host["openingBattles"] = int(m.group(1))
 
 
-def _attach_modifier_tokens(config, char, effects, consumed):
+def _attach_modifier_tokens(config, char, effects, consumed, position):
     """D1 Task 3:把修饰 token 挂到同格的修饰器上(与 `turns` / `Pierce` 同一套「挂在本格效果上」的机制)。
 
     - `scope X` / `if X` → 本格的 Amplify(没有 Amplify 就报错:那个条件会静默消失)。
@@ -664,10 +729,10 @@ def _attach_modifier_tokens(config, char, effects, consumed):
 
     if not amps:
         # D2-水 E17b:条件门也可挂在前一条 Augment 上(冰冻三尺),下面配好 of / field 后再校验组合
-        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition,
+        _attach_positional(config, char, effects, consumed, position, ONLY_IF_TOKEN, "onlyIf", _parse_condition,
                            host_kinds=PICK_KINDS | {"Augment"})
-    _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
-    _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
+    _attach_positional(config, char, effects, consumed, position, PICK_TOKEN, "pick", _parse_pick)
+    _attach_positional(config, char, effects, consumed, position, KEEP_TOKEN, "keepStacks", lambda _raw: True,
                        allowed_kinds={"BurnSettleNow"})
 
     def _parse_rider(raw):
@@ -675,7 +740,7 @@ def _attach_modifier_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:`rider {raw}` 的载体未知,只认 {sorted(RIDER_CARRIERS)}")
         return raw
 
-    _attach_positional(config, char, effects, consumed, RIDER_TOKEN, "riderOf", _parse_rider,
+    _attach_positional(config, char, effects, consumed, position, RIDER_TOKEN, "riderOf", _parse_rider,
                        allowed_kinds=RIDER_KINDS)
     for e in effects:
         if e["kind"] in RIDES_ONLY_KINDS and "riderOf" not in e:
@@ -686,10 +751,10 @@ def _attach_modifier_tokens(config, char, effects, consumed):
                              f"(能挂在这个载体上的只有 {sorted(RIDER_KINDS_BY_CARRIER[e['riderOf']])})")
         if e.get("riderOf") == "Freeze" and e.get("pick") != "FrozenByThisCast":
             raise ValueError(f"{char}:`{e['kind']}` 附着在冻结上,须写 `pick FrozenByThisCast`")
-    _attach_positional(config, char, effects, consumed, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
+    _attach_positional(config, char, effects, consumed, position, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
     # D2-水 E18 / E25:只续不挂的减速、仅在减速中的种
-    _attach_positional(config, char, effects, consumed, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
-    _attach_positional(config, char, effects, consumed, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
+    _attach_positional(config, char, effects, consumed, position, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
+    _attach_positional(config, char, effects, consumed, position, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
                        allowed_kinds={"Seed"})
 
     # D2-水 Task 3(W4):免疫减益只拦一种 / 只拦前 N 次,按位置挂到前一条 DebuffWard
@@ -703,17 +768,17 @@ def _attach_modifier_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:`{WARD_COUNT_TOKEN}` 须写次数 N ≥ 1")
         return int(raw)
 
-    _attach_positional(config, char, effects, consumed, WARD_OF_TOKEN, "wardOf", _parse_ward_of,
+    _attach_positional(config, char, effects, consumed, position, WARD_OF_TOKEN, "wardOf", _parse_ward_of,
                        host_kinds={"DebuffWard"})
-    _attach_positional(config, char, effects, consumed, WARD_COUNT_TOKEN, "wardCount", _parse_ward_count,
+    _attach_positional(config, char, effects, consumed, position, WARD_COUNT_TOKEN, "wardCount", _parse_ward_count,
                        host_kinds={"DebuffWard"})
     for e in effects:
         if "minBurn" in e and ("riderOf" not in e or e["minBurn"] < 1):
             raise ValueError(f"{char}:`minBurn` 只给附着在灼上的减攻(`Weaken N` + `rider Burn`),且须 ≥ 1")
 
     # 引爆比例(D2-火 N3 / G5):按位置挂到前一条 Detonate;同一条只能二选一
-    _attach_positional(config, char, effects, consumed, RETAIN_TOKEN, "retainPercent", int, allowed_kinds={"Detonate"})
-    _attach_positional(config, char, effects, consumed, PORTION_TOKEN, "portionPercent", int, allowed_kinds={"Detonate"})
+    _attach_positional(config, char, effects, consumed, position, RETAIN_TOKEN, "retainPercent", int, allowed_kinds={"Detonate"})
+    _attach_positional(config, char, effects, consumed, position, PORTION_TOKEN, "portionPercent", int, allowed_kinds={"Detonate"})
     for e in effects:
         if "retainPercent" in e and "portionPercent" in e:
             raise ValueError(f"{char}:配置格「{config}」的同一条引爆写了 `retain` 又写了 `portion`,只能二选一")
@@ -739,6 +804,8 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         # 与 ConfigLoader 同口径:坚冰的 StallPush 只配 Freeze;带条件的 Augment 只支持冻结回合
         if e.get("augmentField") == "StallPush" and e.get("augmentKind") != "Freeze":
             raise ValueError(f"{char}:`field StallPush` 只能配 `of Freeze`")
+        if e.get("augmentField") == "Battle" and e.get("augmentKind") != "DefenseBuff":
+            raise ValueError(f"{char}:`field Battle` 只能配 `of DefenseBuff`")
         if "onlyIf" in e and (e.get("augmentKind"), e.get("augmentField")) != ("Freeze", "Turns"):
             raise ValueError(f"{char}:带条件 `if` 的 Augment 只支持 `of Freeze` `field Turns`")
 
@@ -954,8 +1021,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     effects = []
     # Ruling 13(D2-土 前置):记下每条效果在格内的位置,收齐后按位置稳定排序 —— 出字按列表顺序结算,
     # 书写顺序即语义。下面先收带值 token、再收无值 token,不排序会把写在前面的无值效果挪到后面。
-    # 排序放在所有 _attach_* 之后:_attach_battles / _positional_hosts 按 `Kind 字样重新找位置、依赖收集顺序,
-    # kind 与 token 不同名时(`MoraleFill` → Morale)提前排序会让 `battles` 挂到别的效果上(鑫·金玉满堂)。
+    # Ruling 15:_attach_battles / _positional_hosts 也按这里记下的位置找宿主(不再按 `Kind 字样回找),
+    # 排序放在所有 _attach_* 之后只是沿用原位置,与宿主解析无关。
     position = {}
 
     summon = re.search(r"`Summon (\d+)`\((\d+) 血/攻 (\d+)\)", config)
@@ -1071,6 +1138,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             continue  # D2-金 Task 2:格挡附带的数值,下面挂到 BlockMod 上
         if kind == WARD_COUNT_TOKEN:
             continue  # D2-水 Task 3:免疫减益的次数,下面按位置挂到 DebuffWard 上
+        if kind in (ARMOR_SHIELD_TOKEN, HITS_PER_SHIELD_TOKEN, MIN_ARMOR_TOKEN):
+            continue  # D2-土 Task 1:Reshape / 伤害的修饰数值,下面由 _attach_earth_ops 挂
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -1211,10 +1280,11 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `{PER_BURNING_HIT_TOKEN}` 只能配本格唯一的一条 ExtraStrike")
         hosts[0]["perBurningHit"] = True
 
-    _attach_battles(config, char, effects, consumed)
-    _attach_modifier_tokens(config, char, effects, consumed)
+    _attach_battles(config, char, effects, consumed, position)
+    _attach_modifier_tokens(config, char, effects, consumed, position)
     _attach_fire_ops(config, char, effects, consumed)
     _attach_metal_ops(config, char, effects, consumed)
+    _attach_earth_ops(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)
@@ -1269,4 +1339,16 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `TurnPulse` 须用 `{ON_TURN_TOKEN}` 段写每回合开始的效果")
         if e["kind"] in ("HurtHeal", "ShieldFrost") and e["value"] < 1:
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
+        if e["kind"] in ("ShieldSpend", "ShieldToMorale", "ShieldCarry") and not 1 <= e["value"] <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
+        # D2-土 Task 3(G2 / G3 / G4):单次受伤上限 / 碎玉反伤是百分比;堡垒是护盾量(turns 必填由 DURATION_KINDS 管)
+        if e["kind"] in ("HitCap", "ShieldShatter") and not 1 <= e["value"] <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
+        if e["kind"] == "HurtShield" and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `HurtShield` 须写 N ≥ 1")
+        # D2-土 Task 4(G5 / G6 / G7):溢出平分 / 大招削减是百分比;AP 代价至少 1(「只能在击杀时特性里」由 ConfigLoader 管)
+        if e["kind"] in ("OverkillSplash", "SkillCut") and not 1 <= e["value"] <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
+        if e["kind"] == "ApCost" and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `ApCost` 须写 N ≥ 1")
     return effects

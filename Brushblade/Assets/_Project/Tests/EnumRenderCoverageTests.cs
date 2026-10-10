@@ -38,7 +38,7 @@ namespace Brushblade.Core.Tests
         private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>();
 
         /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
-        /// 空表是核实过的结论,不是偷懒:34 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
+        /// 空表是核实过的结论,不是偷懒:全部 91 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
         /// CardTraits.cs 里(不出特性 chip 的那几个写成空 `case … break;`,同样匹配得到)。</summary>
         private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>();
 
@@ -71,6 +71,14 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
             // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(StatusText 有文案),chip 待稿,不在这里
             [nameof(StatusKind.ShieldFrost)] = "隐藏载体(D2-水 V5,冰晶):护盾被打破时攻击者被冻结本身就是反馈,触发反馈归 Plan E",
+            // D2-土 Task 2(Q21):浮屠是隐藏载体
+            [nameof(StatusKind.ShieldCarry)] = "隐藏载体(D2-土 Q21,浮屠):回合开始时留下的护盾数本身就是反馈,触发反馈归 Plan E",
+            // D2-土 Task 3(Q21):碎玉是隐藏载体(永久豁免)
+            [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):护盾被打破时的反伤本身就是反馈,触发反馈归 Plan E",
+            // D2-土 Task 4(Q21):杜塞的大招削减是 Boss 身上的隐藏载体(永久豁免);「大招减半」显示在蓄力预警上归 Plan E
+            [nameof(StatusKind.SkillCut)] = "隐藏载体(D2-土 Q21,杜塞):Boss 下一次大招伤害削减,预警提示归 Plan E",
+            // 铜墙铁壁(HitCap)/ 堡垒(HurtShield)不在这里:StatusText 有详情文案(同 W5 受击回复),
+            // 战场 chip 分别待 Q20「减伤」稿 / 与 W5 合出的「受击收益」稿
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。

@@ -70,6 +70,7 @@ namespace Brushblade.Core
             EffectKind.FrostBite, EffectKind.ThawStrike, EffectKind.ThawSlow,   // D2-水 Task 2:挂在敌人的冻结上
             EffectKind.ChargeDelay,   // D2-水 Task 2:推迟 Boss 蓄力
             EffectKind.BuffBlock,     // D2-水 Task 3:挂在敌人身上(DebuffWard 挂我方,不敌对)
+            EffectKind.OverkillSplash, EffectKind.SkillCut,   // D2-土 Task 4:打 / 挂在敌人身上(ApCost 挂玩家,不敌对)
         };
 
         /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /

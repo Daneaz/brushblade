@@ -131,6 +131,9 @@ namespace Brushblade.Core.Tests
             EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,   // D2-金 Task 4:战意族,作用于玩家自己
             EffectKind.DebuffWard,  // D2-水 Task 3:免疫减益挂在落点(玩家或木灵)身上
             EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,   // D2-水 Task 4:挂在玩家身上
+            EffectKind.ShieldSpend, EffectKind.ShieldToMorale, EffectKind.ShieldCarry,   // D2-土 Task 2:作用于玩家自己的护盾
+            EffectKind.HitCap, EffectKind.HurtShield, EffectKind.ShieldShatter,   // D2-土 Task 3:挂在玩家身上
+            EffectKind.ApCost,      // D2-土 Task 4:AP 代价挂在玩家身上
         };
 
         [Test]

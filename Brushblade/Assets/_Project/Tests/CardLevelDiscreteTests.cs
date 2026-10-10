@@ -77,6 +77,12 @@ namespace Brushblade.Core.Tests
             EffectKind.BuffBlock,
             // D2-水 Task 4:受击回复是百分比、冰晶是冻结回合、回合脉冲不用 Value
             EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,
+            // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾的 Value 都是百分比
+            EffectKind.ShieldSpend, EffectKind.ShieldToMorale, EffectKind.ShieldCarry,
+            // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比
+            EffectKind.HitCap, EffectKind.ShieldShatter,
+            // D2-土 Task 4:溢出平分 / 大招削减是百分比,AP 代价是点数
+            EffectKind.OverkillSplash, EffectKind.SkillCut, EffectKind.ApCost,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
@@ -104,6 +110,8 @@ namespace Brushblade.Core.Tests
             EffectKind.FrostBite, EffectKind.ThawStrike,
             // D2-水 Task 3:免疫减益的 Value 是每拦 1 层 / 1 条的护盾量,连续
             EffectKind.DebuffWard,
+            // D2-土 Task 3:堡垒的 Value 是受击得盾量,连续(出字时再乘攻击力定死)
+            EffectKind.HurtShield,
         };
 
         [Test]

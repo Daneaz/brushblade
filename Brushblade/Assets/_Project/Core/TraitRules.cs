@@ -92,7 +92,9 @@ namespace Brushblade.Core
         /// <summary>回合数 + <paramref name="add"/> 的副本;表外的 kind 原样返回。</summary>
         public static EffectDef WithTurns(EffectDef e, int add) =>
             !TurnsInValue.TryGetValue(e.Kind, out bool inValue) ? e
-            : inValue ? e.With(value: e.Value + add) : e.With(turns: e.Turns + add);
+            : inValue ? e.With(value: e.Value + add)
+            : e.Turns < 0 ? e   // 已被 field Battle 置为「持续到战斗结束」(D2-土 E34):再加回合没有意义
+            : e.With(turns: e.Turns + add);
 
         /// <summary>本次出字实际结算的效果表(D1 Task 3 / 4),按顺序:
         /// ① 本体复制一份;
@@ -116,8 +118,10 @@ namespace Brushblade.Core
         /// 纯函数:不改 <paramref name="body"/> 与特性里的任何 EffectDef(它们是字表共享对象),
         /// 被修饰的效果换成 <see cref="EffectDef.With"/> 产出的副本。本体条目在没有修饰器、没有 Lv3 替换时
         /// 逐项是同一对象;追加的特性效果(非 Lv1 / Lv3 槽,D2-火 G11)是打了 TraitKey 的副本(<see cref="ForCast"/>),
-        /// 数值字段不变。没有已解锁特性时结果与本体逐项同一对象 —— 恒等。</summary>
-        public static List<EffectDef> Fold(IReadOnlyList<EffectDef> body, CharDef def, CardFace face, int cardLevel)
+        /// 数值字段不变。没有已解锁特性时结果与本体逐项同一对象 —— 恒等。
+        /// <paramref name="skip"/>(D2-土 E35):返回 true 的特性整条跳过(效果与修饰器都不进);null = 不跳过。</summary>
+        public static List<EffectDef> Fold(IReadOnlyList<EffectDef> body, CharDef def, CardFace face, int cardLevel,
+            Func<TraitDef, bool> skip = null)
         {
             var effects = new List<EffectDef>(body.Count);
             var modifiers = new List<EffectDef>();
@@ -130,6 +134,7 @@ namespace Brushblade.Core
             {
                 if (!t.AppliesTo(face) || t.Trigger != TraitTrigger.Cast) continue;
                 if (superseded.Contains((t.Slot, t.Face))) continue;
+                if (skip != null && skip(t)) continue;   // 每场次数用尽(D2-土 E35):整条特性不进,本体照常
                 bool replacesLv1 = t.Replaces == TraitSlot.Lv1;
                 foreach (var raw in t.Effects)
                 {
@@ -218,6 +223,17 @@ namespace Brushblade.Core
                     case EffectKind.BlockMod: ApplyBlockMod(effects, m); break;
                 }
             }
+        }
+
+        /// <summary>本面出字时机、已解锁、未被替换、带每场次数(<see cref="TraitDef.MaxPerBattle"/> &gt; 0)的特性 ——
+        /// 与 <see cref="Fold"/> 的遍历同一筛法(D2-土 E35)。没有这类特性时返回空表。</summary>
+        public static IReadOnlyList<TraitDef> BattleLimited(CharDef def, CardFace face, int cardLevel)
+        {
+            if (!def.Traits.Any(t => t.MaxPerBattle > 0)) return Array.Empty<TraitDef>();
+            var unlocked = Unlocked(def, cardLevel);
+            var superseded = Superseded(unlocked);
+            return unlocked.Where(t => t.MaxPerBattle > 0 && t.AppliesTo(face) && t.Trigger == TraitTrigger.Cast
+                && !superseded.Contains((t.Slot, t.Face))).ToList();
         }
 
         /// <summary>部件印记(D2-0 Task 7,E10):把来源特性的效果并进部件这次出手的效果表 ——
@@ -309,6 +325,10 @@ namespace Brushblade.Core
                     if (target.Kind == EffectKind.Freeze)
                         effects[at] = target.With(stallPushPercent: target.StallPushPercent + aug.Value);
                     break;
+                case AugmentField.Battle:   // D2-土 E34(圭臬):护甲持续到战斗结束(Turns −1;DefenseBuff 分支认 −1)
+                    if (target.Kind == EffectKind.DefenseBuff)
+                        effects[at] = target.With(turns: -1);
+                    break;
             }
         }
 
@@ -327,12 +347,23 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>Reshape:只改**第一条** DamageSingle;Reshape 上非缺省的字段覆盖原值。没有就空转。</summary>
+        /// <summary>Reshape:只改**第一条** DamageSingle;Reshape 上非缺省的字段覆盖原值(shieldStrike / armorStrike 相加,D2-土 E27)。
+        /// 没有伤害时:persist / armorShield 改第一条护盾(E29 / E30),其余见下。</summary>
         private static void ApplyReshape(List<EffectDef> effects, EffectDef r)
         {
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
             if (at < 0)
             {
+                // 护盾面(D2-土 E29 / E30,垒砌 / 厚德载物 / 塔基固面):persist → 第一条 Shield / ShieldAll 改为留存;
+                // armorShield → 第一条 Shield 盾量 + 护甲 × N%。排在治疗改形之前;两项都缺省时整段跳过
+                if (r.PersistOnce || r.ArmorShieldPercent > 0)
+                {
+                    int shield = effects.FindIndex(e => e.Kind == EffectKind.Shield || (r.PersistOnce && e.Kind == EffectKind.ShieldAll));
+                    if (shield >= 0 && r.PersistOnce) effects[shield] = effects[shield].With(persistOnce: true);
+                    int plain = effects.FindIndex(e => e.Kind == EffectKind.Shield);
+                    if (plain >= 0 && r.ArmorShieldPercent > 0)
+                        effects[plain] = effects[plain].With(armorShieldPercent: r.ArmorShieldPercent);
+                }
                 // 治疗改形(D2-水 E20,海纳百川 / 细雨 / 泽被…):本面没有伤害、Reshape 不带选择器、写的是 shape All 时,
                 // 改本面第一条 HealSelf 为全体(shapePercent 同伤害的口径:没写就是全额 100)。其余形状不碰治疗
                 if (r.Pick == EffectPick.Primary && r.Shape == TargetArea.All)
@@ -360,8 +391,11 @@ namespace Brushblade.Core
                 hitPercent: r.HitPercent != 100 ? r.HitPercent : toScatter ? 100 : (int?)null,
                 forceCrit: r.ForceCrit ? true : (bool?)null,
                 armorIgnorePercent: r.ArmorIgnorePercent > 0 ? r.ArmorIgnorePercent : (int?)null,
-                shieldStrikePercent: r.ShieldStrikePercent > 0 ? r.ShieldStrikePercent : (int?)null,
-                armorStrikePercent: r.ArmorStrikePercent > 0 ? r.ArmorStrikePercent : (int?)null,
+                // 按护盾 / 护甲加伤(D2-土 E27):同面多条**相加**(塔基 300 + 镇塔 500 = 800;山压 50 + 地动 30 = 80),
+                // 不再后者覆盖。现数据每面至多一条,与覆盖逐位相同
+                shieldStrikePercent: r.ShieldStrikePercent > 0 ? effects[at].ShieldStrikePercent + r.ShieldStrikePercent : (int?)null,
+                armorStrikePercent: r.ArmorStrikePercent > 0 ? effects[at].ArmorStrikePercent + r.ArmorStrikePercent : (int?)null,
+                armorStrikeEach: r.ArmorStrikeEach ? true : (bool?)null,   // D2-土 E31 三山:逐发镇压
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
                 perHit: r.PerHit.Count > 0 ? r.PerHit : null,
                 perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : toScatter ? 1 : (int?)null,
@@ -371,7 +405,10 @@ namespace Brushblade.Core
                 executeKills: r.ExecuteBelowPercent > 0 ? r.ExecuteKills : (bool?)null,
                 executeSplashPercent: r.ExecuteSplashPercent > 0 ? r.ExecuteSplashPercent : (int?)null,   // J4 斩杀溅射
                 executeIf: r.ExecuteIf != DamageCondition.None ? r.ExecuteIf : (DamageCondition?)null,   // D2-水 E19 湮灭无踪
-                scaleBy: r.ScaleBy != ScaleBasis.None ? r.ScaleBy : (ScaleBasis?)null);
+                scaleBy: r.ScaleBy != ScaleBasis.None ? r.ScaleBy : (ScaleBasis?)null,
+                // 击数按护盾(D2-土 E36,地裂):除数与上限随 scaleBy 一起覆盖
+                scaleDivisor: r.ScaleDivisor > 0 ? r.ScaleDivisor : (int?)null,
+                scaleCap: r.ScaleBy != ScaleBasis.None && r.ScaleCap > 0 ? r.ScaleCap : (int?)null);
         }
 
         /// <summary>BlockMod(D2-金 E12):只改本面**第一条** Block;非缺省字段覆盖原值(多条按出现顺序,后者覆盖)。没有就空转。</summary>

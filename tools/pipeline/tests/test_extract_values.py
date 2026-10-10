@@ -1250,6 +1250,82 @@ def test_d2water_turn_hook_errors(config, needle):
     assert needle in str(err.value)
 
 
+# ---- D2-土 Task 2(附录 G1 / G8 / G9):扣盾 / 盾转战意 / 回合初留盾 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 地裂:无值 = 清两桶(100%)
+    ("`DamageSingle 10` + `ShieldSpend`", [{"kind": "DamageSingle", "value": 10}, {"kind": "ShieldSpend", "value": 100}]),
+    # 塔倾:减半,书写顺序 = 结算顺序(伤害在前)
+    ("`DamageSingle 10` + `ShieldSpend 50`", [{"kind": "DamageSingle", "value": 10}, {"kind": "ShieldSpend", "value": 50}]),
+    # 土生金
+    ("`ShieldToMorale 30`", [{"kind": "ShieldToMorale", "value": 30}]),
+    # 浮屠
+    ("`ShieldCarry 50` `turns 3`", [{"kind": "ShieldCarry", "value": 50, "turns": 3}]),
+])
+def test_d2earth_shield_ops(config, expected):
+    assert _parse_effects(config, "塔") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`ShieldCarry 50`", "turns"),              # 回合初留盾必写回合
+    ("`ShieldSpend 150`", "ShieldSpend"),       # 百分比 1..100
+    ("`ShieldToMorale 0`", "ShieldToMorale"),
+    ("`ShieldCarry 101` `turns 3`", "ShieldCarry"),
+])
+def test_d2earth_shield_op_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-土 Task 3(附录 G2 / G3 / G4):受击挂点族 ----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`HitCap 10`", [{"kind": "HitCap", "value": 10}]),                                   # 铜墙铁壁
+    ("`HurtShield 44` `turns 2`", [{"kind": "HurtShield", "value": 44, "turns": 2}]),   # 堡垒
+    ("`ShieldShatter 50`", [{"kind": "ShieldShatter", "value": 50}]),                     # 碎玉
+])
+def test_d2earth_hit_hooks(config, expected):
+    assert _parse_effects(config, "壁") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`HurtShield 44`", "turns"),               # 受击得盾必写回合
+    ("`HitCap 0`", "HitCap"),                   # 百分比 1..100
+    ("`HitCap 101`", "HitCap"),
+    ("`ShieldShatter 150`", "ShieldShatter"),
+])
+def test_d2earth_hit_hook_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-土 Task 4(附录 G5 / G6 / G7):敌人 / 回合侧 ----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`OverkillSplash 100`", [{"kind": "OverkillSplash", "value": 100}]),                 # 粉身碎骨
+    # 杜塞:杂兵封禁、Boss 大招减半;SkillCut 认 if(进 ENEMY_PICK_KINDS)
+    ("`Silence 0` `turns 2` `if NotBoss` + `SkillCut 50` `if IsBoss`",
+     [{"kind": "Silence", "value": 0, "onlyIf": "NotBoss", "turns": 2},
+      {"kind": "SkillCut", "value": 50, "onlyIf": "IsBoss"}]),
+    ("`DamageCut 60` + `ApCost 1`", [{"kind": "DamageCut", "value": 60}, {"kind": "ApCost", "value": 1}]),   # 杜门不出
+])
+def test_d2earth_enemy_turn(config, expected):
+    assert _parse_effects(config, "杜") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`OverkillSplash 0`", "OverkillSplash"),     # 百分比 1..100
+    ("`SkillCut 150`", "SkillCut"),
+    ("`ApCost 0`", "ApCost"),                     # AP 代价至少 1
+])
+def test_d2earth_enemy_turn_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
 def test_d2water_turn_pulse_allowed_matches_engine():
     """管线 `TURN_PULSE_ALLOWED` 与 BattleEngine.TurnPulseAllows 是同一张白名单(从 C# 源码抽 switch 臂对账)。"""
     import re
@@ -1290,3 +1366,87 @@ def test_battles_stays_on_its_own_effect_when_valueless_token_shares_the_kind():
         {"kind": "Morale", "value": 0, "fill": True},
         {"kind": "Augment", "value": 3, "augmentKind": "Block", "augmentField": "Count"},
         {"kind": "Morale", "value": 2, "openingBattles": 5}]
+
+
+# ---- D2-土 Task 1:共用小扩展(附录 E29 / E30 / E31 / E34 / E36)—— 附录 §2 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 垒砌(E29):本次护盾为留存护盾
+    ("`Reshape` `persist`", [{"kind": "Reshape", "value": 0, "persistOnce": True}]),
+    # 塔基固面(E30):护盾 + 当前护甲 × 300%
+    ("`Reshape` `armorShield 300`", [{"kind": "Reshape", "value": 0, "armorShieldPercent": 300}]),
+    # 三山(E31):散射 3 发,每发各结算镇压
+    ("`Reshape` `shape Scatter` `shots 3` `armorStrike 300` `armorStrikeEach`",
+     [{"kind": "Reshape", "value": 0, "shape": "Scatter", "shots": 3, "armorStrikePercent": 300, "armorStrikeEach": True}]),
+    # 圭臬(E34):护甲持续到战斗结束
+    ("`Augment 0` `of DefenseBuff` `field Battle`",
+     [{"kind": "Augment", "value": 0, "augmentKind": "DefenseBuff", "augmentField": "Battle"}]),
+    # 地裂(E36):出字前护盾每 100 点 +1 击,最多 +4
+    ("`Reshape` `hitsPerShield 100` `cap 4`",
+     [{"kind": "Reshape", "value": 0, "scaleBy": "Shield", "scaleDivisor": 100, "scaleCap": 4}]),
+])
+def test_d2earth_shared_modifiers(config, expected):
+    assert _parse_effects(config, "土") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Shield 60` `persist`", "persist"),                              # 没有 Reshape 可挂
+    ("`DamageSingle 60` `armorShield 300`", "armorShield"),            # armorShield 只挂 Reshape
+    ("`Reshape` `armorStrikeEach`", "armorStrike"),                    # 须配 armorStrike
+    ("`Shield 60` `hitsPerShield 100`", "hitsPerShield"),              # 没有伤害可挂
+    ("`Augment 0` `of Shield` `field Battle`", "Battle"),              # field Battle 只配 DefenseBuff
+])
+def test_d2earth_shared_modifier_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+@pytest.mark.parametrize("config, expected", [
+    # 碉楼 / 载物(E28):护盾同时给全部木灵(每只 50%)
+    ("`ShieldSummons 50` `ofShield`", [{"kind": "ShieldSummons", "value": 50, "ofShield": True}]),
+    # 山岳(E32):护甲 ≥ 50 时,每回合第一次受击使攻击者破甲
+    ("`Retaliate 1` `turns 4` `minArmor 50` `onHit` `ArmorBreak 38` `turns 2`",
+     [{"kind": "Retaliate", "value": 1, "turns": 4, "minArmor": 50,
+       "perHit": [{"kind": "ArmorBreak", "value": 38, "turns": 2}]}]),
+    # 杜塞(E33):封禁认条件门 / 选择器
+    ("`Silence 0` `turns 2` `if NotBoss`", [{"kind": "Silence", "value": 0, "onlyIf": "NotBoss", "turns": 2}]),
+])
+def test_d2earth_shared_settle_tokens(config, expected):
+    assert _parse_effects(config, "土") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Shield 60` `ofShield`", "ofShield"),                            # 没有 ShieldSummons 可挂
+    ("`Shield 60` `minArmor 50`", "minArmor"),                         # 没有 Retaliate 可挂
+])
+def test_d2earth_shared_settle_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- Ruling 15(D2-土 Task 1):修饰 token 按效果的**真实位置**找宿主 ----
+# 旧做法按 `Kind 字样回找:同格「带值 + 无值同 kind」时,先收集的带值效果会认领写在前面的无值 token 的位置,
+# 两条的修饰互换;kind 与 token 不同名(`MoraleFill` → Morale)时无值那条根本找不到,修饰挂到别的效果上。
+
+def test_positional_modifiers_follow_real_position_with_valued_and_valueless_same_kind():
+    effects = _parse_effects("`DebuffWard` `wardCount 1` `turns 1` + `DebuffWard 50` `wardOf Burn`", "杜")
+    assert effects == [
+        {"kind": "DebuffWard", "value": 0, "wardCount": 1, "turns": 1},
+        {"kind": "DebuffWard", "value": 50, "wardOf": "Burn", "turns": 1}]
+
+
+def test_battles_follows_real_position_with_valued_and_valueless_same_kind():
+    effects = _parse_effects("`DebuffWard` `turns 1` `battles 2` + `DebuffWard 50`", "杜")
+    assert effects == [
+        {"kind": "DebuffWard", "value": 0, "turns": 1, "openingBattles": 2},
+        {"kind": "DebuffWard", "value": 50, "turns": 1}]
+
+
+def test_battles_attaches_to_valueless_token_whose_kind_has_another_name():
+    # `MoraleFill` 的 kind 是 Morale:按 `Morale 字样找不到它,`battles 3` 会被挂到前面的 `Morale 2` 上
+    effects = _parse_effects("`Morale 2` + `MoraleFill` `battles 3`", "鑫")
+    assert effects == [
+        {"kind": "Morale", "value": 2},
+        {"kind": "Morale", "value": 0, "fill": True, "openingBattles": 3}]

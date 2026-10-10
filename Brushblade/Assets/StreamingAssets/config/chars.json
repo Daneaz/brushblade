@@ -6375,6 +6375,110 @@
               "turns": 4
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "深厚",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "深厚",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 4,
+              "augmentKind": "DefenseBuff",
+              "augmentField": "Turns"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "山压",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shieldStrikePercent": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "厚土",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Shield"
+            },
+            {
+              "kind": "AddHeft",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "载物",
+          "effects": [
+            {
+              "kind": "ShieldSummons",
+              "value": 50,
+              "ofShield": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "地动",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All",
+              "shieldStrikePercent": 30
+            },
+            {
+              "kind": "ArmorBreak",
+              "value": 45,
+              "pick": "All",
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "厚德载物",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Shield"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "persistOnce": true
+            }
+          ]
         }
       ]
     },
@@ -6438,6 +6542,98 @@
             {
               "kind": "DefenseBuff",
               "value": 75,
+              "turns": 4
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnCompose",
+          "name": "三土",
+          "effects": [
+            {
+              "kind": "Shield",
+              "value": 75
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "移山",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Column",
+              "shapePercent": 70,
+              "shieldStrikePercent": 30
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "叠嶂",
+          "effects": [
+            {
+              "kind": "DefenseBuff",
+              "value": 38,
+              "turns": 4
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "山岳",
+          "effects": [
+            {
+              "kind": "Retaliate",
+              "value": 1,
+              "minArmor": 50,
+              "turns": 4,
+              "perHit": [
+                {
+                  "kind": "ArmorBreak",
+                  "value": 38,
+                  "turns": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "三山",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Scatter",
+              "armorStrikePercent": 300,
+              "shots": 3,
+              "armorStrikeEach": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "对峙",
+          "effects": [
+            {
+              "kind": "Taunt",
+              "value": 1,
+              "pick": "Self"
+            },
+            {
+              "kind": "DefenseBuff",
+              "value": 38,
+              "openingBattles": 5,
               "turns": 4
             }
           ]
@@ -6509,6 +6705,36 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnDismantle",
+          "name": "叠土",
+          "effects": [
+            {
+              "kind": "Shield",
+              "value": 126
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "重土",
+          "effects": [
+            {
+              "kind": "TurnPulse",
+              "value": 0,
+              "turns": 1,
+              "perHit": [
+                {
+                  "kind": "Shield",
+                  "value": 63
+                }
+              ]
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "加固",
@@ -6518,6 +6744,48 @@
               "value": 50,
               "scope": "Shield",
               "onlyIf": "PlayerHasArmor"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "圭臬",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 0,
+              "augmentKind": "DefenseBuff",
+              "augmentField": "Battle"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "圭角",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shieldStrikePercent": 40
+            },
+            {
+              "kind": "ArmorBreak",
+              "value": 32,
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "土生金",
+          "effects": [
+            {
+              "kind": "ShieldToMorale",
+              "value": 30
             }
           ]
         }
@@ -6588,6 +6856,48 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "塔基",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "armorStrikePercent": 300
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "塔基",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "armorShieldPercent": 300
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "塔倾",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shieldStrikePercent": 50
+            },
+            {
+              "kind": "ShieldSpend",
+              "value": 50
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "加固",
@@ -6609,6 +6919,35 @@
             {
               "kind": "ShieldRecoil",
               "value": 30
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "镇塔",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "armorStrikePercent": 500
+            },
+            {
+              "kind": "Weaken",
+              "value": 30,
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "浮屠",
+          "effects": [
+            {
+              "kind": "ShieldCarry",
+              "value": 50,
+              "turns": 3
             }
           ]
         }
@@ -6738,6 +7077,18 @@
               "kind": "Reshape",
               "value": 0,
               "shieldStrikePercent": 40
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "碉楼",
+          "effects": [
+            {
+              "kind": "ShieldSummons",
+              "value": 50,
+              "ofShield": true
             }
           ]
         }
@@ -6875,6 +7226,18 @@
               "turns": 2
             }
           ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "垒砌",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "persistOnce": true
+            }
+          ]
         }
       ]
     },
@@ -6971,6 +7334,18 @@
         },
         {
           "slot": "Lv5",
+          "face": "Attack",
+          "name": "据守反击",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shieldStrikePercent": 30
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
           "face": "Feature",
           "name": "垒土",
           "effects": [
@@ -7009,6 +7384,18 @@
               "kind": "ArmorBreak",
               "value": 22,
               "pick": "HitTargets",
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "堡垒",
+          "effects": [
+            {
+              "kind": "HurtShield",
+              "value": 44,
               "turns": 2
             }
           ]
@@ -7142,6 +7529,17 @@
               "shieldStrikePercent": 40
             }
           ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "铜墙铁壁",
+          "effects": [
+            {
+              "kind": "HitCap",
+              "value": 10
+            }
+          ]
         }
       ]
     },
@@ -7210,6 +7608,37 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "杜绝",
+          "effects": [
+            {
+              "kind": "DebuffWard",
+              "value": 0,
+              "wardCount": 1,
+              "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "杜塞",
+          "effects": [
+            {
+              "kind": "Silence",
+              "value": 0,
+              "onlyIf": "NotBoss",
+              "turns": 2
+            },
+            {
+              "kind": "SkillCut",
+              "value": 50,
+              "onlyIf": "IsBoss"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "垒土",
@@ -7219,6 +7648,46 @@
               "value": 2,
               "augmentKind": "DefenseBuff",
               "augmentField": "Turns"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "闭门",
+          "effects": [
+            {
+              "kind": "Shield",
+              "value": 63,
+              "openingBattles": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "堵截",
+          "effects": [
+            {
+              "kind": "Freeze",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "杜门不出",
+          "maxPerBattle": 1,
+          "effects": [
+            {
+              "kind": "DamageCut",
+              "value": 60
+            },
+            {
+              "kind": "ApCost",
+              "value": 1
             }
           ]
         }
@@ -7335,6 +7804,19 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "落石",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "All",
+              "turns": 1
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -7345,6 +7827,24 @@
               "value": 20,
               "pick": "HitTargets",
               "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "地裂",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "scaleBy": "Shield",
+              "scaleDivisor": 100,
+              "scaleCap": 4
+            },
+            {
+              "kind": "ShieldSpend",
+              "value": 100
             }
           ]
         },
@@ -7467,6 +7967,17 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "碎玉",
+          "effects": [
+            {
+              "kind": "ShieldShatter",
+              "value": 50
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -7477,6 +7988,19 @@
               "value": 20,
               "pick": "HitTargets",
               "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "粉身碎骨",
+          "effects": [
+            {
+              "kind": "OverkillSplash",
+              "value": 100
             }
           ]
         },

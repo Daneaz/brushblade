@@ -844,6 +844,12 @@ namespace Brushblade.Core
             EffectKind.BuffBlock => false,
             // D2-水 Task 4:受击回复的 Value 是百分比、冰晶是冻结回合、回合脉冲不用 Value(载荷触发时按来源字等级另行缩放)
             EffectKind.HurtHeal or EffectKind.ShieldFrost or EffectKind.TurnPulse => false,
+            // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾的 Value 都是百分比(作用于已吃过等级的护盾量),离散
+            EffectKind.ShieldSpend or EffectKind.ShieldToMorale or EffectKind.ShieldCarry => false,
+            // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比,离散;堡垒(HurtShield)是护盾量,连续(走缺省 true)
+            EffectKind.HitCap or EffectKind.ShieldShatter => false,
+            // D2-土 Task 4:溢出平分(百分比,作用于已打出的伤害)/ 大招削减(百分比)/ AP 代价(点数)都离散
+            EffectKind.OverkillSplash or EffectKind.SkillCut or EffectKind.ApCost => false,
             _ => true,
         };
 

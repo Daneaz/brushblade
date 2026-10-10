@@ -302,7 +302,8 @@ namespace Brushblade.Core
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
         BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
         BossSkillCast,  // Boss 释放技能(Amount = BossSkill);随后是各目标的受击事件
-        ShieldBroken,   // 护盾被倾覆清空(TargetIndex = −1,Amount = 清掉的总量)
+        ShieldBroken,   // 玩家护盾被扣(TargetIndex = −1,Amount = 扣掉的量):Source None = 倾覆清空两桶;
+                        // Source ShieldSpend = 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 G1 / G8),可能只扣一部分
         EnemyMend,   // 涂改给同伴回血(TargetIndex = **被治疗的**敌人,Amount = 实际回血;2026-08-29)。
                      // 不复用 Regrow:那个的 TargetIndex 是「自补全的那只自己」且带补全进度,
                      // 表现层要画的两件事不一样 —— 一条是自愈、一条是有人在后面奶它
@@ -375,6 +376,9 @@ namespace Brushblade.Core
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
         ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
         FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
+        ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
+        OverkillSplash,// 粉身碎骨(D2-土 G5):击杀溢出平分给其余敌人;R4 特性伤害,溅射击杀不入队击杀时;表现层按普通伤害飘字(来源标签归 Plan E)
+        ShieldSpend,   // 扣盾(D2-土 G1 塔倾 / 地裂、G8 土生金):**ShieldBroken** 事件的 Source,区分「部分扣盾」与倾覆清空(倾覆为 None)
     }
 
     public readonly struct BattleEvent
@@ -437,7 +441,8 @@ namespace Brushblade.Core
         /// 独立结算 —— 变的只有节拍。</summary>
         public bool SameSwing { get; }
 
-        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="EffectSource"/>;其余事件恒 None。
+        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="EffectSource"/>;其余事件恒 None
+        /// (例外:ShieldBroken 用 <see cref="EffectSource.ShieldSpend"/> 标特性扣盾,D2-土 Task 5)。
         /// 与 <see cref="Crit"/> 同理长在事件上,不另发事件让表现层配对。</summary>
         public EffectSource Source { get; }
 
@@ -891,7 +896,9 @@ namespace Brushblade.Core
                 or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
                 or EffectKind.Blind
                 // 加速/急速(2026-09-16,水):百分比连续量值,与 CritBuff/PierceBuff 同型
-                or EffectKind.Haste => true,
+                or EffectKind.Haste
+                // 堡垒(D2-土 G3,附录「同 Shield:卡等级 + L3 + 攻击力」):受击得盾量出字时定死,吃 L3
+                or EffectKind.HurtShield => true,
             _ => false,
         };
 
@@ -2020,7 +2027,9 @@ namespace Brushblade.Core
                     // 冷却(D2-水 W2):推迟的是主目标(Boss)的蓄力
                     || effect.Kind == EffectKind.ChargeDelay
                     // 洗尽铅华(D2-水 W3):挂在主目标身上
-                    || effect.Kind == EffectKind.BuffBlock)
+                    || effect.Kind == EffectKind.BuffBlock
+                    // 杜塞(D2-土 G6):挂在主目标(Boss)身上
+                    || effect.Kind == EffectKind.SkillCut)
                     return true;
             return false;
         }
@@ -2784,9 +2793,11 @@ namespace Brushblade.Core
             // 跨场带入 / 开局效果给的护盾写在构造函数里,第一回合开始就清的话它们一拍都挡不到。
             if (_playerTurnsStarted > 0)
             {
+                int clearedNormal = _shieldNormal;
                 _shieldNormal = 0;
                 foreach (var summon in _summons)
                     if (summon != null) summon.Shield = 0;
+                CarryShieldOnTurnClear(clearedNormal);   // 浮屠(D2-土 G9):判空之前加回;没挂时一次判断即返回
                 DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
             }
             ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
@@ -3155,7 +3166,7 @@ namespace Brushblade.Core
             {
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
                 OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
-                PreCastWellspring = outer.PreCastWellspring,
+                PreCastWellspring = outer.PreCastWellspring, PreCastShield = outer.PreCastShield,
             };
             try
             {
@@ -3213,7 +3224,13 @@ namespace Brushblade.Core
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
-            var castEffects = CastEffectsOf(def, attackMode, cardLevel);
+            _cast.PreCastShield ??= _shieldNormal + _shieldPersist;   // 地裂(D2-土 E36),只读
+            // 每场次数(D2-土 E35,杜门不出):顶层出字先偷看次数,用尽的特性整条不进 Fold;没有这类特性时与原路径同一调用
+            var battleLimited = topLevelCast ? TraitRules.BattleLimited(def, castFace, cardLevel) : Array.Empty<TraitDef>();
+            var castEffects = battleLimited.Count == 0
+                ? CastEffectsOf(def, attackMode, cardLevel)
+                : TraitRules.Fold(EffectsOf(def, attackMode), def, castFace, cardLevel,
+                    skip: t => t.MaxPerBattle > 0 && BattleUsesOf(def, t) >= t.MaxPerBattle);
             // 推迟施加(Ruling 11 + D2-水 E16 同一条队列,按原顺序):Status 非 null = 按战意计次的格挡(状态已定死,只差次数);
             // Status 为 null = 名单类效果(pick FrozenByThisCast / SlowedByThisCast),循环末尾再结算,名单才收得全
             List<(EffectDef Effect, StatusEffect Status)> deferred = null;
@@ -3242,6 +3259,9 @@ namespace Brushblade.Core
                 }
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
+            // 每场次数记账(E35):本次进了 Fold 的限次特性各记一次(出字已结算完,不会再被拒)
+            foreach (var t in battleLimited)
+                if (BattleUsesOf(def, t) < t.MaxPerBattle) TryUseTrait(BattleUseKey(def, t), perTurn: 0, perBattle: t.MaxPerBattle);
 
             // 单条效果的结算(D2-火 Task 2 抽成本地函数,行为不变):每击附带(EffectDef.PerHit)要对「这一击的目标」
             // 同步结算同一套分支,不经新的 ApplyEffects(不触发重入守卫)。参数 targetIndex 遮蔽外层同名参数是刻意的:
@@ -3282,6 +3302,20 @@ namespace Brushblade.Core
                             _enemies, targetIndex, effect.Shape, effect.Shots, volleyLeadsWithPrimary: true);
                         // 主目标击数:缺省 = HitCount;ScaleBy Morale(D2-金 E10,大卸八块)= HitCount + 战意,进门取一次
                         int primaryHits = HitCountOf(effect);
+                        // 镇压(2026-09-16,土):基数是玩家当前的 EffectivePlayerDefense,心属性、不吃目标护甲;
+                        // 存活判定挡下对尸体补刀。逐发(D2-土 E31,三山)与原「只结算一次」共用这一份
+                        void ArmorStrike(int at)
+                        {
+                            if (!_enemies[at].Alive) return;
+                            int armorStrikeBonus = EffectivePlayerDefense * effect.ArmorStrikePercent / 100;
+                            if (armorStrikeBonus > 0)
+                                // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
+                                // 的调用)同口径——折返/加码都不是挥击。
+                                DamageEnemy(at, armorStrikeBonus, Element.Heart,
+                                    bypassDefense: true, // 镇压不吃目标护甲
+                                    source: EffectSource.ArmorStrike,
+                                    attackerRef: UnitRef.Player);
+                        }
                         for (int t = 0; t < shapeTargets.Count; t++)
                         {
                             int tgt = shapeTargets[t];
@@ -3367,6 +3401,8 @@ namespace Brushblade.Core
                                             || EffectPickRules.Effective(rider) != EffectPick.Primary)
                                             ResolveEffect(rider, tgt);
                             }
+                            // 逐发镇压(D2-土 E31,三山):这一发打完对这一发的落点结算一次;跨排 Boss 的第二格是同一挥击,不重复
+                            if (effect.ArmorStrikeEach && effect.ArmorStrikePercent > 0 && !sameSwing) ArmorStrike(tgt);
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
                         // EffectivePlayerDefense(含 DefenseBuff/破甲那部分,不是角色基础护甲)。
@@ -3377,18 +3413,8 @@ namespace Brushblade.Core
                         // targetIndex 恒为 -1,直接索引曾越界崩溃(2026-09-17 balance 仿真撞出)。
                         // Single 形状下首项就是 targetIndex,逐字节不变;连发时是第一发的落点,
                         // 镇压只结算一次、不按发数翻倍(价目「镇压50」只计一次)。
-                        if (effect.ArmorStrikePercent > 0 && shapeTargets.Count > 0
-                            && _enemies[shapeTargets[0]].Alive)
-                        {
-                            int armorStrikeBonus = EffectivePlayerDefense * effect.ArmorStrikePercent / 100;
-                            if (armorStrikeBonus > 0)
-                                // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
-                                // 的调用)同口径——折返/加码都不是挥击。
-                                DamageEnemy(shapeTargets[0], armorStrikeBonus, Element.Heart,
-                                    bypassDefense: true, // 镇压不吃目标护甲
-                                    source: EffectSource.ArmorStrike,
-                                    attackerRef: UnitRef.Player);
-                        }
+                        if (effect.ArmorStrikePercent > 0 && !effect.ArmorStrikeEach && shapeTargets.Count > 0)
+                            ArmorStrike(shapeTargets[0]);
                         break;
                     }
                     // 敌方侧效果统一走 PickTargets(D1 Task 5):Primary = 玩家选的那只(现行为),
@@ -3675,14 +3701,16 @@ namespace Brushblade.Core
                         // 群盾(D1 Task 7,灵荫):只给召唤物,走 AddSummonShield 吃上限。按单份量攒厚 —— 与 桂 的
                         // SummonShield 同口径(玩家出字换来的护盾,发给召唤物也算「堆了防御」)。
                         bool anyShielded = false;
+                        // 碉楼 / 载物(D2-土 E28,ofShield):每只 = 本次名义护盾 × Value%(百分比不吃等级),不额外攒厚
+                        int perSummon = effect.OfShield ? _cast.ShieldNominal * effect.Value / 100 : value;
                         for (int slot = 0; slot < _summons.Length; slot++)
                         {
                             if (_summons[slot] == null || !_summons[slot].Alive) continue;
-                            int granted = AddSummonShield(slot, value);
+                            int granted = AddSummonShield(slot, perSummon);
                             _events.Add(new BattleEvent(BattleEventKind.Shield, slot, granted));
                             if (granted > 0) anyShielded = true;
                         }
-                        if (anyShielded) GainHeft(value);   // 一份都没发出去(没有召唤物 / 全顶满)就不攒厚
+                        if (anyShielded && !effect.OfShield) GainHeft(value);   // 一份都没发出去(没有召唤物 / 全顶满)就不攒厚
                         break;
                     }
                     case EffectKind.SummonStrike:
@@ -3768,21 +3796,23 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.Silence:
-                        if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                        // D2-土 E33(杜塞 `if NotBoss`):改走 PickTargets + OnlyIfMet;缺省 Primary 与原「主目标、存活」逐位相同
+                        foreach (int ti in PickTargets(effect, targetIndex))
                         {
-                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
+                            if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1, TurnsLeft = effect.Turns, SourceId = def.Id,
-                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
                             // 封禁(2026-09-05):取代了 2026-08-08 评审 Important 1 那条「挂上
                             // 当下就打断蓄力」的旧处理 —— 那条打断的正是 Boss 的 IsCharging/
                             // ChargeCounter(全代码库只有 ResolveBossTurn 会把它们置真,只有 Boss
                             // 会进入蓄力态),而封禁现在对 Boss 降级为「只削护甲,大招照放」,
                             // 所以这里不再打断蓄力,让它继续攒、到点照常释放。
-                            var target = _enemies[targetIndex];
+                            var target = _enemies[ti];
                             if (target.IsBoss)
-                                _events.Add(new BattleEvent(BattleEventKind.SuppressDowngraded, targetIndex, 0));
+                                _events.Add(new BattleEvent(BattleEventKind.SuppressDowngraded, ti, 0));
                         }
                         break;
                     case EffectKind.Reflect:
@@ -3919,6 +3949,38 @@ namespace Brushblade.Core
                     case EffectKind.TurnPulse:
                         ArmTurnPulse(effect, def.Id, attacker);
                         break;
+                    // 护盾操作族(D2-土 G1 / G8 / G9):百分比离散,读 effect.Value
+                    case EffectKind.ShieldSpend:
+                        SpendPlayerShield(effect.Value);
+                        break;
+                    case EffectKind.ShieldToMorale:
+                        ResolveShieldToMorale(effect.Value);
+                        break;
+                    case EffectKind.ShieldCarry:
+                        ApplyShieldCarry(effect, def.Id);
+                        break;
+                    // 受击挂点族(D2-土 G2 / G3 / G4)
+                    case EffectKind.HitCap:
+                        ApplyHitCap(effect, def.Id);
+                        break;
+                    case EffectKind.HurtShield:
+                        ApplyHurtShield(effect, value, def.Id);   // 量 = 卡等级 + L3 之后的 value,在里面过攻击力缩放
+                        break;
+                    case EffectKind.ShieldShatter:
+                        // 碎玉:挂载同反震 —— 本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
+                        if (_cast.ShieldGranted > 0) ApplyShieldShatter(effect.Value, def.Id, effect.TraitKey ?? def.Id);
+                        break;
+                    // 敌人 / 回合侧(D2-土 G5 / G6 / G7):百分比 / AP 离散,读 effect.Value
+                    case EffectKind.OverkillSplash:
+                        SplashOverkill(targetIndex, effect.Value);   // Value 已在击杀入队时解析成溢出量 × N%
+                        break;
+                    case EffectKind.SkillCut:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplySkillCut(ti, effect, def.Id);
+                        break;
+                    case EffectKind.ApCost:
+                        ApplyApCost(effect, def.Id);
+                        break;
                     case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
@@ -4024,7 +4086,8 @@ namespace Brushblade.Core
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
-                            Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns),
+                            // 圭臬(D2-土 E34):Turns −1 = 持续到战斗结束(战后不携带,RunEngine 名单已不含 DefenseBuff)
+                            Magnitude = value, TurnsLeft = effect.Turns < 0 ? -1 : Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
@@ -4092,6 +4155,9 @@ namespace Brushblade.Core
                         // 配方内部的元素关系,与盾加给谁无关 —— 加召唤物与加玩家同值。
                         int shield = ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
+                        // 塔基固面(D2-土 E30):+ 结算那一刻的护甲 × N%,加在攻击力缩放之后(不吃生克 / Amplify),整份攒厚
+                        if (effect.ArmorShieldPercent > 0) shield += EffectivePlayerDefense * effect.ArmorShieldPercent / 100;
+                        _cast.ShieldNominal += shield;   // 碉楼 / 载物(D2-土 E28)读
                         int shieldGranted;
                         if (allySlot == Targeting.PlayerTarget)
                             shieldGranted = AddPlayerShield(shield, effect.PersistOnce);
@@ -4112,6 +4178,7 @@ namespace Brushblade.Core
                         // 与 Shield 同一个基数算法(生克 + 攻击力缩放),只是落到所有人身上。
                         // **不选目标**:它给全场,所以 NeedsAllyTarget 对它为 false。
                         int shieldAll = ScaleByBaseAttack(WuxingResolver.ResolveEffect(value));
+                        _cast.ShieldNominal += shieldAll;   // 碉楼 / 载物(D2-土 E28)读
                         // 攒厚按**单份**盾量,不乘人数 —— 与 HealAll 攒泉同一条口径(那边
                         // GainWellspring 收的也是基础值)。按总量攒会让「场上召唤物越多、
                         // 同一张字攒的厚越多」,而厚记的是你堆了多少防御,不是堆给了几个人。
@@ -5473,7 +5540,7 @@ namespace Brushblade.Core
             if (_config.Tally != null && damage > _config.Tally.MaxHit) _config.Tally.MaxHit = damage;
             // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
             // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
-            // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「倾覆清空玩家护盾」
+            // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「玩家护盾被倾覆清空 / 被特性扣掉」
             // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, sourceSlot,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
@@ -5489,7 +5556,8 @@ namespace Brushblade.Core
             // (击杀不白闪、让位给置灰)。中间插任何事件都会打断判定 → 白闪抢色 + 置灰错拍
             if (!enemy.Alive)
             {
-                ResolveDefeat(enemyIndex, attackerRef, source);
+                // 溢出(D2-土 G5,Q9)= 过护甲 / 敌盾后的实际伤害 − 击杀前生命;只有击杀时特性里的 OverkillSplash 读它
+                ResolveDefeat(enemyIndex, attackerRef, source, overkill: damage - absorbed - hpBefore);
                 FlushCritMorale(enemyIndex);
                 // 立即判胜(Task 12):这一记(含反弹/反伤这类回敬)可能就是清场的最后一击,
                 // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
@@ -5611,13 +5679,14 @@ namespace Brushblade.Core
             return true;
         }
 
-        private void ResolveDefeat(int enemyIndex, UnitRef killer, EffectSource source)
+        /// <param name="overkill">致死一击的溢出伤害(只有 DamageEnemy 致死分支传;其余死亡路径为 0)。击杀时特性入队时解析进 OverkillSplash(G5)。</param>
+        private void ResolveDefeat(int enemyIndex, UnitRef killer, EffectSource source, int overkill = 0)
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
             Raise(HookKind.EnemyKilled, UnitRef.Enemy(enemyIndex), killer, source: source, castCharId: _castingCharId);
             // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
             // 反应里的击杀不入队(R4:排空时 _cast.OnKill 为 null)
-            EnqueueCastTraits(_cast.OnKill, enemyIndex);
+            EnqueueCastTraits(_cast.OnKill, enemyIndex, overkill);
             // 斩杀时(D2-金 J3,铁则):同上口径,只认斩杀(TryExecuteKill / 致命);敌人回合的立威斩杀由 ResolveCounter 回查入队
             if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
@@ -5741,12 +5810,14 @@ namespace Brushblade.Core
             // 多来源取最强(spec §5.2 第 1 律,Ruling 11)。
             int damageCut = _playerStatuses.MaxMagnitude(StatusKind.DamageCut);
             bool blocking = block != null && block.Magnitude > 0;
+            int preCut = damage;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (blocking || damageCut > 0)
             {
                 int cut = Math.Min((blocking ? BattleConfig.BlockReductionPercent : 0) + damageCut,
                     CombatCaps.NonArmorReductionPercent);
                 damage = damage * (100 - cut) / 100;
             }
+            damage = CapHitDamage(damage, preCut, _config.PlayerMaxHp);   // 铜墙铁壁(D2-土 G2):没挂时一次判断即返回
             if (blocking)
             {
                 counter = block.CounterDamage;
@@ -5797,21 +5868,29 @@ namespace Brushblade.Core
             // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
             // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
             var recoil = allowReflect ? _playerStatuses.Find(StatusKind.ShieldRecoil) : null;
+            int recoilDealt = 0;   // 碎玉(G4)拿反震之后剩下的预算
             if (recoil != null && absorbed > 0 && _enemies[enemyIndex].Alive)
             {
                 int budget = damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt;
                 int dealt = Math.Min(absorbed * recoil.Magnitude / 100, budget);
                 if (dealt > 0 && TryUseTrait(recoil.TraitKey ?? recoil.SourceId ?? "", perTurn: 1, perBattle: 0))
+                {
                     DamageEnemy(enemyIndex, dealt, Element.Heart,
                         bypassDefense: true, allowBarb: false,
                         source: EffectSource.ShieldRecoil, attackerRef: UnitRef.Player);
+                    recoilDealt = dealt;
+                }
             }
             if (absorbed > 0)
             {
+                // 碎玉(D2-土 G4,Q6):同一份 60% 预算,排在镜 → 格挡 → 反震之后;没挂时一次判断即返回
+                ShatterShieldBack(enemyIndex, absorbed, allowReflect,
+                    damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt - recoilDealt);
                 EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
                 DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
             }
             TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
+            TriggerHurtShield(damage, allowReflect);   // 堡垒(D2-土 G3):同上
             return true;
         }
 
@@ -5871,7 +5950,9 @@ namespace Brushblade.Core
             int summonCut = Math.Min(
                 (blocking ? BattleConfig.BlockReductionPercent : 0) + _playerStatuses.MaxMagnitude(StatusKind.DamageCut),
                 CombatCaps.NonArmorReductionPercent);
+            int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
+            taken = CapHitDamage(taken, preCut, summon.MaxHp);   // 铜墙铁壁(D2-土 G2):按木灵自己的 MaxHp;没挂时一次判断即返回
             int hpBefore = summon.Hp;
 
             // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,排在护甲之后、护盾之前 ——
@@ -6036,6 +6117,9 @@ namespace Brushblade.Core
         private void CastBossSkill(int index, EnemyState enemy, BossSkill skill)
         {
             _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill));
+            // 杜塞(D2-土 G6,Q3):本次大招对玩家 / 木灵的伤害 × (100 − N)%,放完即移除;没挂时一次 Has 判断即返回 0,下面 Cut 原样返回
+            int cut = TakeSkillCut(enemy);
+            int Cut(int damage) => cut == 0 ? damage : damage * (100 - cut) / 100;
 
             switch (skill)
             {
@@ -6043,24 +6127,24 @@ namespace Brushblade.Core
                     // 2026-08-12(E-b4 T3):不再套额外的乘法减伤 —— 玩家份的护甲在
                     // DamagePlayerDirect 里折(2026-09-16 起是百分比减伤),召唤物份**不折**
                     // (召唤物没有自己的基础护甲,也不借玩家的,spec §4.2)
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                    DamagePlayerDirect(index, Cut(enemy.Attack * 2));
                     for (int s = 0; s < SummonCap; s++)
                         if (_summons[s] != null && _summons[s].Alive)
-                            DamageSummon(index, s, enemy.Attack, enemy.Element);
+                            DamageSummon(index, s, Cut(enemy.Attack), enemy.Element);
                     break;
 
                 case BossSkill.Impale: // 洞穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
                 {
                     int front = Targeting.FrontmostSummon(_summons, FrontRowSize);
                     if (front >= 0)
-                        DamageSummon(index, front, enemy.Attack, enemy.Element);
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                        DamageSummon(index, front, Cut(enemy.Attack), enemy.Element);
+                    DamagePlayerDirect(index, Cut(enemy.Attack * 2));
                     break;
                 }
 
                 case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉
                 {
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                    DamagePlayerDirect(index, Cut(enemy.Attack * 2));
                     int broken = _shieldNormal + _shieldPersist;
                     if (broken > 0)
                     {
@@ -6106,7 +6190,7 @@ namespace Brushblade.Core
                     else
                     {
                         // 没得吞退化成普攻:与普攻同口径过护甲;秒杀分支本身无数值可折,不动
-                        DamagePlayerDirect(index, enemy.Attack);
+                        DamagePlayerDirect(index, Cut(enemy.Attack));
                     }
                     break;
                 }

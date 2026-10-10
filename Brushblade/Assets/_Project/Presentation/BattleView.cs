@@ -566,8 +566,11 @@ namespace Brushblade.Presentation
                     if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].SetStateAmount(Mathf.Clamp01(e.SecondIndex / 3f)); // 状态层跟着补全长
                     break;
-                case BattleEventKind.ShieldBroken: // 倾覆技能把剩余护盾整个掀掉:记账归零
-                    _animShield = 0;
+                case BattleEventKind.ShieldBroken:
+                    // 倾覆清空 / 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 Task 5)都按 Amount 扣,钳到终值 —— 与 EnemyAttack 同写法。
+                    // 不能钳到 0:同一批里先到的 Shield 已经把记账钳到终值(土生金先加盾后扣),再减 Amount 会重复扣;
+                    // 倾覆的终值就是 0,行为与原「归零」等价
+                    _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Amount);
                     break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;
@@ -6483,7 +6486,7 @@ namespace Brushblade.Presentation
                     _message += Strings.T("battle.msg.boss_charging", ("skillName", EnemyInfo.BossSkillName((BossSkill)e.Amount)));
                 else if (e.Kind == BattleEventKind.BossSkillCast)
                     _message += $"  {EnemyInfo.BossSkillName((BossSkill)e.Amount)}!";
-                else if (e.Kind == BattleEventKind.ShieldBroken)
+                else if (e.Kind == BattleEventKind.ShieldBroken && e.Source != EffectSource.ShieldSpend)   // 特性扣盾不是倾覆,不播「被掀空」
                     _message += Strings.T("battle.msg.shield_broken", ("amount", e.Amount));
             }
         }

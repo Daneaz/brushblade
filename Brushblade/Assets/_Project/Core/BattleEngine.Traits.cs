@@ -58,6 +58,13 @@ namespace Brushblade.Core
 
         internal static string TraitKey(string charId, TraitSlot slot, TraitFace face) => $"{charId}/{(int)slot}/{face}";
 
+        /// <summary>特性级每场次数的键(D2-土 E35):「场次:字/槽/面」,与其余次数阀的键不撞。</summary>
+        internal static string BattleUseKey(CharDef def, TraitDef t) => "场次:" + TraitKey(def.Id, t.Slot, t.Face);
+
+        /// <summary>这条限次特性本场已生效几次(只读)。</summary>
+        private int BattleUsesOf(CharDef def, TraitDef t) =>
+            _traitUsesThisBattle.TryGetValue(BattleUseKey(def, t), out int used) ? used : 0;
+
         /// <summary>次数阀:perTurn / perBattle 为 0 = 不限。两项都未满才算用掉并计数;失败不扣任何一项。</summary>
         internal bool TryUseTrait(string key, int perTurn, int perBattle)
         {
@@ -127,6 +134,12 @@ namespace Brushblade.Core
             /// <summary>本次出字的 Slow 施加过或续过回合的敌人(D2-水 E15,选择器 SlowedByThisCast)。</summary>
             public List<int> SlowedTargets = new List<int>();
 
+            /// <summary>出字前玩家的护盾(两桶之和;D2-土 E36,地裂 ScaleBasis.Shield 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int? PreCastShield;
+
+            /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
+            public int ShieldNominal;
+
             /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
             public int ShieldGranted;
 
@@ -143,8 +156,9 @@ namespace Brushblade.Core
         private static IReadOnlyList<TraitDef> NullIfEmpty(IReadOnlyList<TraitDef> traits) => traits.Count == 0 ? null : traits;
 
         /// <summary>出字内触发入队(R4:只有顶层出字的伤害 / 击杀会走到这里 —— 排空期间 _cast.OnCrit / _cast.OnKill 为 null)。
-        /// 每条特性一条反应,目标 = 被暴击 / 被击杀的那名敌人。</summary>
-        private void EnqueueCastTraits(IReadOnlyList<TraitDef> traits, int enemyIndex)
+        /// 每条特性一条反应,目标 = 被暴击 / 被击杀的那名敌人。
+        /// <paramref name="overkill"/> = 致死一击的溢出(只有击杀时、且由 DamageEnemy 致死分支打死才非 0),解析进 OverkillSplash(G5)。</summary>
+        private void EnqueueCastTraits(IReadOnlyList<TraitDef> traits, int enemyIndex, int overkill = 0)
         {
             if (traits == null || TriggerDepth > 0) return;
             var element = _cast.TraitDef.Element ?? Element.Heart;
@@ -161,7 +175,7 @@ namespace Brushblade.Core
                     _cast.Enqueued[t] = used + 1;
                 }
                 Enqueue(new Reaction(_cast.TraitDef.Id, element,
-                    t.Effects.Select(e => TraitRules.ForCast(e, t, _cast.TraitDef, body)).ToList(),
+                    t.Effects.Select(e => ResolveOverkill(TraitRules.ForCast(e, t, _cast.TraitDef, body), overkill)).ToList(),
                     enemyIndex, TriggerDepth + 1));
             }
         }
@@ -184,12 +198,13 @@ namespace Brushblade.Core
                     bag.RemoveEntry(s);
         }
 
-        /// <summary>两桶护盾都空了:反震(D9)与冰晶(D2-水 W6)失去载体,移除。</summary>
+        /// <summary>两桶护盾都空了:反震(D9)、冰晶(D2-水 W6)与碎玉(D2-土 G4)失去载体,移除。</summary>
         private void DropShieldRecoilIfEmpty()
         {
             if (_shieldNormal + _shieldPersist > 0) return;
             _playerStatuses.Remove(StatusKind.ShieldRecoil);
             _playerStatuses.Remove(StatusKind.ShieldFrost);
+            _playerStatuses.Remove(StatusKind.ShieldShatter);
         }
 
         /// <summary>反震挂载:同类取最强,只留一条(TraitKey 跟随较强的那条)。</summary>

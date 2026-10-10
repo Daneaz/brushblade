@@ -89,7 +89,7 @@ namespace Brushblade.Core
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
         private List<OpeningEffect> _carriedOpenings = new(); // 跨场开局效果(spec v7 §5.1)
         private List<StatusEffect> _carriedStatuses = new(); // 护甲增益延续(2026-08-04):段内持久,到段末才清;
-                                                               // 只承载 DefenseBuff,HoT 不跨战斗
+                                                               // 只承载厚 / 泉(D2-土 E34 起不含 DefenseBuff),HoT 不跨战斗
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
@@ -666,9 +666,11 @@ namespace Brushblade.Core
             // 上面那句「只取护甲增益」如今只对厚/泉(层数,恒 -1)有实际作用。
             // 不按 Kind 排除而按存续排除,是为了让将来任何新的限时增益自动落在正确的一边:
             // 「几回合内有效」的东西跨过一整场战斗还剩几回合,没有一个说得通的答案。
+            //
+            // D2-土 E34(2026-10-11):DefenseBuff 从名单里删掉。圭臬「本字护甲持续到战斗结束」落成 TurnsLeft −1,
+            // 留着这一项它就会变成整段永久护甲(违反 spec §5.1);删之前名单里已没有 −1 的玩家护甲,删后逐位恒等。
             _carriedStatuses = Battle.PlayerStatuses.All
-                .Where(s => (s.Kind == StatusKind.DefenseBuff
-                        || s.Kind == StatusKind.Heft
+                .Where(s => (s.Kind == StatusKind.Heft
                         || s.Kind == StatusKind.Wellspring)
                     && s.TurnsLeft < 0)
                 .Select(s => s.Clone())
@@ -891,6 +893,16 @@ namespace Brushblade.Core
             Phase = RunPhase.InBattle;
         }
 
+        /// <summary>出字挂上的「本场持续」护甲(D2-土 E34 fix round 1,圭臬拖给木灵):DefenseBuff、TurnsLeft &lt; 0、
+        /// SourceId 是 DefenseBuff 分支铸的「字#序号」。本场永久 ≠ 跨场 —— 与玩家侧删携带白名单同口径。
+        /// 入场护甲照常随木灵存在:SummonDefense 的 SourceId 是裸字 ID,坚木本命是「字#armor」,序号段不是纯数字。</summary>
+        private static bool IsBattleLongCastArmor(StatusEffect st)
+        {
+            if (st.Kind != StatusKind.DefenseBuff || st.TurnsLeft >= 0 || st.SourceId == null) return false;
+            int hash = st.SourceId.LastIndexOf('#');
+            return hash >= 0 && hash < st.SourceId.Length - 1 && st.SourceId.Substring(hash + 1).All(char.IsDigit);
+        }
+
         /// <summary>存活召唤物的携带态:死尸丢弃(槽位释放,下一场从 0 号重排),残血原样带走。</summary>
         /// <summary>捕获活着的召唤物供下一场携带。**行动计量器归零**(2026-08-18):
         /// 行动条每场战斗独立,上一场攒的行动力不跨战斗 —— 否则召唤物一进新战斗就白送一次
@@ -912,8 +924,10 @@ namespace Brushblade.Core
                 if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
                 var snapshot = summon.Capture(s);   // 槽位随之带走
                 snapshot.ActionMeter = 0;
-                // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲
-                snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)).ToList();
+                // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲;
+                // 出字挂上的本场护甲(圭臬,D2-土 E34)另剥
+                snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)
+                    && !IsBattleLongCastArmor(st)).ToList();
                 // §2.2 本场改的属性在这里复原(E3);解封已清掉记号的,Element 即最终属性
                 if (summon.BaseElement.HasValue) snapshot.Element = summon.BaseElement.Value;
                 snapshot.BaseElement = null;

@@ -105,6 +105,7 @@ namespace Brushblade.Presentation
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
+                        + ArmorShieldText(e)
                         + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
                     // 群体护盾(2026-09-05,崩):与 HealAll 同款「(含召唤物)」的措辞 ——
                     // 玩家要知道的是这一份盾不只给自己
@@ -309,6 +310,8 @@ namespace Brushblade.Presentation
                     EffectKind.HealSummons => e.PercentOfMax
                         ? Strings.T("char.effect.healsummons.pct", ("value", shown))
                         : Strings.T("char.effect.healsummons", ("value", shown)),
+                    // 碉楼 / 载物(D2-土 E28):按本次护盾量的百分比,不吃等级(读 e.Value)
+                    EffectKind.ShieldSummons when e.OfShield => Strings.T("char.effect.shieldsummons.ofshield", ("value", e.Value)),
                     EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
                     EffectKind.SummonStrike => Strings.T("char.effect.summonstrike", ("value", shown)),
                     EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
@@ -319,6 +322,30 @@ namespace Brushblade.Presentation
                     EffectKind.ShieldRecoil => Strings.T("char.effect.shieldrecoil", ("value", shown)),
                     // 嘲讽(D2-0 Task 2):Value = 回合数,0 = 本场;按落点分主语
                     EffectKind.Taunt => TauntText(e),
+                    // ---- D2-土 Task 5:土专属新机制(措辞贴特性原文)。百分比 / AP 离散,读 e.Value;堡垒的护盾量吃等级(shown) ----
+                    // 扣盾(G1 塔倾 / 地裂):100 = 清空
+                    EffectKind.ShieldSpend => e.Value >= 100
+                        ? Strings.T("char.effect.shieldspend.all")
+                        : Strings.T("char.effect.shieldspend", ("value", e.Value)),
+                    // 土生金(G8):每 ResourceThresholdValue 点护盾折 1 层战意(向上取整)
+                    EffectKind.ShieldToMorale => Strings.T("char.effect.shieldtomorale",
+                        ("value", e.Value), ("per", BattleEngine.ResourceThresholdValue)),
+                    // 浮屠(G9):「上回合末剩余护盾」= 回合开始被清掉的普通护盾
+                    EffectKind.ShieldCarry => Strings.T("char.effect.shieldcarry", ("turns", Math.Max(1, e.Turns)), ("value", e.Value)),
+                    // 铜墙铁壁(G2):单次伤害上限,本回合
+                    EffectKind.HitCap => Strings.T("char.effect.hitcap", ("value", e.Value)),
+                    // 堡垒(G3):每次受击后加护盾(出字时定死,同 Shield)
+                    EffectKind.HurtShield => Strings.T("char.effect.hurtshield", ("turns", Math.Max(1, e.Turns)), ("value", shown)),
+                    // 碎玉(G4)
+                    EffectKind.ShieldShatter => Strings.T("char.effect.shieldshatter", ("value", e.Value)),
+                    // 粉身碎骨(G5):触发前缀「击杀时:」由 TriggerText 印
+                    EffectKind.OverkillSplash => e.Value >= 100
+                        ? Strings.T("char.effect.overkillsplash.all")
+                        : Strings.T("char.effect.overkillsplash", ("value", e.Value)),
+                    // 杜塞(G6):条件后缀「(目标是 Boss 时)」由 OnlyIfText 补
+                    EffectKind.SkillCut => Strings.T("char.effect.skillcut", ("value", e.Value)),
+                    // 杜门不出(G7):代价,不算减益
+                    EffectKind.ApCost => Strings.T("char.effect.apcost", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -350,7 +377,8 @@ namespace Brushblade.Presentation
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
             TriggerText(trait.Trigger)
             + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel))
-            + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "");
+            + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "")
+            + (trait.MaxPerBattle > 0 ? Strings.T("char.trait.battlelimit", ("count", trait.MaxPerBattle)) : "");   // D2-土 E35
 
         /// <summary>这条特性所在那一面「没有伤害、有治疗」(D2-水 E20,海纳百川 / 细雨 / 泽被…):Reshape shape All 改的是第一条 HealSelf。
         /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面**折叠后**的出字效果(<see cref="TraitRules.CastEffects"/>,
@@ -391,13 +419,15 @@ namespace Brushblade.Presentation
         private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
         {
             string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
+            // 山岳(D2-土 E32):护甲门槛,句首补「护甲 ≥ N 时,」
+            string gate = e.MinArmor > 0 ? Strings.T("char.effect.retaliate.minarmor", ("armor", e.MinArmor)) : "";
             // 潜流(D2-水 E23):多回合时句首改成「之后 N 回合内」;带上限时补「每回合至多 N 次」(上限按回合计)
             if (e.Turns > 1)
-                return Strings.T("char.effect.retaliate.turns", ("turns", e.Turns), ("list", list))
+                return gate + Strings.T("char.effect.retaliate.turns", ("turns", e.Turns), ("list", list))
                     + (e.Value > 0 ? Strings.T("char.effect.retaliate.turns.cap", ("cap", e.Value)) : "");
-            return e.Value > 0
+            return gate + (e.Value > 0
                 ? Strings.T("char.effect.retaliate.cap", ("list", list), ("cap", e.Value))
-                : Strings.T("char.effect.retaliate", ("list", list));
+                : Strings.T("char.effect.retaliate", ("list", list)));
         }
 
         /// <summary>免疫减益(D2-水 W4):濯身「N 回合内免疫减益」/ 浇熄「N 回合内免疫灼烧,每挡 1 层转为护盾 X」;
@@ -597,6 +627,9 @@ namespace Brushblade.Presentation
             // 坚冰(D2-水 E17a):冰滞后退的百分比,单独一句
             if (e.AugmentField == AugmentField.StallPush)
                 return Strings.T("char.effect.augment.stallpush", ("value", e.Value));
+            // 圭臬(D2-土 E34):护甲持续到战斗结束,Value 不用
+            if (e.AugmentField == AugmentField.Battle)
+                return Strings.T("char.effect.augment.battle");
             string target = e.AugmentKind switch
             {
                 EffectKind.Block => Strings.T("char.effect.augment.target.block"),
@@ -625,6 +658,9 @@ namespace Brushblade.Presentation
                 // 重选目标(D2-火 E3,烈风):本面没有伤害时,落在主目标上的效果改落到选择器上
                 ? Strings.T("char.effect.reshape.retarget") + PickText(e.Pick)
                 // 治疗改形(D2-水 E20):本面没有伤害、shape All → 第一条治疗改为全体友方,每人各治 shapePercent%
+                // 护盾面(D2-土 E29 / E30):留存护盾 / 盾量 + 护甲 × N%
+                : e.PersistOnce || e.ArmorShieldPercent > 0
+                    ? (e.PersistOnce ? Strings.T("char.effect.reshape.persist") : "") + ArmorShieldText(e)
                 : healReshape && e.Shape == TargetArea.All
                     ? (e.ShapePercent < 100
                         ? Strings.T("char.effect.reshape.heal.percent", ("percent", e.ShapePercent))
@@ -668,8 +704,13 @@ namespace Brushblade.Presentation
                 // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),
                 ScaleBasis.Cleansed => Strings.T("char.effect.per.cleansed"),
+                // D2-土 E36(地裂):出字前护盾每 ScaleDivisor 点 +1 击,上限写在同一句里(单位是击,不是百分点)
+                ScaleBasis.Shield => e.ScaleCap > 0   // cap 0 = 不设上限,不印「最多 +0 击」
+                    ? Strings.T("char.effect.per.shield.hits", ("divisor", e.ScaleDivisor), ("cap", e.ScaleCap))
+                    : Strings.T("char.effect.per.shield.hits.nocap", ("divisor", e.ScaleDivisor)),
                 _ => "",
-            } + (e.ScaleBy != ScaleBasis.None && e.ScaleCap > 0 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
+            } + (e.ScaleBy != ScaleBasis.None && e.ScaleBy != ScaleBasis.Shield && e.ScaleCap > 0
+                ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");
 
         /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。
         /// D2-火 N4b:散射每发百分比。</summary>
@@ -698,7 +739,12 @@ namespace Brushblade.Presentation
         private static string ArmorStrikeText(EffectDef e) =>
             e.ArmorStrikePercent > 0
                 ? Strings.T("char.effect.armorstrike", ("percent", e.ArmorStrikePercent))
+                    + (e.ArmorStrikeEach ? Strings.T("char.effect.armorstrike.each") : "")   // D2-土 E31 三山
                 : "";
+
+        /// <summary>按护甲加盾后缀(D2-土 E30,塔基固面):百分比不吃卡等级,护甲取结算那一刻。</summary>
+        private static string ArmorShieldText(EffectDef e) =>
+            e.ArmorShieldPercent > 0 ? Strings.T("char.effect.armorshield", ("percent", e.ArmorShieldPercent)) : "";
 
         /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
         /// DamageSingle 卡面因此逐字节不变。

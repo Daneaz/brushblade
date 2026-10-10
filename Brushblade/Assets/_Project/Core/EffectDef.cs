@@ -207,6 +207,30 @@ namespace Brushblade.Core
         TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(清盾之后、TurnStarted 之前)
                         // 把 PerHit 里的效果入队一条反应(目标 −1:敌方效果按其 pick,我方效果落玩家),触发时按来源字等级缩放(Q17)。
                         // PerHit 白名单见 BattleEngine.TurnPulseAllows(不收伤害)。Value 不用。非敌对。
+        // ---- D2-土 Task 2:护盾操作族(附录 G1 / G8 / G9)。⚠ 只在末尾追加 ----
+        ShieldSpend,    // 塔倾 / 地裂:玩家两桶护盾合计 × Value% 向下取整扣除(1..100;管线无值 token `ShieldSpend` = 100),先扣普通桶。
+                        // 不算受击:不触发冰晶 / 反震(以后的碎玉同理),只判空移除载体;发 ShieldBroken(−1, 扣除量)。离散。非敌对。
+        ShieldToMorale, // 土生金:同 ShieldSpend 扣两桶合计 × Value%(读结算那一刻,含本面先加的盾),战意 + ⌈扣除量 / ResourceThresholdValue⌉
+                        // (扣除量 0 → +0),钳 MoraleCap、不计溢出(聚金看不到)。离散。非敌对。
+        ShieldCarry,    // 浮屠:给玩家挂 StatusKind.ShieldCarry(Magnitude = Value%),Turns 回合(必填);之后每个玩家回合开始清普通桶时,
+                        // 把被清量 × N% 作普通桶加回(不攒厚),再判空移除载体。多条取最强。离散。非敌对。
+        // ---- D2-土 Task 3:受击挂点族(附录 G2 / G3 / G4)。⚠ 只在末尾追加 ----
+        HitCap,         // 铜墙铁壁:给玩家挂 StatusKind.HitCap(Magnitude = Value%,1..100),TurnsLeft 1(同 DamageCut);
+                        // 单次受伤 ≤ 承伤者最大生命 × N%(玩家按玩家、木灵按木灵),削减量并入 60% 非护甲减伤预算(Q1)。离散。非敌对。
+        HurtShield,     // 堡垒:给玩家挂 StatusKind.HurtShield,Magnitude = 出字时定死的护盾量(卡等级 + L3 + 攻击力,同 Shield),
+                        // Turns 回合(必填);玩家被敌人挥击命中且 damage > 0、未判负 → 每次都加普通桶护盾并攒厚。多条取最强(Q7)。连续。非敌对。
+        ShieldShatter,  // 碎玉:本次出字给玩家实际加了盾(同反震)才挂隐藏 StatusKind.ShieldShatter(Magnitude = Value%,1..100);
+                        // 敌人挥击把两桶打到 0 → 同步反伤「本击吸收量 × N%」,进 60% 反伤预算(镜 → 格挡 → 反震 → 碎玉,Q6);
+                        // 随两桶归零移除(倾覆 / 扣盾清空只移除不反伤)。离散。非敌对。
+        // ---- D2-土 Task 4:敌人 / 回合侧(附录 G5 / G6 / G7)。⚠ 只在末尾追加 ----
+        OverkillSplash, // 粉身碎骨:只能写在击杀时(OnKill)特性里。入队时把致死一击的溢出(过护甲 / 敌盾后的实际伤害 − 击杀前生命)
+                        // × Value%(1..100)解析进 Value;兑现时平分给其余存活敌人(整数除,Boss 算 1 份):土属性、过生克与护甲、
+                        // 不暴击、不算挥击,source = OverkillSplash;溅射击杀不入队击杀时(R4)。离散。敌对。
+        SkillCut,       // 杜塞(Boss):给目标 Boss 挂隐藏 StatusKind.SkillCut(Magnitude = Value%,1..100);下一次大招对玩家 / 木灵的
+                        // 伤害 × (100 − N)%,清盾 / 封字照常,吞噬秒杀不受影响,放完即移除;多条取最大(Q3)。杂兵空转。
+                        // 支持 Pick / OnlyIf。离散。敌对。
+        ApCost,         // 杜门不出:AP 代价 —— 给玩家挂 Buff 极性的 Seal(Magnitude = Value ≥ 1,TurnsLeft 2 = 下个玩家回合 AP −N),
+                        // 直接 bag.Apply、不经 ApplyStatus:不被免疫减益(DebuffWard)拦、不被净化清(R4「代价不算减益」,Q2)。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -222,6 +246,8 @@ namespace Brushblade.Core
         // ---- D2-水 Task 1(附录 E22)。⚠ 只在末尾追加 ----
         Wellspring,     // Amplify:出字前的泉层数(洪峰;R3,同 PreCastConditions 一并取)
         Cleansed,       // HealSelf:本次出字 Cleanse 实际清掉的条数(结算那一刻;濯身)
+        // ---- D2-土 Task 1(附录 E36)。⚠ 只在末尾追加 ----
+        Shield,         // DamageSingle / Reshape:击数 = HitCount + min(ScaleCap, ⌊出字前护盾(两桶)/ ScaleDivisor⌋)(地裂;R3)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -232,6 +258,8 @@ namespace Brushblade.Core
         Shots,  // 跳数 / 发数(Shots)
         // ---- D2-水 Task 1(附录 E17a)。⚠ 只在末尾追加 ----
         StallPush,  // 冰滞的行动条后退百分比(只给 Freeze,写在 Freeze.StallPushPercent 上;缺省 0 = BattleConfig.IceStallPushPercent)
+        // ---- D2-土 Task 1(附录 E34)。⚠ 只在末尾追加 ----
+        Battle,     // 持续到战斗结束(圭臬,只给 DefenseBuff):Turns 置 −1(Value 不用);结算时 TurnsLeft = −1,战后不携带
     }
 
     /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
@@ -529,6 +557,27 @@ namespace Brushblade.Core
         /// <summary>前 N 次(W4,`wardCount N`,土·杜绝预留):只给 DebuffWard。0 = 期间不限。</summary>
         public int WardCount { get; }
 
+        // ---- D2-土 Task 1(附录 E30 / E31 / E36)。全缺省 = 原行为,逐位恒等 ----
+
+        /// <summary>按护甲加盾(E30,塔基固面 `armorShield N`):只给 Shield(由 Reshape 写到本面第一条 Shield)——
+        /// 盾量 += 结算那一刻的 <c>EffectivePlayerDefense</c> × N%,加在攻击力缩放之后(不吃生克 / Amplify)。0 = 不启用。</summary>
+        public int ArmorShieldPercent { get; }
+
+        /// <summary>逐发镇压(E31,三山 `armorStrikeEach`):DamageSingle / Reshape —— 镇压不再只对首个目标结算一次,
+        /// 而是每一发之后对这一发的落点各结算一次。false = 原口径。</summary>
+        public bool ArmorStrikeEach { get; }
+
+        /// <summary>按护盾计击数的除数(E36,地裂 `hitsPerShield N`):只配 <see cref="ScaleBasis.Shield"/>。0 = 不启用。</summary>
+        public int ScaleDivisor { get; }
+
+        /// <summary>按本次护盾量(E28,碉楼 / 载物 `ofShield`):只给 ShieldSummons —— 每只存活木灵 + 本次出字名义护盾量
+        /// (Shield / ShieldAll 放大后的请求量累计)× Value%;百分比不吃卡等级、不额外攒厚。</summary>
+        public bool OfShield { get; }
+
+        /// <summary>护甲门槛(E32,山岳 `minArmor N`):只给 Retaliate —— 我方受击时 <c>EffectivePlayerDefense</c> &lt; N 不回敬、
+        /// 不扣次数(写进 <see cref="StatusEffect.MinArmor"/>)。0 = 无门槛。</summary>
+        public int MinArmor { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -561,7 +610,9 @@ namespace Brushblade.Core
             int executeSplashPercent = 0,
             int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
             bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
-            bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0)
+            bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0,
+            int armorShieldPercent = 0, bool armorStrikeEach = false, int scaleDivisor = 0,
+            bool ofShield = false, int minArmor = 0)
         {
             Kind = kind;
             Value = value;
@@ -627,6 +678,11 @@ namespace Brushblade.Core
             OfHeal = ofHeal;
             WardOf = wardOf;
             WardCount = wardCount;
+            ArmorShieldPercent = armorShieldPercent;
+            ArmorStrikeEach = armorStrikeEach;
+            ScaleDivisor = scaleDivisor;
+            OfShield = ofShield;
+            MinArmor = minArmor;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -647,8 +703,10 @@ namespace Brushblade.Core
             int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null,
             int? executeSplashPercent = null,
             int? stallPushPercent = null, int? bonusTurns = null, DamageCondition? bonusIf = null,
-            DamageCondition? executeIf = null) =>
-            new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
+            DamageCondition? executeIf = null,
+            bool? persistOnce = null, int? armorShieldPercent = null, bool? armorStrikeEach = null,
+            int? scaleDivisor = null, int? scaleCap = null) =>
+            new EffectDef(Kind, value ?? Value, DoubleVs, persistOnce ?? PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
@@ -656,13 +714,15 @@ namespace Brushblade.Core
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
                 AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
-                RetainPercent, PortionPercent, scaleBy ?? ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
+                RetainPercent, PortionPercent, scaleBy ?? ScaleBy, scaleCap ?? ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
                 MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp,
                 counterColumn ?? CounterColumn, counterHits ?? CounterHits, counterExecuteBelow ?? CounterExecuteBelow,
                 blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
                 executeSplashPercent ?? ExecuteSplashPercent,
                 stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
-                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount)
+                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount,
+                armorShieldPercent ?? ArmorShieldPercent, armorStrikeEach ?? ArmorStrikeEach, scaleDivisor ?? ScaleDivisor,
+                OfShield, MinArmor)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

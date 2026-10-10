@@ -31,6 +31,7 @@ namespace Brushblade.Data
             public string PartChar { get; set; } // 拆字印记的部件(D2-0 Task 7);null = 不是印记
             public int PartCount { get; set; }   // 印记次数
             public int MaxPerCast { get; set; }  // D2-火 N13:同一次出字内最多入队几次(0 = 不限)
+            public int MaxPerBattle { get; set; } // D2-土 E35:每场最多生效几次(0 = 不限;杜门不出)
             public string Name { get; set; }
             public List<EffectDto> Effects { get; set; }
         }
@@ -123,6 +124,12 @@ namespace Brushblade.Data
             // D2-水 Task 3(附录 W4)
             public string WardOf { get; set; }              // DebuffWard:只拦这一种减益(浇熄 = Burn);空 = 全部
             public int WardCount { get; set; }              // DebuffWard:前 N 次(0 = 期间不限,土·杜绝)
+            // D2-土 Task 1(附录 E29 / E30 / E31 / E36);E29 的 persist 复用 PersistOnce(写在 Reshape 上)
+            public int ArmorShieldPercent { get; set; }     // Reshape:无伤害面第一条护盾 + 护甲 × N%(塔基固面)
+            public bool ArmorStrikeEach { get; set; }       // DamageSingle / Reshape:镇压逐发结算(三山)
+            public int ScaleDivisor { get; set; }           // DamageSingle / Reshape:scaleBy Shield 的除数(地裂)
+            public bool OfShield { get; set; }              // ShieldSummons:按本次名义护盾量 × Value%(碉楼 / 载物,E28)
+            public int MinArmor { get; set; }               // Retaliate:护甲门槛(山岳,E32)
         }
 
         private sealed class CampaignFileDto
@@ -564,9 +571,12 @@ namespace Brushblade.Data
                     dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
                     dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
                     traits: ParseTraits(dto));
+                if (def.Effects.Concat(def.AttackEffects).Any(e => e.Kind == EffectKind.OverkillSplash))
+                    throw new ConfigException($"字「{def.Id}」的本体写了 OverkillSplash,但它只能写在击杀时(OnKill)特性里");
                 ValidateTraitTargets(def);
                 ValidateSaplingFaces(def);
                 ValidateOpeningAmplify(def);
+                ValidateShieldReshapeFaces(def);
                 defs.Add(def);
             }
 
@@ -629,9 +639,16 @@ namespace Brushblade.Data
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
                 var effects = ParseEffects(dto, t.Effects ?? new List<EffectDto>());
                 ValidateGlyph(dto, t, trigger, effects);
+                // 粉身碎骨(D2-土 G5):溢出只在击杀入队时解析,写在别的时机 Value 恒为原百分比、目标也不是死者 —— 拦下
+                if (trigger != TraitTrigger.OnKill && effects.Any(e => e.Kind == EffectKind.OverkillSplash))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」写了 OverkillSplash,但它只能写在击杀时(OnKill)特性里");
                 if (t.MaxPerCast < 0)
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerCast 不能为负:{t.MaxPerCast}");
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount, t.MaxPerCast));
+                // 每场次数(D2-土 E35)只约束出字时机的特性(顶层出字 Fold 时跳过);写在暴击 / 击杀等反应特性上静默无效 —— 拦下
+                if (t.MaxPerBattle < 0 || (t.MaxPerBattle > 0 && trigger != TraitTrigger.Cast))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerBattle 不能为负,且只给出字时结算的特性:{t.MaxPerBattle}");
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount, t.MaxPerCast,
+                    t.MaxPerBattle));
             }
             foreach (var t in traits)
                 if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))
@@ -833,6 +850,7 @@ namespace Brushblade.Data
                 ValidateFireOps(dto.Id, kind, effect);
                 ValidateMetalOps(dto.Id, kind, effect);
                 ValidateWaterOps(dto.Id, kind, effect);
+                ValidateEarthOps(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)
                 if (effect.PerBurningHit && kind != EffectKind.ExtraStrike)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 perBurningHit(只给 ExtraStrike)");
@@ -863,6 +881,7 @@ namespace Brushblade.Data
                         AugmentField.Count => augmentKind == EffectKind.Block,
                         AugmentField.Turns => TraitRules.HasTurns(augmentKind),
                         AugmentField.StallPush => augmentKind == EffectKind.Freeze,   // D2-水 E17a 坚冰
+                        AugmentField.Battle => augmentKind == EffectKind.DefenseBuff,  // D2-土 E34 圭臬
                         _ => augmentKind == EffectKind.DamageSingle || augmentKind == EffectKind.HealSelf,
                     };
                     if (!ok)
@@ -870,7 +889,7 @@ namespace Brushblade.Data
                     // 带条件的 Augment(D2-水 E17b,冰冻三尺)只实现了「冻结回合」:写进 Freeze 的 BonusTurns / BonusIf
                     if (!string.IsNullOrEmpty(effect.OnlyIf) && (augmentKind != EffectKind.Freeze || augmentField != AugmentField.Turns))
                         throw new ConfigException($"字「{dto.Id}」的带条件 Augment 只支持 of Freeze field Turns:{augmentKind} / {augmentField}");
-                    if (effect.Value < 1)
+                    if (effect.Value < 1 && augmentField != AugmentField.Battle)   // field Battle 不读 Value(圭臬写 Augment 0)
                         throw new ConfigException($"字「{dto.Id}」的 Augment 加量至少为 1,当前:{effect.Value}");
                 }
                 effects.Add(new EffectDef(kind, effect.Value,
@@ -896,7 +915,9 @@ namespace Brushblade.Data
                     effect.BlockBleed, effect.BlockMorale, effect.KillRefundAp,
                     effect.ExecuteSplashPercent,
                     extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed,
-                    ofHeal: effect.OfHeal, wardOf: ParseWardOf(effect.WardOf, kind, dto.Id), wardCount: effect.WardCount));
+                    ofHeal: effect.OfHeal, wardOf: ParseWardOf(effect.WardOf, kind, dto.Id), wardCount: effect.WardCount,
+                    armorShieldPercent: effect.ArmorShieldPercent, armorStrikeEach: effect.ArmorStrikeEach,
+                    scaleDivisor: effect.ScaleDivisor, ofShield: effect.OfShield, minArmor: effect.MinArmor));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -970,6 +991,9 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 perHit(只有 DamageSingle / Reshape 有「每一击」,Retaliate 写回敬)");
                 foreach (var child in e.PerHit)
                 {
+                    // 粉身碎骨(D2-土 G5):只能写在 OnKill 特性的顶层效果里 —— 顶层检查看不到 perHit 子效果,在这里一并拒
+                    if (child.Kind == nameof(EffectKind.OverkillSplash))
+                        throw new ConfigException($"字「{id}」的每击附带(perHit)里写了 OverkillSplash,但它只能写在击杀时(OnKill)特性的顶层效果里");
                     bool bad = child.Kind == nameof(EffectKind.DamageSingle) || child.Kind == nameof(EffectKind.Reshape)
                         || child.Kind == nameof(EffectKind.Amplify) || child.Kind == nameof(EffectKind.Augment)
                         || child.Kind == nameof(EffectKind.BlockMod)
@@ -995,8 +1019,10 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的引爆 portionPercent 须在 1–100:{e.PortionPercent}");
             if (kind == EffectKind.BurnScale && e.Value < 100)
                 throw new ConfigException($"字「{id}」的 BurnScale 百分比须 ≥ 100(只升不降):{e.Value}");
-            if (e.ScaleCap != 0 && (kind != EffectKind.Amplify || string.IsNullOrEmpty(e.ScaleBy) || e.ScaleCap < 0))
-                throw new ConfigException($"字「{id}」的 scaleCap 只给带 scaleBy 的 Amplify,且须 > 0");
+            // D2-土 E36:地裂的击数上限也写 scaleCap(配 scaleBy Shield 的 DamageSingle / Reshape)
+            bool shieldHits = damageLike && e.ScaleBy == nameof(ScaleBasis.Shield);
+            if (e.ScaleCap != 0 && ((kind != EffectKind.Amplify && !shieldHits) || string.IsNullOrEmpty(e.ScaleBy) || e.ScaleCap < 0))
+                throw new ConfigException($"字「{id}」的 scaleCap 只给带 scaleBy 的 Amplify / 带 scaleBy Shield 的伤害,且须 > 0");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢,拦下
             if (e.OpeningBattles != 0 && (e.PerHit != null || e.ShotPercent != 100 || e.RetainPercent != 0
                     || e.PortionPercent != 100 || !string.IsNullOrEmpty(e.ScaleBy)))
@@ -1017,11 +1043,13 @@ namespace Brushblade.Data
                     nameof(ScaleBasis.ExtraHitTarget) => kind == EffectKind.Morale,
                     nameof(ScaleBasis.Wellspring) => kind == EffectKind.Amplify,   // D2-水 E22a 洪峰
                     nameof(ScaleBasis.Cleansed) => kind == EffectKind.HealSelf,    // D2-水 E22b 濯身
+                    nameof(ScaleBasis.Shield) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape,   // D2-土 E36 地裂
                     _ => true,
                 };
                 if (!ok)
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
-                        + "Morale 给 DamageSingle / Reshape / BlockMod;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf)");
+                        + "Morale 给 DamageSingle / Reshape / BlockMod;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf;"
+                        + "Shield 给 DamageSingle / Reshape)");
             }
             // 补满:战意(D2-金 E9)与泉(D2-水 E21,WellspringFill)
             if (e.Fill && ((kind != EffectKind.Morale && kind != EffectKind.AddWellspring) || !string.IsNullOrEmpty(e.ScaleBy)))
@@ -1086,6 +1114,65 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 须写回合数(turns ≥ 1),当前:{e.Turns}");
             if ((kind == EffectKind.HurtHeal || kind == EffectKind.ShieldFrost) && e.Value < 1)
                 throw new ConfigException($"字「{id}」的 {kind} 须写 N ≥ 1,当前:{e.Value}");
+            // D2-土 Task 2(G1 / G8 / G9):扣盾 / 盾转战意 / 回合初留盾的百分比须在 1..100;留盾必须写回合
+            if ((kind == EffectKind.ShieldSpend || kind == EffectKind.ShieldToMorale || kind == EffectKind.ShieldCarry)
+                && (e.Value < 1 || e.Value > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
+            if (kind == EffectKind.ShieldCarry && e.Turns < 1)
+                throw new ConfigException($"字「{id}」的 ShieldCarry 须写回合数(turns ≥ 1),当前:{e.Turns}");
+            // D2-土 Task 3(G2 / G3 / G4):单次受伤上限 / 碎玉反伤的百分比须在 1..100;堡垒须写护盾量与回合
+            if ((kind == EffectKind.HitCap || kind == EffectKind.ShieldShatter) && (e.Value < 1 || e.Value > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
+            if (kind == EffectKind.HurtShield && (e.Value < 1 || e.Turns < 1))
+                throw new ConfigException($"字「{id}」的 HurtShield 须写护盾量 N ≥ 1 与回合数(turns ≥ 1),当前:{e.Value} / {e.Turns}");
+            // D2-土 Task 4(G5 / G6 / G7):溢出平分 / 大招削减的百分比须在 1..100;AP 代价至少 1
+            if ((kind == EffectKind.OverkillSplash || kind == EffectKind.SkillCut) && (e.Value < 1 || e.Value > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
+            if (kind == EffectKind.ApCost && e.Value < 1)
+                throw new ConfigException($"字「{id}」的 ApCost 须写 N ≥ 1,当前:{e.Value}");
+        }
+
+        /// <summary>D2-土 Task 1 的字段(附录 E29 / E30 / E31 / E36):写在不读它的效果上引擎会静默忽略 —— 一律拦下。
+        /// persist / armorShield「只在无伤害面」的面级校验见 <see cref="ValidateShieldReshapeFaces"/>。</summary>
+        private static void ValidateEarthOps(string id, EffectKind kind, EffectDto e)
+        {
+            bool damageLike = kind == EffectKind.DamageSingle || kind == EffectKind.Reshape;
+            if (e.PersistOnce && kind != EffectKind.Shield && kind != EffectKind.ShieldAll && kind != EffectKind.Reshape)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 persistOnce(只给 Shield / ShieldAll,或 Reshape 的 persist)");
+            if (e.ArmorShieldPercent != 0 && (kind != EffectKind.Reshape || e.ArmorShieldPercent < 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 armorShieldPercent(只给 Reshape,且须 > 0)");
+            if (e.ArmorStrikeEach && (!damageLike || e.ArmorStrikePercent <= 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 armorStrikeEach(只给带 armorStrikePercent 的 DamageSingle / Reshape)");
+            bool shieldHits = e.ScaleBy == nameof(ScaleBasis.Shield);
+            if (shieldHits != (e.ScaleDivisor != 0) || e.ScaleDivisor < 0)
+                throw new ConfigException($"字「{id}」的 {kind} 效果 scaleBy Shield 须配 scaleDivisor > 0(反之 scaleDivisor 只配 scaleBy Shield)");
+            if (e.OfShield && (kind != EffectKind.ShieldSummons || e.Value < 1))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofShield(只给 ShieldSummons,且百分比须 ≥ 1)");
+            if (e.MinArmor != 0 && (kind != EffectKind.Retaliate || e.MinArmor < 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 minArmor(只给 Retaliate,且须 > 0)");
+            if (e.OpeningBattles != 0 && (e.PersistOnce && kind == EffectKind.Reshape || e.ArmorShieldPercent != 0 || e.ArmorStrikeEach
+                    || e.ScaleDivisor != 0 || e.OfShield || e.MinArmor != 0))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 persist / armorShield / armorStrikeEach / scaleDivisor / ofShield / minArmor(登记时会丢)");
+        }
+
+        /// <summary>Reshape 的 persist / armorShield(D2-土 E29 / E30)只在**本体没有伤害**的那一面改护盾;写在伤害面上
+        /// Fold 会改伤害、这两项静默无效 —— 加载期拦下。ShieldSummons ofShield(E28)所在面须有 Shield / ShieldAll。</summary>
+        private static void ValidateShieldReshapeFaces(CharDef def)
+        {
+            foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
+            {
+                if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;
+                var body = face == CardFace.Attack ? def.AttackEffects : def.Effects;   // 与 EffectsOf 同口径(Data 看不到 internal)
+                bool shieldReshape = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects))
+                    .Any(e => e.Kind == EffectKind.Reshape && (e.PersistOnce || e.ArmorShieldPercent > 0));
+                if (shieldReshape && body.Any(e => e.Kind == EffectKind.DamageSingle))
+                    throw new ConfigException($"字「{def.Id}」的 {face} 面有伤害,Reshape 的 persist / armorShield 只作用于无伤害面的护盾");
+                // ShieldSummons ofShield(E28)读本次名义护盾:同面(本体 + 作用于该面的特性)没有 Shield / ShieldAll 时恒为 0(fix round 1)
+                var faceEffects = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects)).ToList();
+                if (faceEffects.Any(e => e.Kind == EffectKind.ShieldSummons && e.OfShield)
+                    && !faceEffects.Any(e => e.Kind == EffectKind.Shield || e.Kind == EffectKind.ShieldAll))
+                    throw new ConfigException($"字「{def.Id}」的 {face} 面写了 ShieldSummons ofShield,但这一面没有 Shield / ShieldAll —— 名义护盾恒为 0");
+            }
         }
 
         /// <summary>免疫减益只拦得到会落在我方身上的减益(D2-水 W4)。名单外的(增益 / 隐藏载体)写了也永远拦不到 —— 拦下。</summary>
