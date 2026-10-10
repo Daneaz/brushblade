@@ -169,6 +169,8 @@ namespace Brushblade.Core
             var body = EffectsOf(_cast.TraitDef, _cast.AttackMode);
             foreach (var t in traits)
             {
+                // 每场次数(D2-土 E35 扩到击杀时,D2-木 E49 折桂):入队即记次,用尽的不再入队。没有 limit 的特性不进这一句
+                if (t.MaxPerBattle > 0 && !TryUseTrait(BattleUseKey(_cast.TraitDef, t), perTurn: 0, perBattle: t.MaxPerBattle)) continue;
                 // 出字内次数上限(N13,连爆「最多 2 次」):计数随 CastContext,下一张字重新起算
                 if (t.MaxPerCast > 0)
                 {

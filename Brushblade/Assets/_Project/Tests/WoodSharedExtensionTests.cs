@@ -499,5 +499,154 @@ namespace Brushblade.Core.Tests
             c.Cast("楸");
             Assert.That(c.Summons[1].MaxHp, Is.EqualTo(hp), "楸灵不在场");
         }
+
+        // ================= 提交 ③:携带与次数、管线 =================
+
+        // ---------------- E44:木灵限时状态不跨场(Ruling 16)----------------
+
+        [Test]
+        public void E44_TimedSummonStatuses_AreNotCarried_EntryArmorAndBurnAre()
+        {
+            StatusEffect Timed(StatusKind kind, int turns, string id) => new()
+                { Kind = kind, Polarity = StatusPolarity.Buff, Magnitude = 9, TurnsLeft = turns, SourceId = id };
+            var wood = Wood(1, hp: 900);
+            wood.Passive = new SummonPassive { Armor = 5 };
+            wood.Statuses = new List<StatusEffect>
+            {
+                new() { Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff, Magnitude = 9, Potency = 100, TurnsLeft = -1, SourceId = "burn" },
+                EntryArmor(7, "塔"),            // SummonDefense 裸 ID
+                EntryArmor(5, "桩#armor"),      // 坚木本命
+                Timed(StatusKind.AttackBuff, 3, "剡"),
+                Timed(StatusKind.DefenseBuff, 4, "铠#7"),
+                Timed(StatusKind.Reflect, 5, "壁"),
+            };
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { RebalanceFixture.Mob(hp: 20) }, new[] { RebalanceFixture.Mob(hp: 20) } },
+                RewardPool = new[] { "甲" },
+            };
+            var run = new RunEngine(RebalanceFixture.Graph(), config, Config, new[] { "甲", "甲" }, Array.Empty<string>(), seed: 1,
+                startingSummons: new[] { wood });
+            Assert.That(run.Battle.Cast("甲", 0), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+            var carried = run.CarriedSummons.Single().Statuses;
+            Assert.That(carried.Select(st => st.SourceId).OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+                Is.EqualTo(new[] { "burn", "塔", "桩#armor" }), "限时状态剥离;Burn −1 与两种入场护甲照常携带");
+        }
+
+        // ---------------- E49:battleLimit 放行击杀时 ----------------
+
+        private static CharDef Laurel() => new("桂", Element.Wood,
+            effects: new[] { Body() },
+            attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) },
+            traits: new[] { new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Passive, null, "折桂",
+                new[] { new EffectDef(EffectKind.Morale, 1) }, trigger: TraitTrigger.OnKill, maxPerBattle: 1) });
+
+        [Test]
+        public void E49_OnKillBattleLimit_SecondKillNotEnqueued()
+        {
+            var b = Battle(Laurel(), 5, null, RebalanceFixture.Mob(hp: 10), RebalanceFixture.Mob(hp: 10), RebalanceFixture.Mob(hp: 100000));
+            Assert.That(b.Cast("桂", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies.Count(e => !e.Alive), Is.EqualTo(2), "夹具前提:一次出字两次击杀");
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "每场 1 次:第二次击杀不再入队");
+
+            var unlimited = new CharDef("桂", Element.Wood, effects: new[] { Body() },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) },
+                traits: new[] { new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Passive, null, "折桂",
+                    new[] { new EffectDef(EffectKind.Morale, 1) }, trigger: TraitTrigger.OnKill) });
+            var c = Battle(unlimited, 5, null, RebalanceFixture.Mob(hp: 10), RebalanceFixture.Mob(hp: 10), RebalanceFixture.Mob(hp: 100000));
+            c.Cast("桂", 0, attackMode: true);
+            Assert.That(c.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2), "不限次:两次击杀各入队");
+        }
+
+        // ---------------- ConfigLoader 同步 ----------------
+
+        private static RecipeGraph LoadWood(string featureEffects, string attackEffects = @"{""kind"":""DamageSingle"",""value"":10}",
+            string traits = "") => ConfigLoader.LoadGraph(
+            @"{""chars"":[{""id"":""林"",""element"":""Wood"",""effects"":[" + featureEffects + @"],
+              ""attackEffects"":[" + attackEffects + @"],""traits"":[" + traits + @"]}]}");
+
+        private const string SummonJson = @"{""kind"":""Summon"",""value"":300,""count"":1,""attack"":20,""summonChar"":""木""}";
+
+        [Test]
+        public void Loader_ReadsWoodSharedFields()
+        {
+            var g = LoadWood(SummonJson + @",{""kind"":""Reshape"",""value"":0,""summonPercent"":60},"
+                + @"{""kind"":""Augment"",""value"":1,""augmentKind"":""Summon"",""augmentField"":""Count""},"
+                + @"{""kind"":""Revive"",""value"":0,""reviveHpPercent"":30},"
+                + @"{""kind"":""SummonSapling"",""value"":30,""count"":2,""sprout"":true}",
+                @"{""kind"":""DamageSingle"",""value"":10},{""kind"":""Reshape"",""value"":0,""summonAtkStrikePercent"":20,""hostAtkStrikePercent"":200,""hostArmorStrikePercent"":400},"
+                + @"{""kind"":""SummonStrike"",""value"":200,""ownSummons"":true,""byArmor"":true},"
+                + @"{""kind"":""SummonSapling"",""value"":20,""count"":2,""fromBody"":true},"
+                + @"{""kind"":""Charm"",""value"":0,""turns"":1},{""kind"":""Augment"",""value"":100,""augmentKind"":""Charm"",""augmentField"":""Count""},"
+                + @"{""kind"":""Amplify"",""value"":10,""scope"":""Damage"",""scaleBy"":""SummonCount""}");
+            var def = g.Get("林");
+            Assert.That(def.Effects[1].SummonPercent, Is.EqualTo(60));
+            Assert.That(def.Effects[3].ReviveHpPercent, Is.EqualTo(30));
+            Assert.That(def.Effects[4].Sprout, Is.True);
+            var r = def.AttackEffects[1];
+            Assert.That((r.SummonAtkStrikePercent, r.HostAtkStrikePercent, r.HostArmorStrikePercent), Is.EqualTo((20, 200, 400)));
+            Assert.That((def.AttackEffects[2].OwnSummons, def.AttackEffects[2].ByArmor), Is.EqualTo((true, true)));
+            Assert.That(def.AttackEffects[3].FromBody, Is.True);
+            Assert.That(def.AttackEffects[6].ScaleBy, Is.EqualTo(ScaleBasis.SummonCount));
+        }
+
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""fromBody"":true}")]                  // fromBody 只给 SummonSapling
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""sprout"":true}")]                    // sprout 只给 SummonSapling
+        [TestCase(@"{""kind"":""SummonStrike"",""value"":10,""byArmor"":true}")]                // byArmor 须配 own(fix:只柘弓用)
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""ownSummons"":true}")]                // own 只给 SummonStrike
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""reviveHpPercent"":30}")]             // 只给 Revive
+        [TestCase(@"{""kind"":""Revive"",""value"":1,""reviveHpPercent"":101}")]               // 1..100
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""summonAtkStrikePercent"":10}")]      // 只给 DamageSingle / Reshape
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""summonPercent"":60}")]               // 只给 Summon / Reshape
+        [TestCase(@"{""kind"":""HealSelf"",""value"":10,""scaleBy"":""SummonCount""}")]        // SummonCount 只给 Amplify
+        [TestCase(@"{""kind"":""Augment"",""value"":1,""augmentKind"":""Seed"",""augmentField"":""Count""}")]   // Count 只认 Block / Charm / Summon
+        public void Loader_RejectsWoodFieldsOnWrongHosts(string effect)
+        {
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson + "," + effect));
+        }
+
+        [Test]
+        public void Loader_TurnPulseAllowsVulnerableWithOwnSummonAlive_RejectsOtherConditions()
+        {
+            const string ok = @"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""Vulnerable"",""value"":30,""turns"":1,""pick"":""Random"",""onlyIf"":""OwnSummonAlive""}]}";
+            var pulse = LoadWood(SummonJson + "," + ok).Get("林").Effects[1];
+            Assert.That(pulse.PerHit[0].OnlyIf, Is.EqualTo(DamageCondition.OwnSummonAlive));
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson + "," + ok.Replace("OwnSummonAlive", "Burning")),
+                "其余条件仍拒(水 W7 口径)");
+        }
+
+        [Test]
+        public void Loader_BattleLimitAllowsOnKill_GlyphSaplingNeedsFromBody()
+        {
+            string Trait(string trigger, string effects, string extra = "") =>
+                @"{""slot"":""Lv5"",""face"":""Attack"",""form"":""Passive"",""trigger"":""" + trigger + @""",""name"":""折桂"",""effects"":[" + effects + "]" + extra + "}";
+            var g = LoadWood(SummonJson, traits: Trait("OnKill", @"{""kind"":""Morale"",""value"":1}", @",""maxPerBattle"":1"));
+            Assert.That(g.Get("林").Traits[0].MaxPerBattle, Is.EqualTo(1));
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson, traits: Trait("OnCrit", @"{""kind"":""Morale"",""value"":1}", @",""maxPerBattle"":1")),
+                "暴击时仍不收 battleLimit");
+
+            string Glyph(string effect) => @"{""slot"":""Lv4"",""form"":""Passive"",""trigger"":""OnDismantle"",""name"":""双木"",""effects"":[" + effect + "]}";
+            var glyph = LoadWood(SummonJson, traits: Glyph(@"{""kind"":""SummonSapling"",""value"":20,""count"":2,""fromBody"":true}"));
+            Assert.That(glyph.Get("林").Traits[0].Effects[0].FromBody, Is.True, "fromBody 的幼苗可写在字形特性里");
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson, traits: Glyph(@"{""kind"":""SummonSapling"",""value"":20,""count"":2}")));
+        }
+
+        [Test]
+        public void E41_GlyphSaplingFromBody_PlacesSaplingsOnDismantle()
+        {
+            // 字形即时类走 ApplyDetachedEffects(合成的 CharDef 没有本体):回图谱取真身的生面 Summon
+            var def = WoodChar("林", new[] { Body(hp: 400, attack: 30) }, null,
+                new TraitDef(TraitSlot.Lv4, TraitFace.Both, TraitForm.Passive, null, "双木",
+                    new[] { new EffectDef(EffectKind.SummonSapling, 20, summonCount: 2, fromBody: true) }, trigger: TraitTrigger.OnDismantle));
+            var b = Battle(def, 4);
+            var detached = typeof(BattleEngine).GetMethod("ApplyDetachedEffects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            detached.Invoke(b, new object[] { "林", Element.Wood, def.Traits[0].Effects, -1 });
+            var saplings = b.Summons.Where(x => x != null && x.Alive).ToList();
+            Assert.That(saplings, Has.Count.EqualTo(2));
+            Assert.That(saplings[0].MaxHp, Is.EqualTo(MetaRules.ScaleByCardLevel(400, 4) * 20 / 100));
+        }
     }
 }

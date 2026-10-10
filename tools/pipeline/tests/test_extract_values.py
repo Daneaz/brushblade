@@ -1450,3 +1450,52 @@ def test_battles_attaches_to_valueless_token_whose_kind_has_another_name():
     assert effects == [
         {"kind": "Morale", "value": 2},
         {"kind": "Morale", "value": 0, "fill": True, "openingBattles": 3}]
+
+
+# ---- D2-木 Task 1:共用小扩展 E39 / E40 / E41 / E43 / E46 / E47 / E48 / E50 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 森罗 / 撼天 / 硬弓(E40)
+    ("`Reshape` `summonAtkStrike 20`", [{"kind": "Reshape", "value": 0, "summonAtkStrikePercent": 20}]),
+    ("`Reshape` `hostAtkStrike 200`", [{"kind": "Reshape", "value": 0, "hostAtkStrikePercent": 200}]),
+    ("`Reshape` `hostArmorStrike 400` `armorIgnore 100`",
+     [{"kind": "Reshape", "value": 0, "hostArmorStrikePercent": 400, "armorIgnorePercent": 100}]),
+    # 林立(E48):1 只 → 2 只各 60%
+    ("`Augment 1` `of Summon` `field Count` + `Reshape` `summonPercent 60`",
+     [{"kind": "Augment", "value": 1, "augmentKind": "Summon", "augmentField": "Count"},
+      {"kind": "Reshape", "value": 0, "summonPercent": 60}]),
+    # 双木(E41)/ 丛藻(E47)
+    ("`SummonSapling 20` `count 2` `fromBody`", [{"kind": "SummonSapling", "value": 20, "count": 2, "fromBody": True}]),
+    ("`SummonSapling 30` `count 2` `sprout`", [{"kind": "SummonSapling", "value": 30, "count": 2, "sprout": True}]),
+    # 柘弓(E46)
+    ("`SummonStrike 200` `own` `byArmor`", [{"kind": "SummonStrike", "value": 200, "ownSummons": True, "byArmor": True}]),
+    # 万木回春(E43)
+    ("`Revive 0` `pct 30`", [{"kind": "Revive", "value": 0, "reviveHpPercent": 30}]),
+    # 众木(E39)
+    ("`Amplify 10` `scope Damage` `per SummonCount`",
+     [{"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "SummonCount"}]),
+    # 移花接木(E45):既有 Count 认 Charm
+    ("`Augment 100` `of Charm` `field Count`", [{"kind": "Augment", "value": 100, "augmentKind": "Charm", "augmentField": "Count"}]),
+    # 一叶知秋(E50):回合脉冲载荷收标记 + if OwnSummonAlive
+    ("`TurnPulse` `turns 3` `onTurn` `Vulnerable 30` `turns 1` `pick Random` `if OwnSummonAlive`",
+     [{"kind": "TurnPulse", "value": 0, "turns": 3,
+       "perHit": [{"kind": "Vulnerable", "value": 30, "turns": 1, "pick": "Random", "onlyIf": "OwnSummonAlive"}]}]),
+])
+def test_d2wood_shared_tokens(config, expected):
+    assert _parse_effects(config, "木") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`DamageSingle 10` `fromBody`", "fromBody"),            # 只挂 SummonSapling
+    ("`DamageSingle 10` `sprout`", "sprout"),
+    ("`HealSelf 10` `own`", "own"),                          # 只挂 SummonStrike
+    ("`SummonStrike 100` `byArmor`", "byArmor"),             # 须配 own
+    ("`HealSummons 10` `pct 30`", "pct"),                    # 带数值的 pct 只挂 Revive
+    ("`Shield 10` `summonPercent 60`", "summonPercent"),     # 没有 Reshape 可挂
+    ("`HealSelf 10` `per SummonCount`", "per"),              # SummonCount 只挂 Amplify
+    ("`TurnPulse` `turns 3` `onTurn` `Vulnerable 30` `turns 1` `pick Random` `if Burning`", "onTurn"),   # 其余条件仍拒
+])
+def test_d2wood_shared_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

@@ -130,6 +130,16 @@ namespace Brushblade.Data
             public int ScaleDivisor { get; set; }           // DamageSingle / Reshape:scaleBy Shield 的除数(地裂)
             public bool OfShield { get; set; }              // ShieldSummons:按本次名义护盾量 × Value%(碉楼 / 载物,E28)
             public int MinArmor { get; set; }               // Retaliate:护甲门槛(山岳,E32)
+            // D2-木 Task 1(附录 E40 / E41 / E43 / E46 / E47 / E48)
+            public int SummonAtkStrikePercent { get; set; } // DamageSingle / Reshape:+ Σ 木灵有效攻击 × N%(森罗)
+            public int HostAtkStrikePercent { get; set; }   // DamageSingle / Reshape:+ 本字木灵有效攻击最大值 × N%(撼天)
+            public int HostArmorStrikePercent { get; set; } // DamageSingle / Reshape:+ 本字木灵护甲最大值 × N%(硬弓)
+            public bool FromBody { get; set; }              // SummonSapling:没有召出时取本字生面本体(双木)
+            public bool Sprout { get; set; }                // SummonSapling:新幼苗记母体槽位(丛藻)
+            public bool OwnSummons { get; set; }            // SummonStrike:只让本字最强的一只出手(柘弓)
+            public bool ByArmor { get; set; }               // SummonStrike:基数取护甲(柘弓,须配 ownSummons)
+            public int ReviveHpPercent { get; set; }        // Revive:生命 = ⌈MaxHp × N%⌉(万木回春)
+            public int SummonPercent { get; set; } = 100;   // Summon / Reshape:召出木灵血 / 攻 × N%(林立)
         }
 
         private sealed class CampaignFileDto
@@ -645,8 +655,9 @@ namespace Brushblade.Data
                 if (t.MaxPerCast < 0)
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerCast 不能为负:{t.MaxPerCast}");
                 // 每场次数(D2-土 E35)只约束出字时机的特性(顶层出字 Fold 时跳过);写在暴击 / 击杀等反应特性上静默无效 —— 拦下
-                if (t.MaxPerBattle < 0 || (t.MaxPerBattle > 0 && trigger != TraitTrigger.Cast))
-                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerBattle 不能为负,且只给出字时结算的特性:{t.MaxPerBattle}");
+                // D2-木 E49:击杀时(折桂)也收 —— EnqueueCastTraits 按 BattleUseKey 记次
+                if (t.MaxPerBattle < 0 || (t.MaxPerBattle > 0 && trigger != TraitTrigger.Cast && trigger != TraitTrigger.OnKill))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerBattle 不能为负,且只给出字时 / 击杀时结算的特性:{t.MaxPerBattle}");
                 traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount, t.MaxPerCast,
                     t.MaxPerBattle));
             }
@@ -664,9 +675,10 @@ namespace Brushblade.Data
         private static void ValidateGlyph(CharDto dto, TraitDto t, TraitTrigger trigger, IReadOnlyList<EffectDef> effects)
         {
             // 幼苗取「本次出字召出的第一只」的属性;拆 / 合时没有出字上下文。等 D2-木 给出无源幼苗口径再放开
+            // D2-木 E41 定下无源幼苗的取法:写 fromBody 的取本字生面本体(双木);不写的仍拦
             if ((trigger == TraitTrigger.OnCompose || trigger == TraitTrigger.OnDismantle)
-                && effects.Any(e => e.Kind == EffectKind.SummonSapling))
-                throw new ConfigException($"字「{dto.Id}」的字形特性「{t.Name}」写了幼苗(SummonSapling):拆 / 合时没有可取属性的召唤,等 D2-木 定下无源幼苗的取法再放开");
+                && effects.Any(e => e.Kind == EffectKind.SummonSapling && !e.FromBody))
+                throw new ConfigException($"字「{dto.Id}」的字形特性「{t.Name}」写了幼苗(SummonSapling):拆 / 合时没有可取属性的召唤,须写 fromBody(取本字生面本体)");
             if (t.PartChar != null)
             {
                 if (trigger != TraitTrigger.OnDismantle)
@@ -695,7 +707,7 @@ namespace Brushblade.Data
                 var body = face == CardFace.Attack ? def.AttackEffects : def.Effects;
                 var all = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).OrderBy(t => (int)t.Slot)
                     .SelectMany(t => t.Effects)).ToList();
-                int sapling = all.FindIndex(e => e.Kind == EffectKind.SummonSapling);
+                int sapling = all.FindIndex(e => e.Kind == EffectKind.SummonSapling && !e.FromBody);   // fromBody(E41)不取本次召出的
                 if (sapling < 0) continue;
                 int summon = all.FindIndex(e => e.Kind == EffectKind.Summon);
                 if (summon < 0)
@@ -851,6 +863,7 @@ namespace Brushblade.Data
                 ValidateMetalOps(dto.Id, kind, effect);
                 ValidateWaterOps(dto.Id, kind, effect);
                 ValidateEarthOps(dto.Id, kind, effect);
+                ValidateWoodOps(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)
                 if (effect.PerBurningHit && kind != EffectKind.ExtraStrike)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 perBurningHit(只给 ExtraStrike)");
@@ -878,7 +891,8 @@ namespace Brushblade.Data
                     // 组合写错会在引擎里静默空转 —— 加载期拦下
                     bool ok = augmentField switch
                     {
-                        AugmentField.Count => augmentKind == EffectKind.Block,
+                        AugmentField.Count => augmentKind == EffectKind.Block
+                            || augmentKind == EffectKind.Charm || augmentKind == EffectKind.Summon,   // D2-木 E45 / E48
                         AugmentField.Turns => TraitRules.HasTurns(augmentKind),
                         AugmentField.StallPush => augmentKind == EffectKind.Freeze,   // D2-水 E17a 坚冰
                         AugmentField.Battle => augmentKind == EffectKind.DefenseBuff,  // D2-土 E34 圭臬
@@ -917,7 +931,11 @@ namespace Brushblade.Data
                     extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed,
                     ofHeal: effect.OfHeal, wardOf: ParseWardOf(effect.WardOf, kind, dto.Id), wardCount: effect.WardCount,
                     armorShieldPercent: effect.ArmorShieldPercent, armorStrikeEach: effect.ArmorStrikeEach,
-                    scaleDivisor: effect.ScaleDivisor, ofShield: effect.OfShield, minArmor: effect.MinArmor));
+                    scaleDivisor: effect.ScaleDivisor, ofShield: effect.OfShield, minArmor: effect.MinArmor,
+                    summonAtkStrikePercent: effect.SummonAtkStrikePercent, hostAtkStrikePercent: effect.HostAtkStrikePercent,
+                    hostArmorStrikePercent: effect.HostArmorStrikePercent, fromBody: effect.FromBody, sprout: effect.Sprout,
+                    ownSummons: effect.OwnSummons, byArmor: effect.ByArmor, reviveHpPercent: effect.ReviveHpPercent,
+                    summonPercent: effect.SummonPercent));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -970,8 +988,10 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{id}」的回合脉冲不能写 perHitFrom");
                 foreach (var child in e.PerHit)
                 {
+                    // D2-木 E50:条件门只收 OwnSummonAlive(与目标无关;OpeningEffect.OnlyIf 带得过去),其余仍拒
                     bool ok = Enum.TryParse(child.Kind, out EffectKind childKind) && BattleEngine.TurnPulseAllows(childKind)
-                        && string.IsNullOrEmpty(child.OnlyIf) && string.IsNullOrEmpty(child.RiderOf)
+                        && (string.IsNullOrEmpty(child.OnlyIf) || child.OnlyIf == nameof(DamageCondition.OwnSummonAlive))
+                        && string.IsNullOrEmpty(child.RiderOf)
                         && child.BodyPercent == 0 && child.PerHit == null && child.OpeningBattles == 0
                         // 载荷存成 OpeningEffect,只带 Kind / Value / Turns / TargetAll / Pick / Shape / ShapePercent;
                         // 其余修饰写了也会被静默丢掉 —— 一律拒绝
@@ -1153,6 +1173,30 @@ namespace Brushblade.Data
             if (e.OpeningBattles != 0 && (e.PersistOnce && kind == EffectKind.Reshape || e.ArmorShieldPercent != 0 || e.ArmorStrikeEach
                     || e.ScaleDivisor != 0 || e.OfShield || e.MinArmor != 0))
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 persist / armorShield / armorStrikeEach / scaleDivisor / ofShield / minArmor(登记时会丢)");
+        }
+
+        /// <summary>D2-木 Task 1 的字段(附录 E40 / E41 / E43 / E46 / E47 / E48):写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
+        private static void ValidateWoodOps(string id, EffectKind kind, EffectDto e)
+        {
+            bool damageLike = kind == EffectKind.DamageSingle || kind == EffectKind.Reshape;
+            if ((e.SummonAtkStrikePercent != 0 || e.HostAtkStrikePercent != 0 || e.HostArmorStrikePercent != 0)
+                && (!damageLike || e.SummonAtkStrikePercent < 0 || e.HostAtkStrikePercent < 0 || e.HostArmorStrikePercent < 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 summonAtkStrike / hostAtkStrike / hostArmorStrike(只给 DamageSingle / Reshape,且须 > 0)");
+            if ((e.FromBody || e.Sprout) && kind != EffectKind.SummonSapling)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 fromBody / sprout(只给 SummonSapling)");
+            if ((e.OwnSummons || e.ByArmor) && (kind != EffectKind.SummonStrike || (e.ByArmor && !e.OwnSummons)))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ownSummons / byArmor(只给 SummonStrike;byArmor 须配 ownSummons)");
+            if (e.ReviveHpPercent != 0 && (kind != EffectKind.Revive || e.ReviveHpPercent < 1 || e.ReviveHpPercent > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 reviveHpPercent(只给 Revive,且须在 1..100)");
+            if (kind == EffectKind.Revive && e.Value < 0)
+                throw new ConfigException($"字「{id}」的复活(Revive)只数须 ≥ 0(0 = 全部尸体):{e.Value}");
+            if (e.SummonPercent != 100 && (kind != EffectKind.Summon && kind != EffectKind.Reshape || e.SummonPercent < 1 || e.SummonPercent > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 summonPercent(只给 Summon / Reshape,且须在 1..100)");
+            if (e.ScaleBy == nameof(ScaleBasis.SummonCount) && kind != EffectKind.Amplify)
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy SummonCount(只给 Amplify)");
+            if (e.OpeningBattles != 0 && (e.SummonAtkStrikePercent != 0 || e.HostAtkStrikePercent != 0 || e.HostArmorStrikePercent != 0
+                    || e.FromBody || e.Sprout || e.OwnSummons || e.ByArmor || e.ReviveHpPercent != 0 || e.SummonPercent != 100))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 D2-木 的召唤修饰字段(登记时会丢)");
         }
 
         /// <summary>Reshape 的 persist / armorShield(D2-土 E29 / E30)只在**本体没有伤害**的那一面改护盾;写在伤害面上

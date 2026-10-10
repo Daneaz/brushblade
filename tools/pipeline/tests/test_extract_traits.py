@@ -326,8 +326,15 @@ def test_d2earth_battle_limit_token_parsed_to_max_per_battle():
 @pytest.mark.parametrize("row", [
     "| 杜 | Lv8 | 固 | 主动 | — | 坏 | `DamageCut 60` `battleLimit 0` | ✅ |",                  # ≥ 1
     "| 杜 | Lv8 | 固 | 主动 | — | 坏 | `DamageCut 60` `battleLimit 1` `battleLimit 2` | ✅ |",   # 只能一条
-    "| 爆 | Lv8 | 攻 | 被动·击杀 | — | 坏 | `Morale 1` `battleLimit 1` | ✅ |",                   # 只给出字时
+    "| 爆 | Lv8 | 攻 | 被动·暴击 | — | 坏 | `Morale 1` `battleLimit 1` | ✅ |",                   # 只给出字时 / 击杀时(D2-木 E49)
 ])
 def test_d2earth_bad_battle_limit_rows_raise(row):
     with pytest.raises(ValueError):
         extract_traits(_H + row + "\n")
+
+
+def test_d2wood_battle_limit_allows_on_kill():
+    """D2-木 E49(折桂):击杀时特性也收 `battleLimit N`。"""
+    md = _H + "| 桂 | Lv5 | 攻 | 被动·击杀 | — | 折桂 | `Morale 1` `battleLimit 1` | ✅ |\n"
+    t = extract_traits(md)["桂"][0]
+    assert (t["trigger"], t["maxPerBattle"]) == ("OnKill", 1)
