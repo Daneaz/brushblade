@@ -400,6 +400,61 @@ namespace Brushblade.Core.Tests
             return heals;
         }
 
+        // ================= Ruling 14(终审修订):Reshape 改散射时重置前一条的多段 =================
+
+        /// <summary>折叠后的 DamageSingle:<see cref="Sig"/> 之外再补上 ApplyReshape 会写的其余字段。</summary>
+        private static string FoldedDamageSig(string ch)
+        {
+            var d = TraitRules.CastEffects(Graph.Get(ch), CardFace.Attack, 8).First(e => e.Kind == EffectKind.DamageSingle);
+            var p = new List<string> { Sig(d) };
+            if (d.PerHitFrom != 1) p.Add($"perHitFrom {d.PerHitFrom}");
+            if (d.ForceCrit) p.Add("crit");
+            if (d.ArmorIgnorePercent > 0) p.Add($"armorIgnore {d.ArmorIgnorePercent}");
+            if (d.ShieldStrikePercent > 0) p.Add($"shieldStrike {d.ShieldStrikePercent}");
+            if (d.ArmorStrikePercent > 0) p.Add($"armorStrike {d.ArmorStrikePercent}");
+            if (d.ExecuteSplashPercent > 0) p.Add($"execSplash {d.ExecuteSplashPercent}");
+            return string.Join(" ", p);
+        }
+
+        /// <summary>淋 Lv8 攻面:倾盆(Lv5,hits 3 / 40% / 每击减速延长)之后,暴雨(Lv8)改成散射 5 发 × 30%。
+        /// 散射只有 t == 0 吃主目标多段,混着倾盆就成了「首发拆 3 段,其余 4 发整发」(共 197)。
+        /// 修订后的 Ruling 14:改散射且自己没写 hits 时,多段字段重置 → 纯暴雨。</summary>
+        [Test]
+        public void LinLv8_Downpour_ScatterResetsEarlierMultiHit()
+        {
+            var d = TraitRules.CastEffects(Graph.Get("淋"), CardFace.Attack, 8).First(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That((d.Shape, d.Shots, d.ShotPercent), Is.EqualTo((TargetArea.Scatter, 5, 30)));
+            Assert.That((d.HitCount, d.HitPercent, d.PerHitFrom), Is.EqualTo((1, 100, 1)), "倾盆的多段被暴雨的散射重置");
+            Assert.That(d.PerHit.Select(Sig).ToList(), Is.EqualTo(new[] { "Slow 1" }), "每发减速取暴雨的,不带倾盆的 extend");
+        }
+
+        [Test]
+        public void LinLv8_Downpour_SingleTargetDealsFiveShotsOfThirtyEight()
+        {
+            var b = Battle("淋", 8, Mob());
+            Cast(b, "淋", 0, attack: true);
+            var hits = b.LastEvents.Where(e => e.Kind == BattleEventKind.Damage && e.TargetIndex == 0).Select(e => e.Amount).ToList();
+            Assert.That(hits, Is.EqualTo(new[] { 38, 38, 38, 38, 38 }), "5 发各 38");
+            Assert.That(hits.Sum(), Is.EqualTo(190));
+        }
+
+        /// <summary>守护:其余同面多条 Reshape 的金 / 土 / 水字 Lv8 攻面折叠结果与修订前逐字段一致(期望值取自修订前代码)。
+        /// Reshape 的叠加是 D2-金 / D2-土 的设计,只有「改散射」才重置多段。</summary>
+        [TestCase("海", "DamageSingle 88 shape All shapePct 60 shots 3")]
+        [TestCase("剁", "DamageSingle 61 hits 2 hitPct 35 per Morale perHit[Bleed 35 turns 3] perHitFrom 2")]
+        [TestCase("锥", "DamageSingle 106 shape Column shapePct 70 hits 2 hitPct 60 armorIgnore 100")]
+        [TestCase("锋", "DamageSingle 62 hits 2 hitPct 60 crit")]
+        [TestCase("鑫", "DamageSingle 297 shape Adjacent hits 3 hitPct 50")]
+        [TestCase("\uE626", "DamageSingle 384 hits 4 hitPct 30 perHit[ArmorBreak 15 turns 3] armorIgnore 100")]
+        [TestCase("鍂", "DamageSingle 98 hits 2 hitPct 60 perHit[Morale 1]")]
+        [TestCase("碉", "DamageSingle 60 shape Row shapePct 50 shieldStrike 40")]
+        [TestCase("壁", "DamageSingle 60 shape Row shapePct 50 shieldStrike 40")]
+        [TestCase("垒", "DamageSingle 63 shape Row shapePct 50 armorStrike 300")]
+        public void StackedReshapes_OtherLv8AttackFaces_Unchanged(string ch, string expected)
+        {
+            Assert.That(FoldedDamageSig(ch), Is.EqualTo(expected), ch);
+        }
+
         // ================= 冷却:每 Boss 每场 1 次;小怪下次攻击 −50% =================
 
         [Test]

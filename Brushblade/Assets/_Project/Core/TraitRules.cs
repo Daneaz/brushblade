@@ -348,20 +348,23 @@ namespace Brushblade.Core
                         effects[i] = effects[i].With(pick: r.Pick);
                 return;
             }
+            // 改为散射且自己没写 hits(D2-水 Ruling 14 修订,淋·暴雨):散射只有首发吃主目标多段,
+            // 「散射 + 前一条 Reshape 的多段」不成立 → 多段字段重置为缺省。其余字段仍按非缺省逐项覆盖
+            bool toScatter = r.Shape == TargetArea.Scatter && r.HitCount == 1;
             effects[at] = effects[at].With(
                 shape: r.Shape != TargetArea.Single ? r.Shape : (TargetArea?)null,
                 // 改成全体时百分比一并重置:没写 shapePercent 就是全额 100,不沿用原效果(如横扫 50)的溅射比例
                 shapePercent: r.ShapePercent != 100 || r.Shape == TargetArea.All ? r.ShapePercent : (int?)null,
                 shots: r.Shots != 0 ? r.Shots : (int?)null,
-                hitCount: r.HitCount != 1 ? r.HitCount : (int?)null,
-                hitPercent: r.HitPercent != 100 ? r.HitPercent : (int?)null,
+                hitCount: r.HitCount != 1 ? r.HitCount : toScatter ? 1 : (int?)null,
+                hitPercent: r.HitPercent != 100 ? r.HitPercent : toScatter ? 100 : (int?)null,
                 forceCrit: r.ForceCrit ? true : (bool?)null,
                 armorIgnorePercent: r.ArmorIgnorePercent > 0 ? r.ArmorIgnorePercent : (int?)null,
                 shieldStrikePercent: r.ShieldStrikePercent > 0 ? r.ShieldStrikePercent : (int?)null,
                 armorStrikePercent: r.ArmorStrikePercent > 0 ? r.ArmorStrikePercent : (int?)null,
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
                 perHit: r.PerHit.Count > 0 ? r.PerHit : null,
-                perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : (int?)null,
+                perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : toScatter ? 1 : (int?)null,
                 shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null,
                 // 斩杀(D2-金 E7,铡刀落)与击数按战意(E10,大卸八块)
                 executeBelowPercent: r.ExecuteBelowPercent > 0 ? r.ExecuteBelowPercent : (int?)null,
