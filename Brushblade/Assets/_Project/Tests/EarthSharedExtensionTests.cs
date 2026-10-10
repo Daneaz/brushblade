@@ -366,6 +366,40 @@ namespace Brushblade.Core.Tests
         }
 
 
+
+        /// <summary>fix round 1(I-1):圭臬拖给木灵 → 木灵身上 TurnsLeft −1 的 DefenseBuff 战后不随木灵携带;
+        /// 两种入场护甲(SummonDefense 的 SourceId = 字 ID、坚木本命的「字#armor」)照常携带。</summary>
+        [Test]
+        public void E34_GuinieArmorOnSummon_IsNotCarried_EntryArmorStillIs()
+        {
+            var guinie = new CharDef("臬", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 10, turns: 2) },
+                traits: new[] { Trait(TraitSlot.Lv6, TraitFace.Feature, TraitForm.Passive, Guinie()) });
+            var wood = Wood(1);
+            wood.Statuses = new List<StatusEffect>
+            {
+                new() { Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = 7, TurnsLeft = -1, SourceId = "塔" },
+                new() { Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = 5, TurnsLeft = -1, SourceId = "桩#armor" },
+            };
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { RebalanceFixture.Mob(hp: 20) }, new[] { RebalanceFixture.Mob(hp: 20) } },
+                RewardPool = new[] { "甲" },
+            };
+            var run = new RunEngine(RebalanceFixture.Graph(guinie), config, Config,
+                new[] { "臬", "甲" }, Array.Empty<string>(), seed: 1,
+                cardLevels: new Dictionary<string, int> { ["臬"] = 6 }, startingSummons: new[] { wood });
+            Assert.That(run.Battle.Cast("臬", allySlot: 1), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Summons[1].Statuses.All.Any(st => st.Kind == StatusKind.DefenseBuff && st.SourceId.StartsWith("臬#")
+                && st.TurnsLeft == -1), Is.True, "夹具前提:圭臬的护甲落在木灵身上、本场持续");
+            Assert.That(run.Battle.Cast("甲", 0), Is.EqualTo(BattleError.None));
+            run.AdvanceAfterBattle();
+            var carried = run.CarriedSummons.Single().Statuses.Where(st => st.Kind == StatusKind.DefenseBuff).ToList();
+            Assert.That(carried.Any(st => st.SourceId.StartsWith("臬#")), Is.False, "圭臬护甲不随木灵跨场");
+            Assert.That(carried.Select(st => st.SourceId).OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+                Is.EqualTo(new[] { "塔", "桩#armor" }), "两种入场护甲照常携带");
+        }
+
         // ---------------- E35:特性级每场次数 ----------------
 
         /// <summary>杜门不出形状:固面本体 Shield 10;Lv8 固面特性 Morale 1(可数),每场 1 次。</summary>
@@ -422,6 +456,34 @@ namespace Brushblade.Core.Tests
             Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "读档后次数仍在:第二次不进 Fold");
         }
 
+
+        [Test]
+        public void E35_FailedCast_DoesNotCountAUse()
+        {
+            var cfg = new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, ApPerTurn = 1 };
+            var def = Dumen();
+            var b = new BattleEngine(RebalanceFixture.Graph(def), cfg, new[] { "杜", "杜", "杜" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: new Dictionary<string, int> { ["杜"] = 8 });
+            Assert.That(b.Cast("杜"), Is.EqualTo(BattleError.None), "第一张:AP 1 → 0,特性生效");
+            Assert.That(b.Cast("杜"), Is.EqualTo(BattleError.NotEnoughAp));
+            Assert.That(b.Capture().TraitUsesThisBattle.Values.Sum(), Is.EqualTo(1), "AP 不足的出字不记次");
+        }
+
+        [Test]
+        public void E35_FailedCastFirst_ThenSuccessfulCast_StillTriggers()
+        {
+            var cfg = new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, ApPerTurn = 1 };
+            var poor = RebalanceFixture.Char("贵", new EffectDef(EffectKind.Shield, 1));
+            var def = Dumen();
+            var b = new BattleEngine(RebalanceFixture.Graph(def, poor), cfg, new[] { "贵", "杜", "杜" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: new Dictionary<string, int> { ["杜"] = 8 });
+            Assert.That(b.Cast("贵"), Is.EqualTo(BattleError.None));
+            Assert.That(b.Cast("杜"), Is.EqualTo(BattleError.NotEnoughAp), "AP 用尽");
+            b.EndTurn();
+            Assert.That(b.Cast("杜"), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "被拒那次没记次:同场再出仍触发");
+        }
+
         // ---------------- ConfigLoader ----------------
 
         /// <summary>一张两面土字:固面 Shield + DefenseBuff,攻面 DamageSingle。traitFace 指定特性写在哪一面。</summary>
@@ -476,6 +538,14 @@ namespace Brushblade.Core.Tests
         public void Loader_RejectsBadSharedModifier(string effect, string face)
         {
             Assert.Throws<ConfigException>(() => Load(effect, face));
+        }
+
+        /// <summary>fix round 1:ofShield 所在面没有 Shield / ShieldAll 时名义护盾恒 0 —— 加载期拦下;有护盾的面照常放行。</summary>
+        [Test]
+        public void Loader_RejectsOfShieldOnFaceWithoutShield()
+        {
+            Assert.Throws<ConfigException>(() => Load(@"{""kind"":""ShieldSummons"",""value"":50,""ofShield"":true}", "Attack"));
+            Assert.DoesNotThrow(() => Load(@"{""kind"":""ShieldSummons"",""value"":50,""ofShield"":true}", "Feature"));
         }
     }
 }

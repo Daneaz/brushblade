@@ -681,7 +681,9 @@ namespace Brushblade.Presentation
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),
                 ScaleBasis.Cleansed => Strings.T("char.effect.per.cleansed"),
                 // D2-土 E36(地裂):出字前护盾每 ScaleDivisor 点 +1 击,上限写在同一句里(单位是击,不是百分点)
-                ScaleBasis.Shield => Strings.T("char.effect.per.shield.hits", ("divisor", e.ScaleDivisor), ("cap", e.ScaleCap)),
+                ScaleBasis.Shield => e.ScaleCap > 0   // cap 0 = 不设上限,不印「最多 +0 击」
+                    ? Strings.T("char.effect.per.shield.hits", ("divisor", e.ScaleDivisor), ("cap", e.ScaleCap))
+                    : Strings.T("char.effect.per.shield.hits.nocap", ("divisor", e.ScaleDivisor)),
                 _ => "",
             } + (e.ScaleBy != ScaleBasis.None && e.ScaleBy != ScaleBasis.Shield && e.ScaleCap > 0
                 ? Strings.T("char.effect.per.cap", ("cap", e.ScaleCap)) : "");

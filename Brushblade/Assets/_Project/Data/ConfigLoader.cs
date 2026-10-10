@@ -1132,7 +1132,7 @@ namespace Brushblade.Data
         }
 
         /// <summary>Reshape 的 persist / armorShield(D2-土 E29 / E30)只在**本体没有伤害**的那一面改护盾;写在伤害面上
-        /// Fold 会改伤害、这两项静默无效 —— 加载期拦下。</summary>
+        /// Fold 会改伤害、这两项静默无效 —— 加载期拦下。ShieldSummons ofShield(E28)所在面须有 Shield / ShieldAll。</summary>
         private static void ValidateShieldReshapeFaces(CharDef def)
         {
             foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
@@ -1143,6 +1143,11 @@ namespace Brushblade.Data
                     .Any(e => e.Kind == EffectKind.Reshape && (e.PersistOnce || e.ArmorShieldPercent > 0));
                 if (shieldReshape && body.Any(e => e.Kind == EffectKind.DamageSingle))
                     throw new ConfigException($"字「{def.Id}」的 {face} 面有伤害,Reshape 的 persist / armorShield 只作用于无伤害面的护盾");
+                // ShieldSummons ofShield(E28)读本次名义护盾:同面(本体 + 作用于该面的特性)没有 Shield / ShieldAll 时恒为 0(fix round 1)
+                var faceEffects = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects)).ToList();
+                if (faceEffects.Any(e => e.Kind == EffectKind.ShieldSummons && e.OfShield)
+                    && !faceEffects.Any(e => e.Kind == EffectKind.Shield || e.Kind == EffectKind.ShieldAll))
+                    throw new ConfigException($"字「{def.Id}」的 {face} 面写了 ShieldSummons ofShield,但这一面没有 Shield / ShieldAll —— 名义护盾恒为 0");
             }
         }
 

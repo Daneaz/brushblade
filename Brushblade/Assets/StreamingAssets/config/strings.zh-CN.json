@@ -1604,5 +1604,6 @@
   "char.effect.per.shield.hits": "(出字前我方护盾每 {divisor} 点 +1 击,最多 +{cap} 击)",
   "char.effect.shieldsummons.ofshield": "所有召唤物获得本次护盾量{value}%的护盾",
   "char.effect.retaliate.minarmor": "护甲 ≥ {armor} 时,",
-  "char.trait.battlelimit": "(每场限 {count} 次)"
+  "char.trait.battlelimit": "(每场限 {count} 次)",
+  "char.effect.per.shield.hits.nocap": "(出字前我方护盾每 {divisor} 点 +1 击)"
 }

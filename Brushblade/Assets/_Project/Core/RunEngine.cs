@@ -905,6 +905,16 @@ namespace Brushblade.Core
         /// (<see cref="BattleEngine.Capture"/> → <c>BattleSnapshot.Summons</c>),那条路径**必须**
         /// 原样保留计量器,否则读档会把节奏重置(ActionMeter_SurvivesRoundTrip_RhythmContinues
         /// 守着这一点)。改到 Capture 里去会同时破坏它。</summary>
+        /// <summary>出字挂上的「本场持续」护甲(D2-土 E34 fix round 1,圭臬拖给木灵):DefenseBuff、TurnsLeft &lt; 0、
+        /// SourceId 是 DefenseBuff 分支铸的「字#序号」。本场永久 ≠ 跨场 —— 与玩家侧删携带白名单同口径。
+        /// 入场护甲照常随木灵存在:SummonDefense 的 SourceId 是裸字 ID,坚木本命是「字#armor」,序号段不是纯数字。</summary>
+        private static bool IsBattleLongCastArmor(StatusEffect st)
+        {
+            if (st.Kind != StatusKind.DefenseBuff || st.TurnsLeft >= 0 || st.SourceId == null) return false;
+            int hash = st.SourceId.LastIndexOf('#');
+            return hash >= 0 && hash < st.SourceId.Length - 1 && st.SourceId.Substring(hash + 1).All(char.IsDigit);
+        }
+
         private List<SummonSnapshot> CaptureAliveSummons()
         {
             var alive = new List<SummonSnapshot>();
@@ -914,8 +924,10 @@ namespace Brushblade.Core
                 if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
                 var snapshot = summon.Capture(s);   // 槽位随之带走
                 snapshot.ActionMeter = 0;
-                // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲
-                snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)).ToList();
+                // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲;
+                // 出字挂上的本场护甲(圭臬,D2-土 E34)另剥
+                snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)
+                    && !IsBattleLongCastArmor(st)).ToList();
                 // §2.2 本场改的属性在这里复原(E3);解封已清掉记号的,Element 即最终属性
                 if (summon.BaseElement.HasValue) snapshot.Element = summon.BaseElement.Value;
                 snapshot.BaseElement = null;
