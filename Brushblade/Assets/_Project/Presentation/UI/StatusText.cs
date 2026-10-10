@@ -1,3 +1,4 @@
+using System;
 using Brushblade.Core;
 using Brushblade.Data;
 
@@ -274,34 +275,32 @@ namespace Brushblade.Presentation
                         Strings.T("status.duration.until_next_action"),
                         Strings.T("status.mine.desc", ("magnitude", magnitude)));
                 case StatusKind.Retaliate:
-                    // 受击回敬(D2-火 Task 4,烈焰护身;金系复用;StatusChipsFire 稿):玩家身上,本回合,翠玉底
+                    // 受击回敬(D2-火 Task 4,烈焰护身;金系复用;StatusChipsFire 稿):玩家身上,翠玉底。
+                    // 潜流(D2-水 E23)起可多回合:TurnsLeft > 1 印「剩 N 回合」,1 = 本回合。载荷见 Of(StatusEffect) 重载
                     return new Info("retaliate", Strings.T("status.retaliate.name"),
-                        Strings.T("status.duration.this_turn"),
+                        turnsLeft > 1 ? Strings.T("status.duration.turns", ("value", turnsLeft)) : Strings.T("status.duration.this_turn"),
                         Strings.T("status.retaliate.desc"));
                 case StatusKind.BuffBlock:
-                    // 洗尽铅华(D2-水 W3):敌人身上。战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
+                    // 洗尽铅华(D2-水 W3):敌人身上,按**该敌人的行动**递减(冻结跳过那拍也算)——时长写「次行动」不写「回合」。
+                    // 战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
                     return new Info(null, Strings.T("status.buffblock.name"),
-                        Duration(turnsLeft),
+                        turnsLeft > 0 ? Strings.T("status.duration.actions", ("value", turnsLeft)) : Duration(turnsLeft),
                         Strings.T("status.buffblock.desc"));
                 case StatusKind.DebuffWard:
                     // 濯身 / 浇熄(D2-水 W4):玩家或木灵身上。战场 chip 待 designer 稿(V5 门控),IconKey null。
-                    // 只拦哪一种 / 剩几次 / 转盾量要读 StatusEffect 的字段,这里只拿到 (kind, magnitude, turnsLeft):
-                    // 说明按「转盾量」分两句,细节归 Task 5
-                    return new Info(null, Strings.T("status.debuffward.name"),
-                        Duration(turnsLeft),
-                        magnitude > 0
-                            ? Strings.T("status.debuffward.desc.shield", ("value", magnitude))
-                            : Strings.T("status.debuffward.desc"));
+                    // 只拦哪一种 / 剩几次要读 StatusEffect 的字段 —— 详情走 Of(StatusEffect) 那个重载;这里是只有三元组时的全量口径
+                    return WardInfo(null, 0, magnitude, turnsLeft);
                 case StatusKind.HurtHeal:
                     // 栉风沐雨(D2-水 W5):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
                     return new Info(null, Strings.T("status.hurtheal.name"),
                         Duration(turnsLeft),
                         Strings.T("status.hurtheal.desc", ("magnitude", magnitude)));
                 case StatusKind.TurnPulse:
-                    // 大雨滂沱(D2-水 W7):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;载荷见特性文案
+                    // 大雨滂沱(D2-水 W7):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;
+                    // 载荷在 StatusEffect.OnHit 上 —— 详情走 Of(StatusEffect) 重载逐条列出,这里只有三元组时不列
                     return new Info(null, Strings.T("status.turnpulse.name"),
                         Duration(turnsLeft),
-                        Strings.T("status.turnpulse.desc"));
+                        Strings.T("status.turnpulse.desc.generic"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句
@@ -315,6 +314,60 @@ namespace Brushblade.Presentation
                     // 这里兜底返回 None 而不是抛异常,免得万一读到旧存档脏数据时详情弹窗整屏崩掉。
                     return None;
             }
+        }
+
+        /// <summary>按整条状态取词(D2-水 Task 5):有些说明要读 <see cref="StatusEffect"/> 上三元组以外的字段 ——
+        /// 淋漓的种(<see cref="StatusEffect.WhileSlowed"/>)、免疫减益只拦哪一种 / 剩几次(<see cref="StatusEffect.WardOf"/> /
+        /// <see cref="StatusEffect.WardCount"/>)、回敬与回合脉冲的载荷(<see cref="StatusEffect.OnHit"/>)。
+        /// 其余状态与 <see cref="Of(StatusKind, int, int, bool)"/> 逐字相同。
+        /// <paramref name="cardLevelOf"/>(可空):载荷存的是未缩放值、结算时按来源字等级缩放,传它才印得出实际量;null 按 1 级印。</summary>
+        public static Info Of(StatusEffect effect, bool isPlayer = false, Func<string, int> cardLevelOf = null)
+        {
+            var info = Of(effect.Kind, effect.Magnitude, effect.TurnsLeft, isPlayer);
+            switch (effect.Kind)
+            {
+                case StatusKind.Seed when effect.WhileSlowed:
+                    // 淋漓(D2-水 E25):持有者不在减速中时不触发
+                    return new Info(info.IconKey, info.Name, info.Duration,
+                        info.Desc + Strings.T("status.seed.whileslowed"));
+                case StatusKind.DebuffWard:
+                    return WardInfo(effect.WardOf, effect.WardCount, effect.Magnitude, effect.TurnsLeft);
+                case StatusKind.Retaliate when effect.OnHit is { Count: > 0 }:
+                {
+                    string list = CharInfo.DetachedEffectsText(effect.OnHit, LevelOf(effect, cardLevelOf));
+                    return new Info(info.IconKey, info.Name, info.Duration,
+                        effect.Magnitude > 0
+                            ? Strings.T("status.retaliate.desc.list.cap", ("list", list), ("cap", effect.Magnitude))
+                            : Strings.T("status.retaliate.desc.list", ("list", list)));
+                }
+                case StatusKind.TurnPulse when effect.OnHit is { Count: > 0 }:
+                    return new Info(info.IconKey, info.Name, info.Duration,
+                        Strings.T("status.turnpulse.desc",
+                            ("list", CharInfo.DetachedEffectsText(effect.OnHit, LevelOf(effect, cardLevelOf)))));
+                default:
+                    return info;
+            }
+        }
+
+        private static int LevelOf(StatusEffect effect, Func<string, int> cardLevelOf) =>
+            cardLevelOf != null && effect.SourceId != null ? Math.Max(1, cardLevelOf(effect.SourceId)) : 1;
+
+        /// <summary>免疫减益的详情(D2-水 W4)。名:全量「免疫减益」/ 只拦一种「免疫灼烧」;说明:挡什么 + 转盾(灼按层、其余按条)
+        /// + 剩余次数(WardCount &gt; 0 时)。状态名取本类 <see cref="Of(StatusKind, int, int, bool)"/>,与卡面同一份。</summary>
+        private static Info WardInfo(StatusKind? wardOf, int wardCount, int shield, int turnsLeft)
+        {
+            string status = wardOf is StatusKind of ? Of(of, 0, 0).Name ?? "" : null;
+            string name = status == null ? Strings.T("status.debuffward.name")
+                : Strings.T("status.debuffward.name.of", ("status", status));
+            string desc = status == null ? Strings.T("status.debuffward.desc")
+                : Strings.T("status.debuffward.desc.of", ("status", status));
+            if (shield > 0)
+                desc += wardOf == StatusKind.Burn ? Strings.T("status.debuffward.shield.stack", ("value", shield))
+                    : wardOf is null ? Strings.T("status.debuffward.shield.mixed", ("value", shield))
+                    : Strings.T("status.debuffward.shield.entry", ("value", shield));
+            if (wardCount > 0)
+                desc += Strings.T("status.debuffward.count", ("count", wardCount));
+            return new Info(null, name, Duration(turnsLeft), desc);
         }
 
         /// <summary>敌人天生能力。文案取自既有 `enemy.ability.*`(EnemyInfo.cs 的图鉴/战斗面板

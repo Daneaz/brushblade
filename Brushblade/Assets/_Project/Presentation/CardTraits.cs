@@ -227,7 +227,7 @@ namespace Brushblade.Presentation
             {
                 // 带后缀的效果(开局登记 / 每击附带)先扫进自己的临时表、补完后缀再并入(终审 8):直接扫进 traits 的话,
                 // 同名同量的 chip 会先被 AddUnique 去重掉,后缀无处可补(如「灼 2」+「灼 2 开局登记」同在一面)
-                bool suffixed = e.OpeningBattles > 0 || (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate);
+                bool suffixed = e.OpeningBattles > 0 || (e.PerHit.Count > 0 && !OwnsPayload(e.Kind));
                 if (!suffixed)
                 {
                     ScanOne(traits, e, cardLevel);
@@ -650,9 +650,9 @@ namespace Brushblade.Presentation
                     break;
             }
 
-            // 每击附带(D2-火 N4b):子效果各出自己的 chip,说明末尾注明「每击后触发」。回敬的 perHit 是它自己的反制效果,
-            // 已由回敬那一条说明,不展开
-            if (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate)
+            // 每击附带(D2-火 N4b):子效果各出自己的 chip,说明末尾注明「每击后触发」。回敬 / 回合脉冲的 perHit 是它们自己的载荷,
+            // 已由那一条说明,不展开
+            if (e.PerHit.Count > 0 && !OwnsPayload(e.Kind))
             {
                 int sub = traits.Count;
                 Scan(traits, e.PerHit, cardLevel);
@@ -675,6 +675,9 @@ namespace Brushblade.Presentation
                         Strings.T("collection.trait.summon_shield.name"),
                         Strings.T("collection.trait.summon_shield.desc", ("value", e.SummonShield)));
         }
+
+        /// <summary>perHit 段是这条效果自己的载荷(不是「每击附带」):受击回敬、回合脉冲(D2-水 W7)。</summary>
+        private static bool OwnsPayload(EffectKind kind) => kind == EffectKind.Retaliate || kind == EffectKind.TurnPulse;
 
         private static void DamageModifiers(List<Trait> traits, EffectDef e)
         {

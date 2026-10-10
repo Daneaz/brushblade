@@ -60,7 +60,10 @@ namespace Brushblade.Presentation
         public static string SideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel) =>
             OneSideEffectsText(effects, def, cardLevel);
 
-        private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel)
+        /// <param name="healReshape">治疗改形(D2-水 E20):这些效果所在那一面没有伤害、有 HealSelf ——
+        /// Reshape 的 shape All 改的是治疗,不是伤害。只有 <see cref="TraitEffectsText"/> 拿得到面的上下文。</param>
+        private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel,
+            bool healReshape = false)
         {
             if (effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
@@ -118,7 +121,7 @@ namespace Brushblade.Presentation
                         + ShapeSuffix(e),
                     // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」
                     // 纯属绕口;只有召别的字时才点名。数据侧的默认值仍是「木」,不同名照旧显示
-                    EffectKind.Summon => (e.SummonChar == def.Id
+                    EffectKind.Summon => (e.SummonChar == def?.Id
                             ? Strings.T("char.effect.summon.self", ("count", e.SummonCount))
                             : Strings.T("char.effect.summon.other", ("count", e.SummonCount)) + "「" + e.SummonChar + "」") +
                         Strings.T("char.effect.summon.stats",
@@ -289,7 +292,7 @@ namespace Brushblade.Presentation
                     EffectKind.Unseal => Strings.T("char.effect.unseal"),
                     // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
                     EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
-                    EffectKind.Reshape => ReshapeText(e),
+                    EffectKind.Reshape => ReshapeText(e, healReshape),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
                     // 格挡修饰器(D2-金 E12):按战意的次数 / 反击百分比覆盖 / 格挡附带都在 BlockModText 里印
@@ -319,8 +322,11 @@ namespace Brushblade.Presentation
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
-                if (EffectPickRules.Supports(e.Kind))
+                // 冻结附着(D2-水 W1)的句子本身已点名「被本字冻结的敌人 / 本字的冻结」,不再补选择器后缀(会印成两遍)
+                if (EffectPickRules.Supports(e.Kind) && !NamesOwnTarget(e.Kind))
                     parts.Append(PickText(e.Pick) + OnlyIfText(e.OnlyIf));
+                else if (EffectPickRules.Supports(e.Kind))
+                    parts.Append(OnlyIfText(e.OnlyIf));
                 // 计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数
                 parts.Append(ScaleText(e));
                 // 每击附带(D2-火 N4b):子效果逐条印,斜杠分隔(分号已是外层分隔符)
@@ -343,8 +349,32 @@ namespace Brushblade.Presentation
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
             TriggerText(trait.Trigger)
-            + OneSideEffectsText(trait.Effects, def, cardLevel)
+            + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel))
             + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "");
+
+        /// <summary>这条特性所在那一面「没有伤害、有治疗」(D2-水 E20,海纳百川 / 细雨 / 泽被…):Reshape shape All 改的是第一条 HealSelf。
+        /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面**折叠后**的出字效果(<see cref="TraitRules.CastEffects"/>,
+        /// 等级取 max(卡等级, 本特性解锁等级) —— 未解锁的特性也要印得对)。两面通用(Both)的特性按润面判:
+        /// 双方向字的攻面恒有伤害,改的是伤害,印成「伤害改为」;单方向字只有一面,与润面同一份效果。</summary>
+        private static bool HealReshapeFace(TraitDef trait, CharDef def, int cardLevel)
+        {
+            if (def == null || !trait.Effects.Any(e => e.Kind == EffectKind.Reshape)) return false;
+            if (trait.Face == TraitFace.Both && def.AttackEffects.Count > 0) return false;
+            var face = trait.Face == TraitFace.Attack ? CardFace.Attack : CardFace.Feature;
+            var cast = TraitRules.CastEffects(def, face, Math.Max(cardLevel, trait.UnlockLevel));
+            return !cast.Any(e => e.Kind == EffectKind.DamageSingle) && cast.Any(e => e.Kind == EffectKind.HealSelf);
+        }
+
+        /// <summary>冻结附着族的句子自带主语(「被本字冻结的敌人…」「本字的冻结结束时…」),选择器后缀不再印。</summary>
+        private static bool NamesOwnTarget(EffectKind kind) =>
+            kind == EffectKind.FrostBite || kind == EffectKind.ThawStrike || kind == EffectKind.ThawSlow;
+
+        /// <summary>挂在状态上的效果载荷(受击回敬 / 回合脉冲的 <see cref="StatusEffect.OnHit"/>)的人话,斜杠分隔(同卡面 perHit)。
+        /// 载荷存的是**未缩放**值,结算时按来源字等级缩放 —— <paramref name="cardLevel"/> 传来源字的等级,印的就是实际结算量。
+        /// 载荷白名单(ConfigLoader)不含召唤,用不到字定义,传 null。</summary>
+        public static string DetachedEffectsText(IReadOnlyList<OpeningEffect> payload, int cardLevel) =>
+            payload == null ? "" :
+            string.Join("/", payload.Select(o => OneSideEffectsText(new[] { o.ToEffect() }, null, cardLevel)));
 
         /// <summary>特性的结算时机前缀(D2-金 J3 起):出字时(Cast)不印;被动反应各一条完整 key。</summary>
         public static string TriggerText(TraitTrigger trigger) => trigger switch
@@ -361,7 +391,7 @@ namespace Brushblade.Presentation
         private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
         {
             string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
-            // 潜流(D2-水 E23):多回合时句首改成「之后 N 回合内」(潜流不限次;带上限的多回合回敬细化归 Task 5)
+            // 潜流(D2-水 E23):多回合时句首改成「之后 N 回合内」;带上限时补「每回合至多 N 次」(上限按回合计)
             if (e.Turns > 1)
                 return Strings.T("char.effect.retaliate.turns", ("turns", e.Turns), ("list", list))
                     + (e.Value > 0 ? Strings.T("char.effect.retaliate.turns.cap", ("cap", e.Value)) : "");
@@ -379,7 +409,11 @@ namespace Brushblade.Presentation
                 ? Strings.T("char.effect.debuffward.of", ("turns", turns), ("status", StatusText.Of(of, 0, 0).Name ?? ""))
                 : Strings.T("char.effect.debuffward", ("turns", turns));
             if (e.WardCount > 0) text += Strings.T("char.effect.debuffward.count", ("count", e.WardCount));
-            if (shield > 0) text += Strings.T("char.effect.debuffward.shield", ("value", shield));
+            // 转盾:灼按层计,其余减益按条计;全量免疫(WardOf null)两种都会挡,两种计法都印
+            if (shield > 0)
+                text += e.WardOf == StatusKind.Burn ? Strings.T("char.effect.debuffward.shield", ("value", shield))
+                    : e.WardOf is null ? Strings.T("char.effect.debuffward.shield.mixed", ("value", shield))
+                    : Strings.T("char.effect.debuffward.shield.entry", ("value", shield));
             return text;
         }
 
@@ -586,10 +620,15 @@ namespace Brushblade.Presentation
 
         /// <summary>Reshape(D1 Task 3):「伤害改为 + 形状 + 改动的修饰」。只印 Reshape 上非缺省的字段,
         /// 与引擎 TraitRules.Fold 的覆盖口径一致。</summary>
-        private static string ReshapeText(EffectDef e) =>
+        private static string ReshapeText(EffectDef e, bool healReshape = false) =>
             e.Pick != EffectPick.Primary
                 // 重选目标(D2-火 E3,烈风):本面没有伤害时,落在主目标上的效果改落到选择器上
                 ? Strings.T("char.effect.reshape.retarget") + PickText(e.Pick)
+                // 治疗改形(D2-水 E20):本面没有伤害、shape All → 第一条治疗改为全体友方,每人各治 shapePercent%
+                : healReshape && e.Shape == TargetArea.All
+                    ? (e.ShapePercent < 100
+                        ? Strings.T("char.effect.reshape.heal.percent", ("percent", e.ShapePercent))
+                        : Strings.T("char.effect.reshape.heal"))
                 : Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
                     + ShapeSuffix(e) + HitCountText(e) + ExecuteText(e) + ArmorStrikeText(e) + MarkerText(e);
 
