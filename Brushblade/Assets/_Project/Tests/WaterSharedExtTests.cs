@@ -193,6 +193,59 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        private sealed class CorpseLog : IBattleHookListener
+        {
+            public readonly List<HookArgs> All = new();
+            public void OnHook(BattleEngine battle, in HookArgs args) => All.Add(args);
+
+            /// <summary>敌人 <paramref name="i"/> 被击杀之后,还落到它身上的 StatusApplied。</summary>
+            public List<StatusKind> AppliedAfterDeath(int i)
+            {
+                var victim = UnitRef.Enemy(i);
+                int died = All.FindIndex(h => h.Kind == HookKind.EnemyKilled && h.Subject.Equals(victim));
+                Assert.That(died, Is.GreaterThanOrEqualTo(0), $"敌人 {i} 被打死");
+                return All.Skip(died + 1).Where(h => h.Kind == HookKind.StatusApplied && h.Subject.Equals(victim))
+                    .Select(h => h.Status).ToList();
+            }
+        }
+
+        /// <summary>冻上 → 同面伤害打死被冻者 → 推迟的名单效果(冰封标记 + 怀山附着)。</summary>
+        private static CharDef FreezeThenKill() => Def(
+            new EffectDef(EffectKind.Freeze, 1),
+            new EffectDef(EffectKind.DamageSingle, 10),
+            new EffectDef(EffectKind.Vulnerable, 30, pick: EffectPick.FrozenByThisCast),
+            new EffectDef(EffectKind.FrostBite, 30, pick: EffectPick.FrozenByThisCast, riderOf: StatusKind.Freeze));
+
+        /// <summary>E16 推迟队列 × 出字中途目标死亡:推迟效果对死者整条空转 —— 不抛异常、不挂标记、不挂附着。</summary>
+        [Test]
+        public void RosterDeferral_TargetDiesMidCast_DeferredEffectsIdle()
+        {
+            var b = Battle(FreezeThenKill(), 1, RebalanceFixture.Mob(hp: 1), RebalanceFixture.Mob());
+            var log = new CorpseLog();
+            b.AddHookListener(log);
+            Cast(b, 0);
+            Assert.That(b.Enemies[0].Alive, Is.False);
+            Assert.That(b.Phase, Is.Not.EqualTo(BattlePhase.Won), "还有一只活着,未判胜");
+            Assert.That(log.AppliedAfterDeath(0), Is.Empty, "没有落到尸体上的 StatusApplied");
+            foreach (var kind in new[] { StatusKind.Vulnerable, StatusKind.FrostBite, StatusKind.TraitRider })
+                Assert.That(Has(b, 0, kind), Is.False, $"死者身上无 {kind}");
+            Assert.That(b.Enemies[1].Statuses.All.Any(), Is.False, "旁边那只没被冻,名单效果不外溢");
+        }
+
+        /// <summary>E16 推迟队列 × 出字中途判胜:清场后 Phase == Won,推迟效果全部空转。</summary>
+        [Test]
+        public void RosterDeferral_WinMidCast_DeferredEffectsIdle()
+        {
+            var b = Battle(FreezeThenKill(), 1, RebalanceFixture.Mob(hp: 1));
+            var log = new CorpseLog();
+            b.AddHookListener(log);
+            Cast(b, 0);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+            Assert.That(log.AppliedAfterDeath(0), Is.Empty, "判胜后不再施加");
+            foreach (var kind in new[] { StatusKind.Vulnerable, StatusKind.FrostBite, StatusKind.TraitRider })
+                Assert.That(Has(b, 0, kind), Is.False, $"死者身上无 {kind}");
+        }
+
         // ---------------- E17:StallPush / 带条件的 Augment ----------------
 
         [Test]
