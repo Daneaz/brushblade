@@ -1348,3 +1348,29 @@ def test_d2earth_shared_settle_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- Ruling 15(D2-土 Task 1):修饰 token 按效果的**真实位置**找宿主 ----
+# 旧做法按 `Kind 字样回找:同格「带值 + 无值同 kind」时,先收集的带值效果会认领写在前面的无值 token 的位置,
+# 两条的修饰互换;kind 与 token 不同名(`MoraleFill` → Morale)时无值那条根本找不到,修饰挂到别的效果上。
+
+def test_positional_modifiers_follow_real_position_with_valued_and_valueless_same_kind():
+    effects = _parse_effects("`DebuffWard` `wardCount 1` `turns 1` + `DebuffWard 50` `wardOf Burn`", "杜")
+    assert effects == [
+        {"kind": "DebuffWard", "value": 0, "wardCount": 1, "turns": 1},
+        {"kind": "DebuffWard", "value": 50, "wardOf": "Burn", "turns": 1}]
+
+
+def test_battles_follows_real_position_with_valued_and_valueless_same_kind():
+    effects = _parse_effects("`DebuffWard` `turns 1` `battles 2` + `DebuffWard 50`", "杜")
+    assert effects == [
+        {"kind": "DebuffWard", "value": 0, "turns": 1, "openingBattles": 2},
+        {"kind": "DebuffWard", "value": 50, "turns": 1}]
+
+
+def test_battles_attaches_to_valueless_token_whose_kind_has_another_name():
+    # `MoraleFill` 的 kind 是 Morale:按 `Morale 字样找不到它,`battles 3` 会被挂到前面的 `Morale 2` 上
+    effects = _parse_effects("`Morale 2` + `MoraleFill` `battles 3`", "鑫")
+    assert effects == [
+        {"kind": "Morale", "value": 2},
+        {"kind": "Morale", "value": 0, "fill": True, "openingBattles": 3}]

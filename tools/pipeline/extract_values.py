@@ -631,31 +631,19 @@ def _attach_earth_ops(config, char, effects, consumed):
             host["scaleCap"] = int(cap[0])
 
 
-def _positional_hosts(config, effects, kinds=None):
+def _positional_hosts(position, effects, kinds=None):
     """认选择器的效果(PICK_KINDS)在配置格里的位置:[(pos, effect)],按位置升序。
     修饰 token 挂**它前面最近的**那条效果(`Slow 1` + `pick Random` 的 pick 属于 Slow)。
-    同一格里同 Kind 出现两次时,后一条从前一条之后开始找位置。"""
+    位置取 _parse_effects 收集时记下的真实位置(Ruling 15):不再按 `Kind 字样回找 —— 那样同格「带值 + 无值同 kind」
+    会互换位置,kind 与 token 不同名(`MoraleFill` → Morale、`DispelAll` → Dispel)时根本找不到。"""
     kinds = PICK_KINDS if kinds is None else kinds
-    found, cursor = [], {}
-    for e in effects:
-        kind = e["kind"]
-        if kind not in kinds:
-            continue
-        needles = [f"`{kind} ", f"`{kind}`"] + (["`DetonateAll`"] if kind == "Detonate" else [])
-        start = cursor.get(kind, 0)
-        hits = [pos for pos in (config.find(n, start) for n in needles) if pos >= 0]
-        if not hits:
-            continue
-        pos = min(hits)
-        cursor[kind] = pos + 1
-        found.append((pos, e))
-    return sorted(found, key=lambda t: t[0])
+    return sorted(((position[id(e)], e) for e in effects if e["kind"] in kinds), key=lambda t: t[0])
 
 
-def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None, host_kinds=None):
+def _attach_positional(config, char, effects, consumed, position, token, field, parse, allowed_kinds=None, host_kinds=None):
     """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS(或 host_kinds)效果上。parse(raw) 返回要写进字段的值。"""
     pattern = rf"`{token}(?: (\w+))?`"
-    hosts = _positional_hosts(config, effects, host_kinds)
+    hosts = _positional_hosts(position, effects, host_kinds)
     seen = set()
     for m in re.finditer(pattern, config):
         consumed.add(token)
@@ -673,23 +661,14 @@ def _attach_positional(config, char, effects, consumed, token, field, parse, all
         host[field] = parse(m.group(1))
 
 
-def _attach_battles(config, char, effects, consumed):
-    """`battles N`(D2-火 N12)→ 它前面最近的那条效果的 openingBattles。位置按 `` `Kind `` 在格里的出现顺序认,
-    同 Kind 多条时后一条从前一条之后找(与 _positional_hosts 同手法,但不限 PICK_KINDS)。"""
+def _attach_battles(config, char, effects, consumed, position):
+    """`battles N`(D2-火 N12)→ 它前面最近的那条效果的 openingBattles。位置取收集时记下的真实位置
+    (Ruling 15,与 _positional_hosts 同口径,但不限 PICK_KINDS)。"""
     found = list(re.finditer(rf"`{BATTLES_TOKEN} (\d+)`", config))
     if not found:
         return
     consumed.add(BATTLES_TOKEN)
-    hosts, cursor = [], {}
-    for e in effects:
-        kind = e["kind"]
-        start = cursor.get(kind, 0)
-        hits = [pos for pos in (config.find(n, start) for n in (f"`{kind} ", f"`{kind}`")) if pos >= 0]
-        if not hits:
-            continue
-        cursor[kind] = min(hits) + 1
-        hosts.append((min(hits), e))
-    hosts.sort(key=lambda t: t[0])
+    hosts = _positional_hosts(position, effects, {e["kind"] for e in effects})
     for m in found:
         before = [e for pos, e in hosts if pos < m.start()]
         if not before:
@@ -700,7 +679,7 @@ def _attach_battles(config, char, effects, consumed):
         host["openingBattles"] = int(m.group(1))
 
 
-def _attach_modifier_tokens(config, char, effects, consumed):
+def _attach_modifier_tokens(config, char, effects, consumed, position):
     """D1 Task 3:把修饰 token 挂到同格的修饰器上(与 `turns` / `Pierce` 同一套「挂在本格效果上」的机制)。
 
     - `scope X` / `if X` → 本格的 Amplify(没有 Amplify 就报错:那个条件会静默消失)。
@@ -744,10 +723,10 @@ def _attach_modifier_tokens(config, char, effects, consumed):
 
     if not amps:
         # D2-水 E17b:条件门也可挂在前一条 Augment 上(冰冻三尺),下面配好 of / field 后再校验组合
-        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition,
+        _attach_positional(config, char, effects, consumed, position, ONLY_IF_TOKEN, "onlyIf", _parse_condition,
                            host_kinds=PICK_KINDS | {"Augment"})
-    _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
-    _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
+    _attach_positional(config, char, effects, consumed, position, PICK_TOKEN, "pick", _parse_pick)
+    _attach_positional(config, char, effects, consumed, position, KEEP_TOKEN, "keepStacks", lambda _raw: True,
                        allowed_kinds={"BurnSettleNow"})
 
     def _parse_rider(raw):
@@ -755,7 +734,7 @@ def _attach_modifier_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:`rider {raw}` 的载体未知,只认 {sorted(RIDER_CARRIERS)}")
         return raw
 
-    _attach_positional(config, char, effects, consumed, RIDER_TOKEN, "riderOf", _parse_rider,
+    _attach_positional(config, char, effects, consumed, position, RIDER_TOKEN, "riderOf", _parse_rider,
                        allowed_kinds=RIDER_KINDS)
     for e in effects:
         if e["kind"] in RIDES_ONLY_KINDS and "riderOf" not in e:
@@ -766,10 +745,10 @@ def _attach_modifier_tokens(config, char, effects, consumed):
                              f"(能挂在这个载体上的只有 {sorted(RIDER_KINDS_BY_CARRIER[e['riderOf']])})")
         if e.get("riderOf") == "Freeze" and e.get("pick") != "FrozenByThisCast":
             raise ValueError(f"{char}:`{e['kind']}` 附着在冻结上,须写 `pick FrozenByThisCast`")
-    _attach_positional(config, char, effects, consumed, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
+    _attach_positional(config, char, effects, consumed, position, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
     # D2-水 E18 / E25:只续不挂的减速、仅在减速中的种
-    _attach_positional(config, char, effects, consumed, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
-    _attach_positional(config, char, effects, consumed, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
+    _attach_positional(config, char, effects, consumed, position, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
+    _attach_positional(config, char, effects, consumed, position, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
                        allowed_kinds={"Seed"})
 
     # D2-水 Task 3(W4):免疫减益只拦一种 / 只拦前 N 次,按位置挂到前一条 DebuffWard
@@ -783,17 +762,17 @@ def _attach_modifier_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:`{WARD_COUNT_TOKEN}` 须写次数 N ≥ 1")
         return int(raw)
 
-    _attach_positional(config, char, effects, consumed, WARD_OF_TOKEN, "wardOf", _parse_ward_of,
+    _attach_positional(config, char, effects, consumed, position, WARD_OF_TOKEN, "wardOf", _parse_ward_of,
                        host_kinds={"DebuffWard"})
-    _attach_positional(config, char, effects, consumed, WARD_COUNT_TOKEN, "wardCount", _parse_ward_count,
+    _attach_positional(config, char, effects, consumed, position, WARD_COUNT_TOKEN, "wardCount", _parse_ward_count,
                        host_kinds={"DebuffWard"})
     for e in effects:
         if "minBurn" in e and ("riderOf" not in e or e["minBurn"] < 1):
             raise ValueError(f"{char}:`minBurn` 只给附着在灼上的减攻(`Weaken N` + `rider Burn`),且须 ≥ 1")
 
     # 引爆比例(D2-火 N3 / G5):按位置挂到前一条 Detonate;同一条只能二选一
-    _attach_positional(config, char, effects, consumed, RETAIN_TOKEN, "retainPercent", int, allowed_kinds={"Detonate"})
-    _attach_positional(config, char, effects, consumed, PORTION_TOKEN, "portionPercent", int, allowed_kinds={"Detonate"})
+    _attach_positional(config, char, effects, consumed, position, RETAIN_TOKEN, "retainPercent", int, allowed_kinds={"Detonate"})
+    _attach_positional(config, char, effects, consumed, position, PORTION_TOKEN, "portionPercent", int, allowed_kinds={"Detonate"})
     for e in effects:
         if "retainPercent" in e and "portionPercent" in e:
             raise ValueError(f"{char}:配置格「{config}」的同一条引爆写了 `retain` 又写了 `portion`,只能二选一")
@@ -1036,8 +1015,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     effects = []
     # Ruling 13(D2-土 前置):记下每条效果在格内的位置,收齐后按位置稳定排序 —— 出字按列表顺序结算,
     # 书写顺序即语义。下面先收带值 token、再收无值 token,不排序会把写在前面的无值效果挪到后面。
-    # 排序放在所有 _attach_* 之后:_attach_battles / _positional_hosts 按 `Kind 字样重新找位置、依赖收集顺序,
-    # kind 与 token 不同名时(`MoraleFill` → Morale)提前排序会让 `battles` 挂到别的效果上(鑫·金玉满堂)。
+    # Ruling 15:_attach_battles / _positional_hosts 也按这里记下的位置找宿主(不再按 `Kind 字样回找),
+    # 排序放在所有 _attach_* 之后只是沿用原位置,与宿主解析无关。
     position = {}
 
     summon = re.search(r"`Summon (\d+)`\((\d+) 血/攻 (\d+)\)", config)
@@ -1295,8 +1274,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `{PER_BURNING_HIT_TOKEN}` 只能配本格唯一的一条 ExtraStrike")
         hosts[0]["perBurningHit"] = True
 
-    _attach_battles(config, char, effects, consumed)
-    _attach_modifier_tokens(config, char, effects, consumed)
+    _attach_battles(config, char, effects, consumed, position)
+    _attach_modifier_tokens(config, char, effects, consumed, position)
     _attach_fire_ops(config, char, effects, consumed)
     _attach_metal_ops(config, char, effects, consumed)
     _attach_earth_ops(config, char, effects, consumed)
