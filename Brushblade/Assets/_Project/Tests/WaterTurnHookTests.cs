@@ -404,6 +404,13 @@ namespace Brushblade.Core.Tests
         [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""Slow"",""value"":1,""pick"":""All"",""onlyIf"":""Burning""}]}")]   // 不能带条件门
         [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3}")]                                                                         // 缺载荷
         [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""perHit"":[{""kind"":""HealSelf"",""value"":45}]}")]                                  // 缺 turns
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""Slow"",""value"":1,""pick"":""All"",""extend"":true}]}")]   // OpeningEffect 带不过去,会被静默丢弃:extend
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""Slow"",""value"":1,""pick"":""All"",""whileSlowed"":true}]}")]   // OpeningEffect 带不过去,会被静默丢弃:whileSlowed
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""HealSelf"",""value"":45,""fill"":true}]}")]   // OpeningEffect 带不过去,会被静默丢弃:fill
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""HealSelf"",""value"":45,""ofHeal"":true}]}")]   // OpeningEffect 带不过去,会被静默丢弃:ofHeal
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""HealSelf"",""value"":45,""scaleBy"":""BurnStack""}]}")]   // OpeningEffect 带不过去,会被静默丢弃:scaleBy
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""HealSelf"",""value"":45,""wardOf"":""Burn""}]}")]   // OpeningEffect 带不过去,会被静默丢弃:wardOf
+        [TestCase(@"{""kind"":""TurnPulse"",""value"":0,""turns"":3,""perHit"":[{""kind"":""HealSelf"",""value"":45,""wardCount"":2}]}")]   // OpeningEffect 带不过去,会被静默丢弃:wardCount
         [TestCase(@"{""kind"":""HurtHeal"",""value"":50}")]                                                                                      // 缺 turns
         [TestCase(@"{""kind"":""HurtHeal"",""value"":0,""turns"":3}")]                                                                           // 百分比须 ≥ 1
         [TestCase(@"{""kind"":""ShieldFrost"",""value"":0}")]                                                                                    // 冻结回合须 ≥ 1

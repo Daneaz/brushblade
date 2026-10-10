@@ -952,12 +952,16 @@ namespace Brushblade.Data
                     bool ok = Enum.TryParse(child.Kind, out EffectKind childKind) && BattleEngine.TurnPulseAllows(childKind)
                         && string.IsNullOrEmpty(child.OnlyIf) && string.IsNullOrEmpty(child.RiderOf)
                         && child.BodyPercent == 0 && child.PerHit == null && child.OpeningBattles == 0
+                        // 载荷存成 OpeningEffect,只带 Kind / Value / Turns / TargetAll / Pick / Shape / ShapePercent;
+                        // 其余修饰写了也会被静默丢掉 —— 一律拒绝
+                        && !child.Extend && !child.Fill && !child.WhileSlowed && !child.OfHeal
+                        && string.IsNullOrEmpty(child.ScaleBy) && string.IsNullOrEmpty(child.WardOf) && child.WardCount == 0
                         && !BattleEngine.EffectNeedsTarget(new EffectDef(childKind, child.Value, turns: child.Turns,
                             targetAll: child.TargetAll,
                             pick: ParseEnum(child.Pick, EffectPick.Primary, id, "目标选择器")));
                     if (!ok)
                         throw new ConfigException($"字「{id}」的回合脉冲里只能是 减速 / 冻结 / 减攻 / 致盲(须选全体)/ 回复 / 护盾 / 加泉,"
-                            + $"不能带条件门 / 附着 / 本体百分比 / 嵌套:{child.Kind}");
+                            + $"不能带条件门 / 附着 / 本体百分比 / 嵌套 / extend / fill / whileSlowed / ofHeal / scaleBy / wardOf / wardCount:{child.Kind}");
                 }
             }
             else if (e.PerHit != null)

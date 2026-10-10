@@ -1241,6 +1241,8 @@ def test_d2water_turn_hooks(config, expected):
     ("`TurnPulse` `turns 3` `onTurn` `Slow 1`", "onTurn"),                   # 敌方效果须选全体
     ("`TurnPulse` `turns 3` `onTurn` `Weaken 10` `turns 1` `pick All` `if Burning`", "onTurn"),   # 不能带条件门
     ("`TurnPulse` `turns 3` `onTurn`", "onTurn"),                            # 空段
+    ("`TurnPulse` `turns 3` `onTurn` `Slow 1` `pick All` `extend`", "onTurn"),   # 载荷是 OpeningEffect,extend 会被静默丢掉
+    ("`TurnPulse` `turns 3` `onTurn` `HealSelf 45` `per BurnStack`", "onTurn"),  # scaleBy 同上
 ])
 def test_d2water_turn_hook_errors(config, needle):
     with pytest.raises(ValueError) as err:

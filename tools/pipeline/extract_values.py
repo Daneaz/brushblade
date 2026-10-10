@@ -333,6 +333,9 @@ RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vu
 ON_TURN_TOKEN = "onTurn"
 TURN_PULSE_ALLOWED = {"Slow", "Freeze", "Weaken", "Blind", "HealSelf", "Shield", "AddWellspring"}
 TURN_PULSE_ENEMY_KINDS = {"Slow", "Freeze", "Weaken", "Blind"}
+# 载荷存成 OpeningEffect,只带 kind / value / turns / targetAll / pick / shape / shapePercent;以下字段写了会被静默丢掉,一律拒绝
+# (与 ConfigLoader 回合脉冲校验同一张名单)
+TURN_PULSE_DROPPED_FIELDS = {"extend", "fill", "whileSlowed", "ofHeal", "scaleBy", "wardOf", "wardCount"}
 
 # ---- D2-金 Task 1(附录 E10 / E12 / E13)----
 # `hitsPerMorale`(大卸八块):本格 Reshape(没有则唯一的 DamageSingle)的击数 + 战意 → scaleBy Morale。
@@ -440,10 +443,11 @@ def _attach_on_turn(config, char, effects, riders):
     for r in riders:
         bad = (r["kind"] not in TURN_PULSE_ALLOWED
                or set(r) & {"onlyIf", "riderOf", "bodyPercent", "perHit", "openingBattles"}
+               or set(r) & TURN_PULSE_DROPPED_FIELDS
                or (r["kind"] in TURN_PULSE_ENEMY_KINDS and r.get("pick", "Primary") == "Primary"))
         if bad:
             raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 段只能是 {sorted(TURN_PULSE_ALLOWED)}"
-                             f"(敌方效果须写 `pick All`),不能带条件门 / 附着 / 本体百分比:{r}")
+                             f"(敌方效果须写 `pick All`),不能带条件门 / 附着 / 本体百分比 / {sorted(TURN_PULSE_DROPPED_FIELDS)}:{r}")
     hosts[0]["perHit"] = riders
 
 
