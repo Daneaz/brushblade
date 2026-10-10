@@ -546,6 +546,14 @@ namespace Brushblade.Core
         /// <summary>按护盾计击数的除数(E36,地裂 `hitsPerShield N`):只配 <see cref="ScaleBasis.Shield"/>。0 = 不启用。</summary>
         public int ScaleDivisor { get; }
 
+        /// <summary>按本次护盾量(E28,碉楼 / 载物 `ofShield`):只给 ShieldSummons —— 每只存活木灵 + 本次出字名义护盾量
+        /// (Shield / ShieldAll 放大后的请求量累计)× Value%;百分比不吃卡等级、不额外攒厚。</summary>
+        public bool OfShield { get; }
+
+        /// <summary>护甲门槛(E32,山岳 `minArmor N`):只给 Retaliate —— 我方受击时 <c>EffectivePlayerDefense</c> &lt; N 不回敬、
+        /// 不扣次数(写进 <see cref="StatusEffect.MinArmor"/>)。0 = 无门槛。</summary>
+        public int MinArmor { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -579,7 +587,8 @@ namespace Brushblade.Core
             int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
             bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
             bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0,
-            int armorShieldPercent = 0, bool armorStrikeEach = false, int scaleDivisor = 0)
+            int armorShieldPercent = 0, bool armorStrikeEach = false, int scaleDivisor = 0,
+            bool ofShield = false, int minArmor = 0)
         {
             Kind = kind;
             Value = value;
@@ -648,6 +657,8 @@ namespace Brushblade.Core
             ArmorShieldPercent = armorShieldPercent;
             ArmorStrikeEach = armorStrikeEach;
             ScaleDivisor = scaleDivisor;
+            OfShield = ofShield;
+            MinArmor = minArmor;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -686,7 +697,8 @@ namespace Brushblade.Core
                 executeSplashPercent ?? ExecuteSplashPercent,
                 stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
                 Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount,
-                armorShieldPercent ?? ArmorShieldPercent, armorStrikeEach ?? ArmorStrikeEach, scaleDivisor ?? ScaleDivisor)
+                armorShieldPercent ?? ArmorShieldPercent, armorStrikeEach ?? ArmorStrikeEach, scaleDivisor ?? ScaleDivisor,
+                OfShield, MinArmor)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

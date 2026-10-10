@@ -1324,3 +1324,27 @@ def test_d2earth_shared_modifier_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+@pytest.mark.parametrize("config, expected", [
+    # 碉楼 / 载物(E28):护盾同时给全部木灵(每只 50%)
+    ("`ShieldSummons 50` `ofShield`", [{"kind": "ShieldSummons", "value": 50, "ofShield": True}]),
+    # 山岳(E32):护甲 ≥ 50 时,每回合第一次受击使攻击者破甲
+    ("`Retaliate 1` `turns 4` `minArmor 50` `onHit` `ArmorBreak 38` `turns 2`",
+     [{"kind": "Retaliate", "value": 1, "turns": 4, "minArmor": 50,
+       "perHit": [{"kind": "ArmorBreak", "value": 38, "turns": 2}]}]),
+    # 杜塞(E33):封禁认条件门 / 选择器
+    ("`Silence 0` `turns 2` `if NotBoss`", [{"kind": "Silence", "value": 0, "onlyIf": "NotBoss", "turns": 2}]),
+])
+def test_d2earth_shared_settle_tokens(config, expected):
+    assert _parse_effects(config, "土") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Shield 60` `ofShield`", "ofShield"),                            # 没有 ShieldSummons 可挂
+    ("`Shield 60` `minArmor 50`", "minArmor"),                         # 没有 Retaliate 可挂
+])
+def test_d2earth_shared_settle_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

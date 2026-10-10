@@ -127,6 +127,12 @@ namespace Brushblade.Core
             /// <summary>本次出字的 Slow 施加过或续过回合的敌人(D2-水 E15,选择器 SlowedByThisCast)。</summary>
             public List<int> SlowedTargets = new List<int>();
 
+            /// <summary>出字前玩家的护盾(两桶之和;D2-土 E36,地裂 ScaleBasis.Shield 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int? PreCastShield;
+
+            /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
+            public int ShieldNominal;
+
             /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
             public int ShieldGranted;
 

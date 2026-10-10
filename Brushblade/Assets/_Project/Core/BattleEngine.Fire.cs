@@ -268,6 +268,7 @@ namespace Brushblade.Core
                 Magnitude = Math.Max(0, effect.Value), TurnsLeft = effect.Turns > 0 ? effect.Turns : 1,
                 SourceId = sourceId, TraitKey = effect.TraitKey,
                 OnHit = effect.PerHit.Select(e => OpeningEffect.Of(e, sourceId, element)).ToList(),
+                MinArmor = effect.MinArmor,   // 山岳(D2-土 E32),缺省 0
             }, UnitRef.Player, UnitRef.Player);
         }
 
@@ -281,6 +282,8 @@ namespace Brushblade.Core
             foreach (var s in _playerStatuses.All.Where(x => x.Kind == StatusKind.Retaliate).ToList())
             {
                 if (s.OnHit == null || s.OnHit.Count == 0) continue;
+                // 护甲门槛(D2-土 E32,山岳):不满足就跳过,且**不扣**次数 —— 判在 TryUseTrait 之前
+                if (s.MinArmor > 0 && EffectivePlayerDefense < s.MinArmor) continue;
                 if (s.Magnitude > 0 && !TryUseTrait(RetaliateUseKey(s), perTurn: s.Magnitude, perBattle: 0))
                     continue;
                 // 特性键随效果带过去(G11):回敬挂的减攻 / 致盲与本体分开计时

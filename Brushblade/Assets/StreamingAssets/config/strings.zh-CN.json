@@ -1601,5 +1601,7 @@
   "char.effect.reshape.persist": "本次护盾为留存护盾",
   "char.effect.armorshield": "(护盾 + 当前护甲 {percent}%)",
   "char.effect.armorstrike.each": "(每一发各结算一次)",
-  "char.effect.per.shield.hits": "(出字前我方护盾每 {divisor} 点 +1 击,最多 +{cap} 击)"
+  "char.effect.per.shield.hits": "(出字前我方护盾每 {divisor} 点 +1 击,最多 +{cap} 击)",
+  "char.effect.shieldsummons.ofshield": "所有召唤物获得本次护盾量{value}%的护盾",
+  "char.effect.retaliate.minarmor": "护甲 ≥ {armor} 时,"
 }

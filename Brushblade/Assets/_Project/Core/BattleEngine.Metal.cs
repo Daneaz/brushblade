@@ -14,9 +14,19 @@ namespace Brushblade.Core
 
         private int MoraleCapOrDefault => _config?.MoraleCap ?? CombatCaps.MoraleStacks;
 
-        /// <summary>DamageSingle 主目标的击数(E10,大卸八块):ScaleBy == Morale 时 = HitCount + 战意层数(进 DamageSingle 时取一次)。</summary>
+        /// <summary>DamageSingle 主目标的击数(E10,大卸八块):ScaleBy == Morale 时 = HitCount + 战意层数(进 DamageSingle 时取一次)。
+        /// D2-土 E36(地裂):ScaleBy == Shield 时 = HitCount + min(ScaleCap, ⌊出字前护盾 / ScaleDivisor⌋)(ScaleCap 0 = 不设上限)。</summary>
         private int HitCountOf(EffectDef effect) =>
-            effect.ScaleBy == ScaleBasis.Morale ? effect.HitCount + MoraleStacks : effect.HitCount;
+            effect.ScaleBy == ScaleBasis.Morale ? effect.HitCount + MoraleStacks
+            : effect.ScaleBy == ScaleBasis.Shield ? effect.HitCount + ShieldExtraHits(effect)
+            : effect.HitCount;
+
+        private int ShieldExtraHits(EffectDef effect)
+        {
+            if (effect.ScaleDivisor <= 0) return 0;
+            int extra = (_cast.PreCastShield ?? _shieldNormal + _shieldPersist) / effect.ScaleDivisor;
+            return effect.ScaleCap > 0 ? Math.Min(effect.ScaleCap, extra) : extra;
+        }
 
         /// <summary>格挡次数(E10 / E12,双金合璧):ScaleBy == Morale 时 = max(ScaleMin, 当前战意);否则 Value。
         /// ScaleBy == Morale 的 Block 由 ApplyEffects 推迟到效果循环结束后才读这里,所以拿到的是出字后的战意

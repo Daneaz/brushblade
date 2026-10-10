@@ -48,7 +48,8 @@ namespace Brushblade.Core
                 // D2-水 Task 2:冻结附着族(数据写 pick FrozenByThisCast)与冷却
                 or EffectKind.FrostBite or EffectKind.ThawStrike or EffectKind.ThawSlow
                 or EffectKind.ChargeDelay
-                or EffectKind.BuffBlock => true,   // D2-水 Task 3 洗尽铅华
+                or EffectKind.BuffBlock   // D2-水 Task 3 洗尽铅华
+                or EffectKind.Silence => true,   // D2-土 E33 杜塞(`if NotBoss`)
             _ => false,
         };
 

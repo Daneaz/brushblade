@@ -263,7 +263,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "Doom",   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
                     # D2-水 Task 2:冻结附着族(写 pick FrozenByThisCast)与冷却(Value = 拍数)
                     "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
-                    "BuffBlock"}   # D2-水 Task 3 洗尽铅华
+                    "BuffBlock",   # D2-水 Task 3 洗尽铅华
+                    "Silence"}     # D2-土 E33 杜塞(`if NotBoss`)
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -382,6 +383,9 @@ PERSIST_TOKEN = "persist"
 ARMOR_SHIELD_TOKEN = "armorShield"
 ARMOR_STRIKE_EACH_TOKEN = "armorStrikeEach"
 HITS_PER_SHIELD_TOKEN = "hitsPerShield"
+# `ofShield`(碉楼 / 载物,E28):本格唯一 ShieldSummons 的量 = 本次名义护盾 × N%;`minArmor N`(山岳,E32):本格唯一 Retaliate 的护甲门槛。
+OF_SHIELD_TOKEN = "ofShield"
+MIN_ARMOR_TOKEN = "minArmor"
 
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
@@ -564,7 +568,8 @@ def _attach_metal_ops(config, char, effects, consumed):
 
 
 def _attach_earth_ops(config, char, effects, consumed):
-    """D2-土 Task 1:`persist` / `armorShield N` / `armorStrikeEach` / `hitsPerShield N` [+ `cap N`]。宿主不唯一或不存在一律报错。"""
+    """D2-土 Task 1:`ofShield` / `minArmor N` / `persist` / `armorShield N` / `armorStrikeEach` / `hitsPerShield N` [+ `cap N`]。
+    宿主不唯一或不存在一律报错。"""
     reshapes = [e for e in effects if e["kind"] == "Reshape"]
 
     def damage_host(token):
@@ -580,6 +585,21 @@ def _attach_earth_ops(config, char, effects, consumed):
             raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 Reshape 可挂 —— 它会静默消失。")
         return reshapes[0]
 
+    def only(kind, token):
+        hosts = [e for e in effects if e["kind"] == kind]
+        if len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 {kind} 可挂 —— 它会静默消失。")
+        return hosts[0]
+
+    if f"`{OF_SHIELD_TOKEN}`" in config:
+        consumed.add(OF_SHIELD_TOKEN)
+        only("ShieldSummons", OF_SHIELD_TOKEN)["ofShield"] = True
+    min_armor = re.findall(rf"`{MIN_ARMOR_TOKEN} (\d+)`", config)
+    if min_armor:
+        consumed.add(MIN_ARMOR_TOKEN)
+        if len(min_armor) > 1 or int(min_armor[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{MIN_ARMOR_TOKEN}` 只能写一个,且须 ≥ 1")
+        only("Retaliate", MIN_ARMOR_TOKEN)["minArmor"] = int(min_armor[0])
     if f"`{PERSIST_TOKEN}`" in config:
         consumed.add(PERSIST_TOKEN)
         reshape_host(PERSIST_TOKEN)["persistOnce"] = True
@@ -1133,7 +1153,7 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             continue  # D2-金 Task 2:格挡附带的数值,下面挂到 BlockMod 上
         if kind == WARD_COUNT_TOKEN:
             continue  # D2-水 Task 3:免疫减益的次数,下面按位置挂到 DebuffWard 上
-        if kind in (ARMOR_SHIELD_TOKEN, HITS_PER_SHIELD_TOKEN):
+        if kind in (ARMOR_SHIELD_TOKEN, HITS_PER_SHIELD_TOKEN, MIN_ARMOR_TOKEN):
             continue  # D2-土 Task 1:Reshape / 伤害的修饰数值,下面由 _attach_earth_ops 挂
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。

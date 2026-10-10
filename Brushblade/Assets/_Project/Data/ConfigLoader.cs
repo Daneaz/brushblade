@@ -127,6 +127,8 @@ namespace Brushblade.Data
             public int ArmorShieldPercent { get; set; }     // Reshape:无伤害面第一条护盾 + 护甲 × N%(塔基固面)
             public bool ArmorStrikeEach { get; set; }       // DamageSingle / Reshape:镇压逐发结算(三山)
             public int ScaleDivisor { get; set; }           // DamageSingle / Reshape:scaleBy Shield 的除数(地裂)
+            public bool OfShield { get; set; }              // ShieldSummons:按本次名义护盾量 × Value%(碉楼 / 载物,E28)
+            public int MinArmor { get; set; }               // Retaliate:护甲门槛(山岳,E32)
         }
 
         private sealed class CampaignFileDto
@@ -905,7 +907,7 @@ namespace Brushblade.Data
                     extend: effect.Extend, executeIf: ParseCondition(effect.ExecuteIf, dto.Id), whileSlowed: effect.WhileSlowed,
                     ofHeal: effect.OfHeal, wardOf: ParseWardOf(effect.WardOf, kind, dto.Id), wardCount: effect.WardCount,
                     armorShieldPercent: effect.ArmorShieldPercent, armorStrikeEach: effect.ArmorStrikeEach,
-                    scaleDivisor: effect.ScaleDivisor));
+                    scaleDivisor: effect.ScaleDivisor, ofShield: effect.OfShield, minArmor: effect.MinArmor));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -1115,8 +1117,13 @@ namespace Brushblade.Data
             bool shieldHits = e.ScaleBy == nameof(ScaleBasis.Shield);
             if (shieldHits != (e.ScaleDivisor != 0) || e.ScaleDivisor < 0)
                 throw new ConfigException($"字「{id}」的 {kind} 效果 scaleBy Shield 须配 scaleDivisor > 0(反之 scaleDivisor 只配 scaleBy Shield)");
-            if (e.OpeningBattles != 0 && (e.PersistOnce && kind == EffectKind.Reshape || e.ArmorShieldPercent != 0 || e.ArmorStrikeEach || e.ScaleDivisor != 0))
-                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 persist / armorShield / armorStrikeEach / scaleDivisor(登记时会丢)");
+            if (e.OfShield && (kind != EffectKind.ShieldSummons || e.Value < 1))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofShield(只给 ShieldSummons,且百分比须 ≥ 1)");
+            if (e.MinArmor != 0 && (kind != EffectKind.Retaliate || e.MinArmor < 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 minArmor(只给 Retaliate,且须 > 0)");
+            if (e.OpeningBattles != 0 && (e.PersistOnce && kind == EffectKind.Reshape || e.ArmorShieldPercent != 0 || e.ArmorStrikeEach
+                    || e.ScaleDivisor != 0 || e.OfShield || e.MinArmor != 0))
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 persist / armorShield / armorStrikeEach / scaleDivisor / ofShield / minArmor(登记时会丢)");
         }
 
         /// <summary>Reshape 的 persist / armorShield(D2-土 E29 / E30)只在**本体没有伤害**的那一面改护盾;写在伤害面上

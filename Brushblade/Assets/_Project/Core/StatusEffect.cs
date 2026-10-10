@@ -254,6 +254,10 @@ namespace Brushblade.Core
         /// 减到 0 即移除这条。</summary>
         public int WardCount { get; set; }
 
+        /// <summary>护甲门槛(D2-土 E32,山岳;仅 <see cref="StatusKind.Retaliate"/> 用):我方受击时 EffectivePlayerDefense &lt; MinArmor
+        /// 就不回敬、不扣每回合次数。0 = 无门槛(缺省,逐位恒等)。</summary>
+        public int MinArmor { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
@@ -263,7 +267,7 @@ namespace Brushblade.Core
             CounterColumn = CounterColumn, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
             BlockBleed = BlockBleed, BlockMorale = BlockMorale, KillRefundAp = KillRefundAp,
             ExecuteSourceCharId = ExecuteSourceCharId, WhileSlowed = WhileSlowed,
-            WardOf = WardOf, WardCount = WardCount,
+            WardOf = WardOf, WardCount = WardCount, MinArmor = MinArmor,
         };
     }
 

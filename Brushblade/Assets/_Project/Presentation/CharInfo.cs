@@ -310,6 +310,8 @@ namespace Brushblade.Presentation
                     EffectKind.HealSummons => e.PercentOfMax
                         ? Strings.T("char.effect.healsummons.pct", ("value", shown))
                         : Strings.T("char.effect.healsummons", ("value", shown)),
+                    // 碉楼 / 载物(D2-土 E28):按本次护盾量的百分比,不吃等级(读 e.Value)
+                    EffectKind.ShieldSummons when e.OfShield => Strings.T("char.effect.shieldsummons.ofshield", ("value", e.Value)),
                     EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
                     EffectKind.SummonStrike => Strings.T("char.effect.summonstrike", ("value", shown)),
                     EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
@@ -392,13 +394,15 @@ namespace Brushblade.Presentation
         private static string RetaliateText(EffectDef e, CharDef def, int cardLevel)
         {
             string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
+            // 山岳(D2-土 E32):护甲门槛,句首补「护甲 ≥ N 时,」
+            string gate = e.MinArmor > 0 ? Strings.T("char.effect.retaliate.minarmor", ("armor", e.MinArmor)) : "";
             // 潜流(D2-水 E23):多回合时句首改成「之后 N 回合内」;带上限时补「每回合至多 N 次」(上限按回合计)
             if (e.Turns > 1)
-                return Strings.T("char.effect.retaliate.turns", ("turns", e.Turns), ("list", list))
+                return gate + Strings.T("char.effect.retaliate.turns", ("turns", e.Turns), ("list", list))
                     + (e.Value > 0 ? Strings.T("char.effect.retaliate.turns.cap", ("cap", e.Value)) : "");
-            return e.Value > 0
+            return gate + (e.Value > 0
                 ? Strings.T("char.effect.retaliate.cap", ("list", list), ("cap", e.Value))
-                : Strings.T("char.effect.retaliate", ("list", list));
+                : Strings.T("char.effect.retaliate", ("list", list)));
         }
 
         /// <summary>免疫减益(D2-水 W4):濯身「N 回合内免疫减益」/ 浇熄「N 回合内免疫灼烧,每挡 1 层转为护盾 X」;
