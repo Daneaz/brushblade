@@ -1,0 +1,318 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 900px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; display: flex; align-items: center; gap: 10px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1240px; }
+    .lede b { color: var(--text-main); }
+    .cols { flex: 1; min-height: 0; display: flex; gap: 24px; }
+    .left { width: 640px; flex: none; display: flex; flex-direction: column; gap: 12px; }
+    .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: var(--warn-text); background: var(--warn-bg); padding: 1px 6px; border-radius: 3px; }
+    .d { font-size: 9.5px; color: var(--text-dim); line-height: 1.6; }
+    .d b { color: var(--text-main); }
+    .d code, .note code, h3 code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9px; color: var(--text-quiet); }
+    /* 代价态封字:墨蓝描边、纸底(同霜抗的描边做法,换墨蓝)—— 坏事照样是墨蓝,描边说「清不掉」 */
+    .sc.k-cost { background: var(--panel-paper); color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--ink-soft); }
+
+    .tbl { display: grid; grid-template-columns: 56px 30px 52px 58px 64px 54px 1fr 112px; column-gap: 8px; align-items: center; font-size: 10px; }
+    .tbl .h { font-size: 9px; color: var(--text-faint); padding-bottom: 4px; border-bottom: 1px solid var(--paper-dim); }
+    .tbl .c { padding: 2px 0; border-bottom: 1px solid #ECE6D9; color: var(--text-dim); line-height: 1.3; min-height: 25px; display: flex; align-items: center; }
+    .tbl .nm { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+    .tbl .z { height: 25px; overflow: visible; }
+    .tbl .z .sc { transform: scale(2.4); transform-origin: 0 50%; }
+    .tbl .ic b { color: var(--cinnabar-dark); font-weight: 700; }
+    .tbl .ic i { font-style: normal; color: var(--text-faint); }
+    .tbl .gl { font-size: 9px; }
+    .tbl .off { color: var(--text-faint); font-size: 9px; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; flex: none; }
+
+    .nbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .nb { border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 7px 9px 6px; display: flex; flex-direction: column; gap: 5px; }
+    .nb .row { display: flex; align-items: flex-end; gap: 8px; height: 32px; }
+    .nb .it { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
+    .nb .it .sc { zoom: 2.2; }
+    .nb .it.me { color: var(--cinnabar-dark); font-weight: 700; }
+    .nb .d { font-size: 8.5px; line-height: 1.45; }
+
+    .ord { display: flex; flex-direction: column; gap: 7px; }
+    .ordl { display: flex; align-items: center; gap: 10px; }
+    .ordl .who { width: 54px; flex: none; font-size: 9.5px; color: var(--text-faint); }
+    .ordl .scs { display: flex; gap: 2px; zoom: 1.55; }
+    .sc.nw { outline: 1px dashed var(--cinnabar-dark); outline-offset: 1px; }
+    .sc.txt { padding: 0 3px; }
+
+    .wk { display: grid; grid-template-columns: 104px 1fr 1fr; column-gap: 10px; row-gap: 5px; align-items: start; }
+    .wk .hh { font-size: 9px; color: var(--text-faint); padding-bottom: 3px; border-bottom: 1px solid var(--paper-dim); }
+    .wk .who { font-size: 9.5px; color: var(--text-dim); line-height: 1.35; padding-top: 2px; }
+    .wk .who i { font-style: normal; color: var(--text-faint); font-size: 8.5px; }
+    .wk .cell2 { display: flex; flex-direction: column; gap: 2px; }
+    .colbox { zoom: 1.4; box-sizing: content-box; border-left: 1px dashed #C6BCA8; border-right: 1px dashed #C6BCA8; display: flex; flex-direction: column; gap: 1.43px; }
+    .colbox .ln { display: flex; gap: 1.91px; }
+    .colbox .sc { padding: 0; justify-content: center; }
+    .sc.noic svg { display: none; }
+    .verd { font-size: 8.5px; color: var(--text-faint); white-space: nowrap; }
+    .note { font-size: 10px; color: var(--text-dim); line-height: 1.6; margin: 0; padding-left: 16px; }
+    .note b { color: var(--text-main); }
+    .prio { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+    .prio .pi { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-dim); }
+    .prio .pi .sc { zoom: 1.6; }
+    .prio .pi b { font-weight: 600; color: var(--text-main); }
+    .prio .pi i { font-style: normal; font-size: 8px; color: var(--text-faint); }
+    .prio .pi + .pi::before { content: "›"; color: var(--text-faint); margin-right: 6px; }
+    .box { border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 9px 11px; display: flex; flex-direction: column; gap: 8px; }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>状 态 chip · 木 系 <span class="tag">待审 · 10-11</span></h2>
+    <div class="lede">D2-木 的木灵光环、敌人身上的荆刺与被缠、柘灵本命「守护」,加土系铜墙铁壁的受伤上限(C 项建议)。
+      <b>天生与临时靠颜色分</b>:本命 chip 是朱砂底(现状,一格只出一枚);光环与状态按状态色 —— 攻击加成赭金、荆棘翠玉。所以光环直接复用 <code>attack</code> / <code>thorns</code>,远程光环连 chip 都不另出:攻 chip 的射程图标换成远程就是它。
+      数字照旧:光环、荆刺、被缠、受伤上限、减伤都不带数字,剩几回合、减多少 % 都在详情。</div>
+  </div>
+  <div class="cols">
+    <div class="left">
+      <div>
+        <h3>木系用到的九种 <small>左列原大,右列 ×2.4;新图标四枚</small></h3>
+        <div class="tbl">
+          <span class="h">词</span><span class="h">原大</span><span class="h">×2.4</span><span class="h">底色</span><span class="h">数字</span><span class="h">落在</span><span class="h">词条说明</span><span class="h">图标 · 兜底字</span>
+          <sc-for list="{{ rows }}" as="r">
+            <span class="c nm">{{ r.k }}</span>
+            <span class="c"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+            <span class="c z"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+            <span class="c"><i class="sw" style="{{ r.sw }}"></i>{{ r.bg }}</span>
+            <span class="c">{{ r.num }}</span>
+            <span class="c">{{ r.on }}</span>
+            <span class="c gl">{{ r.gl }}</span>
+            <span class="c ic"><b>{{ r.isNew }}</b><i>{{ r.icTxt }}</i></span>
+          </sc-for>
+          <span class="c nm">远程光环</span>
+          <span class="c"><span class="sc k-atk"><svg><use href="#ic-ranged"></use></svg>73</span></span>
+          <span class="c off">不另出</span><span class="c off">—</span><span class="c off">—</span>
+          <span class="c off">受益木灵</span>
+          <span class="c gl"><span>箭灵在场时,攻 chip 的射程图标由近战换成远程 —— 这就是它;详情写「远程 · 箭灵光环」</span></span>
+          <span class="c ic"><i>现有 ranged</i></span>
+        </div>
+      </div>
+
+      <div>
+        <h3>易混图标 <small>新四枚放在最像它的现有几枚旁边</small></h3>
+        <div class="nbs">
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-dot"><svg><use href="#ic-thornmark"></use></svg></span>荆刺</span>
+              <span class="it"><span class="sc k-dot"><svg><use href="#ic-mark"></use></svg></span>标记</span>
+              <span class="it"><span class="sc k-dot"><svg><use href="#ic-thorns"></use></svg></span>倒刺 · 盾反</span>
+            </div>
+            <div class="d">「倒刺」是敌人能力、「盾反」是木灵本命,都是打它的人挨扎。荆刺反过来 —— 这个敌人打我方时自己挨扎,所以借标记的菱形加四角倒刺。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-dot"><svg><use href="#ic-bind"></use></svg></span>被缠</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-seed"></use></svg></span>种</span>
+              <span class="it"><span class="sc k-dot"><svg><use href="#ic-mine"></use></svg></span>埋雷</span>
+            </div>
+            <div class="d">一根桩、三道藤。和埋雷同属「它出手时会挨什么」,所以朱砂底。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-dot"><svg><use href="#ic-guard"></use></svg></span>守护</span>
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span>嘲讽</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg></span>格挡</span>
+            </div>
+            <div class="d">实心盾挡在一个人前面:它替玩家挨。嘲讽是把敌人引过来,守护是把伤害分过来。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-hitcap"></use></svg></span>受伤上限</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span>减伤</span>
+              <span class="it"><span class="sc k-gold"><svg><use href="#ic-riposte"></use></svg></span>反击加倍</span>
+            </div>
+            <div class="d">「≤」= 单次不超过。减伤是打折,上限是封顶,一大一小两种伤害里谁吃亏不一样,所以分开画。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it"><span class="sc k-dot"><svg><use href="#ic-thorns"></use></svg></span>本命 · 盾反</span>
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-thorns"></use></svg></span>荆棘光环</span>
+              <span class="it me"><span class="sc k-gold"><svg><use href="#ic-attack"></use></svg></span>攻击光环</span>
+            </div>
+            <div class="d">同一枚荆棘,朱砂 = 天生(本命),翠玉 = 临时(荆天棘地)。光环不新造图标。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it"><span class="sc k-atk"><svg><use href="#ic-melee"></use></svg>73</span>平时</span>
+              <span class="it me"><span class="sc k-atk"><svg><use href="#ic-ranged"></use></svg>73</span>箭灵在场</span>
+            </div>
+            <div class="d">远程光环:攻 chip 的射程图标换掉。射程本来就画在这枚上,再出一枚是重复。</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3>插在哪 <small>虚线框 = 本次新增</small></h3>
+        <div class="ord">
+          <div class="ordl"><span class="who">敌方</span>
+            <div class="scs">
+              <span class="sc k-dot"><svg><use href="#ic-mortal"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>6</span><span class="sc k-dot"><svg><use href="#ic-mine"></use></svg></span><span class="sc k-dot nw"><svg><use href="#ic-bind"></use></svg></span><span class="sc k-dot nw"><svg><use href="#ic-thornmark"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-mark"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-freeze"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-slow"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-curse"></use></svg></span>
+            </div></div>
+          <div class="ordl"><span class="who">木灵</span>
+            <div class="scs">
+              <span class="sc k-atk"><svg><use href="#ic-ranged"></use></svg>73</span><span class="sc k-dot"><svg><use href="#ic-guard"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-thorns"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span><span class="sc k-gold nw"><svg><use href="#ic-attack"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>2</span><span class="sc k-gold nw"><svg><use href="#ic-crit"></use></svg></span>
+            </div></div>
+          <div class="ordl"><span class="who">玩家</span>
+            <div class="scs">
+              <span class="sc k-heal"><svg><use href="#ic-keepshield"></use></svg>120</span><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-hitcap"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>2</span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span><span class="sc k-gold"><svg><use href="#ic-crit"></use></svg></span>
+            </div></div>
+          <div class="d">敌方:<b>被缠 · 荆刺</b>插在埋雷与标记之间 —— 三枚都是「它出手时会挨什么」。
+            木灵:本命仍在攻 / 甲之后;<b>荆棘光环</b>占反弹的位置(正面里最先,挨打时就起作用),<b>攻击光环</b>占攻击增益的位置,<b>暴击</b>占暴击增益的位置。
+            玩家:<b>受伤上限</b>紧跟减伤,同一回合两者都在时一起读。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div>
+        <h3>两档宽验算 <small>同 StatusChipsFire:<code>Ui.ChipFlow</code> 逐行移植,×1.4;虚线 = 信息列宽 − 4</small></h3>
+        <div class="wk">
+          <span class="hh"></span><span class="hh">基准机 ≈1951 宽</span><span class="hh">16:9 · 1600 宽(无刘海,两侧各扣 123)</span>
+          <sc-for list="{{ checks }}" as="k">
+            <span class="who">{{ k.who }}<br><i>{{ k.sub }}</i></span>
+            <sc-for list="{{ k.cols }}" as="c">
+              <div class="cell2">
+                <div class="colbox" style="{{ c.w }}">
+                  <sc-for list="{{ c.lines }}" as="ln">
+                    <div class="ln">
+                      <sc-for list="{{ ln }}" as="x">
+                        <span class="{{ x.cls }}" style="{{ x.st }}"><svg><use href="{{ x.ic }}"></use></svg>{{ x.t }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+                <span class="verd">{{ c.lbl }} · {{ c.v }}</span>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+        <div class="d" style="margin-top: 6px;">
+          木灵格最挤:基准机前排两行刚好全装下;后排一行只剩攻、本命、嘲讽、荆棘光环,其余 +4。
+          16:9 前排只剩「攻 本命 / 嘲讽 +N」,后排「攻 +N」。光环是全队同时挂的,玩家看任一只前排木灵或点开详情就能确认,丢在 +N 里可以接受。
+          敌人格:被缠、荆刺紧跟灼与埋雷,基准机前排留得住;16:9 同现状只剩「攻 / 甲 +N」。</div>
+      </div>
+
+      <div>
+        <h3>本命 chip 只出一枚:选哪条 <small>W11 的一半;详情排版见 SummonInfoNature</small></h3>
+        <div class="box">
+          <div class="prio">
+            <sc-for list="{{ prio }}" as="p">
+              <span class="pi"><span class="{{ p.cls }}"><svg><use href="{{ p.ic }}"></use></svg></span><b>{{ p.n }}</b><i>{{ p.f }}</i></span>
+            </sc-for>
+          </div>
+          <div class="d">从左往右,取这只木灵身上排得最前、且有图标的那一条。判据:<b>先改变敌我怎么挨打的</b>(守护、盾反 / 披荆),再是出手附带(附灼、减攻),再是给全队的光环(林荫 / 森严、蟾宫),最后是自身数值(回血、闪避、疾)。
+            成林、远射强化、坚木、桂香、丛生、森然、迷香、良弓、落木、秋实、藻荇、水草这些没有图标,不出 chip,只进详情。现行 <code>SummonPassiveChip</code> 的顺序(灼 → 盾反 → 回血 → 自愈 → 减攻 → 闪避 → 疾)按这条改。</div>
+        </div>
+      </div>
+
+      <ul class="note">
+        <li><b>新图标 4 枚</b>(<code>thornmark</code>·棘、<code>bind</code>·缠、<code>guard</code>·护、<code>hitcap</code>·限)按「图标三处对账」进管线;SVG 在 <code>traits-data.js</code>,标「10-11 补」。兜底字与状态名「荆刺」「被缠」「受伤上限」「守护」要重跑字体子集。</li>
+        <li><b>W4 林荫 / 森严</b>复用 10-04 的减伤(仍待审),不显示 %:同类取最强、随木灵数变,数字在详情(「减伤 15% · 林荫:每只木灵 5%,现 3 只」)。</li>
+        <li><b>W6 蟾宫</b>:木灵格读到暴击就出赭金暴击 chip,不标来源(详情写「暴击 +10% · 蟾宫」);玩家栏读 <code>EffectiveCrit</code> 照旧。</li>
+        <li><b>W12</b> 确认:一叶知秋用每回合效果那枚,被标记的敌人用现有标记 chip。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 900}}'>
+var BG = { 'k-dot': ['朱砂', 'var(--cinnabar)'], 'k-ctrl': ['墨蓝', 'var(--ink-soft)'], 'k-heal': ['翠玉', 'var(--jade)'], 'k-gold': ['赭金', 'var(--gold)'] };
+var ROWS = [
+  ['攻击光环', 'k-gold', 'attack', '', '—', '受益木灵', '攻击 +N%(林立 / 擎天 / 桂冠);来源、剩余回合在详情', '现有 attack · 攻', 0],
+  ['荆棘光环', 'k-heal', 'thorns', '', '—', '受益木灵', '被攻击时反弹 30%(荆天棘地);与本命盾反取较大的', '现有 thorns · 刺', 0],
+  ['暴击', 'k-gold', 'crit', '', '—', '我 · 木灵', '暴击率 +10%(桂灵在场时,蟾宫)', '现有 crit · 暴', 0],
+  ['减伤', 'k-heal', 'bulwark', '', '—', '我 · 木灵', '林荫 / 森严复用;受到的伤害降低,数值见特性', '10-04 bulwark · 壁', 0],
+  ['受伤上限', 'k-heal', 'hitcap', '', '—', '我', '本回合单次受到的伤害不超过最大生命的 10%', 'hitcap · 限', 1],
+  ['荆刺', 'k-dot', 'thornmark', '', '—', '敌', '攻击我方时,自己受到这次伤害的 30%', 'thornmark · 棘', 1],
+  ['被缠', 'k-dot', 'bind', '', '—', '敌', '每次行动都会挨缠住它的藤灵一下;藤灵阵亡就解开', 'bind · 缠', 1],
+  ['守护', 'k-dot', 'guard', '', '—', '柘灵(本命)', '在场时替玩家承担 30% 伤害', 'guard · 护', 1]
+];
+var PRIO = [['守护', 'guard', 'Guard'], ['盾反 · 披荆', 'thorns', 'Thorns'], ['附灼', 'burn', 'OnHitBurn'], ['减攻', 'curse', 'OnHitCurse'],
+  ['林荫 · 森严', 'bulwark', 'Grove / ThicketCut'], ['蟾宫', 'crit', 'CritAura'], ['回血', 'heal', 'HealAlly / Regen'], ['闪避', 'dodge', 'Dodge'], ['疾', 'speed', 'Speed']];
+
+// —— Ui.ChipFlow / PackChips 的逐行移植(同 StatusChipsFire)——
+// 宽 = 字数 × 15 + padX(10;「+N」计数用 4)+ 有图标时 18(+ 有字时间距 3);chip 间距 4
+function cw(c) { var w = c.t.length * 15 + (c.cnt ? 4 : 10); if (c.ic) w += 18 + (c.t ? 3 : 0); return w; }
+function pack(chips, take, extra, width, maxLines) {
+  var lines = [], cur = [], x = 0, reserve = extra ? 4 + cw({ t: extra, cnt: 1 }) : 0;
+  function place(ch, w, isExtra) {
+    var limit = !isExtra && reserve > 0 && lines.length === maxLines - 1 ? width - reserve : width;
+    if (cur.length > 0 && x + 4 + w > limit) { lines.push(cur); cur = []; x = w; } else { x += cur.length === 0 ? w : 4 + w; }
+    cur.push(ch);
+  }
+  for (var i = 0; i < take; i++) place(chips[i], cw(chips[i]), false);
+  if (extra) place({ t: extra, cnt: 1, k: 'k-atk' }, cw({ t: extra, cnt: 1 }), true);
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+function flow(chips, width, maxLines) {
+  var lines = pack(chips, chips.length, null, width, maxLines), shown = chips.length, t;
+  if (lines.length > maxLines) {
+    lines = null;
+    for (t = chips.length - 1; t >= 0 && !lines; t--) { var a = pack(chips, t, '+' + (chips.length - t), width, maxLines); if (a.length <= maxLines) { lines = a; shown = t; } }
+    for (t = chips.length - 1; t >= 0 && !lines; t--) { var b = pack(chips, t, null, width, maxLines); if (b.length <= maxLines) { lines = b; shown = t; } }
+    lines = lines || [];
+  }
+  return { lines: lines, shown: shown };
+}
+function C(n, k, ic, t, nw) { return { n: n, k: k, ic: ic, t: t, nw: nw }; }
+var ENEMY = [C('攻', 'k-atk', 'attack', '168'), C('甲', 'k-ctrl', 'defense', '12'), C('灼', 'k-dot', 'burn', '6'), C('被缠', 'k-dot', 'bind', '', 1),
+  C('荆刺', 'k-dot', 'thornmark', '', 1), C('标记', 'k-dot', 'mark', ''), C('减速', 'k-ctrl', 'slow', '')];
+var ALLY = [C('攻', 'k-atk', 'ranged', '73'), C('本命', 'k-dot', 'guard', '', 1), C('嘲讽', 'k-ctrl', 'taunt', ''), C('荆棘光环', 'k-heal', 'thorns', '', 1),
+  C('减伤', 'k-heal', 'bulwark', ''), C('格挡', 'k-heal', 'block', '1'), C('攻击光环', 'k-gold', 'attack', '', 1), C('暴击', 'k-gold', 'crit', '', 1)];
+var PLAYER = [C('留存护盾', 'k-heal', 'keepshield', '120'), C('减伤', 'k-heal', 'bulwark', ''), C('受伤上限', 'k-heal', 'hitcap', '', 1), C('格挡', 'k-heal', 'block', '2'),
+  C('回敬', 'k-heal', 'retaliate', ''), C('战意', 'k-gold', 'morale', '3/5'), C('暴击', 'k-gold', 'crit', '')];
+var CHECKS = [
+  ['敌人 · 前排', '攻 甲 灼6 被缠 荆刺 标记 减速', ENEMY, 154, 109.3, 2],
+  ['敌人 · 后排', '同上', ENEMY, 184, 131.2, 2],
+  ['木灵 · 前排', '攻(远程) 守护 嘲讽 荆棘光环 减伤 格挡1 攻击光环 暴击', ALLY, 179, 101.5, 2],
+  ['木灵 · 后排', '同上,只有一行', ALLY, 204, 126.5, 1],
+  ['玩家状态栏', '留存 减伤 受伤上限 格挡 回敬 战意 暴击', PLAYER, 251, 251, 2]
+];
+function px(u) { return (u / 2.093).toFixed(2) + 'px'; }
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: ROWS.map(function (r) {
+        return { k: r[0], cls: 'sc ' + r[1], ic: '#ic-' + r[2], n: r[3], bg: BG[r[1]][0], sw: 'background:' + BG[r[1]][1], num: r[4], on: r[5], gl: r[6], icTxt: r[7], isNew: r[8] ? 'NEW ' : '' };
+      }),
+      prio: PRIO.map(function (p) { return { n: p[0], cls: 'sc k-dot', ic: '#ic-' + p[1], f: p[2] }; }),
+      checks: CHECKS.map(function (k) {
+        return { who: k[0], sub: k[1], cols: [k[3], k[4]].map(function (info) {
+          var f = flow(k[2], info - 4, k[5]), hidden = k[2].slice(f.shown);
+          var v = hidden.length === 0 ? '全显示' : '+' + hidden.length + ' 收起:' + (hidden.length > 4 ? hidden.slice(0, 3).map(function (c) { return c.n; }).join('、') + ' 等' : hidden.map(function (c) { return c.n; }).join('、'));
+          return {
+            w: 'width:' + px(info - 4), lbl: '列宽 ' + (Math.round(info * 10) / 10) + ' · ' + k[5] + ' 行', v: v,
+            lines: f.lines.map(function (ln) {
+              return ln.map(function (c) {
+                return { cls: 'sc ' + c.k + (c.ic ? '' : ' noic') + (c.nw ? ' nw' : ''), st: 'width:' + px(cw(c)), ic: c.ic ? '#ic-' + c.ic : '', t: c.t };
+              });
+            })
+          };
+        }) };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

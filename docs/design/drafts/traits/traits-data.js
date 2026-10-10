@@ -192,7 +192,7 @@ window.ZD = (function () {
 })();
 
 /* 图标精灵:现有 44 枚里用得到的几枚(路径逐字取自 tools/icons/svg/,fill/stroke 换成 currentColor 以便着色)
-   + 本稿新增 8 枚 + 10-04 补 3 枚 + 10-08 补 3 枚 + 10-10 补 8 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
+   + 本稿新增 8 枚 + 10-04 补 3 枚 + 10-08 补 3 枚 + 10-10 补 8 枚 + 10-11 补 4 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
 (function () {
   var S = 'fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"';
   var S5 = 'fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"';
@@ -250,6 +250,21 @@ window.ZD = (function () {
     shieldcarry: '<path ' + S + ' d="M54 32A22 22 0 1 1 47.6 16.4"/><path ' + S + ' d="M37.6 16.4h10v-10"/><path ' + F + ' transform="translate(19.8 17.4) scale(.38)" d="' + SHIELD + '"/>',
     // 大招削弱(杜塞):半实心圆 —— 「打一半」
     skillcut: '<circle cx="32" cy="32" r="22" ' + S + '/><path ' + F + ' d="M32 10a22 22 0 0 0 0 44z"/>',
+    // —— NEW · 10-11 补(待审):D2-木 与土·铜墙铁壁(StatusChipsWood 画板) ——
+    // 荆刺:标记的菱形 + 四角倒刺 —— 「打我方时自己被扎」;不用 thorns(那是敌人能力「倒刺」与木灵本命盾反)
+    thornmark: '<path ' + S5 + ' d="M32 16l16 16-16 16-16-16z"/><circle cx="32" cy="32" r="5" ' + F + '/><path ' + F + ' d="M40 24l12-12-3 15zM40 40l12 12-15-3zM24 40L12 52l3-15zM24 24L12 12l15 3z"/>',
+    // 被缠(攀附):一根桩 + 三道藤绕上去
+    bind: '<path ' + S + ' d="M32 6v52"/><path ' + S5 + ' d="M20 14c16 4 16 10 0 14M44 28c-16 4-16 10 0 14M20 42c16 4 16 10 0 14"/>',
+    // 守护(柘灵本命):实心盾挡在一个人前面
+    guard: '<circle cx="44" cy="20" r="8" ' + F + '/><path ' + F + ' d="M30 50a14 14 0 0 1 28 0v6H30z"/><path ' + F + ' transform="translate(2 14) scale(.62)" d="' + SHIELD + '"/>',
+    // 受伤上限(铜墙铁壁):≤ —— 「单次不超过」;与减伤的城垛分开(一个封顶、一个打折)
+    hitcap: '<path ' + S + ' d="M46 12L18 26l28 14"/><path ' + S + ' d="M18 52h28"/>',
+    // 现有,只作对照(木系画板)
+    ranged: '<path ' + S + ' d="M15 10c13 8 13 36 0 44"/><path ' + S + ' d="M15 32h33M39 22l10 10-10 10"/>',
+    melee: '<path ' + S + ' d="M14 50L50 14M50 50L14 14"/><path ' + S + ' d="M18 39l7 7M46 39l-7 7"/>',
+    bleed: '<path ' + F + ' d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/><circle cx="15" cy="49" r="5" ' + F + '/><circle cx="47" cy="52" r="4" ' + F + '/>',
+    dodge: '<path ' + S + ' d="M42 12c-16 10-16 30 0 40M30 15c-12 8-12 26 0 34M19 19c-8 6-8 20 0 26"/>',
+    speed: '<path ' + S + ' d="M8 20h26M8 32h34M8 44h26"/><path ' + S + ' d="M40 20l14 12-14 12"/>',
     // 现有,只作对照(StatusChipsWaterEarth 的易混图标排与封字两态)
     immunity: '<path ' + S + ' d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path ' + S + ' d="M23 32l7 8 12-14"/>',
     seal: '<path ' + S + ' d="M21 30v-8a11 11 0 0 1 22 0v8"/><path ' + F + ' d="M15 30h34v24H15z"/>',
