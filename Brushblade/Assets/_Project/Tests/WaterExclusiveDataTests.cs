@@ -299,9 +299,9 @@ namespace Brushblade.Core.Tests
             Assert.That(Buffs(1), Is.EqualTo(1), "旁边那只照拿");
         }
 
-        // ================= 濯身:清除在前、按清掉的条数回复(Cleanse 0 落表顺序) =================
+        // ================= 濯身:清除在前、按清掉的条数回复(按书写顺序落表,Ruling 13) =================
 
-        /// <summary>澡 Lv8 润面:Lv4 洗涤 `Cleanse 1 pick Self` 先清 1 条,濯身 `Cleanse 0` 清剩下的,
+        /// <summary>澡 Lv8 润面:Lv4 洗涤 `Cleanse 1 pick Self` 先清 1 条,濯身 `Cleanse`(全部)清剩下的,
         /// `HealSelf 50 per Cleansed` 按本次出字清掉的总条数回复(E22b 读 _cast.Cleansed)。玩家身上 3 条减益 → 回复 3 份;
         /// 没有减益 → 0 份(不发这条回复)。管线若把 HealSelf 排到 Cleanse 之前,这里会读到 0。</summary>
         [Test]
