@@ -267,6 +267,37 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Enemies[1].Hp, Is.EqualTo(Hp), "焚城没有入队");
         }
 
+        /// <summary>附着伤害 × 致命(D2-金 J5):怀山那一下把带致命的杂兵压到 30% 以下 → 被斩杀;
+        /// 斩杀发生在附着整段抬起的 TriggerDepth 里,EnemyKilled 的 Depth &gt; 0(R4:不触发击杀时 / 斩杀时特性反应)。</summary>
+        [Test]
+        public void FrostBite_PushesDoomedMobBelowLine_Executes_AtTriggerDepth()
+        {
+            const int hp = 1000, nearLine = 305;   // 30.5%:怀山 30 压到 27.5%,本身打不死
+            BattleEngine Make()
+            {
+                var e = Battle(new[] { Icer(2, Rider(EffectKind.FrostBite, 30)) }, new[] { Mob(hp: hp), Mob() });
+                Cast(e, "冰", 0);
+                e.Enemies[0].Hp = nearLine;
+                return e;
+            }
+
+            var control = Make();
+            control.EndTurn();
+            Assert.That(control.Enemies[0].Alive, Is.True, "对照:没有致命时怀山打不死");
+            Assert.That(control.Enemies[0].Hp * 100, Is.LessThan(hp * BattleEngine.DoomExecutePercent), "对照:已压到 30% 以下");
+
+            var b = Make();
+            b.Enemies[0].Statuses.Apply(new StatusEffect
+                { Kind = StatusKind.Doom, Polarity = StatusPolarity.Debuff, Magnitude = 1, TurnsLeft = 5, SourceId = "刲" });
+            var log = new HookLog();
+            b.AddHookListener(log);
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False, "致命斩杀");
+            var kill = log.All.Single(h => h.Kind == HookKind.EnemyKilled);
+            Assert.That(kill.Source, Is.EqualTo(EffectSource.Execute));
+            Assert.That(kill.Depth, Is.GreaterThan(0), "R4:附着整段抬一层 TriggerDepth,斩杀不触发击杀时被动");
+        }
+
         // ---------------- 冷却(W2,Q5) ----------------
 
         private static CharDef Cooler(int value = 1) =>
@@ -308,14 +339,16 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Enemies[0].ChargeCounter, Is.EqualTo(-1), "第二次不再推迟");
         }
 
+        /// <summary>小怪无效果。次数阀按敌人下标记账,对小怪空转「没占次数」本身不可观测,
+        /// 这里只断言小怪不被推迟、另一只 Boss 照常推迟。</summary>
         [Test]
-        public void ChargeDelay_Mob_NoEffect_NoUseConsumed()
+        public void ChargeDelay_Mob_NoEffect_BossElsewhereStillDelayable()
         {
             var b = Battle(new[] { Cooler() }, new[] { Mob(), Boss() });
             Cast(b, "冷", 0);
             Assert.That(b.Enemies[0].ChargeCounter, Is.EqualTo(0), "小怪无效果");
             Cast(b, "冷", 1);
-            Assert.That(b.Enemies[1].ChargeCounter, Is.EqualTo(-1), "对小怪空转不占 Boss 的次数");
+            Assert.That(b.Enemies[1].ChargeCounter, Is.EqualTo(-1), "另一只 Boss 照常推迟");
         }
 
         // ---------------- 加载期校验 ----------------
