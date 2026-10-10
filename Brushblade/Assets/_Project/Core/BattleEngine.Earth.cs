@@ -8,6 +8,8 @@ namespace Brushblade.Core
     /// 恒等:G1 / G8 只在新 EffectKind 出现时才走到;G9 挂在每回合必经的清盾段,没挂 ShieldCarry 时一次 Has 判断即返回。
     /// Task 3 = 受击挂点族:G2 HitCap(铜墙铁壁)、G3 HurtShield(堡垒)、G4 ShieldShatter(碎玉),挂在 DamagePlayerDirect /
     /// DamageSummon 里,同样没挂时一次 Has 判断即返回。
+    /// Task 4 = 敌人 / 回合侧:G5 OverkillSplash(粉身碎骨,DamageEnemy 致死分支 + 击杀入队解析)、G6 SkillCut(杜塞,CastBossSkill 开头)、
+    /// G7 ApCost(杜门不出,Buff 极性封字)。G5 缺省时只多一次 int 减法与入队时一次 Kind 比较;G6 没挂时一次 Has 判断即返回。
     /// 一律不摇随机数。</summary>
     public sealed partial class BattleEngine
     {
@@ -144,6 +146,71 @@ namespace Brushblade.Core
                 DamageEnemy(enemyIndex, dealt, Element.Heart,
                     bypassDefense: true, allowBarb: false,
                     source: EffectSource.ShieldShatter, attackerRef: UnitRef.Player);
+        }
+
+        // ---- Task 4:敌人 / 回合侧(G5 / G6 / G7) ----
+
+        /// <summary>粉身碎骨(G5)入队前解析:Value = 溢出 × N% 向下取整。其余效果原样返回(溢出为 0 时同样落成 0,兑现时空转)。</summary>
+        private static EffectDef ResolveOverkill(EffectDef e, int overkill) =>
+            e.Kind != EffectKind.OverkillSplash ? e : e.With(value: Math.Max(0, overkill) * e.Value / 100);
+
+        /// <summary>粉身碎骨(G5,Q9)兑现:把 <paramref name="amount"/> 平分给死者 <paramref name="victim"/> 之外的存活敌人
+        /// (整数除、余数丢弃;跨排 Boss 只占一个下标 = 1 份)。土属性、过生克与护甲(DamageEnemy 全套,吃标记)、不暴击、
+        /// 不算挥击(allowBarb: false)、source = OverkillSplash。整段抬一层 TriggerDepth(R4):溅射打死的不入队击杀时,不连锁。</summary>
+        private void SplashOverkill(int victim, int amount)
+        {
+            if (amount <= 0) return;
+            int count = 0;
+            for (int i = 0; i < _enemies.Count; i++)
+                if (i != victim && _enemies[i].Alive) count++;
+            if (count == 0) return;
+            int share = amount / count;
+            if (share <= 0) return;
+            var targets = new int[count];
+            for (int i = 0, n = 0; i < _enemies.Count; i++)
+                if (i != victim && _enemies[i].Alive) targets[n++] = i;
+            EnterTrigger();
+            try
+            {
+                foreach (int i in targets)
+                    if (_enemies[i].Alive)
+                        DamageEnemy(i, share, Element.Earth, allowBarb: false,
+                            source: EffectSource.OverkillSplash, attackerRef: UnitRef.Player);
+            }
+            finally { ExitTrigger(); }
+        }
+
+        /// <summary>杜塞(G6,Q3)挂载:只挂 Boss(杂兵没有大招,挂了也永远用不掉)。Debuff 极性、TurnsLeft −1(放大招时移除),同源刷新。</summary>
+        private void ApplySkillCut(int enemyIndex, EffectDef effect, string sourceId)
+        {
+            if (!_enemies[enemyIndex].IsBoss) return;
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
+            {
+                Kind = StatusKind.SkillCut, Polarity = StatusPolarity.Debuff,
+                Magnitude = Math.Clamp(effect.Value, 0, 100), TurnsLeft = -1, SourceId = sourceId, TraitKey = effect.TraitKey,
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
+        }
+
+        /// <summary>CastBossSkill 开头:取出本次大招的削减百分比(多条取最大)并整类移除;没挂时一次 Has 判断即返回 0。</summary>
+        private static int TakeSkillCut(EnemyState enemy)
+        {
+            if (!enemy.Statuses.Has(StatusKind.SkillCut)) return 0;
+            int cut = Math.Clamp(enemy.Statuses.MaxMagnitude(StatusKind.SkillCut), 0, 100);
+            enemy.Statuses.Remove(StatusKind.SkillCut);
+            return cut;
+        }
+
+        /// <summary>杜门不出的 AP 代价(G7,Q2):给玩家挂 **Buff 极性**的 Seal,TurnsLeft 2(挂上后下一次 BeginPlayerTurn 减到 1,
+        /// StartTurn 读到 → 下个玩家回合 AP −N;再下一次到期)。直接 bag.Apply、不经 ApplyStatus —— 不被免疫减益拦、
+        /// 不被净化(只清 Debuff)清(R4「代价不算减益」)。StartTurn 读 Seal 总量的代码不变,复用封字 chip / 文案。</summary>
+        private void ApplyApCost(EffectDef effect, string sourceId)
+        {
+            if (effect.Value <= 0) return;
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Seal, Polarity = StatusPolarity.Buff,
+                Magnitude = effect.Value, TurnsLeft = 2, SourceId = sourceId, TraitKey = effect.TraitKey,
+            });
         }
     }
 }

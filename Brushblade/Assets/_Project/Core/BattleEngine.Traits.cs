@@ -156,8 +156,9 @@ namespace Brushblade.Core
         private static IReadOnlyList<TraitDef> NullIfEmpty(IReadOnlyList<TraitDef> traits) => traits.Count == 0 ? null : traits;
 
         /// <summary>出字内触发入队(R4:只有顶层出字的伤害 / 击杀会走到这里 —— 排空期间 _cast.OnCrit / _cast.OnKill 为 null)。
-        /// 每条特性一条反应,目标 = 被暴击 / 被击杀的那名敌人。</summary>
-        private void EnqueueCastTraits(IReadOnlyList<TraitDef> traits, int enemyIndex)
+        /// 每条特性一条反应,目标 = 被暴击 / 被击杀的那名敌人。
+        /// <paramref name="overkill"/> = 致死一击的溢出(只有击杀时、且由 DamageEnemy 致死分支打死才非 0),解析进 OverkillSplash(G5)。</summary>
+        private void EnqueueCastTraits(IReadOnlyList<TraitDef> traits, int enemyIndex, int overkill = 0)
         {
             if (traits == null || TriggerDepth > 0) return;
             var element = _cast.TraitDef.Element ?? Element.Heart;
@@ -174,7 +175,7 @@ namespace Brushblade.Core
                     _cast.Enqueued[t] = used + 1;
                 }
                 Enqueue(new Reaction(_cast.TraitDef.Id, element,
-                    t.Effects.Select(e => TraitRules.ForCast(e, t, _cast.TraitDef, body)).ToList(),
+                    t.Effects.Select(e => ResolveOverkill(TraitRules.ForCast(e, t, _cast.TraitDef, body), overkill)).ToList(),
                     enemyIndex, TriggerDepth + 1));
             }
         }

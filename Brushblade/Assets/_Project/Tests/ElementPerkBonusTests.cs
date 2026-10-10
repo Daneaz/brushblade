@@ -217,6 +217,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.ShieldSpend, EffectKind.ShieldToMorale, EffectKind.ShieldCarry,
                 // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比
                 EffectKind.HitCap, EffectKind.ShieldShatter,
+                // D2-土 Task 4:溢出平分(作用于已打出的伤害)/ 大招削减是百分比,AP 代价是点数
+                EffectKind.OverkillSplash, EffectKind.SkillCut, EffectKind.ApCost,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

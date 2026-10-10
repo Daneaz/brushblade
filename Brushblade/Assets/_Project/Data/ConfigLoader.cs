@@ -571,6 +571,8 @@ namespace Brushblade.Data
                     dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
                     dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
                     traits: ParseTraits(dto));
+                if (def.Effects.Concat(def.AttackEffects).Any(e => e.Kind == EffectKind.OverkillSplash))
+                    throw new ConfigException($"字「{def.Id}」的本体写了 OverkillSplash,但它只能写在击杀时(OnKill)特性里");
                 ValidateTraitTargets(def);
                 ValidateSaplingFaces(def);
                 ValidateOpeningAmplify(def);
@@ -637,6 +639,9 @@ namespace Brushblade.Data
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
                 var effects = ParseEffects(dto, t.Effects ?? new List<EffectDto>());
                 ValidateGlyph(dto, t, trigger, effects);
+                // 粉身碎骨(D2-土 G5):溢出只在击杀入队时解析,写在别的时机 Value 恒为原百分比、目标也不是死者 —— 拦下
+                if (trigger != TraitTrigger.OnKill && effects.Any(e => e.Kind == EffectKind.OverkillSplash))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」写了 OverkillSplash,但它只能写在击杀时(OnKill)特性里");
                 if (t.MaxPerCast < 0)
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerCast 不能为负:{t.MaxPerCast}");
                 // 每场次数(D2-土 E35)只约束出字时机的特性(顶层出字 Fold 时跳过);写在暴击 / 击杀等反应特性上静默无效 —— 拦下
@@ -1117,6 +1122,11 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
             if (kind == EffectKind.HurtShield && (e.Value < 1 || e.Turns < 1))
                 throw new ConfigException($"字「{id}」的 HurtShield 须写护盾量 N ≥ 1 与回合数(turns ≥ 1),当前:{e.Value} / {e.Turns}");
+            // D2-土 Task 4(G5 / G6 / G7):溢出平分 / 大招削减的百分比须在 1..100;AP 代价至少 1
+            if ((kind == EffectKind.OverkillSplash || kind == EffectKind.SkillCut) && (e.Value < 1 || e.Value > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
+            if (kind == EffectKind.ApCost && e.Value < 1)
+                throw new ConfigException($"字「{id}」的 ApCost 须写 N ≥ 1,当前:{e.Value}");
         }
 
         /// <summary>D2-土 Task 1 的字段(附录 E29 / E30 / E31 / E36):写在不读它的效果上引擎会静默忽略 —— 一律拦下。

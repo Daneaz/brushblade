@@ -49,7 +49,8 @@ namespace Brushblade.Core
                 or EffectKind.FrostBite or EffectKind.ThawStrike or EffectKind.ThawSlow
                 or EffectKind.ChargeDelay
                 or EffectKind.BuffBlock   // D2-水 Task 3 洗尽铅华
-                or EffectKind.Silence => true,   // D2-土 E33 杜塞(`if NotBoss`)
+                or EffectKind.Silence   // D2-土 E33 杜塞(`if NotBoss`)
+                or EffectKind.SkillCut => true,   // D2-土 G6 杜塞(`if IsBoss`)
             _ => false,
         };
 

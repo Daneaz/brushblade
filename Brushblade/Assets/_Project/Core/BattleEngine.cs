@@ -376,6 +376,7 @@ namespace Brushblade.Core
         ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
         FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
         ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
+        OverkillSplash,// 粉身碎骨(D2-土 G5):击杀溢出平分给其余敌人;R4 特性伤害,溅射击杀不入队击杀时;表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -2023,7 +2024,9 @@ namespace Brushblade.Core
                     // 冷却(D2-水 W2):推迟的是主目标(Boss)的蓄力
                     || effect.Kind == EffectKind.ChargeDelay
                     // 洗尽铅华(D2-水 W3):挂在主目标身上
-                    || effect.Kind == EffectKind.BuffBlock)
+                    || effect.Kind == EffectKind.BuffBlock
+                    // 杜塞(D2-土 G6):挂在主目标(Boss)身上
+                    || effect.Kind == EffectKind.SkillCut)
                     return true;
             return false;
         }
@@ -3964,6 +3967,17 @@ namespace Brushblade.Core
                         // 碎玉:挂载同反震 —— 本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
                         if (_cast.ShieldGranted > 0) ApplyShieldShatter(effect.Value, def.Id, effect.TraitKey ?? def.Id);
                         break;
+                    // 敌人 / 回合侧(D2-土 G5 / G6 / G7):百分比 / AP 离散,读 effect.Value
+                    case EffectKind.OverkillSplash:
+                        SplashOverkill(targetIndex, effect.Value);   // Value 已在击杀入队时解析成溢出量 × N%
+                        break;
+                    case EffectKind.SkillCut:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplySkillCut(ti, effect, def.Id);
+                        break;
+                    case EffectKind.ApCost:
+                        ApplyApCost(effect, def.Id);
+                        break;
                     case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
@@ -5539,7 +5553,8 @@ namespace Brushblade.Core
             // (击杀不白闪、让位给置灰)。中间插任何事件都会打断判定 → 白闪抢色 + 置灰错拍
             if (!enemy.Alive)
             {
-                ResolveDefeat(enemyIndex, attackerRef, source);
+                // 溢出(D2-土 G5,Q9)= 过护甲 / 敌盾后的实际伤害 − 击杀前生命;只有击杀时特性里的 OverkillSplash 读它
+                ResolveDefeat(enemyIndex, attackerRef, source, overkill: damage - absorbed - hpBefore);
                 FlushCritMorale(enemyIndex);
                 // 立即判胜(Task 12):这一记(含反弹/反伤这类回敬)可能就是清场的最后一击,
                 // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
@@ -5661,13 +5676,14 @@ namespace Brushblade.Core
             return true;
         }
 
-        private void ResolveDefeat(int enemyIndex, UnitRef killer, EffectSource source)
+        /// <param name="overkill">致死一击的溢出伤害(只有 DamageEnemy 致死分支传;其余死亡路径为 0)。击杀时特性入队时解析进 OverkillSplash(G5)。</param>
+        private void ResolveDefeat(int enemyIndex, UnitRef killer, EffectSource source, int overkill = 0)
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
             Raise(HookKind.EnemyKilled, UnitRef.Enemy(enemyIndex), killer, source: source, castCharId: _castingCharId);
             // 击杀时(D1 Task 9,迎刃):顶层出字结算期间发生的击杀(伤害 / 斩杀 / 本次出字的灼烧结算与引爆)各入队一次;
             // 反应里的击杀不入队(R4:排空时 _cast.OnKill 为 null)
-            EnqueueCastTraits(_cast.OnKill, enemyIndex);
+            EnqueueCastTraits(_cast.OnKill, enemyIndex, overkill);
             // 斩杀时(D2-金 J3,铁则):同上口径,只认斩杀(TryExecuteKill / 致命);敌人回合的立威斩杀由 ResolveCounter 回查入队
             if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
@@ -6098,6 +6114,9 @@ namespace Brushblade.Core
         private void CastBossSkill(int index, EnemyState enemy, BossSkill skill)
         {
             _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill));
+            // 杜塞(D2-土 G6,Q3):本次大招对玩家 / 木灵的伤害 × (100 − N)%,放完即移除;没挂时一次 Has 判断即返回 0,下面 Cut 原样返回
+            int cut = TakeSkillCut(enemy);
+            int Cut(int damage) => cut == 0 ? damage : damage * (100 - cut) / 100;
 
             switch (skill)
             {
@@ -6105,24 +6124,24 @@ namespace Brushblade.Core
                     // 2026-08-12(E-b4 T3):不再套额外的乘法减伤 —— 玩家份的护甲在
                     // DamagePlayerDirect 里折(2026-09-16 起是百分比减伤),召唤物份**不折**
                     // (召唤物没有自己的基础护甲,也不借玩家的,spec §4.2)
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                    DamagePlayerDirect(index, Cut(enemy.Attack * 2));
                     for (int s = 0; s < SummonCap; s++)
                         if (_summons[s] != null && _summons[s].Alive)
-                            DamageSummon(index, s, enemy.Attack, enemy.Element);
+                            DamageSummon(index, s, Cut(enemy.Attack), enemy.Element);
                     break;
 
                 case BossSkill.Impale: // 洞穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
                 {
                     int front = Targeting.FrontmostSummon(_summons, FrontRowSize);
                     if (front >= 0)
-                        DamageSummon(index, front, enemy.Attack, enemy.Element);
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                        DamageSummon(index, front, Cut(enemy.Attack), enemy.Element);
+                    DamagePlayerDirect(index, Cut(enemy.Attack * 2));
                     break;
                 }
 
                 case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉
                 {
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                    DamagePlayerDirect(index, Cut(enemy.Attack * 2));
                     int broken = _shieldNormal + _shieldPersist;
                     if (broken > 0)
                     {
@@ -6168,7 +6187,7 @@ namespace Brushblade.Core
                     else
                     {
                         // 没得吞退化成普攻:与普攻同口径过护甲;秒杀分支本身无数值可折,不动
-                        DamagePlayerDirect(index, enemy.Attack);
+                        DamagePlayerDirect(index, Cut(enemy.Attack));
                     }
                     break;
                 }

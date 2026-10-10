@@ -222,6 +222,15 @@ namespace Brushblade.Core
         ShieldShatter,  // 碎玉:本次出字给玩家实际加了盾(同反震)才挂隐藏 StatusKind.ShieldShatter(Magnitude = Value%,1..100);
                         // 敌人挥击把两桶打到 0 → 同步反伤「本击吸收量 × N%」,进 60% 反伤预算(镜 → 格挡 → 反震 → 碎玉,Q6);
                         // 随两桶归零移除(倾覆 / 扣盾清空只移除不反伤)。离散。非敌对。
+        // ---- D2-土 Task 4:敌人 / 回合侧(附录 G5 / G6 / G7)。⚠ 只在末尾追加 ----
+        OverkillSplash, // 粉身碎骨:只能写在击杀时(OnKill)特性里。入队时把致死一击的溢出(过护甲 / 敌盾后的实际伤害 − 击杀前生命)
+                        // × Value%(1..100)解析进 Value;兑现时平分给其余存活敌人(整数除,Boss 算 1 份):土属性、过生克与护甲、
+                        // 不暴击、不算挥击,source = OverkillSplash;溅射击杀不入队击杀时(R4)。离散。敌对。
+        SkillCut,       // 杜塞(Boss):给目标 Boss 挂隐藏 StatusKind.SkillCut(Magnitude = Value%,1..100);下一次大招对玩家 / 木灵的
+                        // 伤害 × (100 − N)%,清盾 / 封字照常,吞噬秒杀不受影响,放完即移除;多条取最大(Q3)。杂兵空转。
+                        // 支持 Pick / OnlyIf。离散。敌对。
+        ApCost,         // 杜门不出:AP 代价 —— 给玩家挂 Buff 极性的 Seal(Magnitude = Value ≥ 1,TurnsLeft 2 = 下个玩家回合 AP −N),
+                        // 直接 bag.Apply、不经 ApplyStatus:不被免疫减益(DebuffWard)拦、不被净化清(R4「代价不算减益」,Q2)。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

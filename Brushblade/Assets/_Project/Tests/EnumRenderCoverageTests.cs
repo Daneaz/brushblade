@@ -46,6 +46,10 @@ namespace Brushblade.Core.Tests
             [nameof(EffectKind.HitCap)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
             [nameof(EffectKind.HurtShield)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
             [nameof(EffectKind.ShieldShatter)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
+            // ⚠ 临时豁免(D2-土 Task 4):同上,Task 5 接 CharInfo 文案时删掉
+            [nameof(EffectKind.OverkillSplash)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
+            [nameof(EffectKind.SkillCut)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
+            [nameof(EffectKind.ApCost)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
         };
 
         /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
@@ -61,6 +65,10 @@ namespace Brushblade.Core.Tests
             [nameof(EffectKind.HitCap)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
             [nameof(EffectKind.HurtShield)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
             [nameof(EffectKind.ShieldShatter)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
+            // ⚠ 临时豁免(D2-土 Task 4):同上
+            [nameof(EffectKind.OverkillSplash)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
+            [nameof(EffectKind.SkillCut)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
+            [nameof(EffectKind.ApCost)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
         };
 
         /// <summary>玩家永远看不到状态详情的 StatusKind → 理由。</summary>
@@ -96,6 +104,8 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ShieldCarry)] = "隐藏载体(D2-土 Q21,浮屠):回合开始时留下的护盾数本身就是反馈,触发反馈归 Plan E",
             // D2-土 Task 3(Q21):碎玉是隐藏载体(永久豁免)
             [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):护盾被打破时的反伤本身就是反馈,触发反馈归 Plan E",
+            // D2-土 Task 4(Q21):杜塞的大招削减是 Boss 身上的隐藏载体(永久豁免);「大招减半」显示在蓄力预警上归 Plan E
+            [nameof(StatusKind.SkillCut)] = "隐藏载体(D2-土 Q21,杜塞):Boss 下一次大招伤害削减,预警提示归 Plan E",
             // ⚠ 临时豁免(D2-土 Task 3):铜墙铁壁(chip 复用「减伤」待审稿,Q20)/ 堡垒(chip 与 W5 合稿,Q21)的
             // StatusText 详情文案归 Task 5,接上 StatusText.Of 的 case 时删掉这两行
             [nameof(StatusKind.HitCap)] = "临时:D2-土 Task 5 接 StatusText 文案时移除",

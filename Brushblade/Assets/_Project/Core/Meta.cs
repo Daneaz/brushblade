@@ -848,6 +848,8 @@ namespace Brushblade.Core
             EffectKind.ShieldSpend or EffectKind.ShieldToMorale or EffectKind.ShieldCarry => false,
             // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比,离散;堡垒(HurtShield)是护盾量,连续(走缺省 true)
             EffectKind.HitCap or EffectKind.ShieldShatter => false,
+            // D2-土 Task 4:溢出平分(百分比,作用于已打出的伤害)/ 大招削减(百分比)/ AP 代价(点数)都离散
+            EffectKind.OverkillSplash or EffectKind.SkillCut or EffectKind.ApCost => false,
             _ => true,
         };
 

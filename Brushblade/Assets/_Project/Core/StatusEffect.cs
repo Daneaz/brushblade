@@ -136,6 +136,8 @@ namespace Brushblade.Core
                           // 玩家身上、我方全体受益:玩家按玩家最大生命、木灵按木灵 MaxHp 封顶,削减量并入 60% 非护甲减伤预算。
         HurtShield,       // 堡垒(chip 待稿,Q21):Magnitude = 出字时定死的护盾量,TurnsLeft = 回合;多条取最强。
         ShieldShatter,    // 碎玉(隐藏载体,Q21):Magnitude = 反伤百分比,TurnsLeft = -1,同类只留最强一条;随两桶护盾归零移除。
+        // ---- D2-土 Task 4:敌人侧(附录 G6,仅 Boss)。⚠ 只在末尾追加 ----
+        SkillCut,         // 杜塞(Boss,隐藏,Q21):Magnitude = 下一次大招伤害的削减百分比,TurnsLeft = -1;CastBossSkill 开头取最大并整类移除。
     }
 
     /// <summary>状态的分类规则。</summary>
