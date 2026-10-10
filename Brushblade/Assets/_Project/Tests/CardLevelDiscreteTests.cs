@@ -77,6 +77,8 @@ namespace Brushblade.Core.Tests
             EffectKind.BuffBlock,
             // D2-水 Task 4:受击回复是百分比、冰晶是冻结回合、回合脉冲不用 Value
             EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,
+            // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾的 Value 都是百分比
+            EffectKind.ShieldSpend, EffectKind.ShieldToMorale, EffectKind.ShieldCarry,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

@@ -844,6 +844,8 @@ namespace Brushblade.Core
             EffectKind.BuffBlock => false,
             // D2-水 Task 4:受击回复的 Value 是百分比、冰晶是冻结回合、回合脉冲不用 Value(载荷触发时按来源字等级另行缩放)
             EffectKind.HurtHeal or EffectKind.ShieldFrost or EffectKind.TurnPulse => false,
+            // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾的 Value 都是百分比(作用于已吃过等级的护盾量),离散
+            EffectKind.ShieldSpend or EffectKind.ShieldToMorale or EffectKind.ShieldCarry => false,
             _ => true,
         };
 

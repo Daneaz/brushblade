@@ -35,12 +35,25 @@ namespace Brushblade.Core.Tests
         /// <summary>玩家永远看不到卡面文案的 EffectKind → 理由。P0 休眠的那批
         /// (PierceBuff/Cleanse/Dispel/ApBoost/BurnNoDecay)不算豁免 —— 它们只是当前
         /// 字表无载体,CharInfo 里仍然有渲染分支,P2 复活时不需要再补线。</summary>
-        private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>
+        {
+            // ⚠ 临时豁免(D2-土 Task 2):引擎先行,卡面文案按 plan 归 Task 5(CharInfo + 字符串表 + 字体子集)。
+            // Task 5 接上 CharInfo 分支时**删掉这三行** —— 字表数据(Task 6)落地前玩家撞不见这三个 Kind。
+            [nameof(EffectKind.ShieldSpend)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
+            [nameof(EffectKind.ShieldToMorale)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
+            [nameof(EffectKind.ShieldCarry)] = "临时:D2-土 Task 5 接 CharInfo 文案时移除",
+        };
 
         /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
         /// 空表是核实过的结论,不是偷懒:34 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
         /// CardTraits.cs 里(不出特性 chip 的那几个写成空 `case … break;`,同样匹配得到)。</summary>
-        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>
+        {
+            // ⚠ 临时豁免(D2-土 Task 2):同 EffectKindExempt,Task 5 接 CardTraits 分支时删掉
+            [nameof(EffectKind.ShieldSpend)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
+            [nameof(EffectKind.ShieldToMorale)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
+            [nameof(EffectKind.ShieldCarry)] = "临时:D2-土 Task 5 接 CardTraits 时移除",
+        };
 
         /// <summary>玩家永远看不到状态详情的 StatusKind → 理由。</summary>
         private static readonly Dictionary<string, string> StatusKindExempt = new Dictionary<string, string>
@@ -71,6 +84,8 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
             // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(StatusText 有文案),chip 待稿,不在这里
             [nameof(StatusKind.ShieldFrost)] = "隐藏载体(D2-水 V5,冰晶):护盾被打破时攻击者被冻结本身就是反馈,触发反馈归 Plan E",
+            // D2-土 Task 2(Q21):浮屠是隐藏载体
+            [nameof(StatusKind.ShieldCarry)] = "隐藏载体(D2-土 Q21,浮屠):回合开始时留下的护盾数本身就是反馈,触发反馈归 Plan E",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。

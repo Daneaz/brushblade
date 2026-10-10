@@ -207,6 +207,13 @@ namespace Brushblade.Core
         TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(清盾之后、TurnStarted 之前)
                         // 把 PerHit 里的效果入队一条反应(目标 −1:敌方效果按其 pick,我方效果落玩家),触发时按来源字等级缩放(Q17)。
                         // PerHit 白名单见 BattleEngine.TurnPulseAllows(不收伤害)。Value 不用。非敌对。
+        // ---- D2-土 Task 2:护盾操作族(附录 G1 / G8 / G9)。⚠ 只在末尾追加 ----
+        ShieldSpend,    // 塔倾 / 地裂:玩家两桶护盾合计 × Value% 向下取整扣除(1..100;管线无值 token `ShieldSpend` = 100),先扣普通桶。
+                        // 不算受击:不触发冰晶 / 反震(以后的碎玉同理),只判空移除载体;发 ShieldBroken(−1, 扣除量)。离散。非敌对。
+        ShieldToMorale, // 土生金:同 ShieldSpend 扣两桶合计 × Value%(读结算那一刻,含本面先加的盾),战意 + ⌈扣除量 / ResourceThresholdValue⌉
+                        // (扣除量 0 → +0),钳 MoraleCap、不计溢出(聚金看不到)。离散。非敌对。
+        ShieldCarry,    // 浮屠:给玩家挂 StatusKind.ShieldCarry(Magnitude = Value%),Turns 回合(必填);之后每个玩家回合开始清普通桶时,
+                        // 把被清量 × N% 作普通桶加回(不攒厚),再判空移除载体。多条取最强。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

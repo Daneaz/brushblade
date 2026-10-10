@@ -2784,9 +2784,11 @@ namespace Brushblade.Core
             // 跨场带入 / 开局效果给的护盾写在构造函数里,第一回合开始就清的话它们一拍都挡不到。
             if (_playerTurnsStarted > 0)
             {
+                int clearedNormal = _shieldNormal;
                 _shieldNormal = 0;
                 foreach (var summon in _summons)
                     if (summon != null) summon.Shield = 0;
+                CarryShieldOnTurnClear(clearedNormal);   // 浮屠(D2-土 G9):判空之前加回;没挂时一次判断即返回
                 DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
             }
             ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
@@ -3937,6 +3939,16 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.TurnPulse:
                         ArmTurnPulse(effect, def.Id, attacker);
+                        break;
+                    // 护盾操作族(D2-土 G1 / G8 / G9):百分比离散,读 effect.Value
+                    case EffectKind.ShieldSpend:
+                        SpendPlayerShield(effect.Value);
+                        break;
+                    case EffectKind.ShieldToMorale:
+                        ResolveShieldToMorale(effect.Value);
+                        break;
+                    case EffectKind.ShieldCarry:
+                        ApplyShieldCarry(effect, def.Id);
                         break;
                     case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect

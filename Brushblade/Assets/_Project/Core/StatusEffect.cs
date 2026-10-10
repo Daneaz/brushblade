@@ -128,6 +128,9 @@ namespace Brushblade.Core
                           // Q26:土·碎玉的伤害载荷以后放这里,须进 60% 反伤预算),TurnsLeft = -1,随两桶护盾归零移除。
         TurnPulse,        // 大雨滂沱(可见,chip 待 designer 稿,V5):OnHit = 每个玩家回合开始结算的效果(未缩放,OpeningEffect 形态),
                           // TurnsLeft = 回合(施加当回合不触发,之后 N 次),SourceId = 字 ID、TraitKey = 特性键。
+        // ---- D2-土 Task 2:护盾操作族(附录 G9,仅玩家)。⚠ 只在末尾追加 ----
+        ShieldCarry,      // 浮屠(隐藏载体,Q21):Magnitude = 回合初被清普通桶的加回百分比,TurnsLeft = 回合(按玩家回合递减,
+                          // 施加当回合不触发,之后 N 次),SourceId = 字 ID。多条取最强;加回作普通桶、不攒厚,排在判空移除载体之前。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -141,7 +144,8 @@ namespace Brushblade.Core
             || kind == StatusKind.Retaliate   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
             || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield   // D2-金 Task 4:战意光环只管本场
             || kind == StatusKind.DebuffWard   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
-            || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse;   // D2-水 Task 4(防御性)
+            || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse   // D2-水 Task 4(防御性)
+            || kind == StatusKind.ShieldCarry;   // D2-土 Task 2(防御性)
     }
 
     public enum StatusPolarity { Buff, Debuff }
