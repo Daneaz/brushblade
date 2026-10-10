@@ -709,7 +709,8 @@ namespace Brushblade.Data
                     .SelectMany(t => t.Effects)).ToList();
                 int sapling = all.FindIndex(e => e.Kind == EffectKind.SummonSapling && !e.FromBody);   // fromBody(E41)不取本次召出的
                 if (sapling < 0) continue;
-                int summon = all.FindIndex(e => e.Kind == EffectKind.Summon);
+                // 本命追加 / Lv3 强化的 `Summon 0` 只并本命、不召出木灵(D2-木 E37),不算「同面有召唤」(fix round 1)
+                int summon = all.FindIndex(e => e.Kind == EffectKind.Summon && e.Value > 0);
                 if (summon < 0)
                     throw new ConfigException($"字「{def.Id}」的幼苗(SummonSapling)所在的面没有召唤(Summon),幼苗会永远空转");
                 if (summon > sapling)
@@ -1211,6 +1212,11 @@ namespace Brushblade.Data
                     .Any(e => e.Kind == EffectKind.Reshape && (e.PersistOnce || e.ArmorShieldPercent > 0));
                 if (shieldReshape && body.Any(e => e.Kind == EffectKind.DamageSingle))
                     throw new ConfigException($"字「{def.Id}」的 {face} 面有伤害,Reshape 的 persist / armorShield 只作用于无伤害面的护盾");
+                // 召唤改形(D2-木 E48,林立 summonPercent)同理:有伤害的面上 Reshape 改的是第一条伤害,summonPercent 会被静默丢掉
+                bool summonReshape = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects))
+                    .Any(e => e.Kind == EffectKind.Reshape && e.SummonPercent != 100);
+                if (summonReshape && body.Any(e => e.Kind == EffectKind.DamageSingle))
+                    throw new ConfigException($"字「{def.Id}」的 {face} 面有伤害,Reshape 的 summonPercent 只作用于无伤害面的召唤");
                 // ShieldSummons ofShield(E28)读本次名义护盾:同面(本体 + 作用于该面的特性)没有 Shield / ShieldAll 时恒为 0(fix round 1)
                 var faceEffects = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects)).ToList();
                 if (faceEffects.Any(e => e.Kind == EffectKind.ShieldSummons && e.OfShield)

@@ -72,10 +72,11 @@ namespace Brushblade.Core
             return bonus;
         }
 
-        /// <summary>E43:点尸体复活(方法头的前置复活)用本面首条 Revive 的血量百分比;口径同 <see cref="HasRevive"/>(读本体)。</summary>
-        private static int RevivePercentOf(CharDef def, bool attackMode)
+        /// <summary>E43:点尸体复活(方法头的前置复活)用本面 Fold 后首条 Revive 的血量百分比 —— 与随后 Revive 分支结算的
+        /// 是同一份效果表(Lv3 替换 / 特性追加都算)。fix round 1:原先读未 Fold 的本体。</summary>
+        private static int RevivePercentOf(CharDef def, bool attackMode, int cardLevel)
         {
-            foreach (var effect in EffectsOf(def, attackMode))
+            foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
                 if (effect.Kind == EffectKind.Revive) return effect.ReviveHpPercent;
             return 0;
         }

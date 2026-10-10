@@ -55,6 +55,8 @@ namespace Brushblade.Core.Tests
             ["ByArmor"] = "临时豁免:D2-木 Task 5 接文案时删",
             ["ReviveHpPercent"] = "临时豁免:D2-木 Task 5 接文案时删",
             ["SummonPercent"] = "临时豁免:D2-木 Task 5 接文案时删",
+            // Sprout 会被 SproutPercent 的子串匹配蒙过去(fix round 1):显式列出,别靠子串碰巧通过
+            ["Sprout"] = "临时豁免:D2-木 Task 5 接文案时删",
         };
 
         /// <summary>SummonPassive 侧的豁免。与 EffectDef 侧**分开两张表**(2026-08-29):

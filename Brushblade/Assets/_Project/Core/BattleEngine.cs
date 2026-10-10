@@ -641,7 +641,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 18 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 19 种,含 None;最大值 18),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -3227,7 +3227,7 @@ namespace Brushblade.Core
             bool reviveTargetPending = false;
             if (allySlot >= 0 && HasRevive(def, attackMode) && CanReviveSlot(allySlot))
             {
-                ReviveAt(allySlot, RevivePercentOf(def, attackMode));
+                ReviveAt(allySlot, RevivePercentOf(def, attackMode, cardLevel));
                 reviveTargetPending = true;
             }
 

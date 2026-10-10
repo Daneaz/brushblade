@@ -443,15 +443,21 @@ namespace Brushblade.Core.Tests
         public void E50_TurnPulseVulnerable_OnlyWhileOwnSummonAlive()
         {
             Assert.That(BattleEngine.TurnPulseAllows(EffectKind.Vulnerable), Is.True);
-            var with = Battle(Catalpa(), 1, new[] { Wood(0, source: "楸", hp: 5000) });
+            var with = Battle(Catalpa(), 1, new[] { Wood(0, source: "楸", hp: 5000) }, RebalanceFixture.Mob(), RebalanceFixture.Mob());
             with.Cast("楸");
+            var withBefore = with.Capture().TraitRandomState;
             with.EndTurn();
-            Assert.That(with.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.True, "楸灵在场:标记");
+            Assert.That(with.Enemies.Any(e => e.Statuses.Has(StatusKind.Vulnerable)), Is.True, "楸灵在场:标记");
+            Assert.That(with.Capture().TraitRandomState, Is.Not.EqualTo(withBefore), "对照:在场时 pick Random 摇 _traitRandom");
 
-            var without = Battle(Catalpa(), 1, new[] { Wood(0, source: "林", hp: 5000), Wood(1, source: "楸", ch: "苗", hp: 5000) });
+            var without = Battle(Catalpa(), 1, new[] { Wood(0, source: "林", hp: 5000), Wood(1, source: "楸", ch: "苗", hp: 5000) },
+                RebalanceFixture.Mob(), RebalanceFixture.Mob());
             without.Cast("楸");
+            var before = without.Capture();
             without.EndTurn();
-            Assert.That(without.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.False, "楸灵不在场(别家木灵 / 楸的幼苗不算):空转");
+            var after = without.Capture();
+            Assert.That(without.Enemies.Any(e => e.Statuses.Has(StatusKind.Vulnerable)), Is.False, "楸灵不在场(别家木灵 / 楸的幼苗不算):空转");
+            Assert.That(after.TraitRandomState, Is.EqualTo(before.TraitRandomState), "空转不摇 _traitRandom(选目标之前就短路)");
         }
 
         [Test]
@@ -641,12 +647,73 @@ namespace Brushblade.Core.Tests
                 new TraitDef(TraitSlot.Lv4, TraitFace.Both, TraitForm.Passive, null, "双木",
                     new[] { new EffectDef(EffectKind.SummonSapling, 20, summonCount: 2, fromBody: true) }, trigger: TraitTrigger.OnDismantle));
             var b = Battle(def, 4);
-            var detached = typeof(BattleEngine).GetMethod("ApplyDetachedEffects",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            detached.Invoke(b, new object[] { "林", Element.Wood, def.Traits[0].Effects, -1 });
+            b.ApplyDetachedEffects("林", Element.Wood, def.Traits[0].Effects);
             var saplings = b.Summons.Where(x => x != null && x.Alive).ToList();
             Assert.That(saplings, Has.Count.EqualTo(2));
             Assert.That(saplings[0].MaxHp, Is.EqualTo(MetaRules.ScaleByCardLevel(400, 4) * 20 / 100));
+        }
+
+        // ================= Fix round 1 =================
+
+        [Test]
+        public void Loader_RejectsSummonPercentReshapeOnDamageFace()
+        {
+            // summonPercent 只在无伤害的面生效(Reshape 有伤害时改的是第一条 DamageSingle,召唤改形会被静默丢掉)
+            const string reshape = @"{""kind"":""Reshape"",""value"":0,""summonPercent"":60}";
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson,
+                @"{""kind"":""DamageSingle"",""value"":10}," + reshape), "伤害面本体写 summonPercent");
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson + @",{""kind"":""DamageSingle"",""value"":10}",
+                traits: @"{""slot"":""Lv8"",""face"":""Feature"",""form"":""Active"",""name"":""林立"",""effects"":[" + reshape + "]}"),
+                "特性写到有伤害的面上");
+            Assert.DoesNotThrow(() => LoadWood(SummonJson,
+                traits: @"{""slot"":""Lv8"",""face"":""Feature"",""form"":""Active"",""name"":""林立"",""effects"":[" + reshape + "]}"),
+                "无伤害的生面照常");
+        }
+
+        [Test]
+        public void E49_CastLimitCheckedBeforeBattleLimit_NoWastedCharge()
+        {
+            // battleLimit 2 + limit 1:第一张字两次击杀只入队 1 次,第二次被出字内上限挡下时不该白扣一次场次;
+            // 第二张字的击杀还能入队 → 共 2 次
+            var def = new CharDef("桂", Element.Wood, effects: new[] { Body() },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) },
+                traits: new[] { new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Passive, null, "折桂",
+                    new[] { new EffectDef(EffectKind.Morale, 1) }, trigger: TraitTrigger.OnKill, maxPerCast: 1, maxPerBattle: 2) });
+            var b = Battle(def, 5, null, RebalanceFixture.Mob(hp: 10), RebalanceFixture.Mob(hp: 10), RebalanceFixture.Mob(hp: 150),
+                RebalanceFixture.Mob(hp: 100000));   // 留一只活口:战斗没结束,反应才会兑现
+            Assert.That(b.Cast("桂", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies.Count(e => !e.Alive), Is.EqualTo(2), "夹具前提:第一张两次击杀");
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1));
+            Assert.That(b.Cast("桂", 2, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies.Count(e => !e.Alive), Is.EqualTo(3), "夹具前提:第二张击杀");
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2), "场次没被白扣");
+        }
+
+        [Test]
+        public void E43_CorpseTargetRevive_UsesFoldedPercent()
+        {
+            // 本体 Revive 1(半血);Lv3 替换本体为 Revive 1 pct 30 —— 点尸体的前置复活按 Fold 后的 30%
+            var enhance = new TraitDef(TraitSlot.Lv3, TraitFace.Feature, TraitForm.Active, TraitSlot.Lv1, "回春",
+                new[] { new EffectDef(EffectKind.Revive, 1, reviveHpPercent: 30) });
+            var def = WoodChar("森", new[] { new EffectDef(EffectKind.Revive, 1) }, null, enhance);
+            var b = Battle(def, 3, new[] { Wood(0, hp: 101) });
+            b.Summons[0].Hp = 0;
+            Assert.That(b.Cast("森", -1, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[0].Hp, Is.EqualTo(31), "⌈101 × 30%⌉,不是半血 51");
+            var c = Battle(def, 1, new[] { Wood(0, hp: 101) });
+            c.Summons[0].Hp = 0;
+            c.Cast("森", -1, allySlot: 0);
+            Assert.That(c.Summons[0].Hp, Is.EqualTo(51), "Lv3 未解锁:半血");
+        }
+
+        [Test]
+        public void Loader_SaplingFace_AppendedSummonZeroIsNotASummon()
+        {
+            // 本命追加的 Summon 0 只并入本命、不召出木灵:面上只有它时幼苗永远空转 —— 加载期拦下
+            string traits = @"{""slot"":""Lv4"",""face"":""Attack"",""form"":""Passive"",""name"":""馥郁"",""effects"":["
+                + @"{""kind"":""Summon"",""value"":0,""count"":1,""attack"":0,""passive"":{""healAllyPercent"":30}},"
+                + @"{""kind"":""SummonSapling"",""value"":20,""count"":1}]}";
+            Assert.Throws<ConfigException>(() => LoadWood(SummonJson, traits: traits));
         }
 
         // ================= 末尾预留(Ruling 17):只加名、不加行为 =================
@@ -718,7 +785,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Reserve_OnSummonDeath_IsIdenticalWithNewFieldsAbsent()
+        public void Reserve_NewPassiveFields_HaveNoBehaviorOnDeathYet()
         {
             // 单点调用空实现:阵亡流程(钩子 / 归根 / 刷光环)不变 —— 无新字段时与 base 逐位恒等由 WoodSharedIdentityTests 守,
             // 这里只钉「带了新本命字段也还没有行为」(Task 3 接入时会改这条)
