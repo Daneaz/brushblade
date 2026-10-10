@@ -192,7 +192,7 @@ window.ZD = (function () {
 })();
 
 /* 图标精灵:现有 44 枚里用得到的几枚(路径逐字取自 tools/icons/svg/,fill/stroke 换成 currentColor 以便着色)
-   + 本稿新增 8 枚 + 10-04 补 3 枚 + 10-08 补 3 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
+   + 本稿新增 8 枚 + 10-04 补 3 枚 + 10-08 补 3 枚 + 10-10 补 8 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
 (function () {
   var S = 'fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"';
   var S5 = 'fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"';
@@ -236,6 +236,23 @@ window.ZD = (function () {
     healblock: '<path ' + F + ' d="M26 12h12v5.5L17.5 38H12V26h14z"/><path ' + F + ' d="M46.5 26H52v12H38v14H26v-5.5z"/><path ' + S + ' d="M12 52L52 12"/>',
     // 回敬:折返箭头 + 一点火花(打回去的是「效果」不是伤害;不绑火,金系挂流血 / 破甲也用它)
     retaliate: '<path ' + S + ' d="M10 20h26a13 13 0 0 1 0 26H18"/><path ' + S + ' d="M26 38l-8 8 8 8"/><path ' + F + ' d="M51 3l2.8 7.2L61 13l-7.2 2.8L51 23l-2.8-7.2L41 13l7.2-2.8z"/>',
+    // —— NEW · 10-10 补(待审):D2-水 / D2-土 的状态(StatusChipsWaterEarth 画板) ——
+    // 禁增益:减攻的 ▼ 倒过来成 ▲(增益),沿斜杠切开再压一杠 —— 与干涸同一种「不能」说法
+    buffblock: '<path ' + F + ' d="M32 10L38.5 21.7 10.2 50H10z"/><path ' + F + ' d="M44.5 32.7L54 50H27.2z"/><path ' + S + ' d="M14 54L54 14"/>',
+    // 免疫减益:霜抗那道环(「这几回合不会被怎样」)+ 环里一枚 ▼(减益);只拦灼时环里换成火苗
+    ward: '<circle cx="32" cy="32" r="25" ' + S5 + '/><path ' + F + ' d="M32 45L20 23h24z"/>',
+    wardburn: '<circle cx="32" cy="32" r="25" ' + S5 + '/><path ' + F + ' transform="translate(13.8 13.5) scale(.57)" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/>',
+    // 受击回复 / 受击得盾:左上一支打进来的箭(受击)+ 右下得到什么(加号 / 实心盾),同一个骨架换载荷
+    hurtheal: '<path ' + S + ' d="M8 8l14 14M23 11v12H11"/><path ' + F + ' d="M35 24h10v11h11v10H45v11H35V45H24V35h11z"/>',
+    hurtshield: '<path ' + S + ' d="M8 8l14 14M23 11v12H11"/><path ' + F + ' transform="translate(20.5 17.5) scale(.66)" d="' + SHIELD + '"/>',
+    // 每回合效果(回合脉冲):顺时针回环箭头 + 圆心一点;护盾回流(浮屠)把圆心那点换成小盾
+    turnpulse: '<path ' + S + ' d="M54 32A22 22 0 1 1 47.6 16.4"/><path ' + S + ' d="M37.6 16.4h10v-10"/><circle cx="32" cy="32" r="7" ' + F + '/>',
+    shieldcarry: '<path ' + S + ' d="M54 32A22 22 0 1 1 47.6 16.4"/><path ' + S + ' d="M37.6 16.4h10v-10"/><path ' + F + ' transform="translate(19.8 17.4) scale(.38)" d="' + SHIELD + '"/>',
+    // 大招削弱(杜塞):半实心圆 —— 「打一半」
+    skillcut: '<circle cx="32" cy="32" r="22" ' + S + '/><path ' + F + ' d="M32 10a22 22 0 0 0 0 44z"/>',
+    // 现有,只作对照(StatusChipsWaterEarth 的易混图标排与封字两态)
+    immunity: '<path ' + S + ' d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path ' + S + ' d="M23 32l7 8 12-14"/>',
+    seal: '<path ' + S + ' d="M21 30v-8a11 11 0 0 1 22 0v8"/><path ' + F + ' d="M15 30h34v24H15z"/>',
     // 现有,只作对照(StatusChipsFire 的易混图标排)
     crit: '<path ' + F + ' d="M32 4l7 19 19-7-7 19 7 19-19-7-7 19-7-19-19 7 7-19-7-19 19 7z"/>',
     blind: '<path ' + S + ' d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" ' + F + '/><path ' + S + ' d="M14 50L50 14"/>',

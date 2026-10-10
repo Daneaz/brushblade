@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 860px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; display: flex; align-items: center; gap: 10px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1240px; }
+    .lede b { color: var(--text-main); }
+    .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; align-content: start; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: var(--warn-text); background: var(--warn-bg); padding: 1px 6px; border-radius: 3px; }
+    .box { border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 9px 11px; display: flex; flex-direction: column; gap: 8px; }
+    .d { font-size: 9.5px; color: var(--text-dim); line-height: 1.6; }
+    .d b { color: var(--text-main); }
+    .d code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9px; color: var(--text-quiet); }
+    .sc.k-cost { background: var(--panel-paper); color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--ink-soft); }
+    .sc.txt { padding: 0 3px; }
+
+    /* 一排画面:单位片段 + 箭头 */
+    .fr { display: flex; align-items: flex-end; gap: 10px; }
+    .fr .ar { font-size: 10px; color: var(--text-faint); padding-bottom: 10px; white-space: nowrap; }
+    .u { zoom: 1.5; position: relative; display: flex; align-items: flex-end; gap: 3px; }
+    .u .pt { position: relative; width: 22px; height: 22px; flex: none; border-radius: 5px; background: var(--elSoft, var(--paper-dim)); color: var(--glyph, var(--text-main));
+      display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; }
+    .u .pt.me { background: var(--ink); color: #F3EEE2; }
+    .u .inf { display: flex; flex-direction: column; gap: 2px; position: relative; }
+    .u .scs { display: flex; gap: 2px; min-height: 9.56px; }
+    .u .hpb { width: 70px; height: 7px; }
+    .u.boss .hpb { width: 132px; }
+    .u .cap { position: absolute; left: 0; top: 100%; margin-top: 2px; font-size: 6.2px; color: var(--text-faint); white-space: nowrap; }
+    .u .sbadge { left: -3px; bottom: -3px; }
+    .caprow { height: 12px; }
+    .caprow.tall { height: 30px; }
+    .box.top { padding-top: 26px; }
+    .sc.ring, .sbadge.ring { box-shadow: 0 0 0 1.2px #fff, 0 0 6px 1.5px rgba(201,169,74,.85); filter: brightness(1.25); }
+    /* 飘字静帧(样子同 TriggerFx):特性名 / 状态名 / 数字 */
+    .fl { position: absolute; z-index: 5; white-space: nowrap; }
+    .slbl { display: inline-flex; align-items: center; gap: 2px; height: 11px; padding: 0 4px 0 1.5px; border-radius: 3px;
+      background: rgba(251,248,241,.96); box-shadow: 0 1px 3px rgba(22,27,34,.28); font-family: "Noto Serif SC", serif; font-size: 7px; font-weight: 700; color: var(--glyph); }
+    .slbl .seal.xs { width: 8px; height: 8px; font-size: 5.6px; }
+    .spill { display: inline-flex; align-items: center; gap: 2px; height: 10px; padding: 0 4px 0 2.5px; border-radius: 5px; color: #fff; font-size: 6px; font-weight: 700; }
+    .spill svg { width: 6.6px; height: 6.6px; }
+    .spill.k-dot { background: var(--cinnabar); } .spill.k-ctrl { background: var(--ink-soft); } .spill.k-gold { background: var(--gold); color: var(--gold-text); }
+    /* 被挡下:状态名照常配色,压删除线、降到 60% */
+    .spill.x { opacity: .6; text-decoration: line-through; text-decoration-thickness: 1px; }
+    .fnum { font-size: 9px; font-weight: 700; -webkit-text-stroke: .4px rgba(251,248,241,.9); font-variant-numeric: tabular-nums; }
+
+    /* 特性行(同 CardSheetBattle 的 .tr) */
+    .trs { display: flex; flex-direction: column; gap: 4px; width: 250px; flex: none; }
+    .tr { border-radius: 6px; padding: 3px 7px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .tr.back { background: var(--tint); }
+    .th { display: flex; align-items: center; gap: 5px; height: 12px; }
+    .lvt { height: 11px; padding: 0 3.5px; border-radius: 5.5px; background: var(--ink); color: #fff; font-size: 7px; display: inline-flex; align-items: center; flex: none; }
+    .tn { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+    .tk { font-size: 7.5px; color: var(--text-dim); white-space: nowrap; }
+    .tx { margin-top: 1px; font-size: 9px; line-height: 1.4; color: var(--text-dim); }
+    .tr .end { margin-left: auto; font-size: 7.5px; color: var(--text-faint); white-space: nowrap; }
+    .tr.off { background: transparent; box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .tr.off .tn, .tr.off .tx { color: var(--text-faint); }
+    .tr.off .lvt { background: var(--locked-bg); color: var(--text-dim); }
+    .usedtag { margin-left: auto; height: 12px; padding: 0 5px; border-radius: 6px; background: var(--ink-bar); color: var(--text-warm); font-size: 7.5px; display: inline-flex; align-items: center; white-space: nowrap; }
+    .trn { font-size: 8px; color: var(--text-faint); margin: 0 0 -1px 2px; }
+    /* 手牌 + 拖出预估签(同 HandFlip 的 .tg-lbl) */
+    .handdemo { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 140px; flex: none; padding-top: 18px; }
+    .tg { height: 13px; padding: 0 5px; border-radius: 6.5px; background: var(--ink); color: #fff; font-size: 7.2px; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; zoom: 1.3; }
+    .tg i { font-style: normal; color: rgba(255,255,255,.55); }
+    .htile { cursor: default; }
+    .two { display: flex; gap: 18px; align-items: flex-start; }
+    .sealrows { display: flex; flex-direction: column; gap: 6px; width: 280px; flex: none; }
+    .sr { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .sr .sc { zoom: 1.8; }
+    .sr .t { display: flex; flex-direction: column; gap: 1px; }
+    .sr .t b { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; }
+    .sr .t b small { font-family: "Noto Sans SC", sans-serif; font-weight: 400; font-size: 8px; color: var(--text-faint); margin-left: 6px; }
+    .sr .t span { font-size: 8.5px; color: var(--text-dim); }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>水 土 · 提 示 与 反 馈 <span class="tag">待审 · 10-11</span></h2>
+    <div class="lede">配合 <code>StatusChipsWaterEarth</code>。飘字沿用触发反馈稿的三种样子(特性名 = 纸底 + 面印;状态名 = chip 色底 + 图标;数字 = 现状),
+      只新增一种变体:<b>被挡下的状态名</b> —— 照常配色,压删除线、降到 60%,从挡下它的 chip 上飘出。
+      「本场已用」用特性行现成的「未解锁」压浅做法,只换尾标。下面都是静帧,载体闪 = 黄白描边光晕。</div>
+  </div>
+  <div class="grid">
+
+    <div>
+      <h3>大招削弱 · 杜塞 <small>Boss 格上看得见,放招时说清楚减了</small></h3>
+      <div class="box">
+        <div class="fr">
+          <div class="u boss e-Earth"><div class="pt">窑</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>360</span><span class="sc k-ctrl"><svg><use href="#ic-defense"></use></svg>20</span><span class="sc k-ctrl"><svg><use href="#ic-skillcut"></use></svg></span></div><div class="hpb"><span style="width:78%"></span></div><span class="cap">没在蓄力:排在攻 / 甲之后第一位</span></div></div>
+          <span class="ar">开始蓄力 →</span>
+          <div class="u boss e-Earth"><div class="pt">窑</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>360</span><span class="sc k-ctrl"><svg><use href="#ic-defense"></use></svg>20</span></div><div class="scs"><span class="sc k-dot txt">蓄力 · 下回合:焚天</span><span class="sc k-ctrl"><svg><use href="#ic-skillcut"></use></svg></span></div><div class="hpb"><span style="width:78%"></span></div><span class="cap">蓄力中:紧跟预警,两枚挨着读</span></div></div>
+        </div>
+        <div class="caprow tall"></div>
+        <div class="fr">
+          <div class="u boss e-Earth"><span class="fl slbl" style="left:124px;top:-14px"><span class="seal xs main atk">攻</span>杜塞</span><div class="pt">窑</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>360</span><span class="sc k-ctrl"><svg><use href="#ic-defense"></use></svg>20</span></div><div class="scs"><span class="sc k-dot txt">蓄力 · 下回合:焚天</span><span class="sc k-ctrl ring"><svg><use href="#ic-skillcut"></use></svg></span></div><div class="hpb"><span style="width:78%"></span></div><span class="cap">放招:削弱 chip 闪,「杜塞」飘出</span></div></div>
+          <span class="ar">→</span>
+          <div class="u e-Fire"><span class="fl fnum" style="left:28px;top:-13px;color:var(--fire-glyph)">206</span><div class="pt me">执</div><div class="inf ally"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span></div><div class="hpb"><span style="width:58%"></span></div><span class="cap">玩家挨的是减半后的伤害;削弱 chip 消失</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d">只挂 Boss(杂兵没有大招)。不并进蓄力预警那枚:预警 + 4 字招名已宽 205,16:9 的 Boss 列只有 209。没在蓄力时它排在攻 / 甲之后第一位,蓄力中紧跟预警。
+          伤害飘字照常,不另写「−50%」—— 特性名「杜塞」已经说了为什么少。详情:「大招削弱 · 下一次大招伤害 −50%,放完就消失」。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>拦截 · 挡下时的样子 <small>免疫减益 / 免疫灼烧 / 禁增益,一条规则</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally e-Wood"><span class="fl spill k-ctrl x" style="left:44px;top:-13px"><svg><use href="#ic-slow"></use></svg>减速</span><div class="pt">林</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>73</span><span class="sc k-heal ring"><svg><use href="#ic-ward"></use></svg></span></div><div class="hpb"><span style="width:70%"></span></div><span class="cap">木灵 · 濯身:减速被挡</span></div></div>
+          <div class="u ally"><span class="fl spill k-dot x" style="left:44px;top:-13px"><svg><use href="#ic-burn"></use></svg>灼 +2</span><span class="fl fnum" style="left:6px;top:-13px;color:var(--water-glyph)">盾 +24</span><div class="pt me">执<span class="sbadge"><svg><use href="#ic-shield"></use></svg>24</span></div><div class="inf"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span><span class="sc k-heal ring"><svg><use href="#ic-wardburn"></use></svg></span></div><div class="hpb"><span style="width:64%"></span></div><span class="cap">玩家 · 浇熄:灼被挡,转成护盾</span></div></div>
+          <div class="u e-Metal"><span class="fl spill k-gold x" style="left:40px;top:-13px"><svg><use href="#ic-attack"></use></svg>增攻</span><div class="pt">铦</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>135</span><span class="sc k-ctrl ring"><svg><use href="#ic-buffblock"></use></svg></span></div><div class="hpb"><span style="width:88%"></span></div><span class="cap">敌人 · 洗尽铅华:增益被挡</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d"><b>挡下</b> = 挡的那枚 chip 闪 → 被挡的状态名从它上面飘出,照常配色、压删除线、降到 60%。转化出来的东西(浇熄的护盾)按数字飘字跟在后面,护盾角标同步变化。
+          不飘特性名:挡下的那一刻,状态本身就是理由。「前 N 次」形态(杜绝)每挡一次数字减一,减到 0 chip 消失。
+          霜抗本来就挡冻结,不走这条(它有冰滞那套)。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>本场已用 · 杜门不出 <small>折桂(木)同一方案</small></h3>
+      <div class="box">
+        <div class="two">
+          <div class="handdemo">
+            <span class="tg">护盾 280<i>· 受伤 −60%</i></span>
+            <span class="tg">护盾 280<i>· 杜门不出已用</i></span>
+            <div class="htile back e-Earth r-Gold"><span class="g">杜</span><span class="seal xs main">固</span></div>
+            <span class="trn" style="text-align:center">手牌不加记号;拖出时预估签<br>上一行 = 可用,下一行 = 本场已用</span>
+          </div>
+          <div class="trs e-Earth">
+            <span class="trn">战斗详情 · 五行面那一栏的 Lv8 行,三态</span>
+            <div class="tr back"><div class="th"><span class="lvt">Lv8</span><span class="tn">杜门不出</span><span class="tk">主动 · 招牌</span></div><div class="tx">本回合受伤 −60%;下回合 AP −1;每场 1 次</div></div>
+            <div class="tr off"><div class="th"><span class="lvt">Lv8</span><span class="tn">杜门不出</span><span class="tk">主动 · 招牌</span><span class="usedtag">本场已用</span></div><div class="tx">本回合受伤 −60%;下回合 AP −1;每场 1 次</div></div>
+            <div class="tr off"><div class="th"><span class="lvt">Lv8</span><span class="tn">杜门不出</span><span class="end">Lv8 解锁</span></div><div class="tx">本回合受伤 −60%;下回合 AP −1;每场 1 次</div></div>
+          </div>
+        </div>
+        <div class="d"><b>手牌不加记号</b>:牌只有 46pt,而且用过以后这一面照样能出(只是没有这条特性),在牌上打记号会被读成「这面不能出」。
+          提醒放在要做决定的那一刻:拖出时预估签把这条特性的效果换成「杜门不出已用」,压浅。
+          <b>战斗详情 / 升级预览</b>:这一行照列,去底压浅(同未解锁),尾标换成「本场已用」。下一场开始恢复。折桂(击杀掉字,每场 1 次)同一套。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>封字两态 · 减益还是代价 <small>不换色,加描边</small></h3>
+      <div class="box">
+        <div class="two">
+          <div class="sealrows">
+            <div class="sr"><span class="sc k-ctrl"><svg><use href="#ic-seal"></use></svg></span><div class="t"><b>封字<small>下回合生效</small></b><span>Boss 技能「倾覆」:下回合行动点 −1(减益,能被清除)</span></div></div>
+            <div class="sr"><span class="sc k-cost"><svg><use href="#ic-seal"></use></svg></span><div class="t"><b>封字<small>下回合生效 · 清不掉</small></b><span>杜门不出的代价:下回合行动点 −1(不算减益)</span></div></div>
+          </div>
+          <div class="d" style="flex:1">对玩家都是坏事,所以<b>都用墨蓝</b> —— 改成翠玉会被读成增益。区分放在形上:代价态用<b>描边纸底</b>(同霜抗的描边做法),详情弹窗里同一枚 chip 也描边,时长行补「清不掉」。
+            清除类效果(涓流、甘露、洗涤)跳过它,玩家看描边就知道。<code>Ui.Chip</code> 的 border 参数现成,不加新件。</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3>护盾回流 · 浮屠 <small>出 chip</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally"><div class="pt me">执<span class="sbadge"><svg><use href="#ic-shield"></use></svg>120</span></div><div class="inf"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-shieldcarry"></use></svg>3</span></div><div class="hpb"><span style="width:64%"></span></div><span class="cap">回合末:护盾 120</span></div></div>
+          <span class="ar">回合结束清空 → 下回合开始</span>
+          <div class="u ally"><span class="fl slbl e-Earth" style="left:28px;top:-14px"><span class="seal xs main">固</span>浮屠</span><span class="fl fnum" style="left:0;top:-13px;color:var(--water-glyph)">盾 +60</span><div class="pt me">执<span class="sbadge ring"><svg><use href="#ic-shield"></use></svg>60</span></div><div class="inf"><div class="scs"><span class="sc k-heal ring"><svg><use href="#ic-shieldcarry"></use></svg>2</span></div><div class="hpb"><span style="width:64%"></span></div><span class="cap">chip 闪、3 → 2;护盾角标 60</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d"><b>为什么出</b>:它管的是之后 3 个回合开始的事,那时载体(上回合的护盾)已经清掉了,没有别的东西能告诉玩家「回合末多叠的盾不会白费」—— 这会改变叠多少盾。
+          数字 = 还剩几次(同每回合效果)。没有像碎玉那样能附着的载体。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>碎玉 · 不出 chip <small>同反震,只走触发反馈</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally"><div class="pt me">执<span class="sbadge"><svg><use href="#ic-shield"></use></svg>40</span></div><div class="inf"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span></div><div class="hpb"><span style="width:64%"></span></div><span class="cap">护盾 40(带碎玉)</span></div></div>
+          <span class="ar">敌人一击 90 打空护盾 →</span>
+          <div class="u ally"><span class="fl slbl e-Earth" style="left:-6px;top:-14px"><span class="seal xs main">固</span>碎玉</span><div class="pt me">执<span class="sbadge ring"><svg><use href="#ic-shield"></use></svg>0</span></div><div class="inf"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span></div><div class="hpb"><span style="width:52%"></span></div><span class="cap">护盾角标闪,「碎玉」从角标飘出</span></div></div>
+          <span class="ar">→</span>
+          <div class="u e-Metal"><span class="fl fnum" style="left:30px;top:-13px;color:var(--earth-glyph)">20</span><div class="pt">铦</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>135</span></div><div class="hpb"><span style="width:80%"></span></div><span class="cap">攻击者挨 40 × 50%</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d"><b>为什么不出</b>:它附在这次的护盾上,护盾空了就没了(Core 随两桶归零移除)—— 和反震一样,载体就是护盾角标。再挂一枚 chip,等于把同一块护盾说两遍。
+          触发时按触发反馈稿的「被动 · 附在护盾上」:角标闪 → 特性名飘出 → 反伤数字。</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 860}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
