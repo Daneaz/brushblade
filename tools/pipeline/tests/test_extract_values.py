@@ -873,7 +873,7 @@ def test_d2fire_task4_token_errors(config, needle):
       {"kind": "BurnAll", "value": 3}]),
     # 光耀
     ("`Reveal` + `Vulnerable 15` `turns 1`", "灿",
-     [{"kind": "Vulnerable", "value": 15, "turns": 1}, {"kind": "Reveal", "value": 0}]),
+     [{"kind": "Reveal", "value": 0}, {"kind": "Vulnerable", "value": 15, "turns": 1}]),
     # 水火相激的解冻(本格没有 Amplify 时条件门按位置挂在解冻上)
     ("`Thaw` `if Controlled`", "蒸", [{"kind": "Thaw", "value": 0, "onlyIf": "Controlled"}]),
     ("`Thaw` `pick All`", "蒸", [{"kind": "Thaw", "value": 0, "pick": "All"}]),
@@ -900,23 +900,23 @@ def test_d2fire_task5_per_burning_hit_needs_one_extra_strike(config):
      [{"kind": "Morale", "value": 1}, {"kind": "BlockMod", "value": 0, "counterPercent": 50}]),
     # 横扫千军:战意 × 多命中的敌人数
     ("`Reshape` `shape Row` `shapePercent 50` + `Morale 1` `per ExtraHitTarget`", "剑",
-     [{"kind": "Morale", "value": 1, "scaleBy": "ExtraHitTarget"},
-      {"kind": "Reshape", "value": 0, "shape": "Row", "shapePercent": 50}]),
+     [{"kind": "Reshape", "value": 0, "shape": "Row", "shapePercent": 50},
+      {"kind": "Morale", "value": 1, "scaleBy": "ExtraHitTarget"}]),
     # 大卸八块:击数 = 1 + 战意
     ("`Reshape` `hitPercent 35` `hitsPerMorale`", "剁",
      [{"kind": "Reshape", "value": 0, "hitPercent": 35, "scaleBy": "Morale"}]),
     # 双金合璧:格挡次数 = 战意(至少 2)+ 开局登记
     ("`BlockMod` `countPerMorale` `min 2` + `Morale 2` `battles 1`", "鍂",
-     [{"kind": "Morale", "value": 2, "openingBattles": 1},
-      {"kind": "BlockMod", "value": 0, "scaleBy": "Morale", "scaleMin": 2}]),
+     [{"kind": "BlockMod", "value": 0, "scaleBy": "Morale", "scaleMin": 2},
+      {"kind": "Morale", "value": 2, "openingBattles": 1}]),
     # 放血:流血读 turns
     ("`Bleed 50` `turns 2`", "刲", [{"kind": "Bleed", "value": 50, "turns": 2}]),
     # 割取
     ("`HealSelf 10` `ofVictimMaxHp`", "刲", [{"kind": "HealSelf", "value": 10, "ofVictimMaxHp": True}]),
     # 三金破 / 刚:MoraleFull 条件
     ("`Reshape` `hits 3` `hitPercent 50` + `Amplify 100` `scope Damage` `if MoraleFull`", "鑫",
-     [{"kind": "Amplify", "value": 100, "scope": "Damage", "onlyIf": "MoraleFull"},
-      {"kind": "Reshape", "value": 0, "hitCount": 3, "hitPercent": 50}]),
+     [{"kind": "Reshape", "value": 0, "hitCount": 3, "hitPercent": 50},
+      {"kind": "Amplify", "value": 100, "scope": "Damage", "onlyIf": "MoraleFull"}]),
     ("`Amplify 30` `scope All` `if MoraleFull`", "𨰻",
      [{"kind": "Amplify", "value": 30, "scope": "All", "onlyIf": "MoraleFull"}]),
     # 千锤 / 金刚:补满 + BlockMod
@@ -924,7 +924,7 @@ def test_d2fire_task5_per_burning_hit_needs_one_extra_strike(config):
      [{"kind": "Morale", "value": 0, "fill": True}, {"kind": "BlockMod", "value": 0, "counterPercent": 50}]),
     ("`Augment 3` `of Block` `field Count` + `BlockMod` `counter 60` + `MoraleFill`", "𨰻",
      [{"kind": "Augment", "value": 3, "augmentKind": "Block", "augmentField": "Count"},
-      {"kind": "Morale", "value": 0, "fill": True}, {"kind": "BlockMod", "value": 0, "counterPercent": 60}]),
+      {"kind": "BlockMod", "value": 0, "counterPercent": 60}, {"kind": "Morale", "value": 0, "fill": True}]),
     # 铡刀落:斩杀挂在 Reshape 上
     ("`Reshape` `ExecuteKill 35`", "铡",
      [{"kind": "Reshape", "value": 0, "executeBelowPercent": 35, "executeKills": True}]),
@@ -1105,7 +1105,7 @@ def test_d2water_task1_enemy_side_token_errors(config, needle):
     ("`Amplify 10` `scope Damage` `per Wellspring`", "㵘",
      [{"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "Wellspring"}]),
     ("`Cleanse` + `HealSelf 50` `per Cleansed`", "澡",
-     [{"kind": "HealSelf", "value": 50, "scaleBy": "Cleansed"}, {"kind": "Cleanse", "value": 0}]),
+     [{"kind": "Cleanse", "value": 0}, {"kind": "HealSelf", "value": 50, "scaleBy": "Cleansed"}]),
     # 潜流:E23 回敬读 turns
     ("`Retaliate` `turns 2` `onHit` `Slow 1`", "湮",
      [{"kind": "Retaliate", "value": 0, "turns": 2, "perHit": [{"kind": "Slow", "value": 1}]}]),
@@ -1260,3 +1260,33 @@ def test_d2water_turn_pulse_allowed_matches_engine():
     assert m, "BattleEngine.Water.cs 里找不到 TurnPulseAllows"
     engine = set(re.findall(r"EffectKind\.(\w+)", m.group(1)))
     assert engine and engine == TURN_PULSE_ALLOWED, f"只在管线:{TURN_PULSE_ALLOWED - engine};只在引擎:{engine - TURN_PULSE_ALLOWED}"
+
+
+# ---- Ruling 13(D2-土 前置):效果按格内书写顺序落表 ----
+# 旧实现先收带值 token、再收无值 token(Cleanse / Reshape / Reveal …),作者写在前面的无值效果会被挪到后面;
+# 出字时效果按列表顺序结算,顺序即语义。
+
+def test_valueless_effect_written_first_stays_first():
+    assert [e["kind"] for e in _parse_effects("`Cleanse` + `Shield 20` + `pick Self`", "水")] == [
+        "Cleanse", "Shield"]
+
+
+def test_mixed_valued_and_valueless_effects_keep_written_order():
+    effects = _parse_effects("`Reveal` + `Vulnerable 30` `turns 2` + `Thaw` + `DamageSingle 10`", "灿")
+    assert [e["kind"] for e in effects] == ["Reveal", "Vulnerable", "Thaw", "DamageSingle"]
+    assert effects[1]["turns"] == 2
+
+
+def test_valued_effect_written_first_stays_first():
+    assert [e["kind"] for e in _parse_effects("`DamageSingle 10` + `Cleanse`", "水")] == [
+        "DamageSingle", "Cleanse"]
+
+
+def test_battles_stays_on_its_own_effect_when_valueless_token_shares_the_kind():
+    # 鑫·金玉满堂:`MoraleFill` 的 kind 也是 Morale。`battles 5` 写在 `Morale 2` 后面,必须挂在 Morale 2 上,
+    # 不能因为排序后 MoraleFill 排到前面就被按 kind 找位置的逻辑挂到补满上。
+    effects = _parse_effects("`MoraleFill` + `Augment 3` `of Block` `field Count` + `Morale 2` `battles 5`", "鑫")
+    assert effects == [
+        {"kind": "Morale", "value": 0, "fill": True},
+        {"kind": "Augment", "value": 3, "augmentKind": "Block", "augmentField": "Count"},
+        {"kind": "Morale", "value": 2, "openingBattles": 5}]

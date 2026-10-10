@@ -81,8 +81,8 @@ namespace Brushblade.Core.Tests
         private const TraitFace Atk = TraitFace.Attack, Ftr = TraitFace.Feature, Both = TraitFace.Both;
 
         // (字, 槽, 面, 名, 效果签名 —— 按 chars.json 落表顺序,「|」分隔;空串 = 空效果行)。
-        // 管线把带数值的 token 排在无数值 token(Reshape / DispelAll / WellspringFill…)之前;Reshape / Amplify / Augment 是折叠期修饰,
-        // 位置不影响结算。濯身写成 `Cleanse 0` 正是为了让清除排在「每清 1 条回复」之前。数值是 (F) 起值,改表必须同步这里
+        // 管线按格内书写顺序落表(Ruling 13);Reshape / Amplify / Augment 是折叠期修饰,位置不影响结算。
+        // 濯身的清除写在「每清 1 条回复」之前,顺序即语义。数值是 (F) 起值,改表必须同步这里
         private static readonly (string Ch, TraitSlot Slot, TraitFace Face, string Name, string Sigs)[] Table =
         {
             ("冷", L8, Atk, "冷却", "ChargeDelay 1|Weaken 50 turns 1 if NotBoss"),
@@ -97,7 +97,7 @@ namespace Brushblade.Core.Tests
             ("湮", L8, Ftr, "潜流", "Retaliate 0 turns 2 perHit[Slow 1]"),
             ("澡", L4, Both, "洗涤", "Cleanse 1 pick Self"),
             ("澡", L5, Atk, "洗尽铅华", "Dispel -1|BuffBlock 0 turns 2"),
-            ("澡", L8, Atk, "涤荡", "Dispel 1 all|Reshape 0 shape All shapePct 60"),
+            ("澡", L8, Atk, "涤荡", "Reshape 0 shape All shapePct 60|Dispel 1 all"),
             ("澡", L8, Ftr, "濯身", "Cleanse 0|HealSelf 50 per Cleansed|DebuffWard 0 turns 1"),
             ("冰", L4, Atk, "冰封", "Vulnerable 30 pick FrozenByThisCast"),
             ("冰", L4, Ftr, "冰封", "Amplify 21 scope All"),
@@ -123,15 +123,15 @@ namespace Brushblade.Core.Tests
             ("淼", L5, Atk, "同寒", "Freeze 2 pick Column"),
             ("淼", L5, Ftr, "涵养", "AddWellspring 2"),
             ("淼", L6, Atk, "冰水", "ThawSlow 2 pick FrozenByThisCast rider Freeze"),
-            ("淼", L8, Atk, "浩瀚", "Freeze 1 pick HighestHp|Reshape 0 shape All shapePct 70"),
-            ("淼", L8, Ftr, "水大无际", "HealOverTime 40 turns 2 battles 5|Cleanse 0 pick AllAllies|Reshape 0 shape All"),
+            ("淼", L8, Atk, "浩瀚", "Reshape 0 shape All shapePct 70|Freeze 1 pick HighestHp"),
+            ("淼", L8, Ftr, "水大无际", "Reshape 0 shape All|Cleanse 0 pick AllAllies|HealOverTime 40 turns 2 battles 5"),
             ("㵘", L4, Atk, "怀山", "FrostBite 0 pick FrozenByThisCast rider Freeze body 20"),
             ("㵘", L4, Ftr, "怀山", "Amplify 30 scope All"),
             ("㵘", L5, Atk, "洪峰", "Amplify 10 scope Damage per Wellspring"),
-            ("㵘", L5, Ftr, "泽被", "Cleanse 1|Reshape 0 shape All"),
+            ("㵘", L5, Ftr, "泽被", "Reshape 0 shape All|Cleanse 1"),
             ("㵘", L6, Atk, "浩荡", "Vulnerable 25 pick FrozenByThisCast"),
             ("㵘", L8, Atk, "滔天", "Amplify 100 if Frozen scope Damage"),
-            ("㵘", L8, Ftr, "泽及四方", "Amplify 50 scope Heal|Reshape 0 shape All|AddWellspring 0 fill"),
+            ("㵘", L8, Ftr, "泽及四方", "Reshape 0 shape All|Amplify 50 scope Heal|AddWellspring 0 fill"),
         };
 
         [Test]
@@ -299,9 +299,9 @@ namespace Brushblade.Core.Tests
             Assert.That(Buffs(1), Is.EqualTo(1), "旁边那只照拿");
         }
 
-        // ================= 濯身:清除在前、按清掉的条数回复(Cleanse 0 落表顺序) =================
+        // ================= 濯身:清除在前、按清掉的条数回复(按书写顺序落表,Ruling 13) =================
 
-        /// <summary>澡 Lv8 润面:Lv4 洗涤 `Cleanse 1 pick Self` 先清 1 条,濯身 `Cleanse 0` 清剩下的,
+        /// <summary>澡 Lv8 润面:Lv4 洗涤 `Cleanse 1 pick Self` 先清 1 条,濯身 `Cleanse`(全部)清剩下的,
         /// `HealSelf 50 per Cleansed` 按本次出字清掉的总条数回复(E22b 读 _cast.Cleansed)。玩家身上 3 条减益 → 回复 3 份;
         /// 没有减益 → 0 份(不发这条回复)。管线若把 HealSelf 排到 Cleanse 之前,这里会读到 0。</summary>
         [Test]

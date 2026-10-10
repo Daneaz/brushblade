@@ -1216,13 +1216,13 @@
           "partCount": 1,
           "effects": [
             {
-              "kind": "BurnAll",
-              "value": 1
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All"
+            },
+            {
+              "kind": "BurnAll",
+              "value": 1
             }
           ]
         },
@@ -1257,13 +1257,13 @@
           "name": "光耀",
           "effects": [
             {
+              "kind": "Reveal",
+              "value": 0
+            },
+            {
               "kind": "Vulnerable",
               "value": 15,
               "turns": 1
-            },
-            {
-              "kind": "Reveal",
-              "value": 0
             }
           ]
         },
@@ -1273,13 +1273,13 @@
           "name": "灿然",
           "effects": [
             {
-              "kind": "BurnScale",
-              "value": 200
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "forceCrit": true
+            },
+            {
+              "kind": "BurnScale",
+              "value": 200
             }
           ]
         },
@@ -1584,16 +1584,16 @@
           "name": "蒸腾",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 1,
-              "onlyIf": "Burning",
-              "pick": "All"
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
               "shapePercent": 60
+            },
+            {
+              "kind": "BurnSingle",
+              "value": 1,
+              "onlyIf": "Burning",
+              "pick": "All"
             }
           ]
         },
@@ -2947,13 +2947,13 @@
           "name": "泽被",
           "effects": [
             {
-              "kind": "Cleanse",
-              "value": 1
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All"
+            },
+            {
+              "kind": "Cleanse",
+              "value": 1
             }
           ]
         },
@@ -2989,14 +2989,14 @@
           "name": "泽及四方",
           "effects": [
             {
-              "kind": "Amplify",
-              "value": 50,
-              "scope": "Heal"
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All"
+            },
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Heal"
             },
             {
               "kind": "AddWellspring",
@@ -3137,15 +3137,15 @@
           "name": "浩瀚",
           "effects": [
             {
-              "kind": "Freeze",
-              "value": 1,
-              "pick": "HighestHp"
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
               "shapePercent": 70
+            },
+            {
+              "kind": "Freeze",
+              "value": 1,
+              "pick": "HighestHp"
             }
           ]
         },
@@ -3155,10 +3155,9 @@
           "name": "水大无际",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 40,
-              "openingBattles": 5,
-              "turns": 2
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All"
             },
             {
               "kind": "Cleanse",
@@ -3166,9 +3165,10 @@
               "pick": "AllAllies"
             },
             {
-              "kind": "Reshape",
-              "value": 0,
-              "shape": "All"
+              "kind": "HealOverTime",
+              "value": 40,
+              "openingBattles": 5,
+              "turns": 2
             }
           ]
         }
@@ -3437,15 +3437,15 @@
           "name": "怒涛",
           "effects": [
             {
-              "kind": "Slow",
-              "value": 1,
-              "pick": "All"
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
               "shapePercent": 60
+            },
+            {
+              "kind": "Slow",
+              "value": 1,
+              "pick": "All"
             }
           ]
         },
@@ -4379,15 +4379,15 @@
           "name": "涤荡",
           "effects": [
             {
-              "kind": "Dispel",
-              "value": 1,
-              "targetAll": true
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
               "shapePercent": 60
+            },
+            {
+              "kind": "Dispel",
+              "value": 1,
+              "targetAll": true
             }
           ]
         },
@@ -4696,14 +4696,14 @@
           "name": "千钧",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 45,
-              "turns": 3
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "armorIgnorePercent": 100
+            },
+            {
+              "kind": "ArmorBreak",
+              "value": 45,
+              "turns": 3
             }
           ]
         },
@@ -4719,14 +4719,14 @@
               "augmentField": "Count"
             },
             {
-              "kind": "Morale",
-              "value": 0,
-              "fill": true
-            },
-            {
               "kind": "BlockMod",
               "value": 0,
               "counterPercent": 60
+            },
+            {
+              "kind": "Morale",
+              "value": 0,
+              "fill": true
             }
           ]
         }
@@ -4856,16 +4856,16 @@
           "name": "三金破",
           "effects": [
             {
-              "kind": "Amplify",
-              "value": 100,
-              "scope": "Damage",
-              "onlyIf": "MoraleFull"
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "hitCount": 3,
               "hitPercent": 50
+            },
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Damage",
+              "onlyIf": "MoraleFull"
             }
           ]
         },
@@ -4874,6 +4874,11 @@
           "face": "Feature",
           "name": "金玉满堂",
           "effects": [
+            {
+              "kind": "Morale",
+              "value": 0,
+              "fill": true
+            },
             {
               "kind": "Augment",
               "value": 3,
@@ -4884,11 +4889,6 @@
               "kind": "Morale",
               "value": 2,
               "openingBattles": 5
-            },
-            {
-              "kind": "Morale",
-              "value": 0,
-              "fill": true
             }
           ]
         }
@@ -5202,15 +5202,15 @@
           "name": "双金合璧",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 2,
-              "openingBattles": 1
-            },
-            {
               "kind": "BlockMod",
               "value": 0,
               "scaleBy": "Morale",
               "scaleMin": 2
+            },
+            {
+              "kind": "Morale",
+              "value": 2,
+              "openingBattles": 1
             }
           ]
         }
@@ -5673,15 +5673,15 @@
           "name": "横扫千军",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 1,
-              "scaleBy": "ExtraHitTarget"
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "Row",
               "shapePercent": 50
+            },
+            {
+              "kind": "Morale",
+              "value": 1,
+              "scaleBy": "ExtraHitTarget"
             }
           ]
         },
@@ -6863,16 +6863,16 @@
           "name": "劈山",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 18,
-              "pick": "HitTargets",
-              "turns": 2
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "Row",
               "shapePercent": 50
+            },
+            {
+              "kind": "ArmorBreak",
+              "value": 18,
+              "pick": "HitTargets",
+              "turns": 2
             }
           ]
         }
@@ -7000,16 +7000,16 @@
           "name": "劈山",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 22,
-              "pick": "HitTargets",
-              "turns": 2
-            },
-            {
               "kind": "Reshape",
               "value": 0,
               "shape": "Row",
               "shapePercent": 50
+            },
+            {
+              "kind": "ArmorBreak",
+              "value": 22,
+              "pick": "HitTargets",
+              "turns": 2
             }
           ]
         }
