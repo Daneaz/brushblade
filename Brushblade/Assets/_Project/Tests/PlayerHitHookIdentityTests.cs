@@ -141,6 +141,6 @@ namespace Brushblade.Core.Tests
         }
 
         private const string ExpectedNoRetaliate = "d4b67847f51d3143 9643";
-        private const string ExpectedWithRetaliate = "e17522a681c27cb5 10507";
+        private const string ExpectedWithRetaliate = "a7f9faceb52ee1f7 10935";
     }
 }

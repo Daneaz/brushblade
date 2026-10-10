@@ -280,11 +280,19 @@ namespace Brushblade.Core
             finally { ExitTrigger(); }
         }
 
-        /// <summary>冰晶的反应要等攻击者这一拍的 TickTurns 之后才入队(EndBeat 第一次排空前):挥击发生在攻击者自己那一拍里,
-        /// 拍内施加的冻结会被同一拍末尾的递减吃掉一回合 —— 「冻结 1 回合」就成了 0(还不挂霜抗)。不进快照:EndBeat 必然清空。</summary>
+        /// <summary>冰晶(W6)与受击回敬(Retaliate,Ruling 12)的反应要等攻击者这一拍的 TickTurns 之后才入队(EndBeat 第一次排空前):
+        /// 挥击发生在攻击者自己那一拍里,拍内施加的 turns 型状态会被同一拍末尾的递减吃掉一回合 —— 「冻结 1 回合」成了 0(还不挂霜抗)、
+        /// 回敬的 Slow 1 当拍到期、铡关 Bleed turns 2 只跳 1 次。只在敌人那一拍里写入(挥击 / Boss 技能),不进快照:EndBeat 必然清空。</summary>
         private readonly List<Reaction> _beatEndReactions = new List<Reaction>();
 
-        /// <summary>EndBeat 开头调用:把本拍积压的冰晶反应移进队列。空时一次判断即返回(恒等)。</summary>
+        /// <summary>EndBeat 开头调用:把本拍积压的冰晶 / 回敬反应按记录顺序移进队列。空时一次判断即返回(恒等)。</summary>
+        private void DeferToBeatEnd(in Reaction reaction)
+        {
+            if (Phase == BattlePhase.Won || Phase == BattlePhase.Lost) return;
+            _beatEndReactions.Add(reaction);
+        }
+
+        /// <summary>见 <see cref="DeferToBeatEnd"/>。</summary>
         private void FlushBeatEndReactions()
         {
             if (_beatEndReactions.Count == 0) return;
@@ -303,8 +311,7 @@ namespace Brushblade.Core
             {
                 if (s.OnHit == null || s.OnHit.Count == 0) continue;
                 var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
-                if (Phase != BattlePhase.Won && Phase != BattlePhase.Lost)
-                    _beatEndReactions.Add(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
+                DeferToBeatEnd(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
             }
         }
 

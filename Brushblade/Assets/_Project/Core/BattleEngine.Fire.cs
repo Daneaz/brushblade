@@ -272,7 +272,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>我方(玩家 / 召唤物)被敌人 <paramref name="enemyIndex"/> 的挥击命中:每条 Retaliate 各入队一条反应,
-        /// 目标 = 攻击者,在下一个安全点(该敌人这次动作之后)兑现。上限按特性键每回合计(0 = 不限)。
+        /// 目标 = 攻击者,在该敌人这一拍收尾(EndBeat,TickTurns 之后;Ruling 12)兑现。上限按特性键每回合计(0 = 不限)。
         /// 没有 Retaliate 时一次判断即返回(恒等)。回敬效果不含伤害(ConfigLoader 白名单),不占 §5.2 第 3 律的 60% 反伤预算。
         /// 每回合计数在**入队时**就扣:攻击者若在兑现前死了(镜反弹、格挡反击打死),反应落空,计数照样用掉。</summary>
         private void EnqueueRetaliation(int enemyIndex)
@@ -285,7 +285,8 @@ namespace Brushblade.Core
                     continue;
                 // 特性键随效果带过去(G11):回敬挂的减攻 / 致盲与本体分开计时
                 var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
-                Enqueue(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
+                // Ruling 12(D2-水 Task 4 fix round 1):攻击者这一拍收尾(TickTurns 之后)才兑现,回敬挂的 turns 型状态足额
+                DeferToBeatEnd(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
             }
         }
 
