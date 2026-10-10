@@ -145,23 +145,23 @@ namespace Brushblade.Core
         // ---- D2-木 Task 1:本命新字段(预留,Ruling 17;缺省 0 / false = 无;结算归 Task 2–4,附录 M2–M5 / M11 / E37)----
         // 写法统一是 `Summon 1`(0 血/攻 0) + 字段 token,由 TraitRules.Fold 的本命追加(E37)并进本体召唤。
 
-        /// <summary>参天之力:有效攻击 + 基础攻击 × N%(与成林、M1 光环同在加法段)。Task 2</summary>
+        /// <summary>参天之力:有效攻击 + 基础攻击 × N%(与成林、M1 光环同在加法段;SummonState.TraitAttackBonus 读)。</summary>
         public int AttackPercent { get; set; }
-        /// <summary>馥郁:桂香治疗量 × (100 + N)/100。Task 3</summary>
+        /// <summary>馥郁:桂香治疗量 × (100 + N)/100(ActSummonTurn 读)。</summary>
         public int HealAllyPercent { get; set; }
         /// <summary>水草:顶层出字的实际治疗量(不含给藻灵自己的)× N% 给本藻灵。Task 4</summary>
         public int HealMirror { get; set; }
         /// <summary>披荆:荆棘反弹 &gt; 0 时给攻击者挂流血 N(召唤时吃卡等级)。Task 3</summary>
         public int ThornsBleed { get; set; }
-        /// <summary>蟾宫:我方暴击率 + N(取在场最大值;木灵暴击以此为闸门)。Task 2</summary>
+        /// <summary>蟾宫:我方暴击率 + N(取在场最大值;木灵暴击以此为闸门,BattleEngine.SummonCritAura 读)。</summary>
         public int CritAura { get; set; }
-        /// <summary>林荫:我方减伤 = min(GroveCutCap, N × 存活木灵数)。Task 2</summary>
+        /// <summary>林荫:我方减伤 = min(GroveCutCap, N × 存活木灵数),与 DamageCut 取最强(BattleEngine.WoodCutPercent 读)。</summary>
         public int GroveCut { get; set; }
-        /// <summary>林荫:减伤上限。Task 2</summary>
+        /// <summary>林荫:减伤上限;0 = 不设上限(仍受 60% 非护甲减伤封顶)。</summary>
         public int GroveCutCap { get; set; }
-        /// <summary>森严:存活木灵数 ≥ ThicketMin 时木灵受伤 −N%。Task 2</summary>
+        /// <summary>森严:存活木灵数 ≥ ThicketMin 时木灵受伤 −N%(只给木灵),与 DamageCut / 林荫取最强。</summary>
         public int ThicketCut { get; set; }
-        /// <summary>森严:生效所需的存活木灵数。Task 2</summary>
+        /// <summary>森严:生效所需的存活木灵数(含森灵自己与幼苗)。</summary>
         public int ThicketMin { get; set; }
         /// <summary>守护:玩家受到的挥击伤害 × N% 转给本木灵。Task 3</summary>
         public int Guard { get; set; }

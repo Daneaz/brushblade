@@ -245,8 +245,23 @@ namespace Brushblade.Core
         /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示
         /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
         public int EffectiveAttack => System.Math.Max(0,
-            (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus + PerAllyAttackBonus)
+            (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus + PerAllyAttackBonus + TraitAttackBonus)
             * System.Math.Max(0, PlayerAttackPercent) / 100);
+
+        /// <summary>木灵攻击光环(D2-木 M1:林立 / 擎天 / 桂冠,玩家袋 <see cref="StatusKind.SummonEmpower"/>)落到这只身上的百分比,
+        /// 同一只取最强(Q6)。由 <c>BattleEngine.RefreshSummonAura</c> 注入(与成林同一时点),不进快照、每次重算;无光环恒 0。</summary>
+        public int TraitAttackPercent { get; internal set; }
+
+        /// <summary>特性加攻(D2-木)= 基础攻击 × (光环% + 参天之力本命%);与成林同在加法段(Q6:光环取最强、参天之力另加)。
+        /// 两项都为 0 时恒 0(恒等)。</summary>
+        public int TraitAttackBonus
+        {
+            get
+            {
+                int percent = TraitAttackPercent + (Passive?.AttackPercent ?? 0);
+                return percent != 0 ? Attack * percent / 100 : 0;
+            }
+        }
 
         /// <summary>成林(D2-0 Task 6):其他存活木灵数,由 <c>BattleEngine.RefreshSummonAura</c> 注入
         /// (与光环同一时点);只在 <see cref="SummonPassive.PerAllyAttackPercent"/> &gt; 0 时有意义。</summary>

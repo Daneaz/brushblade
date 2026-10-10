@@ -308,8 +308,10 @@ RESHAPE_PICK_KINDS = {"Reshape"}
 # 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
 # D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
 # D2-水 E15:`pick AllAllies` = 玩家 + 全部存活木灵,只给 Cleanse(水大无际)。
-ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"},
-              "AllAllies": {"Cleanse"}}
+# D2-木 Task 2(M1):木灵攻击光环 `SummonEmpower N` 必须写 pick AllSummons(林立)/ OtherSummons(擎天)/ StrongestSummon(桂冠)。
+ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"},
+              "AllSummons": {"Taunt", "SummonEmpower"}, "AllAllies": {"Cleanse"},
+              "OtherSummons": {"SummonEmpower"}, "StrongestSummon": {"SummonEmpower"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
 PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
@@ -1038,6 +1040,9 @@ def _attach_ally_tokens(config, char, effects, consumed):
         # 嘲讽同理:必须写 pick Self / SummonedThisCast / AllSummons(Primary 写法 ConfigLoader 会拒绝)
         if e["kind"] == "Taunt" and e.get("pick") not in ALLY_PICKS:
             raise ValueError(f"{char}:`Taunt` 必须配 `pick Self` / `pick SummonedThisCast` / `pick AllSummons`")
+        # 木灵攻击光环同理(D2-木 M1):Primary 写法没有落点,ConfigLoader 会拒绝
+        if e["kind"] == "SummonEmpower" and e.get("pick") not in ("AllSummons", "OtherSummons", "StrongestSummon"):
+            raise ValueError(f"{char}:`SummonEmpower` 必须配 `pick AllSummons` / `pick OtherSummons` / `pick StrongestSummon`")
         if "onlyIf" in e and e["kind"] in ALLY_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 

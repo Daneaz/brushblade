@@ -579,6 +579,30 @@ def test_taunt_effect_with_picks():
         {"kind": "Taunt", "value": 2, "pick": "AllSummons"}]
 
 
+def test_summon_aura_effects_with_picks():
+    """D2-木 Task 2(M1):木灵攻击光环按 pick 落点;荆棘 / 远程光环不带 pick。"""
+    for pick in ("AllSummons", "OtherSummons", "StrongestSummon"):
+        assert _parse_effects(f"`SummonEmpower 20` + `turns 3` + `pick {pick}`", "林") == [
+            {"kind": "SummonEmpower", "value": 20, "turns": 3, "pick": pick}]
+    assert _parse_effects("`SummonThorns 30` + `turns 3`", "荆") == [
+        {"kind": "SummonThorns", "value": 30, "turns": 3}]
+    assert _parse_effects("`SummonRanged`", "箭") == [{"kind": "SummonRanged", "value": 0}]
+
+
+@pytest.mark.parametrize("config", [
+    "`SummonEmpower 20` + `turns 3`",                          # 攻击光环必须写 pick
+    "`SummonEmpower 20` + `turns 3` + `pick Random`",          # 不认敌方侧选择器
+    "`SummonEmpower 20` + `turns 3` + `pick SummonedThisCast`",
+    "`SummonThorns 30` + `turns 3` + `pick AllSummons`",       # 荆棘光环恒为全部
+    "`Taunt 1` + `pick OtherSummons`",                         # 新 pick 只给攻击光环
+    "`Taunt 1` + `pick StrongestSummon`",
+    "`SummonEmpower 20` + `pick AllSummons`",                  # 必写 turns(DURATION_KINDS)
+])
+def test_summon_aura_pick_combos_rejected(config):
+    with pytest.raises(ValueError):
+        _parse_effects(config, "测")
+
+
 @pytest.mark.parametrize("config", [
     "`Taunt 1`",                               # 嘲讽必须写 pick
     "`Taunt 1` + `pick Random`",               # 嘲讽不认敌方侧选择器

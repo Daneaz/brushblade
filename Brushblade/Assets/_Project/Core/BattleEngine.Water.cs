@@ -13,7 +13,8 @@ namespace Brushblade.Core
     {
         /// <summary>名单类效果(E16):选择器读「本次出字冻结 / 减速过的敌人」,要推迟到出字效果循环末尾才收得全。</summary>
         private static bool IsRosterPick(EffectDef effect) =>
-            effect.Pick == EffectPick.FrozenByThisCast || effect.Pick == EffectPick.SlowedByThisCast;
+            effect.Pick == EffectPick.FrozenByThisCast || effect.Pick == EffectPick.SlowedByThisCast
+            || effect.Pick == EffectPick.StrongestSummon;   // D2-木 M1 桂冠:「出字结束时」的最强木灵,同样推迟到本面效果之后
 
         /// <summary>选择器 SlowedByThisCast 的名单(去重,按施加顺序)。</summary>
         private void RecordSlowed(int enemyIndex)

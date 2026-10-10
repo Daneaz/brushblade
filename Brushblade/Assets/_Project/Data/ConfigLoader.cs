@@ -809,7 +809,7 @@ namespace Brushblade.Data
                 }
                 // 放在 if 外:保命不写 pick(= Primary)也要拦下(Ruling 10,Primary 写法选不到召唤物)
                 if (!EffectPickRules.Allows(kind, pick))
-                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 给净化/嘲讽;保命必须写 SummonedThisCast;嘲讽必须写 Self / SummonedThisCast / AllSummons)");
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 pick {pick}(敌方侧选择器只支持灼/流血/冻结/减速/破甲/致盲/减攻/种/标记/结算灼/引爆;Self 给净化/嘲讽;保命必须写 SummonedThisCast;嘲讽必须写 Self / SummonedThisCast / AllSummons;木灵攻击光环必须写 AllSummons / OtherSummons / StrongestSummon)");
                 if (effect.PercentOfMax && kind != EffectKind.HealSummons)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 percentOfMax(只有 HealSummons 读它)");
                 if (effect.KeepStacks && kind != EffectKind.BurnSettleNow)
@@ -1193,6 +1193,9 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的复活(Revive)只数须 ≥ 0(0 = 全部尸体):{e.Value}");
             if (e.SummonPercent != 100 && (kind != EffectKind.Summon && kind != EffectKind.Reshape || e.SummonPercent < 1 || e.SummonPercent > 100))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 summonPercent(只给 Summon / Reshape,且须在 1..100)");
+            // 木灵光环(D2-木 M1):攻击 / 荆棘光环的量须 > 0(0 会挂一条什么都不做的状态);落点由 EffectPickRules.Allows 管
+            if ((kind == EffectKind.SummonEmpower || kind == EffectKind.SummonThorns) && e.Value <= 0)
+                throw new ConfigException($"字「{id}」的 {kind} 光环量须 > 0:{e.Value}");
             if (e.ScaleBy == nameof(ScaleBasis.SummonCount) && kind != EffectKind.Amplify)
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy SummonCount(只给 Amplify)");
             if (e.OpeningBattles != 0 && (e.SummonAtkStrikePercent != 0 || e.HostAtkStrikePercent != 0 || e.HostArmorStrikePercent != 0

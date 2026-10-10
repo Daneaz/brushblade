@@ -232,9 +232,10 @@ namespace Brushblade.Core
         ApCost,         // 杜门不出:AP 代价 —— 给玩家挂 Buff 极性的 Seal(Magnitude = Value ≥ 1,TurnsLeft 2 = 下个玩家回合 AP −N),
                         // 直接 bag.Apply、不经 ApplyStatus:不被免疫减益(DebuffWard)拦、不被净化清(R4「代价不算减益」,Q2)。离散。非敌对。
         // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;结算归 Task 2–4,附录 M1 / M6–M10)。⚠ 只在末尾追加 ----
-        SummonEmpower,  // M1 木灵攻击光环(林立 / 桂冠 / 擎天):玩家袋 StatusKind.SummonEmpower,TargetSlot −1 = 全部、≥0 = 那一只。Task 2
-        SummonThorns,   // M1 木灵荆棘光环(荆天棘地):玩家袋 StatusKind.SummonThorns,与本命荆棘取最强。Task 2
-        SummonRanged,   // M1 木灵远程(箭灵):玩家袋 StatusKind.SummonRanged,本场,含之后召出的。Task 2
+        SummonEmpower,  // M1 木灵攻击光环(林立 / 桂冠 / 擎天):玩家袋 StatusKind.SummonEmpower,TargetSlot −1 = 全部、≥0 = 那一只。
+                        // Value = 基础攻击 +N%(离散),Turns = 玩家回合;必须写 pick AllSummons / OtherSummons / StrongestSummon
+        SummonThorns,   // M1 木灵荆棘光环(荆天棘地):玩家袋 StatusKind.SummonThorns,与本命荆棘取最强;Turns = 玩家回合
+        SummonRanged,   // M1 木灵远程(箭灵):玩家袋 StatusKind.SummonRanged,本场,含之后召出的(Value 不用)
         Bind,           // M7 攀附:敌人 StatusKind.Bind(TargetSlot = 藤灵槽),敌人行动开始时该木灵打它一下。Task 4
         ThornMark,      // M6 荆刺:敌人 StatusKind.ThornMark,并入两条反弹管线的 Reflect 合计。Task 3
         SummonMerge,    // M8 绿潮:小藻并入本次召出的藻灵。Task 4

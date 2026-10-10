@@ -943,7 +943,8 @@ namespace Brushblade.Core
         /// 的 ≥100 短路成为一条**必然到达**的路径(锋 叠满时靠它省掉摇点)。
         /// 下钳到 0 是防御性的,理由同 <see cref="AttackHits"/> 那条钳位。</summary>
         public int EffectiveCrit =>
-            Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff), 0, 100);
+            Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff)
+                + SummonCritAura(), 0, 100);   // 蟾宫(D2-木 M2,Q23):存活木灵本命 CritAura 取最大,没有 = 0
 
         /// <summary>一次暴击判定。**两端都短路,一次随机都不摇**。
         ///
@@ -1004,7 +1005,8 @@ namespace Brushblade.Core
         /// 这正是 E-b2 那条「不得新增第四个无条件消费方」的恒等性硬线:召唤物每拍都出手,
         /// 无条件摇一次会平移整条随机流,让所有依赖种子的既有测试全红。</summary>
         private bool RollCritForSummon(SummonState summon) =>
-            RollCritWith(Math.Clamp(summon.Statuses.TotalMagnitude(StatusKind.CritBuff), 0, 100));
+            // 蟾宫(D2-木 M2,Ruling 18):桂灵在场才加值 —— 不在场时 SummonCritAura() = 0,仍走下端短路、不摇号
+            RollCritWith(Math.Clamp(summon.Statuses.TotalMagnitude(StatusKind.CritBuff) + SummonCritAura(), 0, 100));
 
         private bool RollCritWith(int chance)
         {
@@ -2499,6 +2501,7 @@ namespace Brushblade.Core
             // 与 桂 的 SummonShield 要攒厚不矛盾:桂 是玩家出的字,光环是召唤物的被动。
             // 同理**不**触发水脉 L2「溢流」(2026-09-13):与不攒泉是同一条理由 ——
             // 光环是每回合自动触发的被动,不是玩家主动投入。
+            if (heal > 0) heal = HealAllyAmountOf(summon.Passive);   // 馥郁(D2-木):× (100 + N)/100;缺省原值
             if (heal > 0)
                 for (int hn = 0, times = Math.Max(1, summon.Passive.HealAllyTimes); hn < times; hn++)   // 桂香·强化:N 次
                     HealPlayerAndSummons(heal, overflowToDamage: false);
@@ -2579,12 +2582,15 @@ namespace Brushblade.Core
             foreach (var summon in _summons)
                 if (summon != null && summon.Alive) { total += summon.Passive?.AuraAttack ?? 0; alive++; }
             int percent = SummonAttackPercent;
-            foreach (var summon in _summons)
-                if (summon != null)
-                {
-                    summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent;
-                    summon.OtherAliveSummons = summon.Alive ? alive - 1 : alive;   // 成林:其他存活木灵数
-                }
+            bool empower = _playerStatuses.Has(StatusKind.SummonEmpower);   // D2-木 M1:没有攻击光环时一次判断,注入恒 0
+            for (int slot = 0; slot < _summons.Length; slot++)
+            {
+                var summon = _summons[slot];
+                if (summon == null) continue;
+                summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent;
+                summon.OtherAliveSummons = summon.Alive ? alive - 1 : alive;   // 成林:其他存活木灵数
+                summon.TraitAttackPercent = empower ? EmpowerPercentOf(slot) : 0;   // 林立 / 擎天 / 桂冠,同一只取最强(Q6)
+            }
         }
 
         /// <summary>召唤物死亡的统一汇流点(2026-09-13)。
@@ -2851,7 +2857,8 @@ namespace Brushblade.Core
             // 近战打敌方前排、远程优先打后排(2026-08-20);2026-09-13 起同排内均匀随机,
             // 走 _targetRandom。敌人只剩一只时短路不摇随机数,那一档仍与改前逐位等价。
             var shape = passive?.Shape ?? TargetArea.Single;
-            int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
+            // 箭灵(D2-木 M1,Q1):远程光环;本命已是远程时不再查袋子
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, (passive?.Ranged ?? false) || HasRangedAura(summonIndex),
                 _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
                 preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
@@ -3111,7 +3118,9 @@ namespace Brushblade.Core
         private void TickPlayerStatuses()
         {
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
+            bool empowered = _playerStatuses.Has(StatusKind.SummonEmpower);   // D2-木 M1(Q7):攻击光环按玩家回合到期
             _playerStatuses.TickTurns();
+            if (empowered) RefreshSummonAura();   // 到期后木灵攻击即时回落;没有光环时不刷(恒等)
 
             // 战意(2026-09-30 用户拍板):**本场战斗保留、不衰减,战斗结束清零**。
             // 推翻 2026-08-15「每回合末消减一层」与 2026-08-18「从 0 起手首回合宽限」。
@@ -3976,6 +3985,16 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBuffBlock(ti, effect, def.Id);
                         break;
+                    // 木灵光环(D2-木 M1):Value 离散,读 effect.Value;玩家袋、按玩家回合计
+                    case EffectKind.SummonEmpower:
+                        ApplySummonEmpower(effect, def.Id);
+                        break;
+                    case EffectKind.SummonThorns:
+                        ApplySummonAura(StatusKind.SummonThorns, effect.Value, effect.Turns, def.Id, -1);
+                        break;
+                    case EffectKind.SummonRanged:   // 箭灵(Q1):本场,全部木灵(含之后召出的)
+                        ApplySummonAura(StatusKind.SummonRanged, 1, 0, def.Id, -1);
+                        break;
                     // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):Value 离散,读 effect.Value
                     case EffectKind.HurtHeal:
                         ApplyHurtHeal(effect, def.Id);
@@ -4410,6 +4429,7 @@ namespace Brushblade.Core
                             // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
                             ClearSproutParent(slot);
+                            ClearSlotAuras(slot);   // D2-木 M1:顶替 / 尸体槽复用不继承旧单位的按槽光环
                             _summons[slot] = newborn;
                             _summonThresholdCrossed.Remove(slot);   // R5:新单位不继承旧单位的跌破标记
                             newbornSlots.Add(slot);
@@ -4486,6 +4506,7 @@ namespace Brushblade.Core
             var sapling = new SummonState(SaplingChar, element, hp, attack, passive: null, sourceChar: sourceChar);
             sapling.ActionMeter = TurnScheduler.Threshold;   // 与本体召唤同口径:上场即满格
             ClearSproutParent(slot);
+            ClearSlotAuras(slot);   // D2-木 M1:同本体召唤落位
             _summons[slot] = sapling;
             _summonThresholdCrossed.Remove(slot);
             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, hp, slot));
@@ -5857,7 +5878,8 @@ namespace Brushblade.Core
             int counter = 0;
             // 本回合减伤(D1 Task 7,附录 M12):与格挡的 40% 合计后一起钳(§5.2.4)。两者都没有时整段跳过 —— 恒等。
             // 多来源取最强(spec §5.2 第 1 律,Ruling 11)。
-            int damageCut = _playerStatuses.MaxMagnitude(StatusKind.DamageCut);
+            // 林荫(D2-木 M2,Q8):与 DamageCut 取最强,再与格挡合计钳 60%;没有林荫木灵时 = 0,恒等
+            int damageCut = Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: false));
             bool blocking = block != null && block.Magnitude > 0;
             int preCut = damage;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (blocking || damageCut > 0)
@@ -5996,8 +6018,10 @@ namespace Brushblade.Core
             // 没有格挡时 blockPercent = 0,整段退化为原来的单独钳 60% —— 恒等。
             StatusEffect block = summon.Statuses.Find(StatusKind.Block);
             bool blocking = block != null && block.Magnitude > 0;
+            // 林荫 / 森严(D2-木 M2,Q8):与 DamageCut 取最强后加格挡、钳 60%;没有这类木灵时 = 0,恒等
             int summonCut = Math.Min(
-                (blocking ? BattleConfig.BlockReductionPercent : 0) + _playerStatuses.MaxMagnitude(StatusKind.DamageCut),
+                (blocking ? BattleConfig.BlockReductionPercent : 0)
+                + Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
                 CombatCaps.NonArmorReductionPercent);
             int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
@@ -6059,7 +6083,7 @@ namespace Brushblade.Core
             // 后挂的 壁/圭 把荆的本体机制挤掉一部分 —— 一张字的固有能力不该被另一张字的 buff
             // 稀释;反过来(反伤先扣)又会让荆在有 buff 时几乎打不出东西。且两次弹射本来就是
             // 分开结算的,顺序分配比按比例缩放算出来的零碎数字更好解释、实现也更直白。
-            int thornsRaw = summon.Passive?.Thorns ?? 0;
+            int thornsRaw = ThornsPercentOf(summonIndex, summon);   // 荆天棘地(D2-木 M1,Q12):与荆棘光环取最强;无光环 = 本命
             int thornsEffective = Math.Min(CombatCaps.ReflectPercent, thornsRaw);
             int thornsDealt = 0;   // 荆棘实际折返的量,格挡反击要从同一份 60% 预算里扣(D2-0 Task 3)
             if (thornsEffective > 0 && _enemies[enemyIndex].Alive)
