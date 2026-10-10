@@ -145,6 +145,14 @@ namespace Brushblade.Core
                         modifiers.Add(bodySlot ? raw : TagPerHit(raw, BattleEngine.TraitKey(def.Id, t.Slot, t.Face)));
                         continue;
                     }
+                    // 本命追加(D2-木 E37):非替换特性里的 `Summon 0` 不是一条 0 血召唤,而是把本命字段合并进本面第一条
+                    // 本体 Summon(同 Lv3 强化的 MergePassive,只覆盖非缺省字段);本面没有 Summon 就空转。嫁接读 Fold 后的 Summon,随之带走
+                    if (!replacesLv1 && raw.Kind == EffectKind.Summon && raw.Value == 0 && !IsAttached(raw))
+                    {
+                        int host = effects.FindIndex(x => x.Kind == EffectKind.Summon);
+                        if (host >= 0) effects[host] = effects[host].With(passive: MergePassive(effects[host].Passive, raw.Passive));
+                        continue;
+                    }
                     // 附着类(D1 Task 9,附录 M9)与非替换特性:追加,打上特性键(ForCast;载体配对 / G11 分来源)
                     if (IsAttached(raw) || !replacesLv1)
                     {
@@ -304,7 +312,12 @@ namespace Brushblade.Core
             switch (aug.AugmentField)
             {
                 case AugmentField.Count:
-                    if (target.Kind == EffectKind.Block) effects[at] = target.With(value: target.Value + aug.Value);
+                    // 魅惑(D2-木 E45,移花接木):Count 写进 Charm.Value(反打加成百分点,结算时 Magnitude = 100 + Value)
+                    if (target.Kind == EffectKind.Block || target.Kind == EffectKind.Charm)
+                        effects[at] = target.With(value: target.Value + aug.Value);
+                    // 召唤改形(D2-木 E48,林立):Count 加在召唤只数上
+                    else if (target.Kind == EffectKind.Summon)
+                        effects[at] = target.With(summonCount: target.SummonCount + aug.Value);
                     break;
                 case AugmentField.Turns:
                     // 带条件的回合加成(D2-水 E17b,冰冻三尺「若目标已被减速,再 +1」):不直接加,记进 BonusTurns / BonusIf,
@@ -354,6 +367,13 @@ namespace Brushblade.Core
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
             if (at < 0)
             {
+                // 召唤改形(D2-木 E48,林立 `summonPercent N`):本面第一条 Summon 的血 / 攻 × N%(Summon 分支在缩放之后乘)。
+                // 缺省 100 整段跳过;多条按出现顺序后者覆盖
+                if (r.SummonPercent != 100)
+                {
+                    int summon = effects.FindIndex(e => e.Kind == EffectKind.Summon);
+                    if (summon >= 0) effects[summon] = effects[summon].With(summonPercent: r.SummonPercent);
+                }
                 // 护盾面(D2-土 E29 / E30,垒砌 / 厚德载物 / 塔基固面):persist → 第一条 Shield / ShieldAll 改为留存;
                 // armorShield → 第一条 Shield 盾量 + 护甲 × N%。排在治疗改形之前;两项都缺省时整段跳过
                 if (r.PersistOnce || r.ArmorShieldPercent > 0)
@@ -396,6 +416,10 @@ namespace Brushblade.Core
                 shieldStrikePercent: r.ShieldStrikePercent > 0 ? effects[at].ShieldStrikePercent + r.ShieldStrikePercent : (int?)null,
                 armorStrikePercent: r.ArmorStrikePercent > 0 ? effects[at].ArmorStrikePercent + r.ArmorStrikePercent : (int?)null,
                 armorStrikeEach: r.ArmorStrikeEach ? true : (bool?)null,   // D2-土 E31 三山:逐发镇压
+                // 按木灵攻击 / 本字木灵攻击 / 本字木灵护甲加伤(D2-木 E40,森罗 / 撼天 / 硬弓):同面多条相加,同 E27
+                summonAtkStrikePercent: r.SummonAtkStrikePercent > 0 ? effects[at].SummonAtkStrikePercent + r.SummonAtkStrikePercent : (int?)null,
+                hostAtkStrikePercent: r.HostAtkStrikePercent > 0 ? effects[at].HostAtkStrikePercent + r.HostAtkStrikePercent : (int?)null,
+                hostArmorStrikePercent: r.HostArmorStrikePercent > 0 ? effects[at].HostArmorStrikePercent + r.HostArmorStrikePercent : (int?)null,
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
                 perHit: r.PerHit.Count > 0 ? r.PerHit : null,
                 perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : toScatter ? 1 : (int?)null,

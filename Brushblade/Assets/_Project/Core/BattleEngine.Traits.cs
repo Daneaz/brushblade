@@ -137,6 +137,9 @@ namespace Brushblade.Core
             /// <summary>出字前玩家的护盾(两桶之和;D2-土 E36,地裂 ScaleBasis.Shield 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
             public int? PreCastShield;
 
+            /// <summary>出字前的存活木灵数(含幼苗;D2-木 E39,众木 / 林深 ScaleBasis.SummonCount 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int? PreCastSummons;
+
             /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
             public int ShieldNominal;
 

@@ -3167,6 +3167,7 @@ namespace Brushblade.Core
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
                 OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
                 PreCastWellspring = outer.PreCastWellspring, PreCastShield = outer.PreCastShield,
+                PreCastSummons = outer.PreCastSummons,
             };
             try
             {
@@ -3225,6 +3226,7 @@ namespace Brushblade.Core
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
             _cast.PreCastShield ??= _shieldNormal + _shieldPersist;   // 地裂(D2-土 E36),只读
+            _cast.PreCastSummons ??= AliveSummons();   // 众木 / 林深(D2-木 E39),只读
             // 每场次数(D2-土 E35,杜门不出):顶层出字先偷看次数,用尽的特性整条不进 Fold;没有这类特性时与原路径同一调用
             var battleLimited = topLevelCast ? TraitRules.BattleLimited(def, castFace, cardLevel) : Array.Empty<TraitDef>();
             var castEffects = battleLimited.Count == 0

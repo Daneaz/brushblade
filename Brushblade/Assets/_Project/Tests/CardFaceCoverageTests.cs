@@ -46,6 +46,15 @@ namespace Brushblade.Core.Tests
             ["StallPushPercent"] = "Fold 产物(Augment field StallPush),字表里恒 0;卡面由 AugmentText 印「冰滞后退+N%」",
             ["BonusTurns"] = "Fold 产物(带 if 的 Augment field Turns),字表里恒 0;卡面由 AugmentText + 条件后缀印",
             ["BonusIf"] = "同 BonusTurns",
+            // D2-木 Task 1 临时豁免:D2-木 Task 5 接文案时删(E40 / E41 / E43 / E46 / E48 的卡面文案归 Task 5)
+            ["SummonAtkStrikePercent"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["HostAtkStrikePercent"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["HostArmorStrikePercent"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["FromBody"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["OwnSummons"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["ByArmor"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["ReviveHpPercent"] = "临时豁免:D2-木 Task 5 接文案时删",
+            ["SummonPercent"] = "临时豁免:D2-木 Task 5 接文案时删",
         };
 
         /// <summary>SummonPassive 侧的豁免。与 EffectDef 侧**分开两张表**(2026-08-29):
@@ -212,6 +221,12 @@ namespace Brushblade.Core.Tests
         /// <summary>枚举值级的漏印(D2-火 Task 6):PickText / OnlyIfText / AmplifyText / ScaleText 的 switch 少一个分支
         /// 不会编译报错,只会静默落到 `_ => ""`(选择器 / 条件整段消失,玩家读成「无条件、打主目标」)。
         /// 字段级检查盖不到。豁免的取值写明为什么不该印。</summary>
+        /// <summary>D2-木 Task 1 临时豁免:D2-木 Task 5 接文案时删(预留的枚举值只加名、不加行为,卡面文案归 Task 5)。</summary>
+        internal static readonly HashSet<string> WoodPendingText = new HashSet<string>
+        {
+            "ScaleBasis.SummonCount",
+        };
+
         [Test]
         public void EverySelectorConditionScopeBasis_HasTextCase()
         {
@@ -239,6 +254,7 @@ namespace Brushblade.Core.Tests
                 .Where(n => n != nameof(AmpScope.Damage) && !amp.Contains("AmpScope." + n)).Select(n => "AmpScope." + n));
             missing.AddRange(Enum.GetNames(typeof(ScaleBasis))
                 .Where(n => n != nameof(ScaleBasis.None) && !scale.Contains("ScaleBasis." + n)).Select(n => "ScaleBasis." + n));
+            missing.RemoveAll(WoodPendingText.Contains);   // D2-木 Task 1 临时豁免:D2-木 Task 5 接文案时删
             Assert.That(missing, Is.Empty,
                 "这些枚举值在 CharInfo 的文案 switch 里没有分支,卡面会静默漏印:\n  " + string.Join("\n  ", missing));
         }
