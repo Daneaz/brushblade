@@ -374,6 +374,7 @@ namespace Brushblade.Core
         ShieldRecoil, // 反震(D1 Task 9):护盾吸收后按吸收量反弹;表现层按普通伤害飘字(来源标签归 Plan E)
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
         ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
+        FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -620,6 +621,8 @@ namespace Brushblade.Core
             DamageCondition.PlayerHpAbove70, DamageCondition.HasSummon,
             // D2-金 Task 1(附录 E6)
             DamageCondition.MoraleFull,
+            // D2-水 Task 1(附录 E14)
+            DamageCondition.IsBoss, DamageCondition.NotBoss,
         };
 
         /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
@@ -628,7 +631,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 16 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 18 种),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -744,6 +747,27 @@ namespace Brushblade.Core
                     break;
                 case EffectPick.BurnedByThisCast:
                     foreach (int i in _cast.BurnedTargets) if (_enemies[i].Alive) result.Add(i);
+                    break;
+                // D2-水 Task 1(附录 E15):几何 / 名单 / 极值,一律不摇号
+                case EffectPick.Column:
+                    // 同寒:主目标所在列的其余存活敌人(列区间相交,跨排 Boss 去重),不含主目标
+                    foreach (int i in Targeting.ExpandTargets(_enemies, primary, TargetArea.Column, 0))
+                        if (i != primary && !result.Contains(i)) result.Add(i);
+                    break;
+                case EffectPick.AdjacentOne:
+                {
+                    int one = AdjacentOneOf(effect, primary);
+                    if (one >= 0) result.Add(one);
+                    break;
+                }
+                case EffectPick.HighestHp:
+                {
+                    int best = HighestHpEnemy();
+                    if (best >= 0) result.Add(best);
+                    break;
+                }
+                case EffectPick.SlowedByThisCast:
+                    foreach (int i in _cast.SlowedTargets) if (_enemies[i].Alive) result.Add(i);
                     break;
             }
             return result;
@@ -862,6 +886,7 @@ namespace Brushblade.Core
                 or EffectKind.SpendHeft or EffectKind.SpendWellspring
                 or EffectKind.Detonate or EffectKind.ArmorBreak
                 or EffectKind.Mine   // 埋雷(D2-火 Task 4):延时伤害,与流血 / 引爆同口径
+                or EffectKind.FrostBite or EffectKind.ThawStrike   // 怀山 / 寒彻(D2-水 W1):延时伤害,同埋雷
                 or EffectKind.DefenseBuff
                 or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
                 or EffectKind.Blind
@@ -1956,7 +1981,8 @@ namespace Brushblade.Core
                 // Row / Adjacent 以主目标为中心,仍要选(D2-火 E2)
                 if (EffectPickRules.Supports(effect.Kind) && EffectPickRules.Effective(effect) is var pick
                     && pick != EffectPick.Primary)
-                    return pick == EffectPick.Row || pick == EffectPick.Adjacent;
+                    return pick == EffectPick.Row || pick == EffectPick.Adjacent
+                        || pick == EffectPick.Column || pick == EffectPick.AdjacentOne;   // D2-水 E15:以主目标为中心
                 // 全体(All)与连发一样不选目标(spec v7 §3.2)
                 if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter
                         && effect.Shape != TargetArea.All)
@@ -1990,7 +2016,11 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Doom
                     // D2-火 Task 5:追加一击 / 解冻 / 揭示写 Primary 时落在主目标上
                     || effect.Kind == EffectKind.ExtraStrike || effect.Kind == EffectKind.Thaw
-                    || effect.Kind == EffectKind.Reveal)
+                    || effect.Kind == EffectKind.Reveal
+                    // 冷却(D2-水 W2):推迟的是主目标(Boss)的蓄力
+                    || effect.Kind == EffectKind.ChargeDelay
+                    // 洗尽铅华(D2-水 W3):挂在主目标身上
+                    || effect.Kind == EffectKind.BuffBlock)
                     return true;
             return false;
         }
@@ -2049,7 +2079,9 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Unseal
                     // 格挡(D2-0 Task 3,Ruling E1,spec §2.2):铠可落到木灵身上,格挡挂在木灵自己的袋子里;
                     // 战意照旧给玩家。场上没有存活木灵时 Cast 自动锁玩家(免选口径)。
-                    || effect.Kind == EffectKind.Block)
+                    || effect.Kind == EffectKind.Block
+                    // 免疫减益(D2-水 W4,濯身 / 浇熄):挂在落点(玩家或木灵)身上
+                    || effect.Kind == EffectKind.DebuffWard)
                     return true;
             return false;
         }
@@ -2473,6 +2505,7 @@ namespace Brushblade.Core
         /// 两者都要落在这一拍之内,不能拖进下一个行动者那一拍。</summary>
         private void EndBeat(UnitRef actor)
         {
+            FlushBeatEndReactions();   // 冰晶(D2-水 W6):攻击者这一拍递减之后才兑现;空时一次判断即返回
             DrainReactions();
             Raise(HookKind.TurnEnded, actor, UnitRef.None);
             DrainReactions();
@@ -2591,6 +2624,10 @@ namespace Brushblade.Core
             // 种(D1 Task 6):每次行动开始(含稍后被冻结 / 冰滞跳过的这一拍)触发,先于灼烧结算。
             TriggerSeeds(enemy);
 
+            // 怀山(D2-水 W1):冻结中每次行动开始(种之后、冻结跳过之前,含被跳过的这一拍)结算。没有 FrostBite 时一次判断即返回
+            SettleFrostBite(enemyIndex);
+            if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }
+
             // 冰滞到此为止(R1b):Boss 这一拍照常行动,易伤窗口关闭,挂霜抗 N+1(本拍末尾 TickTurns 会减 1)
             var stall = enemy.Statuses.Find(StatusKind.IceStall);
             if (stall != null)
@@ -2633,6 +2670,8 @@ namespace Brushblade.Core
                     {
                         Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = frozeFor,
                     }, UnitRef.Enemy(enemyIndex), UnitRef.None);
+                // 冻结附着(D2-水 W1):自然到期 → 寒彻 / 冰水结算一次、附着随载体移除(霜抗在前,Q19)。没有附着时一次判断即返回
+                if (!enemy.Statuses.Has(StatusKind.Freeze)) OnFreezeEnd(enemyIndex);
                 EndBeat(UnitRef.Enemy(enemyIndex));
                 return;
             }
@@ -2693,6 +2732,8 @@ namespace Brushblade.Core
             foreach (var seed in enemy.Statuses.All.Where(s => s.Kind == StatusKind.Seed).ToList())
             {
                 if (Phase == BattlePhase.Lost) return;
+                // 淋漓(D2-水 E25):仅在减速中的种,敌人已不在减速中就跳过(不摇号、不发事件)
+                if (seed.WhileSlowed && enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier) >= 0) continue;
                 int slot = LowestHpRatioAllySlot();
                 if (slot == int.MinValue || seed.Magnitude <= 0) continue;
                 HealAlly(slot, AmplifyByWellspring(seed.Magnitude));
@@ -2749,6 +2790,7 @@ namespace Brushblade.Core
                 DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
             }
             ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
+            EnqueueTurnPulses();   // 大雨滂沱(D2-水 W7):同一时点入队,TurnStarted 之后的安全点兑现;没挂时一次判断即返回
             _playerTurnsStarted++;
             Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             DrainReactions();   // 安全点:「回合开始时」类反应排在玩家灼烧结算之前
@@ -2877,13 +2919,14 @@ namespace Brushblade.Core
                 // 加成本场累计、回合末不回滚(既有语义)。SourceId 必须每次唯一——用回合数做
                 // 后缀不够:场上若有两只同字标点小妖同回合各给同一目标加一次,回合数后缀会撞车
                 // 变成互相覆盖而非累加(与 Task 4 的 HoT SourceId 教训同型)。
-                ApplyStatus(other.Statuses, new StatusEffect
+                // 被洗尽铅华(D2-水 W3)拦下时不发 EnemyBuff;未拦时 ApplyStatus 恒 true,事件流不变
+                if (ApplyStatus(other.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = PunctuationBuffPercent, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                }, UnitRef.Enemy(j), UnitRef.Enemy(enemyIndex));
-                _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
+                }, UnitRef.Enemy(j), UnitRef.Enemy(enemyIndex)))
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
             }
         }
 
@@ -2978,15 +3021,16 @@ namespace Brushblade.Core
                 // 那时召唤物没有状态容器,只能这么写;现在有了,就该落在实际挨打的那个身上。
                 if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsAbilitySilenced(enemy))
                 {
+                    // 被免疫减益(D2-水 W4)拦下时不发灼事件(没挂上);未拦时 RefreshBurn 恒 true,事件流不变
                     if (tankIdx == Targeting.PlayerTarget)
                     {
-                        RefreshBurn(_playerStatuses, SearStacks, UnitRef.Player, UnitRef.Enemy(enemyIndex));
-                        _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
+                        if (RefreshBurn(_playerStatuses, SearStacks, UnitRef.Player, UnitRef.Enemy(enemyIndex)))
+                            _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
                     }
                     else
                     {
-                        RefreshBurn(_summons[tankIdx].Statuses, SearStacks, UnitRef.Summon(tankIdx), UnitRef.Enemy(enemyIndex));
-                        _events.Add(new BattleEvent(BattleEventKind.SummonBurn, tankIdx, SearStacks));
+                        if (RefreshBurn(_summons[tankIdx].Statuses, SearStacks, UnitRef.Summon(tankIdx), UnitRef.Enemy(enemyIndex)))
+                            _events.Add(new BattleEvent(BattleEventKind.SummonBurn, tankIdx, SearStacks));
                     }
                 }
 
@@ -3111,6 +3155,7 @@ namespace Brushblade.Core
             {
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
                 OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
+                PreCastWellspring = outer.PreCastWellspring,
             };
             try
             {
@@ -3167,18 +3212,31 @@ namespace Brushblade.Core
             // R3:快照在复活(前置动作)之后、第一个效果之前取;外层已有快照时沿用外层(外层快照优先)
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
+            _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
             var castEffects = CastEffectsOf(def, attackMode, cardLevel);
-            List<(EffectDef Effect, StatusEffect Status)> deferredMoraleBlocks = null;   // Ruling 11,见效果循环之后
+            // 推迟施加(Ruling 11 + D2-水 E16 同一条队列,按原顺序):Status 非 null = 按战意计次的格挡(状态已定死,只差次数);
+            // Status 为 null = 名单类效果(pick FrozenByThisCast / SlowedByThisCast),循环末尾再结算,名单才收得全
+            List<(EffectDef Effect, StatusEffect Status)> deferred = null;
             if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             // 自损(D2-火 N10b / G9,玉石俱焚):出字开头、出字前快照之后结算;循环里的 SelfCost 分支空转
             foreach (var castEffect in castEffects)
                 if (castEffect.Kind == EffectKind.SelfCost && castEffect.OpeningBattles == 0) PaySelfCost(castEffect.Value);
-            foreach (var castEffect in castEffects) ResolveEffect(castEffect, targetIndex);
+            foreach (var castEffect in castEffects)
+            {
+                // 冰封 / 浩荡 / 冰缚 / 淋漓等(D2-水 E16):「被本字冻结 / 减速」的名单要等本面全部效果(含 Lv8 新冻 / 新减速)
+                // 结算完才齐 —— 推迟到循环末尾。没有这类效果时整句不进分支,恒等。
+                // ⚠ 代价(Q4 已接受):推迟后它们排到本面**所有**效果之后,同面排在其后的伤害吃不到它挂的标记
+                // (如冰缚 Vulnerable 之后若还有一条伤害)。现数据里冰缚都是攻面最后一条;Task 6 落数据时要核这一点。
+                if (IsRosterPick(castEffect)) (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((castEffect, null));
+                else ResolveEffect(castEffect, targetIndex);
+            }
             // 双金合璧(Ruling 11 / Q21):按战意计次的格挡等效果循环结束后再施加,次数取出字后的战意 ——
             // 排在 Block 之后的 Morale(池·蓄势)也要算进去。须在断金清空战意之前。普通 Block 仍在循环里当场施加。
-            if (deferredMoraleBlocks != null)
-                foreach (var (effect, status) in deferredMoraleBlocks)
+            // 名单类效果(E16)与之同队、按原顺序结算;敌人都死了时 PickTargets 只取活人,整条空转。
+            if (deferred != null)
+                foreach (var (effect, status) in deferred)
                 {
+                    if (status == null) { ResolveEffect(effect, targetIndex); continue; }
                     status.Magnitude = BlockCountOf(effect);
                     ApplyStatus(AllyStatuses(allySlot), status, AllyRef(allySlot), UnitRef.Player);
                 }
@@ -3365,8 +3423,8 @@ namespace Brushblade.Core
                             {
                                 // Magnitude 不在这里赋:ApplyStatus 会把冻结时长记进去(R1,结束时据此发霜抗)。
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
-                                TurnsLeft = value,
-                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                                TurnsLeft = value + FreezeBonusTurns(effect, ti),   // 冰冻三尺(D2-水 E17b),缺省 0
+                            }, UnitRef.Enemy(ti), UnitRef.Player, extraStallPush: effect.StallPushPercent);
                             // 「冻结成功」= 袋子里真挂上了 Freeze:Boss 吃的是冰滞(返回 true 但没有 Freeze),不算
                             if (applied && _enemies[ti].Statuses.Has(StatusKind.Freeze) && !_cast.FrozenTargets.Contains(ti))
                                 _cast.FrozenTargets.Add(ti);
@@ -3376,11 +3434,14 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                         {
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
+                            // 倾盆(D2-水 E18):只续不挂,没有减速就空转;续上了照样算「被本字减速」
+                            if (effect.Extend) { if (ExtendSlow(ti, value)) RecordSlowed(ti); continue; }
                             ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
                                 Magnitude = -50, TurnsLeft = value, SourceId = def.Id,
                             }, UnitRef.Enemy(ti), UnitRef.Player);
+                            RecordSlowed(ti);   // 选择器 SlowedByThisCast(D2-水 E15)
                         }
                         break;
                     case EffectKind.Weaken:
@@ -3412,7 +3473,8 @@ namespace Brushblade.Core
                             ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Seed, Polarity = StatusPolarity.Debuff,
-                                Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                                Magnitude = value, TurnsLeft = Math.Max(1, SeedTurnsOf(effect, ti)), SourceId = def.Id,
+                                WhileSlowed = effect.WhileSlowed,   // 淋漓(D2-水 E25),缺省 false
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -3499,9 +3561,16 @@ namespace Brushblade.Core
                         // D1 Task 7(附录 M17):Pick.Self 落到玩家自身(攻击面不选友方);Value > 0 只清前 Value 个,
                         // 0 保持全清。条数是离散量:读 effect.Value,不读吃过等级的 value。
                     {
+                        // 水大无际(D2-水 E15):AllAllies = 玩家 + 全部存活木灵,各清各的;清掉的条数记进 _cast.Cleansed(濯身 E22b)
+                        if (effect.Pick == EffectPick.AllAllies)
+                        {
+                            _cast.Cleansed += CleanseBag(_playerStatuses, effect.Value);
+                            foreach (var summon in _summons)
+                                if (summon != null && summon.Alive) _cast.Cleansed += CleanseBag(summon.Statuses, effect.Value);
+                            break;
+                        }
                         var cleansed = effect.Pick == EffectPick.Self ? _playerStatuses : AllyStatuses(allySlot);
-                        if (effect.Value > 0) cleansed.RemoveFirst(StatusPolarity.Debuff, effect.Value);
-                        else cleansed.RemoveAll(StatusPolarity.Debuff);
+                        _cast.Cleansed += CleanseBag(cleansed, effect.Value);
                         break;
                     }
                     case EffectKind.DamageCut:
@@ -3594,6 +3663,8 @@ namespace Brushblade.Core
                         {
                             var summon = _summons[slot];
                             if (summon == null || !summon.Alive) continue;
+                            // 沐恩(D2-水 E24):按本次名义治疗量 × Value%,不过泉放大
+                            if (effect.OfHeal) { HealAlly(slot, _cast.HealNominal * effect.Value / 100); continue; }
                             int amount = effect.PercentOfMax ? summon.MaxHp * value / 100 : value;
                             HealAlly(slot, AmplifyByWellspring(amount));
                         }
@@ -3643,7 +3714,9 @@ namespace Brushblade.Core
                     }
                     case EffectKind.AddWellspring:
                         // 直接加泉(D1 Task 7,附录 M18,蓄泉):不经治疗折算,只受上限
-                        AddPlayerCounter(StatusKind.Wellspring, value, CapFor(StatusKind.Wellspring));
+                        // 补满(D2-水 E21,泽及四方):加到上限
+                        AddPlayerCounter(StatusKind.Wellspring,
+                            effect.Fill ? CapFor(StatusKind.Wellspring) : value, CapFor(StatusKind.Wellspring));
                         break;
                     case EffectKind.ShieldRecoil:
                         // 反震(D1 Task 9,D9):本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
@@ -3743,7 +3816,7 @@ namespace Brushblade.Core
                         if (effect.ScaleBy == ScaleBasis.Morale)
                         {
                             // Ruling 11:次数按出字后战意 —— 反击量与附带在此定死,施加推迟到效果循环结束后
-                            (deferredMoraleBlocks ??= new List<(EffectDef, StatusEffect)>()).Add((effect, blockStatus));
+                            (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((effect, blockStatus));
                             break;
                         }
                         ApplyStatus(AllyStatuses(allySlot), blockStatus, AllyRef(allySlot), UnitRef.Player);
@@ -3818,6 +3891,41 @@ namespace Brushblade.Core
                     case EffectKind.Thaw:
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ThawOn(ti);
+                        break;
+                    // 冻结附着族(D2-水 W1):只挂在本次出字真冻上的目标上(ApplyRider 按 _cast.FrozenTargets 筛)。
+                    // 怀山 / 寒彻的量出字时定死(同埋雷);冰水的回合离散,读 Value
+                    case EffectKind.FrostBite:
+                    case EffectKind.ThawStrike:
+                    case EffectKind.ThawSlow:
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive)
+                                ApplyRider(ti, def.Id, effect, effect.Kind == EffectKind.ThawSlow ? effect.Value : ScaleByAttack(value));
+                        break;
+                    case EffectKind.ChargeDelay:   // 冷却(D2-水 W2)
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti)) DelayBossCharge(ti, effect.Value);
+                        break;
+                    case EffectKind.BuffBlock:   // 洗尽铅华(D2-水 W3):回合离散,读 effect.Turns
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBuffBlock(ti, effect, def.Id);
+                        break;
+                    // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):Value 离散,读 effect.Value
+                    case EffectKind.HurtHeal:
+                        ApplyHurtHeal(effect, def.Id);
+                        break;
+                    case EffectKind.ShieldFrost:
+                        ArmShieldFrost(effect, def.Id, attacker);
+                        break;
+                    case EffectKind.TurnPulse:
+                        ArmTurnPulse(effect, def.Id, attacker);
+                        break;
+                    case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
+                        {
+                            Kind = StatusKind.DebuffWard, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                            TraitKey = effect.TraitKey, WardOf = effect.WardOf, WardCount = effect.WardCount,
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.SelfCost:
                         break;   // 已在出字开头结算(PaySelfCost)
@@ -4019,7 +4127,8 @@ namespace Brushblade.Core
                         // 计数缩放(D2-火 N4,温润):回复量 × 结算那一刻的计数(G2:产出量,本字先上的灼也算);计数 0 不回复
                         if (effect.ScaleBy != ScaleBasis.None)
                         {
-                            value *= CurrentBurnCount(effect.ScaleBy);
+                            // 濯身(D2-水 E22b):按本次清掉的减益条数;其余档按灼(D2-火 N4)
+                            value *= effect.ScaleBy == ScaleBasis.Cleansed ? _cast.Cleansed : CurrentBurnCount(effect.ScaleBy);
                             if (value <= 0) break;
                         }
                         // 按被杀者最大生命(D2-金 E13,割取):基数 = 死者 MaxHp × Value%,不过攻击力缩放
@@ -4033,8 +4142,15 @@ namespace Brushblade.Core
                         int healBase = effect.OfVictimMaxHp ? value : ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
                         int amplified = AmplifyByWellspring(healBase);  // 用**攒之前**的层数
+                        // 治疗改形(D2-水 E20,海纳百川 / 细雨):每个友方各治「放大值 × ShapePercent%」,泉只攒一份名义值,溢流按单位
+                        if (effect.Shape == TargetArea.All)
+                        {
+                            HealEveryAlly(healBase, amplified, effect.ShapePercent);
+                            break;
+                        }
                         GainWellspring(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
                         HealAlly(allySlot, amplified);
+                        _cast.HealNominal += amplified;   // 沐恩(D2-水 E24)
 
                         // 治疗弹射(2026-09-16,水,海/澡对偶攻面「弹射」的那一条):主目标满额
                         // 之后,再弹至多 Shots-1 个 HP 不满的我方召唤物,各按 ShapePercent 打一次折 ——
@@ -4063,6 +4179,7 @@ namespace Brushblade.Core
                         int amplifiedAll = AmplifyByWellspring(healAllBase);
                         GainWellspring(healAllBase);
                         HealPlayerAndSummons(amplifiedAll);
+                        _cast.HealNominal += amplifiedAll;   // 沐恩(D2-水 E24)
                         break;
                     }
                     case EffectKind.HealOverTime:
@@ -4082,6 +4199,7 @@ namespace Brushblade.Core
                         // 当下跳一次(与 SettlePlayerHots 同一条结算),余下 turns−1 次照旧挂状态,总次数不变。
                         if (effect.TargetAll) HealPlayerAndSummons(amplifiedPerTurn);
                         else HealAlly(allySlot, amplifiedPerTurn);
+                        _cast.HealNominal += amplifiedPerTurn;   // 沐恩(D2-水 E24):首跳
                         int remainingTicks = Math.Max(1, effect.Turns) - 1;
                         if (remainingTicks <= 0) break;
                         ApplyStatus(_playerStatuses, new StatusEffect
@@ -4576,8 +4694,18 @@ namespace Brushblade.Core
         /// <paramref name="raiseHook"/> = false:照常写袋子但不发 StatusApplied(只给「状态其实没变」的
         /// 刷新用,目前唯一调用方是 GainStacks 余数没攒够一层的那一支)。</summary>
         private bool ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier,
-            bool raiseHook = true)
+            bool raiseHook = true, int extraStallPush = 0)
         {
+            // 拦截段(D2-水 W3 / W4):袋里没有 BuffBlock / DebuffWard 时各一次 Has 判断即落空,不摇号、不改事件流
+            if (effect.Polarity == StatusPolarity.Buff)
+            {
+                // 洗尽铅华(Q21):霜抗豁免 —— 否则冻结可无限连锁(破 R1)
+                if (target.Side == UnitSide.Enemy && effect.Kind != StatusKind.FrostResist && bag.Has(StatusKind.BuffBlock))
+                    return false;
+            }
+            else if (target.Side != UnitSide.Enemy && bag.Has(StatusKind.DebuffWard) && WardOff(bag, effect, target))
+                return false;
+
             if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
             {
                 if (bag.Has(StatusKind.Freeze) || bag.Has(StatusKind.FrostResist) || bag.Has(StatusKind.IceStall))
@@ -4586,7 +4714,8 @@ namespace Brushblade.Core
                 if (frozen.IsBoss)
                 {
                     // 冰滞(R1b):Boss 不会被真正冻结。行动条后退半格(可为负),下次行动前受伤 +15%。
-                    frozen.ActionMeter -= TurnScheduler.Threshold * BattleConfig.IceStallPushPercent / 100;
+                    // 坚冰(D2-水 E17a):extraStallPush = Freeze.StallPushPercent,缺省 0 与原算式逐位相同
+                    frozen.ActionMeter -= TurnScheduler.Threshold * (BattleConfig.IceStallPushPercent + extraStallPush) / 100;
                     effect = new StatusEffect
                     {
                         Kind = StatusKind.IceStall, Polarity = StatusPolarity.Debuff,
@@ -4767,11 +4896,13 @@ namespace Brushblade.Core
         /// 有放回抽取,同场可能出现多只灯花,累加语义下 N 只就净 +(N−1)/回合,玩家这边
         /// 没有任何手段拆开这个雪球。
         /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低别处已经堆起来的更高层数。
-        /// 接 <see cref="StatusBag"/> 而非敌人下标 —— 玩家与召唤物两侧共用同一份实现。</summary>
-        private void RefreshBurn(StatusBag statuses, int stacks, UnitRef target, UnitRef applier)
+        /// 接 <see cref="StatusBag"/> 而非敌人下标 —— 玩家与召唤物两侧共用同一份实现。
+        /// 返回是否写进了袋子:被免疫减益(D2-水 W4)拦下时 false,调用方据此不发灼事件。
+        /// internal 只为测试直调(灯花恒刷 1 层,多层增量够不着)。</summary>
+        internal bool RefreshBurn(StatusBag statuses, int stacks, UnitRef target, UnitRef applier)
         {
             int current = statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
-            ApplyStatus(statuses, new StatusEffect
+            return ApplyStatus(statuses, new StatusEffect
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = Math.Max(current, stacks), TurnsLeft = -1,
@@ -5185,6 +5316,8 @@ namespace Brushblade.Core
             DamageCondition.MoraleFull => MoraleStacks >= MoraleCapOrDefault,   // D2-金 E6(Q13)
             DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
             DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
+            DamageCondition.IsBoss => target.IsBoss,     // D2-水 E14
+            DamageCondition.NotBoss => !target.IsBoss,
             _ => false,
         };
 
@@ -5195,7 +5328,9 @@ namespace Brushblade.Core
         {
             if (effect.ExecuteBelowPercent <= 0) return false;
             var enemy = _enemies[enemyIndex];
-            return enemy.Alive && enemy.Hp * 100 < enemy.MaxHp * effect.ExecuteBelowPercent;
+            return enemy.Alive && enemy.Hp * 100 < enemy.MaxHp * effect.ExecuteBelowPercent
+                // 湮灭无踪(D2-水 E19):条件门按出字前快照判;None = 无门
+                && (effect.ExecuteIf == DamageCondition.None || PreCastConditionMet(effect.ExecuteIf, enemyIndex));
         }
 
         /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。
@@ -5379,13 +5514,13 @@ namespace Brushblade.Core
             {
                 // 一回合内可能连续多次命中同一目标(玩家多张牌接力打同一敌人),SourceId 必须
                 // 每次唯一,否则同回合第二次自燃会覆盖第一次而非叠加(Task 4 的 HoT 教训同型)。
-                ApplyStatus(enemy.Statuses, new StatusEffect
+                if (ApplyStatus(enemy.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = ScorchGain, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex));
-                _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
+                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex)))   // 被洗尽铅华(D2-水 W3)拦下时不发 EnemyBuff
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
             // 铁画:受击存活即反噬(2026-08-29)。与召唤物荆棘刻意相反 —— 荆棘被打死那一击照样扎,
@@ -5671,7 +5806,12 @@ namespace Brushblade.Core
                         bypassDefense: true, allowBarb: false,
                         source: EffectSource.ShieldRecoil, attackerRef: UnitRef.Player);
             }
-            if (absorbed > 0) DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震随之移除
+            if (absorbed > 0)
+            {
+                EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
+                DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
+            }
+            TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
             return true;
         }
 

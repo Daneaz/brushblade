@@ -20,6 +20,12 @@ namespace Brushblade.Core
         Row,                // 主目标所在一排的存活敌人(主目标在前,其余按下标);以主目标为中心,**仍要选目标**
         Adjacent,           // 主目标 + 同排左右相邻(同 TargetArea.Adjacent 溅射,spec §3.2;不含上下排);同样要选目标
         BurnedByThisCast,   // 本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏、干涸等「带本字灼」)
+        // ---- D2-水 Task 1(附录 E15)。⚠ 只在末尾追加 ----
+        Column,             // 主目标所在列(列区间相交)的**其余**存活敌人,不含主目标;以主目标为中心,仍要选目标(同寒)
+        AdjacentOne,        // 主目标同排左右中第一个(先左后右)存活者;Freeze 再滤掉冻结中 / 霜抗 / 冰滞的;仍要选目标(坚冰)
+        HighestHp,          // 当前生命最高的存活敌人,同值取下标小;不过滤状态(浩瀚)
+        SlowedByThisCast,   // 本次出字的 Slow 落到过(施加或续回合)的敌人(淋漓)
+        AllAllies,          // 我方侧:玩家 + 全部存活木灵(只给 Cleanse,水大无际)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。
@@ -38,7 +44,11 @@ namespace Brushblade.Core
                 or EffectKind.BurnBurst or EffectKind.BurnBacklash
                 or EffectKind.Mine   // D2-火 Task 4 埋雷
                 or EffectKind.ExtraStrike or EffectKind.Thaw or EffectKind.Reveal   // D2-火 Task 5
-                or EffectKind.Doom => true,   // D2-金 Task 3 致命
+                or EffectKind.Doom   // D2-金 Task 3 致命
+                // D2-水 Task 2:冻结附着族(数据写 pick FrozenByThisCast)与冷却
+                or EffectKind.FrostBite or EffectKind.ThawStrike or EffectKind.ThawSlow
+                or EffectKind.ChargeDelay
+                or EffectKind.BuffBlock => true,   // D2-水 Task 3 洗尽铅华
             _ => false,
         };
 
@@ -51,6 +61,7 @@ namespace Brushblade.Core
             EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
             EffectPick.AllSummons => kind == EffectKind.Taunt,
+            EffectPick.AllAllies => kind == EffectKind.Cleanse,   // D2-水 E15(水大无际)
             // Reshape 带敌方侧选择器 = 重选目标(D2-火 E3):本面没有伤害时把主目标效果换成该选择器
             _ => Supports(kind) || kind == EffectKind.Reshape,
         };

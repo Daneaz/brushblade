@@ -109,6 +109,25 @@ namespace Brushblade.Core
                           // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
         MoraleShield,     // 金气(仅玩家,隐藏载体):每个玩家回合开始(清盾之后、TurnStarted 之前),战意 ≥ MoraleCap 则加盾 Magnitude;
                           // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
+        // ---- D2-水 Task 2:冻结附着族(附录 W1,仅敌人,隐藏载体,不画 chip;全部挂在冻结上,SourceId = 字 ID、
+        // TraitKey = 特性键,TurnsLeft = -1;冻结结束 / 被解冻时 OnFreezeEnd 结算后随 DropRiders 移除) ----
+        FrostBite,        // 怀山:冻结中每次行动开始受 Magnitude 点伤害(出字时定死)。
+        ThawStrike,       // 寒彻:冻结结束(自然到期 / 被解冻)时受 Magnitude 点伤害一次;死亡不算。
+        ThawSlow,         // 冰水:冻结结束时(霜抗之后)挂减速 Magnitude 回合。
+        // ---- D2-水 Task 3:拦截族(附录 W3 / W4;可见,chip 待 designer 稿,V5 门控:Core 照做、chip 不画) ----
+        BuffBlock,        // 洗尽铅华(仅敌人,Debuff 极性):期间 ApplyStatus 拦下该敌人身上一切 Buff 极性的施加(返回 false、不发
+                          // StatusApplied),**霜抗除外**(Q21,R1 安全网)。Magnitude 不用,TurnsLeft = 回合(按该敌人行动递减),
+                          // SourceId = 字 ID(同源刷新)。
+        DebuffWard,       // 濯身 / 浇熄(玩家或木灵,Buff 极性):期间 ApplyStatus 拦下落在该单位身上的减益(灼按 RefreshBurn 增量计层,
+                          // 拦下后不改层)。Magnitude = 每拦 1 层 / 1 条给该单位的护盾(0 = 不转),WardOf = 只拦这一种(null = 全部减益),
+                          // WardCount = 剩余次数(0 = 期间不限,>0 用尽即移除;土·杜绝),TurnsLeft = 回合(玩家按玩家回合、木灵按木灵那一拍递减)。
+        // ---- D2-水 Task 4:我方受击 / 回合挂点(附录 W5 / W6 / W7,仅玩家,TurnsLeft 按玩家回合递减) ----
+        HurtHeal,         // 栉风沐雨(可见,chip 待 designer 稿,V5):Magnitude = 回复百分比,TurnsLeft = 回合,SourceId = 字 ID。
+                          // 多条取最强;每回合 1 次(次数阀键「受击回复」)。Q26:土·堡垒的护盾载荷以后复用同一挂点。
+        ShieldFrost,      // 冰晶(隐藏载体):Magnitude = 冻结回合,OnHit = 打破时对攻击者结算的效果(本 plan 恒为 [Freeze N];
+                          // Q26:土·碎玉的伤害载荷以后放这里,须进 60% 反伤预算),TurnsLeft = -1,随两桶护盾归零移除。
+        TurnPulse,        // 大雨滂沱(可见,chip 待 designer 稿,V5):OnHit = 每个玩家回合开始结算的效果(未缩放,OpeningEffect 形态),
+                          // TurnsLeft = 回合(施加当回合不触发,之后 N 次),SourceId = 字 ID、TraitKey = 特性键。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -120,7 +139,9 @@ namespace Brushblade.Core
             kind == StatusKind.Taunt || kind == StatusKind.Block || kind == StatusKind.Endure
             || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost
             || kind == StatusKind.Retaliate   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
-            || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield;   // D2-金 Task 4:战意光环只管本场
+            || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield   // D2-金 Task 4:战意光环只管本场
+            || kind == StatusKind.DebuffWard   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
+            || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse;   // D2-水 Task 4(防御性)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -222,6 +243,17 @@ namespace Brushblade.Core
         /// <summary>立威的施加者字 ID(供 Task 3 铁则回查;本任务只存不用)。没有立威时 null。</summary>
         public string ExecuteSourceCharId { get; set; }
 
+        /// <summary>仅在减速中(D2-水 E25,淋漓;仅 <see cref="StatusKind.Seed"/> 用):true 时持有者不在减速中(无负 SpeedModifier)
+        /// 就不触发。缺省 false = 原种,逐位恒等。</summary>
+        public bool WhileSlowed { get; set; }
+
+        /// <summary>只拦这一种减益(D2-水 W4,浇熄 = Burn;仅 <see cref="StatusKind.DebuffWard"/> 用)。null = 全部减益(濯身)。</summary>
+        public StatusKind? WardOf { get; set; }
+
+        /// <summary>剩余可拦次数(D2-水 W4,土·杜绝预留;仅 <see cref="StatusKind.DebuffWard"/> 用)。0 = 期间不限;&gt; 0 时每拦一次 −1,
+        /// 减到 0 即移除这条。</summary>
+        public int WardCount { get; set; }
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
@@ -230,7 +262,8 @@ namespace Brushblade.Core
             MinBurn = MinBurn, OnHit = OnHit?.Select(o => o.Clone()).ToList(),
             CounterColumn = CounterColumn, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
             BlockBleed = BlockBleed, BlockMorale = BlockMorale, KillRefundAp = KillRefundAp,
-            ExecuteSourceCharId = ExecuteSourceCharId,
+            ExecuteSourceCharId = ExecuteSourceCharId, WhileSlowed = WhileSlowed,
+            WardOf = WardOf, WardCount = WardCount,
         };
     }
 

@@ -100,6 +100,20 @@ VALUELESS_EFFECTS = {
     # `counter N` / `countPerMorale` / `min N` 给出(_attach_metal_ops)。整串带反引号匹配,`Morale` 不会吞 `MoraleFill`。
     "MoraleFill": {"kind": "Morale", "value": 0, "fill": True},
     "BlockMod": {"kind": "BlockMod", "value": 0},
+    # D2-水 Task 1(附录 E21):泉补满(泽及四方)= AddWellspring + fill。整串带反引号匹配,不与 `AddWellspring N` 互吞。
+    "WellspringFill": {"kind": "AddWellspring", "value": 0, "fill": True},
+    # D2-水 Task 2(附录 W1):冻结附着 —— 怀山 / 寒彻不带数值时伤害由 `bodyPercent N` 给出,必须配 `rider Freeze`
+    # 与 `pick FrozenByThisCast`。冰水 `ThawSlow N`、冷却 `ChargeDelay N` 带数值,走通用正则。
+    "FrostBite": {"kind": "FrostBite", "value": 0},
+    "ThawStrike": {"kind": "ThawStrike", "value": 0},
+    # D2-水 Task 3(附录 W3 / W4):洗尽铅华 `BuffBlock` 不带数值(必写 turns,可写 pick / if);
+    # 濯身 `DebuffWard` 不带数值 = 不转盾(全量免疫),浇熄 `DebuffWard 50` 带数值走通用正则(每挡 1 层的护盾量)。
+    # 可配 `wardOf X`(只拦一种)/ `wardCount N`(前 N 次)。整串带反引号匹配,`DebuffWard` 不吞 `DebuffWard 50`。
+    "BuffBlock": {"kind": "BuffBlock", "value": 0},
+    "DebuffWard": {"kind": "DebuffWard", "value": 0},
+    # D2-水 Task 4(附录 W7):大雨滂沱 `TurnPulse` 不带数值(必写 turns),每回合开始的效果写在 `onTurn` 段里(见 ON_TURN_TOKEN)。
+    # 栉风沐雨 `HurtHeal N`、冰晶 `ShieldFrost N` 带数值,走通用正则。
+    "TurnPulse": {"kind": "TurnPulse", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -137,7 +151,9 @@ EXECUTE_SPLASH_TOKEN = "executeSplash"
 # 减攻(D1 Task 5,EffectKind.Weaken):Value = 百分点、Turns = 回合,漏写 turns 引擎兜成 1 回合 ——
 # 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed"}
+                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
+                  "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
+                  "HurtHeal", "TurnPulse"}     # D2-水 Task 4:受击回复 / 回合脉冲,同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -145,7 +161,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
 # 种(Seed)在 DURATION_KINDS:漏写 turns 引擎兜成 1 回合,与减攻同型。
 # 上炎(D2-火 Task 3,BurnGrow)吃 turns 但不强制:不写 = 随灼存续。
 # 流血(D2-金 E8)吃 turns 但不强制:不写 = 引擎缺省 3 回合。
-TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow", "Bleed"}
+# 受击回敬(D2-水 E23,潜流)吃 turns 但不强制:不写 = 本回合(1)。
+TURN_TAKING_KINDS = DURATION_KINDS | {"Vulnerable", "BurnGrow", "Bleed", "Retaliate"}
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -188,6 +205,7 @@ SHOTS_TOKEN = "Shots"
 # D2-火 E5:`bodyPercent N` —— 特性效果的 Value = 本面本体首条 DamageSingle × N%(连爆)。只挂本格唯一的 DamageSingle;
 # 不挂白名单会被通用正则当成 kind="bodyPercent" 的独立效果。
 BODY_PERCENT_TOKEN = "bodyPercent"
+BODY_PERCENT_HOSTS = {"DamageSingle", "Mine", "FrostBite", "ThawStrike"}   # 与 ConfigLoader 同一张表
 
 # D2-火 N12:`battles N` —— 它前面最近的那条效果本场不执行,登记为之后 N 场的开局效果(炎炎、星星之火)。
 # 一格里可以有同 Kind 的两条(星星之火两条 BurnAll),所以按位置挂,不按 Kind 挂。
@@ -223,12 +241,13 @@ CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Fro
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
               "FirstCastThisTurn", "Countering",
               "PlayerHpAbove70", "HasSummon",   # D2-火 Task 1(附录 E1)
-              "MoraleFull"}                     # D2-金 Task 1(附录 E6)
+              "MoraleFull",                     # D2-金 Task 1(附录 E6)
+              "IsBoss", "NotBoss"}              # D2-水 Task 1(附录 E14)
 # D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
 AUGMENT_FIELD_TOKEN = "field"
-AUGMENT_FIELDS = {"Count", "Turns", "Shots"}
+AUGMENT_FIELDS = {"Count", "Turns", "Shots", "StallPush"}   # StallPush:D2-水 E17a(坚冰,只配 of Freeze)
 RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
@@ -240,9 +259,13 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash",
                     "Mine",   # D2-火 Task 4 埋雷
                     "ExtraStrike", "Thaw", "Reveal",   # D2-火 Task 5
-                    "Doom"}   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
+                    "Doom",   # D2-金 Task 3 致命(Value = 回合数,不进 DURATION_KINDS)
+                    # D2-水 Task 2:冻结附着族(写 pick FrozenByThisCast)与冷却(Value = 拍数)
+                    "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
+                    "BuffBlock"}   # D2-水 Task 3 洗尽铅华
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
-               "Row", "Adjacent", "BurnedByThisCast"}   # D2-火 Task 1(附录 E2)
+               "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
+               "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
 # D2-火 E3:Reshape 带敌方侧选择器 = 重选目标(本面没有伤害时把主目标效果换成该选择器;烈风)。
 # 不进 ENEMY_PICK_KINDS:那张表还管「池条目落到不选目标的面时补 pick All」(extract_traits._retarget_to_all),
 # Reshape 是修饰器,不该被补。只作为 `pick` 的挂载点。
@@ -250,7 +273,9 @@ RESHAPE_PICK_KINDS = {"Reshape"}
 # D1 Task 7:我方侧选择器,各只给一个 kind(与 Core 的 EffectPickRules.Allows 同一张表)。
 # 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
 # D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
-ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"}}
+# D2-水 E15:`pick AllAllies` = 玩家 + 全部存活木灵,只给 Cleanse(水大无际)。
+ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"},
+              "AllAllies": {"Cleanse"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
 PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
@@ -260,9 +285,15 @@ KEEP_TOKEN = "keep"
 # 附着的效果随灼存续,不写 turns(下面的 missing_turns 检查对它放行);上炎可写自己的 turns。
 # D2-火 Task 3 扩到灼附着族:减攻(炽焰,可带 `minBurn N` 门槛)、干涸、上炎、四火、焚城、焚身;后五个**只能**以附着形式出现。
 RIDER_TOKEN = "rider"
-RIDER_CARRIERS = {"Burn"}
-RIDES_ONLY_KINDS = {"HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"}
-RIDER_KINDS = {"Blind", "Weaken"} | RIDES_ONLY_KINDS
+# D2-水 Task 2(W1)加冻结载体 `rider Freeze`:怀山 / 寒彻 / 冰水,只能以附着形式出现,且须写 `pick FrozenByThisCast`。
+# 与 Core 的 BattleEngine.CanRideOnBurn / CanRideOnFreeze 同一张表(按载体分)。
+RIDER_KINDS_BY_CARRIER = {
+    "Burn": {"Blind", "Weaken", "HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash"},
+    "Freeze": {"FrostBite", "ThawStrike", "ThawSlow"},
+}
+RIDER_CARRIERS = set(RIDER_KINDS_BY_CARRIER)
+RIDES_ONLY_KINDS = {"HealBlock", "BurnGrow", "BurnHold", "BurnBurst", "BurnBacklash", "FrostBite", "ThawStrike", "ThawSlow"}
+RIDER_KINDS = set().union(*RIDER_KINDS_BY_CARRIER.values())
 # 炽焰:`minBurn N` —— 附着减攻的门槛(目标自身灼 ≥ N 层才生效),按位置挂到前一条 Weaken,且那条必须写 rider。
 # 不挂进通用循环的跳过名单会被 `(\w+) (\d+)` 当成 kind="minBurn" 的独立效果。
 MIN_BURN_TOKEN = "minBurn"
@@ -277,7 +308,8 @@ CAP_TOKEN = "cap"
 # 每一档只挂特定的宿主(与 ConfigLoader.ValidateMetalOps 同一张表);D2-金 E10 加 ExtraHitTarget(横扫千军,挂 Morale)。
 # Morale 档不经 `per`:伤害击数写 `hitsPerMorale`、格挡次数写 `countPerMorale`(见 _attach_metal_ops)。
 SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify", "HealSelf"},
-               "ExtraHitTarget": {"Morale"}}
+               "ExtraHitTarget": {"Morale"},
+               "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"}}   # D2-水 E22:洪峰 / 濯身
 SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
 # 段必须写在格子末尾,段内每个 `+` 分段恰好一条效果、按书写顺序落表(_parse_segment,终审 5),
@@ -295,6 +327,15 @@ PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment", "SelfCost", "
 # 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
 ON_HIT_TOKEN = "onHit"
 RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vulnerable", "Slow", "Freeze"}
+# 回合脉冲(D2-水 Task 4,W7):`onTurn` 之后的全部 token 是「之后每个玩家回合开始结算的效果」,挂到本格唯一的 TurnPulse 上,
+# 落进 chars.json 的 perHit 字段(同 onHit)。名单与 BattleEngine.TurnPulseAllows 一致(不收伤害);没有主目标,
+# 敌方效果必须写 `pick All` 之类不选主目标的选择器;不能带条件门 / 附着 / 本体百分比。
+ON_TURN_TOKEN = "onTurn"
+TURN_PULSE_ALLOWED = {"Slow", "Freeze", "Weaken", "Blind", "HealSelf", "Shield", "AddWellspring"}
+TURN_PULSE_ENEMY_KINDS = {"Slow", "Freeze", "Weaken", "Blind"}
+# 载荷存成 OpeningEffect,只带 kind / value / turns / targetAll / pick / shape / shapePercent;以下字段写了会被静默丢掉,一律拒绝
+# (与 ConfigLoader 回合脉冲校验同一张名单)
+TURN_PULSE_DROPPED_FIELDS = {"extend", "fill", "whileSlowed", "ofHeal", "scaleBy", "wardOf", "wardCount"}
 
 # ---- D2-金 Task 1(附录 E10 / E12 / E13)----
 # `hitsPerMorale`(大卸八块):本格 Reshape(没有则唯一的 DamageSingle)的击数 + 战意 → scaleBy Morale。
@@ -312,6 +353,24 @@ OF_VICTIM_MAX_HP_TOKEN = "ofVictimMaxHp"
 # `blockMorale N`(坚营)、`killRefund N`(得利)→ 同名 JSON 字段(counterExecute → counterExecuteBelow、killRefund → killRefundAp)。
 # 带数值的四个进通用循环的跳过名单,否则落成独立效果。
 COUNTER_SHAPE_TOKEN = "counterShape"
+# ---- D2-水 Task 1(附录 E17b / E18 / E19 / E25)----
+# `if X` 也可挂在 Augment 上(冰冻三尺「若目标已被减速,再 +1」),只支持 `of Freeze` `field Turns`;
+# `extend`(倾盆):前一条 Slow 只续已有减速、不新挂;`executeIf X`(湮灭无踪):斩杀条件门,挂斩杀的宿主;
+# `whileSlowed`(淋漓):前一条 Seed 只在敌人减速中触发,可不写 turns(回合数 = 施加时目标的减速剩余回合)。
+EXTEND_TOKEN = "extend"
+EXECUTE_IF_TOKEN = "executeIf"
+WHILE_SLOWED_TOKEN = "whileSlowed"
+# `ofHeal`(沐恩,E24):HealSummons 的量 = 本次名义治疗量 × N%,挂本格唯一的 HealSummons
+OF_HEAL_TOKEN = "ofHeal"
+# ---- D2-水 Task 3(附录 W4)----
+# `wardOf X`(浇熄 = Burn):前一条 DebuffWard 只拦这一种减益;`wardCount N`(土·杜绝):只拦前 N 次。
+# 带数值的 `wardCount` 必须进通用循环的跳过名单,否则落成 kind="wardCount" 的独立效果。
+# WARDABLE 与 ConfigLoader.WardableKinds 同一张表(会落在我方身上的减益)。
+WARD_OF_TOKEN = "wardOf"
+WARD_COUNT_TOKEN = "wardCount"
+WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak",
+            "Vulnerable", "Charm", "HealBlock", "Doom"}
+
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
     "counterExecute": "counterExecuteBelow",
@@ -371,6 +430,24 @@ def _attach_on_hit(config, char, effects, riders):
         if r["kind"] not in RETALIATE_ALLOWED or set(r) & {"onlyIf", "pick", "riderOf", "bodyPercent", "perHit", "openingBattles"}:
             raise ValueError(f"{char}:配置格「{config}」的 `{ON_HIT_TOKEN}` 段只能是对攻击者的非伤害效果 {sorted(RETALIATE_ALLOWED)},"
                              f"不能带条件门 / 选择器 / 附着:{r}")
+    hosts[0]["perHit"] = riders
+
+
+def _attach_on_turn(config, char, effects, riders):
+    """把回合脉冲的效果 riders 挂到本格唯一的 TurnPulse 上(chars.json 字段 perHit)。"""
+    hosts = [e for e in effects if e["kind"] == "TurnPulse"]
+    if len(hosts) != 1:
+        raise ValueError(f"{char}:配置格「{config}」写了 `{ON_TURN_TOKEN}`,但本格没有唯一的一条 `TurnPulse` 可挂 —— 它会静默消失。")
+    if not riders:
+        raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 后面没有效果")
+    for r in riders:
+        bad = (r["kind"] not in TURN_PULSE_ALLOWED
+               or set(r) & {"onlyIf", "riderOf", "bodyPercent", "perHit", "openingBattles"}
+               or set(r) & TURN_PULSE_DROPPED_FIELDS
+               or (r["kind"] in TURN_PULSE_ENEMY_KINDS and r.get("pick", "Primary") == "Primary"))
+        if bad:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 段只能是 {sorted(TURN_PULSE_ALLOWED)}"
+                             f"(敌方效果须写 `pick All`),不能带条件门 / 附着 / 本体百分比 / {sorted(TURN_PULSE_DROPPED_FIELDS)}:{r}")
     hosts[0]["perHit"] = riders
 
 
@@ -466,16 +543,23 @@ def _attach_metal_ops(config, char, effects, consumed):
     if f"`{OF_VICTIM_MAX_HP_TOKEN}`" in config:
         consumed.add(OF_VICTIM_MAX_HP_TOKEN)
         only({"HealSelf"}, OF_VICTIM_MAX_HP_TOKEN)["ofVictimMaxHp"] = True
+    if f"`{OF_HEAL_TOKEN}`" in config:   # D2-水 E24 沐恩(放在这里是为了复用「唯一宿主」检查)
+        consumed.add(OF_HEAL_TOKEN)
+        host = only({"HealSummons"}, OF_HEAL_TOKEN)
+        if f"`{PERCENT_OF_MAX_TOKEN}`" in config:
+            raise ValueError(f"{char}:配置格「{config}」的 `ofHeal` 不能与 `pct` 同用")
+        host["ofHeal"] = True
 
 
-def _positional_hosts(config, effects):
+def _positional_hosts(config, effects, kinds=None):
     """认选择器的效果(PICK_KINDS)在配置格里的位置:[(pos, effect)],按位置升序。
     修饰 token 挂**它前面最近的**那条效果(`Slow 1` + `pick Random` 的 pick 属于 Slow)。
     同一格里同 Kind 出现两次时,后一条从前一条之后开始找位置。"""
+    kinds = PICK_KINDS if kinds is None else kinds
     found, cursor = [], {}
     for e in effects:
         kind = e["kind"]
-        if kind not in PICK_KINDS:
+        if kind not in kinds:
             continue
         needles = [f"`{kind} ", f"`{kind}`"] + (["`DetonateAll`"] if kind == "Detonate" else [])
         start = cursor.get(kind, 0)
@@ -488,10 +572,10 @@ def _positional_hosts(config, effects):
     return sorted(found, key=lambda t: t[0])
 
 
-def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None):
-    """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS 效果上。parse(raw) 返回要写进字段的值。"""
+def _attach_positional(config, char, effects, consumed, token, field, parse, allowed_kinds=None, host_kinds=None):
+    """把每个 `` `token ...` `` 挂到它前面最近的 PICK_KINDS(或 host_kinds)效果上。parse(raw) 返回要写进字段的值。"""
     pattern = rf"`{token}(?: (\w+))?`"
-    hosts = _positional_hosts(config, effects)
+    hosts = _positional_hosts(config, effects, host_kinds)
     seen = set()
     for m in re.finditer(pattern, config):
         consumed.add(token)
@@ -579,7 +663,9 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         return raw
 
     if not amps:
-        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition)
+        # D2-水 E17b:条件门也可挂在前一条 Augment 上(冰冻三尺),下面配好 of / field 后再校验组合
+        _attach_positional(config, char, effects, consumed, ONLY_IF_TOKEN, "onlyIf", _parse_condition,
+                           host_kinds=PICK_KINDS | {"Augment"})
     _attach_positional(config, char, effects, consumed, PICK_TOKEN, "pick", _parse_pick)
     _attach_positional(config, char, effects, consumed, KEEP_TOKEN, "keepStacks", lambda _raw: True,
                        allowed_kinds={"BurnSettleNow"})
@@ -593,8 +679,34 @@ def _attach_modifier_tokens(config, char, effects, consumed):
                        allowed_kinds=RIDER_KINDS)
     for e in effects:
         if e["kind"] in RIDES_ONLY_KINDS and "riderOf" not in e:
-            raise ValueError(f"{char}:`{e['kind']}` 必须写 `rider Burn`(它只能挂在本次出字的灼上,不写会静默空转)")
+            carrier = next(c for c, kinds in RIDER_KINDS_BY_CARRIER.items() if e["kind"] in kinds)
+            raise ValueError(f"{char}:`{e['kind']}` 必须写 `rider {carrier}`(它只能挂在本次出字的载体上,不写会静默空转)")
+        if "riderOf" in e and e["kind"] not in RIDER_KINDS_BY_CARRIER[e["riderOf"]]:
+            raise ValueError(f"{char}:`{e['kind']}` 不能写 `rider {e['riderOf']}`"
+                             f"(能挂在这个载体上的只有 {sorted(RIDER_KINDS_BY_CARRIER[e['riderOf']])})")
+        if e.get("riderOf") == "Freeze" and e.get("pick") != "FrozenByThisCast":
+            raise ValueError(f"{char}:`{e['kind']}` 附着在冻结上,须写 `pick FrozenByThisCast`")
     _attach_positional(config, char, effects, consumed, MIN_BURN_TOKEN, "minBurn", int, allowed_kinds={"Weaken"})
+    # D2-水 E18 / E25:只续不挂的减速、仅在减速中的种
+    _attach_positional(config, char, effects, consumed, EXTEND_TOKEN, "extend", lambda _raw: True, allowed_kinds={"Slow"})
+    _attach_positional(config, char, effects, consumed, WHILE_SLOWED_TOKEN, "whileSlowed", lambda _raw: True,
+                       allowed_kinds={"Seed"})
+
+    # D2-水 Task 3(W4):免疫减益只拦一种 / 只拦前 N 次,按位置挂到前一条 DebuffWard
+    def _parse_ward_of(raw):
+        if raw not in WARDABLE:
+            raise ValueError(f"{char}:`{WARD_OF_TOKEN} {raw}` 不是会落在我方身上的减益,只认 {sorted(WARDABLE)}")
+        return raw
+
+    def _parse_ward_count(raw):
+        if raw is None or not raw.isdigit() or int(raw) < 1:
+            raise ValueError(f"{char}:`{WARD_COUNT_TOKEN}` 须写次数 N ≥ 1")
+        return int(raw)
+
+    _attach_positional(config, char, effects, consumed, WARD_OF_TOKEN, "wardOf", _parse_ward_of,
+                       host_kinds={"DebuffWard"})
+    _attach_positional(config, char, effects, consumed, WARD_COUNT_TOKEN, "wardCount", _parse_ward_count,
+                       host_kinds={"DebuffWard"})
     for e in effects:
         if "minBurn" in e and ("riderOf" not in e or e["minBurn"] < 1):
             raise ValueError(f"{char}:`minBurn` 只给附着在灼上的减攻(`Weaken N` + `rider Burn`),且须 ≥ 1")
@@ -623,6 +735,12 @@ def _attach_modifier_tokens(config, char, effects, consumed):
             if allowed is not None and value not in allowed:
                 raise ValueError(f"{char}:`{token} {value}` 的取值未知,只认 {sorted(allowed)}")
             e[field] = value
+    for e in augments:
+        # 与 ConfigLoader 同口径:坚冰的 StallPush 只配 Freeze;带条件的 Augment 只支持冻结回合
+        if e.get("augmentField") == "StallPush" and e.get("augmentKind") != "Freeze":
+            raise ValueError(f"{char}:`field StallPush` 只能配 `of Freeze`")
+        if "onlyIf" in e and (e.get("augmentKind"), e.get("augmentField")) != ("Freeze", "Turns"):
+            raise ValueError(f"{char}:带条件 `if` 的 Augment 只支持 `of Freeze` `field Turns`")
 
     shape = re.search(rf"`{RESHAPE_SHAPE_TOKEN} (\w+)`", config)
     if shape:
@@ -792,7 +910,7 @@ def _attach_ally_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 
 
-def _parse_effects(config, char, on_hit_host=False):
+def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     """「`DamageSingle 30` + `All` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
 
     char 只被召唤分支用到(当 summonChar),其余 kind 一概不看第二个参数。"""
@@ -802,6 +920,16 @@ def _parse_effects(config, char, on_hit_host=False):
     # 配置格里出现过的 token 减去被消费的,剩下的一律报错。
     # 每击附带(D2-火 N4b / Q23):`perHit [N]` 把格子切成两段 —— 前段照常解析,后段解析成每击附带的效果列表
     # 受击回敬(D2-火 Task 4):`onHit` 同样把格子切成两段,后段挂到本格的 Retaliate 上
+    # 回合脉冲(D2-水 Task 4):`onTurn` 同样把格子切成两段,后段挂到本格的 TurnPulse 上
+    on_turn = list(re.finditer(rf"`{ON_TURN_TOKEN}`", config))
+    if on_turn:
+        if len(on_turn) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{ON_TURN_TOKEN}`,只能有一段")
+        m = on_turn[0]
+        effects = _parse_effects(config[:m.start()], char, on_turn_host=True)
+        _attach_on_turn(config, char, effects, _parse_segment(config[m.end():], config, char, ON_TURN_TOKEN))
+        return effects
+
     on_hit = list(re.finditer(rf"`{ON_HIT_TOKEN}`", config))
     if on_hit:
         if len(on_hit) > 1:
@@ -934,6 +1062,8 @@ def _parse_effects(config, char, on_hit_host=False):
             continue  # D2-金 Task 1:BlockMod 的反击百分比 / 次数下限,下面挂到 BlockMod 上
         if kind in BLOCK_RIDER_TOKENS:
             continue  # D2-金 Task 2:格挡附带的数值,下面挂到 BlockMod 上
+        if kind == WARD_COUNT_TOKEN:
+            continue  # D2-水 Task 3:免疫减益的次数,下面按位置挂到 DebuffWard 上
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -1023,6 +1153,17 @@ def _parse_effects(config, char, on_hit_host=False):
         for effect in execute_hosts:
             effect["executeSplashPercent"] = percent
 
+    execute_if = re.findall(rf"`{EXECUTE_IF_TOKEN} (\w+)`", config)
+    if execute_if:
+        # 湮灭无踪(D2-水 E19):斩杀的条件门,挂与斩杀同一个宿主
+        consumed.add(EXECUTE_IF_TOKEN)
+        if len(execute_if) > 1 or not re.search(r"`Execute(?:Kill|Bonus) \d+`", config) or not execute_hosts:
+            raise ValueError(f"{char}:配置格「{config}」的 `{EXECUTE_IF_TOKEN}` 只能写一个,且须配同格的 `ExecuteKill` / `ExecuteBonus`")
+        if execute_if[0] not in CONDITIONS:
+            raise ValueError(f"{char}:`{EXECUTE_IF_TOKEN} {execute_if[0]}` 的取值未知,只认 {sorted(CONDITIONS)}")
+        for effect in execute_hosts:
+            effect["executeIf"] = execute_if[0]
+
     hit_count = re.search(rf"`{HIT_COUNT_TOKEN} (\d+)`", config)
     if hit_count:
         consumed.add(HIT_COUNT_TOKEN)
@@ -1047,9 +1188,10 @@ def _parse_effects(config, char, on_hit_host=False):
     body_percent = re.findall(rf"`{BODY_PERCENT_TOKEN} (\d+)`", config)
     if body_percent:
         consumed.add(BODY_PERCENT_TOKEN)
-        hosts = [e for e in effects if e["kind"] in ("DamageSingle", "Mine")]   # 埋雷(D2-火 Task 4)= 本体 × N%
+        # 埋雷(D2-火 Task 4)、怀山 / 寒彻(D2-水 W1)= 本体 × N%
+        hosts = [e for e in effects if e["kind"] in BODY_PERCENT_HOSTS]
         if len(body_percent) > 1 or len(hosts) != 1:
-            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 DamageSingle / Mine")
+            raise ValueError(f"{char}:配置格「{config}」的 `bodyPercent` 只能配本格唯一的一条 {' / '.join(sorted(BODY_PERCENT_HOSTS))}")
         hosts[0]["bodyPercent"] = int(body_percent[0])
 
     if f"`{PER_BURNING_HIT_TOKEN}`" in config:
@@ -1087,6 +1229,7 @@ def _parse_effects(config, char, on_hit_host=False):
     # 那一刻就已经失效)。比「turns 挂错 kind」更常见,是详表最容易漏写的一种笔误。
     missing_turns = [e["kind"] for e in effects
                      if "turns" not in e and "riderOf" not in e   # 附着的效果随载体存续(D1 Task 9)
+                     and not e.get("whileSlowed")   # 淋漓(D2-水 E25):缺 turns = 跟随目标的减速剩余回合
                      and (e["kind"] in DURATION_KINDS
                           # 标记(Vulnerable):只有冰缚写法(pick FrozenByThisCast)可省 turns,
                           # 回合数由引擎取目标的冻结回合;其余缺 turns 同减攻 / 种报错
@@ -1104,8 +1247,14 @@ def _parse_effects(config, char, on_hit_host=False):
         _raise_unconsumed_tokens(char, config, unknown)
     # D2-火 Task 4:地雷没有伤害量、回敬没写回敬什么,落进 chars.json 都是空转(ConfigLoader 同样拦)
     for e in effects:
-        if e["kind"] == "Mine" and e["value"] <= 0 and "bodyPercent" not in e:
-            raise ValueError(f"{char}:配置格「{config}」的 `Mine` 须写伤害量(`Mine N` 或 `bodyPercent N`)")
+        if e["kind"] in ("Mine", "FrostBite", "ThawStrike") and e["value"] <= 0 and "bodyPercent" not in e:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写伤害量(`{e['kind']} N` 或 `bodyPercent N`)")
+        if e["kind"] in ("ThawSlow", "ChargeDelay") and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
         if e["kind"] == "Retaliate" and not on_hit_host:
             raise ValueError(f"{char}:配置格「{config}」的 `Retaliate` 须用 `{ON_HIT_TOKEN}` 段写回敬的效果")
+        if e["kind"] == "TurnPulse" and not on_turn_host:
+            raise ValueError(f"{char}:配置格「{config}」的 `TurnPulse` 须用 `{ON_TURN_TOKEN}` 段写每回合开始的效果")
+        if e["kind"] in ("HurtHeal", "ShieldFrost") and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
     return effects

@@ -1041,3 +1041,222 @@ def test_d2metal_morale_family_values():
         {"kind": "Morale", "value": 3}, {"kind": "MoraleOverflowShield", "value": 30}]
     assert _parse_effects("`MoraleArmor 5`", "鑫") == [{"kind": "MoraleArmor", "value": 5}]
     assert _parse_effects("`MoraleShield 40`", "鍂") == [{"kind": "MoraleShield", "value": 40}]
+
+
+# ---- D2-水 Task 1(附录 E14 / E15 / E17 / E18 / E19 / E25):敌方侧 token ----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 冷却:E14 条件 NotBoss
+    ("`Weaken 50` `turns 1` `if NotBoss`", "冷",
+     [{"kind": "Weaken", "value": 50, "onlyIf": "NotBoss", "turns": 1}]),
+    # 同寒 / 浩瀚 / 坚冰的选择器(E15)
+    ("`Freeze 2` `pick Column`", "淼", [{"kind": "Freeze", "value": 2, "pick": "Column"}]),
+    ("`Freeze 1` `pick HighestHp`", "淼", [{"kind": "Freeze", "value": 1, "pick": "HighestHp"}]),
+    # 坚冰:E17a StallPush + AdjacentOne
+    ("`Augment 50` `of Freeze` `field StallPush` + `Freeze 2` `pick AdjacentOne`", "冰",
+     [{"kind": "Augment", "value": 50, "augmentKind": "Freeze", "augmentField": "StallPush"},
+      {"kind": "Freeze", "value": 2, "pick": "AdjacentOne"}]),
+    # 冰冻三尺:E17b 带条件的 Augment,if 只挂在后一条上
+    ("`Augment 1` `of Freeze` `field Turns` + `Augment 1` `of Freeze` `field Turns` `if Slowed`", "冻",
+     [{"kind": "Augment", "value": 1, "augmentKind": "Freeze", "augmentField": "Turns"},
+      {"kind": "Augment", "value": 1, "augmentKind": "Freeze", "augmentField": "Turns", "onlyIf": "Slowed"}]),
+    # 倾盆:E18 每击附带里的只续减速
+    ("`Reshape` `hits 3` `hitPercent 40` `perHit` `Slow 1` `extend`", "淋",
+     [{"kind": "Reshape", "value": 0, "hitCount": 3, "hitPercent": 40,
+       "perHit": [{"kind": "Slow", "value": 1, "extend": True}]}]),
+    # 湮灭无踪:E19 斩杀条件门挂 Reshape
+    ("`Reshape` `ExecuteKill 25` `executeIf Frozen`", "湮",
+     [{"kind": "Reshape", "value": 0, "executeBelowPercent": 25, "executeKills": True, "executeIf": "Frozen"}]),
+    # 淋漓:E15 SlowedByThisCast + E25 whileSlowed,不写 turns
+    ("`Seed 30` `pick SlowedByThisCast` `whileSlowed`", "淋",
+     [{"kind": "Seed", "value": 30, "pick": "SlowedByThisCast", "whileSlowed": True}]),
+])
+def test_d2water_task1_enemy_side_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Augment 50` `of Slow` `field StallPush`", "StallPush"),        # StallPush 只配 Freeze
+    ("`Augment 1` `of Slow` `field Turns` `if Slowed`", "if"),          # 带条件 Augment 只支持冻结回合
+    ("`Freeze 1` `extend`", "extend"),                                  # extend 只挂 Slow
+    ("`DamageSingle 10` `executeIf Frozen`", "executeIf"),              # 没有斩杀
+    ("`DamageSingle 10` `ExecuteKill 25` `executeIf Nope`", "executeIf"),
+    ("`Weaken 30` `turns 1` `whileSlowed`", "whileSlowed"),             # whileSlowed 只挂 Seed
+    ("`Seed 30`", "Seed"),                                              # 不带 whileSlowed 的种仍须写 turns
+])
+def test_d2water_task1_enemy_side_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-水 Task 1(附录 E15 AllAllies / E20 / E21 / E22 / E23 / E24):我方侧 token ----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # 水大无际:净化全体友方
+    ("`Cleanse` `pick AllAllies`", "淼", [{"kind": "Cleanse", "value": 0, "pick": "AllAllies"}]),
+    # 海纳百川 / 细雨:Reshape 全体(引擎在本面没有伤害时改 HealSelf)
+    ("`Reshape` `shape All` `shapePercent 50`", "淋",
+     [{"kind": "Reshape", "value": 0, "shape": "All", "shapePercent": 50}]),
+    # 泽及四方:E21 泉补满
+    ("`Amplify 50` `scope Heal` + `WellspringFill`", "㵘",
+     [{"kind": "Amplify", "value": 50, "scope": "Heal"}, {"kind": "AddWellspring", "value": 0, "fill": True}]),
+    # 洪峰 / 濯身:E22 计数缩放
+    ("`Amplify 10` `scope Damage` `per Wellspring`", "㵘",
+     [{"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "Wellspring"}]),
+    ("`Cleanse` + `HealSelf 50` `per Cleansed`", "澡",
+     [{"kind": "HealSelf", "value": 50, "scaleBy": "Cleansed"}, {"kind": "Cleanse", "value": 0}]),
+    # 潜流:E23 回敬读 turns
+    ("`Retaliate` `turns 2` `onHit` `Slow 1`", "湮",
+     [{"kind": "Retaliate", "value": 0, "turns": 2, "perHit": [{"kind": "Slow", "value": 1}]}]),
+    # 沐恩:E24 按本次治疗量
+    ("`HealSummons 50` `ofHeal`", "沐", [{"kind": "HealSummons", "value": 50, "ofHeal": True}]),
+])
+def test_d2water_task1_ally_side_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Weaken 30` `turns 1` `pick AllAllies`", "AllAllies"),   # AllAllies 只给 Cleanse
+    ("`HealSelf 50` `per Wellspring`", "per"),                # Wellspring 只挂 Amplify
+    ("`Amplify 10` `per Cleansed`", "per"),                   # Cleansed 只挂 HealSelf
+    ("`HealSelf 50` `ofHeal`", "ofHeal"),                     # ofHeal 只挂 HealSummons
+    ("`HealSummons 50` `ofHeal` `pct`", "ofHeal"),
+])
+def test_d2water_task1_ally_side_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-水 Task 2:冻结附着族(附录 W1)与冷却(W2)—— 附录 §2.3 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 寒彻
+    ("`ThawStrike` `bodyPercent 50` `pick FrozenByThisCast` `rider Freeze`",
+     {"kind": "ThawStrike", "value": 0, "bodyPercent": 50, "pick": "FrozenByThisCast", "riderOf": "Freeze"}),
+    # 冰水
+    ("`ThawSlow 2` `pick FrozenByThisCast` `rider Freeze`",
+     {"kind": "ThawSlow", "value": 2, "pick": "FrozenByThisCast", "riderOf": "Freeze"}),
+    # 怀山
+    ("`FrostBite` `bodyPercent 20` `pick FrozenByThisCast` `rider Freeze`",
+     {"kind": "FrostBite", "value": 0, "bodyPercent": 20, "pick": "FrozenByThisCast", "riderOf": "Freeze"}),
+])
+def test_d2water_freeze_riders(config, expected):
+    assert _parse_effects(config, "冰") == [expected]
+
+
+def test_d2water_charge_delay_with_mob_weaken():
+    """冷却:`ChargeDelay 1` + 小怪减攻 `Weaken 50` `turns 1` `if NotBoss`(Q5)。"""
+    effects = _parse_effects("`ChargeDelay 1` + `Weaken 50` `turns 1` `if NotBoss`", "冷")
+    assert effects == [{"kind": "ChargeDelay", "value": 1},
+                       {"kind": "Weaken", "value": 50, "turns": 1, "onlyIf": "NotBoss"}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`ThawSlow 2` `pick FrozenByThisCast`", "rider Freeze"),                            # 附着族必须写 rider
+    ("`FrostBite` `bodyPercent 20` `pick FrozenByThisCast` `rider Burn`", "rider Burn"),  # 冻结附着挂到灼上
+    ("`HealBlock` `pick FrozenByThisCast` `rider Freeze`", "rider Freeze"),               # 灼附着挂到冻结上
+    ("`ThawStrike` `bodyPercent 50` `rider Freeze`", "FrozenByThisCast"),                 # 冻结附着必须 pick FrozenByThisCast
+    ("`ThawStrike` `pick FrozenByThisCast` `rider Freeze`", "伤害量"),                     # 没有伤害量
+    ("`ChargeDelay 0`", "ChargeDelay"),                                                    # 0 拍
+])
+def test_d2water_freeze_rider_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+# ---- D2-水 Task 3:拦截族(附录 W3 / W4)—— 附录 §2 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 洗尽铅华
+    ("`DispelAll` + `BuffBlock` `turns 2`",
+     [{"kind": "Dispel", "value": -1}, {"kind": "BuffBlock", "value": 0, "turns": 2}]),
+    # 濯身(免疫部分):不带数值 = 全量、不转盾
+    ("`DebuffWard` `turns 1`", [{"kind": "DebuffWard", "value": 0, "turns": 1}]),
+    # 浇熄:只拦灼,每挡 1 层转盾 50
+    ("`DebuffWard 50` `wardOf Burn` `turns 3`",
+     [{"kind": "DebuffWard", "value": 50, "wardOf": "Burn", "turns": 3}]),
+    # 土·杜绝预留:前 N 次
+    ("`DebuffWard` `wardCount 2` `turns 2`",
+     [{"kind": "DebuffWard", "value": 0, "wardCount": 2, "turns": 2}]),
+    # 支持 pick / if
+    ("`BuffBlock` `pick All` `if Frozen` `turns 2`",
+     [{"kind": "BuffBlock", "value": 0, "pick": "All", "onlyIf": "Frozen", "turns": 2}]),
+])
+def test_d2water_ward_and_block(config, expected):
+    assert _parse_effects(config, "澡") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`BuffBlock`", "turns"),                                    # 拦截族必写回合
+    ("`DebuffWard 50` `wardOf Burn`", "turns"),
+    ("`DebuffWard 50` `wardOf AttackBuff` `turns 3`", "wardOf"),  # 不是减益
+    ("`DebuffWard` `wardCount 0` `turns 3`", "wardCount"),       # 0 次
+    ("`Shield 50` `wardOf Burn`", "wardOf"),                     # 没有可挂的 DebuffWard
+])
+def test_d2water_ward_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+def test_d2water_wardable_matches_config_loader():
+    """管线 `WARDABLE` 与 ConfigLoader.WardableKinds 是同一张白名单:一边加一边漏会静默分叉
+    (管线放行、加载期才炸,或反过来管线拦下引擎能用的写法)。从 C# 源码抽集合字面量对账。"""
+    import re
+    from extract_values import WARDABLE
+    src = (Path(__file__).resolve().parents[3]
+           / "Brushblade/Assets/_Project/Data/ConfigLoader.cs").read_text(encoding="utf-8")
+    m = re.search(r"WardableKinds\s*=\s*new HashSet<StatusKind>\s*\{(.*?)\};", src, re.S)
+    assert m, "ConfigLoader.cs 里找不到 WardableKinds 集合字面量"
+    loader = set(re.findall(r"StatusKind\.(\w+)", m.group(1)))
+    assert loader and loader == WARDABLE, f"只在管线:{WARDABLE - loader};只在 ConfigLoader:{loader - WARDABLE}"
+
+
+# ---- D2-水 Task 4(附录 W5 / W6 / W7):受击回复 / 冰晶 / 回合脉冲(`onTurn` 段)----
+
+@pytest.mark.parametrize("config, expected", [
+    # 栉风沐雨
+    ("`HurtHeal 50` `turns 3`", [{"kind": "HurtHeal", "value": 50, "turns": 3}]),
+    # 冰晶:治疗并获得等量护盾,打破时冻结攻击者 1 回合
+    ("`ShieldFromHeal 100` + `ShieldFrost 1`",
+     [{"kind": "ShieldFromHeal", "value": 100}, {"kind": "ShieldFrost", "value": 1}]),
+    # 大雨滂沱:onTurn 段复用 _parse_segment,按书写顺序落进 perHit;段内可写 pick
+    ("`TurnPulse` `turns 3` `onTurn` `Slow 1` `pick All` + `HealSelf 45`",
+     [{"kind": "TurnPulse", "value": 0, "turns": 3,
+       "perHit": [{"kind": "Slow", "value": 1, "pick": "All"}, {"kind": "HealSelf", "value": 45}]}]),
+])
+def test_d2water_turn_hooks(config, expected):
+    assert _parse_effects(config, "淋") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`HurtHeal 50`", "turns"),                                             # 受击回复必写回合
+    ("`TurnPulse` `onTurn` `HealSelf 45`", "turns"),                         # 回合脉冲必写回合
+    ("`TurnPulse` `turns 3`", "onTurn"),                                     # 必须写 onTurn 段
+    ("`HealSelf 10` `onTurn` `HealSelf 45`", "TurnPulse"),                   # onTurn 没有宿主
+    ("`TurnPulse` `turns 3` `onTurn` `DamageSingle 10`", "onTurn"),            # 不收伤害
+    ("`TurnPulse` `turns 3` `onTurn` `Slow 1`", "onTurn"),                   # 敌方效果须选全体
+    ("`TurnPulse` `turns 3` `onTurn` `Weaken 10` `turns 1` `pick All` `if Burning`", "onTurn"),   # 不能带条件门
+    ("`TurnPulse` `turns 3` `onTurn`", "onTurn"),                            # 空段
+    ("`TurnPulse` `turns 3` `onTurn` `Slow 1` `pick All` `extend`", "onTurn"),   # 载荷是 OpeningEffect,extend 会被静默丢掉
+    ("`TurnPulse` `turns 3` `onTurn` `HealSelf 45` `per BurnStack`", "onTurn"),  # scaleBy 同上
+])
+def test_d2water_turn_hook_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+def test_d2water_turn_pulse_allowed_matches_engine():
+    """管线 `TURN_PULSE_ALLOWED` 与 BattleEngine.TurnPulseAllows 是同一张白名单(从 C# 源码抽 switch 臂对账)。"""
+    import re
+    from extract_values import TURN_PULSE_ALLOWED
+    src = (Path(__file__).resolve().parents[3]
+           / "Brushblade/Assets/_Project/Core/BattleEngine.Water.cs").read_text(encoding="utf-8")
+    m = re.search(r"TurnPulseAllows\(EffectKind kind\) => kind switch\s*\{(.*?)=> true", src, re.S)
+    assert m, "BattleEngine.Water.cs 里找不到 TurnPulseAllows"
+    engine = set(re.findall(r"EffectKind\.(\w+)", m.group(1)))
+    assert engine and engine == TURN_PULSE_ALLOWED, f"只在管线:{TURN_PULSE_ALLOWED - engine};只在引擎:{engine - TURN_PULSE_ALLOWED}"

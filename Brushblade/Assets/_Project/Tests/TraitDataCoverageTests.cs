@@ -128,6 +128,24 @@ namespace Brushblade.Core.Tests
             "鑫 Lv8 Attack 三金破", "鑫 Lv8 Feature 金玉满堂",
             "𨰻 Lv4 Both 刚", "𨰻 Lv5 Attack 四金", "𨰻 Lv5 Feature 千锤", "𨰻 Lv6 Attack 破军",
             "𨰻 Lv8 Attack 千钧", "𨰻 Lv8 Feature 金刚",
+            // D2-水 Task 6:水系 42 格。Q2:冰封 / 怀山(润面无冻结)、汪洋 / 沐恩(攻击面无治疗)、淋漓(润面无减速)
+            // 拆成生效面原条目 + 空转面同档精进,两条同名,所以 47 条、42 格。Q1:湮灭保留原文,空效果行
+            "冷 Lv8 Attack 冷却",
+            "冻 Lv8 Attack 冰冻三尺",
+            "海 Lv5 Attack 百川", "海 Lv8 Feature 海纳百川",
+            "溃 Lv5 Feature 溃围", "溃 Lv8 Attack 溃不成军",
+            "湮 Lv4 Both 湮灭", "湮 Lv5 Feature 沉渊", "湮 Lv8 Attack 湮灭无踪", "湮 Lv8 Feature 潜流",
+            "澡 Lv4 Both 洗涤", "澡 Lv5 Attack 洗尽铅华", "澡 Lv8 Attack 涤荡", "澡 Lv8 Feature 濯身",
+            "冰 Lv4 Attack 冰封", "冰 Lv4 Feature 冰封", "冰 Lv5 Feature 冰甲", "冰 Lv6 Attack 寒彻",
+            "冰 Lv8 Attack 坚冰", "冰 Lv8 Feature 冰晶",
+            "沐 Lv4 Attack 沐恩", "沐 Lv4 Feature 沐恩", "沐 Lv5 Attack 新沐", "沐 Lv6 Feature 春雨",
+            "沐 Lv8 Attack 沐雨", "沐 Lv8 Feature 栉风沐雨",
+            "淋 Lv4 Attack 淋漓", "淋 Lv4 Feature 淋漓", "淋 Lv5 Attack 倾盆", "淋 Lv5 Feature 细雨",
+            "淋 Lv6 Feature 浇熄", "淋 Lv8 Attack 暴雨", "淋 Lv8 Feature 大雨滂沱",
+            "淼 Lv4 Attack 汪洋", "淼 Lv4 Feature 汪洋", "淼 Lv5 Attack 同寒", "淼 Lv5 Feature 涵养",
+            "淼 Lv6 Attack 冰水", "淼 Lv8 Attack 浩瀚", "淼 Lv8 Feature 水大无际",
+            "㵘 Lv4 Attack 怀山", "㵘 Lv4 Feature 怀山", "㵘 Lv5 Attack 洪峰", "㵘 Lv5 Feature 泽被",
+            "㵘 Lv6 Attack 浩荡", "㵘 Lv8 Attack 滔天", "㵘 Lv8 Feature 泽及四方",
         };
 
         /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
@@ -146,11 +164,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows()
+        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows_Water42Cells_47Rows()
         {
-            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41));
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41 + 47));
             Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
-                Is.EqualTo(44 + 39), "去掉 V4 / Q20 拆出的五行面行 = 火 44 格 + 金 39 格");
+                Is.EqualTo(44 + 39 + 42), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 44 格 + 金 39 格 + 水 42 格");
             Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
             foreach (var c in ExclusiveCells)
                 Assert.That(PoolCells.Contains(c), Is.False, $"{c} 不能同时是池格");
@@ -491,6 +509,51 @@ namespace Brushblade.Core.Tests
             Assert.That(chop.PerHit.Single().Kind, Is.EqualTo(EffectKind.Bleed));
             var bleed = Graph.Get("刲").Traits.Single(t => t.Slot == TraitSlot.Lv4 && t.Face == TraitFace.Attack).Effects.Single();
             Assert.That((bleed.Kind, bleed.Value, bleed.Turns), Is.EqualTo((EffectKind.Bleed, 50, 2)));
+        }
+
+        [Test]
+        public void WaterExclusiveTraits_FormAndTrigger_MatchSpec()
+        {
+            int seen = 0;
+            foreach (var d in OfElement(Element.Water))
+                foreach (var t in d.Traits.Where(t => IsExclusive(d, t)))
+                {
+                    seen++;
+                    string at = $"{d.Id} {t.Slot}/{t.Face} {t.Name}";
+                    // Q1:湮灭保留原文(敌人死亡效果上线后才生效),导出空效果行;其余都要有效果
+                    if (t.Name == "湮灭")
+                        Assert.That(t.Effects.Count, Is.EqualTo(0), at + " 空效果行");
+                    else
+                        Assert.That(t.Effects.Count, Is.GreaterThan(0), at + " 要有效果");
+                    bool passive = t.Slot == TraitSlot.Lv4 || t.Slot == TraitSlot.Lv6;
+                    Assert.That(t.Form, Is.EqualTo(passive ? TraitForm.Passive : TraitForm.Active), at);
+                    Assert.That(t.Trigger, Is.EqualTo(TraitTrigger.Cast), at);
+                }
+            Assert.That(seen, Is.EqualTo(47), "水系专属 42 格 47 行");
+        }
+
+        [Test]
+        public void WaterExclusive_Q2Split_IdleFaceRowIsSameTierRefine()
+        {
+            // Q2:空转面 = 精进 round(10 × 档位系数),无条件、scope All —— 金 2.1 → 21、橙 2.5 → 25、红 3 → 30
+            foreach (var (id, name, idle, refine) in new[]
+            {
+                ("冰", "冰封", TraitFace.Feature, 21), ("沐", "沐恩", TraitFace.Attack, 21),
+                ("淋", "淋漓", TraitFace.Feature, 25), ("淼", "汪洋", TraitFace.Attack, 25),
+                ("㵘", "怀山", TraitFace.Feature, 30),
+            })
+            {
+                var rows = Graph.Get(id).Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == name).ToList();
+                Assert.That(rows.Select(t => t.Face).OrderBy(f => f).ToList(),
+                    Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }.OrderBy(f => f).ToList()), $"{name} 拆成两条单面");
+                var e = rows.Single(t => t.Face == idle).Effects.Single();
+                Assert.That(e.Kind, Is.EqualTo(EffectKind.Amplify), $"{name} 空转面");
+                Assert.That(e.Value, Is.EqualTo(refine), $"{name} 空转面 = 同档精进");
+                Assert.That(e.Scope, Is.EqualTo(AmpScope.All));
+                Assert.That(e.OnlyIf, Is.EqualTo(DamageCondition.None), $"{name} 空转面无条件");
+                Assert.That(rows.Single(t => t.Face != idle).Effects.Single().Kind, Is.Not.EqualTo(EffectKind.Amplify),
+                    $"{name} 生效面保留原条目");
+            }
         }
 
         private static EffectDef PoolEffect(string ch, TraitSlot slot, TraitFace face, string name, EffectKind kind)

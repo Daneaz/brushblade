@@ -838,6 +838,12 @@ namespace Brushblade.Core
             EffectKind.ExtraStrike or EffectKind.SelfCost or EffectKind.Thaw or EffectKind.Reveal => false,
             // D2-金 Task 1:格挡修饰器 —— Value 不用,百分比 / 次数下限是离散量
             EffectKind.BlockMod => false,
+            // D2-水 Task 2:冰水的 Value 是减速回合、冷却的 Value 是拍数,离散;怀山 / 寒彻是伤害量(连续,走缺省)
+            EffectKind.ThawSlow or EffectKind.ChargeDelay => false,
+            // D2-水 Task 3:BuffBlock 不用 Value(回合离散);DebuffWard 的 Value 是每层护盾量(连续,走缺省)
+            EffectKind.BuffBlock => false,
+            // D2-水 Task 4:受击回复的 Value 是百分比、冰晶是冻结回合、回合脉冲不用 Value(载荷触发时按来源字等级另行缩放)
+            EffectKind.HurtHeal or EffectKind.ShieldFrost or EffectKind.TurnPulse => false,
             _ => true,
         };
 

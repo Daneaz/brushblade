@@ -88,7 +88,9 @@ namespace Brushblade.Core
         /// <summary>一条带计数缩放的 Amplify 加成项:百分点 × 计数(出字前),cap &gt; 0 时钳到 cap。</summary>
         private int ScaledAmpPercent(int percent, ScaleBasis per, int cap, int enemyIndex)
         {
-            long count = per == ScaleBasis.BurnStack ? PreCastBurnStacksOf(enemyIndex) : PreCastBurningEnemies();
+            long count = per == ScaleBasis.BurnStack ? PreCastBurnStacksOf(enemyIndex)
+                : per == ScaleBasis.Wellspring ? PreCastWellspringStacks()   // D2-水 E22a 洪峰
+                : PreCastBurningEnemies();
             long sum = percent * count;
             if (cap > 0) sum = Math.Min(sum, cap);
             return (int)sum;
@@ -122,12 +124,19 @@ namespace Brushblade.Core
             _ => false,
         };
 
+        /// <summary>能附着在冻结上的效果 Kind(D2-水 W1;ConfigLoader 与引擎共用)。三者都只能以附着形式出现。</summary>
+        public static bool CanRideOnFreeze(EffectKind kind) => kind switch
+        {
+            EffectKind.FrostBite or EffectKind.ThawStrike or EffectKind.ThawSlow => true,
+            _ => false,
+        };
+
         /// <summary>只能以附着形式出现的 Kind:不写 riderOf 时引擎什么都不做(焚城的结算形态只由引擎入队,不进字表)。</summary>
         public static bool RidesOnly(EffectKind kind) => kind switch
         {
             EffectKind.HealBlock or EffectKind.BurnGrow or EffectKind.BurnHold
                 or EffectKind.BurnBurst or EffectKind.BurnBacklash => true,
-            _ => false,
+            _ => CanRideOnFreeze(kind),
         };
 
         private static StatusKind RiderStatusOf(EffectKind kind) => kind switch
@@ -139,21 +148,28 @@ namespace Brushblade.Core
             EffectKind.BurnHold => StatusKind.BurnHold,
             EffectKind.BurnBurst => StatusKind.BurnBurstMark,
             EffectKind.BurnBacklash => StatusKind.BurnBacklashMark,
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "不能附着在灼上"),
+            EffectKind.FrostBite => StatusKind.FrostBite,     // D2-水 W1:冻结附着族
+            EffectKind.ThawStrike => StatusKind.ThawStrike,
+            EffectKind.ThawSlow => StatusKind.ThawSlow,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "不能附着"),
         };
 
-        /// <summary>通用附着(照烟熏写法抽出):目标带本次出字所上之灼时,挂隐藏载体 + 附带状态。
+        /// <summary>通用附着(照烟熏写法抽出):目标带本次出字所上的载体时,挂隐藏载体 + 附带状态。
+        /// 载体 = effect.RiderOf:灼(缺省)读 _cast.BurnedTargets;冻结(D2-水 W1)读 _cast.FrozenTargets(真冻上的,冰滞不算,Q3)。
         /// 附带状态保留自己的回合数(Turns &gt; 0,上炎),否则随载体存续(-1)。同字同特性再挂只刷新(G10 四火据此「重新算第一次」)。</summary>
         private void ApplyRider(int enemyIndex, string sourceId, EffectDef effect, int magnitude)
         {
             var bag = _enemies[enemyIndex].Statuses;
-            if (!_cast.BurnedTargets.Contains(enemyIndex) || !bag.Has(StatusKind.Burn)) return;
+            var carrier = effect.RiderOf ?? StatusKind.Burn;
+            var carried = carrier == StatusKind.Freeze ? _cast.FrozenTargets : _cast.BurnedTargets;
+            if (!carried.Contains(enemyIndex) || !bag.Has(carrier)) return;
             string riderKey = effect.TraitKey ?? sourceId;
-            AttachRider(bag, sourceId, riderKey, StatusKind.Burn);
+            AttachRider(bag, sourceId, riderKey, carrier);
             ApplyStatus(bag, new StatusEffect
             {
                 Kind = RiderStatusOf(effect.Kind), Polarity = StatusPolarity.Debuff,
-                Magnitude = RidesOnly(effect.Kind) && effect.Kind != EffectKind.BurnGrow ? 1 : magnitude,
+                // 带量的附着(上炎层数、怀山 / 寒彻的定死伤害、冰水的回合)保留 magnitude;其余只占位 1
+                Magnitude = RidesOnly(effect.Kind) && effect.Kind != EffectKind.BurnGrow && !CanRideOnFreeze(effect.Kind) ? 1 : magnitude,
                 TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                 SourceId = sourceId, TraitKey = riderKey, MinBurn = effect.MinBurn,
             }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
@@ -248,13 +264,15 @@ namespace Brushblade.Core
             ApplyStatus(_playerStatuses, new StatusEffect
             {
                 Kind = StatusKind.Retaliate, Polarity = StatusPolarity.Buff,
-                Magnitude = Math.Max(0, effect.Value), TurnsLeft = 1, SourceId = sourceId, TraitKey = effect.TraitKey,
+                // 潜流(D2-水 E23):读 turns,缺省 1(本回合)
+                Magnitude = Math.Max(0, effect.Value), TurnsLeft = effect.Turns > 0 ? effect.Turns : 1,
+                SourceId = sourceId, TraitKey = effect.TraitKey,
                 OnHit = effect.PerHit.Select(e => OpeningEffect.Of(e, sourceId, element)).ToList(),
             }, UnitRef.Player, UnitRef.Player);
         }
 
         /// <summary>我方(玩家 / 召唤物)被敌人 <paramref name="enemyIndex"/> 的挥击命中:每条 Retaliate 各入队一条反应,
-        /// 目标 = 攻击者,在下一个安全点(该敌人这次动作之后)兑现。上限按特性键每回合计(0 = 不限)。
+        /// 目标 = 攻击者,在该敌人这一拍收尾(EndBeat,TickTurns 之后;Ruling 12)兑现。上限按特性键每回合计(0 = 不限)。
         /// 没有 Retaliate 时一次判断即返回(恒等)。回敬效果不含伤害(ConfigLoader 白名单),不占 §5.2 第 3 律的 60% 反伤预算。
         /// 每回合计数在**入队时**就扣:攻击者若在兑现前死了(镜反弹、格挡反击打死),反应落空,计数照样用掉。</summary>
         private void EnqueueRetaliation(int enemyIndex)
@@ -267,7 +285,8 @@ namespace Brushblade.Core
                     continue;
                 // 特性键随效果带过去(G11):回敬挂的减攻 / 致盲与本体分开计时
                 var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
-                Enqueue(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
+                // Ruling 12(D2-水 Task 4 fix round 1):攻击者这一拍收尾(TickTurns 之后)才兑现,回敬挂的 turns 型状态足额
+                DeferToBeatEnd(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
             }
         }
 
@@ -425,7 +444,8 @@ namespace Brushblade.Core
         }
 
         /// <summary>解冻(N10,水火相激):移除冻结(按「结束」挂等长霜抗,R1)、负的 SpeedModifier(减速;正的是加速,不动)、
-        /// 冰滞(照自然结束给霜抗 N+1,R1b)。冰缚的标记不跟着移除。都没有时空转。</summary>
+        /// 冰滞(照自然结束给霜抗 N+1,R1b)。冰缚的标记不跟着移除。都没有时空转。
+        /// 移除了冻结时最后走 OnFreezeEnd(D2-水 W1:寒彻 / 冰水结算一次,附着随载体移除)。</summary>
         private void ThawOn(int enemyIndex)
         {
             var bag = _enemies[enemyIndex].Statuses;
@@ -450,6 +470,9 @@ namespace Brushblade.Core
                     Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = stall.Magnitude + 1,
                 }, UnitRef.Enemy(enemyIndex), UnitRef.None);
             }
+            // 冻结附着(D2-水 W1):解冻也是「冻结结束」—— 寒彻 / 冰水在这里结算一次再随载体移除。排在清减速之后,
+            // 冰水挂的减速是冻结结束的产物,不被这次解冻清掉。没有附着时一次判断即返回(恒等)
+            if (freeze != null) OnFreezeEnd(enemyIndex);
         }
 
         /// <summary>自损(N10b,玉石俱焚,G9):失去 ⌊当前生命 × percent%⌋,至少留 1 点;不走护盾 / 护甲,不发 PlayerHit(R4 不算受击),

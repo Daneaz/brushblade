@@ -43,7 +43,8 @@ namespace Brushblade.Core
             bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode);
 
             var landing = FaceLanding.None;
-            if (needsEnemy || hostile) landing |= FaceLanding.Enemy;
+            // D2-水 E26(溃围):需要友方目标的面,pick All 的敌方附带不另加 Enemy 落点(那条效果不选敌)
+            if (needsEnemy || (hostile && !needsAlly)) landing |= FaceLanding.Enemy;
             if (needsAlly) landing |= FaceLanding.Self | FaceLanding.Summons;
             else if (!needsEnemy && !summons && !hostile) landing |= FaceLanding.Self;
             if (summons) landing |= FaceLanding.EmptySlot;
@@ -66,6 +67,9 @@ namespace Brushblade.Core
             EffectKind.Mine,   // D2-火 Task 4:埋在敌人身上(受击回敬 Retaliate 挂在玩家身上,不敌对)
             EffectKind.Doom,   // D2-金 Task 3:致命挂在敌人身上
             EffectKind.ExtraStrike, EffectKind.Thaw, EffectKind.Reveal,   // D2-火 Task 5:落在敌人身上(自损 SelfCost 作用于玩家,不敌对)
+            EffectKind.FrostBite, EffectKind.ThawStrike, EffectKind.ThawSlow,   // D2-水 Task 2:挂在敌人的冻结上
+            EffectKind.ChargeDelay,   // D2-水 Task 2:推迟 Boss 蓄力
+            EffectKind.BuffBlock,     // D2-水 Task 3:挂在敌人身上(DebuffWard 挂我方,不敌对)
         };
 
         /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /

@@ -184,6 +184,29 @@ namespace Brushblade.Core
                               // Value = 每溢出 1 层的护盾量(连续,吃卡等级)。Morale 效果须排在它之前。
         MoraleArmor,          // 富甲:给玩家挂 StatusKind.MoraleArmor,Value = 每层战意的护甲点数(连续)。含木灵(Q15)。
         MoraleShield,         // 金气:给玩家挂 StatusKind.MoraleShield,Value = 战意满时每回合开始的护盾量(连续)。仅玩家。
+        // ---- D2-水 Task 2:冻结载体附着(附录 W1)与冷却(W2)。⚠ 只在末尾追加 ----
+        // 前三个一律写 riderOf Freeze + pick FrozenByThisCast(ConfigLoader 拦不写的):只挂在本次出字真冻上的目标上
+        // (Boss 的冰滞不算,Q3),冻结结束(自然到期 / 被解冻)或敌人死亡时随载体移除(DropRiders)。支持 Pick / OnlyIf。
+        FrostBite,      // 怀山:挂 StatusKind.FrostBite(Magnitude = ScaleByAttack(Value),出字时定死,同埋雷)。该敌人冻结中每次行动开始
+                        // (含被冻结跳过的那拍)受 Magnitude 点水属性伤害(过生克与护甲、吃标记、不暴击,R4)。Value 吃卡等级;可写 bodyPercent。
+        ThawStrike,     // 寒彻:挂 StatusKind.ThawStrike(Magnitude 同上)。冻结自然到期或被解冻时受一次同口径伤害;敌人死亡不算。
+        ThawSlow,       // 冰水:挂 StatusKind.ThawSlow(Magnitude = Value 回合)。冻结结束时先挂霜抗(现状)、再挂减速 Value 回合(Q19)。离散。
+        ChargeDelay,    // 冷却:Boss 蓄力推迟 Value 拍(离散)。未蓄力 → ChargeCounter −Value;蓄力中 → 撤回,ChargeCounter = BossChargeEvery − Value
+                        // (下一拍重新蓄力并重发 BossCharging)。每 Boss 每场 1 次(TryUseTrait);小怪无效果(Q5)。支持 Pick / OnlyIf。
+        // ---- D2-水 Task 3:拦截族(附录 W3 / W4)。⚠ 只在末尾追加 ----
+        BuffBlock,      // 洗尽铅华:给目标敌人挂 StatusKind.BuffBlock,Turns 回合(必填,按该敌人行动递减)内拦下 Buff 极性的施加,霜抗除外(Q21)。
+                        // Value 不用(离散)。支持 Pick / OnlyIf;敌对。
+        DebuffWard,     // 濯身 / 浇熄:给落点(玩家或木灵,AllyStatuses)挂 StatusKind.DebuffWard,Turns 回合(必填)内拦下落在该单位身上的减益。
+                        // Value = 每拦 1 层(灼按刷新增量)/ 1 条给该单位的护盾(连续,吃卡等级;0 = 不转);WardOf = 只拦这一种(null = 全部);
+                        // WardCount = 前 N 次(0 = 期间不限)。非敌对。
+        // ---- D2-水 Task 4:我方受击 / 回合挂点(附录 W5 / W6 / W7)。⚠ 只在末尾追加 ----
+        HurtHeal,       // 栉风沐雨:给玩家挂 StatusKind.HurtHeal,Turns 回合(必填)内玩家被敌人挥击命中(damage > 0)时回复
+                        // 这次伤害(减伤后、含护盾吸收)× Value%。每回合 1 次;不吃泉放大、不攒泉;判负之后不触发(Q12)。离散。非敌对。
+        ShieldFrost,    // 冰晶:本次出字给玩家实际加了盾(ShieldGranted > 0)才挂 StatusKind.ShieldFrost;敌人挥击把两桶护盾打到 0 时
+                        // 冻结攻击者 Value 回合(反应,安全点兑现;Boss → 冰滞)并移除。回合初 / 倾覆清盾只移除(Q15)。离散。非敌对。
+        TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(清盾之后、TurnStarted 之前)
+                        // 把 PerHit 里的效果入队一条反应(目标 −1:敌方效果按其 pick,我方效果落玩家),触发时按来源字等级缩放(Q17)。
+                        // PerHit 白名单见 BattleEngine.TurnPulseAllows(不收伤害)。Value 不用。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -196,6 +219,9 @@ namespace Brushblade.Core
         Morale,         // 战意层数(结算那一刻):DamageSingle 击数 = HitCount + 战意(大卸八块,进 DamageSingle 时取一次);
                         // Block 次数 = max(ScaleMin, 战意)(双金合璧,由 BlockMod 写入,出字后的值)
         ExtraHitTarget, // Morale 的值 × (本次出字 HitTargets 去重数 − 1)(横扫千军;跨排 Boss 只算 1 名)
+        // ---- D2-水 Task 1(附录 E22)。⚠ 只在末尾追加 ----
+        Wellspring,     // Amplify:出字前的泉层数(洪峰;R3,同 PreCastConditions 一并取)
+        Cleansed,       // HealSelf:本次出字 Cleanse 实际清掉的条数(结算那一刻;濯身)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -204,6 +230,8 @@ namespace Brushblade.Core
         Count,  // 次数(Block 的次数,在 Value 上)
         Turns,  // 回合(Freeze / Slow 在 Value 上,DefenseBuff / ArmorBreak / HealOverTime 在 Turns 上,见 TraitRules.TurnsOf)
         Shots,  // 跳数 / 发数(Shots)
+        // ---- D2-水 Task 1(附录 E17a)。⚠ 只在末尾追加 ----
+        StallPush,  // 冰滞的行动条后退百分比(只给 Freeze,写在 Freeze.StallPushPercent 上;缺省 0 = BattleConfig.IceStallPushPercent)
     }
 
     /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
@@ -467,6 +495,40 @@ namespace Brushblade.Core
         /// source = ExecuteSplash;溅射造成的击杀不入队击杀时 / 斩杀时(R4)。Reshape 携带时 Fold 照抄(E7)。0 = 不溅射。</summary>
         public int ExecuteSplashPercent { get; }
 
+        // ---- D2-水 Task 1(附录 E17 / E18 / E19 / E25)。全缺省 = 原行为,逐位恒等 ----
+
+        /// <summary>冰滞额外后退的百分比(E17a,坚冰):只给 Freeze,由 Augment field StallPush 写入。
+        /// Boss 被冻改挂冰滞时行动条后退 IceStallPushPercent + N(%);0 = 原值。</summary>
+        public int StallPushPercent { get; }
+
+        /// <summary>条件回合加成(E17b,冰冻三尺):只给 Freeze,由带 <c>if X</c> 的 Augment field Turns 写入 ——
+        /// 目标出字前满足 <see cref="BonusIf"/> 时冻结回合 + BonusTurns。0 = 无。</summary>
+        public int BonusTurns { get; }
+
+        /// <summary>条件回合加成的条件(E17b);BonusTurns == 0 时不读。</summary>
+        public DamageCondition BonusIf { get; }
+
+        /// <summary>只续不挂(E18,倾盆):只给 Slow —— 目标已有减速(负 SpeedModifier)时 TurnsLeft + Value,没有就空转。</summary>
+        public bool Extend { get; }
+
+        /// <summary>斩杀条件门(E19,湮灭无踪):DamageSingle / Reshape —— 斩杀阈值之外再按出字前快照判这个条件。None = 无门。</summary>
+        public DamageCondition ExecuteIf { get; }
+
+        /// <summary>按本次治疗量(E24,沐恩):只给 HealSummons —— 每只木灵回复 = 本次出字名义治疗量(放大后,
+        /// HealSelf / HealAll / HealOverTime 首跳累计)× Value%;不再过泉放大、不攒泉。Value 是百分比,不吃卡等级。</summary>
+        public bool OfHeal { get; }
+
+        /// <summary>仅在减速中(E25,淋漓):只给 Seed —— 种只在该敌人仍被减速时触发;缺 turns 时回合数 = 施加时目标的减速剩余回合。</summary>
+        public bool WhileSlowed { get; }
+
+        // ---- D2-水 Task 3(附录 W4)。缺省 = 原行为 ----
+
+        /// <summary>只拦这一种减益(W4,浇熄 `wardOf Burn`):只给 DebuffWard。null = 全部减益。</summary>
+        public StatusKind? WardOf { get; }
+
+        /// <summary>前 N 次(W4,`wardCount N`,土·杜绝预留):只给 DebuffWard。0 = 期间不限。</summary>
+        public int WardCount { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -496,7 +558,10 @@ namespace Brushblade.Core
             bool fill = false, int counterPercent = 0, int scaleMin = 0, bool ofVictimMaxHp = false,
             bool counterColumn = false, int counterHits = 0, int counterExecuteBelow = 0,
             int blockBleed = 0, int blockMorale = 0, int killRefundAp = 0,
-            int executeSplashPercent = 0)
+            int executeSplashPercent = 0,
+            int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
+            bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
+            bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0)
         {
             Kind = kind;
             Value = value;
@@ -553,6 +618,15 @@ namespace Brushblade.Core
             BlockMorale = blockMorale;
             KillRefundAp = killRefundAp;
             ExecuteSplashPercent = executeSplashPercent;
+            StallPushPercent = stallPushPercent;
+            BonusTurns = bonusTurns;
+            BonusIf = bonusIf;
+            Extend = extend;
+            ExecuteIf = executeIf;
+            WhileSlowed = whileSlowed;
+            OfHeal = ofHeal;
+            WardOf = wardOf;
+            WardCount = wardCount;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -571,7 +645,9 @@ namespace Brushblade.Core
             int? counterPercent = null,
             bool? counterColumn = null, int? counterHits = null, int? counterExecuteBelow = null,
             int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null,
-            int? executeSplashPercent = null) =>
+            int? executeSplashPercent = null,
+            int? stallPushPercent = null, int? bonusTurns = null, DamageCondition? bonusIf = null,
+            DamageCondition? executeIf = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
@@ -584,7 +660,9 @@ namespace Brushblade.Core
                 MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp,
                 counterColumn ?? CounterColumn, counterHits ?? CounterHits, counterExecuteBelow ?? CounterExecuteBelow,
                 blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
-                executeSplashPercent ?? ExecuteSplashPercent)
+                executeSplashPercent ?? ExecuteSplashPercent,
+                stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
+                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

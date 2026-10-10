@@ -169,13 +169,16 @@ namespace Brushblade.Presentation
         /// <paramref name="isPlayer"/> 透传给 <see cref="StatusText.Of"/>(2026-09-01 review 修):
         /// AttackBuff 的说明文案敌我口径不同(百分比 vs 点数),只有 PlayerInfo 传 true。
         /// <paramref name="graph"/>(可空)只用来把带门槛的减攻翻出特性名(「炽焰:灼满 5 层时……」),
-        /// 取不到时退回状态名。</summary>
-        public static List<StatusEntry> BuildStatuses(StatusBag statuses, bool isPlayer = false, RecipeGraph graph = null)
+        /// 取不到时退回状态名。
+        /// <paramref name="cardLevelOf"/>(可空,D2-水 Task 5):回敬 / 回合脉冲的载荷按来源字等级缩放后印,只有执笔人那一份传。</summary>
+        public static List<StatusEntry> BuildStatuses(StatusBag statuses, bool isPlayer = false, RecipeGraph graph = null,
+            Func<string, int> cardLevelOf = null)
         {
             var list = new List<StatusEntry>();
             foreach (var effect in statuses.All)
             {
-                var info = StatusText.Of(effect.Kind, effect.Magnitude, effect.TurnsLeft, isPlayer);
+                // 整条状态取词:淋漓 / 免疫减益 / 回敬 / 回合脉冲的说明要读三元组以外的字段
+                var info = StatusText.Of(effect, isPlayer, cardLevelOf);
                 if (info.Name == null) continue;
                 var entry = new StatusEntry
                 {

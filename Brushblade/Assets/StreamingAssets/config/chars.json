@@ -2899,6 +2899,111 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "怀山",
+          "effects": [
+            {
+              "kind": "FrostBite",
+              "value": 0,
+              "bodyPercent": 20,
+              "pick": "FrozenByThisCast",
+              "riderOf": "Freeze"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "怀山",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "洪峰",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 10,
+              "scope": "Damage",
+              "scaleBy": "Wellspring"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "泽被",
+          "effects": [
+            {
+              "kind": "Cleanse",
+              "value": 1
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "浩荡",
+          "effects": [
+            {
+              "kind": "Vulnerable",
+              "value": 25,
+              "pick": "FrozenByThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "滔天",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 100,
+              "scope": "Damage",
+              "onlyIf": "Frozen"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "泽及四方",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Heal"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All"
+            },
+            {
+              "kind": "AddWellspring",
+              "value": 0,
+              "fill": true
+            }
+          ]
         }
       ]
     },
@@ -2961,6 +3066,109 @@
               "kind": "HealOverTime",
               "value": 40,
               "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "汪洋",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "汪洋",
+          "effects": [
+            {
+              "kind": "AddWellspring",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "同寒",
+          "effects": [
+            {
+              "kind": "Freeze",
+              "value": 2,
+              "pick": "Column"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "涵养",
+          "effects": [
+            {
+              "kind": "AddWellspring",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "冰水",
+          "effects": [
+            {
+              "kind": "ThawSlow",
+              "value": 2,
+              "pick": "FrozenByThisCast",
+              "riderOf": "Freeze"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "浩瀚",
+          "effects": [
+            {
+              "kind": "Freeze",
+              "value": 1,
+              "pick": "HighestHp"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All",
+              "shapePercent": 70
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "水大无际",
+          "effects": [
+            {
+              "kind": "HealOverTime",
+              "value": 40,
+              "openingBattles": 5,
+              "turns": 2
+            },
+            {
+              "kind": "Cleanse",
+              "value": 0,
+              "pick": "AllAllies"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All"
             }
           ]
         }
@@ -3029,6 +3237,12 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "湮灭",
+          "effects": []
+        },
+        {
           "slot": "Lv5",
           "face": "Attack",
           "name": "激流",
@@ -3042,6 +3256,23 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "沉渊",
+          "effects": [
+            {
+              "kind": "Retaliate",
+              "value": 1,
+              "perHit": [
+                {
+                  "kind": "Freeze",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
@@ -3051,6 +3282,38 @@
               "kind": "Vulnerable",
               "value": 20,
               "pick": "FrozenByThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "湮灭无踪",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "executeBelowPercent": 25,
+              "executeKills": true,
+              "executeIf": "Frozen"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "潜流",
+          "effects": [
+            {
+              "kind": "Retaliate",
+              "value": 0,
+              "turns": 2,
+              "perHit": [
+                {
+                  "kind": "Slow",
+                  "value": 1
+                }
+              ]
             }
           ]
         }
@@ -3133,6 +3396,20 @@
         },
         {
           "slot": "Lv5",
+          "face": "Attack",
+          "name": "百川",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Chain",
+              "shapePercent": 50,
+              "shots": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
           "face": "Feature",
           "name": "涓流",
           "effects": [
@@ -3169,6 +3446,18 @@
               "value": 0,
               "shape": "All",
               "shapePercent": 60
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "海纳百川",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All"
             }
           ]
         }
@@ -3270,6 +3559,18 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "溃围",
+          "effects": [
+            {
+              "kind": "Slow",
+              "value": 1,
+              "pick": "All"
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
@@ -3278,6 +3579,19 @@
             {
               "kind": "ShieldFromHeal",
               "value": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "溃不成军",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 25,
+              "pick": "All",
+              "turns": 2
             }
           ]
         },
@@ -3362,6 +3676,32 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "冰封",
+          "effects": [
+            {
+              "kind": "Vulnerable",
+              "value": 30,
+              "pick": "FrozenByThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "冰封",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 21,
+              "scope": "All"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Attack",
           "name": "凝冰",
@@ -3370,6 +3710,65 @@
               "kind": "Freeze",
               "value": 1,
               "onlyIf": "Slowed"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "冰甲",
+          "effects": [
+            {
+              "kind": "ShieldFromHeal",
+              "value": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "寒彻",
+          "effects": [
+            {
+              "kind": "ThawStrike",
+              "value": 0,
+              "bodyPercent": 50,
+              "pick": "FrozenByThisCast",
+              "riderOf": "Freeze"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "坚冰",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 50,
+              "augmentKind": "Freeze",
+              "augmentField": "StallPush"
+            },
+            {
+              "kind": "Freeze",
+              "value": 2,
+              "pick": "AdjacentOne"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "冰晶",
+          "effects": [
+            {
+              "kind": "ShieldFromHeal",
+              "value": 100
+            },
+            {
+              "kind": "ShieldFrost",
+              "value": 1
             }
           ]
         }
@@ -3484,6 +3883,26 @@
               "kind": "Vulnerable",
               "value": 20,
               "pick": "FrozenByThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "冰冻三尺",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 1,
+              "augmentKind": "Freeze",
+              "augmentField": "Turns"
+            },
+            {
+              "kind": "Augment",
+              "value": 1,
+              "onlyIf": "Slowed",
+              "augmentKind": "Freeze",
+              "augmentField": "Turns"
             }
           ]
         },
@@ -3626,6 +4045,23 @@
         },
         {
           "slot": "Lv8",
+          "face": "Attack",
+          "name": "冷却",
+          "effects": [
+            {
+              "kind": "ChargeDelay",
+              "value": 1
+            },
+            {
+              "kind": "Weaken",
+              "value": 50,
+              "onlyIf": "NotBoss",
+              "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
           "face": "Feature",
           "name": "甘露",
           "effects": [
@@ -3703,6 +4139,123 @@
               "turns": 3
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "淋漓",
+          "effects": [
+            {
+              "kind": "Seed",
+              "value": 30,
+              "pick": "SlowedByThisCast",
+              "whileSlowed": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "淋漓",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "倾盆",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 3,
+              "hitPercent": 40,
+              "perHit": [
+                {
+                  "kind": "Slow",
+                  "value": 1,
+                  "extend": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "细雨",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All",
+              "shapePercent": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "浇熄",
+          "effects": [
+            {
+              "kind": "DebuffWard",
+              "value": 50,
+              "wardOf": "Burn",
+              "turns": 3
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "暴雨",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Scatter",
+              "shotPercent": 30,
+              "shots": 5,
+              "perHit": [
+                {
+                  "kind": "Slow",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "大雨滂沱",
+          "effects": [
+            {
+              "kind": "TurnPulse",
+              "value": 0,
+              "turns": 3,
+              "perHit": [
+                {
+                  "kind": "Slow",
+                  "value": 1,
+                  "pick": "All"
+                },
+                {
+                  "kind": "HealSelf",
+                  "value": 45
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -3769,6 +4322,34 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "洗涤",
+          "effects": [
+            {
+              "kind": "Cleanse",
+              "value": 1,
+              "pick": "Self"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "洗尽铅华",
+          "effects": [
+            {
+              "kind": "Dispel",
+              "value": -1
+            },
+            {
+              "kind": "BuffBlock",
+              "value": 0,
+              "turns": 2
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "寒泉",
@@ -3789,6 +4370,45 @@
             {
               "kind": "ShieldFromHeal",
               "value": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "涤荡",
+          "effects": [
+            {
+              "kind": "Dispel",
+              "value": 1,
+              "targetAll": true
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All",
+              "shapePercent": 60
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "濯身",
+          "effects": [
+            {
+              "kind": "Cleanse",
+              "value": 0
+            },
+            {
+              "kind": "HealSelf",
+              "value": 50,
+              "scaleBy": "Cleansed"
+            },
+            {
+              "kind": "DebuffWard",
+              "value": 0,
+              "turns": 1
             }
           ]
         }
@@ -3857,6 +4477,44 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "沐恩",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 21,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "沐恩",
+          "effects": [
+            {
+              "kind": "HealSummons",
+              "value": 50,
+              "ofHeal": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "新沐",
+          "effects": [
+            {
+              "kind": "Cleanse",
+              "value": 1,
+              "pick": "Self"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "涓流",
@@ -3864,6 +4522,43 @@
             {
               "kind": "Cleanse",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "春雨",
+          "effects": [
+            {
+              "kind": "HealOverTime",
+              "value": 17,
+              "openingBattles": 3,
+              "turns": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "沐雨",
+          "effects": [
+            {
+              "kind": "HealSummons",
+              "value": 63
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "栉风沐雨",
+          "effects": [
+            {
+              "kind": "HurtHeal",
+              "value": 50,
+              "turns": 3
             }
           ]
         }

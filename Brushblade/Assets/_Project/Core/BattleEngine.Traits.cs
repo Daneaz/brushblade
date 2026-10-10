@@ -114,6 +114,19 @@ namespace Brushblade.Core
             /// <summary>本次出字的 BurnSingle / BurnAll 落到过的敌人(烟熏「带本字灼」的判据)。</summary>
             public List<int> BurnedTargets = new List<int>();
 
+            /// <summary>出字前的泉层数(D2-水 E22a,洪峰;ScaleBasis.Wellspring 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int? PreCastWellspring;
+
+            /// <summary>本次出字 Cleanse 实际清掉的减益条数(D2-水 E22b,濯身;ScaleBasis.Cleansed 读)。</summary>
+            public int Cleansed;
+
+            /// <summary>本次出字的名义治疗量(放大后,不看溢出;D2-水 E24,沐恩 HealSummons ofHeal 读):
+            /// HealSelf 落点那一份、HealAll、HealOverTime 首跳累加。</summary>
+            public int HealNominal;
+
+            /// <summary>本次出字的 Slow 施加过或续过回合的敌人(D2-水 E15,选择器 SlowedByThisCast)。</summary>
+            public List<int> SlowedTargets = new List<int>();
+
             /// <summary>本次出字给玩家实际入账的护盾(反震的挂载条件)。</summary>
             public int ShieldGranted;
 
@@ -171,10 +184,12 @@ namespace Brushblade.Core
                     bag.RemoveEntry(s);
         }
 
-        /// <summary>两桶护盾都空了:反震失去载体,移除(D9)。</summary>
+        /// <summary>两桶护盾都空了:反震(D9)与冰晶(D2-水 W6)失去载体,移除。</summary>
         private void DropShieldRecoilIfEmpty()
         {
-            if (_shieldNormal + _shieldPersist <= 0) _playerStatuses.Remove(StatusKind.ShieldRecoil);
+            if (_shieldNormal + _shieldPersist > 0) return;
+            _playerStatuses.Remove(StatusKind.ShieldRecoil);
+            _playerStatuses.Remove(StatusKind.ShieldFrost);
         }
 
         /// <summary>反震挂载:同类取最强,只留一条(TraitKey 跟随较强的那条)。</summary>

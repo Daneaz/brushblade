@@ -2534,7 +2534,7 @@ namespace Brushblade.Presentation
             // shieldOverride:判据见 ShowCarriedShield/CarriedShieldOverride 的字段注释——
             // 与角标(DrawPlayerStats)读的是同一对属性,别在这里另起一份判断。
             _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta, CarriedShieldOverride,
-                CarriedHpOverride, CarriedMaxHpOverride);
+                CarriedHpOverride, CarriedMaxHpOverride, _run.CardLevel);
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 

@@ -291,11 +291,23 @@ namespace Brushblade.Core
                     if (target.Kind == EffectKind.Block) effects[at] = target.With(value: target.Value + aug.Value);
                     break;
                 case AugmentField.Turns:
+                    // 带条件的回合加成(D2-水 E17b,冰冻三尺「若目标已被减速,再 +1」):不直接加,记进 BonusTurns / BonusIf,
+                    // 由 Freeze 分支按目标的出字前快照判定(ConfigLoader 只放行 Freeze)
+                    if (aug.OnlyIf != DamageCondition.None)
+                    {
+                        if (target.Kind == EffectKind.Freeze)
+                            effects[at] = target.With(bonusTurns: target.BonusTurns + aug.Value, bonusIf: aug.OnlyIf);
+                        break;
+                    }
                     effects[at] = WithTurns(target, aug.Value);
                     break;
                 case AugmentField.Shots:
                     if (target.Kind == EffectKind.DamageSingle || target.Kind == EffectKind.HealSelf)
                         effects[at] = target.With(shots: target.Shots + aug.Value);
+                    break;
+                case AugmentField.StallPush:   // D2-水 E17a(坚冰):冰滞后退百分比
+                    if (target.Kind == EffectKind.Freeze)
+                        effects[at] = target.With(stallPushPercent: target.StallPushPercent + aug.Value);
                     break;
             }
         }
@@ -321,6 +333,14 @@ namespace Brushblade.Core
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
             if (at < 0)
             {
+                // 治疗改形(D2-水 E20,海纳百川 / 细雨 / 泽被…):本面没有伤害、Reshape 不带选择器、写的是 shape All 时,
+                // 改本面第一条 HealSelf 为全体(shapePercent 同伤害的口径:没写就是全额 100)。其余形状不碰治疗
+                if (r.Pick == EffectPick.Primary && r.Shape == TargetArea.All)
+                {
+                    int heal = effects.FindIndex(e => e.Kind == EffectKind.HealSelf);
+                    if (heal >= 0) effects[heal] = effects[heal].With(shape: TargetArea.All, shapePercent: r.ShapePercent);
+                    return;
+                }
                 // 重选目标(D2-火 E3,烈风「燃改为横扫」):本面没有伤害时,把落在主目标上的敌方效果换成 Reshape 的选择器
                 if (r.Pick == EffectPick.Primary) return;
                 for (int i = 0; i < effects.Count; i++)
@@ -328,25 +348,29 @@ namespace Brushblade.Core
                         effects[i] = effects[i].With(pick: r.Pick);
                 return;
             }
+            // 改为散射且自己没写 hits(D2-水 Ruling 14 修订,淋·暴雨):散射只有首发吃主目标多段,
+            // 「散射 + 前一条 Reshape 的多段」不成立 → 多段字段重置为缺省。其余字段仍按非缺省逐项覆盖
+            bool toScatter = r.Shape == TargetArea.Scatter && r.HitCount == 1;
             effects[at] = effects[at].With(
                 shape: r.Shape != TargetArea.Single ? r.Shape : (TargetArea?)null,
                 // 改成全体时百分比一并重置:没写 shapePercent 就是全额 100,不沿用原效果(如横扫 50)的溅射比例
                 shapePercent: r.ShapePercent != 100 || r.Shape == TargetArea.All ? r.ShapePercent : (int?)null,
                 shots: r.Shots != 0 ? r.Shots : (int?)null,
-                hitCount: r.HitCount != 1 ? r.HitCount : (int?)null,
-                hitPercent: r.HitPercent != 100 ? r.HitPercent : (int?)null,
+                hitCount: r.HitCount != 1 ? r.HitCount : toScatter ? 1 : (int?)null,
+                hitPercent: r.HitPercent != 100 ? r.HitPercent : toScatter ? 100 : (int?)null,
                 forceCrit: r.ForceCrit ? true : (bool?)null,
                 armorIgnorePercent: r.ArmorIgnorePercent > 0 ? r.ArmorIgnorePercent : (int?)null,
                 shieldStrikePercent: r.ShieldStrikePercent > 0 ? r.ShieldStrikePercent : (int?)null,
                 armorStrikePercent: r.ArmorStrikePercent > 0 ? r.ArmorStrikePercent : (int?)null,
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
                 perHit: r.PerHit.Count > 0 ? r.PerHit : null,
-                perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : (int?)null,
+                perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : toScatter ? 1 : (int?)null,
                 shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null,
                 // 斩杀(D2-金 E7,铡刀落)与击数按战意(E10,大卸八块)
                 executeBelowPercent: r.ExecuteBelowPercent > 0 ? r.ExecuteBelowPercent : (int?)null,
                 executeKills: r.ExecuteBelowPercent > 0 ? r.ExecuteKills : (bool?)null,
                 executeSplashPercent: r.ExecuteSplashPercent > 0 ? r.ExecuteSplashPercent : (int?)null,   // J4 斩杀溅射
+                executeIf: r.ExecuteIf != DamageCondition.None ? r.ExecuteIf : (DamageCondition?)null,   // D2-水 E19 湮灭无踪
                 scaleBy: r.ScaleBy != ScaleBasis.None ? r.ScaleBy : (ScaleBasis?)null);
         }
 

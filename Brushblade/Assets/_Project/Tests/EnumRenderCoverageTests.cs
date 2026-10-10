@@ -65,6 +65,12 @@ namespace Brushblade.Core.Tests
             // D2-金 Task 4(M2):战意光环是隐藏载体,玩家看到的是护甲总数(PlayerInfo 本来就显示总甲)与回合开始的护盾
             [nameof(StatusKind.MoraleArmor)] = "隐藏载体(D2-金 M2,富甲):玩家护甲数字本来就显示总甲,战意变化时随之跳动",
             [nameof(StatusKind.MoraleShield)] = "隐藏载体(D2-金 M2,金气):回合开始多出的护盾本身就是反馈,触发反馈归 Plan E",
+            // D2-水 Task 2(V5):冻结附着族是隐藏载体,玩家看到的是冻结 chip 与结算伤害 / 冻结结束后的减速,冻结详情列附着归 Plan E
+            [nameof(StatusKind.FrostBite)] = "隐藏载体(D2-水 V5,怀山):冻结中每拍的伤害本身就是反馈,来源标签归 Plan E",
+            [nameof(StatusKind.ThawStrike)] = "隐藏载体(D2-水 V5,寒彻):冻结结束时的伤害本身就是反馈,来源标签归 Plan E",
+            [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
+            // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(StatusText 有文案),chip 待稿,不在这里
+            [nameof(StatusKind.ShieldFrost)] = "隐藏载体(D2-水 V5,冰晶):护盾被打破时攻击者被冻结本身就是反馈,触发反馈归 Plan E",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。
@@ -99,6 +105,8 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Mine),       // 埋雷(D2-火,StatusChipsFire 稿 2026-10-09)
             nameof(StatusKind.HealBlock),  // 干涸(D2-火,StatusChipsFire 稿 2026-10-09)
             nameof(StatusKind.Doom),       // 致命(D2-金 M2,traits StatusChips 稿)
+            // 待稿(D2-水 V5):BuffBlock(洗尽铅华)也挂在敌人身上、玩家可见,但 chip 稿已请 designer 出、尚未拍板 ——
+            // 按 V3 门控 Core 照做、chip 不画,所以暂不列入;StatusText 已有详情文案。稿拍板、BattleView 接上 chip 时加进来。
         };
 
         private static string Root()
@@ -278,6 +286,25 @@ namespace Brushblade.Core.Tests
             Assert.That(missing, Is.Empty,
                 "这些会挂在敌人身上的状态,战斗画面的敌人格没有任何提示:\n  "
                 + string.Join("\n  ", missing));
+        }
+
+        /// <summary>修饰类枚举(条件 / 选择器 / 计数口径 / Augment 字段)在 CharInfo 里都有文案,或是「缺省不印」的那一档
+        /// (D2-水 Task 1 起,纯追加)。漏一个的表现是卡面后缀静默为空 —— 玩家看不到条件 / 目标。</summary>
+        private static readonly string[] ModifierEnumDefaults =
+        {
+            "DamageCondition.None", "EffectPick.Primary", "ScaleBasis.None",
+            "AugmentField.Count",   // AugmentText 的缺省分支(`_ =>`)就是「次数」
+        };
+
+        [Test]
+        public void EveryModifierEnum_IsRenderedInCharInfoOrDefault()
+        {
+            var src = Source("CharInfo.cs");
+            var missing = new[] { typeof(DamageCondition), typeof(EffectPick), typeof(ScaleBasis), typeof(AugmentField) }
+                .SelectMany(t => Enum.GetNames(t).Select(n => (Type: t.Name, Name: n)))
+                .Where(x => !ModifierEnumDefaults.Contains($"{x.Type}.{x.Name}") && !ContainsKindRef(src, x.Type, x.Name))
+                .Select(x => $"{x.Type}.{x.Name}").OrderBy(n => n).ToArray();
+            Assert.That(missing, Is.Empty, "这些修饰类枚举在 CharInfo 里没有文案:\n  " + string.Join("\n  ", missing));
         }
 
         /// <summary>豁免名单不许有已经不存在的枚举名(改名/删除后的残留)。</summary>

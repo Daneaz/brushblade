@@ -29,6 +29,23 @@ namespace Brushblade.Core.Tests
             Assert.That(L(id, CardFace.Feature), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
         }
 
+        /// <summary>D2-水 E26(溃·溃围):润面带 `pick All` 的敌方效果(不需要选敌)不给落点加 Enemy ——
+        /// 需要友方目标的面仍只落友方;没有友方需求时照旧(火海这类全体减攻面仍可拖到敌人身上)。</summary>
+        [Test]
+        public void AllyFace_WithPickAllHostileRider_DoesNotLandOnEnemy()
+        {
+            var def = new CharDef("溃试", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 30), new EffectDef(EffectKind.Slow, 1, pick: EffectPick.All) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+            Assert.That(CardFaceRules.Landing(def, CardFace.Feature, 1), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
+
+            var noAlly = new CharDef("溃试二", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Weaken, 25, turns: 2, pick: EffectPick.All) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+            Assert.That(CardFaceRules.Landing(noAlly, CardFace.Feature, 1).HasFlag(FaceLanding.Enemy), Is.True,
+                "没有友方需求的面:pick All 敌对效果照旧构成 Enemy 落点");
+        }
+
         [Test]
         public void Metal_Li_AttackHitsEnemy()
         {
@@ -70,9 +87,11 @@ namespace Brushblade.Core.Tests
                 {
                     var landing = CardFaceRules.Landing(d, CardFace.Feature, lv);
                     if ((landing & FaceLanding.Self) == 0) continue;
+                    // D2-水 E26(Q25,溃围 `Slow 1 pick All`):需要友方目标的面,pick All 的敌方附带不选敌,允许与 Self 落点共存;
+                    // 落在主目标上的敌对效果仍然不许
                     foreach (var e in TraitRules.CastEffects(d, CardFace.Feature, lv))
-                        Assert.That(CardFaceRules.IsHostileTargeted(e), Is.False,
-                            $"{d.Id} Lv{lv} 五行面含 Self 落点却有敌对效果 {e.Kind}");
+                        Assert.That(CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) != EffectPick.All, Is.False,
+                            $"{d.Id} Lv{lv} 五行面含 Self 落点却有选主目标的敌对效果 {e.Kind}");
                 }
         }
 
@@ -110,6 +129,8 @@ namespace Brushblade.Core.Tests
             EffectKind.SelfCost,    // D2-火 Task 5:扣的是玩家自己的生命
             EffectKind.BlockMod,    // D2-金 Task 1:格挡修饰器,出字前折进本面的 Block
             EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,   // D2-金 Task 4:战意族,作用于玩家自己
+            EffectKind.DebuffWard,  // D2-水 Task 3:免疫减益挂在落点(玩家或木灵)身上
+            EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,   // D2-水 Task 4:挂在玩家身上
         };
 
         [Test]
