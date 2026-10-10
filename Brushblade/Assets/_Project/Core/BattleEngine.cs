@@ -375,6 +375,7 @@ namespace Brushblade.Core
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
         ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
         FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
+        ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
     }
 
     public readonly struct BattleEvent
@@ -891,7 +892,9 @@ namespace Brushblade.Core
                 or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
                 or EffectKind.Blind
                 // 加速/急速(2026-09-16,水):百分比连续量值,与 CritBuff/PierceBuff 同型
-                or EffectKind.Haste => true,
+                or EffectKind.Haste
+                // 堡垒(D2-土 G3,附录「同 Shield:卡等级 + L3 + 攻击力」):受击得盾量出字时定死,吃 L3
+                or EffectKind.HurtShield => true,
             _ => false,
         };
 
@@ -3950,6 +3953,17 @@ namespace Brushblade.Core
                     case EffectKind.ShieldCarry:
                         ApplyShieldCarry(effect, def.Id);
                         break;
+                    // 受击挂点族(D2-土 G2 / G3 / G4)
+                    case EffectKind.HitCap:
+                        ApplyHitCap(effect, def.Id);
+                        break;
+                    case EffectKind.HurtShield:
+                        ApplyHurtShield(effect, value, def.Id);   // 量 = 卡等级 + L3 之后的 value,在里面过攻击力缩放
+                        break;
+                    case EffectKind.ShieldShatter:
+                        // 碎玉:挂载同反震 —— 本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
+                        if (_cast.ShieldGranted > 0) ApplyShieldShatter(effect.Value, def.Id);
+                        break;
                     case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
@@ -5777,12 +5791,14 @@ namespace Brushblade.Core
             // 多来源取最强(spec §5.2 第 1 律,Ruling 11)。
             int damageCut = _playerStatuses.MaxMagnitude(StatusKind.DamageCut);
             bool blocking = block != null && block.Magnitude > 0;
+            int preCut = damage;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (blocking || damageCut > 0)
             {
                 int cut = Math.Min((blocking ? BattleConfig.BlockReductionPercent : 0) + damageCut,
                     CombatCaps.NonArmorReductionPercent);
                 damage = damage * (100 - cut) / 100;
             }
+            damage = CapHitDamage(damage, preCut, _config.PlayerMaxHp);   // 铜墙铁壁(D2-土 G2):没挂时一次判断即返回
             if (blocking)
             {
                 counter = block.CounterDamage;
@@ -5833,21 +5849,29 @@ namespace Brushblade.Core
             // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
             // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
             var recoil = allowReflect ? _playerStatuses.Find(StatusKind.ShieldRecoil) : null;
+            int recoilDealt = 0;   // 碎玉(G4)拿反震之后剩下的预算
             if (recoil != null && absorbed > 0 && _enemies[enemyIndex].Alive)
             {
                 int budget = damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt;
                 int dealt = Math.Min(absorbed * recoil.Magnitude / 100, budget);
                 if (dealt > 0 && TryUseTrait(recoil.TraitKey ?? recoil.SourceId ?? "", perTurn: 1, perBattle: 0))
+                {
                     DamageEnemy(enemyIndex, dealt, Element.Heart,
                         bypassDefense: true, allowBarb: false,
                         source: EffectSource.ShieldRecoil, attackerRef: UnitRef.Player);
+                    recoilDealt = dealt;
+                }
             }
             if (absorbed > 0)
             {
+                // 碎玉(D2-土 G4,Q6):同一份 60% 预算,排在镜 → 格挡 → 反震之后;没挂时一次判断即返回
+                ShatterShieldBack(enemyIndex, absorbed, allowReflect,
+                    damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt - recoilDealt);
                 EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
                 DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
             }
             TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
+            TriggerHurtShield(damage, allowReflect);   // 堡垒(D2-土 G3):同上
             return true;
         }
 
@@ -5907,7 +5931,9 @@ namespace Brushblade.Core
             int summonCut = Math.Min(
                 (blocking ? BattleConfig.BlockReductionPercent : 0) + _playerStatuses.MaxMagnitude(StatusKind.DamageCut),
                 CombatCaps.NonArmorReductionPercent);
+            int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
+            taken = CapHitDamage(taken, preCut, summon.MaxHp);   // 铜墙铁壁(D2-土 G2):按木灵自己的 MaxHp;没挂时一次判断即返回
             int hpBefore = summon.Hp;
 
             // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,排在护甲之后、护盾之前 ——

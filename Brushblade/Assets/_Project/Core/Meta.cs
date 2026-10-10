@@ -846,6 +846,8 @@ namespace Brushblade.Core
             EffectKind.HurtHeal or EffectKind.ShieldFrost or EffectKind.TurnPulse => false,
             // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾的 Value 都是百分比(作用于已吃过等级的护盾量),离散
             EffectKind.ShieldSpend or EffectKind.ShieldToMorale or EffectKind.ShieldCarry => false,
+            // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比,离散;堡垒(HurtShield)是护盾量,连续(走缺省 true)
+            EffectKind.HitCap or EffectKind.ShieldShatter => false,
             _ => true,
         };
 

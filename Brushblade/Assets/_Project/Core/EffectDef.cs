@@ -214,6 +214,14 @@ namespace Brushblade.Core
                         // (扣除量 0 → +0),钳 MoraleCap、不计溢出(聚金看不到)。离散。非敌对。
         ShieldCarry,    // 浮屠:给玩家挂 StatusKind.ShieldCarry(Magnitude = Value%),Turns 回合(必填);之后每个玩家回合开始清普通桶时,
                         // 把被清量 × N% 作普通桶加回(不攒厚),再判空移除载体。多条取最强。离散。非敌对。
+        // ---- D2-土 Task 3:受击挂点族(附录 G2 / G3 / G4)。⚠ 只在末尾追加 ----
+        HitCap,         // 铜墙铁壁:给玩家挂 StatusKind.HitCap(Magnitude = Value%,1..100),TurnsLeft 1(同 DamageCut);
+                        // 单次受伤 ≤ 承伤者最大生命 × N%(玩家按玩家、木灵按木灵),削减量并入 60% 非护甲减伤预算(Q1)。离散。非敌对。
+        HurtShield,     // 堡垒:给玩家挂 StatusKind.HurtShield,Magnitude = 出字时定死的护盾量(卡等级 + L3 + 攻击力,同 Shield),
+                        // Turns 回合(必填);玩家被敌人挥击命中且 damage > 0、未判负 → 每次都加普通桶护盾并攒厚。多条取最强(Q7)。连续。非敌对。
+        ShieldShatter,  // 碎玉:本次出字给玩家实际加了盾(同反震)才挂隐藏 StatusKind.ShieldShatter(Magnitude = Value%,1..100);
+                        // 敌人挥击把两桶打到 0 → 同步反伤「本击吸收量 × N%」,进 60% 反伤预算(镜 → 格挡 → 反震 → 碎玉,Q6);
+                        // 随两桶归零移除(倾覆 / 扣盾清空只移除不反伤)。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

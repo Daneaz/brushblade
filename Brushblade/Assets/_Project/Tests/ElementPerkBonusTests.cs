@@ -157,6 +157,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Mine,
                 // D2-水 Task 2:怀山 / 寒彻是延时伤害量,同埋雷
                 EffectKind.FrostBite, EffectKind.ThawStrike,
+                // D2-土 Task 3:堡垒的受击得盾量(附录 G3「同 Shield:卡等级 + L3 + 攻击力」)
+                EffectKind.HurtShield,
             };
             var doesNotTake = new System.Collections.Generic.HashSet<EffectKind>
             {
@@ -213,6 +215,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,
                 // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾是百分比,不是本系字的护盾本体
                 EffectKind.ShieldSpend, EffectKind.ShieldToMorale, EffectKind.ShieldCarry,
+                // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比
+                EffectKind.HitCap, EffectKind.ShieldShatter,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

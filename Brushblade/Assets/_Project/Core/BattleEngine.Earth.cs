@@ -6,6 +6,8 @@ namespace Brushblade.Core
     /// G9 ShieldCarry(浮屠)。ApplyEffects 的 switch 与 BeginPlayerTurn 的清盾段各只留一行调用,实现放这里。
     ///
     /// 恒等:G1 / G8 只在新 EffectKind 出现时才走到;G9 挂在每回合必经的清盾段,没挂 ShieldCarry 时一次 Has 判断即返回。
+    /// Task 3 = 受击挂点族:G2 HitCap(铜墙铁壁)、G3 HurtShield(堡垒)、G4 ShieldShatter(碎玉),挂在 DamagePlayerDirect /
+    /// DamageSummon 里,同样没挂时一次 Has 判断即返回。
     /// 一律不摇随机数。</summary>
     public sealed partial class BattleEngine
     {
@@ -55,6 +57,89 @@ namespace Brushblade.Core
             if (kept <= 0) return;
             int granted = AddPlayerShield(kept, persist: false);
             if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+        }
+
+        // ---- Task 3:受击挂点族(G2 / G3 / G4) ----
+
+        /// <summary>铜墙铁壁(G2)挂载:TurnsLeft 1(同 DamageCut,玩家下回合开始的 tick 到期),同源刷新。</summary>
+        private void ApplyHitCap(EffectDef effect, string sourceId)
+        {
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = StatusKind.HitCap, Polarity = StatusPolarity.Buff,
+                Magnitude = Math.Clamp(effect.Value, 0, 100), TurnsLeft = 1, SourceId = sourceId, TraitKey = effect.TraitKey,
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>铜墙铁壁(G2,Q1):格挡 + DamageCut 之后,把单次伤害压到 maxHp × N%(多条取最强);
+        /// 削减并入 §5.2.4 的 60% 非护甲减伤预算 —— 结果不低于 preCut × (100 − 60)%(格挡 + DamageCut 已用的部分也算在内)。
+        /// preCut = 非护甲减伤之前的伤害(护甲之后)。玩家传玩家最大生命、木灵传木灵 MaxHp。没挂时一次判断即返回。</summary>
+        private int CapHitDamage(int damage, int preCut, int maxHp)
+        {
+            if (!_playerStatuses.Has(StatusKind.HitCap)) return damage;
+            int cap = maxHp * _playerStatuses.MaxMagnitude(StatusKind.HitCap) / 100;
+            int floor = preCut * (100 - CombatCaps.NonArmorReductionPercent) / 100;
+            return Math.Max(Math.Min(damage, cap), floor);
+        }
+
+        /// <summary>堡垒(G3)挂载:量 = 卡等级 + L3 之后的 value 过攻击力缩放(同 Shield 本体),出字时定死进 Magnitude;
+        /// TurnsLeft = 回合(按玩家回合递减),同源刷新。</summary>
+        private void ApplyHurtShield(EffectDef effect, int value, string sourceId)
+        {
+            int amount = ScaleByBaseAttack(WuxingResolver.ResolveEffect(value));
+            if (amount <= 0) return;
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = StatusKind.HurtShield, Polarity = StatusPolarity.Buff,
+                Magnitude = amount, TurnsLeft = Math.Max(1, effect.Turns), SourceId = sourceId, TraitKey = effect.TraitKey,
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>堡垒(G3,Q7):DamagePlayerDirect 命中结算之后 —— 只认敌人挥击(allowReflect)且 damage &gt; 0、本击未判负;
+        /// 每次都给、不限次数;多条取最强;进普通桶并按请求量攒厚(同 Shield);在触发深度里结算(R4)。
+        /// 只落在玩家身上(木灵受击不触发)。没挂时一次判断即返回。</summary>
+        private void TriggerHurtShield(int damage, bool allowReflect)
+        {
+            if (!_playerStatuses.Has(StatusKind.HurtShield)) return;
+            if (!allowReflect || damage <= 0 || Phase == BattlePhase.Lost) return;
+            int amount = _playerStatuses.MaxMagnitude(StatusKind.HurtShield);
+            if (amount <= 0) return;
+            EnterTrigger();
+            try
+            {
+                int granted = AddPlayerShield(amount, persist: false);
+                GainHeft(amount);
+                _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+            }
+            finally { ExitTrigger(); }
+        }
+
+        /// <summary>碎玉(G4)挂载:同类只留最强一条(同反震),TurnsLeft -1,随两桶归零由 DropShieldRecoilIfEmpty 移除。</summary>
+        private void ApplyShieldShatter(int percent, string sourceId)
+        {
+            var existing = _playerStatuses.Find(StatusKind.ShieldShatter);
+            if (existing != null && existing.Magnitude >= percent) return;
+            _playerStatuses.Remove(StatusKind.ShieldShatter);
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.ShieldShatter, Polarity = StatusPolarity.Buff,
+                Magnitude = Math.Clamp(percent, 0, 100), TurnsLeft = -1, SourceId = sourceId,
+            });
+        }
+
+        /// <summary>碎玉(G4,Q6):DamagePlayerDirect 里护盾吸收 &gt; 0 之后、冰晶之前 —— 敌人挥击把两桶打到 0 时,
+        /// 同步对攻击者打「本击吸收量 × N%」,钳在 60% 反伤预算剩余量(镜 → 格挡 → 反震之后,调用方算好传入)。
+        /// 心属性、无视护甲、不算挥击(allowBarb: false)。载体移除交给紧随的 DropShieldRecoilIfEmpty
+        /// (预算耗尽打不出也照样移除)。没挂时一次判断即返回。</summary>
+        private void ShatterShieldBack(int enemyIndex, int absorbed, bool allowReflect, int budget)
+        {
+            if (!_playerStatuses.Has(StatusKind.ShieldShatter)) return;
+            if (!allowReflect || _shieldNormal + _shieldPersist > 0 || !_enemies[enemyIndex].Alive) return;
+            int dealt = Math.Min(absorbed * _playerStatuses.MaxMagnitude(StatusKind.ShieldShatter) / 100, budget);
+            if (dealt > 0)
+                DamageEnemy(enemyIndex, dealt, Element.Heart,
+                    bypassDefense: true, allowBarb: false,
+                    source: EffectSource.ShieldShatter, attackerRef: UnitRef.Player);
         }
     }
 }

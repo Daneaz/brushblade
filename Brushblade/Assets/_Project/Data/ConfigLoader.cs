@@ -1112,6 +1112,11 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
             if (kind == EffectKind.ShieldCarry && e.Turns < 1)
                 throw new ConfigException($"字「{id}」的 ShieldCarry 须写回合数(turns ≥ 1),当前:{e.Turns}");
+            // D2-土 Task 3(G2 / G3 / G4):单次受伤上限 / 碎玉反伤的百分比须在 1..100;堡垒须写护盾量与回合
+            if ((kind == EffectKind.HitCap || kind == EffectKind.ShieldShatter) && (e.Value < 1 || e.Value > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
+            if (kind == EffectKind.HurtShield && (e.Value < 1 || e.Turns < 1))
+                throw new ConfigException($"字「{id}」的 HurtShield 须写护盾量 N ≥ 1 与回合数(turns ≥ 1),当前:{e.Value} / {e.Turns}");
         }
 
         /// <summary>D2-土 Task 1 的字段(附录 E29 / E30 / E31 / E36):写在不读它的效果上引擎会静默忽略 —— 一律拦下。

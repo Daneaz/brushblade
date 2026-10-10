@@ -131,6 +131,11 @@ namespace Brushblade.Core
         // ---- D2-土 Task 2:护盾操作族(附录 G9,仅玩家)。⚠ 只在末尾追加 ----
         ShieldCarry,      // 浮屠(隐藏载体,Q21):Magnitude = 回合初被清普通桶的加回百分比,TurnsLeft = 回合(按玩家回合递减,
                           // 施加当回合不触发,之后 N 次),SourceId = 字 ID。多条取最强;加回作普通桶、不攒厚,排在判空移除载体之前。
+        // ---- D2-土 Task 3:受击挂点族(附录 G2 / G3 / G4,仅玩家)。⚠ 只在末尾追加 ----
+        HitCap,           // 铜墙铁壁(可见,chip 复用「减伤」待审稿,Q20):Magnitude = 最大生命百分比,TurnsLeft 1;多条取最强。
+                          // 玩家身上、我方全体受益:玩家按玩家最大生命、木灵按木灵 MaxHp 封顶,削减量并入 60% 非护甲减伤预算。
+        HurtShield,       // 堡垒(chip 待稿,Q21):Magnitude = 出字时定死的护盾量,TurnsLeft = 回合;多条取最强。
+        ShieldShatter,    // 碎玉(隐藏载体,Q21):Magnitude = 反伤百分比,TurnsLeft = -1,同类只留最强一条;随两桶护盾归零移除。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -145,7 +150,8 @@ namespace Brushblade.Core
             || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield   // D2-金 Task 4:战意光环只管本场
             || kind == StatusKind.DebuffWard   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
             || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse   // D2-水 Task 4(防御性)
-            || kind == StatusKind.ShieldCarry;   // D2-土 Task 2(防御性)
+            || kind == StatusKind.ShieldCarry   // D2-土 Task 2(防御性)
+            || kind == StatusKind.HitCap || kind == StatusKind.HurtShield || kind == StatusKind.ShieldShatter;   // D2-土 Task 3(防御性)
     }
 
     public enum StatusPolarity { Buff, Debuff }
