@@ -2505,6 +2505,7 @@ namespace Brushblade.Core
         /// 两者都要落在这一拍之内,不能拖进下一个行动者那一拍。</summary>
         private void EndBeat(UnitRef actor)
         {
+            FlushBeatEndReactions();   // 冰晶(D2-水 W6):攻击者这一拍递减之后才兑现;空时一次判断即返回
             DrainReactions();
             Raise(HookKind.TurnEnded, actor, UnitRef.None);
             DrainReactions();
@@ -2789,6 +2790,7 @@ namespace Brushblade.Core
                 DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
             }
             ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
+            EnqueueTurnPulses();   // 大雨滂沱(D2-水 W7):同一时点入队,TurnStarted 之后的安全点兑现;没挂时一次判断即返回
             _playerTurnsStarted++;
             Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             DrainReactions();   // 安全点:「回合开始时」类反应排在玩家灼烧结算之前
@@ -3906,6 +3908,16 @@ namespace Brushblade.Core
                     case EffectKind.BuffBlock:   // 洗尽铅华(D2-水 W3):回合离散,读 effect.Turns
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBuffBlock(ti, effect, def.Id);
+                        break;
+                    // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):Value 离散,读 effect.Value
+                    case EffectKind.HurtHeal:
+                        ApplyHurtHeal(effect, def.Id);
+                        break;
+                    case EffectKind.ShieldFrost:
+                        ArmShieldFrost(effect, def.Id, attacker);
+                        break;
+                    case EffectKind.TurnPulse:
+                        ArmTurnPulse(effect, def.Id, attacker);
                         break;
                     case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
@@ -5794,7 +5806,12 @@ namespace Brushblade.Core
                         bypassDefense: true, allowBarb: false,
                         source: EffectSource.ShieldRecoil, attackerRef: UnitRef.Player);
             }
-            if (absorbed > 0) DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震随之移除
+            if (absorbed > 0)
+            {
+                EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
+                DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
+            }
+            TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
             return true;
         }
 

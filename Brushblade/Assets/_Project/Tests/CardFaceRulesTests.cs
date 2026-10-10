@@ -128,6 +128,7 @@ namespace Brushblade.Core.Tests
             EffectKind.BlockMod,    // D2-金 Task 1:格挡修饰器,出字前折进本面的 Block
             EffectKind.MoraleOverflowShield, EffectKind.MoraleArmor, EffectKind.MoraleShield,   // D2-金 Task 4:战意族,作用于玩家自己
             EffectKind.DebuffWard,  // D2-水 Task 3:免疫减益挂在落点(玩家或木灵)身上
+            EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,   // D2-水 Task 4:挂在玩家身上
         };
 
         [Test]

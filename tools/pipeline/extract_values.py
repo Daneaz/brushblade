@@ -111,6 +111,9 @@ VALUELESS_EFFECTS = {
     # 可配 `wardOf X`(只拦一种)/ `wardCount N`(前 N 次)。整串带反引号匹配,`DebuffWard` 不吞 `DebuffWard 50`。
     "BuffBlock": {"kind": "BuffBlock", "value": 0},
     "DebuffWard": {"kind": "DebuffWard", "value": 0},
+    # D2-水 Task 4(附录 W7):大雨滂沱 `TurnPulse` 不带数值(必写 turns),每回合开始的效果写在 `onTurn` 段里(见 ON_TURN_TOKEN)。
+    # 栉风沐雨 `HurtHeal N`、冰晶 `ShieldFrost N` 带数值,走通用正则。
+    "TurnPulse": {"kind": "TurnPulse", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -149,7 +152,8 @@ EXECUTE_SPLASH_TOKEN = "executeSplash"
 # 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
                   "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
-                  "BuffBlock", "DebuffWard"}   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
+                  "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
+                  "HurtHeal", "TurnPulse"}     # D2-水 Task 4:受击回复 / 回合脉冲,同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -323,6 +327,12 @@ PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment", "SelfCost", "
 # 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
 ON_HIT_TOKEN = "onHit"
 RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vulnerable", "Slow", "Freeze"}
+# 回合脉冲(D2-水 Task 4,W7):`onTurn` 之后的全部 token 是「之后每个玩家回合开始结算的效果」,挂到本格唯一的 TurnPulse 上,
+# 落进 chars.json 的 perHit 字段(同 onHit)。名单与 BattleEngine.TurnPulseAllows 一致(不收伤害);没有主目标,
+# 敌方效果必须写 `pick All` 之类不选主目标的选择器;不能带条件门 / 附着 / 本体百分比。
+ON_TURN_TOKEN = "onTurn"
+TURN_PULSE_ALLOWED = {"Slow", "Freeze", "Weaken", "Blind", "HealSelf", "Shield", "AddWellspring"}
+TURN_PULSE_ENEMY_KINDS = {"Slow", "Freeze", "Weaken", "Blind"}
 
 # ---- D2-金 Task 1(附录 E10 / E12 / E13)----
 # `hitsPerMorale`(大卸八块):本格 Reshape(没有则唯一的 DamageSingle)的击数 + 战意 → scaleBy Morale。
@@ -417,6 +427,23 @@ def _attach_on_hit(config, char, effects, riders):
         if r["kind"] not in RETALIATE_ALLOWED or set(r) & {"onlyIf", "pick", "riderOf", "bodyPercent", "perHit", "openingBattles"}:
             raise ValueError(f"{char}:配置格「{config}」的 `{ON_HIT_TOKEN}` 段只能是对攻击者的非伤害效果 {sorted(RETALIATE_ALLOWED)},"
                              f"不能带条件门 / 选择器 / 附着:{r}")
+    hosts[0]["perHit"] = riders
+
+
+def _attach_on_turn(config, char, effects, riders):
+    """把回合脉冲的效果 riders 挂到本格唯一的 TurnPulse 上(chars.json 字段 perHit)。"""
+    hosts = [e for e in effects if e["kind"] == "TurnPulse"]
+    if len(hosts) != 1:
+        raise ValueError(f"{char}:配置格「{config}」写了 `{ON_TURN_TOKEN}`,但本格没有唯一的一条 `TurnPulse` 可挂 —— 它会静默消失。")
+    if not riders:
+        raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 后面没有效果")
+    for r in riders:
+        bad = (r["kind"] not in TURN_PULSE_ALLOWED
+               or set(r) & {"onlyIf", "riderOf", "bodyPercent", "perHit", "openingBattles"}
+               or (r["kind"] in TURN_PULSE_ENEMY_KINDS and r.get("pick", "Primary") == "Primary"))
+        if bad:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 段只能是 {sorted(TURN_PULSE_ALLOWED)}"
+                             f"(敌方效果须写 `pick All`),不能带条件门 / 附着 / 本体百分比:{r}")
     hosts[0]["perHit"] = riders
 
 
@@ -879,7 +906,7 @@ def _attach_ally_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 
 
-def _parse_effects(config, char, on_hit_host=False):
+def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     """「`DamageSingle 30` + `All` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
 
     char 只被召唤分支用到(当 summonChar),其余 kind 一概不看第二个参数。"""
@@ -889,6 +916,16 @@ def _parse_effects(config, char, on_hit_host=False):
     # 配置格里出现过的 token 减去被消费的,剩下的一律报错。
     # 每击附带(D2-火 N4b / Q23):`perHit [N]` 把格子切成两段 —— 前段照常解析,后段解析成每击附带的效果列表
     # 受击回敬(D2-火 Task 4):`onHit` 同样把格子切成两段,后段挂到本格的 Retaliate 上
+    # 回合脉冲(D2-水 Task 4):`onTurn` 同样把格子切成两段,后段挂到本格的 TurnPulse 上
+    on_turn = list(re.finditer(rf"`{ON_TURN_TOKEN}`", config))
+    if on_turn:
+        if len(on_turn) > 1:
+            raise ValueError(f"{char}:配置格「{config}」写了多个 `{ON_TURN_TOKEN}`,只能有一段")
+        m = on_turn[0]
+        effects = _parse_effects(config[:m.start()], char, on_turn_host=True)
+        _attach_on_turn(config, char, effects, _parse_segment(config[m.end():], config, char, ON_TURN_TOKEN))
+        return effects
+
     on_hit = list(re.finditer(rf"`{ON_HIT_TOKEN}`", config))
     if on_hit:
         if len(on_hit) > 1:
@@ -1212,4 +1249,8 @@ def _parse_effects(config, char, on_hit_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
         if e["kind"] == "Retaliate" and not on_hit_host:
             raise ValueError(f"{char}:配置格「{config}」的 `Retaliate` 须用 `{ON_HIT_TOKEN}` 段写回敬的效果")
+        if e["kind"] == "TurnPulse" and not on_turn_host:
+            raise ValueError(f"{char}:配置格「{config}」的 `TurnPulse` 须用 `{ON_TURN_TOKEN}` 段写每回合开始的效果")
+        if e["kind"] in ("HurtHeal", "ShieldFrost") and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
     return effects

@@ -184,10 +184,12 @@ namespace Brushblade.Core
                     bag.RemoveEntry(s);
         }
 
-        /// <summary>两桶护盾都空了:反震失去载体,移除(D9)。</summary>
+        /// <summary>两桶护盾都空了:反震(D9)与冰晶(D2-水 W6)失去载体,移除。</summary>
         private void DropShieldRecoilIfEmpty()
         {
-            if (_shieldNormal + _shieldPersist <= 0) _playerStatuses.Remove(StatusKind.ShieldRecoil);
+            if (_shieldNormal + _shieldPersist > 0) return;
+            _playerStatuses.Remove(StatusKind.ShieldRecoil);
+            _playerStatuses.Remove(StatusKind.ShieldFrost);
         }
 
         /// <summary>反震挂载:同类取最强,只留一条(TraitKey 跟随较强的那条)。</summary>

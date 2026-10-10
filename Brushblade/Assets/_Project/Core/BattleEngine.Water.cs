@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Brushblade.Core
@@ -213,6 +214,111 @@ namespace Brushblade.Core
             else
                 _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, AddPlayerShield(shield, persist: false)));
             return true;
+        }
+
+        // ---- Task 4:我方受击 / 回合挂点(附录 W5 / W6 / W7) ----
+
+        /// <summary>受击回复每回合 1 次的次数阀键(不分来源:多条取最强,整体每回合 1 次)。</summary>
+        internal const string HurtHealUseKey = "受击回复";
+
+        /// <summary>回合脉冲载荷允许的效果(ConfigLoader 与管线共用口径,Q17):不收伤害 —— 伤害类日后要进来须先过反伤 / 预算口径。</summary>
+        public static bool TurnPulseAllows(EffectKind kind) => kind switch
+        {
+            EffectKind.Slow or EffectKind.Freeze or EffectKind.Weaken or EffectKind.Blind
+                or EffectKind.HealSelf or EffectKind.Shield or EffectKind.AddWellspring => true,
+            _ => false,
+        };
+
+        /// <summary>栉风沐雨(W5)挂载:回合离散,百分比离散。同源刷新(bag.Apply)。</summary>
+        private void ApplyHurtHeal(EffectDef effect, string sourceId)
+        {
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = StatusKind.HurtHeal, Polarity = StatusPolarity.Buff,
+                Magnitude = effect.Value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = sourceId, TraitKey = effect.TraitKey,
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>冰晶(W6)挂载:本次出字给玩家实际加了盾才挂(同反震)。载荷 OnHit = [Freeze N](Q26 伤害载荷的预留位)。</summary>
+        private void ArmShieldFrost(EffectDef effect, string sourceId, Element element)
+        {
+            if (_cast.ShieldGranted <= 0) return;
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.ShieldFrost, Polarity = StatusPolarity.Buff,
+                Magnitude = effect.Value, TurnsLeft = -1, SourceId = sourceId, TraitKey = effect.TraitKey,
+                OnHit = new List<OpeningEffect>
+                {
+                    new OpeningEffect { SourceCharId = sourceId, Element = element, Kind = EffectKind.Freeze, Value = effect.Value },
+                },
+            });
+        }
+
+        /// <summary>大雨滂沱(W7)挂载:OnHit 记**未缩放**的载荷(触发时按来源字等级结算,同受击回敬)。</summary>
+        private void ArmTurnPulse(EffectDef effect, string sourceId, Element element)
+        {
+            if (effect.PerHit.Count == 0) return;
+            ApplyStatus(_playerStatuses, new StatusEffect
+            {
+                Kind = StatusKind.TurnPulse, Polarity = StatusPolarity.Buff,
+                TurnsLeft = Math.Max(1, effect.Turns), SourceId = sourceId, TraitKey = effect.TraitKey,
+                OnHit = effect.PerHit.Select(e => OpeningEffect.Of(e, sourceId, element)).ToList(),
+            }, UnitRef.Player, UnitRef.Player);
+        }
+
+        /// <summary>DamagePlayerDirect 命中结算之后(W5,Q12):只认敌人挥击(allowReflect)且 damage &gt; 0;判负之后不触发;
+        /// 多条取最强,每回合 1 次;回复不吃泉放大、不攒泉(HealAlly 直给),在触发深度里结算(R4)。没挂时一次判断即返回(恒等)。</summary>
+        private void TriggerHurtHeal(int damage, bool allowReflect)
+        {
+            if (!_playerStatuses.Has(StatusKind.HurtHeal)) return;
+            if (!allowReflect || damage <= 0 || Phase == BattlePhase.Lost) return;
+            int percent = _playerStatuses.MaxMagnitude(StatusKind.HurtHeal);
+            int heal = damage * percent / 100;
+            if (heal <= 0 || !TryUseTrait(HurtHealUseKey, perTurn: 1, perBattle: 0)) return;
+            EnterTrigger();
+            try { HealAlly(Targeting.PlayerTarget, heal); }
+            finally { ExitTrigger(); }
+        }
+
+        /// <summary>冰晶的反应要等攻击者这一拍的 TickTurns 之后才入队(EndBeat 第一次排空前):挥击发生在攻击者自己那一拍里,
+        /// 拍内施加的冻结会被同一拍末尾的递减吃掉一回合 —— 「冻结 1 回合」就成了 0(还不挂霜抗)。不进快照:EndBeat 必然清空。</summary>
+        private readonly List<Reaction> _beatEndReactions = new List<Reaction>();
+
+        /// <summary>EndBeat 开头调用:把本拍积压的冰晶反应移进队列。空时一次判断即返回(恒等)。</summary>
+        private void FlushBeatEndReactions()
+        {
+            if (_beatEndReactions.Count == 0) return;
+            foreach (var r in _beatEndReactions) Enqueue(r);
+            _beatEndReactions.Clear();
+        }
+
+        /// <summary>DamagePlayerDirect 里护盾吸收 &gt; 0 之后(W6,Q15):敌人挥击把两桶打到 0 → 每条冰晶各记一条对攻击者的反应
+        /// (Depth + 1;攻击者这一拍收尾 EndBeat 的安全点兑现,见 <see cref="_beatEndReactions"/>;Boss 由 Freeze 分支转冰滞)。
+        /// 移除交给紧随的 DropShieldRecoilIfEmpty。没挂时一次判断即返回。</summary>
+        private void EnqueueShieldFrost(int enemyIndex, bool allowReflect)
+        {
+            if (!_playerStatuses.Has(StatusKind.ShieldFrost)) return;
+            if (!allowReflect || _shieldNormal + _shieldPersist > 0) return;
+            foreach (var s in _playerStatuses.All.Where(x => x.Kind == StatusKind.ShieldFrost).ToList())
+            {
+                if (s.OnHit == null || s.OnHit.Count == 0) continue;
+                var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
+                if (Phase != BattlePhase.Won && Phase != BattlePhase.Lost)
+                    _beatEndReactions.Add(new Reaction(s.SourceId, s.OnHit[0].Element, effects, enemyIndex, TriggerDepth + 1));
+            }
+        }
+
+        /// <summary>BeginPlayerTurn(W7,Q17):ApplyMoraleShield 之后、TurnStarted 之前,每条回合脉冲入队一条反应(目标 −1),
+        /// 由紧随的 DrainReactions 兑现;回合数由 TickPlayerStatuses 递减。没挂时一次判断即返回(恒等)。</summary>
+        private void EnqueueTurnPulses()
+        {
+            if (!_playerStatuses.Has(StatusKind.TurnPulse)) return;
+            foreach (var s in _playerStatuses.All.Where(x => x.Kind == StatusKind.TurnPulse).ToList())
+            {
+                if (s.OnHit == null || s.OnHit.Count == 0) continue;
+                var effects = s.OnHit.Select(o => s.TraitKey == null ? o.ToEffect() : o.ToEffect().With(traitKey: s.TraitKey)).ToList();
+                Enqueue(new Reaction(s.SourceId, s.OnHit[0].Element, effects, -1, TriggerDepth + 1));
+            }
         }
     }
 }

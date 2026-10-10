@@ -69,6 +69,8 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.FrostBite)] = "隐藏载体(D2-水 V5,怀山):冻结中每拍的伤害本身就是反馈,来源标签归 Plan E",
             [nameof(StatusKind.ThawStrike)] = "隐藏载体(D2-水 V5,寒彻):冻结结束时的伤害本身就是反馈,来源标签归 Plan E",
             [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
+            // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(StatusText 有文案),chip 待稿,不在这里
+            [nameof(StatusKind.ShieldFrost)] = "隐藏载体(D2-水 V5,冰晶):护盾被打破时攻击者被冻结本身就是反馈,触发反馈归 Plan E",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。

@@ -75,6 +75,8 @@ namespace Brushblade.Core.Tests
             EffectKind.ThawSlow, EffectKind.ChargeDelay,
             // D2-水 Task 3:洗尽铅华不用 Value(回合离散)
             EffectKind.BuffBlock,
+            // D2-水 Task 4:受击回复是百分比、冰晶是冻结回合、回合脉冲不用 Value
+            EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

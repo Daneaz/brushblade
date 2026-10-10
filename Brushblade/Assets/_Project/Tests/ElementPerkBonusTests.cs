@@ -209,6 +209,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.ThawSlow, EffectKind.ChargeDelay,
                 // D2-水 Task 3:洗尽铅华不用 Value;免疫减益的转盾是拦截的折算,不是本系字的护盾本体
                 EffectKind.BuffBlock, EffectKind.DebuffWard,
+                // D2-水 Task 4:受击回复是百分比、冰晶是冻结回合、回合脉冲的载荷触发时另行结算
+                EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

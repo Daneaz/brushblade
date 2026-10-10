@@ -939,6 +939,27 @@ namespace Brushblade.Data
                             + $"不能带条件门 / 附着 / 选择器 / 本体百分比 / 嵌套:{child.Kind}");
                 }
             }
+            else if (kind == EffectKind.TurnPulse)
+            {
+                // 回合脉冲(D2-水 W7,Q17):perHit 段 = 每个玩家回合开始结算的效果(目标 −1)。不收伤害;
+                // 敌方效果必须自带选择器落到全体(没有主目标),不能带条件门 / 附着 / 本体百分比 / 嵌套 / 开局登记
+                if (e.PerHit == null || e.PerHit.Count == 0)
+                    throw new ConfigException($"字「{id}」的回合脉冲(TurnPulse)必须用 perHit 写每回合开始的效果");
+                if (e.PerHitFrom != 1)
+                    throw new ConfigException($"字「{id}」的回合脉冲不能写 perHitFrom");
+                foreach (var child in e.PerHit)
+                {
+                    bool ok = Enum.TryParse(child.Kind, out EffectKind childKind) && BattleEngine.TurnPulseAllows(childKind)
+                        && string.IsNullOrEmpty(child.OnlyIf) && string.IsNullOrEmpty(child.RiderOf)
+                        && child.BodyPercent == 0 && child.PerHit == null && child.OpeningBattles == 0
+                        && !BattleEngine.EffectNeedsTarget(new EffectDef(childKind, child.Value, turns: child.Turns,
+                            targetAll: child.TargetAll,
+                            pick: ParseEnum(child.Pick, EffectPick.Primary, id, "目标选择器")));
+                    if (!ok)
+                        throw new ConfigException($"字「{id}」的回合脉冲里只能是 减速 / 冻结 / 减攻 / 致盲(须选全体)/ 回复 / 护盾 / 加泉,"
+                            + $"不能带条件门 / 附着 / 本体百分比 / 嵌套:{child.Kind}");
+                }
+            }
             else if (e.PerHit != null)
             {
                 if (!damageLike)
@@ -1056,6 +1077,11 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 DebuffWard 的 wardCount 不能为负:{e.WardCount}");
             if (e.OpeningBattles != 0 && kind == EffectKind.DebuffWard && (!string.IsNullOrEmpty(e.WardOf) || e.WardCount != 0))
                 throw new ConfigException($"字「{id}」的 DebuffWard 开局效果不能带 wardOf / wardCount(登记时会丢)");
+            // D2-水 Task 4(W5 / W6 / W7):受击回复 / 回合脉冲必须写回合;百分比 / 冻结回合 ≥ 1
+            if ((kind == EffectKind.HurtHeal || kind == EffectKind.TurnPulse) && e.Turns < 1)
+                throw new ConfigException($"字「{id}」的 {kind} 须写回合数(turns ≥ 1),当前:{e.Turns}");
+            if ((kind == EffectKind.HurtHeal || kind == EffectKind.ShieldFrost) && e.Value < 1)
+                throw new ConfigException($"字「{id}」的 {kind} 须写 N ≥ 1,当前:{e.Value}");
         }
 
         /// <summary>免疫减益只拦得到会落在我方身上的减益(D2-水 W4)。名单外的(增益 / 隐藏载体)写了也永远拦不到 —— 拦下。</summary>

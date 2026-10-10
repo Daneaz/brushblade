@@ -246,6 +246,11 @@ namespace Brushblade.Presentation
                     // 拦截族(D2-水 W3 / W4):回合离散(e.Turns);免疫减益的转盾量吃等级(v)
                     EffectKind.BuffBlock => Strings.T("char.effect.buffblock", ("turns", Math.Max(1, e.Turns))),
                     EffectKind.DebuffWard => DebuffWardText(e, v),
+                    // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):百分比 / 冻结回合 / 回合都离散;回合脉冲的载荷逐条印
+                    EffectKind.HurtHeal => Strings.T("char.effect.hurtheal", ("turns", Math.Max(1, e.Turns)), ("value", e.Value)),
+                    EffectKind.ShieldFrost => Strings.T("char.effect.shieldfrost", ("value", e.Value)),
+                    EffectKind.TurnPulse => Strings.T("char.effect.turnpulse", ("turns", Math.Max(1, e.Turns)),
+                        ("list", string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel))))),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
@@ -319,7 +324,7 @@ namespace Brushblade.Presentation
                 // 计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数
                 parts.Append(ScaleText(e));
                 // 每击附带(D2-火 N4b):子效果逐条印,斜杠分隔(分号已是外层分隔符)
-                if (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate)   // 回敬的 perHit 段已印在它自己的文案里
+                if (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate && e.Kind != EffectKind.TurnPulse)   // 回敬 / 回合脉冲的 perHit 段已印在它自己的文案里
                 {
                     string list = string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)));
                     parts.Append(e.PerHitFrom > 1

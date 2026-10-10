@@ -292,6 +292,16 @@ namespace Brushblade.Presentation
                         magnitude > 0
                             ? Strings.T("status.debuffward.desc.shield", ("value", magnitude))
                             : Strings.T("status.debuffward.desc"));
+                case StatusKind.HurtHeal:
+                    // 栉风沐雨(D2-水 W5):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
+                    return new Info(null, Strings.T("status.hurtheal.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.hurtheal.desc", ("magnitude", magnitude)));
+                case StatusKind.TurnPulse:
+                    // 大雨滂沱(D2-水 W7):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;载荷见特性文案
+                    return new Info(null, Strings.T("status.turnpulse.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.turnpulse.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

@@ -1213,3 +1213,48 @@ def test_d2water_wardable_matches_config_loader():
     assert m, "ConfigLoader.cs 里找不到 WardableKinds 集合字面量"
     loader = set(re.findall(r"StatusKind\.(\w+)", m.group(1)))
     assert loader and loader == WARDABLE, f"只在管线:{WARDABLE - loader};只在 ConfigLoader:{loader - WARDABLE}"
+
+
+# ---- D2-水 Task 4(附录 W5 / W6 / W7):受击回复 / 冰晶 / 回合脉冲(`onTurn` 段)----
+
+@pytest.mark.parametrize("config, expected", [
+    # 栉风沐雨
+    ("`HurtHeal 50` `turns 3`", [{"kind": "HurtHeal", "value": 50, "turns": 3}]),
+    # 冰晶:治疗并获得等量护盾,打破时冻结攻击者 1 回合
+    ("`ShieldFromHeal 100` + `ShieldFrost 1`",
+     [{"kind": "ShieldFromHeal", "value": 100}, {"kind": "ShieldFrost", "value": 1}]),
+    # 大雨滂沱:onTurn 段复用 _parse_segment,按书写顺序落进 perHit;段内可写 pick
+    ("`TurnPulse` `turns 3` `onTurn` `Slow 1` `pick All` + `HealSelf 45`",
+     [{"kind": "TurnPulse", "value": 0, "turns": 3,
+       "perHit": [{"kind": "Slow", "value": 1, "pick": "All"}, {"kind": "HealSelf", "value": 45}]}]),
+])
+def test_d2water_turn_hooks(config, expected):
+    assert _parse_effects(config, "淋") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`HurtHeal 50`", "turns"),                                             # 受击回复必写回合
+    ("`TurnPulse` `onTurn` `HealSelf 45`", "turns"),                         # 回合脉冲必写回合
+    ("`TurnPulse` `turns 3`", "onTurn"),                                     # 必须写 onTurn 段
+    ("`HealSelf 10` `onTurn` `HealSelf 45`", "TurnPulse"),                   # onTurn 没有宿主
+    ("`TurnPulse` `turns 3` `onTurn` `DamageSingle 10`", "onTurn"),            # 不收伤害
+    ("`TurnPulse` `turns 3` `onTurn` `Slow 1`", "onTurn"),                   # 敌方效果须选全体
+    ("`TurnPulse` `turns 3` `onTurn` `Weaken 10` `turns 1` `pick All` `if Burning`", "onTurn"),   # 不能带条件门
+    ("`TurnPulse` `turns 3` `onTurn`", "onTurn"),                            # 空段
+])
+def test_d2water_turn_hook_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+def test_d2water_turn_pulse_allowed_matches_engine():
+    """管线 `TURN_PULSE_ALLOWED` 与 BattleEngine.TurnPulseAllows 是同一张白名单(从 C# 源码抽 switch 臂对账)。"""
+    import re
+    from extract_values import TURN_PULSE_ALLOWED
+    src = (Path(__file__).resolve().parents[3]
+           / "Brushblade/Assets/_Project/Core/BattleEngine.Water.cs").read_text(encoding="utf-8")
+    m = re.search(r"TurnPulseAllows\(EffectKind kind\) => kind switch\s*\{(.*?)=> true", src, re.S)
+    assert m, "BattleEngine.Water.cs 里找不到 TurnPulseAllows"
+    engine = set(re.findall(r"EffectKind\.(\w+)", m.group(1)))
+    assert engine and engine == TURN_PULSE_ALLOWED, f"只在管线:{TURN_PULSE_ALLOWED - engine};只在引擎:{engine - TURN_PULSE_ALLOWED}"

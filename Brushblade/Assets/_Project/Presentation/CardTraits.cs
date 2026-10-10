@@ -639,6 +639,9 @@ namespace Brushblade.Presentation
                     break;
                 case EffectKind.BuffBlock:
                 case EffectKind.DebuffWard:
+                case EffectKind.HurtHeal:      // D2-水 Task 4(栉风沐雨 / 冰晶 / 大雨滂沱):同上
+                case EffectKind.ShieldFrost:
+                case EffectKind.TurnPulse:
                     // D2-水 Task 3(洗尽铅华 / 濯身 / 浇熄):只出现在特性里,本体不出 chip;卡面文案由 CharInfo 印。
                     break;
                 default:

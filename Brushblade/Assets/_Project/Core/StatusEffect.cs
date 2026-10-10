@@ -121,6 +121,13 @@ namespace Brushblade.Core
         DebuffWard,       // 濯身 / 浇熄(玩家或木灵,Buff 极性):期间 ApplyStatus 拦下落在该单位身上的减益(灼按 RefreshBurn 增量计层,
                           // 拦下后不改层)。Magnitude = 每拦 1 层 / 1 条给该单位的护盾(0 = 不转),WardOf = 只拦这一种(null = 全部减益),
                           // WardCount = 剩余次数(0 = 期间不限,>0 用尽即移除;土·杜绝),TurnsLeft = 回合(玩家按玩家回合、木灵按木灵那一拍递减)。
+        // ---- D2-水 Task 4:我方受击 / 回合挂点(附录 W5 / W6 / W7,仅玩家,TurnsLeft 按玩家回合递减) ----
+        HurtHeal,         // 栉风沐雨(可见,chip 待 designer 稿,V5):Magnitude = 回复百分比,TurnsLeft = 回合,SourceId = 字 ID。
+                          // 多条取最强;每回合 1 次(次数阀键「受击回复」)。Q26:土·堡垒的护盾载荷以后复用同一挂点。
+        ShieldFrost,      // 冰晶(隐藏载体):Magnitude = 冻结回合,OnHit = 打破时对攻击者结算的效果(本 plan 恒为 [Freeze N];
+                          // Q26:土·碎玉的伤害载荷以后放这里,须进 60% 反伤预算),TurnsLeft = -1,随两桶护盾归零移除。
+        TurnPulse,        // 大雨滂沱(可见,chip 待 designer 稿,V5):OnHit = 每个玩家回合开始结算的效果(未缩放,OpeningEffect 形态),
+                          // TurnsLeft = 回合(施加当回合不触发,之后 N 次),SourceId = 字 ID、TraitKey = 特性键。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -133,7 +140,8 @@ namespace Brushblade.Core
             || kind == StatusKind.DamageCut || kind == StatusKind.CounterBoost
             || kind == StatusKind.Retaliate   // D2-火 Task 4:受击回敬只管本回合(挂在玩家身上,列进来是防御性的)
             || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield   // D2-金 Task 4:战意光环只管本场
-            || kind == StatusKind.DebuffWard;   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
+            || kind == StatusKind.DebuffWard   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
+            || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse;   // D2-水 Task 4(防御性)
     }
 
     public enum StatusPolarity { Buff, Debuff }

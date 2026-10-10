@@ -199,6 +199,14 @@ namespace Brushblade.Core
         DebuffWard,     // 濯身 / 浇熄:给落点(玩家或木灵,AllyStatuses)挂 StatusKind.DebuffWard,Turns 回合(必填)内拦下落在该单位身上的减益。
                         // Value = 每拦 1 层(灼按刷新增量)/ 1 条给该单位的护盾(连续,吃卡等级;0 = 不转);WardOf = 只拦这一种(null = 全部);
                         // WardCount = 前 N 次(0 = 期间不限)。非敌对。
+        // ---- D2-水 Task 4:我方受击 / 回合挂点(附录 W5 / W6 / W7)。⚠ 只在末尾追加 ----
+        HurtHeal,       // 栉风沐雨:给玩家挂 StatusKind.HurtHeal,Turns 回合(必填)内玩家被敌人挥击命中(damage > 0)时回复
+                        // 这次伤害(减伤后、含护盾吸收)× Value%。每回合 1 次;不吃泉放大、不攒泉;判负之后不触发(Q12)。离散。非敌对。
+        ShieldFrost,    // 冰晶:本次出字给玩家实际加了盾(ShieldGranted > 0)才挂 StatusKind.ShieldFrost;敌人挥击把两桶护盾打到 0 时
+                        // 冻结攻击者 Value 回合(反应,安全点兑现;Boss → 冰滞)并移除。回合初 / 倾覆清盾只移除(Q15)。离散。非敌对。
+        TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(清盾之后、TurnStarted 之前)
+                        // 把 PerHit 里的效果入队一条反应(目标 −1:敌方效果按其 pick,我方效果落玩家),触发时按来源字等级缩放(Q17)。
+                        // PerHit 白名单见 BattleEngine.TurnPulseAllows(不收伤害)。Value 不用。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

@@ -842,6 +842,8 @@ namespace Brushblade.Core
             EffectKind.ThawSlow or EffectKind.ChargeDelay => false,
             // D2-水 Task 3:BuffBlock 不用 Value(回合离散);DebuffWard 的 Value 是每层护盾量(连续,走缺省)
             EffectKind.BuffBlock => false,
+            // D2-水 Task 4:受击回复的 Value 是百分比、冰晶是冻结回合、回合脉冲不用 Value(载荷触发时按来源字等级另行缩放)
+            EffectKind.HurtHeal or EffectKind.ShieldFrost or EffectKind.TurnPulse => false,
             _ => true,
         };
 
