@@ -226,6 +226,8 @@ namespace Brushblade.Core.Tests
             Assert.That(hit.Amount, Is.EqualTo(BossAttack), "倾覆伤害 Attack × 2 × 50%");
             Assert.That(b.ShieldNormal + b.ShieldPersist, Is.EqualTo(0), "清盾照常");
             Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.ShieldBroken).Amount, Is.EqualTo(shieldBefore - BossAttack));
+            Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.ShieldBroken).Source, Is.EqualTo(EffectSource.None),
+                "倾覆清盾不带来源标签 —— 表现层据此只给倾覆播「护盾被掀空」并把护盾条归零(D2-土 Task 5)");
             Assert.That(b.PlayerStatuses.All.Any(s => s.Kind == StatusKind.Seal && s.SourceId == "倾覆"), Is.True, "封字照常");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SkillCut), Is.False);
         }

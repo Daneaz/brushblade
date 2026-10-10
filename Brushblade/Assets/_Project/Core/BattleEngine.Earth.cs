@@ -14,7 +14,7 @@ namespace Brushblade.Core
     public sealed partial class BattleEngine
     {
         /// <summary>扣盾(G1,Q5 / Q10):两桶合计 × percent% 向下取整,先扣普通桶、不够再扣留存桶。
-        /// 不算受击 —— 不触发冰晶 / 反震(碎玉同理),只判空移除载体;扣到了才发 ShieldBroken(−1, 扣除量)。返回扣除量。</summary>
+        /// 不算受击 —— 不触发冰晶 / 反震(碎玉同理),只判空移除载体;扣到了才发 ShieldBroken(−1, 扣除量,Source = ShieldSpend)。返回扣除量。</summary>
         private int SpendPlayerShield(int percent)
         {
             int spend = (_shieldNormal + _shieldPersist) * Math.Clamp(percent, 0, 100) / 100;
@@ -23,7 +23,7 @@ namespace Brushblade.Core
             _shieldNormal -= fromNormal;
             _shieldPersist -= spend - fromNormal;
             DropShieldRecoilIfEmpty();
-            _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, spend));
+            _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, spend, source: EffectSource.ShieldSpend));   // 与倾覆清空区分(Task 5)
             return spend;
         }
 

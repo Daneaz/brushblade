@@ -302,7 +302,8 @@ namespace Brushblade.Core
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
         BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
         BossSkillCast,  // Boss 释放技能(Amount = BossSkill);随后是各目标的受击事件
-        ShieldBroken,   // 护盾被倾覆清空(TargetIndex = −1,Amount = 清掉的总量)
+        ShieldBroken,   // 玩家护盾被扣(TargetIndex = −1,Amount = 扣掉的量):Source None = 倾覆清空两桶;
+                        // Source ShieldSpend = 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 G1 / G8),可能只扣一部分
         EnemyMend,   // 涂改给同伴回血(TargetIndex = **被治疗的**敌人,Amount = 实际回血;2026-08-29)。
                      // 不复用 Regrow:那个的 TargetIndex 是「自补全的那只自己」且带补全进度,
                      // 表现层要画的两件事不一样 —— 一条是自愈、一条是有人在后面奶它
@@ -377,6 +378,7 @@ namespace Brushblade.Core
         FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
         ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
         OverkillSplash,// 粉身碎骨(D2-土 G5):击杀溢出平分给其余敌人;R4 特性伤害,溅射击杀不入队击杀时;表现层按普通伤害飘字(来源标签归 Plan E)
+        ShieldSpend,   // 扣盾(D2-土 G1 塔倾 / 地裂、G8 土生金):**ShieldBroken** 事件的 Source,区分「部分扣盾」与倾覆清空(倾覆为 None)
     }
 
     public readonly struct BattleEvent
@@ -439,7 +441,8 @@ namespace Brushblade.Core
         /// 独立结算 —— 变的只有节拍。</summary>
         public bool SameSwing { get; }
 
-        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="EffectSource"/>;其余事件恒 None。
+        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="EffectSource"/>;其余事件恒 None
+        /// (例外:ShieldBroken 用 <see cref="EffectSource.ShieldSpend"/> 标特性扣盾,D2-土 Task 5)。
         /// 与 <see cref="Crit"/> 同理长在事件上,不另发事件让表现层配对。</summary>
         public EffectSource Source { get; }
 
@@ -5537,7 +5540,7 @@ namespace Brushblade.Core
             if (_config.Tally != null && damage > _config.Tally.MaxHit) _config.Tally.MaxHit = damage;
             // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
             // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
-            // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「倾覆清空玩家护盾」
+            // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「玩家护盾被倾覆清空 / 被特性扣掉」
             // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, sourceSlot,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,

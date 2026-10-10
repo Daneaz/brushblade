@@ -82,6 +82,20 @@ namespace Brushblade.Core.Tests
             Assert.That(broken[0].Amount, Is.EqualTo(200));
         }
 
+        /// <summary>D2-土 Task 5:扣盾复用 ShieldBroken,但表现层要区分「部分扣盾」与倾覆清空(倾覆提示 / 护盾条归零)——
+        /// 扣盾路径(塔倾 / 地裂 / 土生金)在事件上标 <see cref="EffectSource.ShieldSpend"/>,倾覆仍是 None。</summary>
+        [Test]
+        public void ShieldSpend_ShieldBrokenEvent_TaggedWithSpendSource()
+        {
+            var b = Battle(new[] { Spender(50) }, normal: 400);
+            Cast(b, "倾");
+            Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.ShieldBroken).Source, Is.EqualTo(EffectSource.ShieldSpend));
+            var m = Battle(new[] { ToMorale(30) }, normal: 500);
+            Cast(m, "金");
+            Assert.That(m.LastEvents.Single(e => e.Kind == BattleEventKind.ShieldBroken).Source, Is.EqualTo(EffectSource.ShieldSpend));
+            Assert.That((int)EffectSource.ShieldSpend, Is.EqualTo((int)EffectSource.OverkillSplash + 1), "EffectSource 只追加");
+        }
+
         [Test]
         public void ShieldSpend_NormalBucketCoversAll_PersistUntouched()
         {
