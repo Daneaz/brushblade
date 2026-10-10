@@ -108,6 +108,7 @@ namespace Brushblade.Presentation
             // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
             StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure
                 or StatusKind.HitCap   // 铜墙铁壁(D2-土 G2):与减伤同组(Q20)
+                or StatusKind.HurtShield   // 堡垒(D2-土 G3):守御类;无图标,chip 印护盾量(不然是一块空白色块)
                 or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
@@ -132,7 +133,8 @@ namespace Brushblade.Presentation
             // UnitMe.dc.html 的「−1AP」而不是 glossary 的「−1」——具体屏稿优先于分类图鉴,
             // 这条不改。
             StatusKind.Burn or StatusKind.Bleed or StatusKind.Immunity or StatusKind.Block
-                or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak =>
+                or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak
+                or StatusKind.HurtShield =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
                 or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable

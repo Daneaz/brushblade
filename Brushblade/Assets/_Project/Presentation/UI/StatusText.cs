@@ -301,6 +301,11 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.hurtheal.name"),
                         Duration(turnsLeft),
                         Strings.T("status.hurtheal.desc", ("magnitude", magnitude)));
+                case StatusKind.HurtShield:
+                    // 堡垒(D2-土 G3):玩家身上。同 HurtHeal:战场 chip 不出(Q21,与 W5 合稿),详情弹窗照列;Magnitude = 出字时定死的护盾量
+                    return new Info(null, Strings.T("status.hurtshield.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.hurtshield.desc", ("magnitude", magnitude)));
                 case StatusKind.TurnPulse:
                     // 大雨滂沱(D2-水 W7):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;
                     // 载荷在 StatusEffect.OnHit 上 —— 详情走 Of(StatusEffect) 重载逐条列出,这里只有三元组时不列

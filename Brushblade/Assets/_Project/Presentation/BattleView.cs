@@ -567,11 +567,10 @@ namespace Brushblade.Presentation
                         _enemyMobs[e.TargetIndex].SetStateAmount(Mathf.Clamp01(e.SecondIndex / 3f)); // 状态层跟着补全长
                     break;
                 case BattleEventKind.ShieldBroken:
-                    // 倾覆(Source None)把剩余护盾整个掀掉:记账归零;特性扣盾(塔倾 / 地裂 / 土生金,Source ShieldSpend)
-                    // 可能只扣一部分,按 Amount 扣减 —— 全清时两者等价(D2-土 Task 5)
-                    _animShield = e.Source == EffectSource.ShieldSpend
-                        ? System.Math.Max(0, _animShield - e.Amount)
-                        : 0;
+                    // 倾覆清空 / 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 Task 5)都按 Amount 扣,钳到终值 —— 与 EnemyAttack 同写法。
+                    // 不能钳到 0:同一批里先到的 Shield 已经把记账钳到终值(土生金先加盾后扣),再减 Amount 会重复扣;
+                    // 倾覆的终值就是 0,行为与原「归零」等价
+                    _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Amount);
                     break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;

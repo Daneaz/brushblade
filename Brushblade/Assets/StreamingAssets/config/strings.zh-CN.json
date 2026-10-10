@@ -1020,6 +1020,8 @@
   "status.debuffward.count": "还能挡{count}次,用完即失效。",
   "status.hurtheal.name": "受击回复",
   "status.hurtheal.desc": "每回合第一次受击后,回复这次伤害的{magnitude}%。",
+  "status.hurtshield.name": "受击得盾",
+  "status.hurtshield.desc": "每次受击后获得{magnitude}点护盾。",
   "status.turnpulse.name": "每回合效果",
   "status.turnpulse.desc": "每回合开始时:{list}。",
   "status.turnpulse.desc.generic": "每回合开始时触发一次效果。",

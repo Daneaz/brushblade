@@ -40,7 +40,7 @@ namespace Brushblade.Core.Tests
         };
 
         /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
-        /// 空表是核实过的结论,不是偷懒:34 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
+        /// 空表是核实过的结论,不是偷懒:全部 91 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
         /// CardTraits.cs 里(不出特性 chip 的那几个写成空 `case … break;`,同样匹配得到)。</summary>
         private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>
         {
@@ -81,10 +81,8 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):护盾被打破时的反伤本身就是反馈,触发反馈归 Plan E",
             // D2-土 Task 4(Q21):杜塞的大招削减是 Boss 身上的隐藏载体(永久豁免);「大招减半」显示在蓄力预警上归 Plan E
             [nameof(StatusKind.SkillCut)] = "隐藏载体(D2-土 Q21,杜塞):Boss 下一次大招伤害削减,预警提示归 Plan E",
-            // D2-土 Task 5(Q21):堡垒先隐藏,与 W5 栉风沐雨同一枚「受击收益」chip 稿合出(designer 排期后置)。
-            // 铜墙铁壁(HitCap)不在这里:StatusText 有详情文案,战场 chip 复用「减伤」待 Q20 拍板
-            [nameof(StatusKind.HurtShield)] = "隐藏载体(D2-土 Q21,堡垒):每次受击后加的护盾数本身就是反馈;" +
-                "剩余回合的显示与 W5 受击回复同一枚 chip 稿合出,归 Plan E",
+            // 铜墙铁壁(HitCap)/ 堡垒(HurtShield)不在这里:StatusText 有详情文案(同 W5 受击回复),
+            // 战场 chip 分别待 Q20「减伤」稿 / 与 W5 合出的「受击收益」稿
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。
