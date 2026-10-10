@@ -71,13 +71,17 @@ namespace Brushblade.Core
             }, UnitRef.Player, UnitRef.Player);
         }
 
-        /// <summary>铜墙铁壁(G2,Q1):格挡 + DamageCut 之后,把单次伤害压到 maxHp × N%(多条取最强);
+        /// <summary>铜墙铁壁(G2,Q1):格挡 + DamageCut 之后,把单次伤害压到 maxHp × N%
+        /// (多条取最强 = Magnitude 最小、上限最紧的那条 —— 百分比越大上限越松,不能用 MaxMagnitude);
         /// 削减并入 §5.2.4 的 60% 非护甲减伤预算 —— 结果不低于 preCut × (100 − 60)%(格挡 + DamageCut 已用的部分也算在内)。
         /// preCut = 非护甲减伤之前的伤害(护甲之后)。玩家传玩家最大生命、木灵传木灵 MaxHp。没挂时一次判断即返回。</summary>
         private int CapHitDamage(int damage, int preCut, int maxHp)
         {
             if (!_playerStatuses.Has(StatusKind.HitCap)) return damage;
-            int cap = maxHp * _playerStatuses.MaxMagnitude(StatusKind.HitCap) / 100;
+            int percent = 100;
+            foreach (var s in _playerStatuses.All)
+                if (s.Kind == StatusKind.HitCap && s.Magnitude < percent) percent = s.Magnitude;
+            int cap = maxHp * percent / 100;
             int floor = preCut * (100 - CombatCaps.NonArmorReductionPercent) / 100;
             return Math.Max(Math.Min(damage, cap), floor);
         }
@@ -115,7 +119,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>碎玉(G4)挂载:同类只留最强一条(同反震),TurnsLeft -1,随两桶归零由 DropShieldRecoilIfEmpty 移除。</summary>
-        private void ApplyShieldShatter(int percent, string sourceId)
+        private void ApplyShieldShatter(int percent, string sourceId, string traitKey)
         {
             var existing = _playerStatuses.Find(StatusKind.ShieldShatter);
             if (existing != null && existing.Magnitude >= percent) return;
@@ -123,7 +127,7 @@ namespace Brushblade.Core
             _playerStatuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.ShieldShatter, Polarity = StatusPolarity.Buff,
-                Magnitude = Math.Clamp(percent, 0, 100), TurnsLeft = -1, SourceId = sourceId,
+                Magnitude = Math.Clamp(percent, 0, 100), TurnsLeft = -1, SourceId = sourceId, TraitKey = traitKey,
             });
         }
 

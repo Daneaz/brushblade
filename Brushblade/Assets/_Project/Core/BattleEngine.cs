@@ -3962,7 +3962,7 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.ShieldShatter:
                         // 碎玉:挂载同反震 —— 本次出字给玩家实际加了盾才挂;百分比离散,读 effect.Value
-                        if (_cast.ShieldGranted > 0) ApplyShieldShatter(effect.Value, def.Id);
+                        if (_cast.ShieldGranted > 0) ApplyShieldShatter(effect.Value, def.Id, effect.TraitKey ?? def.Id);
                         break;
                     case EffectKind.DebuffWard:   // 濯身 / 浇熄(D2-水 W4):护盾量吃卡等级(value)
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect

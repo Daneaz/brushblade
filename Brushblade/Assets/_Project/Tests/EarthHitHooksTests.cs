@@ -102,6 +102,19 @@ namespace Brushblade.Core.Tests
             Assert.That(PlayerHits(b), Is.EqualTo(new[] { 200 }));
         }
 
+        /// <summary>预算未饱和的组合:格挡 40% + 减伤 10% = 50% → 500 × 50% = 250;铜墙铁壁封顶 1000 × 1% = 10,
+        /// 但合计削减不得超过 60% → 下限 500 × 40% = 200。没有挂点时是 250,有挂点才是 200。</summary>
+        [Test]
+        public void HitCap_BlockPlusDamageCut_Unsaturated_HitCapTakesRestOfBudget()
+        {
+            var cut = RebalanceFixture.Char("杜", new EffectDef(EffectKind.DamageCut, 10));
+            var parry = RebalanceFixture.Char("挡", new EffectDef(EffectKind.Block, 1));
+            var b = Battle(new[] { Wall(1), cut, parry }, new[] { Mob(500) });
+            b.Cast("壁", -1); b.Cast("杜", -1); b.Cast("挡", -1);
+            b.EndTurn();
+            Assert.That(PlayerHits(b), Is.EqualTo(new[] { 200 }));
+        }
+
         [Test]
         public void HitCap_ExpiresAtNextPlayerTurn()
         {
@@ -121,8 +134,8 @@ namespace Brushblade.Core.Tests
             var b = Battle(new[] { a, c }, new[] { Mob(200) });
             b.Cast("壁", -1); b.Cast("墉", -1);
             b.EndTurn();
-            // 「取最强」= 上限百分比最大(150)—— 不是取最紧的那条
-            Assert.That(PlayerHits(b), Is.EqualTo(new[] { 150 }));
+            // 「取最强」= 上限最紧的那条(Magnitude 最小:1000 × 10% = 100)
+            Assert.That(PlayerHits(b), Is.EqualTo(new[] { 100 }));
         }
 
         [Test]
@@ -254,7 +267,7 @@ namespace Brushblade.Core.Tests
         {
             var b = Battle(new[] { Jade(100) }, new[] { Mob(300) });
             b.Cast("碎", -1);
-            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldShatter), Is.True);
+            Assert.That(b.PlayerStatuses.Find(StatusKind.ShieldShatter).TraitKey, Is.EqualTo("碎"), "TraitKey 同反震:无特性键时退回字 ID");
             int enemyHp = b.Enemies[0].Hp;
             b.EndTurn();
             Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(50), "吸收 100 × 50%");
