@@ -952,6 +952,11 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     all_tokens = set(re.findall(r"`(\w+)", config))
     consumed = set()
     effects = []
+    # Ruling 13(D2-土 前置):记下每条效果在格内的位置,收齐后按位置稳定排序 —— 出字按列表顺序结算,
+    # 书写顺序即语义。下面先收带值 token、再收无值 token,不排序会把写在前面的无值效果挪到后面。
+    # 排序放在所有 _attach_* 之后:_attach_battles / _positional_hosts 按 `Kind 字样重新找位置、依赖收集顺序,
+    # kind 与 token 不同名时(`MoraleFill` → Morale)提前排序会让 `battles` 挂到别的效果上(鑫·金玉满堂)。
+    position = {}
 
     summon = re.search(r"`Summon (\d+)`\((\d+) 血/攻 (\d+)\)", config)
     if summon:
@@ -1016,6 +1021,7 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
         if passive:
             effect["passive"] = passive
         effects.append(effect)
+        position[id(effect)] = summon.start()
         # 召唤行上的非召唤 token(2026-09-07,P2 Task 1 第 3 类静默丢失,Task 2 落地):
         # 这条分支曾经在通用循环之前就 return,任何不在上面这张单子里的 token 都会被无声
         # 吞掉(如土系召唤字的入场护盾 `Shield N`)。现在不再提前 return —— 追加完召唤
@@ -1027,7 +1033,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     # 以及全部 SUMMON_PASSIVE token——不跳过的话会被这条通用正则重新匹配一遍,产出
     # 一条残缺的独立效果(比如缺 count/attack/summonChar 的 kind="Summon")。
     SUMMON_HANDLED = {"Summon", "SummonShield", "SummonDefense"} | set(SUMMON_PASSIVE)
-    for kind, value in re.findall(r"`(\w+) (\d+)`", config):
+    for m in re.finditer(r"`(\w+) (\d+)`", config):
+        kind, value = m.groups()
         if kind in SUMMON_HANDLED:
             continue
         if kind == "turns":
@@ -1126,10 +1133,13 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             effect["persistOnce"] = True
             consumed.add("PersistOnce")
         effects.append(effect)
+        position[id(effect)] = m.start()
 
     for token, spec in VALUELESS_EFFECTS.items():
         if f"`{token}`" in config:
-            effects.append(dict(spec))
+            effect = dict(spec)
+            effects.append(effect)
+            position[id(effect)] = config.find(f"`{token}`")
             consumed.add(token)
 
     # 斩杀(D2-金 E7,铡刀落):本格有 Reshape 时挂 Reshape(由 Fold 折到本面第一条伤害),否则挂伤害(原口径)
@@ -1241,6 +1251,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             "TickTurns 清空,卡面还照印着这个效果,实际大概率不生效(`壁` 攻面漏过一次)。"
             "两条修法二选一——① 这是详表笔误:在配置格里补上 `(turns N)`;"
             "② 这个效果本来就该瞬发/无持续:把它的 kind 从 DURATION_KINDS 里移除。")
+
+    effects.sort(key=lambda e: position[id(e)])
 
     unknown = all_tokens - consumed
     if unknown:
