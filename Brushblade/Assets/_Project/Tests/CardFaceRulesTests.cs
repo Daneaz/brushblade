@@ -87,9 +87,11 @@ namespace Brushblade.Core.Tests
                 {
                     var landing = CardFaceRules.Landing(d, CardFace.Feature, lv);
                     if ((landing & FaceLanding.Self) == 0) continue;
+                    // D2-水 E26(Q25,溃围 `Slow 1 pick All`):需要友方目标的面,pick All 的敌方附带不选敌,允许与 Self 落点共存;
+                    // 落在主目标上的敌对效果仍然不许
                     foreach (var e in TraitRules.CastEffects(d, CardFace.Feature, lv))
-                        Assert.That(CardFaceRules.IsHostileTargeted(e), Is.False,
-                            $"{d.Id} Lv{lv} 五行面含 Self 落点却有敌对效果 {e.Kind}");
+                        Assert.That(CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) != EffectPick.All, Is.False,
+                            $"{d.Id} Lv{lv} 五行面含 Self 落点却有选主目标的敌对效果 {e.Kind}");
                 }
         }
 
