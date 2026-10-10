@@ -146,6 +146,21 @@ namespace Brushblade.Core.Tests
             "淼 Lv6 Attack 冰水", "淼 Lv8 Attack 浩瀚", "淼 Lv8 Feature 水大无际",
             "㵘 Lv4 Attack 怀山", "㵘 Lv4 Feature 怀山", "㵘 Lv5 Attack 洪峰", "㵘 Lv5 Feature 泽被",
             "㵘 Lv6 Attack 浩荡", "㵘 Lv8 Attack 滔天", "㵘 Lv8 Feature 泽及四方",
+            // D2-土 Task 6:土系 35 格。V4:塔基(攻面镇压 / 固面护盾 + 护甲 × 3,Q11)、深厚(攻面无护甲 → 红档精进)
+            // 拆成两条单面,两条同名,所以 37 条、35 格。叠土 / 三土是字形特性,粉身碎骨是击杀时
+            "碉 Lv8 Feature 碉楼",
+            "垒 Lv8 Feature 垒砌",
+            "壁 Lv8 Feature 铜墙铁壁",
+            "堡 Lv5 Attack 据守反击", "堡 Lv8 Feature 堡垒",
+            "崩 Lv5 Feature 落石", "崩 Lv8 Attack 地裂",
+            "碎 Lv5 Feature 碎玉", "碎 Lv8 Attack 粉身碎骨",
+            "塔 Lv4 Attack 塔基", "塔 Lv4 Feature 塔基", "塔 Lv5 Attack 塔倾", "塔 Lv8 Attack 镇塔", "塔 Lv8 Feature 浮屠",
+            "杜 Lv4 Both 杜绝", "杜 Lv5 Attack 杜塞", "杜 Lv6 Feature 闭门", "杜 Lv8 Attack 堵截", "杜 Lv8 Feature 杜门不出",
+            "圭 Lv4 Both 叠土", "圭 Lv5 Attack 重土", "圭 Lv6 Feature 圭臬", "圭 Lv8 Attack 圭角", "圭 Lv8 Feature 土生金",
+            "垚 Lv4 Both 三土", "垚 Lv5 Attack 移山", "垚 Lv5 Feature 叠嶂", "垚 Lv6 Feature 山岳", "垚 Lv8 Attack 三山",
+            "垚 Lv8 Feature 对峙",
+            "㙓 Lv4 Attack 深厚", "㙓 Lv4 Feature 深厚", "㙓 Lv5 Attack 山压", "㙓 Lv5 Feature 厚土", "㙓 Lv6 Feature 载物",
+            "㙓 Lv8 Attack 地动", "㙓 Lv8 Feature 厚德载物",
         };
 
         /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
@@ -164,11 +179,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows_Water42Cells_47Rows()
+        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows_Water42Cells_47Rows_Earth35Cells_37Rows()
         {
-            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41 + 47));
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41 + 47 + 37));
             Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
-                Is.EqualTo(44 + 39 + 42), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 44 格 + 金 39 格 + 水 42 格");
+                Is.EqualTo(44 + 39 + 42 + 35), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 44 格 + 金 39 格 + 水 42 格 + 土 35 格");
             Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
             foreach (var c in ExclusiveCells)
                 Assert.That(PoolCells.Contains(c), Is.False, $"{c} 不能同时是池格");
@@ -554,6 +569,61 @@ namespace Brushblade.Core.Tests
                 Assert.That(rows.Single(t => t.Face != idle).Effects.Single().Kind, Is.Not.EqualTo(EffectKind.Amplify),
                     $"{name} 生效面保留原条目");
             }
+        }
+
+        [Test]
+        public void EarthExclusiveTraits_FormAndTrigger_MatchSpec()
+        {
+            int seen = 0;
+            foreach (var d in OfElement(Element.Earth))
+                foreach (var t in d.Traits.Where(t => IsExclusive(d, t)))
+                {
+                    seen++;
+                    string at = $"{d.Id} {t.Slot}/{t.Face} {t.Name}";
+                    Assert.That(t.Effects.Count, Is.GreaterThan(0), at + " 要有效果");
+                    switch (t.Name)
+                    {
+                        case "叠土":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnDismantle)), at);
+                            Assert.That(t.PartChar, Is.Null, at + "(即时类,不挂印记)");
+                            break;
+                        case "三土":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnCompose)), at);
+                            break;
+                        case "粉身碎骨":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
+                            break;
+                        default:
+                            bool passive = t.Slot == TraitSlot.Lv4 || t.Slot == TraitSlot.Lv6;
+                            Assert.That(t.Form, Is.EqualTo(passive ? TraitForm.Passive : TraitForm.Active), at);
+                            Assert.That(t.Trigger, Is.EqualTo(TraitTrigger.Cast), at);
+                            break;
+                    }
+                    Assert.That(t.MaxPerBattle, Is.EqualTo(t.Name == "杜门不出" ? 1 : 0), at + " 每场次数(E35)");
+                }
+            Assert.That(seen, Is.EqualTo(37), "土系专属 35 格 37 行");
+        }
+
+        [Test]
+        public void EarthExclusive_V4Split_TaJiTwoMeanings_ShenHouIdleAttackIsRedRefine()
+        {
+            var taji = Graph.Get("塔").Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == "塔基").ToList();
+            Assert.That(taji.Select(t => t.Face).OrderBy(f => f).ToList(),
+                Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }.OrderBy(f => f).ToList()), "塔基拆成两条单面");
+            var strike = taji.Single(t => t.Face == TraitFace.Attack).Effects.Single();
+            Assert.That((strike.Kind, strike.ArmorStrikePercent), Is.EqualTo((EffectKind.Reshape, 300)), "攻面镇压");
+            var shield = taji.Single(t => t.Face == TraitFace.Feature).Effects.Single();
+            Assert.That((shield.Kind, shield.ArmorShieldPercent), Is.EqualTo((EffectKind.Reshape, 300)), "固面护盾 + 护甲 × 3(Q11)");
+
+            var shenhou = Graph.Get("㙓").Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == "深厚").ToList();
+            Assert.That(shenhou.Select(t => t.Face).OrderBy(f => f).ToList(),
+                Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }.OrderBy(f => f).ToList()), "深厚拆成两条单面");
+            var idle = shenhou.Single(t => t.Face == TraitFace.Attack).Effects.Single();
+            Assert.That((idle.Kind, idle.Value, idle.Scope, idle.OnlyIf),
+                Is.EqualTo((EffectKind.Amplify, 30, AmpScope.All, DamageCondition.None)), "攻面空转 = 红档精进 30");
+            var turns = shenhou.Single(t => t.Face == TraitFace.Feature).Effects.Single();
+            Assert.That((turns.Kind, turns.Value, turns.AugmentKind, turns.AugmentField),
+                Is.EqualTo((EffectKind.Augment, 4, EffectKind.DefenseBuff, AugmentField.Turns)), "固面护甲回合 +4(= ×2)");
         }
 
         private static EffectDef PoolEffect(string ch, TraitSlot slot, TraitFace face, string name, EffectKind kind)
