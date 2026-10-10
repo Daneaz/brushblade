@@ -114,6 +114,9 @@ VALUELESS_EFFECTS = {
     # D2-水 Task 4(附录 W7):大雨滂沱 `TurnPulse` 不带数值(必写 turns),每回合开始的效果写在 `onTurn` 段里(见 ON_TURN_TOKEN)。
     # 栉风沐雨 `HurtHeal N`、冰晶 `ShieldFrost N` 带数值,走通用正则。
     "TurnPulse": {"kind": "TurnPulse", "value": 0},
+    # D2-土 Task 2(附录 G1):地裂 `ShieldSpend` 不带数值 = 清两桶(100%);塔倾 `ShieldSpend 50` 带数值走通用正则。
+    # 整串带反引号匹配,`ShieldSpend` 不吞 `ShieldSpend 50`。土生金 `ShieldToMorale N`、浮屠 `ShieldCarry N` 带数值走通用正则。
+    "ShieldSpend": {"kind": "ShieldSpend", "value": 100},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -153,7 +156,8 @@ EXECUTE_SPLASH_TOKEN = "executeSplash"
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
                   "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
-                  "HurtHeal", "TurnPulse"}     # D2-水 Task 4:受击回复 / 回合脉冲,同上
+                  "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
+                  "ShieldCarry"}               # D2-土 Task 2:回合初留盾(浮屠),同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -1333,4 +1337,6 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `TurnPulse` 须用 `{ON_TURN_TOKEN}` 段写每回合开始的效果")
         if e["kind"] in ("HurtHeal", "ShieldFrost") and e["value"] < 1:
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
+        if e["kind"] in ("ShieldSpend", "ShieldToMorale", "ShieldCarry") and not 1 <= e["value"] <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
     return effects

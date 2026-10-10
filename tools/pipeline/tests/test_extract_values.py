@@ -1250,6 +1250,34 @@ def test_d2water_turn_hook_errors(config, needle):
     assert needle in str(err.value)
 
 
+# ---- D2-土 Task 2(附录 G1 / G8 / G9):扣盾 / 盾转战意 / 回合初留盾 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 地裂:无值 = 清两桶(100%)
+    ("`DamageSingle 10` + `ShieldSpend`", [{"kind": "DamageSingle", "value": 10}, {"kind": "ShieldSpend", "value": 100}]),
+    # 塔倾:减半,书写顺序 = 结算顺序(伤害在前)
+    ("`DamageSingle 10` + `ShieldSpend 50`", [{"kind": "DamageSingle", "value": 10}, {"kind": "ShieldSpend", "value": 50}]),
+    # 土生金
+    ("`ShieldToMorale 30`", [{"kind": "ShieldToMorale", "value": 30}]),
+    # 浮屠
+    ("`ShieldCarry 50` `turns 3`", [{"kind": "ShieldCarry", "value": 50, "turns": 3}]),
+])
+def test_d2earth_shield_ops(config, expected):
+    assert _parse_effects(config, "塔") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`ShieldCarry 50`", "turns"),              # 回合初留盾必写回合
+    ("`ShieldSpend 150`", "ShieldSpend"),       # 百分比 1..100
+    ("`ShieldToMorale 0`", "ShieldToMorale"),
+    ("`ShieldCarry 101` `turns 3`", "ShieldCarry"),
+])
+def test_d2earth_shield_op_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
 def test_d2water_turn_pulse_allowed_matches_engine():
     """管线 `TURN_PULSE_ALLOWED` 与 BattleEngine.TurnPulseAllows 是同一张白名单(从 C# 源码抽 switch 臂对账)。"""
     import re
