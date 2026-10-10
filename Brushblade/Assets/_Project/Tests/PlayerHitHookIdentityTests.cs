@@ -13,7 +13,11 @@ namespace Brushblade.Core.Tests
     /// 场景覆盖:普通挥击打护盾(两桶,含打空)、致盲摇号打空、镜反弹、减伤、反震(打空即移除)、受击回敬入队、
     /// 铁画反噬(allowReflect = false)、灯花上灼、Boss 倾覆清盾、回合初清盾 + 金气加盾。
     /// 指纹 = 每拍事件 + 出字结果 + 钩子(PlayerHit / StatusApplied)+ 玩家 / 敌人状态袋 + 血量 / 两桶护盾 + 三条随机流。
-    /// 期望值是 W5–W7 改动前(HEAD 81b708c4)跑出来的。</summary>
+    /// 期望值是 W5–W7 改动前(HEAD 81b708c4)跑出来的。
+    ///
+    /// 拆成两份(Task 4 fix round 1,Ruling 12):受击回敬(Retaliate)改为在攻击者这一拍收尾兑现之后,
+    /// 回敬挂的 turns 型减益不再被同拍 TickTurns 吃掉一回合 —— 带回敬的那份按 Ruling 12 重建基线;
+    /// 不带回敬的那份期望值仍取自 81b708c4 的导出,守住其余路径逐位不变。</summary>
     public class PlayerHitHookIdentityTests
     {
         private static readonly CharDef Striker = new("击", Element.Metal,
@@ -39,7 +43,7 @@ namespace Brushblade.Core.Tests
             new("覆", Element.Heart, 200000, 30, EnemyAbility.None,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 200000, 30, skill: BossSkill.Topple) });
 
-        private static BattleEngine Battle(HookLog log)
+        private static BattleEngine Battle(HookLog log, bool withRetaliate)
         {
             var defs = new[] { Striker, Guard, Bulwark };
             var b = new BattleEngine(RebalanceFixture.Graph(defs),
@@ -58,7 +62,7 @@ namespace Brushblade.Core.Tests
             p.Apply(new StatusEffect { Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff, Magnitude = 20, TurnsLeft = -1 });
             p.Apply(new StatusEffect { Kind = StatusKind.DamageCut, Polarity = StatusPolarity.Buff, Magnitude = 10, TurnsLeft = -1 });
             p.Apply(new StatusEffect { Kind = StatusKind.ShieldRecoil, Polarity = StatusPolarity.Buff, Magnitude = 50, TurnsLeft = -1, SourceId = "护" });
-            p.Apply(new StatusEffect
+            if (withRetaliate) p.Apply(new StatusEffect
             {
                 Kind = StatusKind.Retaliate, Polarity = StatusPolarity.Buff, Magnitude = 2, TurnsLeft = -1, SourceId = "护",
                 OnHit = new List<OpeningEffect>
@@ -83,11 +87,20 @@ namespace Brushblade.Core.Tests
             sb.Append(']');
         }
 
+        /// <summary>不带受击回敬:期望值取自 81b708c4 的导出,Ruling 12 前后都不变。</summary>
         [Test]
-        public void PlayerHitAndTurnStart_NoNewStatuses_Identical()
+        public void PlayerHitAndTurnStart_NoNewStatuses_Identical() =>
+            Assert.That(Fingerprint(withRetaliate: false), Is.EqualTo(ExpectedNoRetaliate));
+
+        /// <summary>带受击回敬(Weaken 10 turns 1)。Ruling 12 重建基线:回敬改在攻击者拍尾兑现,减攻不再当拍到期。</summary>
+        [Test]
+        public void PlayerHitAndTurnStart_WithRetaliate_Baseline() =>
+            Assert.That(Fingerprint(withRetaliate: true), Is.EqualTo(ExpectedWithRetaliate));
+
+        private static string Fingerprint(bool withRetaliate)
         {
             var log = new HookLog();
-            var b = Battle(log);
+            var b = Battle(log, withRetaliate);
             var sb = new StringBuilder();
             for (int t = 0; t < 12; t++)
             {
@@ -118,14 +131,16 @@ namespace Brushblade.Core.Tests
             Assert.That(raw.Contains(":Reflect;"), Is.True, "镜反弹");
             Assert.That(raw.Contains(":ShieldRecoil;"), Is.True, "反震");
             Assert.That(raw.Contains("ShieldBroken"), Is.True, "倾覆清盾");
-            Assert.That(raw.Contains(":Curse:"), Is.True, "受击回敬落到攻击者");
+            if (withRetaliate) Assert.That(raw.Contains(":Curse:"), Is.True, "受击回敬落到攻击者");
             Assert.That(raw.Contains("APlayer-1<Enemy2:Burn"), Is.True, "灯花上灼");
             ulong h = 14695981039346656037UL;
             foreach (char c in raw) { h ^= c; h *= 1099511628211UL; }
             string fp = h.ToString("x16") + " " + raw.Length;
-            Assert.That(fp, Is.EqualTo(Expected), fp + "\n" + raw);
+            TestContext.WriteLine(fp);
+            return fp;
         }
 
-        private const string Expected = "e17522a681c27cb5 10507";
+        private const string ExpectedNoRetaliate = "d4b67847f51d3143 9643";
+        private const string ExpectedWithRetaliate = "e17522a681c27cb5 10507";
     }
 }
