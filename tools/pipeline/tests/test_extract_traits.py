@@ -313,3 +313,21 @@ def test_d2fire_limit_token_parsed_to_max_per_cast():
 def test_d2fire_bad_limit_rows_raise(row):
     with pytest.raises(ValueError):
         extract_traits(_H + row + "\n")
+
+
+def test_d2earth_battle_limit_token_parsed_to_max_per_battle():
+    md = _H + "| 杜 | Lv8 | 固 | 主动 | — | 杜门不出 | `DamageCut 60` `battleLimit 1` | ✅ |\n"
+    t = extract_traits(md)["杜"][0]
+    assert t["maxPerBattle"] == 1
+    assert "maxPerCast" not in t
+    assert t["effects"] == [{"kind": "DamageCut", "value": 60}]
+
+
+@pytest.mark.parametrize("row", [
+    "| 杜 | Lv8 | 固 | 主动 | — | 坏 | `DamageCut 60` `battleLimit 0` | ✅ |",                  # ≥ 1
+    "| 杜 | Lv8 | 固 | 主动 | — | 坏 | `DamageCut 60` `battleLimit 1` `battleLimit 2` | ✅ |",   # 只能一条
+    "| 爆 | Lv8 | 攻 | 被动·击杀 | — | 坏 | `Morale 1` `battleLimit 1` | ✅ |",                   # 只给出字时
+])
+def test_d2earth_bad_battle_limit_rows_raise(row):
+    with pytest.raises(ValueError):
+        extract_traits(_H + row + "\n")

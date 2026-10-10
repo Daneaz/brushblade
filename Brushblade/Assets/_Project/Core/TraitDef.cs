@@ -70,9 +70,15 @@ namespace Brushblade.Core
         /// 只约束暴击时 / 击杀时的入队(<c>BattleEngine.EnqueueCastTraits</c>)。</summary>
         public int MaxPerCast { get; }
 
+        /// <summary>这条特性每场最多生效几次(D2-土 E35,杜门不出「每场 1 次」,token `battleLimit N`);0 = 不限。
+        /// 只约束顶层出字:用尽后整条特性(效果与修饰器)不进 <c>TraitRules.Fold</c>,本体照常;次数记在
+        /// <c>BattleEngine._traitUsesThisBattle</c>(进快照)。</summary>
+        public int MaxPerBattle { get; }
+
         public TraitDef(TraitSlot slot, TraitFace face, TraitForm form, TraitSlot? replaces,
             string name, IReadOnlyList<EffectDef> effects,
-            TraitTrigger trigger = TraitTrigger.Cast, string partChar = null, int partCount = 0, int maxPerCast = 0)
+            TraitTrigger trigger = TraitTrigger.Cast, string partChar = null, int partCount = 0, int maxPerCast = 0,
+            int maxPerBattle = 0)
         {
             Slot = slot;
             Face = face;
@@ -84,6 +90,7 @@ namespace Brushblade.Core
             PartChar = partChar;
             PartCount = partCount;
             MaxPerCast = maxPerCast;
+            MaxPerBattle = maxPerBattle;
         }
 
         public bool AppliesTo(CardFace face) =>

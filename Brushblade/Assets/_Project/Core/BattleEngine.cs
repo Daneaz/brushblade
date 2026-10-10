@@ -3214,7 +3214,12 @@ namespace Brushblade.Core
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
             _cast.PreCastShield ??= _shieldNormal + _shieldPersist;   // 地裂(D2-土 E36),只读
-            var castEffects = CastEffectsOf(def, attackMode, cardLevel);
+            // 每场次数(D2-土 E35,杜门不出):顶层出字先偷看次数,用尽的特性整条不进 Fold;没有这类特性时与原路径同一调用
+            var battleLimited = topLevelCast ? TraitRules.BattleLimited(def, castFace, cardLevel) : Array.Empty<TraitDef>();
+            var castEffects = battleLimited.Count == 0
+                ? CastEffectsOf(def, attackMode, cardLevel)
+                : TraitRules.Fold(EffectsOf(def, attackMode), def, castFace, cardLevel,
+                    skip: t => t.MaxPerBattle > 0 && BattleUsesOf(def, t) >= t.MaxPerBattle);
             // 推迟施加(Ruling 11 + D2-水 E16 同一条队列,按原顺序):Status 非 null = 按战意计次的格挡(状态已定死,只差次数);
             // Status 为 null = 名单类效果(pick FrozenByThisCast / SlowedByThisCast),循环末尾再结算,名单才收得全
             List<(EffectDef Effect, StatusEffect Status)> deferred = null;
@@ -3243,6 +3248,9 @@ namespace Brushblade.Core
                 }
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
+            // 每场次数记账(E35):本次进了 Fold 的限次特性各记一次(出字已结算完,不会再被拒)
+            foreach (var t in battleLimited)
+                if (BattleUsesOf(def, t) < t.MaxPerBattle) TryUseTrait(BattleUseKey(def, t), perTurn: 0, perBattle: t.MaxPerBattle);
 
             // 单条效果的结算(D2-火 Task 2 抽成本地函数,行为不变):每击附带(EffectDef.PerHit)要对「这一击的目标」
             // 同步结算同一套分支,不经新的 ApplyEffects(不触发重入守卫)。参数 targetIndex 遮蔽外层同名参数是刻意的:

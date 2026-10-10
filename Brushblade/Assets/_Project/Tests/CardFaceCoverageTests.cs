@@ -252,6 +252,14 @@ namespace Brushblade.Core.Tests
                 "CharInfo 没有渲染 TraitDef.MaxPerCast —— 连爆「最多 2 次」在卡面上不存在");
         }
 
+        /// <summary>D2-土 E35:TraitDef.MaxPerBattle(battleLimit)同样要有卡面文案 —— 杜门不出「每场 1 次」。</summary>
+        [Test]
+        public void TraitDefBattleLimit_IsRenderedInCharInfo()
+        {
+            Assert.That(CharInfoSource().Contains(nameof(TraitDef.MaxPerBattle)), Is.True,
+                "CharInfo 没有渲染 TraitDef.MaxPerBattle —— 杜门不出「每场 1 次」在卡面上不存在");
+        }
+
         [Test]
         public void ExemptList_HasNoStaleEntries()
         {

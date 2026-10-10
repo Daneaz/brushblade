@@ -58,6 +58,13 @@ namespace Brushblade.Core
 
         internal static string TraitKey(string charId, TraitSlot slot, TraitFace face) => $"{charId}/{(int)slot}/{face}";
 
+        /// <summary>特性级每场次数的键(D2-土 E35):「场次:字/槽/面」,与其余次数阀的键不撞。</summary>
+        internal static string BattleUseKey(CharDef def, TraitDef t) => "场次:" + TraitKey(def.Id, t.Slot, t.Face);
+
+        /// <summary>这条限次特性本场已生效几次(只读)。</summary>
+        private int BattleUsesOf(CharDef def, TraitDef t) =>
+            _traitUsesThisBattle.TryGetValue(BattleUseKey(def, t), out int used) ? used : 0;
+
         /// <summary>次数阀:perTurn / perBattle 为 0 = 不限。两项都未满才算用掉并计数;失败不扣任何一项。</summary>
         internal bool TryUseTrait(string key, int perTurn, int perBattle)
         {

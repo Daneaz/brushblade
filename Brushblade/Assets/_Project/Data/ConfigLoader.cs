@@ -31,6 +31,7 @@ namespace Brushblade.Data
             public string PartChar { get; set; } // 拆字印记的部件(D2-0 Task 7);null = 不是印记
             public int PartCount { get; set; }   // 印记次数
             public int MaxPerCast { get; set; }  // D2-火 N13:同一次出字内最多入队几次(0 = 不限)
+            public int MaxPerBattle { get; set; } // D2-土 E35:每场最多生效几次(0 = 不限;杜门不出)
             public string Name { get; set; }
             public List<EffectDto> Effects { get; set; }
         }
@@ -638,7 +639,11 @@ namespace Brushblade.Data
                 ValidateGlyph(dto, t, trigger, effects);
                 if (t.MaxPerCast < 0)
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerCast 不能为负:{t.MaxPerCast}");
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount, t.MaxPerCast));
+                // 每场次数(D2-土 E35)只约束出字时机的特性(顶层出字 Fold 时跳过);写在暴击 / 击杀等反应特性上静默无效 —— 拦下
+                if (t.MaxPerBattle < 0 || (t.MaxPerBattle > 0 && trigger != TraitTrigger.Cast))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerBattle 不能为负,且只给出字时结算的特性:{t.MaxPerBattle}");
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, effects, trigger, t.PartChar, t.PartCount, t.MaxPerCast,
+                    t.MaxPerBattle));
             }
             foreach (var t in traits)
                 if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))

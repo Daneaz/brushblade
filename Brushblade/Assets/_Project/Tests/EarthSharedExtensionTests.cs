@@ -365,6 +365,63 @@ namespace Brushblade.Core.Tests
             Assert.That(primary.Enemies[1].Statuses.Has(StatusKind.Silence), Is.True);
         }
 
+
+        // ---------------- E35:特性级每场次数 ----------------
+
+        /// <summary>杜门不出形状:固面本体 Shield 10;Lv8 固面特性 Morale 1(可数),每场 1 次。</summary>
+        private static CharDef Dumen() => new("杜", Element.Heart,
+            effects: new[] { new EffectDef(EffectKind.Shield, 10) },
+            traits: new[] { new TraitDef(TraitSlot.Lv8, TraitFace.Feature, TraitForm.Active, null, "杜门不出",
+                new[] { new EffectDef(EffectKind.Morale, 1) }, maxPerBattle: 1) });
+
+        [Test]
+        public void E35_FoldSkip_ExcludesWholeTrait_DefaultUnchanged()
+        {
+            var def = Dumen();
+            var all = TraitRules.Fold(def.Effects, def, CardFace.Feature, 8);
+            Assert.That(all.Select(e => e.Kind), Is.EqualTo(new[] { EffectKind.Shield, EffectKind.Morale }));
+            var skipped = TraitRules.Fold(def.Effects, def, CardFace.Feature, 8, skip: t => t.MaxPerBattle > 0);
+            Assert.That(skipped.Select(e => e.Kind), Is.EqualTo(new[] { EffectKind.Shield }), "被跳过的特性整条不进 Fold,本体照常");
+            Assert.That(skipped[0], Is.SameAs(def.Effects[0]));
+        }
+
+        [Test]
+        public void E35_SecondCastThisBattle_LeavesOnlyTheBody()
+        {
+            var b = Battle(Dumen(), 8);
+            Assert.That(b.Cast("杜"), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "第一次:特性生效");
+            int shieldAfterFirst = b.PlayerShield;
+            Assert.That(b.Cast("杜"), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "第二次:特性不进 Fold");
+            Assert.That(b.PlayerShield, Is.EqualTo(shieldAfterFirst * 2), "本体照常");
+        }
+
+        [Test]
+        public void E35_UsesSurviveRealSaveFile()
+        {
+            var def = Dumen();
+            var graph = RebalanceFixture.Graph(def);
+            var enemy = RebalanceFixture.Mob(attack: 0);
+            var runConfig = new RunConfig { Encounters = new[] { new[] { enemy }, new[] { enemy } }, RewardPool = new[] { "杜" } };
+            var levels = new Dictionary<string, int> { ["杜"] = 8 };
+            var run = new RunEngine(graph, runConfig, Config, new[] { "杜", "杜", "杜" }, Array.Empty<string>(), 3, cardLevels: levels);
+            Assert.That(run.Battle.Cast("杜"), Is.EqualTo(BattleError.None));
+            var meta = new MetaState
+            {
+                EndlessV2 = new EndlessSaveState
+                {
+                    Depth = 3, Seed = 999,
+                    InProgress = new InProgressRun { FromDepth = 1, FirstTowerSegment = true, Run = run.Capture() },
+                },
+            };
+            var reloaded = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
+            var restored = RunEngine.Restore(reloaded.EndlessV2.InProgress.Run, graph, runConfig, Config, levels);
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1));
+            Assert.That(restored.Battle.Cast("杜"), Is.EqualTo(BattleError.None));
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1), "读档后次数仍在:第二次不进 Fold");
+        }
+
         // ---------------- ConfigLoader ----------------
 
         /// <summary>一张两面土字:固面 Shield + DefenseBuff,攻面 DamageSingle。traitFace 指定特性写在哪一面。</summary>
@@ -396,6 +453,13 @@ namespace Brushblade.Core.Tests
             var minArmor = Load(@"{""kind"":""Retaliate"",""value"":1,""turns"":4,""minArmor"":50,""perHit"":[{""kind"":""ArmorBreak"",""value"":38,""turns"":2}]}")
                 .Get("塔").Traits[0].Effects[0];
             Assert.That(minArmor.MinArmor, Is.EqualTo(50));
+            var limited = ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""杜"",""element"":""Earth"",""effects"":[{""kind"":""Shield"",""value"":60}],
+                  ""traits"":[{""slot"":""Lv8"",""face"":""Feature"",""name"":""杜门不出"",""maxPerBattle"":1,""effects"":[{""kind"":""DamageCut"",""value"":60}]}]}]}");
+            Assert.That(limited.Get("杜").Traits[0].MaxPerBattle, Is.EqualTo(1));
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""杜"",""element"":""Earth"",""effects"":[{""kind"":""Shield"",""value"":60}],
+                  ""traits"":[{""slot"":""Lv8"",""face"":""Feature"",""name"":""杜门不出"",""maxPerBattle"":-1,""effects"":[{""kind"":""DamageCut"",""value"":60}]}]}]}"));
         }
 
         [TestCase(@"{""kind"":""Reshape"",""value"":0,""persistOnce"":true}", "Attack")]                       // 伤害面上的 persist

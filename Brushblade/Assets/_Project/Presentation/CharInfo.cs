@@ -353,7 +353,8 @@ namespace Brushblade.Presentation
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
             TriggerText(trait.Trigger)
             + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel))
-            + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "");
+            + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "")
+            + (trait.MaxPerBattle > 0 ? Strings.T("char.trait.battlelimit", ("count", trait.MaxPerBattle)) : "");   // D2-土 E35
 
         /// <summary>这条特性所在那一面「没有伤害、有治疗」(D2-水 E20,海纳百川 / 细雨 / 泽被…):Reshape shape All 改的是第一条 HealSelf。
         /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面**折叠后**的出字效果(<see cref="TraitRules.CastEffects"/>,

@@ -28,6 +28,8 @@ _PART_TOKEN = re.compile(r"`part (\S+) (\d+)`")
 # 特性级出字内次数上限(D2-火 N13):`limit N` → maxPerCast,同一次出字内这条特性最多入队 N 次(连爆)。
 # 与 part 一样不是效果 token,交给 _parse_effects 之前摘掉。
 _LIMIT_TOKEN = re.compile(r"`limit (\d+)`")
+# 特性级每场次数(D2-土 E35):`battleLimit N` → maxPerBattle,这条特性每场最多生效 N 次(杜门不出);同样先摘掉。
+_BATTLE_LIMIT_TOKEN = re.compile(r"`battleLimit (\d+)`")
 SLOTS = {"Lv1", "Lv3", "Lv4", "Lv5", "Lv6", "Lv8"}
 _HEADER = ["字", "槽", "面", "形态", "替换", "名", "效果配置", "实现"]
 
@@ -284,6 +286,14 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
                     raise ValueError(f"特性表:字「{char}」{slot} 的 `limit` 只能写一条且 ≥ 1")
                 trait["maxPerCast"] = int(limits[0])
                 config = _LIMIT_TOKEN.sub("", config)
+            battle_limits = _BATTLE_LIMIT_TOKEN.findall(config)
+            if battle_limits:
+                if len(battle_limits) > 1 or int(battle_limits[0]) < 1:
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `battleLimit` 只能写一条且 ≥ 1")
+                if trigger is not None:
+                    raise ValueError(f"特性表:字「{char}」{slot} 的 `battleLimit` 只给出字时结算的特性(当前触发 {trigger})")
+                trait["maxPerBattle"] = int(battle_limits[0])
+                config = _BATTLE_LIMIT_TOKEN.sub("", config)
             effects = _parse_effects(config, char)
         trait["effects"] = effects
         result.setdefault(char, []).append(trait)
