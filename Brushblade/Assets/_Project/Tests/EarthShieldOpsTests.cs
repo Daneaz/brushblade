@@ -134,22 +134,31 @@ namespace Brushblade.Core.Tests
         public void ShieldSpend_TowerTilt_AsLv5Trait()
         {
             // 塔·塔倾(Lv5 攻面):Reshape shieldStrike 50 + ShieldSpend 50,先伤害后减半
-            var tower = new CharDef("塔", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.Shield, 60) },
-                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
-                traits: new[]
-                {
-                    new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Active, null, "塔倾", new[]
-                    {
-                        new EffectDef(EffectKind.Reshape, 0, shieldStrikePercent: 50),
-                        new EffectDef(EffectKind.ShieldSpend, 50),
-                    }),
-                });
-            var b = Battle(new[] { tower }, normal: 300, persist: 100, level: 5);
+            static CharDef Tower(bool spend)
+            {
+                var trait = spend
+                    ? new[] { new EffectDef(EffectKind.Reshape, 0, shieldStrikePercent: 50), new EffectDef(EffectKind.ShieldSpend, 50) }
+                    : new[] { new EffectDef(EffectKind.Reshape, 0, shieldStrikePercent: 50) };
+                return new CharDef("塔", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.Shield, 60) },
+                    attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+                    traits: new[] { new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Active, null, "塔倾", trait) });
+            }
+            var b = Battle(new[] { Tower(true) }, normal: 300, persist: 100, level: 5);
             Assert.That(b.Cast("塔", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.PlayerShield, Is.EqualTo(200), "400 × 50%");
             Assert.That(b.ShieldNormal, Is.EqualTo(100));
             Assert.That(b.ShieldPersist, Is.EqualTo(100), "普通桶够扣,留存桶不动");
+
+            // 特性折叠后 shieldStrike 读的仍是扣盾前的 400 —— 与不带 ShieldSpend 的同一张字伤害相同
+            var plain = Battle(new[] { Tower(false) }, normal: 300, persist: 100, level: 5);
+            Assert.That(plain.Cast("塔", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(plain.PlayerShield, Is.EqualTo(400), "对照组不扣盾");
+            int dealt = 100000 - b.Enemies[0].Hp;
+            Assert.That(dealt, Is.EqualTo(100000 - plain.Enemies[0].Hp), "shieldStrike 读扣盾前的护盾");
+            var bare = Battle(new[] { Tower(false) }, level: 5);
+            Assert.That(bare.Cast("塔", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(dealt, Is.GreaterThan(100000 - bare.Enemies[0].Hp), "护盾加成确实生效(否则对照空转)");
         }
 
         [Test]

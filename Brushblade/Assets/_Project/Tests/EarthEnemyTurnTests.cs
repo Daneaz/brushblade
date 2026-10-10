@@ -263,6 +263,51 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SkillCut_NotConsumed_OnAttackChargeOrIceStallPushedBeats()
+        {
+            // SkillCut 只在 CastBossSkill 开头取用:普攻拍、蓄力拍、被冰滞推后没轮到出手的那一拍都不消耗
+            var freeze = new CharDef("冻", Element.Water, effects: new[] { new EffectDef(EffectKind.Freeze, 1, stallPushPercent: 100) });   // 坚冰式加推:共后退 1.5 格
+            var b = Battle(new[] { Block, freeze }, new[] { SkillBoss(BossSkill.Deluge) });
+            Assert.That(b.Cast("塞", 0), Is.EqualTo(BattleError.None));
+
+            b.EndTurn();   // 普攻
+            var attack = b.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
+            Assert.That(attack.Amount, Is.EqualTo(BossAttack), "普攻不吃削减");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SkillCut), Is.True, "普攻拍不消耗");
+
+            b.EndTurn();   // 蓄力
+            Assert.That(b.Enemies[0].IsCharging, Is.True, "前提:这一拍在蓄力");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SkillCut), Is.True, "蓄力拍不消耗");
+
+            Assert.That(b.Cast("冻", 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.True, "前提:Boss 进冰滞、行动条后退半格");
+            int hp = b.PlayerHp;
+            b.EndTurn();   // 被推后:本该放大招的这一拍没轮到
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast), Is.False, "前提:大招被推后");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SkillCut), Is.True, "被推后的拍不消耗");
+
+            int guard = 0;
+            while (!b.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast) && guard++ < 5) { hp = b.PlayerHp; b.EndTurn(); }
+            Assert.That(hp - b.PlayerHp, Is.EqualTo(BossAttack * 2 * 50 / 100), "留到真正放大招时才削减");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SkillCut), Is.False, "放完即移除");
+        }
+
+        [Test]
+        public void ApCost_StacksWithToppleSeal_ApMinusTwo()
+        {
+            // 杜门不出的 AP 代价(Buff 极性 Seal)与倾覆的封字(Debuff 极性 Seal)来源不同,两条同时在场:下回合 AP −2
+            var b = Battle(new[] { Door() }, new[] { SkillBoss(BossSkill.Topple) }, apPerTurn: 4);
+            b.EndTurn();   // 普攻
+            b.EndTurn();   // 蓄力
+            Assert.That(b.Cast("杜", -1), Is.EqualTo(BattleError.None));
+            b.EndTurn();   // 倾覆
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast), Is.True, "前提:倾覆放出来了");
+            Assert.That(b.PlayerStatuses.All.Any(s => s.Kind == StatusKind.Seal && s.SourceId == "倾覆"), Is.True, "倾覆封字在场");
+            Assert.That(b.PlayerStatuses.All.Any(s => s.Kind == StatusKind.Seal && s.SourceId == "杜"), Is.True, "AP 代价在场");
+            Assert.That(b.Ap, Is.EqualTo(2), "两条 Seal 叠加:AP −2");
+        }
+
+        [Test]
         public void SkillCut_MultipleSources_TakeLargest()
         {
             var b = BeforeSkill(BossSkill.Deluge, cut: true, summons: false);

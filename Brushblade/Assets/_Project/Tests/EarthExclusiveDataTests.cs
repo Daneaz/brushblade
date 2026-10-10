@@ -16,6 +16,16 @@ namespace Brushblade.Core.Tests
     /// 数值是 (F) 起值,改表必须同步这里。</summary>
     public class EarthExclusiveDataTests
     {
+        /// <summary>山岳用:每只敌人那一拍结束时记一次 <see cref="BattleEngine.RetaliateChargesLeft"/>。</summary>
+        private sealed class ChargesProbe : IBattleHookListener
+        {
+            public readonly List<int?> Seen = new List<int?>();
+            public void OnHook(BattleEngine battle, in HookArgs args)
+            {
+                if (args.Kind == HookKind.TurnEnded && args.Subject.Side == UnitSide.Enemy) Seen.Add(battle.RetaliateChargesLeft());
+            }
+        }
+
         private const int MaxHp = 5000;
         private const int Hp = 100000;
 
@@ -178,19 +188,21 @@ namespace Brushblade.Core.Tests
 
         // ================= 地裂:出字前护盾每 100 点 +1 击、总击数 ≤ 5,打完清两桶(Q5) =================
 
-        [TestCase(0, 1)]
-        [TestCase(99, 1)]
-        [TestCase(250, 3)]
-        [TestCase(400, 5)]
-        [TestCase(2000, 5)]
-        public void DiLie_ExtraHitsFromPreCastShield_CappedAtFiveTotal(int shield, int hits)
+        [TestCase(0, 0, 1)]
+        [TestCase(99, 0, 1)]
+        [TestCase(250, 0, 3)]
+        [TestCase(200, 200, 5)]   // 普通桶与留存桶各一半:两桶都计入击数、也都被清
+        [TestCase(2000, 0, 5)]
+        public void DiLie_ExtraHitsFromPreCastShield_CappedAtFiveTotal(int normal, int persist, int hits)
         {
-            var b = Battle("崩", 8, shield, 0, Mob(), Mob());
+            var b = Battle("崩", 8, normal, persist, Mob(), Mob());
+            Assert.That((b.ShieldNormal, b.ShieldPersist), Is.EqualTo((normal, persist)), "前提:开局两桶如夹具所设");
             Cast(b, "崩", 0, attack: true);
             for (int i = 0; i < 2; i++)
                 Assert.That(Damage(b, EffectSource.None).Count(e => e.TargetIndex == i), Is.EqualTo(hits),
-                    $"护盾 {shield}:#{i} 吃 {hits} 击(全体每一击都打到每个人)");
-            Assert.That(b.PlayerShield, Is.EqualTo(0), "伤害之后清两桶");
+                    $"护盾 {normal}+{persist}:#{i} 吃 {hits} 击(全体每一击都打到每个人)");
+            Assert.That(b.ShieldNormal, Is.EqualTo(0), "伤害之后清普通桶");
+            Assert.That(b.ShieldPersist, Is.EqualTo(0), "伤害之后清留存桶");
         }
 
         // ================= 塔倾:伤害 + 当前护盾 50%(扣盾前),之后两桶合计减半、先扣普通桶(Q10) =================
@@ -344,8 +356,7 @@ namespace Brushblade.Core.Tests
             var cost = b.PlayerStatuses.Find(StatusKind.Seal);
             Assert.That((cost?.Polarity, cost?.Magnitude, cost?.TurnsLeft),
                 Is.EqualTo(((StatusPolarity?)StatusPolarity.Buff, (int?)1, (int?)2)), "AP 代价不算减益");
-            Cast(b, "杜", -1, attack: false);
-            Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Seal), Is.EqualTo(1), "同回合第二次:特性不再进 Fold");
+            Cast(b, "杜", -1, attack: false);   // 同回合第二次:特性不再进 Fold(同源 Seal 原地刷新,TotalMagnitude 区分不了 —— 由下面第三次出字与 AP 恢复证明)
             b.EndTurn();
             Assert.That(b.Ap, Is.EqualTo(Config.ApPerTurn - 1), "下回合 AP −1");
             Assert.That(b.PlayerStatuses.Has(StatusKind.DamageCut), Is.False, "减伤只管本回合");
@@ -421,7 +432,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ShanYue_ArmorGate_FirstHitEachRoundBreaksAttacker()
         {
-            List<bool> Broken(bool lowArmor, out BattleEngine b)
+            // 每只敌人那一拍收尾时读一次回敬剩余次数(_traitUsesThisTurn 在玩家回合开始才清,EndTurn 返回后已重置,只能在敌方段里读)
+            List<bool> Broken(bool lowArmor, out BattleEngine b, out List<int?> charges)
             {
                 b = Battle("垚", 6, Mob(attack: 10), Mob(attack: 10));
                 Cast(b, "垚", -1, attack: false);
@@ -429,13 +441,17 @@ namespace Brushblade.Core.Tests
                 if (lowArmor)
                     b.PlayerStatuses.Apply(new StatusEffect
                         { Kind = StatusKind.ArmorBreak, Polarity = StatusPolarity.Debuff, Magnitude = 1000, TurnsLeft = 9, SourceId = "试" });
+                var probe = new ChargesProbe();
+                b.AddHookListener(probe);
                 b.EndTurn();
+                charges = probe.Seen;
                 var e = b;
                 return Enumerable.Range(0, 2).Select(i => e.Enemies[i].Statuses.Has(StatusKind.ArmorBreak)).ToList();
             }
-            Assert.That(Broken(lowArmor: true, out var low), Is.EqualTo(new[] { false, false }), "护甲 0 < 50:不回敬");
-            Assert.That(low.PlayerStatuses.Find(StatusKind.Retaliate), Is.Not.Null, "回敬还挂着");
-            Assert.That(Broken(lowArmor: false, out var high), Is.EqualTo(new[] { true, false }), "只有第一个打中的被破甲");
+            Assert.That(Broken(lowArmor: true, out var low, out var lowCharges), Is.EqualTo(new[] { false, false }), "护甲 0 < 50:不回敬");
+            Assert.That(lowCharges, Is.EqualTo(new int?[] { 1, 1 }), "门槛不满足不扣次数:两只敌人打完仍剩 1 次");
+            Assert.That(Broken(lowArmor: false, out var high, out var highCharges), Is.EqualTo(new[] { true, false }), "只有第一个打中的被破甲");
+            Assert.That(highCharges, Is.EqualTo(new int?[] { null, null }), "对照:过门槛时第一击就用掉本回合唯一一次(用尽返回 null)");
             Assert.That(high.Enemies[0].Statuses.Find(StatusKind.ArmorBreak)?.Magnitude, Is.EqualTo(50), "钉值:破甲 38 按 Lv6");
         }
     }

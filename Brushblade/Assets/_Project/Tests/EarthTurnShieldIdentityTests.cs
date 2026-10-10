@@ -125,11 +125,26 @@ namespace Brushblade.Core.Tests
         {
             var log = new HookLog();
             var b = Battle(log);
+            // 防空转:上回合末带着载体与普通盾进敌方段,敌方挥击没把盾打空(否则载体在受击路径就被移除了),
+            // 而本回合初两桶全空、载体已不在 —— 这只能是 BeginPlayerTurn 清盾段那一支移除的。
+            bool prevCarriers = false;
+            int prevNormal = 0;
+            bool sawTurnStartDrop = false;
             string fp = Fingerprint(b, log, (x, t, sb) =>
             {
+                if (t > 0 && prevCarriers)
+                {
+                    int absorbed = x.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed);
+                    if (prevNormal - absorbed > 0 && x.ShieldNormal == 0 && x.ShieldPersist == 0
+                        && !x.PlayerStatuses.Has(StatusKind.ShieldRecoil) && !x.PlayerStatuses.Has(StatusKind.ShieldFrost))
+                        sawTurnStartDrop = true;
+                }
                 if (t % 2 == 0) { Do(x, "护", -1, sb); Do(x, "冰", -1, sb); }
                 Do(x, "击", t % 3, sb);
+                prevCarriers = x.PlayerStatuses.Has(StatusKind.ShieldRecoil) || x.PlayerStatuses.Has(StatusKind.ShieldFrost);
+                prevNormal = x.ShieldNormal;
             }, 6);
+            Assert.That(sawTurnStartDrop, Is.True, "场景确实走到「回合初两桶全空、载体随清盾移除」那一支(否则对照空转)");
             Assert.That(fp, Is.EqualTo(NormalOnlyExpected), fp);
         }
 

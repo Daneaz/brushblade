@@ -589,6 +589,7 @@ namespace Brushblade.Core.Tests
                             break;
                         case "三土":
                             Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnCompose)), at);
+                            Assert.That(t.PartChar, Is.Null, at + "(即时类,不挂印记)");
                             break;
                         case "粉身碎骨":
                             Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
