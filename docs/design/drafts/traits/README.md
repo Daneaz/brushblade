@@ -234,3 +234,54 @@ Lv1 / Lv3 / Lv4 两面通用,Lv6 写明作用面。一张字共 6 个特性槽,�
 - **图标**:`thornmark` `bind` `guard` `hitcap` 在 `traits-data.js`(标「10-11 补」);兜底字 棘 缠 护 限,状态名「荆刺」「被缠」「受伤上限」「守护」要重跑字体子集。
 
 **为什么**:D2-木 正在实现,chip 拍板前不画;W11 与 D2-0 遗留的「SummonInfo 条目顺序」是同一处,合成一稿。
+
+### 2026-10-11 · PartsAndGraft:部件印记、字形特性、嫁接、花灵形象(`待审`)
+
+**补了什么**:批量需求 E,即 D2-0 时说过 Plan E 前要出的四项。
+
+- **部件印记角标**:赭金小圆 +「印」,压在部件右上角。印记只认部件字,所以**角标个数 = 剩余次数**,挂在池里排前面的同字部件上;用掉一次少一个,回合结束整批消失不飘字。
+  长按部件详情多一行「印记 · 双焰:本回合出手附灼 2(还剩 1 次)」;拖出预估签把效果算进去。「印」是新文案,进字体子集。
+- **火山「山」的目标预览**:带印记的「山」拖起即全体可落、全体描环(同 HandFlip 的全体面),预估签只挂悬停那只、开头写「全体」。落点判定要读印记里的改形。
+- **字形特性(拆字 / 成字)**:特性名从拆合台的结果格飘出,面印位用墨蓝「拆」/「合」(`FaceSeal` 换字换色,不是新组件);效果随后在战场落地。每场一次,再拆再合不飘不生效,详情尾标「本场已用」。
+- **嫁接提示**:立绘闪、治疗数字、本命 chip 换新并闪,「嫁接」(面印 生)从格子飘出;不弹文字条,`battle.msg.graft` 只留在战斗记录。
+- **花灵形象**:左侧一枝斜出,枝头四朵圆瓣五瓣花与花苞,右侧两缕香气与几片落瓣(本命「迷香」)。花瓣在 leaf 层按属性着色,枝干与香气在 body 层。
+  实现:`tools/design/build_summons.py` 加下面的函数,`SLUGS` 加 `"花": "hua"`,`COMPOSERS` 加 `"hua": compose_hua`,C# `SummonAssets.Slugs` 同步(`test_summon_assets.py` 守着),重跑脚本。
+
+```python
+def petal(x, y, angle, l, w):
+    """一片圆头花瓣:瓣根在 (x,y),沿 angle 伸出 l,头部比 leaf() 圆。"""
+    return (f'<path transform="translate({_f(x)} {_f(y)}) rotate({_f(angle)})" '
+            f'd="M0 0 C{_f(l * .1)} {_f(-w)} {_f(l * .95)} {_f(-w * 1.15)} {_f(l)} 0 '
+            f'C{_f(l * .95)} {_f(w * 1.15)} {_f(l * .1)} {_f(w)} 0 0 Z"/>')
+
+def flower(x, y, r, rot=0.0):
+    """一朵五瓣花:圆头花瓣(leaf 层)从花心放射,花心一点墨(body 层)。"""
+    petals = "".join(petal(x, y, -90 + rot + k * 72, r, r * .5) for k in range(5))
+    return dot(x, y, r * .2), petals
+
+def compose_hua(rng):
+    """花:左侧一枝斜出,枝头四朵五瓣花 + 花苞;右侧两缕香气卷着往上飘、几片落瓣(花灵本命「迷香」)。"""
+    body = ground(108, 6, 60)
+    body += stalk(14, 110, 22, 44, 3.0, 1.4, bend=-4)
+    body += stalk(18, 82, 5, 62, 1.6, .6, bend=2)
+    body += stalk(21, 52, 34, 24, 1.4, .6, bend=-2)
+    body += stalk(22, 46, 10, 28, 1.2, .5, bend=2)
+    leaves = ""
+    for fx, fy, fr, rot in ((36, 17, 10.5, 6), (6, 56, 9, -10), (11, 24, 8.5, 20), (25, 40, 7, -4)):
+        bd, pt = flower(fx, fy, fr, rot)
+        body += bd
+        leaves += pt
+    leaves += leaf(17, 72, 200, 10, 4.2) + leaf(20, 94, -20, 11, 4.6) + leaf(29, 62, -30, 8, 3.6)
+    # 迷香:右侧两缕卷曲的香气(细墨线,不吃色)
+    for x0, y0, n, s in ((100, 100, 3, 1), (111, 84, 2, -1)):
+        d = f"M{x0} {y0}"
+        for i in range(n):
+            d += f" c{-6*s} -5 {6*s} -10 0 -15"
+        body += f'<path d="{d}" fill="none" stroke="{INK}" stroke-width="1.5" stroke-linecap="round"/>'
+    # 落瓣
+    for px_, py_, a_ in ((96, 30, 30), (106, 50, -50), (92, 50, 100), (110, 18, 60)):
+        leaves += petal(px_, py_, a_, 5.5, 2.8)
+    return body, leaves
+```
+
+**为什么**:D2-0 执行记录把这四项列为 Plan E 前置;需求方 10-11 批量需求要求一并出稿。
