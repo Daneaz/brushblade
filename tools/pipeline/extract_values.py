@@ -269,7 +269,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     # D2-水 Task 2:冻结附着族(写 pick FrozenByThisCast)与冷却(Value = 拍数)
                     "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
                     "BuffBlock",   # D2-水 Task 3 洗尽铅华
-                    "Silence"}     # D2-土 E33 杜塞(`if NotBoss`)
+                    "Silence",     # D2-土 E33 杜塞(`if NotBoss`)
+                    "SkillCut"}    # D2-土 G6 杜塞(`if IsBoss`)
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -1345,4 +1346,9 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
         if e["kind"] == "HurtShield" and e["value"] < 1:
             raise ValueError(f"{char}:配置格「{config}」的 `HurtShield` 须写 N ≥ 1")
+        # D2-土 Task 4(G5 / G6 / G7):溢出平分 / 大招削减是百分比;AP 代价至少 1(「只能在击杀时特性里」由 ConfigLoader 管)
+        if e["kind"] in ("OverkillSplash", "SkillCut") and not 1 <= e["value"] <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
+        if e["kind"] == "ApCost" and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `ApCost` 须写 N ≥ 1")
     return effects

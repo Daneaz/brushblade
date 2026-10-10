@@ -1301,6 +1301,31 @@ def test_d2earth_hit_hook_errors(config, needle):
     assert needle in str(err.value)
 
 
+# ---- D2-土 Task 4(附录 G5 / G6 / G7):敌人 / 回合侧 ----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`OverkillSplash 100`", [{"kind": "OverkillSplash", "value": 100}]),                 # 粉身碎骨
+    # 杜塞:杂兵封禁、Boss 大招减半;SkillCut 认 if(进 ENEMY_PICK_KINDS)
+    ("`Silence 0` `turns 2` `if NotBoss` + `SkillCut 50` `if IsBoss`",
+     [{"kind": "Silence", "value": 0, "onlyIf": "NotBoss", "turns": 2},
+      {"kind": "SkillCut", "value": 50, "onlyIf": "IsBoss"}]),
+    ("`DamageCut 60` + `ApCost 1`", [{"kind": "DamageCut", "value": 60}, {"kind": "ApCost", "value": 1}]),   # 杜门不出
+])
+def test_d2earth_enemy_turn(config, expected):
+    assert _parse_effects(config, "杜") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`OverkillSplash 0`", "OverkillSplash"),     # 百分比 1..100
+    ("`SkillCut 150`", "SkillCut"),
+    ("`ApCost 0`", "ApCost"),                     # AP 代价至少 1
+])
+def test_d2earth_enemy_turn_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
 def test_d2water_turn_pulse_allowed_matches_engine():
     """管线 `TURN_PULSE_ALLOWED` 与 BattleEngine.TurnPulseAllows 是同一张白名单(从 C# 源码抽 switch 臂对账)。"""
     import re
