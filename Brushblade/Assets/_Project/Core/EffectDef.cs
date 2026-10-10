@@ -222,6 +222,8 @@ namespace Brushblade.Core
         // ---- D2-水 Task 1(附录 E22)。⚠ 只在末尾追加 ----
         Wellspring,     // Amplify:出字前的泉层数(洪峰;R3,同 PreCastConditions 一并取)
         Cleansed,       // HealSelf:本次出字 Cleanse 实际清掉的条数(结算那一刻;濯身)
+        // ---- D2-土 Task 1(附录 E36)。⚠ 只在末尾追加 ----
+        Shield,         // DamageSingle / Reshape:击数 = HitCount + min(ScaleCap, ⌊出字前护盾(两桶)/ ScaleDivisor⌋)(地裂;R3)
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -232,6 +234,8 @@ namespace Brushblade.Core
         Shots,  // 跳数 / 发数(Shots)
         // ---- D2-水 Task 1(附录 E17a)。⚠ 只在末尾追加 ----
         StallPush,  // 冰滞的行动条后退百分比(只给 Freeze,写在 Freeze.StallPushPercent 上;缺省 0 = BattleConfig.IceStallPushPercent)
+        // ---- D2-土 Task 1(附录 E34)。⚠ 只在末尾追加 ----
+        Battle,     // 持续到战斗结束(圭臬,只给 DefenseBuff):Turns 置 −1(Value 不用);结算时 TurnsLeft = −1,战后不携带
     }
 
     /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
@@ -529,6 +533,19 @@ namespace Brushblade.Core
         /// <summary>前 N 次(W4,`wardCount N`,土·杜绝预留):只给 DebuffWard。0 = 期间不限。</summary>
         public int WardCount { get; }
 
+        // ---- D2-土 Task 1(附录 E30 / E31 / E36)。全缺省 = 原行为,逐位恒等 ----
+
+        /// <summary>按护甲加盾(E30,塔基固面 `armorShield N`):只给 Shield(由 Reshape 写到本面第一条 Shield)——
+        /// 盾量 += 结算那一刻的 <c>EffectivePlayerDefense</c> × N%,加在攻击力缩放之后(不吃生克 / Amplify)。0 = 不启用。</summary>
+        public int ArmorShieldPercent { get; }
+
+        /// <summary>逐发镇压(E31,三山 `armorStrikeEach`):DamageSingle / Reshape —— 镇压不再只对首个目标结算一次,
+        /// 而是每一发之后对这一发的落点各结算一次。false = 原口径。</summary>
+        public bool ArmorStrikeEach { get; }
+
+        /// <summary>按护盾计击数的除数(E36,地裂 `hitsPerShield N`):只配 <see cref="ScaleBasis.Shield"/>。0 = 不启用。</summary>
+        public int ScaleDivisor { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -561,7 +578,8 @@ namespace Brushblade.Core
             int executeSplashPercent = 0,
             int stallPushPercent = 0, int bonusTurns = 0, DamageCondition bonusIf = DamageCondition.None,
             bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
-            bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0)
+            bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0,
+            int armorShieldPercent = 0, bool armorStrikeEach = false, int scaleDivisor = 0)
         {
             Kind = kind;
             Value = value;
@@ -627,6 +645,9 @@ namespace Brushblade.Core
             OfHeal = ofHeal;
             WardOf = wardOf;
             WardCount = wardCount;
+            ArmorShieldPercent = armorShieldPercent;
+            ArmorStrikeEach = armorStrikeEach;
+            ScaleDivisor = scaleDivisor;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -647,8 +668,10 @@ namespace Brushblade.Core
             int? blockBleed = null, int? blockMorale = null, int? killRefundAp = null,
             int? executeSplashPercent = null,
             int? stallPushPercent = null, int? bonusTurns = null, DamageCondition? bonusIf = null,
-            DamageCondition? executeIf = null) =>
-            new EffectDef(Kind, value ?? Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
+            DamageCondition? executeIf = null,
+            bool? persistOnce = null, int? armorShieldPercent = null, bool? armorStrikeEach = null,
+            int? scaleDivisor = null, int? scaleCap = null) =>
+            new EffectDef(Kind, value ?? Value, DoubleVs, persistOnce ?? PersistOnce, SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
@@ -656,13 +679,14 @@ namespace Brushblade.Core
                 hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
                 armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent,
                 AugmentKind, AugmentField, pick ?? Pick, KeepStacks, PercentOfMax, RiderOf, BodyPercent, OpeningBattles,
-                RetainPercent, PortionPercent, scaleBy ?? ScaleBy, ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
+                RetainPercent, PortionPercent, scaleBy ?? ScaleBy, scaleCap ?? ScaleCap, perHit ?? PerHit, perHitFrom ?? PerHitFrom, shotPercent ?? ShotPercent,
                 MinBurn, PerBurningHit, Fill, counterPercent ?? CounterPercent, scaleMin ?? ScaleMin, OfVictimMaxHp,
                 counterColumn ?? CounterColumn, counterHits ?? CounterHits, counterExecuteBelow ?? CounterExecuteBelow,
                 blockBleed ?? BlockBleed, blockMorale ?? BlockMorale, killRefundAp ?? KillRefundAp,
                 executeSplashPercent ?? ExecuteSplashPercent,
                 stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
-                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount)
+                Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount,
+                armorShieldPercent ?? ArmorShieldPercent, armorStrikeEach ?? ArmorStrikeEach, scaleDivisor ?? ScaleDivisor)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

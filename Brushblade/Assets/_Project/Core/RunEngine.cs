@@ -89,7 +89,7 @@ namespace Brushblade.Core
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
         private List<OpeningEffect> _carriedOpenings = new(); // 跨场开局效果(spec v7 §5.1)
         private List<StatusEffect> _carriedStatuses = new(); // 护甲增益延续(2026-08-04):段内持久,到段末才清;
-                                                               // 只承载 DefenseBuff,HoT 不跨战斗
+                                                               // 只承载厚 / 泉(D2-土 E34 起不含 DefenseBuff),HoT 不跨战斗
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
@@ -666,9 +666,11 @@ namespace Brushblade.Core
             // 上面那句「只取护甲增益」如今只对厚/泉(层数,恒 -1)有实际作用。
             // 不按 Kind 排除而按存续排除,是为了让将来任何新的限时增益自动落在正确的一边:
             // 「几回合内有效」的东西跨过一整场战斗还剩几回合,没有一个说得通的答案。
+            //
+            // D2-土 E34(2026-10-11):DefenseBuff 从名单里删掉。圭臬「本字护甲持续到战斗结束」落成 TurnsLeft −1,
+            // 留着这一项它就会变成整段永久护甲(违反 spec §5.1);删之前名单里已没有 −1 的玩家护甲,删后逐位恒等。
             _carriedStatuses = Battle.PlayerStatuses.All
-                .Where(s => (s.Kind == StatusKind.DefenseBuff
-                        || s.Kind == StatusKind.Heft
+                .Where(s => (s.Kind == StatusKind.Heft
                         || s.Kind == StatusKind.Wellspring)
                     && s.TurnsLeft < 0)
                 .Select(s => s.Clone())

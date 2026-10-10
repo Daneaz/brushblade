@@ -1290,3 +1290,37 @@ def test_battles_stays_on_its_own_effect_when_valueless_token_shares_the_kind():
         {"kind": "Morale", "value": 0, "fill": True},
         {"kind": "Augment", "value": 3, "augmentKind": "Block", "augmentField": "Count"},
         {"kind": "Morale", "value": 2, "openingBattles": 5}]
+
+
+# ---- D2-土 Task 1:共用小扩展(附录 E29 / E30 / E31 / E34 / E36)—— 附录 §2 的拟写行 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 垒砌(E29):本次护盾为留存护盾
+    ("`Reshape` `persist`", [{"kind": "Reshape", "value": 0, "persistOnce": True}]),
+    # 塔基固面(E30):护盾 + 当前护甲 × 300%
+    ("`Reshape` `armorShield 300`", [{"kind": "Reshape", "value": 0, "armorShieldPercent": 300}]),
+    # 三山(E31):散射 3 发,每发各结算镇压
+    ("`Reshape` `shape Scatter` `shots 3` `armorStrike 300` `armorStrikeEach`",
+     [{"kind": "Reshape", "value": 0, "shape": "Scatter", "shots": 3, "armorStrikePercent": 300, "armorStrikeEach": True}]),
+    # 圭臬(E34):护甲持续到战斗结束
+    ("`Augment 0` `of DefenseBuff` `field Battle`",
+     [{"kind": "Augment", "value": 0, "augmentKind": "DefenseBuff", "augmentField": "Battle"}]),
+    # 地裂(E36):出字前护盾每 100 点 +1 击,最多 +4
+    ("`Reshape` `hitsPerShield 100` `cap 4`",
+     [{"kind": "Reshape", "value": 0, "scaleBy": "Shield", "scaleDivisor": 100, "scaleCap": 4}]),
+])
+def test_d2earth_shared_modifiers(config, expected):
+    assert _parse_effects(config, "土") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Shield 60` `persist`", "persist"),                              # 没有 Reshape 可挂
+    ("`DamageSingle 60` `armorShield 300`", "armorShield"),            # armorShield 只挂 Reshape
+    ("`Reshape` `armorStrikeEach`", "armorStrike"),                    # 须配 armorStrike
+    ("`Shield 60` `hitsPerShield 100`", "hitsPerShield"),              # 没有伤害可挂
+    ("`Augment 0` `of Shield` `field Battle`", "Battle"),              # field Battle 只配 DefenseBuff
+])
+def test_d2earth_shared_modifier_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

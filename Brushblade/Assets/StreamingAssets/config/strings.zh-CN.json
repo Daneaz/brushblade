@@ -1596,5 +1596,10 @@
   "face.name.attack": "攻击",
   "face.name.feature": "五行面",
   "face.side.front": "正",
-  "face.side.back": "背"
+  "face.side.back": "背",
+  "char.effect.augment.battle": "护甲持续到战斗结束",
+  "char.effect.reshape.persist": "本次护盾为留存护盾",
+  "char.effect.armorshield": "(护盾 + 当前护甲 {percent}%)",
+  "char.effect.armorstrike.each": "(每一发各结算一次)",
+  "char.effect.per.shield.hits": "(出字前我方护盾每 {divisor} 点 +1 击,最多 +{cap} 击)"
 }

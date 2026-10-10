@@ -247,7 +247,8 @@ CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Fro
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
 AUGMENT_FIELD_TOKEN = "field"
-AUGMENT_FIELDS = {"Count", "Turns", "Shots", "StallPush"}   # StallPush:D2-水 E17a(坚冰,只配 of Freeze)
+AUGMENT_FIELDS = {"Count", "Turns", "Shots", "StallPush",   # StallPush:D2-水 E17a(坚冰,只配 of Freeze)
+                  "Battle"}   # Battle:D2-土 E34(圭臬,只配 of DefenseBuff,Value 不用)
 RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
@@ -371,6 +372,17 @@ WARD_COUNT_TOKEN = "wardCount"
 WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak",
             "Vulnerable", "Charm", "HealBlock", "Doom"}
 
+# ---- D2-土 Task 1(附录 E29 / E30 / E31 / E36)----
+# `persist`(垒砌 / 厚德载物):本格 Reshape 的 persistOnce —— Fold 时把无伤害面的第一条护盾改为留存。
+# `armorShield N`(塔基固面):本格 Reshape 的 armorShieldPercent —— 盾量 + 当前护甲 × N%。
+# `armorStrikeEach`(三山):本格 Reshape(没有则唯一的 DamageSingle)的逐发镇压,须配 `armorStrike N`。
+# `hitsPerShield N`(地裂):本格 Reshape(没有则唯一的 DamageSingle)击数 + ⌊出字前护盾 / N⌋ → scaleBy Shield + scaleDivisor N,
+# 可配 `cap N`(最多多打几击)。带数值的两个进通用循环的跳过名单,否则落成独立效果。
+PERSIST_TOKEN = "persist"
+ARMOR_SHIELD_TOKEN = "armorShield"
+ARMOR_STRIKE_EACH_TOKEN = "armorStrikeEach"
+HITS_PER_SHIELD_TOKEN = "hitsPerShield"
+
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
     "counterExecute": "counterExecuteBelow",
@@ -463,7 +475,7 @@ def _attach_fire_ops(config, char, effects, consumed):
                              f"且只挂本格唯一的一条对应宿主 {SCALE_HOSTS}")
         hosts[0]["scaleBy"] = per[0]
     cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
-    if cap:
+    if cap and f"`{HITS_PER_SHIELD_TOKEN} " not in config:   # 地裂的 cap 归 _attach_earth_ops
         consumed.add(CAP_TOKEN)
         hosts = [e for e in effects if e["kind"] == "Amplify" and "scaleBy" in e]
         if len(cap) > 1 or len(hosts) != 1 or int(cap[0]) < 1:
@@ -549,6 +561,54 @@ def _attach_metal_ops(config, char, effects, consumed):
         if f"`{PERCENT_OF_MAX_TOKEN}`" in config:
             raise ValueError(f"{char}:配置格「{config}」的 `ofHeal` 不能与 `pct` 同用")
         host["ofHeal"] = True
+
+
+def _attach_earth_ops(config, char, effects, consumed):
+    """D2-土 Task 1:`persist` / `armorShield N` / `armorStrikeEach` / `hitsPerShield N` [+ `cap N`]。宿主不唯一或不存在一律报错。"""
+    reshapes = [e for e in effects if e["kind"] == "Reshape"]
+
+    def damage_host(token):
+        if len(reshapes) == 1:
+            return reshapes[0]
+        hosts = [e for e in effects if e["kind"] == "DamageSingle"]
+        if reshapes or len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 Reshape 或 DamageSingle 可挂 —— 它会静默消失。")
+        return hosts[0]
+
+    def reshape_host(token):
+        if len(reshapes) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 Reshape 可挂 —— 它会静默消失。")
+        return reshapes[0]
+
+    if f"`{PERSIST_TOKEN}`" in config:
+        consumed.add(PERSIST_TOKEN)
+        reshape_host(PERSIST_TOKEN)["persistOnce"] = True
+    armor_shield = re.findall(rf"`{ARMOR_SHIELD_TOKEN} (\d+)`", config)
+    if armor_shield:
+        consumed.add(ARMOR_SHIELD_TOKEN)
+        if len(armor_shield) > 1 or int(armor_shield[0]) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ARMOR_SHIELD_TOKEN}` 只能写一个,且须 ≥ 1")
+        reshape_host(ARMOR_SHIELD_TOKEN)["armorShieldPercent"] = int(armor_shield[0])
+    if f"`{ARMOR_STRIKE_EACH_TOKEN}`" in config:
+        consumed.add(ARMOR_STRIKE_EACH_TOKEN)
+        host = damage_host(ARMOR_STRIKE_EACH_TOKEN)
+        if host.get("armorStrikePercent", 0) < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `{ARMOR_STRIKE_EACH_TOKEN}` 须配 `armorStrike N`")
+        host["armorStrikeEach"] = True
+    per_shield = re.findall(rf"`{HITS_PER_SHIELD_TOKEN} (\d+)`", config)
+    if per_shield:
+        consumed.add(HITS_PER_SHIELD_TOKEN)
+        host = damage_host(HITS_PER_SHIELD_TOKEN)
+        if len(per_shield) > 1 or int(per_shield[0]) < 1 or "scaleBy" in host:
+            raise ValueError(f"{char}:配置格「{config}」的 `{HITS_PER_SHIELD_TOKEN}` 只能写一个、须 ≥ 1,且不与别的计数缩放同用")
+        host["scaleBy"] = "Shield"
+        host["scaleDivisor"] = int(per_shield[0])
+        cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
+        if cap:
+            consumed.add(CAP_TOKEN)
+            if len(cap) > 1 or int(cap[0]) < 1:
+                raise ValueError(f"{char}:配置格「{config}」的 `cap` 只能写一个,且须 ≥ 1")
+            host["scaleCap"] = int(cap[0])
 
 
 def _positional_hosts(config, effects, kinds=None):
@@ -739,6 +799,8 @@ def _attach_modifier_tokens(config, char, effects, consumed):
         # 与 ConfigLoader 同口径:坚冰的 StallPush 只配 Freeze;带条件的 Augment 只支持冻结回合
         if e.get("augmentField") == "StallPush" and e.get("augmentKind") != "Freeze":
             raise ValueError(f"{char}:`field StallPush` 只能配 `of Freeze`")
+        if e.get("augmentField") == "Battle" and e.get("augmentKind") != "DefenseBuff":
+            raise ValueError(f"{char}:`field Battle` 只能配 `of DefenseBuff`")
         if "onlyIf" in e and (e.get("augmentKind"), e.get("augmentField")) != ("Freeze", "Turns"):
             raise ValueError(f"{char}:带条件 `if` 的 Augment 只支持 `of Freeze` `field Turns`")
 
@@ -1071,6 +1133,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             continue  # D2-金 Task 2:格挡附带的数值,下面挂到 BlockMod 上
         if kind == WARD_COUNT_TOKEN:
             continue  # D2-水 Task 3:免疫减益的次数,下面按位置挂到 DebuffWard 上
+        if kind in (ARMOR_SHIELD_TOKEN, HITS_PER_SHIELD_TOKEN):
+            continue  # D2-土 Task 1:Reshape / 伤害的修饰数值,下面由 _attach_earth_ops 挂
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -1215,6 +1279,7 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     _attach_modifier_tokens(config, char, effects, consumed)
     _attach_fire_ops(config, char, effects, consumed)
     _attach_metal_ops(config, char, effects, consumed)
+    _attach_earth_ops(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)
