@@ -1614,7 +1614,7 @@
   "char.effect.shieldcarry": "之后{turns}回合,每回合开始获得上回合末剩余护盾的{value}%",
   "char.effect.hitcap": "本回合我方单次受伤不超过最大生命的{value}%",
   "char.effect.hurtshield": "之后{turns}回合,每次受击后获得护盾{value}",
-  "char.effect.shieldshatter": "本次护盾被打破时,对攻击者造成被打破量的{value}%",
+  "char.effect.shieldshatter": "护盾被敌人打空时,对攻击者造成该击吸收量的{value}%",
   "char.effect.overkillsplash.all": "溢出伤害平分给其余敌人",
   "char.effect.overkillsplash": "溢出伤害的{value}%平分给其余敌人",
   "char.effect.skillcut": "下次大招伤害−{value}%",

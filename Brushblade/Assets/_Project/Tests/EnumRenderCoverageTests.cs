@@ -35,16 +35,12 @@ namespace Brushblade.Core.Tests
         /// <summary>玩家永远看不到卡面文案的 EffectKind → 理由。P0 休眠的那批
         /// (PierceBuff/Cleanse/Dispel/ApBoost/BurnNoDecay)不算豁免 —— 它们只是当前
         /// 字表无载体,CharInfo 里仍然有渲染分支,P2 复活时不需要再补线。</summary>
-        private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>
-        {
-        };
+        private static readonly Dictionary<string, string> EffectKindExempt = new Dictionary<string, string>();
 
         /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
         /// 空表是核实过的结论,不是偷懒:全部 91 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
         /// CardTraits.cs 里(不出特性 chip 的那几个写成空 `case … break;`,同样匹配得到)。</summary>
-        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>
-        {
-        };
+        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>();
 
         /// <summary>玩家永远看不到状态详情的 StatusKind → 理由。</summary>
         private static readonly Dictionary<string, string> StatusKindExempt = new Dictionary<string, string>

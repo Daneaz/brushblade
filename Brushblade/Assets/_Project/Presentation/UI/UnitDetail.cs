@@ -109,6 +109,7 @@ namespace Brushblade.Presentation
             StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure
                 or StatusKind.HitCap   // 铜墙铁壁(D2-土 G2):与减伤同组(Q20)
                 or StatusKind.HurtShield   // 堡垒(D2-土 G3):守御类;无图标,chip 印护盾量(不然是一块空白色块)
+                or StatusKind.HurtHeal     // 栉风沐雨(D2-水 W5):同堡垒,与持续回复同组;chip 印回血量
                 or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
@@ -134,7 +135,7 @@ namespace Brushblade.Presentation
             // 这条不改。
             StatusKind.Burn or StatusKind.Bleed or StatusKind.Immunity or StatusKind.Block
                 or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak
-                or StatusKind.HurtShield =>
+                or StatusKind.HurtShield or StatusKind.HurtHeal =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
                 or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable

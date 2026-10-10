@@ -252,6 +252,26 @@ namespace Brushblade.Core.Tests
             Assert.That(perTurn, Is.EqualTo(new[] { 1, 1, 0 }));
         }
 
+        [Test]
+        public void HurtShield_ShieldAtCap_NoZeroShieldEvent()
+        {
+            // 两桶已在上限之上(读档后上限变小的越界态;正常挥击每次吸收都会腾出空间,granted 至少 = min(量, 吸收量)):
+            // 这一击吸收 10 后仍顶着上限 → 实际入账 0 —— 不发 Shield 事件(同浮屠),攒厚照旧按请求量(Q7)
+            var fort = Fort(n: 100);
+            var b = Battle(new[] { fort }, new[] { Mob(10) });
+            b.Cast("堡", -1);
+            var snap = b.Capture();
+            snap.ShieldNormal = MaxHp + 50;
+            var all = new[] { new CharDef("木", Element.Wood), fort };
+            var restored = BattleEngine.Restore(snap, RebalanceFixture.Graph(all),
+                new BattleConfig { PlayerMaxHp = MaxHp, PlayerAttack = 100, ApPerTurn = 200, LibraryCapacity = 200, BossChargeEvery = 2 },
+                null, new Dictionary<string, EnemyDef> { ["怔"] = Mob(10) });
+            restored.EndTurn();
+            Assert.That(restored.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyAttack), Is.EqualTo(1), "确实挨了一击");
+            Assert.That(PlayerShieldEvents(restored), Is.Empty, "入账 0 不发事件");
+            Assert.That(restored.PlayerStatuses.TotalMagnitude(StatusKind.Heft), Is.EqualTo(1), "攒厚按请求量 100,不按入账量");
+        }
+
         // ---------------- G4 ShieldShatter ----------------
 
         private static CharDef Jade(int shield, int shatter = 50, bool persist = false, int recoil = 0)

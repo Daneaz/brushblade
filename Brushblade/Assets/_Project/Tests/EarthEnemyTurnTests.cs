@@ -412,6 +412,17 @@ namespace Brushblade.Core.Tests
             Assert.That(ex.Message, Does.Contain("OnKill"));
         }
 
+        [Test]
+        public void Loader_OverkillSplash_RejectedInPerHit()
+        {
+            // 顶层检查只看 Effects 本身;写进 perHit 子效果(每击附带)也得拒 —— 即便宿主是 OnKill 特性
+            const string nested = @"{""kind"":""DamageSingle"",""value"":10,""perHit"":[{""kind"":""OverkillSplash"",""value"":100}]}";
+            var ex = Assert.Throws<ConfigException>(() => LoadTrait("OnKill", nested));
+            Assert.That(ex.Message, Does.Contain("OverkillSplash"));
+            ex = Assert.Throws<ConfigException>(() => Load(nested));
+            Assert.That(ex.Message, Does.Contain("OverkillSplash"));
+        }
+
         [TestCase(@"{""kind"":""SkillCut"",""value"":50,""onlyIf"":""IsBoss""}")]
         [TestCase(@"{""kind"":""ApCost"",""value"":1}")]
         public void Loader_Accepts(string effect) =>

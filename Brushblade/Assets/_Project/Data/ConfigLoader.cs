@@ -991,6 +991,9 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 perHit(只有 DamageSingle / Reshape 有「每一击」,Retaliate 写回敬)");
                 foreach (var child in e.PerHit)
                 {
+                    // 粉身碎骨(D2-土 G5):只能写在 OnKill 特性的顶层效果里 —— 顶层检查看不到 perHit 子效果,在这里一并拒
+                    if (child.Kind == nameof(EffectKind.OverkillSplash))
+                        throw new ConfigException($"字「{id}」的每击附带(perHit)里写了 OverkillSplash,但它只能写在击杀时(OnKill)特性的顶层效果里");
                     bool bad = child.Kind == nameof(EffectKind.DamageSingle) || child.Kind == nameof(EffectKind.Reshape)
                         || child.Kind == nameof(EffectKind.Amplify) || child.Kind == nameof(EffectKind.Augment)
                         || child.Kind == nameof(EffectKind.BlockMod)

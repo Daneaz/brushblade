@@ -115,7 +115,7 @@ namespace Brushblade.Core
             {
                 int granted = AddPlayerShield(amount, persist: false);
                 GainHeft(amount);
-                _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+                if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));   // 同浮屠:入账 0 不飘「+0」
             }
             finally { ExitTrigger(); }
         }
