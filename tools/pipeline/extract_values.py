@@ -157,7 +157,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
                   "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
                   "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
-                  "ShieldCarry"}               # D2-土 Task 2:回合初留盾(浮屠),同上
+                  "ShieldCarry",               # D2-土 Task 2:回合初留盾(浮屠),同上
+                  "HurtShield"}                # D2-土 Task 3:受击得盾(堡垒),同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -1339,4 +1340,9 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
         if e["kind"] in ("ShieldSpend", "ShieldToMorale", "ShieldCarry") and not 1 <= e["value"] <= 100:
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
+        # D2-土 Task 3(G2 / G3 / G4):单次受伤上限 / 碎玉反伤是百分比;堡垒是护盾量(turns 必填由 DURATION_KINDS 管)
+        if e["kind"] in ("HitCap", "ShieldShatter") and not 1 <= e["value"] <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
+        if e["kind"] == "HurtShield" and e["value"] < 1:
+            raise ValueError(f"{char}:配置格「{config}」的 `HurtShield` 须写 N ≥ 1")
     return effects

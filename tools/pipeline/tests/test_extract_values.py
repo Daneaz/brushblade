@@ -1278,6 +1278,29 @@ def test_d2earth_shield_op_errors(config, needle):
     assert needle in str(err.value)
 
 
+# ---- D2-土 Task 3(附录 G2 / G3 / G4):受击挂点族 ----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`HitCap 10`", [{"kind": "HitCap", "value": 10}]),                                   # 铜墙铁壁
+    ("`HurtShield 44` `turns 2`", [{"kind": "HurtShield", "value": 44, "turns": 2}]),   # 堡垒
+    ("`ShieldShatter 50`", [{"kind": "ShieldShatter", "value": 50}]),                     # 碎玉
+])
+def test_d2earth_hit_hooks(config, expected):
+    assert _parse_effects(config, "壁") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`HurtShield 44`", "turns"),               # 受击得盾必写回合
+    ("`HitCap 0`", "HitCap"),                   # 百分比 1..100
+    ("`HitCap 101`", "HitCap"),
+    ("`ShieldShatter 150`", "ShieldShatter"),
+])
+def test_d2earth_hit_hook_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
 def test_d2water_turn_pulse_allowed_matches_engine():
     """管线 `TURN_PULSE_ALLOWED` 与 BattleEngine.TurnPulseAllows 是同一张白名单(从 C# 源码抽 switch 臂对账)。"""
     import re
