@@ -104,6 +104,8 @@ namespace Brushblade.Core
 
             /// <summary>本次出字召出的召唤物槽位(按落位顺序;幼苗、SummonedThisCast 选择器用,D1 Task 7)。</summary>
             public List<int> SummonedSlots = new List<int>();
+            /// <summary>本次出字落位的森然入场幼苗(D2-木 擎天 OtherSummons 也排除它们;不进 SummonedSlots,不改既有选择器)。</summary>
+            public List<int> EntrySaplingSlots = new List<int>();
 
             /// <summary>本次出字 Morale 效果累计溢出的层数(聚金,D2-金 J7;补满与锋芒不计)。</summary>
             public int MoraleOverflow;

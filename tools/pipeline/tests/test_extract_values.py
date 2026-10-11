@@ -603,6 +603,17 @@ def test_summon_aura_pick_combos_rejected(config):
         _parse_effects(config, "测")
 
 
+def test_required_ally_picks_derive_from_ally_picks():
+    """fix round 1(Minor 4):必须写 pick 的 kind,合法选择器与 ALLY_PICKS 同源,不另抄一份。"""
+    from extract_values import ALLY_PICKS, REQUIRED_ALLY_PICK_KINDS, _ally_picks_of
+    for kind in REQUIRED_ALLY_PICK_KINDS:
+        picks = _ally_picks_of(kind)
+        assert picks == sorted(p for p, ks in ALLY_PICKS.items() if kind in ks) and picks
+        for pick in picks:
+            _parse_effects(f"`{kind} 2` + `turns 3` + `pick {pick}`" if kind == "SummonEmpower"
+                           else f"`{kind} 2` + `pick {pick}`", "测")
+
+
 @pytest.mark.parametrize("config", [
     "`Taunt 1`",                               # 嘲讽必须写 pick
     "`Taunt 1` + `pick Random`",               # 嘲讽不认敌方侧选择器

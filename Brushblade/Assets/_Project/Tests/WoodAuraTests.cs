@@ -106,6 +106,38 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void M1_EmpowerOtherSummons_SkipsThisCastsEntrySaplings()
+        {
+            // Fix round 1 裁定:森然入场幼苗是本次召唤的一部分,不算「出字时在场」
+            var pillar = WoodCard("擎",
+                new EffectDef(EffectKind.Summon, 300, summonAttack: 100, summonChar: "木",
+                    passive: new SummonPassive { EntrySaplings = 1 }),
+                Empower(30, EffectPick.OtherSummons));
+            var b = Battle(new[] { pillar }, new[] { W(0, attack: 100) });
+            b.Cast("擎");
+            Assert.That(b.Summons[2]?.Char, Is.EqualTo("苗"), "夹具前提:入场幼苗落在 2 号");
+            Assert.That(Attacks(b).Take(3), Is.EqualTo(new[] { 130, 100, 20 }), "只有 0 号吃擎天");
+            Assert.That(Auras(b, StatusKind.SummonEmpower).Select(s => s.TargetSlot), Is.EqualTo(new[] { 0 }));
+        }
+
+        [Test]
+        public void M1_EmpowerAndMorale_SurviveCaptureRestore()
+        {
+            // Fix round 1(Minor 1):读档时光环与战意乘区要在玩家袋恢复之后再刷
+            var pillar = Card("擎", Empower(30, EffectPick.OtherSummons));
+            var war = Card("战", new EffectDef(EffectKind.Morale, 1));
+            var b = Battle(new[] { pillar, war }, new[] { W(0, attack: 100), W(2, attack: 100) });
+            b.Cast("擎");
+            b.Cast("战");
+            int[] before = Attacks(b);
+            Assert.That(before.Take(3), Is.EqualTo(new[] { 143, -1, 143 }), "夹具前提:(100 + 30) × 110%");
+            var restored = BattleEngine.Restore(b.Capture(), RebalanceFixture.Graph(pillar, war), Config, null,
+                new Dictionary<string, EnemyDef> { ["怔"] = RebalanceFixture.Mob() });
+            Assert.That(Attacks(restored), Is.EqualTo(before));
+            Assert.That(restored.Summons[0].PlayerAttackPercent, Is.EqualTo(110));
+        }
+
+        [Test]
         public void M1_EmpowerStrongestSummon_ResolvedAtCastEnd_TieTakesLowestSlot()
         {
             // 桂冠写在召唤之前也要等出字结束再选:本次召出的(攻 200)才是最强
@@ -369,6 +401,10 @@ namespace Brushblade.Core.Tests
         [TestCase(@"{""kind"":""SummonEmpower"",""value"":0,""turns"":3,""pick"":""AllSummons""}")]      // 量须 > 0
         [TestCase(@"{""kind"":""SummonThorns"",""value"":0,""turns"":3}")]
         [TestCase(@"{""kind"":""SummonThorns"",""value"":30,""turns"":3,""pick"":""AllSummons""}")]      // 荆棘光环恒为全部
+        [TestCase(@"{""kind"":""SummonEmpower"",""value"":20,""pick"":""AllSummons""}")]                 // 必须写 turns > 0
+        [TestCase(@"{""kind"":""SummonEmpower"",""value"":20,""turns"":0,""pick"":""AllSummons""}")]
+        [TestCase(@"{""kind"":""SummonThorns"",""value"":30}")]
+        [TestCase(@"{""kind"":""SummonThorns"",""value"":30,""turns"":0}")]
         [TestCase(@"{""kind"":""Taunt"",""value"":2,""pick"":""OtherSummons""}")]                         // 新 pick 只给 SummonEmpower
         [TestCase(@"{""kind"":""Taunt"",""value"":2,""pick"":""StrongestSummon""}")]
         public void Loader_RejectsBadAuraWritings(string effect)

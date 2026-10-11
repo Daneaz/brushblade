@@ -1196,6 +1196,9 @@ namespace Brushblade.Data
             // 木灵光环(D2-木 M1):攻击 / 荆棘光环的量须 > 0(0 会挂一条什么都不做的状态);落点由 EffectPickRules.Allows 管
             if ((kind == EffectKind.SummonEmpower || kind == EffectKind.SummonThorns) && e.Value <= 0)
                 throw new ConfigException($"字「{id}」的 {kind} 光环量须 > 0:{e.Value}");
+            // 两者按玩家回合计(Q7),须写 turns > 0;缺省 0 引擎会当本场,静默变成永久光环
+            if ((kind == EffectKind.SummonEmpower || kind == EffectKind.SummonThorns) && e.Turns <= 0)
+                throw new ConfigException($"字「{id}」的 {kind} 光环须写 turns > 0:{e.Turns}");
             if (e.ScaleBy == nameof(ScaleBasis.SummonCount) && kind != EffectKind.Amplify)
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy SummonCount(只给 Amplify)");
             if (e.OpeningBattles != 0 && (e.SummonAtkStrikePercent != 0 || e.HostAtkStrikePercent != 0 || e.HostArmorStrikePercent != 0

@@ -1323,9 +1323,10 @@ namespace Brushblade.Core
             }
             foreach (var summon in snapshot.Summons)
                 engine.PlaceCarried(SummonState.Restore(summon), summon.Slot);
-            // 断点读档同一条理由(2026-09-05):见构造函数里 startingSummons 那句注释。
-            engine.RefreshSummonAura();
             engine._playerStatuses.CopyFrom(snapshot.PlayerStatuses ?? new List<StatusEffect>());
+            // 断点读档同一条理由(2026-09-05):见构造函数里 startingSummons 那句注释。
+            // 排在玩家袋恢复之后(D2-木 Task 2 fix round 1):战意 / 厚的乘区与木灵攻击光环都读玩家袋,先刷会读到空袋
+            engine.RefreshSummonAura();
             return engine;
         }
 
@@ -4460,7 +4461,9 @@ namespace Brushblade.Core
                             for (int es = 0; es < entry; es++)
                             {
                                 int sapHp = Math.Max(1, host.MaxHp * EntrySaplingPercent / 100);
-                                if (PlaceSapling(attacker, sapHp, host.Attack * EntrySaplingPercent / 100, def.Id, -1) < 0) break;
+                                int sapSlot = PlaceSapling(attacker, sapHp, host.Attack * EntrySaplingPercent / 100, def.Id, -1);
+                                if (sapSlot < 0) break;
+                                _cast.EntrySaplingSlots.Add(sapSlot);   // D2-木 擎天:本次召唤的一部分,不算「出字时在场」
                             }
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。

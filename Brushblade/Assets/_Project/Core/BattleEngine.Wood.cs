@@ -47,7 +47,8 @@ namespace Brushblade.Core
                     break;
                 case EffectPick.OtherSummons:
                     for (int s = 0; s < _summons.Length; s++)
-                        if (_summons[s] != null && _summons[s].Alive && !_cast.SummonedSlots.Contains(s))
+                        if (_summons[s] != null && _summons[s].Alive && !_cast.SummonedSlots.Contains(s)
+                            && !_cast.EntrySaplingSlots.Contains(s))   // 森然入场幼苗是本次召唤的一部分(fix round 1 裁定)
                             ApplySummonAura(StatusKind.SummonEmpower, effect.Value, effect.Turns, sourceId, s);
                     break;
                 case EffectPick.StrongestSummon:

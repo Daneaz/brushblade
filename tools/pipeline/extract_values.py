@@ -313,6 +313,13 @@ ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taun
               "AllSummons": {"Taunt", "SummonEmpower"}, "AllAllies": {"Cleanse"},
               "OtherSummons": {"SummonEmpower"}, "StrongestSummon": {"SummonEmpower"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
+# 必须写 pick 的我方侧效果(Primary 写法没有落点,ConfigLoader 会拒):合法 pick 一律由 ALLY_PICKS 推导,不另抄一份
+REQUIRED_ALLY_PICK_KINDS = {"Taunt", "SummonEmpower"}
+
+
+def _ally_picks_of(kind):
+    """该 kind 在 ALLY_PICKS 里能写的选择器(按名排序)。"""
+    return sorted(p for p, ks in ALLY_PICKS.items() if kind in ks)
 PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
@@ -1032,17 +1039,15 @@ def _attach_ally_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:`pick {pick}` 只能挂在 {sorted(ally_kinds)} 上,当前挂到了 {e['kind']}")
         if ally_kinds is None and e["kind"] not in ENEMY_PICK_KINDS | RESHAPE_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
-                             f"{sorted(p for p, ks in ALLY_PICKS.items() if e['kind'] in ks)})")
+                             f"{_ally_picks_of(e['kind'])})")
     for e in effects:
         # 保命必须写 `pick SummonedThisCast`(Ruling 10):缺省写法引擎选不到召唤物,会静默空转
         if e["kind"] == "Endure" and e.get("pick") != "SummonedThisCast":
             raise ValueError(f"{char}:`Endure` 必须配 `pick SummonedThisCast`(落点是本次召出的召唤物)")
-        # 嘲讽同理:必须写 pick Self / SummonedThisCast / AllSummons(Primary 写法 ConfigLoader 会拒绝)
-        if e["kind"] == "Taunt" and e.get("pick") not in ALLY_PICKS:
-            raise ValueError(f"{char}:`Taunt` 必须配 `pick Self` / `pick SummonedThisCast` / `pick AllSummons`")
-        # 木灵攻击光环同理(D2-木 M1):Primary 写法没有落点,ConfigLoader 会拒绝
-        if e["kind"] == "SummonEmpower" and e.get("pick") not in ("AllSummons", "OtherSummons", "StrongestSummon"):
-            raise ValueError(f"{char}:`SummonEmpower` 必须配 `pick AllSummons` / `pick OtherSummons` / `pick StrongestSummon`")
+        # 嘲讽 / 木灵攻击光环(D2-木 M1)同理:必须写 ALLY_PICKS 里给它的选择器(Primary 写法 ConfigLoader 会拒绝)
+        if e["kind"] in REQUIRED_ALLY_PICK_KINDS and e.get("pick") not in _ally_picks_of(e["kind"]):
+            raise ValueError(f"{char}:`{e['kind']}` 必须配 "
+                             + " / ".join(f"`pick {p}`" for p in _ally_picks_of(e["kind"])))
         if "onlyIf" in e and e["kind"] in ALLY_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 
