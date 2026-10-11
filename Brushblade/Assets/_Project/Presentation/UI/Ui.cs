@@ -485,6 +485,28 @@ namespace Brushblade.Presentation
             return lines * fontSize * 1.35f;
         }
 
+        /// <summary>单行文字的估算宽度:全角(汉字、全角标点)按一个字号,其余(ASCII 数字字母、半角标点)按 0.55 个字号。
+        /// 纯函数,口径与 <see cref="WrappedTextHeight"/> 同族(不测量、不等一帧布局)。</summary>
+        public static float EstimateWidth(string text, int fontSize)
+        {
+            if (string.IsNullOrEmpty(text)) return 0f;
+            float width = 0f;
+            foreach (char c in text) width += c < 0x2000 ? 0.55f : 1f;
+            return width * fontSize;
+        }
+
+        /// <summary>按估算宽度截断成单行,放不下就从尾部截去并补省略号(Unity Text 没有 ellipsis;E2 附录 Q11)。
+        /// 放得下原样返回。</summary>
+        public static string Truncate(string text, int fontSize, float width)
+        {
+            if (string.IsNullOrEmpty(text) || EstimateWidth(text, fontSize) <= width) return text;
+            const string ellipsis = "…";
+            float budget = width - EstimateWidth(ellipsis, fontSize);
+            int n = text.Length;
+            while (n > 0 && EstimateWidth(text.Substring(0, n), fontSize) > budget) n--;
+            return text.Substring(0, n).TrimEnd() + ellipsis;
+        }
+
         /// <summary>带图标的 chip 宽度。图标占 <see cref="Icons.Size"/>,后面还有 Gap;
         /// 纯图标(无量值)时不留 Gap。无图标时与 <see cref="ChipWidth(string,int,int)"/> 等价。
         ///
@@ -762,7 +784,17 @@ namespace Brushblade.Presentation
         public static GameObject FaceSeal(Transform parent, Brushblade.Core.CharDef def,
             Brushblade.Core.CardFace face, float size)
         {
-            var go = Panel(parent, $"FaceSeal_{face}");
+            var go = FaceSeal(parent, FaceSealText(def, face), FaceSealColor(def, face), size);
+            go.name = $"FaceSeal_{face}";
+            return go;
+        }
+
+        /// <summary>面印的「文字 + 底色」重载(Plan E2,component/FaceSeal):不属于某一面的印共用这一式 ——
+        /// 两面通用「两」(<see cref="FaceSealBothText"/>,<see cref="Theme.InkSoft"/> 底),以及 PartsAndGraft 的「拆」「合」。
+        /// 按面取的那个重载也走这里,画法只有一份。</summary>
+        public static GameObject FaceSeal(Transform parent, string text, Color background, float size)
+        {
+            var go = Panel(parent, "FaceSeal");
             var rect = (RectTransform)go.transform;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = Vector2.zero;
@@ -771,14 +803,22 @@ namespace Brushblade.Presentation
             bg.sprite = Theme.Rounded(Mathf.Max(2, Mathf.RoundToInt(size * 0.19f)));
             bg.type = Image.Type.Sliced;
             bg.raycastTarget = false;
-            bg.color = FaceSealColor(def, face);
-            var text = ThemedLabel(go.transform, FaceSealText(def, face),
+            bg.color = background;
+            var label = ThemedLabel(go.transform, text,
                 Mathf.RoundToInt(size * 0.7f), Color.white, Theme.TitleFont);
-            text.fontStyle = FontStyle.Bold;
-            text.raycastTarget = false;
-            Stretch(text.rectTransform);
+            label.fontStyle = FontStyle.Bold;
+            label.raycastTarget = false;
+            Stretch(label.rectTransform);
             return go;
         }
+
+        /// <summary>两面通用印上的字(字符串表 face.seal.both);底色用 <see cref="Theme.InkSoft"/>。</summary>
+        public static string FaceSealBothText() => Strings.T("face.seal.both");
+
+        /// <summary>面印四档边长(component/FaceSeal,稿 pt × 2.093):s 27 / m 36 / l 50;xs 见 <see cref="FaceSealXs"/>。</summary>
+        public const float FaceSealS = 27f;
+        public const float FaceSealM = 36f;
+        public const float FaceSealL = 50f;
 
         /// <summary>面印底色:攻击 = <see cref="Theme.Ink"/>,五行面 = 本系字形色。</summary>
         public static Color FaceSealColor(Brushblade.Core.CharDef def, Brushblade.Core.CardFace face) =>
@@ -811,7 +851,7 @@ namespace Brushblade.Presentation
         /// 字形仍读得清:玩家要认得出这是哪个字。</summary>
         public static Button GlyphTile(Transform parent, Brushblade.Core.CharDef def,
             bool selected, Action onClick, Vector2? size = null, bool locked = false,
-            Brushblade.Core.CardFace? face = null)
+            Brushblade.Core.CardFace? face = null, float? sealSize = null)
         {
             var s = size ?? new Vector2(96, 120); // 默认对齐素材 0.8 竖版比例
             var go = new GameObject($"Tile_{def.Id}", typeof(RectTransform));
@@ -911,7 +951,8 @@ namespace Brushblade.Presentation
                 var slot = Panel(content.transform, "SealSlot");
                 Anchor((RectTransform)slot.transform, new Vector2(0, 0.06f), new Vector2(1, 0.30f),
                     Vector2.zero, Vector2.zero);
-                FaceSeal(slot.transform, def, face.Value, Mathf.Min(FaceSealXs, s.y * 0.24f));
+                // sealSize:字卡详情头部大牌要 m 档(Plan E2);缺省仍是 xs 按牌高收,既有调用逐字节不变
+                FaceSeal(slot.transform, def, face.Value, sealSize ?? Mathf.Min(FaceSealXs, s.y * 0.24f));
             }
 
             // 动效(§4):属性决定动什么、稀有度决定动多少。素材缺失时 Init 里自行退化为不动。
