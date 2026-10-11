@@ -85,6 +85,8 @@ namespace Brushblade.Presentation
             { "guard", "护" },
             { "hitcap", "限" },
             { "bulwark", "壁" },
+            // E2 字卡详情:「Lv N 解锁」的锁
+            { "lock", "锁" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },
