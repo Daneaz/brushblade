@@ -211,7 +211,7 @@ namespace Brushblade.Core.Tests
         public void TargetOf_SelfOnlyFixture()
         {
             var def = new CharDef("锐", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.CritBuff, 10) },
+                effects: new[] { new EffectDef(EffectKind.ApBoost, 1) },
                 attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10) });
             Assert.That(CardSheetRules.TargetOf(def, CardFace.Feature, 1), Is.EqualTo(FaceTarget.SelfOnly));
             Assert.That(CardSheetRules.AreaOf(def, CardFace.Feature, 1), Is.EqualTo(TargetArea.Single));

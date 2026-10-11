@@ -82,6 +82,11 @@ namespace Brushblade.Core
         private int BattleUsesOf(CharDef def, TraitDef t) =>
             _traitUsesThisBattle.TryGetValue(BattleUseKey(def, t), out int used) ? used : 0;
 
+        /// <summary>这条带每场次数(<see cref="TraitDef.MaxPerBattle"/> &gt; 0)的特性本场是否已用尽(Plan E2 Q19,
+        /// 战斗版字卡详情的「本场已用」:杜门不出、折桂)。只读次数表;不限次的特性恒 false。</summary>
+        public bool TraitSpentThisBattle(CharDef def, TraitDef trait) =>
+            trait.MaxPerBattle > 0 && BattleUsesOf(def, trait) >= trait.MaxPerBattle;
+
         /// <summary>次数阀:perTurn / perBattle 为 0 = 不限。两项都未满才算用掉并计数;失败不扣任何一项。</summary>
         internal bool TryUseTrait(string key, int perTurn, int perBattle)
         {
