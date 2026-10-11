@@ -2517,7 +2517,7 @@ namespace Brushblade.Presentation
             _unitSheetSource = () =>
             {
                 var s = Battle.Summons[index];
-                return s != null && s.Alive ? SummonInfo.Sheet(s, Battle.SummonDefense(s)) : null;
+                return s != null && s.Alive ? SummonInfo.Sheet(Battle, index, _graph) : null;
             };
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
@@ -2545,7 +2545,7 @@ namespace Brushblade.Presentation
             // shieldOverride:判据见 ShowCarriedShield/CarriedShieldOverride 的字段注释——
             // 与角标(DrawPlayerStats)读的是同一对属性,别在这里另起一份判断。
             _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta, CarriedShieldOverride,
-                CarriedHpOverride, CarriedMaxHpOverride, _run.CardLevel);
+                CarriedHpOverride, CarriedMaxHpOverride, _run.CardLevel, _graph);
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
@@ -2567,22 +2567,9 @@ namespace Brushblade.Presentation
             // 不随回合衰减、也不会消失 —— 玩家要知道的是「它是哪一种」,
             // 具体几层/几点/百分之几去详情弹窗看(summon.passive.* 那一族整句写得很清楚)。
             //
-            // 一格只出一枚,按 StatusChipsWood 稿(2026-10-11 拍板)的优先级取排得最前、且有图标的那一条:
-            // 守护 › 盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾。
-            // 判据:先改变敌我怎么挨打的,再是出手附带,再是给全队的光环,最后是自身数值。
-            // 没有图标的本命(成林、坚木、桂香、丛生、迷香、良弓、落木、秋实、藻荇、水草…)不出 chip,只进详情。
-            // 召唤物详情右栏的「本命」按同一顺序排(SummonInfo.NatureOrder),第一条就是这一枚。
-            if (passive == null) return ("", null);
-            if (passive.Guard > 0) return ("", "guard");
-            if (passive.Thorns > 0) return ("", "thorns");   // 披荆只认本命荆棘,与盾反同一枚
-            if (passive.OnHitBurn > 0) return ("", "burn");
-            if (passive.OnHitCurse > 0) return ("", "curse");
-            if (passive.GroveCut > 0 || passive.ThicketCut > 0) return ("", "bulwark");
-            if (passive.CritAura > 0) return ("", "crit");
-            if (passive.HealAlly > 0 || passive.Regen > 0) return ("", "heal");
-            if (passive.Dodge > 0) return ("", "dodge");
-            if (passive.Speed > 100) return ("", "speed");
-            return ("", null);
+            // 一格只出一枚,优先级(StatusChipsWood 稿,2026-10-11 拍板)写在 SummonInfo.NatureChipIcon ——
+            // 召唤物详情右栏「本命」的第一条读同一个函数,两处对得上。没有图标的本命不出 chip,只进详情。
+            return ("", SummonInfo.NatureChipIcon(passive));
         }
 
         /// <summary>头行里一枚**不可压缩**的属性 chip。
@@ -6297,7 +6284,7 @@ namespace Brushblade.Presentation
             // 身上挂着什么状态)。EnemyPreview 本身不删——BestiaryView.cs 两处怪物图鉴调用点
             // 还在用它。
             if (_modal != null) Object.Destroy(_modal);
-            _unitSheetSource = () => EnemyInfo.Sheet(Battle.Enemies[index], _graph);
+            _unitSheetSource = () => EnemyInfo.Sheet(Battle.Enemies[index], _graph, SlotName);
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 

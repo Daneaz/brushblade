@@ -199,7 +199,8 @@ namespace Brushblade.Presentation
         /// EnemyPreview 与图鉴还在用它们。数值口径与那些方法完全一致(同一份 Def/State 字段,
         /// 只是拆成条目而不是拼成一段字符串);Figures/Tags/Flavor 这几个稿上有、老文本从来
         /// 没有的字段,来源与外推理由见 task-3-report.md 的对照表。</summary>
-        public static UnitDetail Sheet(EnemyState enemy, RecipeGraph graph = null)
+        /// <param name="slotLabelOf">(可空,D2-木 Task 5)木灵槽位 → 「前排第 1 位」:被缠的说明点名是哪一格的藤灵。</param>
+        public static UnitDetail Sheet(EnemyState enemy, RecipeGraph graph = null, System.Func<int, string> slotLabelOf = null)
         {
             var def = enemy.Def;
             bool isBoss = enemy.IsBoss;
@@ -222,7 +223,7 @@ namespace Brushblade.Presentation
                 Shield = enemy.Shield,
                 ActionMeter = enemy.ActionMeter,
                 Figures = BuildFigures(enemy),
-                Statuses = UnitDetailChip.BuildStatuses(enemy.Statuses, graph: graph),
+                Statuses = UnitDetailChip.BuildStatuses(enemy.Statuses, graph: graph, slotLabelOf: slotLabelOf),
                 Abilities = BuildAbilities(enemy, isBoss),
                 Wuxing = UnitDetailChip.WuxingOf(enemy.ApparentElement),
             };

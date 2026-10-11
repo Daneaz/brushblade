@@ -1677,5 +1677,16 @@
   "status.thornmark.desc": "攻击我方时,自己受到这次伤害的 {magnitude}%。",
   "status.charm.desc.mult": "它本回合改为攻击自己阵营,伤害 ×{mult}({trait});场上只剩它一个时空转,不会自伤也不会打玩家。",
   "status.charm.desc.mult.plain": "它本回合改为攻击自己阵营,伤害 ×{mult};场上只剩它一个时空转,不会自伤也不会打玩家。",
-  "status.summonaura.source": "{source}光环 · {duration}"
+  "status.summonaura.source": "{source}光环 · {duration}",
+  "summon.detail.abilities_title": "本命",
+  "summon.detail.nature_lead": "战场上那枚",
+  "summon.detail.figure_attack_aura": "含光环 +{value}%",
+  "summon.range.melee.desc": "只能打最前排的敌人",
+  "summon.range.ranged.desc": "不受前排阻挡,可打后排",
+  "summon.range.aura": "{source}光环 · {duration};平时近战",
+  "status.woodcut.name": "减伤 {value}%",
+  "status.woodcut.desc": "{list};与本回合减伤同类取最强,再与格挡合计至多 {cap}%。",
+  "status.critaura.name": "暴击 +{value}%",
+  "status.nature.duration": "{trait} · 在场时",
+  "status.nature.duration.plain": "本命 · 在场时"
 }

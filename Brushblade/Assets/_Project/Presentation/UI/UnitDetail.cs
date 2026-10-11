@@ -33,6 +33,10 @@ namespace Brushblade.Presentation
         // 加成此前与护盾这类随时会消失的实时资源混排在同一列表、同款卡片、无任何视觉区分,
         // 丢了「这两类性质不同」这层信息。
         public string Section;
+        // 召唤物详情右栏(SummonInfoNature 稿,D2-木 Task 5):Lead = 战场上那枚本命 chip 对应的一条 ——
+        // 卡片左缘一道朱砂、名字后尾标「战场上那枚」、名字与说明分两行;Inline = 名字与说明排在同一行(其余本命与射程)
+        public bool Lead;
+        public bool Inline;
     }
 
     /// <summary>一张详情的全部内容。三类单位(敌人/召唤物/执笔人)共用,字段为 null 表达
@@ -61,6 +65,7 @@ namespace Brushblade.Presentation
         public (string label, string value, string note)[] Figures;  // 攻/甲/速/行动
         public List<StatusEntry> Statuses;
         public List<AbilityEntry> Abilities;
+        public string AbilitiesTitle;   // 右栏标题;null = 缺省「特性 · 技能」(召唤物详情写「本命」,SummonInfoNature 稿)
         public (Element beats, Element beatenBy)? Wuxing;  // 生克行;执笔人为 null
     }
 
@@ -246,6 +251,61 @@ namespace Brushblade.Presentation
             }
             return list;
         }
+
+        /// <summary>本命在场光环(D2-木 M2:林荫 / 森严 / 蟾宫)不是状态条目 —— 它们实时读场上存活木灵的本命,
+        /// 袋子里没有一条可列。详情里合成一条(SummonInfoNature 稿「减伤 15% · 林荫 · 林灵在场时」、StatusChipsWood 稿
+        /// 「暴击 +10% · 蟾宫」),数值读 Core 读口(与结算同源),来源取特性名(游戏数据,取不到退回「本命」)。
+        /// <paramref name="forSummon"/>:木灵侧(林荫与森严取最强)/ 玩家侧(只有林荫)。</summary>
+        public static void AddWoodNatureEntries(List<StatusEntry> list, BattleEngine battle, RecipeGraph graph, bool forSummon)
+        {
+            int cut = battle.WoodDamageCutPercent(forSummon);
+            int crit = 0;
+            var cutLines = new List<string>();
+            var cutNames = new List<string>();
+            string critName = null;
+            foreach (var s in battle.Summons)
+            {
+                var p = s != null && s.Alive ? s.Passive : null;
+                if (p == null) continue;
+                bool grove = p.GroveCut > 0, thicket = forSummon && p.ThicketCut > 0;
+                if (cut > 0 && (grove || thicket))
+                    CharInfo.WoodNatureLines(p, (key, line) =>
+                    {
+                        if (!(key == CharInfo.NatureKey.GroveCut && grove) && !(key == CharInfo.NatureKey.ThicketCut && thicket)) return;
+                        if (!cutLines.Contains(line)) cutLines.Add(line);
+                        string name = CharInfo.NatureTraitName(graph, key == CharInfo.NatureKey.GroveCut
+                            ? x => x.GroveCut > 0 : x => x.ThicketCut > 0);
+                        if (name != null && !cutNames.Contains(name)) cutNames.Add(name);
+                    });
+                if (p.CritAura > crit) crit = p.CritAura;
+            }
+            if (crit > 0) critName = CharInfo.NatureTraitName(graph, x => x.CritAura > 0);
+            if (cut > 0)
+                list.Add(new StatusEntry
+                {
+                    IconKey = "bulwark",
+                    ChipText = Strings.T("detail.chip.plain_pct", ("value", cut)),
+                    ChipColor = ColorFor(StatusKind.DamageCut, cut),
+                    Name = Strings.T("status.woodcut.name", ("value", cut)),
+                    Duration = NatureDuration(cutNames.Count > 0 ? string.Join(" / ", cutNames) : null),
+                    Desc = Strings.T("status.woodcut.desc", ("list", string.Join(";", cutLines)),
+                        ("cap", CombatCaps.NonArmorReductionPercent)),
+                });
+            if (crit > 0)
+                list.Add(new StatusEntry
+                {
+                    IconKey = "crit",
+                    ChipText = Strings.T("detail.chip.plain_pct", ("value", crit)),
+                    ChipColor = ColorFor(StatusKind.CritBuff, crit),
+                    Name = Strings.T("status.critaura.name", ("value", crit)),
+                    Duration = NatureDuration(critName),
+                    Desc = Strings.T("char.passive.crit_aura", ("value", crit)),
+                });
+        }
+
+        private static string NatureDuration(string trait) => trait != null
+            ? Strings.T("status.nature.duration", ("trait", trait))
+            : Strings.T("status.nature.duration.plain");
 
         /// <summary>生克提示:「克 X ×1.5 · 被 Y 克」还原成 (beats, beatenBy) 元组。
         /// 五行环(木火土金水)里每个属性必然同时有一个「我克」与一个「克我」;心不在环内,

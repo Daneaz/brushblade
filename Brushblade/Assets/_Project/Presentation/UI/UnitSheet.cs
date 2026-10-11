@@ -411,8 +411,8 @@ namespace Brushblade.Presentation
         /// 共享同一个标题,不逐条重画。</summary>
         private static void BuildAbilityColumn(Transform parent, UnitDetail detail)
         {
-            Ui.ThemedLabel(parent, Strings.T("unit.detail.abilities_title"), 15, Theme.TextMain, Theme.TitleFont,
-                TextAnchor.UpperLeft);
+            Ui.ThemedLabel(parent, detail.AbilitiesTitle ?? Strings.T("unit.detail.abilities_title"), 15, Theme.TextMain,
+                Theme.TitleFont, TextAnchor.UpperLeft);
 
             // 宽度必须显式给,理由与左列那处一字不差(Ui.ScrollList 返回的 Panel 报 0 宽)。
             var scroll = Ui.ScrollList(parent, "AbilityScroll", 8, out var content);
@@ -446,6 +446,8 @@ namespace Brushblade.Presentation
         private const int AbilityChipPadX = 6;
         private const int AbilityChipPadY = 4;
         private const float AbilityHeaderGap = 6f;
+        private const int AbilityLeadTagFont = 10;       // 尾标「战场上那枚」(稿 small 7.5pt ≈ 两档小于名字)
+        private const float AbilityLeadEdge = 4f;        // 左缘朱砂宽(稿 2pt × 2.093)
 
         private static void BuildAbilityCard(Transform parent, AbilityEntry ability)
         {
@@ -464,11 +466,19 @@ namespace Brushblade.Presentation
             float chipWidth = ability.IconKey != null
                 ? Ui.ChipWidth("", AbilityChipFont, AbilityChipPadX) + Icons.Size
                 : 0f;
-            float nameWidth = innerWidth - chipWidth - (chipWidth > 0f ? AbilityHeaderGap : 0f);
+            // 战场上那枚(Lead,SummonInfoNature 稿):名字后跟尾标「战场上那枚」,标签宽从名字栏里扣
+            string leadTag = ability.Lead ? Strings.T("summon.detail.nature_lead") : null;
+            float leadTagWidth = leadTag != null ? leadTag.Length * AbilityLeadTagFont + AbilityHeaderGap : 0f;
+            float nameWidth = innerWidth - chipWidth - (chipWidth > 0f ? AbilityHeaderGap : 0f) - leadTagWidth;
+            // 单行(Inline):名字按自身宽(汉字约一个字号宽,同 Ui.ChipWidth 的估法),说明吃同一行余下的宽并可换行
+            bool inline = ability.Inline && ability.Desc != null;
+            float inlineNameWidth = inline ? Mathf.Min(nameWidth, ability.Name.Length * AbilityNameFont + 2f) : nameWidth;
+            float inlineDescWidth = inline ? nameWidth - inlineNameWidth - AbilityHeaderGap : 0f;
             float headerHeight = Mathf.Max(
                 ability.IconKey != null ? Ui.ChipHeight(AbilityChipFont, AbilityChipPadY) : 0f,
-                Ui.WrappedTextHeight(ability.Name, AbilityNameFont, nameWidth));
-            float descHeight = ability.Desc == null ? 0f
+                Ui.WrappedTextHeight(ability.Name, AbilityNameFont, inlineNameWidth),
+                inline ? Ui.WrappedTextHeight(ability.Desc, AbilityDescFont, inlineDescWidth) : 0f);
+            float descHeight = ability.Desc == null || inline ? 0f
                 : AbilityCardSpacing + Ui.WrappedTextHeight(ability.Desc, AbilityDescFont, innerWidth);
             Ui.Sized(card.gameObject, width: AbilityColumnWidth,
                 height: AbilityCardBorder * 2 + AbilityCardPadY * 2 + headerHeight + descHeight);
@@ -498,10 +508,31 @@ namespace Brushblade.Presentation
                 Theme.TextMain, Theme.TitleFont, TextAnchor.UpperLeft);
             nameLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             nameLabel.verticalOverflow = VerticalWrapMode.Overflow;
-            Ui.Sized(nameLabel.gameObject, width: nameWidth,
-                height: Ui.WrappedTextHeight(ability.Name, AbilityNameFont, nameWidth));
+            Ui.Sized(nameLabel.gameObject, width: inlineNameWidth,
+                height: Ui.WrappedTextHeight(ability.Name, AbilityNameFont, inlineNameWidth));
+            if (leadTag != null)
+                Ui.ThemedLabel(header.transform, leadTag, AbilityLeadTagFont, Theme.LockGray, align: TextAnchor.MiddleLeft);
+            if (ability.Lead)
+            {
+                // 左缘一道朱砂(稿 .abil.first { box-shadow: inset 2px 0 cinnabar }):挂在卡片外层、压在描边之上
+                var edge = Ui.Panel(card.transform, "LeadEdge");
+                var edgeImage = edge.AddComponent<Image>();
+                edgeImage.color = Theme.Cinnabar;
+                edgeImage.raycastTarget = false;
+                Ui.Anchor((RectTransform)edge.transform, Vector2.zero, new Vector2(0f, 1f),
+                    Vector2.zero, new Vector2(AbilityLeadEdge, 0f));
+            }
+            if (inline)
+            {
+                var inlineDesc = Ui.ThemedLabel(header.transform, ability.Desc, AbilityDescFont, Theme.TextDim,
+                    align: TextAnchor.UpperLeft);
+                inlineDesc.horizontalOverflow = HorizontalWrapMode.Wrap;
+                inlineDesc.verticalOverflow = VerticalWrapMode.Overflow;
+                Ui.Sized(inlineDesc.gameObject, width: inlineDescWidth,
+                    height: Ui.WrappedTextHeight(ability.Desc, AbilityDescFont, inlineDescWidth));
+            }
 
-            if (ability.Desc != null)
+            if (ability.Desc != null && !inline)
             {
                 // 说明文字长度不受控(战斗数值随时可能拼出很长的 note),这一列从自身到 Face
                 // 全程没有 Mask/RectMask2D——不开换行会不被裁剪地溢出到卡片外甚至弹窗外
