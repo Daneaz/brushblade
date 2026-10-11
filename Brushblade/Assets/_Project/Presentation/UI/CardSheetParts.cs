@@ -109,11 +109,19 @@ namespace Brushblade.Presentation
         /// <summary>行头类别:主动 / 被动,Lv8 加「 · 招牌」。</summary>
         public static string KindText(TraitDef trait, bool signature)
         {
-            string kind = trait.Form == TraitForm.Passive
-                ? Strings.T("charsheet.trait.passive")
-                : Strings.T("charsheet.trait.active");
+            string kind = FormText(trait.Form);
             return signature ? Strings.T("charsheet.trait.signature", ("kind", kind)) : kind;
         }
+
+        /// <summary>两面条的类别:按每条 Def 自己的类别(<see cref="SheetTrait.Forms"/>,已去重),
+        /// 两条不同时印「主动 / 被动」(final review Minor 2),同则只印一个。</summary>
+        public static string KindText(SheetTrait row) =>
+            row.Forms.Count >= 2
+                ? Strings.T("charsheet.trait.kind_pair", ("a", FormText(row.Forms[0])), ("b", FormText(row.Forms[1])))
+                : FormText(row.Forms[0]);
+
+        private static string FormText(TraitForm form) =>
+            form == TraitForm.Passive ? Strings.T("charsheet.trait.passive") : Strings.T("charsheet.trait.active");
 
         /// <summary>行名:同名只印一个,不同名印「名 A / 名 B」(Q3;<see cref="SheetTrait.Names"/> 已去重)。</summary>
         public static string NameText(SheetTrait row) =>
@@ -163,6 +171,8 @@ namespace Brushblade.Presentation
             FaceStatKind.HealOverTime => Strings.T("charsheet.stat.hot"),
             FaceStatKind.ArmorBreak => Strings.T("charsheet.stat.armorbreak"),
             FaceStatKind.Nature => Strings.T("charsheet.stat.nature"),
+            FaceStatKind.SpendWellspring => Strings.T("charsheet.stat.spend_wellspring"),
+            FaceStatKind.SpendHeft => Strings.T("charsheet.stat.spend_heft"),
             _ => kind.ToString(),
         };
 
@@ -178,11 +188,13 @@ namespace Brushblade.Presentation
 
         private static string StatValue(FaceStat stat) => StatValue(stat.Kind, stat.Value);
 
-        /// <summary>格里的数:减攻印「−15%」、护甲 / 战意印「+N」(稿),其余原样。升级预览的差行(<see cref="StatDelta"/>)同一读法。</summary>
+        /// <summary>格里的数:减攻印「−15%」、护甲 / 战意印「+N」(稿)、耗泉 / 耗厚印「×N」(每层伤害,同旧
+        /// char.effect.spend* 的「层数×N」),其余原样。升级预览的差行(<see cref="StatDelta"/>)同一读法。</summary>
         internal static string StatValue(FaceStatKind kind, int value) => kind switch
         {
             FaceStatKind.Weaken => Strings.T("charsheet.stat.minus_pct", ("value", value)),
             FaceStatKind.Armor or FaceStatKind.Morale => Strings.T("charsheet.stat.plus", ("value", value)),
+            FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft => Strings.T("charsheet.stat.per_stack", ("value", value)),
             _ => value.ToString(),
         };
 
@@ -243,7 +255,7 @@ namespace Brushblade.Presentation
             {
                 Level = (int)row.Slot,
                 Name = NameText(row),
-                Kind = KindText(row.Defs[0], false),
+                Kind = KindText(row),
                 State = state,
             };
             int textLevel = Math.Max(level, (int)row.Slot);
@@ -294,7 +306,7 @@ namespace Brushblade.Presentation
 
                 if (z.LadderNum > 0)
                 {
-                    // 级数只印在有记号的格下(3 / 4 / 5 / 6 / 8),其余留空,高度照占
+                    // 级数只印在有记号的格下(1 / 3 / 4 / 5 / 6 / 8;Lv1 的记号是「两面」,见 LadderMarks),其余留空,高度照占
                     var num = Ui.ThemedLabel(pip.transform, marks.Count > 0 ? i.ToString() : "",
                         Mathf.RoundToInt(z.LadderNum), Theme.LockGray);
                     Ui.Sized(num.gameObject, z.Pip, z.LadderNum);

@@ -57,7 +57,8 @@ namespace Brushblade.Core.Tests
             Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Attack, 1)), Is.EqualTo("Damage:45,Slow:1"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Feature, 1)), Is.EqualTo("Heal:45,HealOverTime:2"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("冰"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(152, 3)},Freeze:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:235,ArmorBreak:2"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:235,ArmorBreak:2,SpendHeft:60"),
+                "厚积薄发出耗厚格(final review Important 1)");
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 1)), Is.EqualTo("Shield:235,Armor:100,Duration:2"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 4)),
                 Is.EqualTo($"Shield:{Scale(235, 4)},Armor:{Scale(100, 4)},Duration:4"), "不并入 Lv4 深厚的回合加成(Q5)");
@@ -262,6 +263,59 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(new[] { "Weaken:2->3", "Armor:2->4" }));
             Assert.That(FaceStats.Lv3Change(def, CardFace.Feature).Where(d => d.Kind != FaceStatKind.Duration)
                 .All(d => d.DurationOf == null), Is.True, "只有持续格带归属");
+        }
+
+        /// <summary>Final review Important 1:涌泉相报 / 厚积薄发出「耗泉 / 耗厚」格,值 = 每层伤害(与引擎 SpendResource
+        /// 收到的 value 同口径:缺省连续量,吃卡等级),排在攻面本体最后。</summary>
+        [Test]
+        public void Body_SpendCells_PerStackDamage_Scaled()
+        {
+            var lei = Graph.Get("㙓");
+            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:235,ArmorBreak:2,SpendHeft:60"));
+            Assert.That(FaceStats.Body(lei, CardFace.Attack, 10).Last().Value, Is.EqualTo(Scale(60, 10)));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Attack, 1)), Is.EqualTo("Damage:65,ArmorBreak:2,SpendHeft:13"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Attack, 1)), Is.EqualTo("Damage:174,Freeze:1,SpendWellspring:60"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("溃"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(65, 3)},Slow:2,SpendWellspring:{Scale(13, 3)}"));
+            Assert.That(Diffs(FaceStats.Deltas(lei, 1, 2).Where(d => d.Kind == FaceStatKind.SpendHeft)),
+                Is.EqualTo($"Attack.SpendHeft:60->{Scale(60, 2)}"), "升级预览的差行带上耗厚");
+            Assert.That(FaceStats.Scales(FaceStatKind.SpendHeft) && FaceStats.Scales(FaceStatKind.SpendWellspring), Is.True);
+        }
+
+        // ---------------- 覆盖 ----------------
+
+        /// <summary>本体效果里**不出数值格**的 EffectKind,每项写明它的信息在字卡详情的哪里能看到。
+        /// 加一项之前先确认:玩家不看这一格,也不会漏掉改变出牌决策的信息。</summary>
+        private static readonly Dictionary<EffectKind, string> NoCellExempt = new()
+        {
+        };
+
+        /// <summary>Final review Important 1:本体(Lv1 + Lv3 替换)里出现的每一种 EffectKind,要么出数值格,要么进
+        /// <see cref="NoCellExempt"/>。㵘 / 溃 的涌泉相报、㙓 / 崩 的厚积薄发曾在 AddCells 的 default 里静默掉,
+        /// 新字卡详情里整张找不到 —— 以后新增的资源类效果不许再这样消失。逐次出现都断(同一种效果每张字都要出格)。</summary>
+        [Test]
+        public void EveryBodyEffectKind_HasCellOrIsExempt()
+        {
+            var missing = new SortedSet<string>();
+            var seen = new HashSet<EffectKind>();
+            foreach (var d in Playable())
+                foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
+                    foreach (int lv in new[] { 1, 3 })
+                    {
+                        bool attack = face == CardFace.Attack;
+                        var body = TraitRules.Fold(BattleEngine.EffectsOf(d, attack), d, BattleEngine.FaceOf(d, attack), lv,
+                            skip: t => t.Slot >= TraitSlot.Lv4);
+                        var sources = new HashSet<EffectKind>(
+                            FaceStats.AllCells(d, face, lv, lv, TraitSlot.Lv4).Select(c => c.Source));
+                        foreach (var e in body)
+                        {
+                            seen.Add(e.Kind);
+                            if (!NoCellExempt.ContainsKey(e.Kind) && !sources.Contains(e.Kind))
+                                missing.Add($"{e.Kind}({d.Id} {face} L{lv})");
+                        }
+                    }
+            Assert.That(missing, Is.Empty, "这些本体效果既不出数值格、也不在豁免名单里:\n  " + string.Join("\n  ", missing));
+            var stale = NoCellExempt.Keys.Where(k => !seen.Contains(k)).ToList();
+            Assert.That(stale, Is.Empty, "豁免名单里有真实字表本体不再出现的效果,删掉:" + string.Join(",", stale));
         }
     }
 }

@@ -135,6 +135,24 @@ namespace Brushblade.Core.Tests
             Assert.That(CardSheetRules.SharedTraits(Graph.Get("炎"), 3)[0].Names, Is.EqualTo(new[] { "灼·强化" }), "同名只出一个名");
         }
 
+        /// <summary>Final review Minor 2:两面条的类别按每条 Def 自己的 Form 取,不能只看 Defs[0]。
+        /// 同类别只出一个,不同类别按 Defs 顺序(攻面那条在前)两个都在 —— 与 <see cref="SheetTrait.Names"/> 同一口径。</summary>
+        [Test]
+        public void SharedTraits_Forms_PerDef_DedupedInDefOrder()
+        {
+            int mixedLv3 = 0;
+            foreach (var d in Playable())
+                foreach (var row in CardSheetRules.SharedTraits(d, MetaRules.MaxCardLevel))
+                {
+                    Assert.That(row.Forms, Is.EqualTo(row.Defs.Select(t => t.Form).Distinct().ToList()), $"{d.Id} Lv{(int)row.Slot}");
+                    if (row.Slot == TraitSlot.Lv3 && row.Forms.Count == 2) mixedLv3++;
+                }
+            Assert.That(mixedLv3, Is.EqualTo(11), "Lv3 两面类别不同的字数(全是木系,含花;审查记的 12 是笔误);Lv4 现无");
+            Assert.That(CardSheetRules.SharedTraits(Graph.Get("林"), 3)[0].Forms,
+                Is.EqualTo(new[] { TraitForm.Active, TraitForm.Passive }), "种·强化 主动 / 成林·强化 被动");
+            Assert.That(CardSheetRules.SharedTraits(Graph.Get("炎"), 3)[0].Forms, Is.EqualTo(new[] { TraitForm.Active }));
+        }
+
         [Test]
         public void SharedTraits_UnlockedFollowsCardLevel()
         {

@@ -20,6 +20,9 @@ namespace Brushblade.Core
         public bool IsSignature => Slot == TraitSlot.Lv8;
         /// <summary>去重后的名字(按 Defs 顺序):同名只出一个,不同名两个都在(Q3「名 A / 名 B」)。</summary>
         public IReadOnlyList<string> Names { get; }
+        /// <summary>去重后的类别(按 Defs 顺序,每条取自己的 <see cref="TraitDef.Form"/>):同类别只出一个,不同两个都在
+        /// (final review Minor 2:木系 11 张字的 Lv3 是「攻面主动 / 五行面被动」,不能都按 Defs[0] 印)。</summary>
+        public IReadOnlyList<TraitForm> Forms { get; }
 
         public SheetTrait(TraitSlot slot, TraitFace face, IReadOnlyList<TraitDef> defs, bool unlocked)
         {
@@ -28,6 +31,7 @@ namespace Brushblade.Core
             Defs = defs ?? throw new ArgumentNullException(nameof(defs));
             Unlocked = unlocked;
             Names = defs.Select(t => t.Name).Distinct().ToList();
+            Forms = defs.Select(t => t.Form).Distinct().ToList();
         }
     }
 

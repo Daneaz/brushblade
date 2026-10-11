@@ -4078,6 +4078,10 @@ namespace Brushblade.Presentation
             if (_modal != null) Object.Destroy(_modal);
             var def = _graph.Get(charId);
             var battle = Battle;
+            // 「本场已用」只在这一场还在打时查(final review Minor 1):奖励 / 奇遇阶段 _run.Battle 还是刚打完的那个
+            // 引擎(下一场才 NewBattle),读到的是上一场的次数表,而这一页展示的正是下一场的字库。
+            // Reviving 是同一场里看广告补给(不走 NewBattle),照常查。
+            bool live = _run.Phase == RunPhase.InBattle || _run.Phase == RunPhase.Reviving;
             _modal = CharPreview.Show(transform, def, _graph, _run.CardLevel(charId),
                 new CharPreview.BattleContext
                 {
@@ -4085,7 +4089,7 @@ namespace Brushblade.Presentation
                     Craftable = battle.ComposableChars,
                     Foes = battle.Enemies,
                     UpFace = upFace,
-                    TraitSpent = trait => battle.TraitSpentThisBattle(def, trait),
+                    TraitSpent = live ? (System.Func<TraitDef, bool>)(trait => battle.TraitSpentThisBattle(def, trait)) : null,
                 });
         }
 

@@ -29,6 +29,9 @@ namespace Brushblade.Core
         HealOverTime,   // 润泽(持续治疗):回合
         ArmorBreak,     // 破甲:回合
         Nature,         // 生面「本命」(Q7):Value 恒 0,数据在 FaceStat.Passive;图标与措辞归 Presentation
+        // ---- 资源结算(final review Important 1)----
+        SpendWellspring, // 涌泉相报:清空全部泉,全体伤害 = 层数 × Value。Value = 每层伤害(缩放,同引擎 SpendResource 的 value)
+        SpendHeft,       // 厚积薄发:同上,读厚
     }
 
     /// <summary>一格数值。</summary>
@@ -90,7 +93,8 @@ namespace Brushblade.Core
         {
             FaceStatKind.Damage or FaceStatKind.Heal or FaceStatKind.Shield
                 or FaceStatKind.SummonHp or FaceStatKind.SummonAttack
-                or FaceStatKind.Counter or FaceStatKind.Weaken or FaceStatKind.Armor => true,
+                or FaceStatKind.Counter or FaceStatKind.Weaken or FaceStatKind.Armor
+                or FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft => true,
             _ => false,
         };
 
@@ -221,7 +225,16 @@ namespace Brushblade.Core
                 case EffectKind.ArmorBreak:
                     rest.Add(new FaceStat(FaceStatKind.ArmorBreak, TraitRules.TurnsOf(e), e.Kind));
                     break;
-                // 其余(厚积薄发 / 涌泉相报这类按资源结算的)不出格
+                // 涌泉相报 / 厚积薄发(final review Important 1):出「每层伤害」一格。层数是战斗中的资源,详情里没有,
+                // 只能印每层多少;「清空全部」的语义由格标签「耗泉 / 耗厚」带出。
+                case EffectKind.SpendWellspring:
+                    rest.Add(new FaceStat(FaceStatKind.SpendWellspring, Scaled(e, level), e.Kind));
+                    break;
+                case EffectKind.SpendHeft:
+                    rest.Add(new FaceStat(FaceStatKind.SpendHeft, Scaled(e, level), e.Kind));
+                    break;
+                // 其余不出格;本体里出现的每种 EffectKind 要么出格、要么进豁免名单
+                // (FaceStatsTests.EveryBodyEffectKind_HasCellOrIsExempt)
             }
         }
     }
