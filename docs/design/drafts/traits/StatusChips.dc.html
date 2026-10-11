@@ -69,13 +69,13 @@
 <div class="board">
   <div>
     <h2>状 态 chip</h2>
-    <div class="lede">十七枚 —— 前十四枚已拍板;<b>后三枚(减伤、反击加倍、保命)10-04 补,待审</b>,表里浅红底那三行。全部落在现有 <b>单位格档</b>(字 7.17 / padX 4.78 / 高 9.56pt)与现有四类底色里,不造新色:
+    <div class="lede">十七枚 —— 前十四枚已拍板;<b>后三枚(减伤、反击加倍、保命)10-04 补,10-11 拍板</b>,表里浅红底那三行。全部落在现有 <b>单位格档</b>(字 7.17 / padX 4.78 / 高 9.56pt)与现有四类底色里,不造新色:
       朱砂 = 持续伤害与威胁,墨蓝 <code>ink-soft</code> = 控制与减益,翠玉 = 恢复与防御,赭金 = 攻击类增益(压 <code>gold-text</code>)。
       唯一的新做法是 <b>冰滞</b> —— 用水字形色实底,并给行动条结一层霜,好让它和减速、冻结一眼分开。数字只给「攒得起来的量」(层数、次数、留存量),回合数留在详情里。</div>
   </div>
   <div class="cols">
     <div>
-      <h3>十七枚 <small>左列原大,右列 ×2.4;浅红底 = 10-04 补、待审</small></h3>
+      <h3>十七枚 <small>左列原大,右列 ×2.4;浅红底 = 10-04 补、10-11 拍板</small></h3>
       <div class="tbl">
         <span class="h">词</span><span class="h">原大</span><span class="h">×2.4</span><span class="h">底色</span><span class="h">数字</span><span class="h">落在</span><span class="h">词条(spec §3)</span><span class="h">图标 · 兜底字</span>
         <sc-for list="{{ rows }}" as="r">
@@ -90,7 +90,7 @@
         </sc-for>
       </div>
       <div class="cbox add3">
-        <div class="t">10-04 补三枚 · 插在哪 <span class="tag">待审</span></div>
+        <div class="t">10-04 补三枚 · 插在哪 <span class="tag">已拍板 · 10-11</span></div>
         <div class="add3-body">
         <div class="lanes">
           <div class="lane"><div class="who">玩家 · 同回合打出<br>坚壁与反戈</div>
@@ -155,7 +155,7 @@
           <code>build_icons.ICONS</code>、<code>test_icons.EXPECTED</code>、<code>Icons.Glyphs</code> 兜底字(新字要重跑字体子集)。SVG 就是本板用的那几条路径,见 <code>traits-data.js</code>。</li>
         <li><b>泉 / 厚</b> 现在是无图标的文字 chip;技能树已有 <code>perk_wellspring</code> / <code>perk_heft</code> 两枚,直接复用为状态图标。</li>
         <li><b>改名两处</b>:持续治疗 → 润泽、诅咒 → 减攻(spec 的词;机制与图标不变,只改字符串表)。</li>
-        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · <i>埋雷</i> · 标记 · 冻结 · 种 · 减速 · 减攻 · <i>干涸</i> · 霜抗;我方与木灵 嘲讽 · <b>保命</b> · 留存护盾 · <b>减伤</b> · 格挡 · <b>反击加倍</b> · <i>回敬</i> · 战意 · 厚 · 泉 · 润泽(加粗为 10-04 补;斜体为 10-08 火系补,见 StatusChipsFire 画板;均待审)。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
+        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · <i>埋雷</i> · 标记 · 冻结 · 种 · 减速 · 减攻 · <i>干涸</i> · 霜抗;我方与木灵 嘲讽 · <b>保命</b> · 留存护盾 · <b>减伤</b> · 格挡 · <b>反击加倍</b> · <i>回敬</i> · 战意 · 厚 · 泉 · 润泽(加粗为 10-04 补;斜体为 10-08 火系补,见 StatusChipsFire 画板;均已拍板)。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
         <li>三处同接:<code>StatusText.Of</code> 的 case、<code>BattleView</code> 的 chip 列表、<code>CharInfo</code> 的效果文案(CLAUDE.md 那条 ⚠)。</li>
       </ul>
     </div>
@@ -183,7 +183,7 @@ var ROWS = [
   ['嘲讽', 'k-ctrl', 'taunt', '', '—', '我 · 木灵', 'NEW', 'taunt · 嘲'],
   ['留存护盾', 'k-heal', 'keepshield', '120', '留存量', '我 · 木灵', 'NEW', 'keepshield · 留'],
   ['减攻', 'k-ctrl', 'curse', '', '—', '敌', '', '现有 curse · 咒'],
-  // 10-04 补(待审):池词条坚壁 / 反戈 / 扎根。说明句尚未进 spec §3.1,先写在这里
+  // 10-04 补(10-11 拍板):池词条坚壁 / 反戈 / 扎根。说明句尚未进 spec §3.1,先写在这里
   ['减伤', 'k-heal', 'bulwark', '', '—', '我 · 木灵', 'NEW', 'bulwark · 壁', '受到的伤害降低，数值见特性', 1],
   ['反击加倍', 'k-gold', 'riposte', '', '—', '我(随格挡)', 'NEW', 'riposte · 反', '格挡的反击伤害 ×2，本回合有效', 1],
   ['保命', 'k-heal', 'lastlife', '', '—', '木灵', 'NEW', 'lastlife · 保', '第一次将要阵亡时，保留 1 点生命，然后消失', 1]

@@ -107,9 +107,9 @@
 </helmet>
 <div class="board">
   <div>
-    <h2>木 系 · 提 示 与 反 馈 <span class="tag">待审 · 10-11</span></h2>
+    <h2>木 系 · 提 示 与 反 馈 <span class="tag">已拍板 · 10-11 回填</span></h2>
     <div class="lede">配合 <code>StatusChipsWood</code>。飘字全用触发反馈稿的三种样子,<b>不新增动效</b>:本命触发 = 那枚本命 chip 闪,特性名(面印取该特性所在的面)从它上面飘出,再跟数字或状态名。
-      木灵阵亡时触发的(秋实、落木、藻荇)从阵亡那一格飘出。东西进池、进库的,让新进的那一件闪一下,计数跟着跳。</div>
+      木灵阵亡时触发的(秋实、藻荇)从阵亡那一格飘出;落木随伤害数字出(回填)。东西进池、进库的,让新进的那一件闪一下,计数跟着跳。</div>
   </div>
   <div class="grid3">
 
@@ -130,17 +130,15 @@
       <h3>被缠 <small>W3 · 和哪只藤灵连着</small></h3>
       <div class="box top">
         <div class="fr">
-          <div class="u ally e-Wood sel"><div class="pt">藤</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-melee"></use></svg>36</span></div><div class="hpb"><span style="width:80%"></span></div><span class="cap">点中藤灵</span></div></div>
-          <span class="ar">→</span>
-          <div class="u e-Metal bound"><div class="pt">铦</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>135</span><span class="sc k-dot ring"><svg><use href="#ic-bind"></use></svg></span></div><div class="hpb"><span style="width:80%"></span></div><span class="cap">被它缠住的敌人格描木色虚线</span></div></div>
+          <div class="quote" style="flex:1"><b>被缠</b><br>每次行动都会挨<b>前排第 1 位的藤灵</b>一下(N% 攻击);藤灵阵亡或被顶替就解开。</div>
         </div>
         <div class="caprow tall"></div>
         <div class="fr">
           <div class="u e-Metal"><span class="fl slbl e-Wood" style="left:40px;top:-14px"><span class="seal xs main">生</span>攀附</span><span class="fl fnum" style="left:2px;top:-13px;color:var(--wood-glyph)">36</span><div class="pt">铦</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>135</span><span class="sc k-dot ring"><svg><use href="#ic-bind"></use></svg></span></div><div class="hpb"><span style="width:72%"></span></div><span class="cap">它行动:被缠 chip 闪,挨藤灵一下</span></div></div>
         </div>
         <div class="caprow"></div>
-        <div class="d">关联<b>只在选中时显示</b>:点藤灵,被它缠住的敌人格描木色虚线;反过来点敌人,缠它的藤灵描线。常驻连线会和拖字落点高亮打架。
-          多数时候场上只有一只藤灵,用不着分辨;两只时点一下就清楚。藤灵阵亡 / 被顶替,chip 随即消失(不飘字)。详情:「被缠 · 每次行动都会挨藤灵(前排左)一下」。</div>
+        <div class="d">关联<b>只在敌人详情里点名</b>(10-11 回填):被缠那一条写明是哪一格的藤灵。原稿「点中描木色虚线」不成立 —— 战场上点单位直接开详情弹窗、盖住战场,没有轻量的选中态。
+          不画常驻连线(会和拖字落点高亮打架)。多数时候场上只有一只藤灵,用不着分辨。藤灵阵亡 / 被顶替,chip 随即消失(不飘字)。</div>
       </div>
     </div>
 
@@ -170,7 +168,7 @@
       <div class="box">
         <table class="ft">
           <tr><th>特性</th><th>从哪飘出</th><th>飘什么</th></tr>
-          <tr><td><b>落木</b></td><td>阵亡的巨木灵那一格</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>落木</span>,全体敌人各飘伤害</td></tr>
+          <tr><td><b>落木</b></td><td>各敌人的伤害数字上(回填:伤害事件不带来源槽位)</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>落木</span>随全体敌人各自的伤害数字出</td></tr>
           <tr><td><b>良弓</b></td><td>柘灵的本命 chip</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>良弓</span>,攻击者飘伤害</td></tr>
           <tr><td><b>披荆</b></td><td>木灵的盾反 chip</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>披荆</span>,攻击者流血 chip 出现并闪</td></tr>
           <tr><td><b>藻荇</b></td><td>阵亡的小藻那一格</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>藻荇</span>,攻击者减速 chip 出现并闪</td></tr>
@@ -200,7 +198,7 @@
       <div class="box">
         <div class="quote"><b>魅惑</b><em>本回合</em><br>它本回合改为攻击自己阵营,<b>伤害 ×2</b>(移花接木);场上只剩它一个时空转。</div>
         <div class="d">W13:在现行 <code>status.charm.desc</code> 的「改为攻击自己阵营」后面接「伤害 ×2(移花接木)」,倍数取 Magnitude;没有移花接木时原句不变。战场上的魅惑 chip 不动。</div>
-        <div class="d">W1 光环挂上那一下(林立 / 擎天 / 桂冠 / 荆天棘地 / 箭灵):受益的每只木灵,新出现的那枚 chip 同时闪一下;特性名只飘一次,从出字的落点(或箭灵入场的那一格)飘出,不在每只木灵头上各飘一遍。
+        <div class="d">W1 光环挂上那一下(林立 / 擎天 / 桂冠 / 荆天棘地 / 箭灵):受益的每只木灵,新出现的那枚 chip 同时闪一下;特性名只飘一次,从第一只受益木灵(槽位最前)飘出(回填;原稿写出字落点),不在每只木灵头上各飘一遍。
           到期时 chip 静默消失。</div>
       </div>
     </div>
