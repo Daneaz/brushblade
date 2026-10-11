@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    .board { position: relative; box-sizing: border-box; width: 1320px; height: 560px; padding: 24px 28px; overflow: hidden; display: flex; flex-direction: column; gap: 12px;
+      background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; display: flex; align-items: center; gap: 10px; }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: #9B1E22; background: #FBE3E2; padding: 1px 6px; border-radius: 3px; }
+    .lede { font-size: 12px; color: #5D646F; margin-top: 6px; line-height: 1.7; max-width: 1240px; }
+    .lede b { color: #161B22; }
+    .row2 { flex: 1; min-height: 0; display: flex; gap: 24px; align-items: flex-start; }
+    .ann { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+    .ann h3 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; }
+    .ann .d { font-size: 9.5px; color: #5D646F; line-height: 1.6; }
+    .ann .d b { color: #161B22; }
+    .ann ol { margin: 0; padding-left: 18px; font-size: 9.5px; color: #5D646F; line-height: 1.6; }
+    .ann ol b { color: #161B22; }
+    .ann code { font-family: inherit; background: #F1EBDE; padding: 0 4px; border-radius: 3px; font-size: 9px; color: #2C333D; }
+    .cpt { font-size: 9px; color: #5D646F; border-collapse: collapse; width: 100%; }
+    .cpt td { padding: 2px 6px 2px 0; border-bottom: 1px solid #ECE6D9; line-height: 1.35; vertical-align: top; }
+    .cpt td:first-child { white-space: nowrap; color: #161B22; font-family: "Noto Serif SC", serif; font-weight: 600; }
+    .cpt td:nth-child(2) { white-space: nowrap; color: #928B7B; font-size: 8px; }
+    .cp svg, .abil svg { color: #fff; }
+    .abil .h small { font-family: "Noto Sans SC", sans-serif; font-size: 8px; font-weight: 400; color: #928B7B; margin-left: auto; }
+    .abil.first { border-color: #C53637; box-shadow: inset 2px 0 0 #C53637; }
+    /* 其余本命:名字与说明同一行,一屏多露几条 */
+    .abil.c { display: flex; align-items: baseline; gap: 6px; padding: 4px 8px; }
+    .abil.c .h { flex: none; }
+    .abil.c .t { margin-top: 0; }
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
+    .sheet { position: relative; width: 760px; height: 350px; flex: none;
+      box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px;
+      padding: 12px 14px 10px; box-shadow: 0 12px 38px rgba(22,27,34,.42);
+      display: flex; flex-direction: column; gap: 9px; z-index: 51; }
+
+    /* 头:立绘 + 名 + 三条 + 数值。立绘严格 1:1(mob 素材 512×512 方图),
+       84 是「看得清火芯裂缝」与「状态清单装得下 5 条」之间量出来的。 */
+    .hdr { flex: none; display: flex; gap: 11px; }
+    .port { position: relative; width: 84px; height: 84px; flex: none; border-radius: 9px;
+      background: var(--elSoft); border: 1.5px solid var(--el); overflow: hidden;
+      display: flex; align-items: center; justify-content: center; }
+    .port img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .port .glyph { font-family: "Noto Serif SC", serif; font-size: 46px; font-weight: 600;
+      color: var(--glyph); line-height: 1; }
+    .port .todo { position: absolute; left: 0; right: 0; bottom: 0; height: 14px;
+      background: rgba(22,27,34,.62); color: #FFFFFF; font-size: 8px; letter-spacing: .5px;
+      display: flex; align-items: center; justify-content: center; }
+    .port .sh { position: absolute; left: 3px; top: 3px; height: 14px; padding: 0 4px;
+      border-radius: 7px; background: #C9A94A; color: #2B2200; font-size: 8px; font-weight: 700;
+      display: flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; }
+    .port .sh .ic { width: 9px; height: 9px; display: block; }
+
+    .hi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .nmrow { display: flex; align-items: center; gap: 6px; }
+    .nm2 { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; letter-spacing: 2px; }
+    .els2 { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #fff;
+      background: var(--el); border-radius: 4px; padding: 1px 5px; line-height: 1.3; }
+    .tagx { height: 17px; padding: 0 7px; border-radius: 9px; background: #E9E5DB; color: #5D646F;
+      font-size: 9.5px; display: inline-flex; align-items: center; letter-spacing: .5px; }
+    .tagx.gold { background: #F6EDD5; color: #8A6600; }
+    /* 关闭钮视觉 22,靠 .tap 的透明边扩到 44pt 触控 */
+    .xbtn { margin-left: auto; flex: none; width: 22px; height: 22px; border: none; border-radius: 11px;
+      background: #EFEADF; color: #5D646F; font-family: inherit; font-size: 11px; cursor: pointer;
+      line-height: 1; padding: 0; }
+    .flav { font-size: 10px; color: #696151; line-height: 1.6; }
+    .bars { display: flex; flex-direction: column; gap: 2px; margin-top: 1px; }
+    .hpb2 { position: relative; height: 10px; border-radius: 5px; background: #C6BCA8; overflow: hidden; }
+    .hpb2 > span { display: block; height: 100%; }
+    .hpb2 u { position: absolute; inset: 0; font-style: normal; font-size: 7px; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      text-shadow: 0 0 1px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.8); font-variant-numeric: tabular-nums; }
+    .shb2 { position: relative; height: 5px; border-radius: 3px; background: #EFE7D2;
+      box-shadow: inset 0 0 0 1px rgba(155,138,90,.3); overflow: hidden; }
+    .shb2 > span { display: block; height: 100%; background: #C9A94A; }
+    .atb2 { position: relative; height: 4px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
+    .atb2 > span { display: block; height: 100%; background: #3D4E69; }
+    .atb2.froze > span { background: #7E8A9E; }
+    .figs { display: flex; align-items: baseline; gap: 9px; font-size: 9.5px; color: #676F7A;
+      font-variant-numeric: tabular-nums; }
+    .figs span + span { padding-left: 9px; border-left: 1px solid #E7E1D4; }
+    .figs i { font-style: normal; color: #2C333D; }
+    .figs b { font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #161B22; }
+
+    /* 身:左「状态」、右「特性 / 技能」。状态一条一行、说明就在名字底下 ——
+       不做二级弹窗:弹窗上再弹一层就得先关掉这层才看得回战场,而玩家点这里正是为了对着战场看。 */
+    .body { flex: 1; min-height: 0; display: flex; gap: 13px; }
+    .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .col.wide { flex: 1.06; }
+    .ttl { flex: none; display: flex; align-items: center; gap: 5px;
+      font-size: 9px; letter-spacing: 2px; color: #676F7A; }
+    .ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; color: #5D646F; letter-spacing: 0; }
+    .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+    /* 两列的卡片区都滚。右列尤其需要:成语 Boss 的「特性 · 技能」一次要列**四个阶段**
+       (2026-09-01 用户拍板 —— 详情弹窗此前只画当前阶段,答不了「下一段是什么属性、
+       多少血、什么大招」这个 Boss 战里最要紧的问题),四张带大招说明的卡顶得出这一列。
+       每张卡:标题「第 N 阶段 · 字 · X系(当前)」,正文「血 H · 攻 A[ · 甲 D]」加一行
+       大招名与说明(该阶段无大招则写明)。血攻取的是配置里该阶段的**基准值**,不是实时
+       ——实时只有当前阶段有意义(Boss 的血是一条连续总池),而这张列表的用处正是
+       「未至的阶段长什么样」。
+       ⚠ .wx(生克)刻意排在 .list **外面**:它是这一列的结论,而且 Boss 每换一阶就换五行,
+       正是读阶段列表时最需要一直看得见的一行,不能跟着卡片滚走。 */
+    .list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+      gap: 3px; padding-right: 3px; }
+    .list::-webkit-scrollbar { width: 3px; }
+    .list::-webkit-scrollbar-thumb { background: #D3CBBA; border-radius: 2px; }
+    .st { display: flex; gap: 6px; align-items: flex-start; }
+    .cp { flex: none; height: 14px; padding: 0 4px; border-radius: 7px; color: #fff;
+      font-size: 8.5px; font-weight: 700; display: flex; align-items: center; gap: 2px;
+      font-variant-numeric: tabular-nums; }
+    .cp .ic { width: 10px; height: 10px; flex: none; display: block; }
+    .sd { min-width: 0; }
+    .sd .n { font-size: 10.5px; color: #2C333D; font-weight: 500; line-height: 1.25; }
+    .sd .n em { font-style: normal; font-weight: 400; font-size: 9px; color: #676F7A; margin-left: 5px; }
+    .sd .d { font-size: 9.5px; color: #696151; line-height: 1.45; margin-top: 1px; }
+    .sd .d b { color: #2C333D; font-weight: 500; }
+    /* 段小标题(2026-09-01):同一段里连续的卡片共用一个标题,内容不变则不重画。
+       眼下唯一的用处是成语 Boss 的「阶段 · 共 4 段」—— 见下面 .list 的说明。 */
+    .sect { flex: none; font-size: 9px; color: #676F7A; letter-spacing: 1px; }
+    .abil { background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 7px; padding: 6px 8px; }
+    .abil .h { display: flex; align-items: center; gap: 5px;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #2C333D; }
+    .abil .h .cp { font-family: "Noto Sans SC", sans-serif; }
+    .abil .t { font-size: 9.5px; color: #696151; line-height: 1.55; margin-top: 3px; }
+    .abil .t b { color: #2C333D; font-weight: 500; }
+    /* 两行(2026-09-01 用户拍板):一行「克 X ×1.5」,一行「被 Y 克,承伤 ×1.5」。
+       原先挤在一行、且「被克」那半只说关系不给倍率 —— 玩家最想知道的恰恰是
+       「被克我要多吃多少」,那个数是现成的,没理由让他自己去推。「生克」这个小标题
+       也一并去掉:两行各自把话说全了,标题不再承担信息。 */
+    .wx { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 10px; color: #5D646F;
+      background: #F3EFE4; border-radius: 7px; padding: 5px 8px; }
+    .wx .k { font-size: 9px; letter-spacing: 1px; color: #5D646F; }
+    .wx b { font-family: "Noto Serif SC", serif; font-size: 11px; color: #161B22; }
+    .wx .ke { color: #9B1E22; } .wx .by { color: #0E4F86; }
+
+    .foot { flex: none; display: flex; align-items: center; gap: 8px;
+      padding-top: 8px; border-top: 1px solid #EDE7DA; }
+    .foot .hint { font-size: 9px; color: #696151; }
+    .btn { height: 26px; padding: 0 14px; border: none; border-radius: 13px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; letter-spacing: 1px;
+      display: inline-flex; align-items: center; }
+    .btn.ink { background: #3D4E69; color: #fff; margin-left: auto; }
+    /* 触控目标 ≥44pt:视觉 22/26 高的钮靠上下透明边扩到 44 */
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+    .foot .hint b { color: #696151; font-weight: 500; }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>召 唤 物 详 情 · 本 命 排 版 <span class="tag">待审 · 10-11</span></h2>
+    <div class="lede">W11 与 D2-0 遗留的「SummonInfo 条目顺序」合成一稿。骨架用 scenes/<code>UnitAlly</code> 已落地的那张,只动右栏:标题改「本命」,<b>射程第一</b>(与敌人详情同位置),
+      本命按战场本命 chip 的优先级往下排,<b>排第一、带朱砂描边的那条就是战场格子上那枚 chip</b>;光环这类临时的东西进左栏「状态」,写明来源与剩余回合。</div>
+  </div>
+  <div class="row2">
+    <div class="sheet e-Wood">
+      <div class="hdr">
+        <div class="port"><span class="glyph">柘</span><span class="sh"><svg class="ic"><use href="#ic-shield"></use></svg>60</span></div>
+        <div class="hi">
+          <div class="nmrow"><span class="nm2">柘灵</span><span class="els2">木</span><span class="tagx">召唤物</span><span class="tagx">近战</span><button class="xbtn">✕</button></div>
+          <div class="bars"><div class="hpb2"><span style="width:66%;background:#298646"></span><u>238 / 360</u></div><div class="atb2"><span style="width:40%"></span></div></div>
+          <div class="figs"><span>攻 <b>48</b> <i>含光环 +20%</i></span><span>盾 <b>60</b></span><span>甲 <b>+18</b> <i>入场自带</i></span><span>速 <b>100</b></span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="col wide">
+          <div class="ttl">状态 <b>4</b><span class="rule"></span></div>
+          <div class="list">
+            <div class="st"><span class="cp" style="background:#CA9D33;color:#402900"><svg class="ic" style="color:#402900"><use href="#ic-attack"></use></svg>20%</span>
+              <div class="sd"><div class="n">攻击 +20%<em>林立光环 · 剩 2 回合</em></div><div class="d">全部木灵攻击 +20%;挂在你身上,对每只木灵都算</div></div></div>
+            <div class="st"><span class="cp" style="background:#34864B"><svg class="ic"><use href="#ic-thorns"></use></svg>30%</span>
+              <div class="sd"><div class="n">荆棘 30%<em>荆天棘地 · 剩 1 回合</em></div><div class="d">被攻击时反弹 <b>30%</b>;与本命盾反取较大的,不叠加</div></div></div>
+            <div class="st"><span class="cp" style="background:#34864B"><svg class="ic"><use href="#ic-bulwark"></use></svg>15%</span>
+              <div class="sd"><div class="n">减伤 15%<em>林荫 · 林灵在场时</em></div><div class="d">每只木灵 5%,现 3 只;与格挡外的减伤同类取最强</div></div></div>
+            <div class="st"><span class="cp" style="background:#34864B"><svg class="ic"><use href="#ic-block"></use></svg>1</span>
+              <div class="sd"><div class="n">格挡 1 次<em>按次数</em></div><div class="d">下一次受到的伤害 −40%,并反击攻击者</div></div></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="ttl">本命<span class="rule"></span></div>
+          <div class="list">
+            <div class="abil c"><div class="h"><span class="cp" style="background:#5D646F"><svg class="ic"><use href="#ic-melee"></use></svg></span>近战</div><div class="t">只能打最前排的敌人</div></div>
+            <div class="abil first"><div class="h"><span class="cp" style="background:#C53637"><svg class="ic"><use href="#ic-guard"></use></svg></span>守护<small>战场上那枚</small></div><div class="t">在场时,替你承担 <b>30%</b> 伤害</div></div>
+            <div class="abil c"><div class="h">良弓</div><div class="t">每被攻击一次,向攻击者射还一箭(攻击的 <b>50%</b>)</div></div>
+            <div class="abil c"><div class="h">坚木</div><div class="t">入场自带护甲 <b>18</b></div></div>
+            <div class="abil c"><div class="h">嘲讽</div><div class="t">敌人只能攻击带嘲讽的单位</div></div>
+          </div>
+          <div class="wx"><span class="ke">克 <b>土</b> ×1.5</span><span class="by">被 <b>金</b> 克,承伤 ×1.5</span></div>
+        </div>
+      </div>
+      <div class="foot"><span class="hint">点空白或 ✕ 关闭 · 攻击一栏是<b>有效值</b>,已含光环</span><button class="btn ink tap">知道了</button></div>
+    </div>
+
+    <div class="ann">
+      <div>
+        <h3>右栏顺序</h3>
+        <ol>
+          <li><b>射程</b>,恒有、恒第一(同敌人详情)。箭灵光环生效时写「远程 · 箭灵光环 · 剩 N 回合;平时近战」。</li>
+          <li><b>出手形状</b>,偏离单体时才出(现状)。</li>
+          <li><b>本命</b>,按战场本命 chip 的优先级(守护 › 盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾),其余没有图标的按数据顺序跟在后面。
+            第一条就是战场上那枚 chip,卡片左缘一道朱砂、尾标「战场上那枚」,玩家能把格子上的图标和这里对上。</li>
+        </ol>
+        <div class="d" style="margin-top:4px">每条一张卡:<b>名字取特性名</b>(守护、良弓、林荫…),一句说明;旧被动沿用现名(盾反、附灼…)。嫁接带来的本命与天生的混排,不分来源 —— 玩家关心的是它现在会什么。
+          只有战场那枚用两行卡,射程与其余本命<b>名字与说明同一行</b>,一屏露三条多,露出的半截就是「还能往下滚」的提示;再多右栏滚动(现状 <code>.list</code> 已可滚),生克一行固定在底。现行 <code>BuildAbilities</code> 把本命排在射程前,按这条倒过来。</div>
+      </div>
+      <div>
+        <h3>13 个新本命字段的说明句</h3>
+        <table class="cpt">
+          <tr><td>守护</td><td>Guard</td><td>在场时,替你承担 {v}% 伤害</td></tr>
+          <tr><td>良弓</td><td>ReturnFire</td><td>每被攻击一次,向攻击者射还一箭(攻击的 {v}%)</td></tr>
+          <tr><td>披荆</td><td>ThornsBleed</td><td>盾反会让攻击者流血 {v}</td></tr>
+          <tr><td>林荫</td><td>GroveCut · Cap</td><td>林灵在场时,每只木灵使我方减伤 {v}%(至多 {cap}%)</td></tr>
+          <tr><td>森严</td><td>ThicketCut · Min</td><td>木灵 ≥{min} 只时,全部木灵受伤 −{v}%</td></tr>
+          <tr><td>蟾宫</td><td>CritAura</td><td>在场时,我方暴击率 +{v}%</td></tr>
+          <tr><td>馥郁</td><td>HealAllyPercent</td><td>治疗 +{v}%</td></tr>
+          <tr><td>水草</td><td>HealMirror</td><td>我方每次治疗,它回复等量生命</td></tr>
+          <tr><td>参天之力</td><td>AttackPercent</td><td>攻击 +{v}%</td></tr>
+          <tr><td>落木</td><td>DeathBlast</td><td>阵亡时,对全体敌人造成攻击 ×{v} 的伤害</td></tr>
+          <tr><td>秋实</td><td>DeathPart</td><td>阵亡时,部件池获得一个「木」</td></tr>
+          <tr><td>藻荇</td><td>SproutDeathSlow</td><td>小藻阵亡时,攻击者减速 {v} 回合</td></tr>
+        </table>
+        <div class="d" style="margin-top:4px">名字以 spec §9 的特性名为准;如果某条本命不止一个特性给,用最先出现的那个名字。字段与特性的对应以实现侧 E37 的清单为准,这里只定句式。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 560}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

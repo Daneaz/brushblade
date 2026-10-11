@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 660px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; display: flex; align-items: center; gap: 10px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1240px; }
+    .lede b { color: var(--text-main); }
+    .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; align-content: start; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: var(--warn-text); background: var(--warn-bg); padding: 1px 6px; border-radius: 3px; }
+    .box { border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 9px 11px; display: flex; flex-direction: column; gap: 8px; }
+    .d { font-size: 9.5px; color: var(--text-dim); line-height: 1.6; }
+    .d b { color: var(--text-main); }
+    .d code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9px; color: var(--text-quiet); }
+    .sc.k-cost { background: var(--panel-paper); color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--ink-soft); }
+    .sc.txt { padding: 0 3px; }
+
+    /* 一排画面:单位片段 + 箭头 */
+    .fr { display: flex; align-items: flex-end; gap: 10px; }
+    .fr .ar { font-size: 10px; color: var(--text-faint); padding-bottom: 10px; white-space: nowrap; }
+    .u { zoom: 1.5; position: relative; display: flex; align-items: flex-end; gap: 3px; }
+    .u .pt { position: relative; width: 22px; height: 22px; flex: none; border-radius: 5px; background: var(--elSoft, var(--paper-dim)); color: var(--glyph, var(--text-main));
+      display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; }
+    .u .pt.me { background: var(--ink); color: #F3EEE2; }
+    .u .inf { display: flex; flex-direction: column; gap: 2px; position: relative; }
+    .u .scs { display: flex; gap: 2px; min-height: 9.56px; }
+    .u .hpb { width: 70px; height: 7px; }
+    .u.boss .hpb { width: 132px; }
+    .u .cap { position: absolute; left: 0; top: 100%; margin-top: 2px; font-size: 6.2px; color: var(--text-faint); white-space: nowrap; }
+    .u .sbadge { left: -3px; bottom: -3px; }
+    .caprow { height: 12px; }
+    .caprow.tall { height: 30px; }
+    .box.top { padding-top: 26px; }
+    .sc.ring, .sbadge.ring { box-shadow: 0 0 0 1.2px #fff, 0 0 6px 1.5px rgba(201,169,74,.85); filter: brightness(1.25); }
+    /* 飘字静帧(样子同 TriggerFx):特性名 / 状态名 / 数字 */
+    .fl { position: absolute; z-index: 5; white-space: nowrap; }
+    .slbl { display: inline-flex; align-items: center; gap: 2px; height: 11px; padding: 0 4px 0 1.5px; border-radius: 3px;
+      background: rgba(251,248,241,.96); box-shadow: 0 1px 3px rgba(22,27,34,.28); font-family: "Noto Serif SC", serif; font-size: 7px; font-weight: 700; color: var(--glyph); }
+    .slbl .seal.xs { width: 8px; height: 8px; font-size: 5.6px; }
+    .spill { display: inline-flex; align-items: center; gap: 2px; height: 10px; padding: 0 4px 0 2.5px; border-radius: 5px; color: #fff; font-size: 6px; font-weight: 700; }
+    .spill svg { width: 6.6px; height: 6.6px; }
+    .spill.k-dot { background: var(--cinnabar); } .spill.k-ctrl { background: var(--ink-soft); } .spill.k-gold { background: var(--gold); color: var(--gold-text); }
+    /* 被挡下:状态名照常配色,压删除线、降到 60% */
+    .spill.x { opacity: .6; text-decoration: line-through; text-decoration-thickness: 1px; }
+    .fnum { font-size: 9px; font-weight: 700; -webkit-text-stroke: .4px rgba(251,248,241,.9); font-variant-numeric: tabular-nums; }
+
+    /* 特性行(同 CardSheetBattle 的 .tr) */
+    .trs { display: flex; flex-direction: column; gap: 4px; width: 250px; flex: none; }
+    .tr { border-radius: 6px; padding: 3px 7px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .tr.back { background: var(--tint); }
+    .th { display: flex; align-items: center; gap: 5px; height: 12px; }
+    .lvt { height: 11px; padding: 0 3.5px; border-radius: 5.5px; background: var(--ink); color: #fff; font-size: 7px; display: inline-flex; align-items: center; flex: none; }
+    .tn { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+    .tk { font-size: 7.5px; color: var(--text-dim); white-space: nowrap; }
+    .tx { margin-top: 1px; font-size: 9px; line-height: 1.4; color: var(--text-dim); }
+    .tr .end { margin-left: auto; font-size: 7.5px; color: var(--text-faint); white-space: nowrap; }
+    .tr.off { background: transparent; box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .tr.off .tn, .tr.off .tx { color: var(--text-faint); }
+    .tr.off .lvt { background: var(--locked-bg); color: var(--text-dim); }
+    .usedtag { margin-left: auto; height: 12px; padding: 0 5px; border-radius: 6px; background: var(--ink-bar); color: var(--text-warm); font-size: 7.5px; display: inline-flex; align-items: center; white-space: nowrap; }
+    .trn { font-size: 8px; color: var(--text-faint); margin: 0 0 -1px 2px; }
+    /* 手牌 + 拖出预估签(同 HandFlip 的 .tg-lbl) */
+    .handdemo { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 140px; flex: none; padding-top: 18px; }
+    .tg { height: 13px; padding: 0 5px; border-radius: 6.5px; background: var(--ink); color: #fff; font-size: 7.2px; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; zoom: 1.3; }
+    .tg i { font-style: normal; color: rgba(255,255,255,.55); }
+    .htile { cursor: default; }
+    .two { display: flex; gap: 18px; align-items: flex-start; }
+    .sealrows { display: flex; flex-direction: column; gap: 6px; width: 280px; flex: none; }
+    .sr { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .sr .sc { zoom: 1.8; }
+    .sr .t { display: flex; flex-direction: column; gap: 1px; }
+    .sr .t b { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; }
+    .sr .t b small { font-family: "Noto Sans SC", sans-serif; font-weight: 400; font-size: 8px; color: var(--text-faint); margin-left: 6px; }
+    .sr .t span { font-size: 8.5px; color: var(--text-dim); }
+    .grid3 { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px 20px; align-content: start; }
+    .ptile { zoom: .62; }
+    .pool { display: flex; gap: 3px; align-items: center; }
+    .pool .ptile.new { box-shadow: 0 0 0 1.2px #fff, 0 0 6px 1.5px rgba(201,169,74,.85); }
+    .lib { display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--text-dim); }
+    .lib b { font-variant-numeric: tabular-nums; color: var(--text-main); }
+    .lib .ring { border-radius: 4px; padding: 0 3px; box-shadow: 0 0 0 1.2px #fff, 0 0 6px 1.5px rgba(201,169,74,.85); }
+    .u.dead { opacity: .38; filter: grayscale(1); }
+    .u.sel .pt { box-shadow: 0 0 0 1.2px var(--wood-glyph); }
+    .u.bound { outline: 1px dashed var(--wood-glyph); outline-offset: 2px; border-radius: 4px; }
+    .u.mini .pt { width: 16px; height: 16px; font-size: 9px; }
+    .u.mini .hpb { width: 36px; }
+    .ft { width: 100%; border-collapse: collapse; font-size: 9px; color: var(--text-dim); }
+    .ft th { font-weight: 400; color: var(--text-faint); text-align: left; padding: 0 6px 3px 0; border-bottom: 1px solid var(--paper-dim); font-size: 8.5px; }
+    .ft td { padding: 4px 6px 4px 0; border-bottom: 1px solid #ECE6D9; vertical-align: middle; line-height: 1.35; }
+    .ft td .slbl, .ft td .spill { zoom: 1.3; }
+    .ft td b { color: var(--text-main); font-family: "Noto Serif SC", serif; font-weight: 600; }
+    .quote { font-size: 10px; color: var(--text-quiet); background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); border-radius: 6px; padding: 5px 8px; line-height: 1.5; }
+    .quote b { color: var(--text-main); }
+    .quote em { font-style: normal; font-size: 8.5px; color: var(--text-faint); margin-left: 4px; }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>木 系 · 提 示 与 反 馈 <span class="tag">待审 · 10-11</span></h2>
+    <div class="lede">配合 <code>StatusChipsWood</code>。飘字全用触发反馈稿的三种样子,<b>不新增动效</b>:本命触发 = 那枚本命 chip 闪,特性名(面印取该特性所在的面)从它上面飘出,再跟数字或状态名。
+      木灵阵亡时触发的(秋实、落木、藻荇)从阵亡那一格飘出。东西进池、进库的,让新进的那一件闪一下,计数跟着跳。</div>
+  </div>
+  <div class="grid3">
+
+    <div>
+      <h3>守护 <small>W5 · 替玩家挨的那一下</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally"><span class="fl fnum" style="left:2px;top:-13px;color:var(--fire-glyph)">140</span><div class="pt me">执</div><div class="inf"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span></div><div class="hpb"><span style="width:58%"></span></div><span class="cap">玩家:200 × 70%</span></div></div>
+          <div class="u ally e-Wood"><span class="fl slbl e-Wood" style="left:24px;top:-14px"><span class="seal xs main">生</span>守护</span><span class="fl fnum" style="left:2px;top:-13px;color:var(--fire-glyph)">60</span><div class="pt">柘</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-melee"></use></svg>40</span><span class="sc k-dot ring"><svg><use href="#ic-guard"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span></div><div class="hpb"><span style="width:66%"></span></div><span class="cap">柘灵:200 × 30%,守护 chip 闪</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d">两边<b>同时</b>飘伤害数字,柘灵的守护 chip 闪、「守护」从它上面飘出。<b>不画连线</b>:玩家栏与柘灵都在下半屏,一条线横过战场只会挡住敌人格;两个数字一起跳加上特性名,已经说清楚是谁替谁挨。
+          详情:「守护 · 柘灵在场时,替你承担 30% 伤害」。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>被缠 <small>W3 · 和哪只藤灵连着</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally e-Wood sel"><div class="pt">藤</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-melee"></use></svg>36</span></div><div class="hpb"><span style="width:80%"></span></div><span class="cap">点中藤灵</span></div></div>
+          <span class="ar">→</span>
+          <div class="u e-Metal bound"><div class="pt">铦</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>135</span><span class="sc k-dot ring"><svg><use href="#ic-bind"></use></svg></span></div><div class="hpb"><span style="width:80%"></span></div><span class="cap">被它缠住的敌人格描木色虚线</span></div></div>
+        </div>
+        <div class="caprow tall"></div>
+        <div class="fr">
+          <div class="u e-Metal"><span class="fl slbl e-Wood" style="left:40px;top:-14px"><span class="seal xs main">生</span>攀附</span><span class="fl fnum" style="left:2px;top:-13px;color:var(--wood-glyph)">36</span><div class="pt">铦</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>135</span><span class="sc k-dot ring"><svg><use href="#ic-bind"></use></svg></span></div><div class="hpb"><span style="width:72%"></span></div><span class="cap">它行动:被缠 chip 闪,挨藤灵一下</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d">关联<b>只在选中时显示</b>:点藤灵,被它缠住的敌人格描木色虚线;反过来点敌人,缠它的藤灵描线。常驻连线会和拖字落点高亮打架。
+          多数时候场上只有一只藤灵,用不着分辨;两只时点一下就清楚。藤灵阵亡 / 被顶替,chip 随即消失(不飘字)。详情:「被缠 · 每次行动都会挨藤灵(前排左)一下」。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>秋实 · 折桂 <small>W7 / W8 · 进池、进库</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally e-Wood dead"><div class="pt">林</div><div class="inf"><div class="scs"></div><div class="hpb"><span style="width:0%"></span></div><span class="cap">木灵阵亡</span></div></div>
+          <span class="ar">→</span>
+          <div class="u" style="zoom:1.3"><span class="fl slbl e-Wood" style="left:46px;top:-15px"><span class="seal xs main">生</span>秋实</span><div class="pool"><span class="ptile e-Fire">火</span><span class="ptile e-Water">氵</span><span class="ptile e-Wood new">木</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="fr">
+          <div class="u e-Metal dead"><div class="pt">铦</div><div class="inf"><div class="scs"></div><div class="hpb"><span style="width:0%"></span></div><span class="cap">击杀</span></div></div>
+          <span class="ar">→</span>
+          <div class="u" style="zoom:1.3"><span class="fl slbl e-Wood" style="left:30px;top:-15px"><span class="seal xs main atk">攻</span>折桂</span><div class="lib">字库 <b class="ring">6/8</b></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d"><b>秋实</b>:特性名从阵亡那一格飘出,部件池末尾多一枚「木」,闪一下。
+          <b>折桂</b>:特性名从被杀的敌人格飘出,字库计数跳一格并闪;新字进字库时照常带「新」标(现行规则)。
+          折桂的「本场已用」用 WaterEarthCues 里杜门不出那一套。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>伤害来源 <small>W9 · 落木 / 良弓 / 披荆 / 藻荇</small></h3>
+      <div class="box">
+        <table class="ft">
+          <tr><th>特性</th><th>从哪飘出</th><th>飘什么</th></tr>
+          <tr><td><b>落木</b></td><td>阵亡的巨木灵那一格</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>落木</span>,全体敌人各飘伤害</td></tr>
+          <tr><td><b>良弓</b></td><td>柘灵的本命 chip</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>良弓</span>,攻击者飘伤害</td></tr>
+          <tr><td><b>披荆</b></td><td>木灵的盾反 chip</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>披荆</span>,攻击者流血 chip 出现并闪</td></tr>
+          <tr><td><b>藻荇</b></td><td>阵亡的小藻那一格</td><td><span class="slbl e-Wood"><span class="seal xs main">生</span>藻荇</span>,攻击者减速 chip 出现并闪</td></tr>
+        </table>
+        <div class="d"><b>落木不单做全屏动效</b>:全体敌人同时跳伤害数字已经够像爆发;再加一层全屏特效会把节奏拖长,而且这只在巨木灵阵亡时发生一次。
+          四条都是被动、都有载体,和触发反馈稿 B / C / D 三段同一个套路。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>绿潮 <small>W10 · 小藻并入藻灵</small></h3>
+      <div class="box top">
+        <div class="fr">
+          <div class="u ally e-Wood mini"><div class="pt">藻</div><div class="inf"><div class="hpb"><span style="width:90%"></span></div><span class="cap">小藻</span></div></div>
+          <div class="u ally e-Wood mini"><div class="pt">藻</div><div class="inf"><div class="hpb"><span style="width:70%"></span></div><span class="cap">小藻</span></div></div>
+          <span class="ar">并入 →</span>
+          <div class="u ally e-Wood"><span class="fl slbl e-Wood" style="left:24px;top:-14px"><span class="seal xs main">生</span>绿潮</span><span class="fl fnum" style="left:2px;top:-13px;color:var(--wood-glyph)">+96</span><div class="pt">藻</div><div class="inf"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-melee"></use></svg>58</span><span class="sc k-ctrl ring"><svg><use href="#ic-taunt"></use></svg></span></div><div class="hpb"><span style="width:100%"></span></div><span class="cap">藻灵:血、攻加上,嘲讽出现</span></div></div>
+        </div>
+        <div class="caprow"></div>
+        <div class="d"><b>动画</b>:小藻依次(每只间隔 0.12s)缩小飞进藻灵格,每进一只藻灵血条往右长一截;全部进完,「绿潮」飘出、嘲讽 chip 闪,攻数字跳到新值。只用位移 + 缩放,不加粒子。
+          <b>小藻改显示「藻」</b>,幼苗仍是「苗」:绿潮只并小藻,玩家要一眼看出哪几只会被并进去;藻灵与小藻靠格子大小与血量区分,头行名字写「小藻」。</div>
+      </div>
+    </div>
+
+    <div>
+      <h3>移花接木 · 光环挂上 <small>W13 / W1</small></h3>
+      <div class="box">
+        <div class="quote"><b>魅惑</b><em>本回合</em><br>它本回合改为攻击自己阵营,<b>伤害 ×2</b>(移花接木);场上只剩它一个时空转。</div>
+        <div class="d">W13:在现行 <code>status.charm.desc</code> 的「改为攻击自己阵营」后面接「伤害 ×2(移花接木)」,倍数取 Magnitude;没有移花接木时原句不变。战场上的魅惑 chip 不动。</div>
+        <div class="d">W1 光环挂上那一下(林立 / 擎天 / 桂冠 / 荆天棘地 / 箭灵):受益的每只木灵,新出现的那枚 chip 同时闪一下;特性名只飘一次,从出字的落点(或箭灵入场的那一格)飘出,不在每只木灵头上各飘一遍。
+          到期时 chip 静默消失。</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 660}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

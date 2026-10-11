@@ -1,0 +1,305 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 900px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; display: flex; align-items: center; gap: 10px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1240px; }
+    .lede b { color: var(--text-main); }
+    .cols { flex: 1; min-height: 0; display: flex; gap: 24px; }
+    .left { width: 640px; flex: none; display: flex; flex-direction: column; gap: 12px; }
+    .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: var(--warn-text); background: var(--warn-bg); padding: 1px 6px; border-radius: 3px; }
+    .d { font-size: 9.5px; color: var(--text-dim); line-height: 1.6; }
+    .d b { color: var(--text-main); }
+    .d code, .note code, h3 code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9px; color: var(--text-quiet); }
+    /* 代价态封字:墨蓝描边、纸底(同霜抗的描边做法,换墨蓝)—— 坏事照样是墨蓝,描边说「清不掉」 */
+    .sc.k-cost { background: var(--panel-paper); color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--ink-soft); }
+
+    .tbl { display: grid; grid-template-columns: 56px 30px 52px 58px 64px 54px 1fr 112px; column-gap: 8px; align-items: center; font-size: 10px; }
+    .tbl .h { font-size: 9px; color: var(--text-faint); padding-bottom: 4px; border-bottom: 1px solid var(--paper-dim); }
+    .tbl .c { padding: 2px 0; border-bottom: 1px solid #ECE6D9; color: var(--text-dim); line-height: 1.3; min-height: 25px; display: flex; align-items: center; }
+    .tbl .nm { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+    .tbl .z { height: 25px; overflow: visible; }
+    .tbl .z .sc { transform: scale(2.4); transform-origin: 0 50%; }
+    .tbl .ic b { color: var(--cinnabar-dark); font-weight: 700; }
+    .tbl .ic i { font-style: normal; color: var(--text-faint); }
+    .tbl .gl { font-size: 9px; }
+    .tbl .off { color: var(--text-faint); font-size: 9px; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; flex: none; }
+
+    .nbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .nb { border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 7px 9px 6px; display: flex; flex-direction: column; gap: 5px; }
+    .nb .row { display: flex; align-items: flex-end; gap: 8px; height: 32px; }
+    .nb .it { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
+    .nb .it .sc { zoom: 2.2; }
+    .nb .it.me { color: var(--cinnabar-dark); font-weight: 700; }
+    .nb .d { font-size: 8.5px; line-height: 1.45; }
+
+    .ord { display: flex; flex-direction: column; gap: 7px; }
+    .ordl { display: flex; align-items: center; gap: 10px; }
+    .ordl .who { width: 54px; flex: none; font-size: 9.5px; color: var(--text-faint); }
+    .ordl .scs { display: flex; gap: 2px; zoom: 1.55; }
+    .sc.nw { outline: 1px dashed var(--cinnabar-dark); outline-offset: 1px; }
+    .sc.txt { padding: 0 3px; }
+
+    .wk { display: grid; grid-template-columns: 104px 1fr 1fr; column-gap: 10px; row-gap: 5px; align-items: start; }
+    .wk .hh { font-size: 9px; color: var(--text-faint); padding-bottom: 3px; border-bottom: 1px solid var(--paper-dim); }
+    .wk .who { font-size: 9.5px; color: var(--text-dim); line-height: 1.35; padding-top: 2px; }
+    .wk .who i { font-style: normal; color: var(--text-faint); font-size: 8.5px; }
+    .wk .cell2 { display: flex; flex-direction: column; gap: 2px; }
+    .colbox { zoom: 1.4; box-sizing: content-box; border-left: 1px dashed #C6BCA8; border-right: 1px dashed #C6BCA8; display: flex; flex-direction: column; gap: 1.43px; }
+    .colbox .ln { display: flex; gap: 1.91px; }
+    .colbox .sc { padding: 0; justify-content: center; }
+    .sc.noic svg { display: none; }
+    .verd { font-size: 8.5px; color: var(--text-faint); white-space: nowrap; }
+    .note { font-size: 10px; color: var(--text-dim); line-height: 1.6; margin: 0; padding-left: 16px; }
+    .note b { color: var(--text-main); }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>状 态 chip · 水 土 补 八 枚 <span class="tag">待审 · 10-11</span></h2>
+    <div class="lede">D2-水、D2-土 新增的玩家看得见的状态。全部沿用单位格档与四类底色,不造新色;唯一新做法是<b>封字的「代价」态</b>:同一枚锁,墨蓝描边纸底,说「这是代价,清不掉」。
+      <b>数字</b>照 2026-09-02 的规则:持续时长一律不给(禁增益、受击回复、受击得盾、免疫减益都只看图标,时长在详情);
+      <b>还会再发生几次</b>的给,同格挡的次数 —— 每回合效果、护盾回流,以及将来「前 N 次」形态的免疫减益(杜绝)。
+      提示与触发反馈(杜塞、拦截、本场已用、封字两态、碎玉、浮屠)在旁边的 <code>WaterEarthCues</code> 画板。</div>
+  </div>
+  <div class="cols">
+    <div class="left">
+      <div>
+        <h3>八枚 + 两条不出 chip 的 <small>左列原大,右列 ×2.4;状态名取现行 <code>StatusText</code>,没有的两条(护盾回流、大招削弱)是本稿拟名</small></h3>
+        <div class="tbl">
+          <span class="h">词</span><span class="h">原大</span><span class="h">×2.4</span><span class="h">底色</span><span class="h">数字</span><span class="h">落在</span><span class="h">词条说明</span><span class="h">图标 · 兜底字</span>
+          <sc-for list="{{ rows }}" as="r">
+            <span class="c nm">{{ r.k }}</span>
+            <span class="c"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+            <span class="c z"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+            <span class="c"><i class="sw" style="{{ r.sw }}"></i>{{ r.bg }}</span>
+            <span class="c">{{ r.num }}</span>
+            <span class="c">{{ r.on }}</span>
+            <span class="c gl">{{ r.gl }}</span>
+            <span class="c ic"><b>{{ r.isNew }}</b><i>{{ r.icTxt }}</i></span>
+          </sc-for>
+          <span class="c nm">碎玉</span>
+          <span class="c off">不出</span><span class="c off">—</span><span class="c off">—</span><span class="c off">—</span>
+          <span class="c off">我的护盾</span>
+          <span class="c gl"><span>附在护盾上,护盾空了就没了 —— 同反震,只走触发反馈(护盾角标闪、「碎玉」飘出)</span></span>
+          <span class="c ic"><i>—</i></span>
+        </div>
+      </div>
+
+      <div>
+        <h3>易混图标</h3>
+        <div class="nbs">
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-ctrl"><svg><use href="#ic-buffblock"></use></svg></span>禁增益</span>
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-curse"></use></svg></span>减攻</span>
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-healblock"></use></svg></span>干涸</span>
+            </div>
+            <div class="d">减攻的 ▼ 倒过来是增益 ▲;切开压杠 = 「得不到」,与干涸同一说法。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-ward"></use></svg></span>免疫减益</span>
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-wardburn"></use></svg></span>免疫灼烧</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-immunity"></use></svg></span>免疫</span>
+              <span class="it"><span class="sc k-ring"><svg><use href="#ic-frostguard"></use></svg></span>霜抗</span>
+            </div>
+            <div class="d">环 = 「这几回合不会被怎样」(借霜抗);环里是挡的东西。盾 + 勾的「免疫」挡的是伤害。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-hurtheal"></use></svg></span>受击回复</span>
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-hurtshield"></use></svg></span>受击得盾</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-heal"></use></svg></span>润泽</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-keepshield"></use></svg></span>留存护盾</span>
+            </div>
+            <div class="d">同一骨架:左上打进来一箭,右下是得到什么。合稿只换载荷,不换色。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-turnpulse"></use></svg>3</span>每回合效果</span>
+              <span class="it me"><span class="sc k-heal"><svg><use href="#ic-shieldcarry"></use></svg>2</span>护盾回流</span>
+              <span class="it"><span class="sc k-heal"><svg><use href="#ic-retaliate"></use></svg></span>回敬</span>
+            </div>
+            <div class="d">回环 = 每回合开始转一圈;圆心一点是通用载荷,换成小盾就是浮屠。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it me"><span class="sc k-ctrl"><svg><use href="#ic-skillcut"></use></svg></span>大招削弱</span>
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-curse"></use></svg></span>减攻</span>
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-slow"></use></svg></span>减速</span>
+            </div>
+            <div class="d">半实心圆 = 「打一半」。减攻是一直减,它只减下一招。</div>
+          </div>
+          <div class="nb">
+            <div class="row">
+              <span class="it"><span class="sc k-ctrl"><svg><use href="#ic-seal"></use></svg></span>封字 · 减益</span>
+              <span class="it me"><span class="sc k-cost"><svg><use href="#ic-seal"></use></svg></span>封字 · 代价</span>
+            </div>
+            <div class="d">同一枚锁、同是墨蓝(对你是坏事);描边纸底 = 特性的代价,清不掉。</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3>插在哪 <small>从前往后,溢出从尾部丢;虚线框 = 本次新增</small></h3>
+        <div class="ord">
+          <div class="ordl"><span class="who">敌方</span>
+            <div class="scs">
+              <span class="sc k-dot noic txt">蓄力 · 下回合:焚天</span><span class="sc k-ctrl nw"><svg><use href="#ic-skillcut"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-mortal"></use></svg></span><span class="sc k-frost"><svg><use href="#ic-chill"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-burn"></use></svg>6</span><span class="sc k-dot"><svg><use href="#ic-mine"></use></svg></span><span class="sc k-dot"><svg><use href="#ic-mark"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-freeze"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-slow"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-curse"></use></svg></span><span class="sc k-ctrl"><svg><use href="#ic-healblock"></use></svg></span><span class="sc k-ctrl nw"><svg><use href="#ic-buffblock"></use></svg></span><span class="sc k-ring"><svg><use href="#ic-frostguard"></use></svg></span>
+            </div></div>
+          <div class="ordl"><span class="who">我方 · 木灵</span>
+            <div class="scs">
+              <span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-cost"><svg><use href="#ic-seal"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-keepshield"></use></svg>120</span><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>2</span><span class="sc k-heal"><svg><use href="#ic-retaliate"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-hurtheal"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-hurtshield"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-ward"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span><span class="sc k-heal"><svg><use href="#ic-heal"></use></svg></span><span class="sc k-heal nw"><svg><use href="#ic-turnpulse"></use></svg>3</span><span class="sc k-heal nw"><svg><use href="#ic-shieldcarry"></use></svg>2</span>
+            </div></div>
+          <div class="d">
+            <b>大招削弱</b>紧跟蓄力预警(没在蓄力时就排在攻 / 甲之后的第一位):它改的正是那一招。
+            <b>禁增益</b>紧跟干涸:两条都是「得不到什么」,只对会加增益的怪有用,溢出先丢。<br>
+            <b>受击回复 · 受击得盾</b>紧跟回敬:减伤、格挡、反击加倍、回敬说「挨打时会怎样」,这两枚说「挨打后得到什么」。
+            <b>免疫减益 / 免疫灼烧</b>接在后面,同属「对我施加的东西会怎样」。
+            <b>每回合效果 · 护盾回流</b>垫底,跟在润泽后:三者都是「回合开始自己发生」,不用玩家盯。封字(代价)位置不变,在嘲讽后。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div>
+        <h3>两档宽验算 <small>同 StatusChipsFire:<code>Ui.ChipFlow</code> 逐行移植,×1.4;虚线 = 信息列宽 − 4</small></h3>
+        <div class="wk">
+          <span class="hh"></span><span class="hh">基准机 ≈1951 宽</span><span class="hh">16:9 · 1600 宽(无刘海,两侧各扣 123)</span>
+          <sc-for list="{{ checks }}" as="k">
+            <span class="who">{{ k.who }}<br><i>{{ k.sub }}</i></span>
+            <sc-for list="{{ k.cols }}" as="c">
+              <div class="cell2">
+                <div class="colbox" style="{{ c.w }}">
+                  <sc-for list="{{ c.lines }}" as="ln">
+                    <div class="ln">
+                      <sc-for list="{{ ln }}" as="x">
+                        <span class="{{ x.cls }}" style="{{ x.st }}"><svg><use href="{{ x.ic }}"></use></svg>{{ x.t }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+                <span class="verd">{{ c.lbl }} · {{ c.v }}</span>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+        <div class="d" style="margin-top: 6px;">
+          基准机:禁增益垫在敌人前排 / 后排的 +N 里(本就排在尾部);Boss 全显示,蓄力预警之后大招削弱照样排得进;玩家栏 10 枚两行刚好排下。<br>
+          16:9:单列敌人格与木灵格仍只剩「攻 / 甲 +N」(现状)。<b>⚠ 现状问题(与新 chip 无关)</b>:Boss 第二行要给「+N」留位,175 宽的蓄力预警只要再跟一枚灼就放不下,<b>预警本身被收进 +N</b>。
+          建议 Boss 格 chip 上限放到 3 行(信息列约 127 高,Boss 块 251),见上一行。蓄力预警 + 4 字招名宽 205,逼近 16:9 列宽,所以<b>大招削弱不并进蓄力 chip</b>,单独一枚。</div>
+      </div>
+
+      <ul class="note">
+        <li><b>图标 8 枚</b>(<code>buffblock</code>·禁、<code>ward</code>·御、<code>wardburn</code>·熄、<code>hurtheal</code>·复、<code>hurtshield</code>·垒、<code>turnpulse</code>·轮、<code>shieldcarry</code>·流、<code>skillcut</code>·削)按「图标三处对账」进管线;SVG 在 <code>traits-data.js</code>,标「10-10 补」。
+          <code>buffblock</code> 的缝同 <code>healblock</code>,几何切开两块;<code>wardburn</code> 的火苗是 <code>burn</code> 路径缩 0.57。</li>
+        <li><b>免疫减益的三种形态</b>同一套图标:全量 = 环 + ▼,只拦一种 = 环 + 那一种的图标(现只有灼);「前 N 次」(杜绝)= 同图标带剩余次数。以后拦别的单一状态,环里换那枚状态的图标即可,不另起新图。</li>
+        <li><b>每回合效果</b>的载荷不进 chip,详情逐条列(现行 <code>status.turnpulse.desc</code>);大雨滂沱、重土、一叶知秋共用这一枚。浮屠单独一枚(护盾回流),因为它的量要到回合末才知道,而且会和重土同时在场。</li>
+        <li><b>字体子集</b>:兜底字 禁 御 熄 复 垒 轮 流 削,拟名「护盾回流」「大招削弱」,改完重跑 <code>subset_fonts.py</code>。三处同接照旧。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 900}}'>
+var BG = { 'k-dot': ['朱砂', 'var(--cinnabar)'], 'k-ctrl': ['墨蓝', 'var(--ink-soft)'], 'k-heal': ['翠玉', 'var(--jade)'],
+  'k-cost': ['墨蓝描边', 'var(--panel-paper);box-shadow:inset 0 0 0 1px var(--ink-soft)'] };
+// 词 / 底色 / 图标 / 原大示例数字 / 数字 / 落在 / 词条说明 / 图标 key · 兜底字 / 是否新图标
+var ROWS = [
+  ['禁增益', 'k-ctrl', 'buffblock', '', '—', '敌', '无法获得增益（霜抗除外）。「剩 N 次行动」在详情', 'buffblock · 禁', 1],
+  ['免疫减益', 'k-heal', 'ward', '', '前 N 次时:剩余次数', '我 · 木灵', '被施加任何减益时直接挡下', 'ward · 御', 1],
+  ['免疫灼烧', 'k-heal', 'wardburn', '', '同上', '我 · 木灵', '被施加灼时直接挡下，其它减益照常；每挡 1 层得护盾', 'wardburn · 熄', 1],
+  ['受击回复', 'k-heal', 'hurtheal', '', '—', '我', '每回合第一次受击后，回复这次伤害的 50%', 'hurtheal · 复', 1],
+  ['受击得盾', 'k-heal', 'hurtshield', '', '—', '我', '每次受击后获得 X 点护盾', 'hurtshield · 垒', 1],
+  ['每回合效果', 'k-heal', 'turnpulse', '3', '剩余次数', '我', '每回合开始时：效果逐条见详情', 'turnpulse · 轮', 1],
+  ['护盾回流', 'k-heal', 'shieldcarry', '2', '剩余次数', '我', '每回合开始，加回上回合末被清掉护盾的 50%', 'shieldcarry · 流', 1],
+  ['大招削弱', 'k-ctrl', 'skillcut', '', '—', 'Boss', '下一次大招伤害 −50%，放完就消失', 'skillcut · 削', 1],
+  ['封字·代价', 'k-cost', 'seal', '', '—', '我', '下回合行动点 −1，至少留 1（特性的代价，清不掉）', '现有 seal · 封', 0]
+];
+
+// —— Ui.ChipFlow / PackChips 的逐行移植(同 StatusChipsFire)——
+// 宽 = 字数 × 15 + padX(10;「+N」计数用 4)+ 有图标时 18(+ 有字时间距 3);chip 间距 4
+function cw(c) { var w = c.t.length * 15 + (c.cnt ? 4 : 10); if (c.ic) w += 18 + (c.t ? 3 : 0); return w; }
+function pack(chips, take, extra, width, maxLines) {
+  var lines = [], cur = [], x = 0, reserve = extra ? 4 + cw({ t: extra, cnt: 1 }) : 0;
+  function place(ch, w, isExtra) {
+    var limit = !isExtra && reserve > 0 && lines.length === maxLines - 1 ? width - reserve : width;
+    if (cur.length > 0 && x + 4 + w > limit) { lines.push(cur); cur = []; x = w; } else { x += cur.length === 0 ? w : 4 + w; }
+    cur.push(ch);
+  }
+  for (var i = 0; i < take; i++) place(chips[i], cw(chips[i]), false);
+  if (extra) place({ t: extra, cnt: 1, k: 'k-atk' }, cw({ t: extra, cnt: 1 }), true);
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+function flow(chips, width, maxLines) {
+  var lines = pack(chips, chips.length, null, width, maxLines), shown = chips.length, t;
+  if (lines.length > maxLines) {
+    lines = null;
+    for (t = chips.length - 1; t >= 0 && !lines; t--) { var a = pack(chips, t, '+' + (chips.length - t), width, maxLines); if (a.length <= maxLines) { lines = a; shown = t; } }
+    for (t = chips.length - 1; t >= 0 && !lines; t--) { var b = pack(chips, t, null, width, maxLines); if (b.length <= maxLines) { lines = b; shown = t; } }
+    lines = lines || [];
+  }
+  return { lines: lines, shown: shown };
+}
+function C(n, k, ic, t, nw) { return { n: n, k: k, ic: ic, t: t, nw: nw }; }
+var ENEMY = [C('攻', 'k-atk', 'attack', '168'), C('甲', 'k-ctrl', 'defense', '12'), C('灼', 'k-dot', 'burn', '6'), C('标记', 'k-dot', 'mark', ''),
+  C('减速', 'k-ctrl', 'slow', ''), C('减攻', 'k-ctrl', 'curse', ''), C('干涸', 'k-ctrl', 'healblock', ''), C('禁增益', 'k-ctrl', 'buffblock', '', 1)];
+var BOSS = [C('攻', 'k-atk', 'attack', '360'), C('甲', 'k-ctrl', 'defense', '20'), C('蓄力', 'k-dot', null, '蓄力 · 下回合:焚天'),
+  C('大招削弱', 'k-ctrl', 'skillcut', '', 1), C('灼', 'k-dot', 'burn', '6'), C('禁增益', 'k-ctrl', 'buffblock', '', 1)];
+var ALLY = [C('攻', 'k-atk', 'attack', '73'), C('嘲讽', 'k-ctrl', 'taunt', ''), C('格挡', 'k-heal', 'block', '1'), C('免疫减益', 'k-heal', 'ward', '', 1), C('战意', 'k-gold', 'morale', '2')];
+var PLAYER = [C('封字', 'k-cost', 'seal', ''), C('留存护盾', 'k-heal', 'keepshield', '120'), C('减伤', 'k-heal', 'bulwark', ''), C('格挡', 'k-heal', 'block', '2'),
+  C('回敬', 'k-heal', 'retaliate', ''), C('受击回复', 'k-heal', 'hurtheal', '', 1), C('免疫灼烧', 'k-heal', 'wardburn', '', 1), C('战意', 'k-gold', 'morale', '3/5'),
+  C('每回合效果', 'k-heal', 'turnpulse', '3', 1), C('护盾回流', 'k-heal', 'shieldcarry', '2', 1)];
+// 信息列宽(逻辑单位):基准机 / 16:9(同 StatusChipsFire 的账)
+var CHECKS = [
+  ['敌人 · 前排', '攻 甲 灼6 标记 减速 减攻 干涸 禁增益', ENEMY, 154, 109.3, 2],
+  ['敌人 · 后排', '同上', ENEMY, 184, 131.2, 2],
+  ['Boss · 跨两列', '攻 甲 蓄力预警 大招削弱 灼6 禁增益', BOSS, 370, 213, 2],
+  ['Boss · 建议放到 3 行', '同上(块高 251,纵向够)', BOSS, 370, 213, 3],
+  ['木灵 · 前排', '攻 嘲讽 格挡1 免疫减益 战意2', ALLY, 179, 101.5, 2],
+  ['木灵 · 后排', '同上,只有一行', ALLY, 204, 126.5, 1],
+  ['玩家状态栏', '封字(代价) 留存 减伤 格挡 回敬 受击回复 免疫灼烧 战意 每回合效果 护盾回流', PLAYER, 251, 251, 2]
+];
+function px(u) { return (u / 2.093).toFixed(2) + 'px'; }
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: ROWS.map(function (r) {
+        return { k: r[0], cls: 'sc ' + r[1], ic: '#ic-' + r[2], n: r[3], bg: BG[r[1]][0], sw: 'background:' + BG[r[1]][1], num: r[4], on: r[5], gl: r[6], icTxt: r[7], isNew: r[8] ? 'NEW ' : '' };
+      }),
+      checks: CHECKS.map(function (k) {
+        return { who: k[0], sub: k[1], cols: [k[3], k[4]].map(function (info) {
+          var f = flow(k[2], info - 4, k[5]), hidden = k[2].slice(f.shown);
+          var v = hidden.length === 0 ? '全显示' : '+' + hidden.length + ' 收起:' + hidden.map(function (c) { return c.n; }).join('、');
+          return {
+            w: 'width:' + px(info - 4), lbl: '列宽 ' + (Math.round(info * 10) / 10) + ' · ' + k[5] + ' 行', v: v,
+            lines: f.lines.map(function (ln) {
+              return ln.map(function (c) {
+                return { cls: 'sc ' + c.k + (c.ic ? '' : ' noic') + (c.nw ? ' nw' : ''), st: 'width:' + px(cw(c)), ic: c.ic ? '#ic-' + c.ic : '', t: c.t };
+              });
+            })
+          };
+        }) };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>
