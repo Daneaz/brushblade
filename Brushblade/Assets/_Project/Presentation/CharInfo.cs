@@ -882,7 +882,7 @@ namespace Brushblade.Presentation
         /// 在卡面上一个字都没有。共用同一张表 = 加新形状时两侧不可能再各自漏。</summary>
         private static string ShapeLabel(EffectDef e) => ShapeLabel(e.Shape);
 
-        private static string ShapeLabel(TargetArea shape) => shape switch
+        internal static string ShapeLabel(TargetArea shape) => shape switch
         {
             TargetArea.Row => Strings.T("char.shape.sweep"),
             TargetArea.Adjacent => Strings.T("char.shape.cleave"),

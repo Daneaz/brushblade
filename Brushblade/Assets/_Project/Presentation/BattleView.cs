@@ -331,15 +331,7 @@ namespace Brushblade.Presentation
         /// <summary>视觉高度不足 <see cref="TapMin"/> 的可点牌:垫一层透明子节点把触控高度撑到
         /// TapMin(竖向居中、横向与牌同宽)。点击/拖拽/长按都会从命中的子节点冒泡到牌本身的
         /// Button / DragToAttack / HoldToPreview。排第一个子节点:画在牌面之下,不挡任何东西。</summary>
-        private static void PadTapHeight(GameObject tile, float visualH)
-        {
-            if (visualH >= TapMin) return;
-            var pad = Ui.Panel(tile.transform, "TapPad");
-            pad.transform.SetAsFirstSibling();
-            pad.AddComponent<Image>().color = new Color(0, 0, 0, 0);
-            Ui.Anchor((RectTransform)pad.transform, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                new Vector2(0f, -TapMin / 2f), new Vector2(0f, TapMin / 2f));
-        }
+        private static void PadTapHeight(GameObject tile, float visualH) => Ui.PadTapHeight(tile, visualH, TapMin);
 
         // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawBattleSettle 败北支专用。
         //
@@ -3415,7 +3407,8 @@ namespace Brushblade.Presentation
                 // 「用不了」要在点下去之前就看得出来,不能等弹窗告诉你
                 if (!rewardPhase)
                     tile.GetComponent<CardFrameView>()?.SetPlayable(def.ApCost <= Battle.Ap);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
+                // 详情按朝上的面标「朝上」(Plan E2);奖励阶段 face 为 null,详情退回静态版(Q16)
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId, face));
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def, index);
                 _tileRects[charId] = (RectTransform)tile.transform;
                 _libraryTileRects.Add((RectTransform)tile.transform); // 卡位→牌面,飞字起点按位取
@@ -4075,17 +4068,28 @@ namespace Brushblade.Presentation
 
         /// <summary>长按看详情:preview 只读,不动选中态。
         ///
-        /// 战斗上下文一并传进去(2026-09-03,稿 CharSheet.dc.html):详情右栏要印
-        /// **这一击对场上每只敌人各是多少倍**,部件牌还要按部件池判「能凑出什么、缺哪个」。
+        /// 战斗上下文一并传进去(Plan E2,稿 CardSheetBattle):右栏「此刻的场面」要印
+        /// **这一击对场上每只敌人各是多少倍**(奖励阶段没有活敌,详情自己退回静态生克,Q16);
+        /// <paramref name="upFace"/> = 字库这一格此刻朝上的面(三条长按路径各自传,部件 / 战利品候选传 null);
+        /// 每场限次的特性(杜门不出、折桂)本场用尽了要压成「本场已用」。部件牌还要按部件池判「能凑出什么、缺哪个」。
         /// 敌人属性由弹窗侧读 ApparentElement —— 伪装怪与生僻字没现形之前不能替玩家掀底。</summary>
-        private void ShowCharPreview(string charId)
+        private void ShowCharPreview(string charId, CardFace? upFace)
         {
             if (_modal != null) Object.Destroy(_modal);
-            _modal = CharPreview.Show(transform, _graph.Get(charId), _graph, _run.CardLevel(charId),
+            var def = _graph.Get(charId);
+            var battle = Battle;
+            // 「本场已用」只在这一场还在打时查(final review Minor 1):奖励 / 奇遇阶段 _run.Battle 还是刚打完的那个
+            // 引擎(下一场才 NewBattle),读到的是上一场的次数表,而这一页展示的正是下一场的字库。
+            // Reviving 是同一场里看广告补给(不走 NewBattle),照常查。
+            bool live = _run.Phase == RunPhase.InBattle || _run.Phase == RunPhase.Reviving;
+            _modal = CharPreview.Show(transform, def, _graph, _run.CardLevel(charId),
                 new CharPreview.BattleContext
                 {
-                    Pool = Battle.Pool,
-                    Craftable = Battle.ComposableChars,
+                    Pool = battle.Pool,
+                    Craftable = battle.ComposableChars,
+                    Foes = battle.Enemies,
+                    UpFace = upFace,
+                    TraitSpent = live ? (System.Func<TraitDef, bool>)(trait => battle.TraitSpentThisBattle(def, trait)) : null,
                 });
         }
 
@@ -4282,7 +4286,7 @@ namespace Brushblade.Presentation
                         PlaceKinBadge(tile.transform, kinPart, def.Element, corner++);
                     }
                 }
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId, null));   // 部件没有面
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def); // 水/土 直出的攻击用法在这一排
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
                 ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
@@ -4938,7 +4942,7 @@ namespace Brushblade.Presentation
             var def = _graph.Get(charId);
             var column = Ui.VStack(parent, $"Pick_{charId}", 8);   // 稿 .pick gap 4pt
             var button = Ui.GlyphTile(column.transform, def, selected, onTap, new Vector2(TileW, TileH));
-            HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(charId));
+            HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(charId, null));   // 战利品候选还没进字库,没有朝上面
             // def.Element 是 Element?(部件/无属性字为 null)——同 :2913 敌人属性 chip 的既有写法,
             // 空属性落到「中性」而不是让 CharInfo.ElementName 直接炸参数类型不匹配。
             string elementName = def.Element is { } elem ? CharInfo.ElementName(elem) : Strings.T("char.element.neutral");

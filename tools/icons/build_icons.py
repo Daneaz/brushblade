@@ -282,6 +282,11 @@ ICONS = {
     "bulwark": (
         f'<path {FILL} fill-rule="evenodd" d="M8 56V18h10v10h9V18h10v10h9V18h10v38zM26 56V47a6 6 0 0 1 12 0v9z"/>'
     ),
+    # 锁(E2 字卡详情「Lv N 解锁」):弓线宽 7(稿上是 7,不套 {STROKE} 的 6)+ 实心锁身
+    "lock": (
+        '<path fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/>'
+        f'<path {FILL} d="M15 30h34v24H15z"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

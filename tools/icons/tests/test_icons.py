@@ -56,6 +56,8 @@ EXPECTED = {
     # 字卡特性 D2-木 Task 5(2026-10-11 拍板):荆刺 / 被缠 / 守护 / 受伤上限,取自 traits 稿 StatusChipsWood 的 NEW 四枚;
     # 减伤取自 StatusChips 10-04 补的那一枚(城垛实心墙 + 镂空城门,evenodd)。
     "thornmark", "bind", "guard", "hitcap", "bulwark",
+    # 字卡特性 E2(2026-10-11):字卡详情「Lv N 解锁」的锁,取自 CardSheet 稿内联 svg。
+    "lock",
 }
 
 
