@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Brushblade.Core;
 using Brushblade.Data;
 using UnityEngine;
@@ -660,12 +661,19 @@ namespace Brushblade.Presentation
 
         // ================= 动作 =================
 
-        /// <summary>升级确认弹窗(稿 <c>docs/design/drafts/scenes/Upgrade.dc.html</c>)。
+        /// <summary>升级确认弹窗(2026-09-04 重写;Plan E2 改版,稿 <c>docs/design/drafts/traits/UpgradePreview.dc.html</c>,
+        /// 组件卡 <c>component/UpgradeDialog</c>)。
         ///
-        /// 2026-09-04 重写。原来是「Lv.1 → Lv.2」一行,加上前后两句 <see cref="CharInfo.EffectsText"/>
-        /// 全文对着看 —— 玩家得自己在两串长句子里找哪个数变了。现在拆成两段:
-        /// **数值提升**(攻/治/盾,一行一条「旧 → 新 (+差)」)与**层数与特性**(灼烧几层、致盲几成,
-        /// 同一条读法,前面挂图标 chip);没变的收成底下一行灰字,它回答的是「我会不会丢掉什么」。
+        /// 骨架(头 / 牌行 / 两栏 / 两钮)、差行 <see cref="DeltaRow"/> 的「旧 → 新 (+差)」读法、主钮石青、警示句都不动(C2 / C3)。
+        /// E2 换的是两栏的内容:
+        /// - 左栏「数值提升」按面逐格列(<see cref="FaceStats.Deltas"/>,先攻后五行),行首挂 xs 面印 —— 两面一起升,
+        ///   不标面就分不清涨的是哪一面的「伤害」。
+        /// - 右栏这一级有新特性 →「新解锁」小卡(Lv5 / Lv8 攻、五行面各一张,同在一圈墨晕里;Lv3 / 4 / 6 一张);
+        ///   没有 →「这一级没有新特性」+ 下一个解锁级的全部条目(<see cref="CardSheetRules.NextUnlock"/>)。
+        /// - 两栏各进一层 ScrollList(Q14):两面一起升级最多 6 条差,而 Lv8 一对小卡每张 3 行正文,竖向都只有约 210。
+        /// - 「不变」= 等级 ≤ 当前级的已解锁特性名(Q15,Lv1 没有效果、不列),挂在两栏之下单独一行(稿 .same)——
+        ///   右栏现在会滚动,挂在栏尾就可能被滚出视口,而它回答的是「我会不会丢掉什么」。
+        /// 局外没有「本场」,这里不画 spent 态(Q19)。
         ///
         /// ⚠ **不印重复卡与墨锭消耗**(2026-09-04 用户拍板):不够根本走不到这一页 ——
         /// 详情页那颗按钮就是灰的、点不动。印出来只是把「你付得起」再说一遍。</summary>
@@ -701,11 +709,13 @@ namespace Brushblade.Presentation
             Ui.Chip(step.transform, Strings.T("collection.button.upgrade", ("level", next)),
                 Theme.Jade, Color.white, 21);
 
-            var body = Ui.Row(stack, "Body", 25);
+            var deltas = FaceStats.Deltas(def, level, next);
+            var body = Ui.Row(stack, "Body", UpgradeBodyGap);
             body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(body, flexWidth: 1, flexHeight: 1);
-            BuildUpgradeNumbers(body.transform, def, level, next);
-            BuildUpgradeTraits(body.transform, def, level, next);
+            BuildUpgradeNumbers(body.transform, def, deltas);
+            BuildUpgradeTraits(body.transform, def, next);
+            BuildUnchanged(stack, def, level, deltas);
 
             var buttons = Ui.Row(stack, "Buttons", 21);
             buttons.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
@@ -722,76 +732,334 @@ namespace Brushblade.Presentation
             cancel.GetComponent<LayoutElement>().flexibleWidth = 1;
         }
 
-        /// <summary>数值提升:一行一条「旧 → 新 (+差)」。没有量级变化的字这一栏留空,
-        /// 整段不占位 —— 焦(只有灼烧)那类字升级动的本来就只有层数。</summary>
-        private void BuildUpgradeNumbers(Transform parent, CharDef def, int level, int next)
+        // ---- 升级预览的尺寸(稿 UpgradePreview,pt × 2.093) ----
+
+        private const float UpgradeBodyGap = 25f;
+        /// <summary>弹窗内容宽 = 1088 − 描边 2×1.5 − 内边距 2×24 = 1037。弹窗定宽,与屏比无关。</summary>
+        private const float UpgradeInnerW = UpgradeW - 2f * Ui.SheetBorder - 2f * Ui.SheetPad;
+        /// <summary>每栏定宽 (1037 − 25) / 2 = 506。两栏写死同宽:只给弹性宽时,布局按各自节头文字的
+        /// preferred 宽分配富余,「新解锁 · 两面各一条」那栏会比「数值提升」那栏宽出一截。</summary>
+        private const float UpgradeColW = (UpgradeInnerW - UpgradeBodyGap) / 2f;
+        private const float UpgradeEmptyH = 40f;      // 「这一级没有…」占位行
+        // 新解锁小卡(稿 .nus / .nu)
+        private const float NewGroupPad = 6f;         // .nus padding 3pt
+        private const int NewGroupRadius = 17;        // .nus 圆角 8pt
+        private const float NewCardGap = 8.4f;        // .nus gap 4pt
+        private const int NewCardRadius = 13;         // .nu 圆角 6pt(12.6 取整)
+        private const float NewHeadGap = 12.6f;       // .where gap 6pt
+        private const int NewWhereFont = 23;          // .wb 11pt
+        private const int NewNameFont = 27;           // .tb 13pt
+        private const int NewKindFont = 18;           // .tk 8.5pt
+        private const int NewTagFont = 17;            // .newtag 8pt;高 14pt ≈ 17 + ChipPadY 12 = 29
+        private const int NewTagPadX = 25;            // .newtag 左右各 6pt
+        private const float LineSealGap = 6f;         // 分面小句前缀 xs 面印与字之间(同 CardSheetParts)
+        // 下一级预告框(稿 .next)
+        private const int NextPadV = 15, NextPadH = 19;
+        private const float NextGap = 8.4f;           // gap 4pt
+        private const int NextKeyFont = 18;           // .k 8.5pt
+        private const int NextWhereFont = 20;         // .r 9.5pt
+        private const int NextNameFont = 23;          // .r b 11pt
+        private const float NextRowGap = 10.5f;       // .r gap 5pt
+
+        /// <summary>一栏:节头 + 吃满余高的 ScrollList(Q14)。返回列表的 content。</summary>
+        private static Transform UpgradeColumn(Transform parent, string name, string title)
         {
-            var col = Ui.VStack(parent, "Numbers", 11);
+            var col = Ui.VStack(parent, name, 11);
             var layout = col.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childForceExpandWidth = true;
-            Ui.Sized(col, flexWidth: 1, flexHeight: 1);
-            var section = CharSheetSections.Section(col.transform, Strings.T("collection.modal.section.numbers"));
-
-            var was = CollectionStats.Of(def, level);
-            var now = CollectionStats.Of(def, next);
-            int shown = 0;
-            for (int i = 0; i < was.Count && i < now.Count; i++)
-            {
-                if (was[i].Value == now[i].Value) continue;
-                shown++;
-                DeltaRow(section, null, null, was[i].Label,
-                    was[i].Value.ToString(), now[i].Value.ToString(),
-                    Strings.T("collection.modal.delta", ("delta", now[i].Value - was[i].Value)));
-            }
-            if (shown == 0)
-                Ui.Sized(Ui.ThemedLabel(section, Strings.T("collection.modal.no_numbers"),
-                    19, Theme.LockGray).gameObject, 0, 40, flexWidth: 1);
+            Ui.Sized(col, UpgradeColW, flexHeight: 1);
+            var section = CharSheetSections.Section(col.transform, title);
+            section.GetComponent<LayoutElement>().flexibleHeight = 1;
+            var scroll = Ui.ScrollList(section, "Scroll", 11, out var content);
+            Ui.Sized(scroll, flexWidth: 1, flexHeight: 1);
+            return content;
         }
 
-        /// <summary>层数与特性:与数值同一条读法,只是前面挂图标 chip。
-        /// 灼烧几层、致盲几成这类「功能强度」的变化,和伤害数字一样是玩家买单的理由。</summary>
-        private void BuildUpgradeTraits(Transform parent, CharDef def, int level, int next)
+        /// <summary>左栏「数值提升」:<see cref="FaceStats.Deltas"/> 逐面逐格(只给变了的,先攻后五行),一行一条。
+        /// 一条都没有时写一句占位 —— 空白读起来像没加载出来。</summary>
+        private static void BuildUpgradeNumbers(Transform parent, CharDef def, IReadOnlyList<StatDelta> deltas)
         {
-            var col = Ui.VStack(parent, "Traits", 11);
-            var layout = col.GetComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childForceExpandWidth = true;
-            Ui.Sized(col, flexWidth: 1, flexHeight: 1);
-            var section = CharSheetSections.Section(col.transform, Strings.T("collection.modal.section.traits"));
+            var list = UpgradeColumn(parent, "Numbers", Strings.T("collection.modal.section.numbers"));
+            foreach (var d in deltas) DeltaRow(list, def, d);
+            if (deltas.Count == 0) EmptyLine(list, Strings.T("collection.modal.no_numbers"));
+        }
 
-            var was = CardTraits.Of(def, level);
-            var now = CardTraits.Of(def, next);
-            var unchanged = new List<string>();
-            int shown = 0;
-            for (int i = 0; i < was.Count && i < now.Count; i++)
+        /// <summary>右栏:这一级解锁了什么(<see cref="CardSheetRules.UnlockedAt"/>);没有就预告下一个。
+        /// 节头:两张 =「新解锁 · 两面各一条」,一张 =「新解锁」,没有 =「特性」(稿 rightTitle)。</summary>
+        private static void BuildUpgradeTraits(Transform parent, CharDef def, int next)
+        {
+            var fresh = CardSheetRules.UnlockedAt(def, next);
+            string title = fresh.Count >= 2 ? Strings.T("collection.modal.section.new_two")
+                : fresh.Count == 1 ? Strings.T("collection.modal.section.new")
+                : Strings.T("collection.modal.section.trait");
+            var list = UpgradeColumn(parent, "Traits", title);
+            if (fresh.Count > 0)
             {
-                if (was[i].Amount == now[i].Amount)
-                {
-                    unchanged.Add(now[i].Name);
-                    continue;
-                }
-                shown++;
-                DeltaRow(section, now[i].IconKey, now[i].Word, now[i].Name,
-                    was[i].Amount, now[i].Amount, null);
+                NewUnlocks(list, def, fresh, next);
+                return;
             }
-            if (shown == 0)
-                Ui.Sized(Ui.ThemedLabel(section, Strings.T("collection.modal.no_traits"),
-                    19, Theme.LockGray).gameObject, 0, 40, flexWidth: 1);
-            if (unchanged.Count == 0) return;
+            EmptyLine(list, Strings.T("collection.modal.no_new"));
+            var (nextLevel, rows) = CardSheetRules.NextUnlock(def, next);
+            if (nextLevel > 0) NextUnlockBox(list, def, nextLevel, rows);
+        }
 
-            // 没变的收成一行灰字 —— 它回答的是「我会不会丢掉什么」
-            string keep = Strings.T("collection.modal.unchanged", ("list", string.Join(" · ", unchanged)));
-            var label = Ui.ThemedLabel(section, keep, 18, Theme.LockGray);
+        private static void EmptyLine(Transform parent, string text)
+        {
+            var label = Ui.ThemedLabel(parent, text, 19, Theme.LockGray);
+            label.alignment = TextAnchor.MiddleLeft;
+            Ui.Sized(label.gameObject, 0, UpgradeEmptyH, flexWidth: 1);
+        }
+
+        /// <summary>「不变:…」:等级 ≤ 当前级、已解锁的特性名(Q15;Lv1 没有效果,不成行也不列)。
+        /// 一条都没有(Lv1 / Lv2)时退回「两面本体的层数与回合」(稿兜底)—— 但 Lv2→3 那一跳层数与回合恰恰在变
+        /// (Lv3 本体替换),兜底句会说反,这时整行不出。折行按弹窗内容宽算,不截断:这一行是「我会不会丢掉什么」。</summary>
+        private static void BuildUnchanged(Transform parent, CharDef def, int level, IReadOnlyList<StatDelta> deltas)
+        {
+            var names = KeptTraitNames(def, level);
+            string list;
+            if (names.Count > 0) list = string.Join(" · ", names);
+            else if (deltas.Any(d => !FaceStats.Scales(d.Kind))) return;
+            else list = Strings.T("collection.modal.unchanged_body");
+
+            string text = Strings.T("collection.modal.unchanged", ("list", list));
+            var label = Ui.ThemedLabel(parent, text, 18, Theme.LockGray);
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Ui.Sized(label.gameObject, 0,
-                Ui.WrappedTextHeight(keep, 18, UpgradeW * 0.5f - 50), flexWidth: 1);
+            Ui.Sized(label.gameObject, 0, Ui.WrappedTextHeight(text, 18, UpgradeInnerW), flexWidth: 1);
         }
 
-        /// <summary>「[chip] 名 旧 → 新 (+差)」一行。两段共用,读法因此完全一致。</summary>
-        private GameObject DeltaRow(Transform parent, string iconKey, string word, string name,
-            string was, string now, string delta)
+        /// <summary>已解锁的特性名:两面条(Lv3 / Lv4)+ 两面各自的面特性行,按槽位升序(同级先攻后五行)。
+        /// 两面通用的面特性(Face = Both)两面各列一次,按 TraitDef 去重。</summary>
+        private static List<string> KeptTraitNames(CharDef def, int level)
+        {
+            var seen = new HashSet<TraitDef>();
+            return CardSheetRules.SharedTraits(def, level)
+                .Concat(CardSheetRules.FaceTraits(def, CardFace.Attack, level))
+                .Concat(CardSheetRules.FaceTraits(def, CardFace.Feature, level))
+                .Where(r => r.Unlocked && seen.Add(r.Defs[0]))
+                .OrderBy(r => (int)r.Slot)                  // 稳定排序:同级保持先攻后五行
+                .Select(CardSheetParts.NameText)
+                .ToList();
+        }
+
+        // ---- 新解锁小卡 ----
+
+        /// <summary>一张小卡要画的东西。正文与字卡详情同一口径:面特性行走 <see cref="CardSheetParts.FaceRow"/>,
+        /// Lv3 / Lv4 走 <see cref="CardSheetParts.SharedRow"/>(分面且正文不同时两小句各带 xs 面印,Lv3 印本体差)。
+        /// 数值按 max(目标等级, 解锁级) 印(Q17)。</summary>
+        private sealed class NewCard
+        {
+            public SheetTrait Row;
+            public CardSheetParts.RowModel Model;
+            public string Where;
+            public string Name;
+            public bool ShowWhere, ShowKind;
+            public float Height;
+        }
+
+        /// <summary>这一级解锁的全部小卡,同在一圈会呼吸的赭金墨晕里(稿 .nus,halo-new 2.6s;整窗唯一会动的东西)。
+        /// 墨晕向外洇 <see cref="Theme.HaloPad"/>:外面包一层同宽的留白,不然 ScrollList 视口的 RectMask2D 会把贴边的光裁掉。</summary>
+        private static void NewUnlocks(Transform parent, CharDef def, IReadOnlyList<SheetTrait> rows, int next)
+        {
+            bool two = rows.Count >= 2;
+            float groupW = UpgradeColW - 2f * Theme.HaloPad;
+            float cardW = groupW - 2f * NewGroupPad;
+            var cards = rows.Select(r => NewCardModel(def, r, next, cardW, two)).ToList();
+            float groupH = 2f * NewGroupPad + cards.Sum(c => c.Height) + NewCardGap * (cards.Count - 1);
+
+            var wrap = Ui.VStack(parent, "NewWrap", 0);
+            var wrapLayout = wrap.GetComponent<VerticalLayoutGroup>();
+            wrapLayout.childAlignment = TextAnchor.UpperLeft;
+            wrapLayout.padding = new RectOffset(Theme.HaloPad, Theme.HaloPad, Theme.HaloPad, Theme.HaloPad);
+            Ui.Sized(wrap, 0, groupH + 2f * Theme.HaloPad, flexWidth: 1);
+
+            var group = Ui.VStack(wrap.transform, "NewUnlocks", NewCardGap);
+            var layout = group.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperLeft;
+            int pad = Mathf.RoundToInt(NewGroupPad);
+            layout.padding = new RectOffset(pad, pad, pad, pad);
+            Ui.Sized(group, groupW, groupH);
+
+            var halo = Ui.Panel(group.transform, "Halo");
+            halo.AddComponent<LayoutElement>().ignoreLayout = true;
+            var image = halo.AddComponent<Image>();
+            image.sprite = Theme.Halo(NewGroupRadius);
+            image.type = Image.Type.Sliced;
+            image.fillCenter = false;
+            image.raycastTarget = false;
+            var rect = (RectTransform)halo.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(-Theme.HaloPad, -Theme.HaloPad);
+            rect.offsetMax = new Vector2(Theme.HaloPad, Theme.HaloPad);
+            halo.AddComponent<CardHalo>().Init(image, Theme.RarityGold);   // halo-new #C9A94A
+
+            foreach (var card in cards) NewCardView(group.transform, def, card, cardW, two);
+        }
+
+        private static float NewPadV(bool two) => two ? 10.5f : 12.6f;   // .nu 6pt / 两张时 5pt
+        private static int NewPadH(bool two) => two ? 17 : 19;            // .nu 9pt / 两张时 8pt
+        private static float NewBodyGap(bool two) => two ? 4f : 6f;       // .nu gap 3pt / 两张时 2pt
+        private static int NewBodyFont(bool two) => two ? 20 : 21;        // .tx 10pt / 两张时 9.5pt
+
+        private static string NewWhereText(SheetTrait row) => row.Face switch
+        {
+            TraitFace.Attack => Strings.T("face.name.attack"),
+            TraitFace.Feature => Strings.T("face.name.feature"),
+            _ => Strings.T("face.name.both"),
+        };
+
+        private static NewCard NewCardModel(CharDef def, SheetTrait row, int next, float cardW, bool two)
+        {
+            bool shared = row.Slot == TraitSlot.Lv3 || row.Slot == TraitSlot.Lv4;
+            var model = shared
+                ? CardSheetParts.SharedRow(def, row, next, CardSheetParts.RowState.On)
+                : CardSheetParts.FaceRow(def, row, next, CardSheetParts.RowState.On);
+            var card = new NewCard { Row = row, Model = model, Where = NewWhereText(row) };
+
+            // 卡头放不下时(木 / 花 Lv3「种·强化 / 成林·强化」这类双名):先丢类别小字,再丢「两面 / 攻击」字样
+            // (印已经说了是哪一面),最后才截名字
+            float inner = cardW - 2f * NewPadH(two);
+            float fixedW = Ui.FaceSealM + Ui.ChipWidth(Strings.T("collection.modal.new_tag"), NewTagFont, NewTagPadX)
+                + 3f * NewHeadGap;   // 印、名、弹簧、「新」签 = 4 件 3 道缝
+            float where = Ui.EstimateWidth(card.Where, NewWhereFont) + NewHeadGap;
+            float kind = Ui.EstimateWidth(model.Kind, NewKindFont) + NewHeadGap;
+            float name = Ui.EstimateWidth(model.Name, NewNameFont);
+            card.ShowWhere = card.ShowKind = true;
+            card.Name = model.Name;
+            if (fixedW + where + name + kind > inner)
+            {
+                card.ShowKind = false;
+                if (fixedW + where + name > inner)
+                {
+                    card.ShowWhere = false;
+                    card.Name = Ui.Truncate(model.Name, NewNameFont, inner - fixedW);
+                }
+            }
+
+            float h = 2f * NewPadV(two) + Ui.FaceSealM;
+            foreach (var line in model.Lines)
+                h += NewBodyGap(two) + NewLineHeight(line.Text, line.Seal != null, NewBodyFont(two), inner);
+            card.Height = h;
+            return card;
+        }
+
+        private static float NewLineHeight(string text, bool seal, int font, float width) =>
+            Mathf.Max(seal ? Ui.FaceSealXs : 0f,
+                Ui.WrappedTextHeight(text, font, width - (seal ? Ui.FaceSealXs + LineSealGap : 0f)));
+
+        /// <summary>一张小卡(稿 .nu):卡头「面印 m + 攻击 / 五行面 / 两面 + 名 + 类别 +『新』签」,下接正文。
+        /// 五行面那张垫本系淡底(<see cref="Theme.FaceTint"/>,稿 .nu.back),其余 card-face。</summary>
+        private static void NewCardView(Transform parent, CharDef def, NewCard card, float cardW, bool two)
+        {
+            bool back = card.Row.Face == TraitFace.Feature;
+            var panel = Ui.CardPanel(parent, "NewTrait", back ? Theme.FaceTint(def.Element) : Theme.CardWhite, NewCardRadius);
+            Ui.Sized(panel.gameObject, cardW, card.Height);
+            var stack = Ui.VStack(panel.transform, "Stack", NewBodyGap(two));
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childForceExpandWidth = true;
+            int padV = Mathf.RoundToInt(NewPadV(two));
+            layout.padding = new RectOffset(NewPadH(two), NewPadH(two), padV, padV);
+            Ui.Stretch((RectTransform)stack.transform);
+            float inner = cardW - 2f * NewPadH(two);
+
+            var head = Ui.Row(stack.transform, "Head", NewHeadGap);
+            head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Sized(head, inner, Ui.FaceSealM);
+            NewSeal(head.transform, def, card.Row.Face, Ui.FaceSealM);
+            if (card.ShowWhere)
+            {
+                var where = Ui.ThemedLabel(head.transform, card.Where, NewWhereFont, Theme.TextMain, Theme.TitleFont);
+                where.fontStyle = FontStyle.Bold;
+            }
+            var name = Ui.ThemedLabel(head.transform, card.Name, NewNameFont, Theme.TextMain, Theme.TitleFont);
+            name.fontStyle = FontStyle.Bold;
+            if (card.ShowKind) Ui.ThemedLabel(head.transform, card.Model.Kind, NewKindFont, Theme.TextDim);
+            var spring = Ui.Panel(head.transform, "Spring");
+            Ui.Sized(spring, flexWidth: 1);
+            Ui.Chip(head.transform, Strings.T("collection.modal.new_tag"), Theme.Gold, Theme.GoldText, NewTagFont, NewTagPadX);
+
+            int font = NewBodyFont(two);
+            foreach (var (seal, text) in card.Model.Lines)
+            {
+                float h = NewLineHeight(text, seal != null, font, inner);
+                if (seal == null)
+                {
+                    WrapLabel(stack.transform, text, font, Theme.TextDim, inner, h);
+                    continue;
+                }
+                var line = Ui.Row(stack.transform, "Line", LineSealGap);
+                line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                Ui.Sized(line, inner, h);
+                var xs = Ui.FaceSeal(line.transform, def, seal.Value, Ui.FaceSealXs);
+                Ui.Sized(xs, Ui.FaceSealXs, Ui.FaceSealXs);
+                WrapLabel(line.transform, text, font, Theme.TextDim, inner - Ui.FaceSealXs - LineSealGap, h);
+            }
+        }
+
+        /// <summary>按行的面出印:攻 / 本系五行面字;两面通用(Lv3 / Lv4)出「两」(ink-soft 底,component/FaceSeal)。</summary>
+        private static void NewSeal(Transform parent, CharDef def, TraitFace face, float size)
+        {
+            var seal = face switch
+            {
+                TraitFace.Attack => Ui.FaceSeal(parent, def, CardFace.Attack, size),
+                TraitFace.Feature => Ui.FaceSeal(parent, def, CardFace.Feature, size),
+                _ => Ui.FaceSeal(parent, Ui.FaceSealBothText(), Theme.InkSoft, size),
+            };
+            Ui.Sized(seal, size, size);
+        }
+
+        private static void WrapLabel(Transform parent, string text, int font, Color color, float width, float height)
+        {
+            var label = Ui.ThemedLabel(parent, text, font, color);
+            label.alignment = TextAnchor.UpperLeft;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Ui.Sized(label.gameObject, width, height);
+        }
+
+        // ---- 下一级预告 ----
+
+        /// <summary>「下一级解锁在 LvN」框(稿 .next):该级的全部条目,一条一行「印 s + 攻击 / 五行面 / 两面 · 名」。</summary>
+        private static void NextUnlockBox(Transform parent, CharDef def, int level, IReadOnlyList<SheetTrait> rows)
+        {
+            float keyH = Mathf.Ceil(NextKeyFont * 1.35f);
+            float h = 2f * NextPadV + keyH + rows.Count * (NextGap + Ui.FaceSealS);
+            var box = Ui.CardPanel(parent, "NextUnlock", Theme.PanelInset, NewGroupRadius);
+            Ui.Sized(box.gameObject, 0, h, flexWidth: 1);
+            var stack = Ui.VStack(box.transform, "Stack", NextGap);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childForceExpandWidth = true;
+            layout.padding = new RectOffset(NextPadH, NextPadH, NextPadV, NextPadV);
+            Ui.Stretch((RectTransform)stack.transform);
+            float inner = UpgradeColW - 2f * NextPadH;
+
+            var key = Ui.ThemedLabel(stack.transform, Strings.T("collection.modal.next_unlock", ("level", level)),
+                NextKeyFont, Theme.TextDim);
+            key.alignment = TextAnchor.MiddleLeft;
+            Ui.Sized(key.gameObject, inner, keyH);
+
+            foreach (var row in rows)
+            {
+                var line = Ui.Row(stack.transform, "Next", NextRowGap);
+                line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                Ui.Sized(line, inner, Ui.FaceSealS);
+                NewSeal(line.transform, def, row.Face, Ui.FaceSealS);
+                string where = Strings.T("collection.modal.next_where", ("where", NewWhereText(row)));
+                Ui.ThemedLabel(line.transform, where, NextWhereFont, Theme.TextDim);
+                float nameW = inner - Ui.FaceSealS - Ui.EstimateWidth(where, NextWhereFont) - 2f * NextRowGap;
+                var name = Ui.ThemedLabel(line.transform, Ui.Truncate(CardSheetParts.NameText(row), NextNameFont, nameW),
+                    NextNameFont, Theme.TextMain, Theme.TitleFont);
+                name.fontStyle = FontStyle.Bold;
+            }
+        }
+
+        /// <summary>差行「[面印] 名 ——— 旧 → 新 (+差)」(component/UpgradeDialog 的 DeltaRow,读法不变;
+        /// E2 把原先的图标 chip 换成 xs 面印,标这一格属于哪一面)。
+        /// 减攻印「−15% → −16%」,再挂「+1」读起来像变弱了,所以减攻不印增量。</summary>
+        private static void DeltaRow(Transform parent, CharDef def, StatDelta d)
         {
             var row = Ui.Row(parent, "Delta", 11);
             var layout = row.GetComponent<HorizontalLayoutGroup>();
@@ -803,21 +1071,19 @@ namespace Brushblade.Presentation
             image.color = Theme.PanelInset;
             Ui.Sized(row, 0, 54, flexWidth: 1);
 
-            if (iconKey != null)
-                Ui.Chip(row.transform, "", CardTraits.ChipColor(iconKey), Color.white, 18, iconKey: iconKey);
-            else if (word != null)
-                Ui.Chip(row.transform, word, Theme.LockedBg, Theme.TextMain, 18);
+            var seal = Ui.FaceSeal(row.transform, def, d.Face, Ui.FaceSealXs);
+            Ui.Sized(seal, Ui.FaceSealXs, Ui.FaceSealXs);
 
-            var label = Ui.ThemedLabel(row.transform, name, 19, Theme.TextDim);
+            var label = Ui.ThemedLabel(row.transform, CardSheetParts.StatLabel(d.Kind), 19, Theme.TextDim);
             label.alignment = TextAnchor.MiddleLeft;
             Ui.Sized(label.gameObject, flexWidth: 1);
 
-            Ui.ThemedLabel(row.transform, was, 25, Theme.LockGray, Theme.TitleFont);
+            Ui.ThemedLabel(row.transform, CardSheetParts.StatValue(d.Kind, d.From), 25, Theme.LockGray, Theme.TitleFont);
             Ui.ThemedLabel(row.transform, Strings.T("collection.side.recipe_to"), 18, Theme.LockGray);
-            Ui.ThemedLabel(row.transform, now, 29, Theme.UpgradeText, Theme.TitleFont);
-            if (delta != null)
-                Ui.ThemedLabel(row.transform, delta, 19, Theme.UpgradeText);
-            return row;
+            Ui.ThemedLabel(row.transform, CardSheetParts.StatValue(d.Kind, d.To), 29, Theme.UpgradeText, Theme.TitleFont);
+            if (d.Kind != FaceStatKind.Weaken && d.To > d.From)
+                Ui.ThemedLabel(row.transform, Strings.T("collection.modal.delta", ("delta", d.To - d.From)),
+                    19, Theme.UpgradeText);
         }
 
         private void Upgrade(string cardId)

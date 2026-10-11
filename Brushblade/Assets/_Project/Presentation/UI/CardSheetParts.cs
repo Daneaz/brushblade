@@ -176,12 +176,14 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        /// <summary>格里的数:减攻印「−15%」、护甲 / 战意印「+N」(稿),其余原样。</summary>
-        private static string StatValue(FaceStat stat) => stat.Kind switch
+        private static string StatValue(FaceStat stat) => StatValue(stat.Kind, stat.Value);
+
+        /// <summary>格里的数:减攻印「−15%」、护甲 / 战意印「+N」(稿),其余原样。升级预览的差行(<see cref="StatDelta"/>)同一读法。</summary>
+        internal static string StatValue(FaceStatKind kind, int value) => kind switch
         {
-            FaceStatKind.Weaken => Strings.T("charsheet.stat.minus_pct", ("value", stat.Value)),
-            FaceStatKind.Armor or FaceStatKind.Morale => Strings.T("charsheet.stat.plus", ("value", stat.Value)),
-            _ => stat.Value.ToString(),
+            FaceStatKind.Weaken => Strings.T("charsheet.stat.minus_pct", ("value", value)),
+            FaceStatKind.Armor or FaceStatKind.Morale => Strings.T("charsheet.stat.plus", ("value", value)),
+            _ => value.ToString(),
         };
 
         /// <summary>Lv3 行的「本体差」(Q2):「灼 3→4 层；减攻 15→20%；减攻 2→3 回合」。木五行面本命强化只改被动(差为空),
