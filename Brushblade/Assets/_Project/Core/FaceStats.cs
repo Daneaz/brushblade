@@ -82,7 +82,10 @@ namespace Brushblade.Core
     {
         public const int MaxCells = 3;
 
-        /// <summary>这一种格的数值是否随卡等级缩放(层 / 回合 / 次数不缩放,spec v7 §1)。</summary>
+        /// <summary>这一种格的数值是否随卡等级缩放(层 / 回合 / 次数不缩放,spec v7 §1)。
+        /// 格种类是按效果合并的(治疗 = HealSelf / HealAll,护盾 = Shield / ShieldAll),反击 / 木灵攻击直接走
+        /// <see cref="MetaRules.ScaleByCardLevel"/>,所以不能逐条从 <see cref="MetaRules.ScalesWithCardLevel"/> 推导;
+        /// 两份分类由 <c>FaceStatsTests.Scales_ReconcilesWithEngineScaling</c> 用真实字表的 L1→L2 对账。</summary>
         public static bool Scales(FaceStatKind kind) => kind switch
         {
             FaceStatKind.Damage or FaceStatKind.Heal or FaceStatKind.Shield
@@ -137,9 +140,10 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>全部格(未截断),主量在前、其余按本体顺序。<paramref name="unlockLevel"/> 决定哪些特性已解锁,
+        /// <summary>全部格(未截断),主量在前、其余按本体顺序。internal 只为测试钉住「真实字表每面不超过
+        /// <see cref="MaxCells"/> 格」(Body 截断与 Deltas 不截断才是同一口径)。<paramref name="unlockLevel"/> 决定哪些特性已解锁,
         /// <paramref name="skipFrom"/> 及以上的槽位整条跳过;<paramref name="scaleLevel"/> 决定缩放。</summary>
-        private static List<FaceStat> AllCells(CharDef def, CardFace face, int unlockLevel, int scaleLevel, TraitSlot skipFrom)
+        internal static List<FaceStat> AllCells(CharDef def, CardFace face, int unlockLevel, int scaleLevel, TraitSlot skipFrom)
         {
             bool attack = face == CardFace.Attack;
             var actual = BattleEngine.FaceOf(def, attack);

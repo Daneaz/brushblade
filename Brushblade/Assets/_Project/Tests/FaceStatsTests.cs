@@ -109,6 +109,52 @@ namespace Brushblade.Core.Tests
                 }
         }
 
+        /// <summary>Task 1 review Minor 4:Body 截前 3 格、Deltas 用不截断的全部格,两者口径一致的前提是
+        /// 真实字表里每面每级的**未截断**格数 ≤ 3;Deltas 遇到「新出现的格」静默跳过,前提是相邻两级格种类序列不变。</summary>
+        [Test]
+        public void AllCells_RealTable_AtMostThree_AndStableAcrossAdjacentLevels()
+        {
+            foreach (var d in Playable())
+                foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
+                    for (int lv = 1; lv <= MetaRules.MaxCardLevel; lv++)
+                    {
+                        var cells = FaceStats.AllCells(d, face, lv, lv, TraitSlot.Lv4);
+                        Assert.That(cells.Count, Is.LessThanOrEqualTo(FaceStats.MaxCells), $"{d.Id} {face} L{lv}:{Cells(cells)}");
+                        if (lv == 1) continue;
+                        var prev = FaceStats.AllCells(d, face, lv - 1, lv - 1, TraitSlot.Lv4);
+                        Assert.That(cells.Select(c => c.Kind), Is.EqualTo(prev.Select(c => c.Kind)),
+                            $"{d.Id} {face} L{lv - 1}→L{lv}:{Cells(prev)} → {Cells(cells)}");
+                    }
+        }
+
+        /// <summary>Task 1 review Minor 2:<see cref="FaceStats.Scales"/> 是手写分类,引擎缩放走
+        /// <see cref="MetaRules.ScalesWithCardLevel"/>。L1→L2 没有特性变化,只差等级系数(×1.06,向上取整,
+        /// 任何正数都会变),所以「这一格变了」⇔「这一格缩放」。两个方向都断:Meta 把某种改成离散而 Scales 没跟,
+        /// 或 Scales 漏标一种连续量,都会红。并要求每种标了缩放的格在真实字表里都出现过,免得对账落空。</summary>
+        [Test]
+        public void Scales_ReconcilesWithEngineScaling()
+        {
+            var observed = new HashSet<FaceStatKind>();
+            foreach (var d in Playable())
+                foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
+                {
+                    var l1 = FaceStats.Body(d, face, 1);
+                    var l2 = FaceStats.Body(d, face, 2);
+                    Assert.That(l2.Select(c => c.Kind), Is.EqualTo(l1.Select(c => c.Kind)), $"{d.Id} {face}");
+                    for (int i = 0; i < l1.Count; i++)
+                    {
+                        if (l1[i].Value <= 0) continue;   // 本命格恒 0
+                        bool changed = l2[i].Value != l1[i].Value;
+                        Assert.That(changed, Is.EqualTo(FaceStats.Scales(l1[i].Kind)),
+                            $"{d.Id} {face} {l1[i].Kind}({l1[i].Source}) {l1[i].Value}→{l2[i].Value}");
+                        if (changed) observed.Add(l1[i].Kind);
+                    }
+                }
+            var unobserved = System.Enum.GetValues(typeof(FaceStatKind)).Cast<FaceStatKind>()
+                .Where(k => FaceStats.Scales(k) && !observed.Contains(k)).ToList();
+            Assert.That(unobserved, Is.Empty, "标了缩放、真实字表里却没出现过的格:" + string.Join(",", unobserved));
+        }
+
         // ---------------- Deltas ----------------
 
         [Test]

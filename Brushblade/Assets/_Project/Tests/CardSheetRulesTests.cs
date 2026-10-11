@@ -275,8 +275,69 @@ namespace Brushblade.Core.Tests
             var restored = BattleEngine.Restore(snap, Graph, Config, DuLevels,
                 new Dictionary<string, EnemyDef> { ["怔"] = RebalanceFixture.Mob() });
             Assert.That(restored.TraitSpentThisBattle(du, limited), Is.True, "快照往返后仍是用尽");
+            // 「下一场重新计」不在这里断:新建一个 engine 天然是 false,证明不了什么 —— 见 TraitSpent_ResetsWhenRunAdvancesToNextBattle
+        }
 
-            Assert.That(DuBattle().TraitSpentThisBattle(du, limited), Is.False, "下一场重新计");
+        /// <summary>Task 1 review Minor 1:次数按场重置要在**同一局**里证明。RunEngine 每场新建 BattleEngine(NewBattle),
+        /// 次数表不进携带态;这条守的是「打完一场、进下一场后,上一场的用尽不会带过来」,并确认下一场照常记次。</summary>
+        [Test]
+        public void TraitSpent_ResetsWhenRunAdvancesToNextBattle()
+        {
+            var du = Graph.Get("杜");
+            var limited = Trait("杜", "杜门不出");
+            var config = new RunConfig
+            {
+                Encounters = Enumerable.Range(0, 2).Select(_ => new[] { RebalanceFixture.Mob(hp: 50) }).ToArray(),
+                RewardPool = new[] { "杜" },
+            };
+            var run = new RunEngine(Graph, config, Config, Enumerable.Repeat("杜", 6).ToArray(), Array.Empty<string>(),
+                seed: 1, cardLevels: DuLevels);
+
+            Assert.That(run.Battle.Cast("杜"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.TraitSpentThisBattle(du, limited), Is.True, "第一场:生面出一次就用尽");
+            run.Battle.EndTurn();
+            Assert.That(run.Battle.Cast("杜", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won), "夹具前提:攻面一击清场");
+            run.AdvanceAfterBattle();
+            while (run.Phase == RunPhase.Reward) run.SkipReward();
+            Assert.That(run.BattleIndex, Is.EqualTo(1), "夹具前提:已进第二场");
+
+            Assert.That(run.Battle.TraitSpentThisBattle(du, limited), Is.False, "下一场重新计");
+            Assert.That(run.Battle.Cast("杜"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.TraitSpentThisBattle(du, limited), Is.True, "第二场照常记次");
+        }
+
+        /// <summary>折桂(攻面 Lv5、击杀时、每场 1 次):击杀入库即用尽;满库不入时退次,仍未用尽(E49)。</summary>
+        [Test]
+        public void TraitSpent_Zhegui_OnKill_RefundedWhenLibraryFull()
+        {
+            var gui = Graph.Get("桂");
+            var zhegui = Trait("桂", "折桂");
+            Assert.That((zhegui.Slot, zhegui.Face, zhegui.Trigger, zhegui.MaxPerBattle),
+                Is.EqualTo((TraitSlot.Lv5, TraitFace.Attack, TraitTrigger.OnKill, 1)));
+            BattleEngine GuiBattle(int library) =>
+                new(Graph, new BattleConfig
+                    {
+                        PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, ApPerTurn = 200,
+                        LibraryCapacity = library, DropsPerTurn = 0, UnlockedChars = new[] { "花", "藤", "森" },
+                    },
+                    new[] { "桂", "桂", "桂" }, Array.Empty<string>(),
+                    new[] { RebalanceFixture.Mob(hp: 1), RebalanceFixture.Mob() }, seed: 1,
+                    cardLevels: new Dictionary<string, int> { ["桂"] = 5 });
+
+            var b = GuiBattle(library: 6);
+            Assert.That(b.TraitSpentThisBattle(gui, zhegui), Is.False, "还没击杀");
+            Assert.That(b.Cast("桂", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Alive, Is.False, "夹具前提:击杀");
+            Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.CharGranted), Is.EqualTo(1));
+            Assert.That(b.TraitSpentThisBattle(gui, zhegui), Is.True, "击杀入库 → 本场已用");
+
+            // 字库上限 2、起手 3 张:出一张后剩 2 = 满库 → 不入、退次
+            var full = GuiBattle(library: 2);
+            Assert.That(full.Cast("桂", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(full.Enemies[0].Alive, Is.False, "夹具前提:击杀");
+            Assert.That(full.LastEvents.Any(e => e.Kind == BattleEventKind.CharGranted), Is.False, "满库不入");
+            Assert.That(full.TraitSpentThisBattle(gui, zhegui), Is.False, "退次后不算用过");
         }
 
         [Test]
