@@ -127,6 +127,9 @@ namespace Brushblade.Core
             /// <summary>本次出字内的**实际**治疗量(溢出不算;治疗转盾用)。</summary>
             public int HealTotal;
 
+            /// <summary>HealTotal 里落在带水草(HealMirror)的木灵身上的那部分(D2-木 M11,Q17:镜像量不含给藻灵自己的)。</summary>
+            public int MirrorHealed;
+
             /// <summary>本次出字(顶层 Cast,TriggerDepth == 0)已解锁、面匹配的暴击时 / 击杀时特性;其余时候为 null。</summary>
             public IReadOnlyList<TraitDef> OnCrit;
             public IReadOnlyList<TraitDef> OnKill;

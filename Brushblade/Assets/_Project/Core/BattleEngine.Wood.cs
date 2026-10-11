@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -20,6 +22,7 @@ namespace Brushblade.Core
         private void OnSummonDeathTraits(int slot, UnitRef killer)
         {
             ClearSlotAuras(slot);   // M1:按槽位挂的光环随木灵阵亡清理(Review Focus 1)
+            ClearSlotBinds(slot);   // M7:藤灵阵亡 → 攀附解除
             var dead = _summons[slot];
             if (dead == null) return;
             var p = dead.Passive;
@@ -29,6 +32,175 @@ namespace Brushblade.Core
                 if (p.DeathBlast > 0) EnqueueDeathBlast(slot, dead, p.DeathBlast);   // 落木
             }
             if (dead.SproutParentSlot >= 0) SproutDeathSlow(dead, killer);          // 藻荇
+        }
+
+        // ---- M7 攀附(Task 4)----
+
+        /// <summary>本次出字召出的第一只存活木灵(嫁接时为被嫁接者,E42);没有 −1。</summary>
+        private int FirstSummonedThisCast()
+        {
+            foreach (int s in _cast.SummonedSlots)
+                if (s >= 0 && s < _summons.Length && _summons[s] != null && _summons[s].Alive) return s;
+            return -1;
+        }
+
+        /// <summary>攀附(Q13):敌人挂 Bind(Debuff,Magnitude = 打击 %,TargetSlot = 藤灵槽,本场 −1);同源同槽刷新。
+        /// 解除只走槽位清理(藤灵阵亡 / 被顶替 / 被绿潮并入),见 <see cref="ClearSlotBinds"/>。</summary>
+        private void ApplyBind(int enemyIndex, EffectDef effect, string sourceId, int vineSlot)
+        {
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
+            {
+                Kind = StatusKind.Bind, Polarity = StatusPolarity.Debuff, Magnitude = Math.Max(0, effect.Value),
+                TurnsLeft = -1, SourceId = sourceId, TraitKey = effect.TraitKey, TargetSlot = vineSlot,
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
+        }
+
+        /// <summary>攀附结算(Q13):敌人每次行动开始(种之后、冻结判定之前,含被冻结跳过的这一拍),身上每条 Bind 让对应藤灵
+        /// 打它一下 —— 有效攻击 × N%,走 StrikeTargetWithSummon(暴击 / 出手附带照常,缠绕本命的冻结随这一击摇号)。
+        /// 没有 Bind 时一次判断即返回,不摇号。藤灵已不在(防御性)就顺手摘掉这条。</summary>
+        private void SettleBinds(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Statuses.Has(StatusKind.Bind)) return;
+            RefreshSummonAura();   // 打击量读这一刻的有效攻击(幂等,不摇号)
+            foreach (var bind in enemy.Statuses.All.Where(s => s.Kind == StatusKind.Bind).ToList())
+            {
+                if (!enemy.Alive || Phase == BattlePhase.Lost || Phase == BattlePhase.Won) return;
+                int slot = bind.TargetSlot;
+                var vine = slot >= 0 && slot < _summons.Length ? _summons[slot] : null;
+                if (vine == null || !vine.Alive) { enemy.Statuses.RemoveEntry(bind); continue; }
+                if (!HasStrikeOutput(vine)) continue;
+                StrikeTargetWithSummon(slot, enemyIndex, (int)((long)vine.EffectiveAttack * bind.Magnitude / 100), sameSwing: false);
+            }
+        }
+
+        /// <summary>某槽位换了单位 / 阵亡 / 被并入:敌人身上指向它的攀附一并解除(槽位下标会被复用)。没有 Bind 时逐个敌人一次判断。</summary>
+        private void ClearSlotBinds(int slot)
+        {
+            foreach (var enemy in _enemies)
+            {
+                if (!enemy.Statuses.Has(StatusKind.Bind)) continue;
+                foreach (var st in enemy.Statuses.All.Where(s => s.Kind == StatusKind.Bind && s.TargetSlot == slot).ToList())
+                    enemy.Statuses.RemoveEntry(st);
+            }
+        }
+
+        // ---- M8 绿潮(Task 4)----
+
+        /// <summary>绿潮(Q18):场上全部小藻(<c>Char == 苗 && SourceChar == 本字</c>,含丛生 / 丛藻,不含接收者自己)的当前生命 /
+        /// 最大生命 / 攻击加到本次召出的藻灵(第一只;嫁接 = 被嫁接者)上,小藻槽位直接置空 —— 不走阵亡(不发 SummonDied、
+        /// 不触发归根 / 秋实 / 藻荇),但按槽位清掉指向它的光环、攀附、丛生母体记号。不摇号。</summary>
+        private void MergeSaplingsInto(string sourceChar)
+        {
+            int receiver = FirstSummonedThisCast();
+            if (receiver < 0) return;
+            var r = _summons[receiver];
+            bool merged = false;
+            for (int s = 0; s < _summons.Length; s++)
+            {
+                var w = _summons[s];
+                if (s == receiver || w == null || !w.Alive || w.Char != SaplingChar || w.SourceChar != sourceChar) continue;
+                r.MaxHp += w.MaxHp;
+                r.Hp += w.Hp;
+                r.Attack += w.Attack;
+                _summons[s] = null;
+                _summonThresholdCrossed.Remove(s);
+                ClearSproutParent(s);
+                ClearSlotAuras(s);
+                ClearSlotBinds(s);
+                _events.Add(new BattleEvent(BattleEventKind.SummonMerged, s, w.Hp, receiver));
+                merged = true;
+            }
+            if (merged) RefreshSummonAura();
+        }
+
+        // ---- M9 四木成林(Task 4)----
+
+        /// <summary>四木成林(Q24):按槽位升序,每只存活木灵按自己的目标规则额外出手一次(StrikeOnceWithSummon)。
+        /// 不推进行动条、不递减状态、不触发光环治疗 / 丛生 / 灼烧;随机数只在这里真出手时才消费。</summary>
+        private void ActAllSummonsNow()
+        {
+            RefreshSummonAura();
+            for (int s = 0; s < _summons.Length; s++)
+            {
+                if (!_enemies.Any(e => e.Alive)) return;
+                var w = _summons[s];
+                if (w != null && w.Alive) StrikeOnceWithSummon(s);
+            }
+        }
+
+        // ---- M10 折桂(Task 4)----
+
+        /// <summary>折桂(Q16):本场字库 +Value 张。候选 = 玩家已拥有(UnlockedChars)的非部件字里档位最高的一档,
+        /// 没有记录时退回全字表非部件的最高档;按 ID 排序后用 _traitRandom 抽。满库不入,且一张都没入时退还 E49 在入队时记下的
+        /// 那一次场次(「满库不入、不计次」)。入库的字随字库延续到之后的战斗。</summary>
+        private void GrantTraitChars(EffectDef effect)
+        {
+            int granted = 0;
+            for (int n = 0; n < effect.Value; n++)
+            {
+                if (_forge.Library.Count >= _config.LibraryCapacity) break;
+                var candidates = GrantCandidates();
+                if (candidates.Count == 0) break;
+                string pick = candidates[_traitRandom.Next(candidates.Count)];
+                if (!GrantLibraryChar(pick)) break;
+                _events.Add(new BattleEvent(BattleEventKind.CharGranted, -1, _forge.Library.Count - 1));
+                granted++;
+            }
+            if (granted == 0) RefundBattleUse(effect.TraitKey);
+        }
+
+        private List<string> GrantCandidates()
+        {
+            var owned = new List<CharDef>();
+            if (_config.UnlockedChars != null)
+                foreach (var id in _config.UnlockedChars)
+                    if (_graph.TryGet(id, out var d) && !d.IsComponent) owned.Add(d);
+            IReadOnlyCollection<CharDef> source = owned.Count > 0 ? owned : _graph.All.Where(d => !d.IsComponent).ToList();
+            if (source.Count == 0) return new List<string>();
+            var top = source.Max(d => d.Rarity);
+            return source.Where(d => d.Rarity == top).Select(d => d.Id).Distinct()
+                .OrderBy(id => id, StringComparer.Ordinal).ToList();
+        }
+
+        /// <summary>退还一次特性级每场次数(E49 击杀时在入队时记次;兑现时发现满库不入,把那一次还回去)。
+        /// 没有 limit 的特性从未记过次,键不在表里,空转。</summary>
+        private void RefundBattleUse(string traitKey)
+        {
+            if (traitKey == null) return;
+            string key = "场次:" + traitKey;   // 同 BattleUseKey
+            if (_traitUsesThisBattle.TryGetValue(key, out int battle) && battle > 0) _traitUsesThisBattle[key] = battle - 1;
+            if (_traitUsesThisTurn.TryGetValue(key, out int turn) && turn > 0) _traitUsesThisTurn[key] = turn - 1;
+        }
+
+        // ---- M11 水草(Task 4)----
+
+        /// <summary>顶层出字的实际治疗量里不含给带水草的藻灵的部分(CastCore 置 0、ApplyEffects 出门时写入、MirrorCastHeal 读后清零)。
+        /// 不进快照:生命周期在一次 CastCore 之内。</summary>
+        private int _castMirrorBase;
+
+        /// <summary>出字内的木灵治疗计数(HealAlly / HealPlayerAndSummons 的木灵支):HealTotal 照旧累加;落在带水草的木灵身上的另记一份。</summary>
+        private void CountCastHealOnSummon(SummonState summon, int given)
+        {
+            _cast.HealTotal += given;
+            if ((summon.Passive?.HealMirror ?? 0) > 0) _cast.MirrorHealed += given;
+        }
+
+        /// <summary>水草(Q17):顶层出字结束后,本次实际治疗量(不含给藻灵的)&gt; 0 → 每只带 HealMirror 的存活木灵回复其 × N%。
+        /// 不吃泉、不攒泉、不触发溢流;种 / 桂香 / 反应里的治疗不在出字的 HealTotal 里,不算。</summary>
+        private void MirrorCastHeal()
+        {
+            int baseHeal = _castMirrorBase;
+            _castMirrorBase = 0;
+            if (baseHeal <= 0) return;
+            for (int s = 0; s < _summons.Length; s++)
+            {
+                var w = _summons[s];
+                int percent = w != null && w.Alive ? w.Passive?.HealMirror ?? 0 : 0;
+                if (percent <= 0) continue;
+                int amount = (int)((long)baseHeal * percent / 100);
+                if (amount > 0) HealAlly(s, amount, overflowToDamage: false);
+            }
         }
 
         // ---- M3 阵亡挂点(Task 3)----

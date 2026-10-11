@@ -583,6 +583,9 @@ namespace Brushblade.Data
                     traits: ParseTraits(dto));
                 if (def.Effects.Concat(def.AttackEffects).Any(e => e.Kind == EffectKind.OverkillSplash))
                     throw new ConfigException($"字「{def.Id}」的本体写了 OverkillSplash,但它只能写在击杀时(OnKill)特性里");
+                // 折桂(D2-木 M10,Q16):只在击杀时反应里结算,写在本体里出字就白发一张
+                if (def.Effects.Concat(def.AttackEffects).Any(e => e.Kind == EffectKind.GrantChar))
+                    throw new ConfigException($"字「{def.Id}」的本体写了 GrantChar,但它只能写在击杀时(OnKill)特性里");
                 ValidateTraitTargets(def);
                 ValidateSaplingFaces(def);
                 ValidateOpeningAmplify(def);
@@ -652,6 +655,8 @@ namespace Brushblade.Data
                 // 粉身碎骨(D2-土 G5):溢出只在击杀入队时解析,写在别的时机 Value 恒为原百分比、目标也不是死者 —— 拦下
                 if (trigger != TraitTrigger.OnKill && effects.Any(e => e.Kind == EffectKind.OverkillSplash))
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」写了 OverkillSplash,但它只能写在击杀时(OnKill)特性里");
+                if (trigger != TraitTrigger.OnKill && effects.Any(e => e.Kind == EffectKind.GrantChar))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」写了 GrantChar,但它只能写在击杀时(OnKill)特性里");
                 if (t.MaxPerCast < 0)
                     throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」的 maxPerCast 不能为负:{t.MaxPerCast}");
                 // 每场次数(D2-土 E35)只约束出字时机的特性(顶层出字 Fold 时跳过);写在暴击 / 击杀等反应特性上静默无效 —— 拦下
@@ -1202,6 +1207,12 @@ namespace Brushblade.Data
             // 荆刺(D2-木 M6,Q11):反伤 % 须 > 0;持续按该敌人行动次数,须写 turns > 0(缺省 0 会被兜成 1 次,静默缩水)
             if (kind == EffectKind.ThornMark && (e.Value <= 0 || e.Turns <= 0))
                 throw new ConfigException($"字「{id}」的荆刺(ThornMark)须写反伤 % > 0 与 turns > 0:{e.Value} / {e.Turns}");
+            // 攀附(D2-木 M7):打击 % 须 > 0;落点必须写敌方选择器由 EffectPickRules.Allows 管
+            if (kind == EffectKind.Bind && e.Value <= 0)
+                throw new ConfigException($"字「{id}」的攀附(Bind)打击 % 须 > 0:{e.Value}");
+            // 折桂(D2-木 M10):张数须 > 0
+            if (kind == EffectKind.GrantChar && e.Value <= 0)
+                throw new ConfigException($"字「{id}」的 GrantChar 张数须 > 0:{e.Value}");
             if (e.ScaleBy == nameof(ScaleBasis.SummonCount) && kind != EffectKind.Amplify)
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy SummonCount(只给 Amplify)");
             if (e.OpeningBattles != 0 && (e.SummonAtkStrikePercent != 0 || e.HostAtkStrikePercent != 0 || e.HostArmorStrikePercent != 0

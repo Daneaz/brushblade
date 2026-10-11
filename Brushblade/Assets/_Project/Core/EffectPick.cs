@@ -54,7 +54,8 @@ namespace Brushblade.Core
                 or EffectKind.BuffBlock   // D2-水 Task 3 洗尽铅华
                 or EffectKind.Silence   // D2-土 E33 杜塞(`if NotBoss`)
                 or EffectKind.SkillCut   // D2-土 G6 杜塞(`if IsBoss`)
-                or EffectKind.ThornMark => true,   // D2-木 M6 荆刺(攀附 Bind 归 Task 4 接行为时再加)
+                or EffectKind.ThornMark   // D2-木 M6 荆刺
+                or EffectKind.Bind => true,   // D2-木 M7 攀附(必须写 pick,见 Allows)
             _ => false,
         };
 
@@ -65,7 +66,9 @@ namespace Brushblade.Core
         {
             // 保命必须写 SummonedThisCast(Ruling 10):Primary 写法选不到召唤物(Endure 不在友方目标名单),会静默空转
             // 木灵攻击光环(D2-木 M1)同理:落点只能是这三种木灵选择器,Primary 写法没有落点
-            EffectPick.Primary => kind != EffectKind.Endure && kind != EffectKind.Taunt && kind != EffectKind.SummonEmpower,
+            // 攀附(D2-木 M7,Q13)同样必须写 pick(敌方选择器,数据写 HighestHp)
+            EffectPick.Primary => kind != EffectKind.Endure && kind != EffectKind.Taunt && kind != EffectKind.SummonEmpower
+                && kind != EffectKind.Bind,
             EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
             EffectPick.AllSummons => kind == EffectKind.Taunt || kind == EffectKind.SummonEmpower,

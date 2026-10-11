@@ -197,8 +197,9 @@ namespace Brushblade.Core
         /// <summary>§2.2 本场改属性前的属性;null = 本场没改过。战后复原(E3),解封清掉它(E4)。</summary>
         public Element? BaseElement { get; internal set; }
         public int Hp { get; internal set; }
-        public int MaxHp { get; }
-        public int Attack { get; }
+        /// <summary>破例可写(D2-木 M8 绿潮,Q18):唯一写入点是 BattleEngine.Wood 的小藻并入(按当前值相加)。快照本来就存这两项。</summary>
+        public int MaxHp { get; internal set; }
+        public int Attack { get; internal set; }
         public bool Alive => Hp > 0;
 
         /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价;

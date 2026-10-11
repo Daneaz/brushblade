@@ -351,6 +351,11 @@ namespace Brushblade.Core
                        // SecondIndex = 承担的木灵槽位,Absorbed = 其中被木灵护盾吃掉的部分)。不算挥击,不发 SummonHit
                        // (那条会驱动第二次攻击者冲刺动效,且受击类钩子据此触发);表现层归 Plan D2-木 Task 5(W5)。
         PartGranted,   // 秋实(M3):木灵阵亡,部件池 +「木」(TargetIndex = 阵亡木灵槽位,Amount = 入池个数 1);满池不入不发。
+        // ---- D2-木 Task 4(⚠ 只在末尾追加)----
+        SummonMerged,  // 绿潮(M8,Q18):一只小藻并入藻灵(TargetIndex = 被并入的小藻槽位,已置空;SecondIndex = 接收的藻灵槽位,
+                       // Amount = 并入的生命)。不算阵亡,不发 SummonDied;表现层归 Plan D2-木 Task 5。
+        CharGranted,   // 折桂(M10,Q16):本场字库 +1 张(Amount = 入库后的字库下标,同 CharDrawn 口径);满库不入不发。
+                       // 不复用 CharDrawn:那条是回合掉字的动画源,语义不同;表现层归 Task 5。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -1704,8 +1709,10 @@ namespace Brushblade.Core
             }
 
             _castingCharId = charId;   // HookArgs.CastCharId:只在本张字的效果表结算期间非 null
+            _castMirrorBase = 0;
             try { ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot, partExtra); }
             finally { _castingCharId = null; }
+            MirrorCastHeal();   // 水草(D2-木 M11):本次出字的实际治疗量镜像给藻灵;没有治疗 / 没有水草时一次判断即返回
             DrainReactions();   // 安全点:出字内触发的特性反应在这里兑现(收光环 / 判胜之前)
             if (_config.Tally != null)
             {
@@ -2652,6 +2659,10 @@ namespace Brushblade.Core
 
             // 种(D1 Task 6):每次行动开始(含稍后被冻结 / 冰滞跳过的这一拍)触发,先于灼烧结算。
             TriggerSeeds(enemy);
+
+            // 攀附(D2-木 M7,Q13):同种的时点 —— 每次行动开始(含稍后被冻结跳过的这一拍),先于冻结判定。没有 Bind 时一次判断即返回
+            SettleBinds(enemyIndex);
+            if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }
 
             // 怀山(D2-水 W1):冻结中每次行动开始(种之后、冻结跳过之前,含被跳过的这一拍)结算。没有 FrostBite 时一次判断即返回
             SettleFrostBite(enemyIndex);
@@ -4006,6 +4017,23 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyThornMark(ti, effect, def.Id);
                         break;
+                    case EffectKind.Bind:   // 攀附(D2-木 M7,Q13):Value 离散(打击 %);藤灵 = 本次召出的第一只(嫁接 = 被嫁接者)
+                    {
+                        int vine = FirstSummonedThisCast();
+                        if (vine < 0) break;   // 本次没召出:空转(在选目标之前判,不多摇)
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBind(ti, effect, def.Id, vine);
+                        break;
+                    }
+                    case EffectKind.SummonMerge:   // 绿潮(D2-木 M8,Q18):小藻并入本次召出的藻灵
+                        MergeSaplingsInto(def.Id);
+                        break;
+                    case EffectKind.SummonAct:   // 四木成林(D2-木 M9,Q24):每只存活木灵立即出手一次
+                        ActAllSummonsNow();
+                        break;
+                    case EffectKind.GrantChar:   // 折桂(D2-木 M10,Q16):击杀时反应里结算(CL 只放行击杀时特性)
+                        GrantTraitChars(effect);
+                        break;
                     // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):Value 离散,读 effect.Value
                     case EffectKind.HurtHeal:
                         ApplyHurtHeal(effect, def.Id);
@@ -4441,6 +4469,7 @@ namespace Brushblade.Core
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
                             ClearSproutParent(slot);
                             ClearSlotAuras(slot);   // D2-木 M1:顶替 / 尸体槽复用不继承旧单位的按槽光环
+                            ClearSlotBinds(slot);   // D2-木 M7:被顶替的藤灵不再攀附(顶替不走阵亡)
                             _summons[slot] = newborn;
                             _summonThresholdCrossed.Remove(slot);   // R5:新单位不继承旧单位的跌破标记
                             newbornSlots.Add(slot);
@@ -4503,6 +4532,8 @@ namespace Brushblade.Core
             }
             finally
             {
+                // 水草(D2-木 M11,Q17):顶层出字的实际治疗量(不含给带水草的藻灵的部分)要在恢复外层之前带出来
+                if (TriggerDepth == 0 && _castingCharId == def.Id) _castMirrorBase = _cast.HealTotal - _cast.MirrorHealed;
                 _cast = outer;
                 _inApplyEffects = false;
             }
@@ -4520,6 +4551,7 @@ namespace Brushblade.Core
             sapling.ActionMeter = TurnScheduler.Threshold;   // 与本体召唤同口径:上场即满格
             ClearSproutParent(slot);
             ClearSlotAuras(slot);   // D2-木 M1:同本体召唤落位
+            ClearSlotBinds(slot);   // D2-木 M7:同本体召唤落位
             _summons[slot] = sapling;
             _summonThresholdCrossed.Remove(slot);
             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, hp, slot));
@@ -5211,7 +5243,7 @@ namespace Brushblade.Core
                 // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
-                if (_inApplyEffects) _cast.HealTotal += given;
+                if (_inApplyEffects) CountCastHealOnSummon(summon, given);
                 // 每只被治疗的召唤物各发一条治疗事件,**插在自己那发溢流伤害之前**。
                 //
                 // 2026-09-18 只补了「溢流」那一支(满血召唤物 given=0,不发事件的话伤害凭空冒出来),
@@ -5294,7 +5326,7 @@ namespace Brushblade.Core
             if (summon == null || !summon.Alive) return; // Cast 已拦下,这里是纵深防御
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
-            if (_inApplyEffects) _cast.HealTotal += given;
+            if (_inApplyEffects) CountCastHealOnSummon(summon, given);
             int summonEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
             if (overflowToDamage && SettleOverheal(amount - given, slot))
