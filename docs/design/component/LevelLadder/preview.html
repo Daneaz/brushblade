@@ -1,4 +1,4 @@
-<!-- @dsCard group="字牌" height=230 subtitle="重设计 · 待实现(E2)· LevelLadder · 10 格等级条 + 解锁记号" -->
+<!-- @dsCard group="字牌" height=230 subtitle="实现 · CardSheetParts.LevelLadder · 10 格等级条 + 解锁记号" -->
 <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
 .wrap{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
 .h{font-size:9px;color:var(--text-faint);letter-spacing:1px;margin-bottom:-6px}
@@ -24,8 +24,8 @@
 </style></head><body>
 <div class="zd-root wrap zd-e-fire" id="root"></div>
 <script>
-// 记号:Lv3 / Lv4 两面(空心),Lv5 / Lv8 两面各一(左攻右五行),Lv6 挂在一面(此例五行面)
-var MK = {3: ['both'], 4: ['both'], 5: ['atk', 'el'], 6: ['el'], 8: ['atk', 'el']};
+// 记号:Lv1 / Lv3 / Lv4 两面(空心),Lv5 / Lv8 两面各一(左攻右五行),Lv6 挂在一面(此例五行面)
+var MK = {1: ['both'], 3: ['both'], 4: ['both'], 5: ['atk', 'el'], 6: ['el'], 8: ['atk', 'el']};
 function ladder(L, canUp, cls) {
   var h = '<div class="ladder ' + (cls || '') + '">';
   for (var i = 1; i <= 10; i++) {

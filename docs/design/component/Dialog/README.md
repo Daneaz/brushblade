@@ -33,7 +33,7 @@
 | 战斗选字 | 1298×520 | 1298（`min(1298, .safe 框)`，余 56） | `scrim-soft` | 否 | `BattleView.DrawPickSheet` |
 | 单位详情 | 1280×760 | 1280（定宽，框内余 74） | `scrim` | 是 | `UnitSheet.Show` |
 | 字卡详情 | 1591×670（高版按屏算） | **1354**（`min(1591, .safe 框)`，内部两栏 757 → 638） | `scrim` | 是 | `CharPreview.Show` |
-| ↳ 字卡详情改版（**重设计 · 待实现**，Plan E2） | 卡组 / 开箱 / 商城铺满版 1591×818；战斗长按版 1591×670、上抬 90 露出被按的牌 | **1354**（同上）；内容宽 1293，两面区 966、每面 473、面内正文 431 | `scrim` | 是 | 同上，内部段落全换：头部牌 + `LevelLadder`、正左背右两面（面头 `FaceSeal` l / m + 数值格 + `TraitRow`）、两面条、右栏配方与生克（战斗版为「此刻的场面」）；两面区竖向滚动（`Ui.ScrollList`）。稿 `drafts/traits` `CardSheet` / `CardSheetBattle` |
+| ↳ 字卡详情两版（Plan E2，2026-10-12 实现） | 卡组 / 开箱 / 商城铺满版 1591×818；战斗长按版 1591×670、上抬 90 露出被按的牌 | **1354**（同上）；内容宽 1293，两面区 966、每面 473、面内正文 431 | `scrim` | 是 | 同上，内部段落全换：头部牌 + `LevelLadder`、正左背右两面（面头 `FaceSeal` l / m + 数值格 + `TraitRow`）、两面条、右栏配方与生克（战斗版为「此刻的场面」）；两面区竖向滚动（`Ui.ScrollList`）。稿 `drafts/traits` `CardSheet` / `CardSheetBattle` |
 | 升级前后对比 | 1088×670 | 1088（定宽，余 266） | `scrim` | 是 | `CollectionView.ShowUpgradePreview` |
 | 技能节点（贴右缘） | 宽 396，上下铺满 | 396（贴安全区右缘，不让 .safe 那 123；抽屉式，左侧还剩 1204） | `scrim` | 是 | `PerkNodeSheet.Show` |
 | 里程碑领取（墨锭 + 字卡 3 选 1） | 1256×785（内边距 42/29、行距 14） | 1256（定宽，余 98；内部横排另算） | `scrim` | 是 | `MilestonePickSheet.Show` |

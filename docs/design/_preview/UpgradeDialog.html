@@ -1,4 +1,4 @@
-<!-- @dsCard group="字牌" height=300 subtitle="实现 · CollectionView.ShowUpgradePreview · 旧 → 新 (+差) 一条读法" -->
+<!-- @dsCard group="字牌" height=300 subtitle="实现 · CollectionView.ShowUpgradePreview · 按面数值差 + 新解锁小卡(E2)" -->
 <!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>
 html,body{margin:0;background:var(--paper)}
 .wrap{padding:14px 16px}
@@ -31,9 +31,20 @@ html,body{margin:0;background:var(--paper)}
 .dr .now{font-family:var(--font-serif);font-size:8.31px;color:var(--upgrade-text);font-variant-numeric:tabular-nums}
 .dr .dl{font-size:5.45px;color:var(--upgrade-text);white-space:nowrap}
 /* 纯图标 chip:36×30(padX 18 + Icons.Size 18),图标左贴 padX/2 */
-.ichip{position:relative;flex:none;width:10.32px;height:8.60px;border-radius:4.01px;color:#fff}
-.ichip svg{position:absolute;left:2.58px;top:1.72px;width:5.16px;height:5.16px}
-.keep{font-size:5.16px;color:var(--text-faint);line-height:1.35}
+.keep{font-size:5.16px;color:var(--text-faint);line-height:1.35;flex:none}
+.seal{flex:none;display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-serif);font-weight:700;color:#fff;background:var(--glyph);line-height:1}
+.seal.atk{background:var(--ink)}
+.seal.xs{width:6.02px;height:6.02px;font-size:4.2px;border-radius:1.15px}
+.seal.m{width:10.32px;height:10.32px;font-size:6.9px;border-radius:1.8px}
+.nus{border-radius:4.87px;padding:1.72px;display:flex;flex-direction:column;gap:2.41px;box-shadow:0 0 0 1.72px color-mix(in srgb,var(--rarity-gold) 35%,transparent),0 0 6px 2px color-mix(in srgb,var(--rarity-gold) 30%,transparent)}
+.nu{border-radius:3.73px;padding:3.15px 4.87px 3.73px;background:var(--card-face);display:flex;flex-direction:column;gap:1.15px}
+.nu.back{background:var(--el-soft)}
+.nu .hd{display:flex;align-items:center;gap:3.61px}
+.nu .wb{font-family:var(--font-serif);font-size:6.6px;color:var(--text-main)}
+.nu .tb{font-family:var(--font-serif);font-weight:600;font-size:7.75px;color:var(--text-main);white-space:nowrap}
+.nu .tk{font-size:5.16px;color:var(--text-dim)}
+.nu .nt{margin-left:auto;height:8.3px;padding:0 3.58px;border-radius:4.01px;background:var(--gold);color:var(--gold-text);font-size:4.88px;display:inline-flex;align-items:center}
+.nu .tx{font-size:5.73px;color:var(--text-dim);line-height:1.4}
 /* 钮:PillButton 高 71、圆角 24、字号 24 黑体,行距 21 */
 .btns{display:flex;gap:6.02px;flex:none}
 .btns .b{height:20.35px;border-radius:6.88px;display:flex;align-items:center;justify-content:center;
@@ -41,33 +52,32 @@ html,body{margin:0;background:var(--paper)}
 .note{font-size:8.5px;color:var(--text-faint);line-height:1.55;margin-top:10px}
 .note b{color:var(--upgrade-text)}
 </style></head><body>
-<svg style="position:absolute;width:0;height:0"><defs><symbol id="i-speed" viewBox="0 0 64 64"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 20h26M8 32h34M8 44h26"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M40 20l14 12-14 12"/></symbol></defs></svg>
 <div class="zd-root wrap">
   <div class="scrim"><div class="sheet">
 
-    <div class="head"><span class="t">升级「冰」</span><span class="w">确认后立刻扣除材料,不可撤销</span></div>
+    <div class="head"><span class="t">升级「炎」</span><span class="w">确认后立刻扣除材料,不可撤销</span></div>
 
     <div class="step">
-      <div class="zd-mini zd-mini--dim zd-r-gold zd-e-water" style="--w:37.27px;--h:46.73px"><span class="zd-mini__g">冰</span></div>
+      <div class="zd-mini zd-mini--dim zd-r-gold zd-e-fire" style="--w:37.27px;--h:46.73px"><span class="zd-mini__g">炎</span></div>
       <span class="ar">→</span>
-      <div class="zd-mini zd-r-gold zd-e-water" style="--w:37.27px;--h:46.73px"><span class="zd-mini__g">冰</span></div>
-      <span class="lvchip">升到 Lv.4</span>
+      <div class="zd-mini zd-r-gold zd-e-fire" style="--w:37.27px;--h:46.73px"><span class="zd-mini__g">炎</span></div>
+      <span class="lvchip">升到 Lv.5</span>
     </div>
 
     <div class="body">
       <div class="col">
         <div class="sec">数值提升</div>
-        <div class="dr"><span class="nm">治疗</span><span class="was">188</span><span class="ar">→</span><span class="now">206</span><span class="dl">+18</span></div>
-        <div class="dr"><span class="nm">攻击</span><span class="was">188</span><span class="ar">→</span><span class="now">206</span><span class="dl">+18</span></div>
+        <div class="dr"><span class="seal xs atk">攻</span><span class="nm">伤害</span><span class="was">199</span><span class="ar">→</span><span class="now">209</span><span class="dl">+10</span></div>
       </div>
       <div class="col">
-        <div class="sec">层数与特性</div>
-        <div class="dr">
-          <span class="ichip" style="background:var(--wood-glyph)"><svg><use href="#i-speed"></use></svg></span>
-          <span class="nm">急速</span><span class="was">+124%</span><span class="ar">→</span><span class="now">+136%</span></div>
-        <div class="keep">不变:克制目标 · 冻结</div>
+        <div class="sec">新解锁 · 两面各一条</div>
+        <div class="nus zd-e-fire">
+          <div class="nu"><div class="hd"><span class="seal m atk">攻</span><span class="tb">火上浇油</span><span class="tk">主动</span><span class="nt">新</span></div><div class="tx">目标带灼时，伤害 ×2</div></div>
+          <div class="nu back"><div class="hd"><span class="seal m">燃</span><span class="tb">续火</span><span class="tk">主动</span><span class="nt">新</span></div><div class="tx">目标已有灼时，额外 +2 层</div></div>
+        </div>
       </div>
     </div>
+    <div class="keep">不变:强化 · 双焰</div>
 
     <div class="btns">
       <span class="b" style="flex:1;background:var(--cta);color:#fff">确认升级</span>
@@ -75,6 +85,6 @@ html,body{margin:0;background:var(--paper)}
     </div>
 
   </div></div>
-  <div class="note">一条读法贯穿两栏：<b>旧 → 新 (+差)</b>。新值比旧值大一号、且是全行唯一的深绿 —— 一眼扫下去就是「变了的那一列」。<b>不印重复卡与墨锭消耗</b>（2026-09-04 拍板）：不够根本走不到这一页，详情页那颗按钮就是灰的。右栏末尾那行「不变」回答的是「我会不会丢掉什么」，不是凑字数。主钮用赭金 + <b>gold-text</b>（5.47:1）—— 赭金是「花墨锭」的语义。</div>
+  <div class="note">左栏一条读法：<b>[面印] 旧 → 新 (+差)</b>,新值比旧值大一号、全行唯一的深绿;只有随等级缩放的量印增量。右栏这一级解锁的特性出小卡、套墨晕(Lv5 / Lv8 攻、五行面各一张);没有就预告下一个解锁级。两栏各自滚动。「不变」在两栏之下,回答「我会不会丢掉什么」。<b>不印重复卡与墨锭消耗</b>(2026-09-04 拍板)。主钮石青 cta 白字(2026-10-04)。</div>
 </div>
 </body></html>

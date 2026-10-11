@@ -143,7 +143,7 @@ window.ZD = (function () {
       el: 'Earth', rar: 'Red', py: 'lěi', gloss: '土垒极厚', rec: ['土', '垚'], copies: [2, 2], ink: [5200, 8000],
       faces: [
         { s: '攻', role: '攻击', tgt: 'enemy', area: '全体', lv1: '伤害 + [破甲] {2} 回合；释放[厚]',
-          stats: function (L, p) { return [{ k: '伤害', v: r(235 * sc(L) * p) }, { k: '破甲', v: L >= 3 ? 4 : 2, u: '回合', t: '破甲' }]; } },
+          stats: function (L, p) { return [{ k: '伤害', v: r(235 * sc(L) * p) }, { k: '破甲', v: L >= 3 ? 4 : 2, u: '回合', t: '破甲' }, { k: '耗厚', v: '×' + r(60 * sc(L) * p), t: '厚' }]; } },   // 10-12 回填:每层[厚]的伤害,清空全部(㵘 / 溃 的「耗泉」同理)
         { s: '固', role: '五行面', tgt: 'ally', area: '单体', lv1: '[护盾] + [护甲] {2} 回合',
           stats: function (L, p) { return [{ k: '护盾', v: r(235 * sc(L) * p), t: '护盾' }, { k: '护甲', v: '+' + r(100 * sc(L) * p), t: '护甲' }, { k: '持续', v: (L >= 3 ? 4 : 2) * (L >= 4 ? 2 : 1), u: '回合' }]; } }
       ],
