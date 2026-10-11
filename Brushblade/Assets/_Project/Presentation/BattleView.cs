@@ -416,6 +416,7 @@ namespace Brushblade.Presentation
             // 敌方动效分层(小妖家族 / 首领)要知道是哪只怪(JuiceEnemies)
             _juice.EnemyAt = i => i >= 0 && i < Battle.Enemies.Count ? Battle.Enemies[i] : null;
             _juice.KillInkAt = index => _run.KillInkFor(index);
+            _juice.SummonRangedAt = slot => Battle.IsSummonRanged(slot);
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
@@ -1978,6 +1979,12 @@ namespace Brushblade.Presentation
             // 顺序:稿定 嘲讽 · 保命 · 留存护盾 · 减伤 · 格挡 ...(前后几枚未实现,只按相对顺序放在格挡之前)
             int keepShield = Battle.ShieldPersist;
             if (keepShield > 0) statusChips.Add(new($"{keepShield}", Theme.Jade, Color.white, "keepshield"));
+            // 减伤 / 受伤上限(StatusChips 10-04 补 + StatusChipsWood,2026-10-11 拍板):翠玉、无数字(同类取最强、不叠,% 在详情)。
+            // 减伤 = 本回合减伤(DamageCut)或林荫(本命光环,Core 读口与结算同源);受伤上限(铜墙铁壁)紧跟减伤,一个打折、一个封顶
+            if (Battle.PlayerStatuses.MaxMagnitude(StatusKind.DamageCut) > 0 || Battle.WoodDamageCutPercent(forSummon: false) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "bulwark"));
+            if (Battle.PlayerStatuses.Has(StatusKind.HitCap))
+                statusChips.Add(new("", Theme.Jade, Color.white, "hitcap"));
             // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
             int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
             if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
@@ -2195,8 +2202,9 @@ namespace Brushblade.Presentation
                 // 「射程图标 + 攻」与护甲排在最前(2026-09-19 头行拆两行,与敌人格同构)。
                 // 读 EffectiveAttack 而不是 Attack(2026-09-16 用户报):战意/厚的乘区、攻击光环、
                 // 身上的攻击增益回合中途就在变,印基础值会与详情弹窗(SummonInfo)对不上。
+                // 射程读 Core(本命远程 || 箭灵光环):远程光环不另出 chip,就是把这枚的射程图标换成远程(StatusChipsWood W1)
                 chipSpecs.Add(new($"{summon.EffectiveAttack}", Theme.PaperDim, Theme.TextMain,
-                    RangeIcon(summon.Passive?.Ranged ?? false)));
+                    RangeIcon(Battle.IsSummonRanged(i))));
                 // 护甲读 EffectiveDefense:眼下只由玩家挂的增益构成,平时 0 不出;字表将来给召唤物
                 // 配基础护甲时这一行不用改(2026-09-05 用户拍板「后续有些召唤物会直接带上护甲」)。
                 // 富甲(D2-金 Q15)挂在玩家身上、木灵受击同样吃:读引擎的 SummonDefense,与受击结算同源
@@ -2214,7 +2222,7 @@ namespace Brushblade.Presentation
                 if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
-                AddSummonStatusChips(chipSpecs, summon, RetaliateChip());
+                AddSummonStatusChips(chipSpecs, i, summon, RetaliateChip());
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
                     front ? ChipMaxLines : SummonBackChipMaxLines,
                     UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
@@ -2558,12 +2566,20 @@ namespace Brushblade.Presentation
             // 数字只留给「跟随回合消亡」的 DOT/HOT。特性是这只召唤物**天生常驻**的,
             // 不随回合衰减、也不会消失 —— 玩家要知道的是「它是哪一种」,
             // 具体几层/几点/百分之几去详情弹窗看(summon.passive.* 那一族整句写得很清楚)。
+            //
+            // 一格只出一枚,按 StatusChipsWood 稿(2026-10-11 拍板)的优先级取排得最前、且有图标的那一条:
+            // 守护 › 盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾。
+            // 判据:先改变敌我怎么挨打的,再是出手附带,再是给全队的光环,最后是自身数值。
+            // 没有图标的本命(成林、坚木、桂香、丛生、迷香、良弓、落木、秋实、藻荇、水草…)不出 chip,只进详情。
+            // 召唤物详情右栏的「本命」按同一顺序排(SummonInfo.NatureOrder),第一条就是这一枚。
             if (passive == null) return ("", null);
+            if (passive.Guard > 0) return ("", "guard");
+            if (passive.Thorns > 0) return ("", "thorns");   // 披荆只认本命荆棘,与盾反同一枚
             if (passive.OnHitBurn > 0) return ("", "burn");
-            if (passive.Thorns > 0) return ("", "thorns");
-            if (passive.HealAlly > 0) return ("", "heal");
-            if (passive.Regen > 0) return ("", "heal");
             if (passive.OnHitCurse > 0) return ("", "curse");
+            if (passive.GroveCut > 0 || passive.ThicketCut > 0) return ("", "bulwark");
+            if (passive.CritAura > 0) return ("", "crit");
+            if (passive.HealAlly > 0 || passive.Regen > 0) return ("", "heal");
             if (passive.Dodge > 0) return ("", "dodge");
             if (passive.Speed > 100) return ("", "speed");
             return ("", null);
@@ -2628,9 +2644,18 @@ namespace Brushblade.Presentation
         /// 顺序即优先级:<see cref="Ui.ChipFlow"/> 装不下时从**尾部**丢弃。先负面后正面 ——
         /// 负面直接回答「它还能不能替我挡刀」,比「它变强了多少」更急。
         /// 完整说明(每条的机制与时长)在召唤物详情弹窗里。</summary>
-        private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon, Ui.ChipSpec? retaliate)
+        private void AddSummonStatusChips(List<Ui.ChipSpec> chips, int slot, SummonState summon, Ui.ChipSpec? retaliate)
         {
             var st = summon.Statuses;
+            // 木灵光环(D2-木 M1,StatusChipsWood 稿):挂在玩家袋、按槽位落到这只身上的条目(Core 读口与结算同源)。
+            // 天生与临时靠颜色分:本命 chip 朱砂(上面那枚);光环按状态色 —— 攻击光环赭金复用 attack、荆棘光环翠玉复用 thorns。
+            // 不显示剩余回合(在详情)。全队光环每只受益木灵都画(同回敬)
+            bool attackAura = false, thornsAura = false;
+            foreach (var aura in Battle.SummonAurasAt(slot))
+            {
+                if (aura.Kind == StatusKind.SummonEmpower && aura.Magnitude > 0) attackAura = true;
+                if (aura.Kind == StatusKind.SummonThorns && aura.Magnitude > 0) thornsAura = true;
+            }
             // **判据:这条状态的「量」本身会不会随回合变小 —— 会的才带数字**
             // (2026-09-02 用户拍板,三处 chip 行同一条)。注意不是「有没有到期」:
             // 诅咒也会到期,但挂着期间恒定减 30%,到点整条消失,数字对玩家没有决策价值。
@@ -2671,16 +2696,23 @@ namespace Brushblade.Presentation
                 chips.Add(new("", Theme.InkSoft, Color.white, "slow"));
 
             // ---- 正面 ----
+            // 荆棘光环(荆天棘地)占反弹的位置、排在正面最先(挨打时就起作用);减伤挨着格挡(两者同受 60% 封顶)
+            if (thornsAura) chips.Add(new("", Theme.Jade, Color.white, "thorns"));
             Flag(StatusKind.Immunity, "immunity", Theme.Jade);
             Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
             Flag(StatusKind.Reflect, "reflect", Theme.Jade);
+            // 减伤(StatusChips 10-04 / StatusChipsWood W4):玩家的本回合减伤也护木灵;林荫 / 森严走 Core 读口(木灵侧含森严)
+            if (Battle.PlayerStatuses.MaxMagnitude(StatusKind.DamageCut) > 0 || Battle.WoodDamageCutPercent(forSummon: true) > 0)
+                chips.Add(new("", Theme.Jade, Color.white, "bulwark"));
             Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
             // 回敬(StatusChipsFire 稿):状态只挂在玩家身上,但护全队 —— 每只召唤物也画,玩家要看得出「打木灵也会被点火」
             if (retaliate.HasValue) chips.Add(retaliate.Value);
-            Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
+            // 攻击光环占攻击增益的位置;与自身的攻击增益同一枚图标、同一个意思(「攻击变高了」),只出一枚,分项在详情
+            if (attackAura || st.TotalMagnitude(StatusKind.AttackBuff) > 0) chips.Add(new("", Theme.Gold, Theme.GoldText, "attack"));
             Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
-            Flag(StatusKind.CritBuff, "crit", Theme.Gold);
+            // 暴击(W6 蟾宫):读 Core 的木灵暴击率(自身暴击增益 + 蟾宫),读到就出赭金暴击 chip,不标来源(详情写)
+            if (Battle.SummonCritPercent(summon) > 0) chips.Add(new("", Theme.Gold, Theme.GoldText, "crit"));
             Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
             if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
                 chips.Add(new("", Theme.Jade, Color.white, "speed"));
@@ -3049,6 +3081,12 @@ namespace Brushblade.Presentation
                 // 斩杀判断交给血条上的预扣斜纹(见下方 MineHpLoss)。紧跟灼一族:同属「它要掉血」,且决定它能不能活到出手。
                 if (enemy.Statuses.Has(StatusKind.Mine))
                     chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "mine"));
+                // 被缠 / 荆刺(D2-木,StatusChipsWood 稿 2026-10-11):朱砂底、无数字,插在埋雷与标记之间 ——
+                // 三枚都是「它出手时会挨什么」。被缠解开只随藤灵离场(Core 清条目),不倒计时
+                if (enemy.Statuses.Has(StatusKind.Bind))
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "bind"));
+                if (enemy.Statuses.Has(StatusKind.ThornMark))
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "thornmark"));
                 // 流血(2026-09-06 补,与 AddSummonStatusChips 的 Decaying 同口径):每回合固定
                 // 掉血,带数字——此前这条在敌人身上零显示,只有召唤物格有(EnumRenderCoverageTests
                 // 的 EveryEnemyDebuff_HasBattleViewChip 收紧判据范围后抓到的真实缺陷)。

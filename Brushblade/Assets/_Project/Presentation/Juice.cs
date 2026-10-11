@@ -163,6 +163,10 @@ namespace Brushblade.Presentation
         /// 由 BattleView 接到 RunEngine.KillInkFor —— 数额只有 Core 那一处定义。</summary>
         public Func<int, int> KillInkAt { get; set; }
 
+        /// <summary>第 k 格木灵此刻是不是远程(本命远程 || 箭灵光环,D2-木 W1):出手演射箭还是冲脸。
+        /// 由 BattleView 接到 BattleEngine.IsSummonRanged —— 与 Core 选目标同一个判据。</summary>
+        public Func<int, bool> SummonRangedAt { get; set; }
+
         /// <summary>成语 Boss 破阶的飘字(2026-09-30):(敌人下标, 新阶段下标) → 文案;null 回落「破阶!」。
         /// 由 BattleView 拼 —— 它手里有 Boss 的阶段表,Juice 只管演。</summary>
         public Func<int, int, string> BossPhaseTextAt { get; set; }
@@ -412,7 +416,9 @@ namespace Brushblade.Presentation
                             // 桂花雨、藻双鞭、四木合围生根;其余近战走冲脸,远程射箭。全部叠召唤物减半档。
                             // (荆 / 柘 攻 0、没有出手时触发的被动,引擎从不发它们的 SummonAttack ——
                             //  它们的表现在 SummonHit 那一支:嘲讽 → 举盾 → 盾反)
-                            yield return SummonSignature(attacker, from, toRect, element);
+                            // 射程读 Core(箭灵光环也算远程,D2-木 W1):与选目标同一个判据
+                            bool ranged = SummonRangedAt?.Invoke(e.SecondIndex) ?? (attacker?.Passive?.Ranged ?? false);
+                            yield return SummonSignature(attacker, from, toRect, element, ranged);
                         }
                         break;
                     // 首领蓄力 / 放大招(2026-09-30):此前这两条在 Juice 里没有任何表现,大招看上去和普攻一样
@@ -827,7 +833,7 @@ namespace Brushblade.Presentation
         // 此前召唤物出手 = 把它的字当飞牌砸过去,与玩家出牌同一个动作 —— 读起来是「玩家又出了
         // 一张」,而不是「那只召唤物动手了」。现在出手的是召唤物本体:近战真身冲脸
         // (2026-09-30,见下方 BodyStrike)、远程后坐射箭,立绘枝叶一扬(SummonView.PlayAttack),落点处是它自己的刀口/箭矢 + 迸散的叶。
-        // 近战与远程分两套,判据是 Passive.Ranged —— 与 Core 选目标(远程打后排)同一个字段。
+        // 近战与远程分两套,判据是 SummonRangedAt(本命远程 || 箭灵光环)—— 与 Core 选目标(远程打后排)同一个读口。
         //
         // 时间全走 _rate(按住屏幕/固定加速会一起快),颜色全取攻击者当前属性的字形色。
 

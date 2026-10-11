@@ -47,7 +47,9 @@ namespace Brushblade.Presentation
 
         // ---- 分派 ----
 
-        private IEnumerator SummonSignature(SummonState attacker, RectTransform from, RectTransform to, Element element)
+        /// <param name="ranged">这只此刻是不是远程(本命远程 || 箭灵光环,读 Core 的 IsSummonRanged);不再只看 Passive.Ranged。</param>
+        private IEnumerator SummonSignature(SummonState attacker, RectTransform from, RectTransform to, Element element,
+            bool ranged)
         {
             var rarity = RarityOfSummon(attacker);
             switch (attacker?.Char)
@@ -59,7 +61,7 @@ namespace Brushblade.Presentation
                 case "藻": yield return ZaoStrike(from, to, element, rarity); break;
                 case SimuId: yield return SimuStrike(attacker, from, to, element, rarity); break;
                 default:
-                    if (attacker?.Passive?.Ranged ?? false) yield return SummonShoot(from, to, element);
+                    if (ranged) yield return SummonShoot(from, to, element);
                     else yield return TieredMelee(from, to, element, rarity, leafCount: 6);
                     break;
             }
