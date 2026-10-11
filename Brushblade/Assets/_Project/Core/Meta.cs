@@ -801,7 +801,7 @@ namespace Brushblade.Core
 
         /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放
         /// (只在 Lv3 由特性提升);伤害、护盾、治疗、护甲点数、百分比等数值缩放。
-        /// 引擎(ApplyEffects)与卡面(CharInfo / CardTraits)共用这一份判据。</summary>
+        /// 引擎(ApplyEffects)与卡面(CharInfo / FaceStats)共用这一份判据。</summary>
         public static bool ScalesWithCardLevel(EffectKind kind) => kind switch
         {
             EffectKind.Freeze or EffectKind.Slow

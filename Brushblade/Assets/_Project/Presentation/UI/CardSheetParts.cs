@@ -141,7 +141,7 @@ namespace Brushblade.Presentation
         public static string RoleText(CardFace face) =>
             face == CardFace.Attack ? Strings.T("face.name.attack") : Strings.T("face.name.feature");
 
-        /// <summary>数值格标签。Kind 漏分支时印枚举名(同 CardTraits 的兜底约定:宁可难看,不要静默)。</summary>
+        /// <summary>数值格标签。Kind 漏分支时印枚举名(同 CharInfo.EffectsText 的兜底约定:宁可难看,不要静默)。</summary>
         public static string StatLabel(FaceStatKind kind) => kind switch
         {
             FaceStatKind.Damage => Strings.T("charsheet.stat.damage"),

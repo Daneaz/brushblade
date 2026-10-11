@@ -39,13 +39,6 @@ namespace Brushblade.Core.Tests
         {
         };
 
-        /// <summary>玩家永远看不到「特性 · 技能」段的 EffectKind → 理由。
-        /// 空表是核实过的结论,不是偷懒:全部 91 个 EffectKind 全部以 `EffectKind.X` 字面量出现在
-        /// CardTraits.cs 里(不出特性 chip 的那几个写成空 `case … break;`,同样匹配得到)。</summary>
-        private static readonly Dictionary<string, string> CardTraitsExempt = new Dictionary<string, string>
-        {
-        };
-
         /// <summary>玩家永远看不到状态详情的 StatusKind → 理由。</summary>
         private static readonly Dictionary<string, string> StatusKindExempt = new Dictionary<string, string>
         {
@@ -244,25 +237,21 @@ namespace Brushblade.Core.Tests
                 + "\n补上卡面文案,或加进 EffectKindExempt 并写明为什么玩家不该看到它。");
         }
 
-        /// <summary>每个 EffectKind 都要在 CardTraits.Of 里有分支,或进豁免名单。
+        /// <summary>每个 FaceStatKind 都要在 CardSheetParts.StatLabel 里有分支(Plan E2 Task 5)。
         ///
-        /// 这条护栏是 2026-09-06 全分支终审补的:CharInfo/StatusText/BattleView 三条护栏
-        /// 都盖不到 <c>Presentation/CardTraits.cs</c> ——那是「特性 · 技能」段唯一的渲染入口,
-        /// 漏一个的表现是卡面详情的特性段塞进一条**英文枚举名**(`CardTraits.Of` 的兜底是
-        /// `default: … new Trait(null, e.Kind.ToString(), …)`)。`EffectKind.Charm` 就是这样
-        /// 溜过 P0 十一轮评审的——终审删掉 `CardTraits.cs` 里的 `case EffectKind.Charm` 分支,
-        /// 当时既有的三条护栏全部照样绿。</summary>
+        /// 接替已删除的 `EveryEffectKind_IsRenderedInCardTraitsOrExempt`:字卡详情的「特性 · 技能」段与数值格
+        /// 不再由 CardTraits 出,特性正文走 CharInfo.TraitEffectsText(上面那条 EffectKind 护栏已覆盖),
+        /// 数值格标签走 StatLabel —— 它的兜底是 `_ => kind.ToString()`,漏一个就在格子上印**英文枚举名**。</summary>
         [Test]
-        public void EveryEffectKind_IsRenderedInCardTraitsOrExempt()
+        public void EveryFaceStatKind_HasCardSheetLabel()
         {
-            var src = Source("CardTraits.cs");
-            var missing = Enum.GetNames(typeof(EffectKind))
-                .Where(n => !CardTraitsExempt.ContainsKey(n) && !ContainsKindRef(src, "EffectKind", n))
+            var body = MethodBody(Source("UI/CardSheetParts.cs"), "string StatLabel(FaceStatKind");
+            var missing = Enum.GetNames(typeof(FaceStatKind))
+                .Where(n => !ContainsKindRef(body, "FaceStatKind", n))
                 .OrderBy(n => n).ToArray();
             Assert.That(missing, Is.Empty,
-                "这些 EffectKind 在 CardTraits 里没有渲染分支,「特性 · 技能」段会印出英文枚举名:\n  "
-                + string.Join("\n  ", missing)
-                + "\n补上特性文案,或加进 CardTraitsExempt 并写明为什么玩家不该看到它。");
+                "这些 FaceStatKind 在 CardSheetParts.StatLabel 里没有分支,数值格会印出英文枚举名:\n  "
+                + string.Join("\n  ", missing));
         }
 
         /// <summary>每个 StatusKind 都要在 StatusText.Of 里有 case,或进豁免名单。
@@ -328,7 +317,6 @@ namespace Brushblade.Core.Tests
             var effectNames = Enum.GetNames(typeof(EffectKind));
             var statusNames = Enum.GetNames(typeof(StatusKind));
             var stale = EffectKindExempt.Keys.Where(k => !effectNames.Contains(k))
-                .Concat(CardTraitsExempt.Keys.Where(k => !effectNames.Contains(k)))
                 .Concat(StatusKindExempt.Keys.Where(k => !statusNames.Contains(k)))
                 .OrderBy(k => k).ToArray();
             Assert.That(stale, Is.Empty, "豁免名单里有已不存在的枚举名:\n  " + string.Join("\n  ", stale));

@@ -25,7 +25,7 @@ namespace Brushblade.Presentation
     /// 2026-09-05 用户拍板:**字卡详情改走弹窗**(<see cref="CharPreview"/>),与开箱结果、
     /// 战斗里长按看到的是同一屏。此前右栏是双身份的 —— 没选中画出阵表、选中了整栏换成详情,
     /// 而那份详情的排版还与弹窗那一份各写了一套(配方 / 生克 / 数值格三段各有两个实现),
-    /// 同一张字在两处读出来不一样。段落现在只有一份,在 <see cref="CharSheetSections"/>。
+    /// 同一张字在两处读出来不一样。段落现在只有一份:Plan E2 起由 <see cref="CharPreview"/> + <see cref="CardSheetParts"/> 绘制。
     ///
     /// 稿上有而这里**刻意没做**的一处:字头的「相生 ×3」徽标 —— 相生已于 2026-09-02 取消
     /// (`docs/design/wuxing-reference.md` v0.8),稿子画的时候它还在。</summary>
@@ -545,9 +545,9 @@ namespace Brushblade.Presentation
 
         // ---- 字卡详情弹窗(2026-09-05:与开箱 / 战斗共用 CharPreview) ----
 
-        /// <summary>开这张字的详情弹窗。段落与开箱 / 战斗那两处**同一份实现**
-        /// (<see cref="CharSheetSections"/>),差别只在脚上多一条操作钮带 ——
-        /// 那两处保持纯只读。</summary>
+        /// <summary>开这张字的详情弹窗(铺满版)。与开箱 / 商城 / 战斗那几处是**同一份实现**
+        /// (<see cref="CharPreview"/> + <see cref="CardSheetParts"/>),差别只在脚上多一颗操作钮 ——
+        /// 别处保持纯只读。</summary>
         private void ShowCharSheet(CharDef def)
         {
             _modal = CharPreview.Show(transform, def, _graph,

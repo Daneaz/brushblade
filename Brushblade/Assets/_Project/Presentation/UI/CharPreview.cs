@@ -392,7 +392,7 @@ namespace Brushblade.Presentation
                 CostBoxes(lvRow.transform, def, meta, level, rest - 21f);   // 成本靠右:前面垫的弹簧又占一道行距
         }
 
-        /// <summary>这一档从哪只匣子起开得出(同 CharSheetSections.HowToGet 的口径)。</summary>
+        /// <summary>这一档从哪只匣子起开得出。口径同 <see cref="ChestRules"/> 的稀有度权重表。</summary>
         private static string ChestHint(CardRarity rarity) => rarity switch
         {
             CardRarity.White => Strings.T("collection.chest_hint.common"),
