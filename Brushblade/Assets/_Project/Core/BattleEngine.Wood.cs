@@ -389,6 +389,33 @@ namespace Brushblade.Core
             return max;
         }
 
+        // ---- 表现层读口(D2-木 Task 5):只读,与结算同源 ----
+
+        /// <summary>这只木灵此刻是不是远程:本命远程 || 箭灵光环(Q1)。木灵出手选目标与战场射程图标同读这一处。</summary>
+        public bool IsSummonRanged(int slot)
+        {
+            var s = slot >= 0 && slot < _summons.Length ? _summons[slot] : null;
+            return s != null && ((s.Passive?.Ranged ?? false) || HasRangedAura(slot));
+        }
+
+        /// <summary>这只木灵出手的暴击率:自身 CritBuff + 蟾宫(存活木灵本命 CritAura 取最大),钳 0..100(Q23)。</summary>
+        public int SummonCritPercent(SummonState summon) =>
+            Math.Clamp(summon.Statuses.TotalMagnitude(StatusKind.CritBuff) + SummonCritAura(), 0, 100);
+
+        /// <summary>林荫 / 森严此刻给的减伤百分比(Q8;与 DamageCut 取最强之前的那一份)。
+        /// <paramref name="forSummon"/> = 木灵侧(再与森严取最强);玩家侧只有林荫。</summary>
+        public int WoodDamageCutPercent(bool forSummon) => WoodCutPercent(forSummon);
+
+        /// <summary>玩家袋里落在这一槽位的木灵光环条目(TargetSlot −1 全队,或 == slot 那一只):攻击 / 荆棘 / 远程。
+        /// 详情弹窗按条列出来源与剩余回合。返回拷贝。</summary>
+        public IReadOnlyList<StatusEffect> SummonAurasAt(int slot)
+        {
+            var list = new List<StatusEffect>();
+            foreach (var st in _playerStatuses.All)
+                if (IsSummonAura(st.Kind) && (st.TargetSlot < 0 || st.TargetSlot == slot)) list.Add(st);
+            return list;
+        }
+
         /// <summary>该槽位有没有远程光环(箭灵,Q1)。</summary>
         private bool HasRangedAura(int slot)
         {

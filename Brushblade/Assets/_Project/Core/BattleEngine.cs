@@ -1016,7 +1016,7 @@ namespace Brushblade.Core
         /// 无条件摇一次会平移整条随机流,让所有依赖种子的既有测试全红。</summary>
         private bool RollCritForSummon(SummonState summon) =>
             // 蟾宫(D2-木 M2,Ruling 18):桂灵在场才加值 —— 不在场时 SummonCritAura() = 0,仍走下端短路、不摇号
-            RollCritWith(Math.Clamp(summon.Statuses.TotalMagnitude(StatusKind.CritBuff) + SummonCritAura(), 0, 100));
+            RollCritWith(SummonCritPercent(summon));   // 与木灵格暴击 chip 同读一处
 
         private bool RollCritWith(int chance)
         {
@@ -2875,8 +2875,8 @@ namespace Brushblade.Core
             // 近战打敌方前排、远程优先打后排(2026-08-20);2026-09-13 起同排内均匀随机,
             // 走 _targetRandom。敌人只剩一只时短路不摇随机数,那一档仍与改前逐位等价。
             var shape = passive?.Shape ?? TargetArea.Single;
-            // 箭灵(D2-木 M1,Q1):远程光环;本命已是远程时不再查袋子
-            int target = Targeting.PickEnemyTargetForSummon(_enemies, (passive?.Ranged ?? false) || HasRangedAura(summonIndex),
+            // 箭灵(D2-木 M1,Q1):远程光环;本命已是远程时不再查袋子(与战场射程图标同读 IsSummonRanged)
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, IsSummonRanged(summonIndex),
                 _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
                 preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
