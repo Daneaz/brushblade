@@ -451,7 +451,8 @@ namespace Brushblade.Presentation
 
         private static void BuildAbilityCard(Transform parent, AbilityEntry ability)
         {
-            var card = Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, Theme.PanelBorder,
+            // 战场上那枚(Lead,稿 .abil.first):整圈描边换朱砂
+            var card = Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, ability.Lead ? Theme.Cinnabar : Theme.PanelBorder,
                 8, AbilityCardBorder, out var face);
 
             // ⚠ 卡片的**高度必须自己算**(2026-09-01 修「图标和文案错位」)。
@@ -511,7 +512,12 @@ namespace Brushblade.Presentation
             Ui.Sized(nameLabel.gameObject, width: inlineNameWidth,
                 height: Ui.WrappedTextHeight(ability.Name, AbilityNameFont, inlineNameWidth));
             if (leadTag != null)
-                Ui.ThemedLabel(header.transform, leadTag, AbilityLeadTagFont, Theme.LockGray, align: TextAnchor.MiddleLeft);
+            {
+                // 尾标推到右端(稿 margin-left: auto),色 text-mute
+                var tag = Ui.ThemedLabel(header.transform, leadTag, AbilityLeadTagFont, Theme.TextMute,
+                    align: TextAnchor.MiddleRight);
+                Ui.Sized(tag.gameObject, width: leadTagWidth - AbilityHeaderGap);
+            }
             if (ability.Lead)
             {
                 // 左缘一道朱砂(稿 .abil.first { box-shadow: inset 2px 0 cinnabar }):挂在卡片外层、压在描边之上

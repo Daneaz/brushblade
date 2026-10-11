@@ -407,7 +407,7 @@ namespace Brushblade.Core
         public int WoodDamageCutPercent(bool forSummon) => WoodCutPercent(forSummon);
 
         /// <summary>玩家袋里落在这一槽位的木灵光环条目(TargetSlot −1 全队,或 == slot 那一只):攻击 / 荆棘 / 远程。
-        /// 详情弹窗按条列出来源与剩余回合。返回拷贝。</summary>
+        /// 详情弹窗按条列出来源与剩余回合。返回新列表,元素是袋子里的原条目(只读,别改)。</summary>
         public IReadOnlyList<StatusEffect> SummonAurasAt(int slot)
         {
             var list = new List<StatusEffect>();

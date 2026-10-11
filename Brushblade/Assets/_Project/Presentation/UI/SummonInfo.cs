@@ -31,6 +31,9 @@ namespace Brushblade.Presentation
             var auras = new List<StatusEffect>();
             foreach (var aura in battle.SummonAurasAt(slot))
                 if (aura.Kind != StatusKind.SummonRanged) auras.Add(aura);
+            // 玩家袋里护到木灵的本回合减伤 / 受伤上限(战场木灵格画了 chip,详情要有对应条目;Core 木灵承伤同读这两条)
+            foreach (var st in battle.PlayerStatuses.All)
+                if (st.Kind == StatusKind.DamageCut || st.Kind == StatusKind.HitCap) auras.Add(st);
             statuses.AddRange(UnitDetailChip.BuildStatuses(auras, battle.PlayerStatuses, graph: graph));
             UnitDetailChip.AddWoodNatureEntries(statuses, battle, graph, forSummon: true);
             return new UnitDetail
@@ -196,6 +199,8 @@ namespace Brushblade.Presentation
             if (p.OnHitCharmChance > 0)
                 Named(x => x.OnHitCharmChance > 0, Strings.T("char.passive.onhitcharm", ("chance", p.OnHitCharmChance)));
             if (p.Armor > 0) Named(x => x.Armor > 0, Strings.T("char.passive.armor", ("value", p.Armor)));
+            // 本命嘲讽(柘,稿例「… › 坚木 › 嘲讽」):复用卡面那句(句子自带「嘲讽:」现名)
+            if (p.Taunt) Old(Strings.T("char.passive.taunt"));
 
             // 第一条 = 战场上那枚 chip(有图标才算):与战场同一个优先级函数,两处对得上
             string chipIcon = NatureChipIcon(p);

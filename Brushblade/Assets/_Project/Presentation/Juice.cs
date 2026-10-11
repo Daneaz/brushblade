@@ -237,6 +237,7 @@ namespace Brushblade.Presentation
             int lastDiedEnemy = -1;          // 折桂(W8):特性名从被杀的敌人格飘出
             var mergeGroup = new List<BattleEvent>();   // 绿潮(W10):连续的 SummonMerged 成一组依次飞
             int enemyActor = -1;             // 这一段的行动者是敌人时它的下标:那一拍里木灵打它 = 攀附(W3)
+            bool bindShown = false;          // 这一拍已经飘过「攀附」
             // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             // 五行 L2 里会发生在群攻**中途**的两条(余烬、锋芒)挪到这批演完之后再播(2026-09-18):
             // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
@@ -268,8 +269,9 @@ namespace Brushblade.Presentation
                         if ((e.Source == EffectSource.Thorns || e.Source == EffectSource.ReturnFire) && lastTank != null)
                             yield return ThornsFly(lastTank, enemyAnchor(e.TargetIndex));
                         // 披荆(W9):盾反真弹出去了、这只本命带披荆 → 特性名从它飘出,攻击者的流血 chip 重绘后闪
-                        if (e.Source == EffectSource.Thorns && lastTank != null
-                            && (summonInfo?.Invoke(lastTankSlot)?.Passive?.ThornsBleed ?? 0) > 0)
+                        // 与 Core ThornsBleed 同判据:本命荆棘 > 0、本命披荆 > 0、攻击者没被这一下打死
+                        if (e.Source == EffectSource.Thorns && lastTank != null && !kills
+                            && summonInfo?.Invoke(lastTankSlot)?.Passive is { Thorns: > 0, ThornsBleed: > 0 })
                         {
                             TraitName(NatureNameOf?.Invoke(p => p.ThornsBleed > 0), lastTank);
                             ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "bleed");
@@ -424,7 +426,12 @@ namespace Brushblade.Presentation
                         var from = summonAnchor?.Invoke(e.SecondIndex);
                         var toRect = enemyAnchor(e.TargetIndex);
                         // 攀附(D2-木 W3):敌人自己那一拍里挨的木灵出手只可能是被缠 —— 先闪被缠 chip、飘「攀附」
-                        if (enemyActor >= 0 && e.TargetIndex == enemyActor) PlayBindStrike(enemyActor, toRect);
+                        // 同一拍里同一个敌人只飘一次(被两只藤灵缠住时两只都会扑它)
+                        if (enemyActor >= 0 && e.TargetIndex == enemyActor && !bindShown)
+                        {
+                            PlayBindStrike(enemyActor, toRect);
+                            bindShown = true;
+                        }
                         if (from != null && toRect != null)
                         {
                             // 2026-09-27:飞字换成召唤物**自己出手**—— 近战前冲一记劈砍,
@@ -511,7 +518,9 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e); // 触达才扣召唤血
                         // 藻荇(D2-木 W9):这一下打死的是记着母体的小藻、母体那一格的本命带藻荇 → 特性名从阵亡那一格飘出,
                         // 攻击者的减速 chip 重绘后闪(减速在这一拍收尾才挂上,Core 推迟到拍尾)
+                        // 按这一击判:小藻终局已阵亡,且这是它在这一批里挨的最后一下(之后没有再扣它血的事件)
                         if (tankState != null && !tankState.Alive && tankState.SproutParentSlot >= 0
+                            && LastHitOnSummon(events, idx, e.SecondIndex)
                             && (summonInfo?.Invoke(tankState.SproutParentSlot)?.Passive?.SproutDeathSlow ?? 0) > 0)
                         {
                             TraitName(NatureNameOf?.Invoke(p => p.SproutDeathSlow > 0), tank);
@@ -683,6 +692,7 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.ActorActed: // 段首标记,不播(2026-08-16);记下行动者是不是敌人(攀附用)
                         enemyActor = e.Amount == (int)ActorKind.Enemy ? e.TargetIndex : -1;
+                        bindShown = false;
                         break;
                     // ---- D2-木 Task 5(WoodCues 稿)----
                     case BattleEventKind.GuardTransfer:   // 守护:先记下,等紧随其后的 EnemyAttack 打到玩家时同时飘
@@ -748,6 +758,19 @@ namespace Brushblade.Presentation
                 PlayClip(_hitClip, 0.45f, 1.6f); // 金属的「叮」:高而短
                 yield return Beat(StepGap);
             }
+        }
+
+        /// <summary>藻荇用(D2-木 fix round 1):这一记之后,这一批里还有没有别的事件再扣这只木灵的血
+        /// (SummonHit / 自身灼烧 / 守护转移)。没有 = 它终局阵亡时,这一记就是致死的那一下。</summary>
+        private static bool LastHitOnSummon(IReadOnlyList<BattleEvent> events, int from, int slot)
+        {
+            for (int j = from + 1; j < events.Count; j++)
+            {
+                var x = events[j];
+                if ((x.Kind == BattleEventKind.SummonHit || x.Kind == BattleEventKind.GuardTransfer) && x.SecondIndex == slot) return false;
+                if (x.Kind == BattleEventKind.SummonBurnTick && x.TargetIndex == slot) return false;
+            }
+            return true;
         }
 
         /// <summary>这记伤害是否打死了目标:向后扫到下一记伤害为止,期间出现本目标的 EnemyDied 即算。

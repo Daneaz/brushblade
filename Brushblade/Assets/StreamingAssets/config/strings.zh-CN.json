@@ -1685,7 +1685,7 @@
   "summon.range.ranged.desc": "不受前排阻挡,可打后排",
   "summon.range.aura": "{source}光环 · {duration};平时近战",
   "status.woodcut.name": "减伤 {value}%",
-  "status.woodcut.desc": "{list};与本回合减伤同类取最强,再与格挡合计至多 {cap}%。",
+  "status.woodcut.desc": "{list};现 {count} 只木灵;与本回合减伤同类取最强,再与格挡合计至多 {cap}%。",
   "status.critaura.name": "暴击 +{value}%",
   "status.nature.duration": "{trait} · 在场时",
   "status.nature.duration.plain": "本命 · 在场时",

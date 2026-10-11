@@ -259,6 +259,7 @@ namespace Brushblade.Presentation
         public static void AddWoodNatureEntries(List<StatusEntry> list, BattleEngine battle, RecipeGraph graph, bool forSummon)
         {
             int cut = battle.WoodDamageCutPercent(forSummon);
+            int alive = battle.AliveSummonCount;
             int crit = 0;
             var cutLines = new List<string>();
             var cutNames = new List<string>();
@@ -267,7 +268,8 @@ namespace Brushblade.Presentation
             {
                 var p = s != null && s.Alive ? s.Passive : null;
                 if (p == null) continue;
-                bool grove = p.GroveCut > 0, thicket = forSummon && p.ThicketCut > 0;
+                // 森严只在木灵数够门槛时生效(同 Core WoodCutPercent),没生效的不列
+                bool grove = p.GroveCut > 0, thicket = forSummon && p.ThicketCut > 0 && alive >= p.ThicketMin;
                 if (cut > 0 && (grove || thicket))
                     CharInfo.WoodNatureLines(p, (key, line) =>
                     {
@@ -288,7 +290,7 @@ namespace Brushblade.Presentation
                     ChipColor = ColorFor(StatusKind.DamageCut, cut),
                     Name = Strings.T("status.woodcut.name", ("value", cut)),
                     Duration = NatureDuration(cutNames.Count > 0 ? string.Join(" / ", cutNames) : null),
-                    Desc = Strings.T("status.woodcut.desc", ("list", string.Join(";", cutLines)),
+                    Desc = Strings.T("status.woodcut.desc", ("list", string.Join(";", cutLines)), ("count", alive),
                         ("cap", CombatCaps.NonArmorReductionPercent)),
                 });
             if (crit > 0)

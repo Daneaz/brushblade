@@ -619,7 +619,7 @@ namespace Brushblade.Presentation
                     break;
                 // 秋实 / 折桂(W7 / W8):新进池的「木」、新进库的那张字记成新到手,重绘时套光晕(同战利品的读法)
                 case BattleEventKind.PartGranted:
-                    MarkFresh(WoodPart);
+                    MarkFreshPoolTail(WoodPart);
                     break;
                 case BattleEventKind.CharGranted:
                     if (e.Amount >= 0 && e.Amount < Battle.Library.Count) MarkFresh(Battle.Library[e.Amount]);
@@ -1218,6 +1218,17 @@ namespace Brushblade.Presentation
             if (!string.IsNullOrEmpty(glyph))
                 _freshGlyphs[glyph] = Time.unscaledTime + FreshGlowSeconds;
         }
+
+        /// <summary>只亮部件池里**最后一枚**这个字(D2-木 秋实,WoodCues 稿「末尾新进的那一枚闪一下」):
+        /// <see cref="MarkFresh(string)"/> 按字形登记,池里所有同字部件(连字库里同字的牌)会一起亮;入池恒落在末尾,
+        /// 所以只认池里最后一个同字格。</summary>
+        private void MarkFreshPoolTail(string glyph)
+        {
+            if (!string.IsNullOrEmpty(glyph))
+                _freshPoolTail[glyph] = Time.unscaledTime + FreshGlowSeconds;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<string, float> _freshPoolTail = new();
 
         private void MarkFresh(System.Collections.Generic.IEnumerable<string> glyphs)
         {
@@ -2732,8 +2743,11 @@ namespace Brushblade.Presentation
                 if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Fg(bg), icon));
             }
 
-            // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):木灵 chip 首位,无数字
-            if (st.Has(StatusKind.Taunt)) chips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
+            // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):木灵 chip 首位,无数字。
+            // 本命嘲讽(柘,Passive.Taunt)同样画(fix round 1 裁定:StatusChipsWood 的柘灵样例与两档宽都算了它);
+            // 状态与本命都有时只出一枚
+            if (st.Has(StatusKind.Taunt) || (summon.Passive?.Taunt ?? false))
+                chips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
             Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);
@@ -2757,6 +2771,10 @@ namespace Brushblade.Presentation
             // 减伤(StatusChips 10-04 / StatusChipsWood W4):玩家的本回合减伤也护木灵;林荫 / 森严走 Core 读口(木灵侧含森严)
             if (Battle.PlayerStatuses.MaxMagnitude(StatusKind.DamageCut) > 0 || Battle.WoodDamageCutPercent(forSummon: true) > 0)
                 chips.Add(new("", Theme.Jade, Color.white, "bulwark"));
+            // 受伤上限(designer 回填 main 6fb13811):铜墙铁壁在 Core 里同样按木灵自己的最大生命封顶单次受伤
+            // (CapHitDamage),每只木灵都画、紧跟减伤(同回敬:状态挂在玩家身上,护全队)
+            if (Battle.PlayerStatuses.Has(StatusKind.HitCap))
+                chips.Add(new("", Theme.Jade, Color.white, "hitcap"));
             Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
             // 回敬(StatusChipsFire 稿):状态只挂在玩家身上,但护全队 —— 每只召唤物也画,玩家要看得出「打木灵也会被点火」
             if (retaliate.HasValue) chips.Add(retaliate.Value);
@@ -4231,9 +4249,9 @@ namespace Brushblade.Presentation
             float partW = poolSlots == 0 ? PartTileW
                 : Mathf.Min(PartTileW, (_fieldWidth - CountCaptionW - poolSlots * poolSpacing) / poolSlots);
             var partSize = new Vector2(partW, partW * (PartTileH / PartTileW));
-            foreach (var id in poolChars)
+            for (int pi = 0; pi < poolChars.Count; pi++)
             {
-                string charId = id;
+                string charId = poolChars[pi];
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting && !_allyTargeting;
                 System.Action tap = () =>
@@ -4268,12 +4286,25 @@ namespace Brushblade.Presentation
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def); // 水/土 直出的攻击用法在这一排
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
                 ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
+                // 秋实:只亮池里最后一枚同字(新进的那一枚)
+                if (_freshPoolTail.TryGetValue(charId, out float tailUntil) && LastIndexOf(poolChars, charId) == pi)
+                {
+                    if (Time.unscaledTime >= tailUntil) _freshPoolTail.Remove(charId);
+                    else _juice.Glow((RectTransform)tile.transform, Theme.ElementColor(def.Element), tailUntil);
+                }
             }
             // 稿 .poolnote「下回合掉 1 个」没有照抄:2026-08-04 起部件已经不再随回合掉落
             // (BattleEngine.cs:1784「部件不再掉落——五行部件只能靠拆字获得」),掉的是字、
             // 落进字库,不是部件、落进这个池。稿这句是规则改动前的旧文案,原样搬过来会让
             // 玩家看着一句不成立的承诺,故略去,不新造一句话去描述不存在的机制。
             DrawPoolAdSlot(partSize);
+        }
+
+        private static int LastIndexOf(System.Collections.Generic.IReadOnlyList<string> list, string value)
+        {
+            for (int i = list.Count - 1; i >= 0; i--)
+                if (list[i] == value) return i;
+            return -1;
         }
 
         /// <summary>拆合台选中详情或空态两行说明(稿 .picked / .empty)。可合成列表已经拆去
