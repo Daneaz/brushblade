@@ -616,10 +616,19 @@ namespace Brushblade.Presentation
 
         /// <summary>特性名(游戏数据,不进字符串表):<paramref name="charId"/> 的特性表里第一条含满足 <paramref name="match"/>
         /// 的效果的特性名。光环 / 魅惑这类状态只记来源字、不记是哪条特性挂的,详情与飘字靠它把「林立」「移花接木」翻出来。
-        /// 取不到(graph 为空、字不在图谱、没有这条特性)返回 null,调用方退回不带名的文案。</summary>
+        /// 取不到(graph 为空、字不在图谱、没有这条特性)返回 null,调用方退回不带名的文案。
+        /// <paramref name="charId"/> 为 null = 整张图谱里找第一条(绿潮 / 折桂这类每个效果只由一条特性给的)。</summary>
         internal static string TraitNameOf(RecipeGraph graph, string charId, Func<EffectDef, bool> match)
         {
-            if (graph == null || charId == null || !graph.TryGet(charId, out var def)) return null;
+            if (graph == null) return null;
+            if (charId == null)
+            {
+                foreach (var any in graph.All)
+                    foreach (var t in any.Traits)
+                        if (t.Effects.Any(match)) return t.Name;
+                return null;
+            }
+            if (!graph.TryGet(charId, out var def)) return null;
             foreach (var t in def.Traits)
                 if (t.Effects.Any(match)) return t.Name;
             return null;

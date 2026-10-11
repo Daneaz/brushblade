@@ -136,6 +136,15 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonBarByCore = new();
         // 召唤物出手前血(2026-08-26):与 _summonBarByCore 同款,按**核心槽位**索引
         private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimHp = new(); // 出手前血(下标→值);SummonHit 触达按承伤者下标逐记降
+        // 绿潮(D2-木 W10):出手前在场的木灵实例(下标→实例)。被并入的小藻在 Core 里当场置空,动画期间仍要画它飞进藻灵 ——
+        // 这几格(_mergeGhosts)按出手前的实例照画,动画落幕清掉
+        private readonly System.Collections.Generic.Dictionary<int, SummonState> _summonAnimRef = new();
+        private readonly System.Collections.Generic.HashSet<int> _mergeGhosts = new();
+        // 木系提示(WoodCues 稿):这一段里才挂上、要等重绘才出现的 chip(光环、披荆的流血、藻荇的减速、绿潮的嘲讽),
+        // 以及光环挂上时只飘一次的特性名 —— 重绘后逐条演(FlushWoodCues)
+        private readonly System.Collections.Generic.List<(Juice.CueOn On, int Index, string Icon, string Name)> _woodCues = new();
+        // 敌人格(chip 所在的那一块,跨排 Boss 是溢出的可视块),按敌人下标;木系提示找 chip 用
+        private readonly System.Collections.Generic.Dictionary<int, RectTransform> _enemyCellByIndex = new();
         private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
         private int _animsInFlight; // 在播的打击动画数;>0 = 锁输入 + 血条画在出手前值(2026-07-25),归零才放行重绘
         private bool Animating => _animsInFlight > 0;
@@ -417,6 +426,12 @@ namespace Brushblade.Presentation
             _juice.EnemyAt = i => i >= 0 && i < Battle.Enemies.Count ? Battle.Enemies[i] : null;
             _juice.KillInkAt = index => _run.KillInkFor(index);
             _juice.SummonRangedAt = slot => Battle.IsSummonRanged(slot);
+            // 木系提示(D2-木 Task 5):特性名是游戏数据,从图谱里按本命字段 / 效果种类找
+            _juice.NatureNameOf = has => CharInfo.NatureTraitName(_graph, has);
+            _juice.EffectNameOf = kind => CharInfo.TraitNameOf(_graph, null, e => e.Kind == kind);
+            _juice.SummonCellAt = slot => _summonCellByCore.TryGetValue(slot, out var cell) ? cell : null;
+            _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
+            _juice.ChipCue = (on, index, icon) => _woodCues.Add((on, index, icon, null));
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
@@ -463,7 +478,9 @@ namespace Brushblade.Presentation
         {
             _animsInFlight = System.Math.Max(0, _animsInFlight - 1);
             _dyingEnemies.ExceptWith(deaths); // 动画已把它们置灰,后续重绘照常画灰
+            if (!Animating) _mergeGhosts.Clear();   // 绿潮:被并入的小藻格动画演完才清
             if (!Animating) Refresh();         // 期间不重绘:锁输入,血条 fill/label 引用不被毁
+            if (!Animating) FlushWoodCues();
         }
 
         /// <summary>出手前记下玩家/敌人血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血)。</summary>
@@ -472,10 +489,12 @@ namespace Brushblade.Presentation
             _animPlayerHp = Battle.PlayerHp;
             _animShield = Battle.PlayerShield;
             _summonAnimHp.Clear();
+            _summonAnimRef.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
                 if (Battle.Summons[i] != null && Battle.Summons[i].Alive)
                 {
                     _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
+                    _summonAnimRef[i] = Battle.Summons[i];
                 }
             _animEnemyHp.Clear();
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
@@ -586,6 +605,34 @@ namespace Brushblade.Presentation
                         _summonAnimHp[si] - (e.Amount - e.Absorbed));
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     ChipDamage(sbar, summonBefore, _summonAnimHp[si], Battle.Summons[si].MaxHp);
+                    break;
+                // 守护(D2-木 W5):玩家这一击的一部分转给柘灵 —— 按它的槽位(SecondIndex)推血条,盾吃掉的那份不掉血(同 SummonHit)
+                case BattleEventKind.GuardTransfer:
+                    int gsi = e.SecondIndex;
+                    if (gsi < 0 || gsi >= Battle.Summons.Count || Battle.Summons[gsi] == null
+                        || !_summonAnimHp.ContainsKey(gsi)
+                        || !_summonBarByCore.TryGetValue(gsi, out var gbar) || gbar.fill == null) break;
+                    int guardBefore = _summonAnimHp[gsi];
+                    _summonAnimHp[gsi] = System.Math.Max(Battle.Summons[gsi].Hp, _summonAnimHp[gsi] - (e.Amount - e.Absorbed));
+                    SetHpBar(gbar, _summonAnimHp[gsi], Battle.Summons[gsi].MaxHp);
+                    ChipDamage(gbar, guardBefore, _summonAnimHp[gsi], Battle.Summons[gsi].MaxHp);
+                    break;
+                // 秋实 / 折桂(W7 / W8):新进池的「木」、新进库的那张字记成新到手,重绘时套光晕(同战利品的读法)
+                case BattleEventKind.PartGranted:
+                    MarkFresh(WoodPart);
+                    break;
+                case BattleEventKind.CharGranted:
+                    if (e.Amount >= 0 && e.Amount < Battle.Library.Count) MarkFresh(Battle.Library[e.Amount]);
+                    break;
+                // 绿潮(W10):每进一只小藻,藻灵血条往右长一截(上限已是并完的终值)
+                case BattleEventKind.SummonMerged:
+                    int rsi = e.SecondIndex;
+                    if (rsi < 0 || rsi >= Battle.Summons.Count || Battle.Summons[rsi] == null
+                        || !_summonAnimHp.ContainsKey(rsi)
+                        || !_summonBarByCore.TryGetValue(rsi, out var rbar) || rbar.fill == null) break;
+                    _summonAnimHp[rsi] = System.Math.Min(Battle.Summons[rsi].Hp, _summonAnimHp[rsi] + e.Amount);
+                    SetHpBar(rbar, _summonAnimHp[rsi], Battle.Summons[rsi].MaxHp);
+                    _juice.BarPulse(rbar.fill, Theme.Jade);
                     break;
                 case BattleEventKind.SummonBurnTick: // 召唤物自身灼烧(2026-08-26):TargetIndex 就是槽位
                     int bsi = e.TargetIndex;
@@ -2120,6 +2167,8 @@ namespace Brushblade.Presentation
                 // 开局开的是槽 1、2,槽 0 锁着 —— 按下标比大小会把锁格画反
                 if (!Battle.IsSlotOpen(i)) { DrawLockedSummonSlot(i, front); continue; }
                 var summon = Battle.Summons[i];
+                // 绿潮(D2-木 W10):被并入的小藻在 Core 里已置空,动画期间按出手前的实例照画,好让它飞进藻灵
+                if (summon == null && Animating && _mergeGhosts.Contains(i)) _summonAnimRef.TryGetValue(i, out summon);
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
                 bool visible = summon != null
                     && (summon.Alive || (Animating && _summonAnimHp.ContainsKey(i)));
@@ -2144,12 +2193,13 @@ namespace Brushblade.Presentation
                 info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
-                var glyph = Ui.RoundButton(portraitMount, summon.Char, () => OnSummonClicked(summonIndex),
+                // 小藻(D2-木 W10):显示藻灵的字,幼苗仍显示「苗」(SummonFace)
+                var glyph = Ui.RoundButton(portraitMount, SummonFace(summon), () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     Mathf.RoundToInt(portraitSize * 0.46f), new Vector2(portraitSize, portraitSize), 12);
                 Ui.Stretch((RectTransform)glyph.transform); // 挂载点已按 portraitSize 定好尺寸,铺满即可
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
-                MountSummonView(glyph, summon);
+                MountSummonView(glyph, summon, SummonFace(summon));
 
                 // 护盾角标(稿 .ally .sh,与敌人格同一判据):叠在立绘左下角,Shield > 0 才画
                 if (summon.Shield > 0)
@@ -2186,7 +2236,10 @@ namespace Brushblade.Presentation
                 // Char(它自己的字)—— 后者已经写在左边的立绘上了,再印一遍是同一件事说两遍;
                 // 而玩家真正要认的是「我出的哪张牌变成了它」:一排里两只「木」可能一只是
                 // 「林」召的、一只是别的字召的(2026-09-05 用户拍板)。
-                HeaderName(header.transform, summon.SourceChar, SummonHeaderNameFontSize);
+                // 小藻头行写「小藻」(WoodCues 稿 W10:藻灵与小藻靠格子大小与血量区分,名字点明)
+                HeaderName(header.transform, IsSproutling(summon)
+                    ? Strings.T("battle.summon.sprout_name", ("char", summon.SourceChar))
+                    : summon.SourceChar, SummonHeaderNameFontSize);
                 // 底色用字形色(2026-09-19),理由同敌人格
                 HeaderChip(header.transform, CharInfo.ElementName(summon.Element),
                     Theme.GlyphColor(summon.Element), Color.white);
@@ -2258,9 +2311,21 @@ namespace Brushblade.Presentation
         ///
         /// 没有形象资产的召唤字(字表新增了而管线没跑)安静回落成纯字牌格,与字怪同一条兜底。
         /// 叶色取当前属性的字形色:解封会重掷属性,颜色不烤进图里。</summary>
-        private static void MountSummonView(Button glyph, SummonState summon)
+        /// <summary>木灵格立绘上的字。小藻(藻灵名下分裂出来的幼苗,WoodCues 稿 W10)显示藻灵的字 —— 绿潮只并它们,
+        /// 玩家要一眼看出哪几只会被并进去;别的幼苗(丛林 / 独木生林 / 双木)仍是「苗」。</summary>
+        private string SummonFace(SummonState summon) => IsSproutling(summon) ? summon.SourceChar : summon.Char;
+
+        /// <summary>小藻:幼苗,且记着母体(丛藻 / 丛生),或来源字本命带丛生(母体阵亡后记号清掉也认得出)。
+        /// 与 Core 绿潮的并入口径(幼苗且来源 = 藻灵的字)对得上:丛生 / 丛藻的幼苗 SourceChar 都是藻灵的字。</summary>
+        private bool IsSproutling(SummonState summon) =>
+            summon.Char == BattleEngine.SaplingChar
+            && (summon.SproutParentSlot >= 0
+                || (summon.SourceChar != null && _graph.TryGet(summon.SourceChar, out var src)
+                    && src.Effects.Any(e => e.Kind == EffectKind.Summon && (e.Passive?.SproutPercent ?? 0) > 0)));
+
+        private static void MountSummonView(Button glyph, SummonState summon, string face)
         {
-            string prefix = SummonAssets.PrefixFor(summon.Char);
+            string prefix = SummonAssets.PrefixFor(face);
             if (prefix == null) return;
             var go = new GameObject("SummonView", typeof(RectTransform));
             go.transform.SetParent(glyph.transform, false);
@@ -2815,6 +2880,7 @@ namespace Brushblade.Presentation
         private void DrawEnemies()
         {
             _enemyRects.Clear();
+            _enemyCellByIndex.Clear();
             _enemyMobs.Clear();
             _enemyHpBars.Clear();
             _enemyActionBars.Clear();
@@ -2934,6 +3000,7 @@ namespace Brushblade.Presentation
                         new Vector2(0f, -(FieldGap + EnemyCellHeightFront)), Vector2.zero);
                     box = overflow.transform;
                 }
+                _enemyCellByIndex[i] = (RectTransform)box;
                 // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
                 // (span-1) 个 RowGap
                 cellElement.preferredWidth = EnemyCellW * span + RowGap * (span - 1);
@@ -6293,6 +6360,7 @@ namespace Brushblade.Presentation
         {
             bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
+            var aurasBefore = AuraKeys();   // 光环挂上(W1):出字前后比对,新挂上的那几条重绘后闪
             var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot);
             if (error == BattleError.SummonCapFull) // 顶替强阻断:AP/字都没动,确认了才重出
             {
@@ -6331,6 +6399,8 @@ namespace Brushblade.Presentation
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             if (error == BattleError.None) DropReplacedSummonSnapshots(); // 被顶替的槽位:改画新召唤物,别停在旧血量
+            if (error == BattleError.None) CollectMergeGhosts();         // 绿潮:被并入的小藻动画期间照画,藻灵血条从并入前起涨
+            if (error == BattleError.None) CueNewAuras(aurasBefore);     // 光环挂上:重绘后受益木灵的 chip 闪、特性名飘一次
             if (error == BattleError.None) BeginAnim(); // 锁输入 + 血条改画出手前值,须在重绘前置位
             CancelSelection();
             if (error == BattleError.None)
@@ -6390,6 +6460,76 @@ namespace Brushblade.Presentation
                     _summonAnimHp.Remove(e.SecondIndex);
                 }
         }
+
+        /// <summary>绿潮(D2-木 W10):这次出字里被并入的小藻格记成「动画期间照画」;接收的藻灵血条从并入前的量起涨
+        /// (它多半是本次刚召出的,不在出手前快照里),每进一只 OnImpact 推一截。</summary>
+        private void CollectMergeGhosts()
+        {
+            var merged = new System.Collections.Generic.Dictionary<int, int>();   // 藻灵槽 → 并入的血合计
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.SummonMerged)
+                {
+                    _mergeGhosts.Add(e.TargetIndex);
+                    merged[e.SecondIndex] = (merged.TryGetValue(e.SecondIndex, out int sum) ? sum : 0) + e.Amount;
+                }
+            foreach (var pair in merged)
+                if (pair.Key >= 0 && pair.Key < Battle.Summons.Count && Battle.Summons[pair.Key] is { } receiver)
+                    _summonAnimHp[pair.Key] = System.Math.Max(1, receiver.Hp - pair.Value);
+        }
+
+        /// <summary>玩家袋里木灵光环条目的指纹(种类, 来源, 槽位, 剩余回合):出字前后比对,找出这次新挂上 / 刷新的。</summary>
+        private System.Collections.Generic.HashSet<(StatusKind, string, int, int)> AuraKeys()
+        {
+            var keys = new System.Collections.Generic.HashSet<(StatusKind, string, int, int)>();
+            foreach (var st in Battle.PlayerStatuses.All)
+                if (st.Kind == StatusKind.SummonEmpower || st.Kind == StatusKind.SummonThorns || st.Kind == StatusKind.SummonRanged)
+                    keys.Add((st.Kind, st.SourceId, st.TargetSlot, st.TurnsLeft));
+            return keys;
+        }
+
+        /// <summary>光环挂上(WoodCues 稿 W1):受益的每只木灵,新出现的那枚 chip 同时闪一下(攻击光环闪 attack、荆棘光环闪 thorns、
+        /// 远程光环闪攻 chip 的射程图标);特性名只飘一次,从第一只受益木灵飘出(没有木灵时不飘)。</summary>
+        private void CueNewAuras(System.Collections.Generic.HashSet<(StatusKind, string, int, int)> before)
+        {
+            foreach (var key in AuraKeys())
+            {
+                if (before.Contains(key)) continue;
+                var (kind, source, slot, _) = key;
+                string icon = kind == StatusKind.SummonEmpower ? "attack" : kind == StatusKind.SummonThorns ? "thorns" : "ranged";
+                var effectKind = kind == StatusKind.SummonEmpower ? EffectKind.SummonEmpower
+                    : kind == StatusKind.SummonThorns ? EffectKind.SummonThorns : EffectKind.SummonRanged;
+                string name = CharInfo.TraitNameOf(_graph, source, e => e.Kind == effectKind);
+                bool named = false;
+                for (int s = 0; s < Battle.Summons.Count; s++)
+                {
+                    if (Battle.Summons[s] is not { Alive: true } || (slot >= 0 && slot != s)) continue;
+                    _woodCues.Add((Juice.CueOn.Summon, s, icon, named ? null : name));
+                    named = true;
+                }
+            }
+        }
+
+        /// <summary>重绘后演木系提示:chip 闪 + 特性名(只给带名的那一条)。落点在这一次重绘里重新取 —— 旧引用已随重绘销毁。</summary>
+        private void FlushWoodCues()
+        {
+            if (_woodCues.Count == 0) return;
+            Canvas.ForceUpdateCanvases();
+            foreach (var (on, index, icon, name) in _woodCues)
+            {
+                RectTransform root = on switch
+                {
+                    Juice.CueOn.Enemy => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null,
+                    Juice.CueOn.Summon => _summonCellByCore.TryGetValue(index, out var cell) ? cell : null,
+                    _ => (RectTransform)_bottomRow,
+                };
+                if (icon != null) _juice.FlashIcon(root, icon);
+                if (name != null) _juice.CueName(name, on == Juice.CueOn.Summon ? SummonAnchor(index) : root);
+            }
+            _woodCues.Clear();
+        }
+
+        /// <summary>秋实入池的部件(Core 的 BattleEngine.WoodPart 是 private,同字)。</summary>
+        private const string WoodPart = "木";
 
         /// <summary>出字动效终点:第一个受击/受灼敌人格;没有则 null。</summary>
         private RectTransform CastTargetRect(System.Collections.Generic.IReadOnlyList<BattleEvent> events)
@@ -6642,6 +6782,7 @@ namespace Brushblade.Presentation
                 }
                 DropActingBar(Battle.LastActor, postMeters); // 动作播完,行动者的条回落到余额
                 Refresh();
+                FlushWoodCues();   // 这一拍里挂上的流血 / 减速(披荆 / 藻荇)重绘后闪
                 if (!more) break;
                 if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
             }

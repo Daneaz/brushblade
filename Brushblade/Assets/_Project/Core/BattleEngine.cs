@@ -1965,8 +1965,9 @@ namespace Brushblade.Core
             return Math.Min(count, SummonCapacity);
         }
 
-        /// <summary>幼苗的显示字(D1 Task 7,M14)。是游戏数据级的字形,不进字符串表。</summary>
-        internal const string SaplingChar = "苗";
+        /// <summary>幼苗的显示字(D1 Task 7,M14)。是游戏数据级的字形,不进字符串表。
+        /// public(D2-木 Task 5):表现层据此认出小藻(改显示藻灵的字,WoodCues 稿 W10)。</summary>
+        public const string SaplingChar = "苗";
 
         /// <summary>森然入场幼苗的属性百分比(spec §3.1「幼苗属性为本体的 20%」)。</summary>
         internal const int EntrySaplingPercent = 20;

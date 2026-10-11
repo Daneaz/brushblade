@@ -1688,5 +1688,7 @@
   "status.woodcut.desc": "{list};与本回合减伤同类取最强,再与格挡合计至多 {cap}%。",
   "status.critaura.name": "暴击 +{value}%",
   "status.nature.duration": "{trait} · 在场时",
-  "status.nature.duration.plain": "本命 · 在场时"
+  "status.nature.duration.plain": "本命 · 在场时",
+  "juice.popup.source.trait": "{name} {amount}",
+  "battle.summon.sprout_name": "小{char}"
 }

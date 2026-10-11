@@ -232,6 +232,11 @@ namespace Brushblade.Presentation
             bool anyParallel = false;
             // 上一记挨打的召唤物:紧随其后的盾反(Source = Thorns)从它身上打回攻击者
             RectTransform lastTank = null;
+            int lastTankSlot = -1;           // 同上,槽位(披荆查它的本命)
+            BattleEvent? pendingGuard = null;  // 守护(W5):等这一击打到玩家那一刻再一起飘,两边同时
+            int lastDiedEnemy = -1;          // 折桂(W8):特性名从被杀的敌人格飘出
+            var mergeGroup = new List<BattleEvent>();   // 绿潮(W10):连续的 SummonMerged 成一组依次飞
+            int enemyActor = -1;             // 这一段的行动者是敌人时它的下标:那一拍里木灵打它 = 攀附(W3)
             // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             // 五行 L2 里会发生在群攻**中途**的两条(余烬、锋芒)挪到这批演完之后再播(2026-09-18):
             // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
@@ -242,6 +247,11 @@ namespace Brushblade.Presentation
             for (int idx = 0; idx < events.Count; idx++)
             {
                 var e = events[idx];
+                if (mergeGroup.Count > 0 && e.Kind != BattleEventKind.SummonMerged)
+                {
+                    yield return PlayMerge(mergeGroup, summonAnchor, onImpact);
+                    mergeGroup.Clear();
+                }
                 // 这记伤害是否当场打死目标:是则跳过白闪,交给死亡置灰(免抢同一 Image)
                 bool kills = (e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.BurnTick
                         || e.Kind == BattleEventKind.BleedTick)
@@ -254,8 +264,16 @@ namespace Brushblade.Presentation
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
                         // 这里先停一拍 → 水飞过去 → 落地飘「溢流 N」+ 水花 + 掉血;之后召唤物出手再停一拍。
                         // 盾反(防守三拍的第三拍):先从挨打的召唤物身上打回攻击者,到了再飘字掉血
-                        if (e.Source == EffectSource.Thorns && lastTank != null)
+                        // 良弓(D2-木 W9):同一条「从挨打的木灵打回攻击者」的回弹波,飘字带特性名(DamageText)
+                        if ((e.Source == EffectSource.Thorns || e.Source == EffectSource.ReturnFire) && lastTank != null)
                             yield return ThornsFly(lastTank, enemyAnchor(e.TargetIndex));
+                        // 披荆(W9):盾反真弹出去了、这只本命带披荆 → 特性名从它飘出,攻击者的流血 chip 重绘后闪
+                        if (e.Source == EffectSource.Thorns && lastTank != null
+                            && (summonInfo?.Invoke(lastTankSlot)?.Passive?.ThornsBleed ?? 0) > 0)
+                        {
+                            TraitName(NatureNameOf?.Invoke(p => p.ThornsBleed > 0), lastTank);
+                            ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "bleed");
+                        }
                         if (e.Source == EffectSource.Overheal)
                         {
                             if (serialPending) yield return Beat(StepGap);
@@ -405,6 +423,8 @@ namespace Brushblade.Presentation
                         if (serialPending) yield return Beat(StepGap);
                         var from = summonAnchor?.Invoke(e.SecondIndex);
                         var toRect = enemyAnchor(e.TargetIndex);
+                        // 攀附(D2-木 W3):敌人自己那一拍里挨的木灵出手只可能是被缠 —— 先闪被缠 chip、飘「攀附」
+                        if (enemyActor >= 0 && e.TargetIndex == enemyActor) PlayBindStrike(enemyActor, toRect);
                         if (from != null && toRect != null)
                         {
                             // 2026-09-27:飞字换成召唤物**自己出手**—— 近战前冲一记劈砍,
@@ -440,6 +460,7 @@ namespace Brushblade.Presentation
                         break;
                     }
                     case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
+                        lastDiedEnemy = e.TargetIndex;
                         var dead = enemyAnchor(e.TargetIndex);
                         Popup(Strings.T("juice.popup.kill_mark"), Theme.Ink, dead);
                         GreyOut(dead);                       // 立刻置灰
@@ -463,6 +484,7 @@ namespace Brushblade.Presentation
                         yield return Swing(e.TargetIndex, tank, slash: guard?.Shield == null);
                         if (guard != null) GuardHit(guard);
                         lastTank = tank;
+                        lastTankSlot = e.SecondIndex;
                         // 敌方那一记同样按**攻击者**的五行上色(2026-08-30):这两类事件的 TargetIndex
                         // 就是攻击者下标,属性顺着它查得到,所以 Core 侧刻意没给它们加 Attacker 字段。
                         // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性。
@@ -487,6 +509,14 @@ namespace Brushblade.Presentation
                         StartCoroutine(Shake(7f * (e.Countered ? 0.45f : e.Ke ? 1.6f : 1f),
                             -AttackDir(enemyAnchor(e.TargetIndex))));
                         onImpact?.Invoke(e); // 触达才扣召唤血
+                        // 藻荇(D2-木 W9):这一下打死的是记着母体的小藻、母体那一格的本命带藻荇 → 特性名从阵亡那一格飘出,
+                        // 攻击者的减速 chip 重绘后闪(减速在这一拍收尾才挂上,Core 推迟到拍尾)
+                        if (tankState != null && !tankState.Alive && tankState.SproutParentSlot >= 0
+                            && (summonInfo?.Invoke(tankState.SproutParentSlot)?.Passive?.SproutDeathSlow ?? 0) > 0)
+                        {
+                            TraitName(NatureNameOf?.Invoke(p => p.SproutDeathSlow > 0), tank);
+                            ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "slow");
+                        }
                         serialPending = true;
                         break;
                     case BattleEventKind.CharmedAttack: // 被魅惑的怪打自己人:只做攻击者那一半
@@ -508,6 +538,12 @@ namespace Brushblade.Presentation
                         if (e.Absorbed <= 0) Popup($"-{e.Amount}", foeColor, null);
                         else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, null);
                         else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), foeColor, null, small: true);
+                        // 守护(W5):柘灵那一份与玩家这一下同时飘(GuardTransfer 先于 EnemyAttack 到,扣在这里一起演)
+                        if (pendingGuard is { } guardHit)
+                        {
+                            PlayGuard(guardHit, summonAnchor, foeColor, onImpact);
+                            pendingGuard = null;
+                        }
                         PlayClip(_thudClip, 0.8f);
                         HitStop(hpLoss > 0 ? HitStopHeavy : HitStopLight); // 盾全吃下就轻一档
                         StartCoroutine(Shake(10f, -AttackDir(enemyAnchor(e.TargetIndex))));
@@ -645,13 +681,34 @@ namespace Brushblade.Presentation
                     case BattleEventKind.EnemyRevealed:
                         Popup(Strings.T("juice.popup.enemy_revealed"), Theme.SplitBlue, enemyAnchor(e.TargetIndex));
                         break;
-                    case BattleEventKind.ActorActed: // 段首标记,不播(2026-08-16)
+                    case BattleEventKind.ActorActed: // 段首标记,不播(2026-08-16);记下行动者是不是敌人(攀附用)
+                        enemyActor = e.Amount == (int)ActorKind.Enemy ? e.TargetIndex : -1;
+                        break;
+                    // ---- D2-木 Task 5(WoodCues 稿)----
+                    case BattleEventKind.GuardTransfer:   // 守护:先记下,等紧随其后的 EnemyAttack 打到玩家时同时飘
+                        if (pendingGuard is { } stale)    // 防御性:上一条没等到 EnemyAttack,先演掉
+                            PlayGuard(stale, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(stale.TargetIndex)), onImpact);
+                        pendingGuard = e;
+                        break;
+                    case BattleEventKind.PartGranted:     // 秋实:特性名从阵亡那一格飘出;部件池的「木」由 BattleView 记成新到手(光晕)
+                        TraitName(NatureNameOf?.Invoke(p => p.DeathPart), summonAnchor?.Invoke(e.TargetIndex));
+                        onImpact?.Invoke(e);
+                        break;
+                    case BattleEventKind.CharGranted:     // 折桂:特性名从被杀的敌人格飘出;字库那张新字由 BattleView 记成新到手(光晕)
+                        TraitName(EffectNameOf?.Invoke(EffectKind.GrantChar), lastDiedEnemy >= 0 ? enemyAnchor(lastDiedEnemy) : null);
+                        onImpact?.Invoke(e);
+                        break;
+                    case BattleEventKind.SummonMerged:    // 绿潮:攒成一组,组尾一起依次飞(见循环开头)
+                        mergeGroup.Add(e);
                         break;
                     case BattleEventKind.MoraleGain: // 锋芒:批末再播,见 PlayDeferredProc
                         deferred.Add(e);
                         break;
                 }
             }
+            if (mergeGroup.Count > 0) yield return PlayMerge(mergeGroup, summonAnchor, onImpact);
+            if (pendingGuard is { } lastGuard)   // 防御性:守护后面没有 EnemyAttack(玩家这一下全被转走)
+                PlayGuard(lastGuard, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(lastGuard.TargetIndex)), onImpact);
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
                 yield return Beat(StepGap);
             foreach (var d in deferred)
@@ -1253,7 +1310,7 @@ namespace Brushblade.Presentation
 
         /// <summary>一记伤害的飘字内容。四种组合:平、暴、克、暴克 —— 单独一条方法是因为
         /// 这四种要在**同一个** Popup 调用里选,散在三元表达式里读不出来。</summary>
-        private static string DamageText(BattleEvent e)
+        private string DamageText(BattleEvent e)
         {
             // 附加机制的伤害标出来源(2026-09-18):它们全是心属性紫字,不标就只剩一个裸数字,
             // 玩家读不出是哪条机制打的(实机报「召唤物出手时多了一个紫色 -30」,其实是溢流)。
@@ -1265,6 +1322,10 @@ namespace Brushblade.Presentation
                 case EffectSource.Reflect: return Strings.T("juice.popup.source.reflect", ("amount", e.Amount));
                 case EffectSource.ArmorStrike: return Strings.T("juice.popup.source.armor_strike", ("amount", e.Amount));
             }
+            // 落木 / 良弓(D2-木 W9):标特性名(游戏数据,取不到退回裸数字)
+            string trait = e.Source == EffectSource.DeathBlast ? NatureNameOf?.Invoke(p => p.DeathBlast > 0)
+                : e.Source == EffectSource.ReturnFire ? NatureNameOf?.Invoke(p => p.ReturnFire > 0) : null;
+            if (trait != null) return Strings.T("juice.popup.source.trait", ("name", trait), ("amount", e.Amount));
             if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
             if (e.Crit) return Strings.T("juice.popup.crit_damage", ("amount", e.Amount));
             if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));
