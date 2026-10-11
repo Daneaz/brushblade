@@ -60,7 +60,7 @@ namespace Brushblade.Core
         };
 
         /// <summary>这条效果能不能写这个选择器(ConfigLoader 校验用)。Primary 恒可;敌方侧选择器只给 Supports 列出的 kind;
-        /// Self 给 Cleanse / Taunt;SummonedThisCast 给 Endure / Taunt;AllSummons 给 Taunt / SummonEmpower;
+        /// Self 给 Cleanse / Taunt / CritBuff;SummonedThisCast 给 Endure / Taunt;AllSummons 给 Taunt / SummonEmpower;
         /// OtherSummons / StrongestSummon 只给 SummonEmpower(D2-木 M1);Taunt 与 SummonEmpower 必须写 pick。</summary>
         public static bool Allows(EffectKind kind, EffectPick pick) => pick switch
         {
@@ -69,7 +69,8 @@ namespace Brushblade.Core
             // 攀附(D2-木 M7,Q13)同样必须写 pick(敌方选择器,数据写 HighestHp)
             EffectPick.Primary => kind != EffectKind.Endure && kind != EffectKind.Taunt && kind != EffectKind.SummonEmpower
                 && kind != EffectKind.Bind,
-            EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
+            // 月桂(D2-木 Task 6,Q23):攻面「本回合我方暴击 +N」写 `CritBuff pick Self`,免选、直接挂玩家
+            EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt || kind == EffectKind.CritBuff,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
             EffectPick.AllSummons => kind == EffectKind.Taunt || kind == EffectKind.SummonEmpower,
             EffectPick.OtherSummons or EffectPick.StrongestSummon => kind == EffectKind.SummonEmpower,

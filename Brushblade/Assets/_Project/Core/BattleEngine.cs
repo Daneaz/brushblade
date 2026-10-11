@@ -2096,7 +2096,9 @@ namespace Brushblade.Core
                     // 第二批(2026-08-28):攻击/暴击/穿透。召唤物侧的结算链路同批建好 ——
                     // SummonState.EffectiveAttack / RollCritForSummon / EffectiveEnemyDefense 的
                     // attackerBag,三条都真读得到。
-                    || effect.Kind == EffectKind.Empower || effect.Kind == EffectKind.CritBuff
+                    || effect.Kind == EffectKind.Empower
+                    // 月桂(D2-木 Task 6):`pick Self` 的暴击直接给玩家,不选友方(同净化 Self)
+                    || (effect.Kind == EffectKind.CritBuff && effect.Pick != EffectPick.Self)
                     || effect.Kind == EffectKind.PierceBuff
                     // 第三批(2026-08-28):护甲与反弹。至此七条纯增益全部单体化。
                     // 玩家专属的四条**不在这张名单上,别顺手加**:战意(连续出字的节奏奖励,
@@ -4151,7 +4153,9 @@ namespace Brushblade.Core
                         // 不在这里钳上限,由 EffectiveCrit 的 Clamp 统一负责:钳在施加处的话
                         // 「90 + 20」会被存成 100,后来驱散掉一条反而看不出原本该剩多少。
                         // 2026-08-28:改单体;召唤物侧由 RollCritForSummon 读走(它自己钳)。
-                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
+                        // 月桂(D2-木 Task 6):pick Self 恒落玩家(攻面出字的 allySlot 不是友方落点)
+                        int critSlot = effect.Pick == EffectPick.Self ? Targeting.PlayerTarget : allySlot;
+                        ApplyStatus(AllyStatuses(critSlot), new StatusEffect
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
@@ -4160,7 +4164,7 @@ namespace Brushblade.Core
                             // 这条兜住它们逐字节不变。
                             TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        }, AllyRef(allySlot), UnitRef.Player);
+                        }, AllyRef(critSlot), UnitRef.Player);
                         break;
                     case EffectKind.ApBoost:
                         // 利(2026-08-12):AP 是「节奏/经济」不是「资源」,与驱散条数、

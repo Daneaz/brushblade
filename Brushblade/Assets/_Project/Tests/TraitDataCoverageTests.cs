@@ -161,6 +161,23 @@ namespace Brushblade.Core.Tests
             "垚 Lv8 Feature 对峙",
             "㙓 Lv4 Attack 深厚", "㙓 Lv4 Feature 深厚", "㙓 Lv5 Attack 山压", "㙓 Lv5 Feature 厚土", "㙓 Lv6 Feature 载物",
             "㙓 Lv8 Attack 地动", "㙓 Lv8 Feature 厚德载物",
+            // D2-木 Task 6:木系 46 格。V4:秋实 / 披荆 / 馥郁 / 水草 / 参天之力(木灵本命,攻面不起作用)拆成生面本命
+            // + 攻面同档精进,两条同名,所以 51 条、46 格。坚心保留原文、空效果行(同湮灭);双木 / 三木是字形特性;折桂是击杀时
+            "花 Lv8 Attack 移花接木",
+            "藤 Lv8 Feature 攀附",
+            "箭 Lv5 Feature 箭灵", "箭 Lv8 Attack 万箭齐发",
+            "楸 Lv4 Attack 秋实", "楸 Lv4 Feature 秋实", "楸 Lv5 Attack 落叶", "楸 Lv8 Attack 秋风扫叶", "楸 Lv8 Feature 一叶知秋",
+            "荆 Lv4 Attack 披荆", "荆 Lv4 Feature 披荆", "荆 Lv5 Attack 荆刺", "荆 Lv8 Attack 荆鞭", "荆 Lv8 Feature 荆天棘地",
+            "林 Lv4 Both 双木", "林 Lv5 Attack 众木", "林 Lv6 Feature 林荫", "林 Lv8 Attack 林海", "林 Lv8 Feature 林立",
+            "柘 Lv4 Both 坚心", "柘 Lv5 Attack 柘弓", "柘 Lv6 Feature 守护", "柘 Lv8 Attack 硬弓", "柘 Lv8 Feature 良弓",
+            "桂 Lv4 Attack 馥郁", "桂 Lv4 Feature 馥郁", "桂 Lv5 Attack 折桂", "桂 Lv5 Feature 桂花雨", "桂 Lv6 Feature 蟾宫",
+            "桂 Lv8 Attack 月桂", "桂 Lv8 Feature 桂冠",
+            "藻 Lv4 Attack 水草", "藻 Lv4 Feature 水草", "藻 Lv5 Attack 缠足", "藻 Lv5 Feature 丛藻", "藻 Lv6 Feature 藻荇",
+            "藻 Lv8 Attack 藻缚", "藻 Lv8 Feature 绿潮",
+            "森 Lv4 Both 三木", "森 Lv5 Attack 森罗", "森 Lv5 Feature 丛林", "森 Lv6 Feature 森严", "森 Lv8 Attack 林深",
+            "森 Lv8 Feature 万木回春",
+            "𣛧 Lv4 Attack 参天之力", "𣛧 Lv4 Feature 参天之力", "𣛧 Lv5 Attack 四木成林", "𣛧 Lv5 Feature 独木生林",
+            "𣛧 Lv6 Feature 落木", "𣛧 Lv8 Attack 撼天", "𣛧 Lv8 Feature 擎天",
         };
 
         /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
@@ -179,11 +196,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows_Water42Cells_47Rows_Earth35Cells_37Rows()
+        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows_Water42Cells_47Rows_Earth35Cells_37Rows_Wood46Cells_51Rows()
         {
-            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41 + 47 + 37));
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41 + 47 + 37 + 51));
             Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
-                Is.EqualTo(44 + 39 + 42 + 35), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 44 格 + 金 39 格 + 水 42 格 + 土 35 格");
+                Is.EqualTo(44 + 39 + 42 + 35 + 46), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 44 格 + 金 39 格 + 水 42 格 + 土 35 格 + 木 46 格");
             Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
             foreach (var c in ExclusiveCells)
                 Assert.That(PoolCells.Contains(c), Is.False, $"{c} 不能同时是池格");
@@ -625,6 +642,63 @@ namespace Brushblade.Core.Tests
             var turns = shenhou.Single(t => t.Face == TraitFace.Feature).Effects.Single();
             Assert.That((turns.Kind, turns.Value, turns.AugmentKind, turns.AugmentField),
                 Is.EqualTo((EffectKind.Augment, 4, EffectKind.DefenseBuff, AugmentField.Turns)), "固面护甲回合 +4(= ×2)");
+        }
+
+        [Test]
+        public void WoodExclusiveTraits_FormAndTrigger_MatchSpec()
+        {
+            int seen = 0;
+            foreach (var d in OfElement(Element.Wood))
+                foreach (var t in d.Traits.Where(t => IsExclusive(d, t)))
+                {
+                    seen++;
+                    string at = $"{d.Id} {t.Slot}/{t.Face} {t.Name}";
+                    // 坚心保留原文(敌人还没有控制木灵的能力),导出空效果行;其余都要有效果
+                    if (t.Name == "坚心")
+                        Assert.That(t.Effects.Count, Is.EqualTo(0), at + " 空效果行");
+                    else
+                        Assert.That(t.Effects.Count, Is.GreaterThan(0), at + " 要有效果");
+                    switch (t.Name)
+                    {
+                        case "双木":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnDismantle)), at);
+                            Assert.That(t.PartChar, Is.Null, at + "(即时类,不挂印记)");
+                            break;
+                        case "三木":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnCompose)), at);
+                            Assert.That(t.PartChar, Is.Null, at + "(即时类,不挂印记)");
+                            break;
+                        case "折桂":
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
+                            break;
+                        default:
+                            bool passive = t.Slot == TraitSlot.Lv4 || t.Slot == TraitSlot.Lv6;
+                            Assert.That(t.Form, Is.EqualTo(passive ? TraitForm.Passive : TraitForm.Active), at);
+                            Assert.That(t.Trigger, Is.EqualTo(TraitTrigger.Cast), at);
+                            break;
+                    }
+                    Assert.That(t.MaxPerBattle, Is.EqualTo(t.Name == "折桂" ? 1 : 0), at + " 每场次数(E49)");
+                }
+            Assert.That(seen, Is.EqualTo(51), "木系专属 46 格 51 行");
+        }
+
+        [Test]
+        public void WoodExclusive_V4Split_FeatureIsNature_AttackIsSameTierRefine()
+        {
+            // V4:生面 = 本命追加(`Summon 1`(0 血/攻 0) + 本命字段,E37);攻面 = 同档精进 round(10 × 档位系数):紫 18、橙 25、红 30
+            foreach (var (id, name, refine) in new[]
+                { ("楸", "秋实", 18), ("荆", "披荆", 18), ("桂", "馥郁", 25), ("藻", "水草", 25), ("\ue625", "参天之力", 30) })
+            {
+                var rows = Graph.Get(id).Traits.Where(t => t.Slot == TraitSlot.Lv4 && t.Name == name).ToList();
+                Assert.That(rows.Select(t => t.Face).OrderBy(f => f).ToList(),
+                    Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }.OrderBy(f => f).ToList()), $"{name} 拆成两条单面");
+                var e = rows.Single(t => t.Face == TraitFace.Attack).Effects.Single();
+                Assert.That((e.Kind, e.Value, e.Scope, e.OnlyIf),
+                    Is.EqualTo((EffectKind.Amplify, refine, AmpScope.All, DamageCondition.None)), $"{name} 攻面 = 同档精进");
+                var nature = rows.Single(t => t.Face == TraitFace.Feature).Effects.Single();
+                Assert.That((nature.Kind, nature.Value, nature.Passive != null), Is.EqualTo((EffectKind.Summon, 0, true)),
+                    $"{name} 生面 = 本命追加");
+            }
         }
 
         private static EffectDef PoolEffect(string ch, TraitSlot slot, TraitFace face, string name, EffectKind kind)

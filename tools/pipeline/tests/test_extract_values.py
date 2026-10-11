@@ -1543,3 +1543,11 @@ def test_d2wood_shared_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+def test_d2wood_critbuff_pick_self():
+    """D2-木 Task 6(月桂,Q23):攻面「本回合我方暴击」写 `CritBuff N` `turns 1` `pick Self`,免选、直接落玩家。"""
+    assert _parse_effects("`CritBuff 30` `turns 1` `pick Self`", "桂") == [
+        {"kind": "CritBuff", "value": 30, "turns": 1, "pick": "Self"}]
+    with pytest.raises(ValueError):
+        _parse_effects("`CritBuff 30` `turns 1` `pick AllSummons`", "桂")

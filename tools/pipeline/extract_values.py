@@ -309,7 +309,8 @@ RESHAPE_PICK_KINDS = {"Reshape"}
 # D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
 # D2-水 E15:`pick AllAllies` = 玩家 + 全部存活木灵,只给 Cleanse(水大无际)。
 # D2-木 Task 2(M1):木灵攻击光环 `SummonEmpower N` 必须写 pick AllSummons(林立)/ OtherSummons(擎天)/ StrongestSummon(桂冠)。
-ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"},
+# D2-木 Task 6(月桂,Q23):`CritBuff N` `pick Self` = 攻面「本回合我方暴击」免选、直接落玩家(缺省写法仍选友方)。
+ALLY_PICKS = {"Self": {"Cleanse", "Taunt", "CritBuff"}, "SummonedThisCast": {"Endure", "Taunt"},
               "AllSummons": {"Taunt", "SummonEmpower"}, "AllAllies": {"Cleanse"},
               "OtherSummons": {"SummonEmpower"}, "StrongestSummon": {"SummonEmpower"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())

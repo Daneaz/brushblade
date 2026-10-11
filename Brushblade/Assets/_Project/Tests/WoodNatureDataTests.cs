@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>D2-0 Task 9:木字生面本体 = 本命(E6/E7/E8)。读真实 chars.json。
-    /// Lv1 被动只含本命那一项(加底速);卡 Lv5(Lv3 已解锁)时本命强化覆盖进被动。</summary>
+    /// Lv1 被动只含本命那一项(加底速);卡 Lv3 时本命强化覆盖进被动(Lv4+ 的专属本命追加见 WoodExclusiveDataTests)。</summary>
     public class WoodNatureDataTests
     {
         private static RecipeGraph _graph;
@@ -78,10 +78,11 @@ namespace Brushblade.Core.Tests
             Assert.That(NonDefault(PassiveAt(id, 1)), Is.EqualTo(lv1), id + " Lv1");
         }
 
+        // 卡 Lv3 = 只有 Lv3 本命强化;D2-木 起 Lv4 / Lv6 / Lv8 的专属本命会经 E37 追加进来(WoodExclusiveDataTests 钉)
         [TestCaseSource(nameof(Cases))]
-        public void Lv5Passive_IsTheEnhancedNature(string id, List<string> lv1, List<string> lv3)
+        public void Lv3Passive_IsTheEnhancedNature(string id, List<string> lv1, List<string> lv3)
         {
-            Assert.That(NonDefault(PassiveAt(id, 5)), Is.EqualTo(lv3), id + " Lv5");
+            Assert.That(NonDefault(PassiveAt(id, 3)), Is.EqualTo(lv3), id + " Lv3");
         }
 
         [TestCaseSource(nameof(Cases))]

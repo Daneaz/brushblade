@@ -81,6 +81,7 @@ namespace Brushblade.Core
             [EffectKind.Seed] = false,
             [EffectKind.Vulnerable] = false,
             [EffectKind.Bleed] = false,   // D2-金 E8:流血读 turns(缺省 3)
+            [EffectKind.Charm] = false,   // D2-木 Q27:花的池·寄生(种 +1 回合)落到魅惑,见 ApplyAugment
         };
 
         public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);
@@ -322,6 +323,9 @@ namespace Brushblade.Core
         private static void ApplyAugment(List<EffectDef> effects, EffectDef aug)
         {
             int at = effects.FindIndex(e => e.Kind == aug.AugmentKind);
+            // D2-木 Q27:木系关键字是「种」,唯独花是「魅惑」—— 池·寄生(种 +1 回合)本面没有种时落到魅惑上
+            if (at < 0 && aug.AugmentKind == EffectKind.Seed && aug.AugmentField == AugmentField.Turns)
+                at = effects.FindIndex(e => e.Kind == EffectKind.Charm);
             if (at < 0) return;
             var target = effects[at];
             switch (aug.AugmentField)
