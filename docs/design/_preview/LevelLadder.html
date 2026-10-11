@@ -1,0 +1,45 @@
+<!-- @dsCard group="字牌" height=230 subtitle="重设计 · 待实现(E2)· LevelLadder · 10 格等级条 + 解锁记号" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+.wrap{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.h{font-size:9px;color:var(--text-faint);letter-spacing:1px;margin-bottom:-6px}
+.row{display:flex;align-items:flex-end;gap:16px}
+.ladder{display:flex;gap:3px}
+.pip{width:19px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.pip .bar{width:19px;height:5px;border-radius:2.5px;background:var(--paper-dim)}
+.pip.done .bar{background:var(--ink-soft)}
+.pip.next .bar{background:var(--jade)}
+.mks{display:flex;gap:1.5px;height:7px}
+.mk{width:7px;height:7px;box-sizing:border-box;border-radius:1.5px}
+.mks .mk+.mk{width:6px}
+.mk.both{box-shadow:inset 0 0 0 1.2px var(--ink-soft)}
+.mk.atk{background:var(--ink)}
+.mk.el{background:var(--glyph)}
+.mk.off{opacity:.35}
+.ln{font-size:7px;color:var(--text-faint);line-height:1;height:7px;font-variant-numeric:tabular-nums}
+.b .pip{width:17px;gap:2px}.b .pip .bar{width:17px;height:4px;border-radius:2px}
+.b .mks{gap:1px;height:6px}.b .mk{width:6px;height:6px}.b .mks .mk+.mk{width:5px}.b .ln{display:none}
+.lv{font-size:10px;color:var(--text-dim);white-space:nowrap}.lv b{font-size:17px;color:var(--text-main);font-family:var(--font-serif)}
+.lg{display:flex;gap:14px;font-size:9px;color:var(--text-dim);align-items:center}
+.lg i{display:inline-block;margin-right:4px;vertical-align:-1px}
+</style></head><body>
+<div class="zd-root wrap zd-e-fire" id="root"></div>
+<script>
+// 记号:Lv3 / Lv4 两面(空心),Lv5 / Lv8 两面各一(左攻右五行),Lv6 挂在一面(此例五行面)
+var MK = {3: ['both'], 4: ['both'], 5: ['atk', 'el'], 6: ['el'], 8: ['atk', 'el']};
+function ladder(L, canUp, cls) {
+  var h = '<div class="ladder ' + (cls || '') + '">';
+  for (var i = 1; i <= 10; i++) {
+    var ms = MK[i] || [];
+    var pc = 'pip' + (i <= L ? ' done' : (i === L + 1 && canUp ? ' next' : ''));
+    h += '<div class="' + pc + '"><span class="mks">' + ms.map(function (k) { return '<i class="mk ' + k + (i > L ? ' off' : '') + '"></i>'; }).join('') +
+      '</span><span class="bar"></span><span class="ln">' + (ms.length ? i : '') + '</span></div>';
+  }
+  return h + '</div>';
+}
+document.getElementById('root').innerHTML =
+  '<div class="h">铺满版 · Lv4,可升(下一格翠玉)</div><div class="row"><span class="lv"><b>Lv.4</b> / 10</span>' + ladder(4, true) + '</div>' +
+  '<div class="h">铺满版 · Lv8,材料不够</div><div class="row"><span class="lv"><b>Lv.8</b> / 10</span>' + ladder(8, false) + '</div>' +
+  '<div class="h">战斗长按版 · 本场等级 Lv.6,不印级数与成本</div><div class="row b">' + ladder(6, false, '') + '</div>' +
+  '<div class="lg"><span><i class="mk atk"></i>攻击面</span><span><i class="mk el"></i>五行面(本系色)</span><span><i class="mk both"></i>两面</span><span><i class="mk atk off"></i>未到达 35%</span></div>';
+</script>
+</body></html>
