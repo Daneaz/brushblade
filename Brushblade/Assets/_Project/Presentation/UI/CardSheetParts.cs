@@ -210,11 +210,12 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>差的短标签:减攻(数值格上写「目标攻击」)、持续按归属格起名(减攻 / 护甲),其余同数值格。</summary>
-        private static string DeltaLabel(StatDelta d)
-        {
-            var kind = d.Kind == FaceStatKind.Duration && d.DurationOf is { } owner ? owner : d.Kind;
-            return kind == FaceStatKind.Weaken ? Strings.T("charsheet.stat.weaken_short") : StatLabel(kind);
-        }
+        private static string DeltaLabel(StatDelta d) =>
+            ShortLabel(d.Kind == FaceStatKind.Duration && d.DurationOf is { } owner ? owner : d.Kind);
+
+        /// <summary>短标签:减攻写「减攻」,其余同数值格标签。Lv3 本体差与升级预览差行的「持续」前缀共用。</summary>
+        internal static string ShortLabel(FaceStatKind kind) =>
+            kind == FaceStatKind.Weaken ? Strings.T("charsheet.stat.weaken_short") : StatLabel(kind);
 
         private static CardFace FaceOfTrait(TraitDef trait) =>
             trait.Face == TraitFace.Feature ? CardFace.Feature : CardFace.Attack;
@@ -352,7 +353,9 @@ namespace Brushblade.Presentation
 
         private static string LockedTail(int level) => Strings.T("charsheet.trait.locked", ("level", level));
 
-        private static float LineHeight(string text, bool seal, int font, float width) =>
+        /// <summary>正文一句的高(带 xs 面印前缀时扣掉印宽与印距,且不矮于印)。与 <see cref="BodyLine"/> 同一口径,
+        /// 字卡详情与升级预览小卡(CollectionView)共用 —— 先算后画,两边不许各抄一份。</summary>
+        internal static float LineHeight(string text, bool seal, int font, float width) =>
             Mathf.Max(seal ? Ui.FaceSealXs : 0f,
                 Ui.WrappedTextHeight(text, font, width - (seal ? Ui.FaceSealXs + LineSealGap : 0f)));
 
@@ -551,7 +554,8 @@ namespace Brushblade.Presentation
                 BodyLine(stack.transform, def, line.Seal, line.Text, z.Body, dimColor, textW);
         }
 
-        private static void BodyLine(Transform parent, CharDef def, CardFace? seal, string text, int font, Color color, float width)
+        /// <summary>正文一句:无印 = 折行文字;有印 = xs 面印 + 折行文字。高度取 <see cref="LineHeight"/>。</summary>
+        internal static void BodyLine(Transform parent, CharDef def, CardFace? seal, string text, int font, Color color, float width)
         {
             float h = LineHeight(text, seal != null, font, width);
             if (seal == null)

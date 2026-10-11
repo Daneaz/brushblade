@@ -752,7 +752,6 @@ namespace Brushblade.Presentation
         private const int NewKindFont = 18;           // .tk 8.5pt
         private const int NewTagFont = 17;            // .newtag 8pt;高 14pt ≈ 17 + ChipPadY 12 = 29
         private const int NewTagPadX = 25;            // .newtag 左右各 6pt
-        private const float LineSealGap = 6f;         // 分面小句前缀 xs 面印与字之间(同 CardSheetParts)
         // 下一级预告框(稿 .next)
         private const int NextPadV = 15, NextPadH = 19;
         private const float NextGap = 8.4f;           // gap 4pt
@@ -898,7 +897,9 @@ namespace Brushblade.Presentation
             foreach (var card in cards) NewCardView(group.transform, def, card, cardW, two);
         }
 
-        private static float NewPadV(bool two) => two ? 10.5f : 12.6f;   // .nu 6pt / 两张时 5pt
+        // .nu padding 6pt 9pt 7pt(两张时 5pt 8pt 6pt):底比顶多 1pt。取整后的值同时用于估高与布局,两边口径一致
+        private static int NewPadTop(bool two) => two ? 11 : 13;          // 5pt = 10.5 / 6pt = 12.6
+        private static int NewPadBottom(bool two) => two ? 13 : 15;       // 6pt = 12.6 / 7pt = 14.65
         private static int NewPadH(bool two) => two ? 17 : 19;            // .nu 9pt / 两张时 8pt
         private static float NewBodyGap(bool two) => two ? 4f : 6f;       // .nu gap 3pt / 两张时 2pt
         private static int NewBodyFont(bool two) => two ? 20 : 21;        // .tx 10pt / 两张时 9.5pt
@@ -938,16 +939,12 @@ namespace Brushblade.Presentation
                 }
             }
 
-            float h = 2f * NewPadV(two) + Ui.FaceSealM;
+            float h = NewPadTop(two) + NewPadBottom(two) + Ui.FaceSealM;
             foreach (var line in model.Lines)
-                h += NewBodyGap(two) + NewLineHeight(line.Text, line.Seal != null, NewBodyFont(two), inner);
+                h += NewBodyGap(two) + CardSheetParts.LineHeight(line.Text, line.Seal != null, NewBodyFont(two), inner);
             card.Height = h;
             return card;
         }
-
-        private static float NewLineHeight(string text, bool seal, int font, float width) =>
-            Mathf.Max(seal ? Ui.FaceSealXs : 0f,
-                Ui.WrappedTextHeight(text, font, width - (seal ? Ui.FaceSealXs + LineSealGap : 0f)));
 
         /// <summary>一张小卡(稿 .nu):卡头「面印 m + 攻击 / 五行面 / 两面 + 名 + 类别 +『新』签」,下接正文。
         /// 五行面那张垫本系淡底(<see cref="Theme.FaceTint"/>,稿 .nu.back),其余 card-face。</summary>
@@ -960,8 +957,7 @@ namespace Brushblade.Presentation
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperLeft;
             layout.childForceExpandWidth = true;
-            int padV = Mathf.RoundToInt(NewPadV(two));
-            layout.padding = new RectOffset(NewPadH(two), NewPadH(two), padV, padV);
+            layout.padding = new RectOffset(NewPadH(two), NewPadH(two), NewPadTop(two), NewPadBottom(two));
             Ui.Stretch((RectTransform)stack.transform);
             float inner = cardW - 2f * NewPadH(two);
 
@@ -981,22 +977,9 @@ namespace Brushblade.Presentation
             Ui.Sized(spring, flexWidth: 1);
             Ui.Chip(head.transform, Strings.T("collection.modal.new_tag"), Theme.Gold, Theme.GoldText, NewTagFont, NewTagPadX);
 
-            int font = NewBodyFont(two);
+            // 正文(含分面两小句的 xs 面印)与字卡详情同一份画法,高度口径同 NewCardModel 里的 LineHeight
             foreach (var (seal, text) in card.Model.Lines)
-            {
-                float h = NewLineHeight(text, seal != null, font, inner);
-                if (seal == null)
-                {
-                    WrapLabel(stack.transform, text, font, Theme.TextDim, inner, h);
-                    continue;
-                }
-                var line = Ui.Row(stack.transform, "Line", LineSealGap);
-                line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-                Ui.Sized(line, inner, h);
-                var xs = Ui.FaceSeal(line.transform, def, seal.Value, Ui.FaceSealXs);
-                Ui.Sized(xs, Ui.FaceSealXs, Ui.FaceSealXs);
-                WrapLabel(line.transform, text, font, Theme.TextDim, inner - Ui.FaceSealXs - LineSealGap, h);
-            }
+                CardSheetParts.BodyLine(stack.transform, def, seal, text, NewBodyFont(two), Theme.TextDim, inner);
         }
 
         /// <summary>按行的面出印:攻 / 本系五行面字;两面通用(Lv3 / Lv4)出「两」(ink-soft 底,component/FaceSeal)。</summary>
@@ -1009,14 +992,6 @@ namespace Brushblade.Presentation
                 _ => Ui.FaceSeal(parent, Ui.FaceSealBothText(), Theme.InkSoft, size),
             };
             Ui.Sized(seal, size, size);
-        }
-
-        private static void WrapLabel(Transform parent, string text, int font, Color color, float width, float height)
-        {
-            var label = Ui.ThemedLabel(parent, text, font, color);
-            label.alignment = TextAnchor.UpperLeft;
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Ui.Sized(label.gameObject, width, height);
         }
 
         // ---- 下一级预告 ----
@@ -1056,6 +1031,14 @@ namespace Brushblade.Presentation
             }
         }
 
+        /// <summary>差行标签:同数值格标签;「持续」带上它跟的那一格的短标签(「减攻持续」「护甲持续」),
+        /// 与字卡详情两面条本体差同一口径(<see cref="StatDelta.DurationOf"/>)——一面若有两组「效果 + 持续」,
+        /// 光写「持续」两行就分不清了。</summary>
+        private static string DeltaRowLabel(StatDelta d) =>
+            d.Kind == FaceStatKind.Duration && d.DurationOf is { } owner
+                ? Strings.T("collection.modal.duration_of", ("owner", CardSheetParts.ShortLabel(owner)))
+                : CardSheetParts.StatLabel(d.Kind);
+
         /// <summary>差行「[面印] 名 ——— 旧 → 新 (+差)」(component/UpgradeDialog 的 DeltaRow,读法不变;
         /// E2 把原先的图标 chip 换成 xs 面印,标这一格属于哪一面)。
         /// 减攻印「−15% → −16%」,再挂「+1」读起来像变弱了,所以减攻不印增量。</summary>
@@ -1074,7 +1057,7 @@ namespace Brushblade.Presentation
             var seal = Ui.FaceSeal(row.transform, def, d.Face, Ui.FaceSealXs);
             Ui.Sized(seal, Ui.FaceSealXs, Ui.FaceSealXs);
 
-            var label = Ui.ThemedLabel(row.transform, CardSheetParts.StatLabel(d.Kind), 19, Theme.TextDim);
+            var label = Ui.ThemedLabel(row.transform, DeltaRowLabel(d), 19, Theme.TextDim);
             label.alignment = TextAnchor.MiddleLeft;
             Ui.Sized(label.gameObject, flexWidth: 1);
 

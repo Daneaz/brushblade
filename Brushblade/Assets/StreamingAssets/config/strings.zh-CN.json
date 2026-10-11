@@ -1532,6 +1532,7 @@
   "collection.modal.section.new_two": "新解锁 · 两面各一条",
   "collection.modal.section.trait": "特性",
   "collection.modal.delta": "+{delta}",
+  "collection.modal.duration_of": "{owner}持续",
   "collection.modal.no_numbers": "这一级没有数值变化",
   "collection.modal.new_tag": "新",
   "collection.modal.no_new": "这一级没有新特性",
