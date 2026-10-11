@@ -53,7 +53,8 @@ namespace Brushblade.Core
                 or EffectKind.ChargeDelay
                 or EffectKind.BuffBlock   // D2-水 Task 3 洗尽铅华
                 or EffectKind.Silence   // D2-土 E33 杜塞(`if NotBoss`)
-                or EffectKind.SkillCut => true,   // D2-土 G6 杜塞(`if IsBoss`)
+                or EffectKind.SkillCut   // D2-土 G6 杜塞(`if IsBoss`)
+                or EffectKind.ThornMark => true,   // D2-木 M6 荆刺(攀附 Bind 归 Task 4 接行为时再加)
             _ => false,
         };
 

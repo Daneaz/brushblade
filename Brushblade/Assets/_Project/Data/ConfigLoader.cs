@@ -1199,6 +1199,9 @@ namespace Brushblade.Data
             // 两者按玩家回合计(Q7),须写 turns > 0;缺省 0 引擎会当本场,静默变成永久光环
             if ((kind == EffectKind.SummonEmpower || kind == EffectKind.SummonThorns) && e.Turns <= 0)
                 throw new ConfigException($"字「{id}」的 {kind} 光环须写 turns > 0:{e.Turns}");
+            // 荆刺(D2-木 M6,Q11):反伤 % 须 > 0;持续按该敌人行动次数,须写 turns > 0(缺省 0 会被兜成 1 次,静默缩水)
+            if (kind == EffectKind.ThornMark && (e.Value <= 0 || e.Turns <= 0))
+                throw new ConfigException($"字「{id}」的荆刺(ThornMark)须写反伤 % > 0 与 turns > 0:{e.Value} / {e.Turns}");
             if (e.ScaleBy == nameof(ScaleBasis.SummonCount) && kind != EffectKind.Amplify)
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy SummonCount(只给 Amplify)");
             if (e.OpeningBattles != 0 && (e.SummonAtkStrikePercent != 0 || e.HostAtkStrikePercent != 0 || e.HostArmorStrikePercent != 0

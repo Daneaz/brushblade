@@ -4,7 +4,8 @@ namespace Brushblade.Core
 {
     /// <summary>木系专属机制(Plan D2-木)。Task 1 = 共用小扩展里需要读木灵编队的那几项:E40 按木灵攻击 / 护甲加伤、
     /// E41 幼苗取本体、E46 柘弓只让本字最强木灵出手、E50 条件 OwnSummonAlive。Task 2 = 光环族:M1 玩家袋光环、
-    /// M2 本命在场光环(林荫 / 森严 / 蟾宫)、馥郁读点。挂点处只留一行调用,实现放这里。
+    /// M2 本命在场光环(林荫 / 森严 / 蟾宫)、馥郁读点。Task 3 = 受击 / 阵亡 / 守护 / 标记:M3 秋实 / 落木 / 藻荇、
+    /// M4 披荆 / 良弓、M5 守护、M6 荆刺。挂点处只留一行调用,实现放这里。
     ///
     /// 「本字木灵」(Q2)= SourceChar == 本字 且 Char != 苗 的存活木灵;嫁接不改变身份。
     /// 恒等:各项只在对应字段 / 条件非缺省时才走到,一律不摇随机数。</summary>
@@ -13,11 +14,152 @@ namespace Brushblade.Core
         // ---- 预留骨架(Ruling 17):木系新机制 M1–M11 的挂点集中在这里,Task 2–4 逐项填 ----
 
         /// <summary>木灵阵亡的特性挂点(M3 秋实 / 落木 / 藻荇、M7 攀附清理等,Task 3 / 4):OnSummonDeath 的单点调用,
-        /// 在归根治疗之后、刷光环之前。顶替召唤与绿潮并入不走这里(Q15)。Task 1 只预留,空实现。</summary>
+        /// 在归根治疗之后、刷光环之前(落木读的是阵亡这一刻的有效攻击,光环份额还没摘)。
+        /// 阵亡 = 走 OnSummonDeath 的路径:挨打、灼烧、吞噬、守护转移致死;顶替召唤与绿潮并入不走这里(Q15)。
+        /// 死者没有本命、也不是有母体的小藻时只做光环清理,不摇随机数。</summary>
         private void OnSummonDeathTraits(int slot, UnitRef killer)
         {
             ClearSlotAuras(slot);   // M1:按槽位挂的光环随木灵阵亡清理(Review Focus 1)
+            var dead = _summons[slot];
+            if (dead == null) return;
+            var p = dead.Passive;
+            if (p != null)
+            {
+                if (p.DeathPart) GrantDeathPart(slot);                               // 秋实
+                if (p.DeathBlast > 0) EnqueueDeathBlast(slot, dead, p.DeathBlast);   // 落木
+            }
+            if (dead.SproutParentSlot >= 0) SproutDeathSlow(dead, killer);          // 藻荇
         }
+
+        // ---- M3 阵亡挂点(Task 3)----
+
+        /// <summary>秋实(Q15):部件池 +「木」;满池不入(不替换)、不发事件。</summary>
+        private void GrantDeathPart(int slot)
+        {
+            if (GrantPoolComponent(WoodPart)) _events.Add(new BattleEvent(BattleEventKind.PartGranted, slot, 1));
+        }
+
+        /// <summary>秋实入池的部件。</summary>
+        private const string WoodPart = "木";
+
+        /// <summary>落木(Q15):伤害 = 阵亡这一刻的有效攻击 × N%,入队为反应,在下一个安全点兑现(不重入 ApplyEffects)。
+        /// 兑现时打全体存活敌人:死者元素、过生克与护甲(DamageEnemy 全套,吃标记)、不暴击、不算挥击(allowBarb: false)、
+        /// source = DeathBlast;TriggerDepth = 入队深度 + 1(R4:落木打死的不入队击杀时,不连锁)。</summary>
+        private void EnqueueDeathBlast(int slot, SummonState dead, int percent)
+        {
+            int amount = (int)((long)dead.EffectiveAttack * percent / 100);
+            if (amount <= 0) return;
+            var element = dead.Element;
+            Enqueue(new Reaction(() => ResolveDeathBlast(slot, element, amount), TriggerDepth + 1));
+        }
+
+        private void ResolveDeathBlast(int slot, Element element, int amount)
+        {
+            int count = _enemies.Count;   // 兑现那一刻的表长:分裂出来的新怪不吃同一发
+            for (int i = 0; i < count; i++)
+                if (_enemies[i].Alive)
+                    DamageEnemy(i, amount, element, allowBarb: false,
+                        source: EffectSource.DeathBlast, attackerRef: UnitRef.Summon(slot));
+            CheckWin();
+        }
+
+        /// <summary>藻荇(Q15):小藻(幼苗、记着母体槽位)阵亡,且母体槽位上的木灵(死活不论)本命带 SproutDeathSlow N →
+        /// 给 killer 挂减速 N 回合。只对敌人 killer 生效(灼烧自焚等 None 不触发)。挥击发生在 killer 自己那一拍里,
+        /// 推迟到那一拍收尾(TickTurns 之后)兑现,回合数足额(同回敬 / 冰晶,Ruling 12)。母体槽位被复用后记号已清,不触发。</summary>
+        private void SproutDeathSlow(SummonState dead, UnitRef killer)
+        {
+            if (killer.Side != UnitSide.Enemy || dead.Char != SaplingChar) return;
+            var parent = dead.SproutParentSlot < _summons.Length ? _summons[dead.SproutParentSlot] : null;
+            int turns = parent?.Passive?.SproutDeathSlow ?? 0;
+            if (turns <= 0) return;
+            int enemyIndex = killer.Index;
+            string sourceId = parent.SourceChar;
+            DeferToBeatEnd(new Reaction(() => ApplySproutDeathSlow(enemyIndex, turns, sourceId), TriggerDepth + 1));
+        }
+
+        private void ApplySproutDeathSlow(int enemyIndex, int turns, string sourceId)
+        {
+            if (enemyIndex < 0 || enemyIndex >= _enemies.Count || !_enemies[enemyIndex].Alive) return;
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = turns, SourceId = sourceId,   // 幅度同 EffectKind.Slow
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
+        }
+
+        // ---- M4 受击挂点(Task 3)----
+
+        /// <summary>披荆(Q12):荆棘段 bounced &gt; 0 后调用。只认这只木灵自己的本命荆棘(Thorns &gt; 0)—— 荆棘光环弹出去的不算。
+        /// 给攻击者挂流血 N(召唤时已吃卡等级,定死在本命里),缺省 3 回合;流血按 Kind 合并取强 = 同源刷新。不是伤害,不占 60% 预算。</summary>
+        private void ThornsBleed(int enemyIndex, int slot, SummonState summon)
+        {
+            var p = summon.Passive;
+            if (p == null || p.ThornsBleed <= 0 || p.Thorns <= 0 || !_enemies[enemyIndex].Alive) return;
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
+            {
+                Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
+                Magnitude = p.ThornsBleed, TurnsLeft = BleedDefaultTurns, SourceId = summon.SourceChar,
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Summon(slot));
+        }
+
+        /// <summary>良弓(Q10):DamageSummon 末段(格挡反击之后),对攻击者造成 min(SummonDefense × N%, 剩余预算),
+        /// 心属性、无视护甲、不算挥击。打空 / 免疫挡下在更早处 return,吞噬不走 DamageSummon —— 都不触发。</summary>
+        private void ReturnFire(int enemyIndex, int slot, SummonState summon, int budget)
+        {
+            int percent = summon.Passive?.ReturnFire ?? 0;
+            if (percent <= 0 || budget <= 0 || !_enemies[enemyIndex].Alive) return;
+            int dealt = Math.Min((int)((long)SummonDefense(summon) * percent / 100), budget);
+            if (dealt > 0)
+                DamageEnemy(enemyIndex, dealt, Element.Heart, bypassDefense: true, allowBarb: false,
+                    source: EffectSource.ReturnFire, attackerRef: UnitRef.Summon(slot));
+        }
+
+        // ---- M5 守护(Task 3)----
+
+        /// <summary>带守护(本命 Guard &gt; 0)的存活木灵里槽位最小的一只;没有 −1(Q9)。</summary>
+        private int GuardSlot()
+        {
+            for (int s = 0; s < _summons.Length; s++)
+            {
+                var w = _summons[s];
+                if (w != null && w.Alive && w.Passive != null && w.Passive.Guard > 0) return s;
+            }
+            return -1;
+        }
+
+        /// <summary>守护(Q9):把 <paramref name="damage"/>(玩家这一击过完护甲 / 格挡 / 减伤 / HitCap 之后)× Guard% 转给 <paramref name="slot"/>
+        /// 的木灵:先扣它的护盾、再扣血(LoseSummonHp,保命照常),不再过护甲 / 生克,不算挥击(不发 SummonHit、不触发它的荆棘 / 良弓)。
+        /// 返回转移量(0 ≤ 转移 ≤ damage)。致死由调用方在这一击收尾时走 OnSummonDeath。</summary>
+        private int TransferToGuard(int enemyIndex, int slot, int damage)
+        {
+            var guard = _summons[slot];
+            int transfer = damage * Math.Clamp(guard.Passive.Guard, 0, 100) / 100;
+            if (transfer <= 0) return 0;
+            int hpBefore = guard.Hp;
+            int absorbed = Math.Min(guard.Shield, transfer);
+            guard.Shield -= absorbed;
+            LoseSummonHp(guard, transfer - absorbed);
+            _events.Add(new BattleEvent(BattleEventKind.GuardTransfer, enemyIndex, transfer, slot, absorbed));
+            CheckThreshold(UnitRef.Summon(slot), hpBefore, guard.Hp, guard.MaxHp);
+            return transfer;
+        }
+
+        // ---- M6 荆刺(Task 3)----
+
+        /// <summary>荆刺(Q11):给敌人挂 ThornMark(Debuff,Magnitude = 反伤 %,TurnsLeft = 该敌人行动次数,SourceId = 字 ID 同源刷新)。</summary>
+        private void ApplyThornMark(int enemyIndex, EffectDef effect, string sourceId)
+        {
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
+            {
+                Kind = StatusKind.ThornMark, Polarity = StatusPolarity.Debuff,
+                Magnitude = Math.Clamp(effect.Value, 0, 100), TurnsLeft = Math.Max(1, effect.Turns),
+                SourceId = sourceId, TraitKey = effect.TraitKey,
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
+        }
+
+        /// <summary>攻击者身上的荆刺 %(并入玩家侧与召唤侧两条反弹管线的 Reflect 合计,随后各自钳 60%);没有 = 0。</summary>
+        private int ThornMarkOf(int enemyIndex) =>
+            enemyIndex >= 0 && enemyIndex < _enemies.Count ? _enemies[enemyIndex].Statuses.TotalMagnitude(StatusKind.ThornMark) : 0;
 
         // ---- M1 木灵光环(Task 2):玩家袋 SummonEmpower / SummonThorns / SummonRanged,按玩家回合计(Q7) ----
         // TargetSlot −1 = 全部木灵(含之后召出的);≥0 = 那一只。同一只取最强(Q6)。读点都以袋里 Has 一次判断短路。

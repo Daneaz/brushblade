@@ -22,6 +22,9 @@ namespace Brushblade.Core
             public readonly IReadOnlyList<EffectDef> Effects;
             public readonly int TargetIndex;   // 敌人下标;-1 = 不选敌
             public readonly int Depth;         // 入队时的 TriggerDepth + 1
+            /// <summary>非空 = 引擎内部结算(D2-木 M3 落木 / 藻荇):排空时以 TriggerDepth = Depth 直接调用,不经 ApplyEffects ——
+            /// 这类兑现的量在入队时已定死(阵亡时的有效攻击),不该再吃卡等级 / 攻击力 / 暴击 / Amplify。为空走效果表(原路径)。</summary>
+            public readonly Action Run;
 
             public Reaction(string sourceCharId, Element element, IReadOnlyList<EffectDef> effects, int targetIndex, int depth)
             {
@@ -30,6 +33,17 @@ namespace Brushblade.Core
                 Effects = effects;
                 TargetIndex = targetIndex;
                 Depth = depth;
+                Run = null;
+            }
+
+            public Reaction(Action run, int depth)
+            {
+                SourceCharId = null;
+                Element = Element.Heart;
+                Effects = Array.Empty<EffectDef>();
+                TargetIndex = -1;
+                Depth = depth;
+                Run = run;
             }
         }
 
@@ -346,8 +360,19 @@ namespace Brushblade.Core
                 resolved++;
                 // ApplyDetachedEffects 自己会 +1,这里先摆到 Depth − 1,结算期间深度 = r.Depth
                 int outerDepth = TriggerDepth;
-                TriggerDepth = r.Depth - 1;
-                try { ApplyDetachedEffects(r.SourceCharId, r.Element, r.Effects, r.TargetIndex); }
+                try
+                {
+                    if (r.Run != null)
+                    {
+                        TriggerDepth = r.Depth;   // 内部结算(D2-木 M3):不经 ApplyDetachedEffects,直接摆到 Depth
+                        r.Run();
+                    }
+                    else
+                    {
+                        TriggerDepth = r.Depth - 1;
+                        ApplyDetachedEffects(r.SourceCharId, r.Element, r.Effects, r.TargetIndex);
+                    }
+                }
                 finally { TriggerDepth = outerDepth; }
             }
         }

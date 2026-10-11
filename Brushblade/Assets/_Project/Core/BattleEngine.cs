@@ -346,6 +346,11 @@ namespace Brushblade.Core
                        // 顶到上限实际没涨时不发。
         Graft,         // 嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满并换本命,不召新木灵
                        // (SecondIndex = 被嫁接的召唤物槽位,与 Summon 事件同口径;TargetIndex = −1)。
+        // ---- D2-木 Task 3(⚠ 只在末尾追加)----
+        GuardTransfer, // 守护(M5,Q9):玩家这一击的一部分转给带守护的木灵(TargetIndex = 攻击者敌人下标,Amount = 转移量,
+                       // SecondIndex = 承担的木灵槽位,Absorbed = 其中被木灵护盾吃掉的部分)。不算挥击,不发 SummonHit
+                       // (那条会驱动第二次攻击者冲刺动效,且受击类钩子据此触发);表现层归 Plan D2-木 Task 5(W5)。
+        PartGranted,   // 秋实(M3):木灵阵亡,部件池 +「木」(TargetIndex = 阵亡木灵槽位,Amount = 入池个数 1);满池不入不发。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -2007,6 +2012,7 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
                     || effect.Kind == EffectKind.Weaken
                     || effect.Kind == EffectKind.Seed || effect.Kind == EffectKind.Vulnerable
+                    || effect.Kind == EffectKind.ThornMark   // 荆刺(D2-木 M6):主目标挂在选中的敌人身上
                     // 群刺(D1 Task 7):木灵打的是玩家选定的那个敌人
                     || effect.Kind == EffectKind.SummonStrike
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
@@ -3996,6 +4002,10 @@ namespace Brushblade.Core
                     case EffectKind.SummonRanged:   // 箭灵(Q1):本场,全部木灵(含之后召出的)
                         ApplySummonAura(StatusKind.SummonRanged, 1, 0, def.Id, -1);
                         break;
+                    case EffectKind.ThornMark:   // 荆刺(D2-木 M6,Q11):Value 离散(反伤 %),turns = 该敌人行动次数;同源刷新
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyThornMark(ti, effect, def.Id);
+                        break;
                     // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):Value 离散,读 effect.Value
                     case EffectKind.HurtHeal:
                         ApplyHurtHeal(effect, def.Id);
@@ -4600,6 +4610,9 @@ namespace Brushblade.Core
                     MetaRules.ScaleByCardLevel(scaled.OnHitCharmChance, cardLevel));
             if (scaled.Armor > 0)
                 scaled.Armor = MetaRules.ScaleByCardLevel(scaled.Armor, cardLevel);
+            // D2-木 M4 披荆:流血量吃等级(附录 §3 同步清单);其余木本命百分比是节奏量,不吃
+            if (scaled.ThornsBleed > 0)
+                scaled.ThornsBleed = MetaRules.ScaleByCardLevel(scaled.ThornsBleed, cardLevel);
             return scaled;
         }
 
@@ -5902,18 +5915,24 @@ namespace Brushblade.Core
                 if (block.Magnitude <= 0) _playerStatuses.RemoveEntry(block);
             }
 
-            int fromNormal = Math.Min(_shieldNormal, damage);
+            // 守护(D2-木 M5,Q9):减伤 / HitCap 之后、护盾之前,把这一击的 N% 转给带守护的木灵(只认挥击)。
+            // landed = 玩家实际承受的量(护盾 / 血 / EnemyAttack / 栉风沐雨 / 堡垒);镜 / 格挡反击 / 反震 / 碎玉的预算仍以 damage(转移前)为基数。
+            // 没有守护木灵时 guardSlot = −1、landed == damage —— 恒等
+            int guardSlot = allowReflect ? GuardSlot() : -1;
+            int landed = guardSlot >= 0 ? damage - TransferToGuard(enemyIndex, guardSlot, damage) : damage;
+
+            int fromNormal = Math.Min(_shieldNormal, landed);
             _shieldNormal -= fromNormal;
-            int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
+            int fromPersist = Math.Min(_shieldPersist, landed - fromNormal);
             _shieldPersist -= fromPersist;
             int absorbed = fromNormal + fromPersist;
-            PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
-            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+            PlayerHp = Math.Max(0, PlayerHp - (landed - absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, landed, -1, absorbed));
 
             // 立即判负(Task 12,spec §4.3.1):归零即当场收口,不推迟到下一次 BeginPlayerTurn ——
             // 逐格驱动下,推迟意味着已经死了还要陪剩下的怪把动画读完才弹结算。
             if (PlayerHp <= 0) Phase = BattlePhase.Lost;
-            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), damage, source: source, absorbed: absorbed);
+            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), landed, source: source, absorbed: absorbed);
             CheckThreshold(UnitRef.Player, hpBefore, PlayerHp, _config.PlayerMaxHp);
 
             // 反弹(2026-08-07,镜):按**打过来的总伤害**照回去,不是按实际掉血 ——
@@ -5922,8 +5941,9 @@ namespace Brushblade.Core
             // 命中判定打空与免疫完全挡下都在方法更早处 return 了,走不到这里 —— 没吃到就没得反。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」。
             // 总量钳 60%(2026-09-05,任务 6):见 CombatCaps.ReflectPercent 注释。
+            // 荆刺(D2-木 M6,Q11):攻击者身上的标记并入同一份合计后再钳;没有标记 = 0
             int reflect = allowReflect
-                ? Math.Min(CombatCaps.ReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect))
+                ? Math.Min(CombatCaps.ReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect) + ThornMarkOf(enemyIndex))
                 : 0;
             int bounced = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
@@ -5963,8 +5983,11 @@ namespace Brushblade.Core
                 EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
                 DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
             }
-            TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
-            TriggerHurtShield(damage, allowReflect);   // 堡垒(D2-土 G3):同上
+            TriggerHurtHeal(landed, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回(守护:按玩家实际承受)
+            TriggerHurtShield(landed, allowReflect);   // 堡垒(D2-土 G3):同上
+            // 守护转移致死(Q15):排在这一击全部反应之后,与 DamageSummon 挨打死亡同序;玩家已阵亡则战斗已分胜负,不再结算
+            if (guardSlot >= 0 && !_summons[guardSlot].Alive && Phase != BattlePhase.Lost)
+                OnSummonDeath(guardSlot, UnitRef.Enemy(enemyIndex));
             return true;
         }
 
@@ -6096,10 +6119,13 @@ namespace Brushblade.Core
                 int bounced = taken * thornsEffective / 100;
                 thornsDealt = bounced;
                 if (bounced > 0)
+                {
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
                         allowBarb: false,      // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
                         source: EffectSource.Thorns, attackerRef: UnitRef.Summon(summonIndex));
+                    ThornsBleed(enemyIndex, summonIndex, summon);   // 披荆(D2-木 M4,Q12):只认本命荆棘;没有字段时一次判断即返回
+                }
             }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
@@ -6126,7 +6152,9 @@ namespace Brushblade.Core
             int reflectBudget = CombatCaps.ReflectPercent - thornsEffective;
             int reflect = Math.Min(reflectBudget,
                 _playerStatuses.TotalMagnitude(StatusKind.Reflect)
-                + summon.Statuses.TotalMagnitude(StatusKind.Reflect));
+                + summon.Statuses.TotalMagnitude(StatusKind.Reflect)
+                + ThornMarkOf(enemyIndex));   // 荆刺(D2-木 M6,Q11):攻击者身上的标记并入,同钳;没有标记 = 0
+
             int reflectDealt = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
@@ -6142,8 +6170,11 @@ namespace Brushblade.Core
             }
             // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
             // 结算与玩家侧共用 ResolveCounter(D2-金 J1)
-            ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
+            int counterDealt = ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
                 taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
+            // 良弓(D2-木 M4,Q10):60% 预算的最后一段,荆棘 → 反弹 → 格挡反击 → 良弓;没有字段时一次判断即返回
+            ReturnFire(enemyIndex, summonIndex, summon,
+                taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。
