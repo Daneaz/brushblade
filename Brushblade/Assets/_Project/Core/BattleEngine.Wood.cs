@@ -7,7 +7,9 @@ namespace Brushblade.Core
     /// <summary>木系专属机制(Plan D2-木)。Task 1 = 共用小扩展里需要读木灵编队的那几项:E40 按木灵攻击 / 护甲加伤、
     /// E41 幼苗取本体、E46 柘弓只让本字最强木灵出手、E50 条件 OwnSummonAlive。Task 2 = 光环族:M1 玩家袋光环、
     /// M2 本命在场光环(林荫 / 森严 / 蟾宫)、馥郁读点。Task 3 = 受击 / 阵亡 / 守护 / 标记:M3 秋实 / 落木 / 藻荇、
-    /// M4 披荆 / 良弓、M5 守护、M6 荆刺。挂点处只留一行调用,实现放这里。
+    /// M4 披荆 / 良弓、M5 守护、M6 荆刺。Task 4 = 木灵编队与敌人侧:M7 攀附(Bind)、M8 绿潮(小藻并入)、
+    /// M9 四木成林(全体木灵立即出手)、M10 折桂(击杀时字库 +N,满库退次)、M11 水草(出字治疗镜像给藻灵)。
+    /// 挂点处只留一行调用,实现放这里。
     ///
     /// 「本字木灵」(Q2)= SourceChar == 本字 且 Char != 苗 的存活木灵;嫁接不改变身份。
     /// 恒等:各项只在对应字段 / 条件非缺省时才走到,一律不摇随机数。</summary>
@@ -132,7 +134,7 @@ namespace Brushblade.Core
         // ---- M10 折桂(Task 4)----
 
         /// <summary>折桂(Q16):本场字库 +Value 张。候选 = 玩家已拥有(UnlockedChars)的非部件字里档位最高的一档,
-        /// 没有记录时退回全字表非部件的最高档;按 ID 排序后用 _traitRandom 抽。满库不入,且一张都没入时退还 E49 在入队时记下的
+        /// 没有记录时退回全字表非部件、有配方(!IsLeaf,与奖励池口径一致)的最高档;按 ID 排序后用 _traitRandom 抽。满库不入,且一张都没入时退还 E49 在入队时记下的
         /// 那一次场次(「满库不入、不计次」)。入库的字随字库延续到之后的战斗。</summary>
         private void GrantTraitChars(EffectDef effect)
         {
@@ -156,7 +158,7 @@ namespace Brushblade.Core
             if (_config.UnlockedChars != null)
                 foreach (var id in _config.UnlockedChars)
                     if (_graph.TryGet(id, out var d) && !d.IsComponent) owned.Add(d);
-            IReadOnlyCollection<CharDef> source = owned.Count > 0 ? owned : _graph.All.Where(d => !d.IsComponent).ToList();
+            IReadOnlyCollection<CharDef> source = owned.Count > 0 ? owned : _graph.All.Where(d => !d.IsComponent && !d.IsLeaf).ToList();
             if (source.Count == 0) return new List<string>();
             var top = source.Max(d => d.Rarity);
             return source.Where(d => d.Rarity == top).Select(d => d.Id).Distinct()
@@ -168,7 +170,7 @@ namespace Brushblade.Core
         private void RefundBattleUse(string traitKey)
         {
             if (traitKey == null) return;
-            string key = "场次:" + traitKey;   // 同 BattleUseKey
+            string key = BattleUseKey(traitKey);
             if (_traitUsesThisBattle.TryGetValue(key, out int battle) && battle > 0) _traitUsesThisBattle[key] = battle - 1;
             if (_traitUsesThisTurn.TryGetValue(key, out int turn) && turn > 0) _traitUsesThisTurn[key] = turn - 1;
         }

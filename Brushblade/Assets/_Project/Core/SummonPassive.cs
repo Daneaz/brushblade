@@ -143,7 +143,7 @@ namespace Brushblade.Core
         public int OnHitCharmChance { get; set; }
 
         // ---- D2-木 Task 1:本命新字段(预留,Ruling 17;缺省 0 / false = 无;结算归 Task 2–4,附录 M2–M5 / M11 / E37)----
-        // 写法统一是 `Summon 1`(0 血/攻 0) + 字段 token,由 TraitRules.Fold 的本命追加(E37)并进本体召唤。
+        // 写法统一是 `Summon 0`(value 0 = 0 血/攻 0,count 1)+ 字段 token,由 TraitRules.Fold 的本命追加(E37,只认 value == 0)并进本体召唤。
 
         /// <summary>参天之力:有效攻击 + 基础攻击 × N%(与成林、M1 光环同在加法段;SummonState.TraitAttackBonus 读)。</summary>
         public int AttackPercent { get; set; }

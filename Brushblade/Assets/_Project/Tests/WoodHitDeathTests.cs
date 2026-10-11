@@ -605,5 +605,54 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SpeedModifier), Is.True, "母体死活不论(附录 §2 藻荇)");
         }
+
+        // ---- 终审 Minor 2:跨场携带落位回落换槽时,小藻的母体记号跟着重映射 ----
+
+        [Test]
+        public void CarriedParentRelocated_SproutDeathSlowReadsRelocatedParent()
+        {
+            // 只开 0–2 号:记在 4 号的木灵先回落进 0 号 → 母体(记 0)回落到 2 号;小藻记的 0 要改成 2,
+            // 否则藻荇读到的是 0 号那只(无本命)
+            var b = Battle(Array.Empty<CharDef>(), new[]
+            {
+                W(4),
+                W(1, hp: 10, passive: new SummonPassive { Taunt = true }, source: "藻", ch: "苗", sproutParent: 0),
+                W(0, passive: new SummonPassive { SproutDeathSlow = 1 }, source: "藻", ch: "藻"),
+            }, new[] { Melee(1000) }, config: Config(slots: 0b111));
+            Assert.That(b.Summons[2].Char, Is.EqualTo("藻"), "夹具前提:母体回落到 2 号");
+            Assert.That(b.Summons[1].SproutParentSlot, Is.EqualTo(2), "母体记号随换槽重映射");
+            b.EndTurn();
+            Assert.That(b.Summons[1].Alive, Is.False, "夹具前提:小藻被打死");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.SpeedModifier), Is.True, "藻荇读到真正的母体");
+        }
+
+        [Test]
+        public void CarriedParentRelocated_SproutCountFollowsParent()
+        {
+            // 只开 0–4 号:记在 5 号的木灵先回落进 0 号 → 母体(记 0)回落到 3 号;名下 2 只小藻已满 SproutMax 2:
+            // 那一拍不再分裂(4 号保持空)
+            var b = Battle(Array.Empty<CharDef>(), new[]
+            {
+                W(5),
+                W(1, source: "藻", ch: "苗", sproutParent: 0),
+                W(2, source: "藻", ch: "苗", sproutParent: 0),
+                W(0, passive: new SummonPassive { SproutPercent = 50, SproutMax = 2 }, source: "藻", ch: "藻"),
+            }, new[] { Dummy() }, config: Config(slots: 0b11111));
+            Assert.That(b.Summons[3].Char, Is.EqualTo("藻"), "夹具前提:母体回落到 3 号");
+            Assert.That((b.Summons[1].SproutParentSlot, b.Summons[2].SproutParentSlot), Is.EqualTo((3, 3)));
+            b.EndTurn();
+            Assert.That(b.Summons[4], Is.Null, "名下计数正确:已满不再分裂");
+        }
+
+        [Test]
+        public void CarriedSprout_ParentNotCarried_MarkCleared()
+        {
+            var b = Battle(Array.Empty<CharDef>(), new[]
+            {
+                W(0),
+                W(1, source: "藻", ch: "苗", sproutParent: 5),
+            }, new[] { Dummy() });
+            Assert.That(b.Summons[1].SproutParentSlot, Is.EqualTo(-1), "母体没被携带 → −1");
+        }
     }
 }

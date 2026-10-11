@@ -73,7 +73,10 @@ namespace Brushblade.Core
         internal static string TraitKey(string charId, TraitSlot slot, TraitFace face) => $"{charId}/{(int)slot}/{face}";
 
         /// <summary>特性级每场次数的键(D2-土 E35):「场次:字/槽/面」,与其余次数阀的键不撞。</summary>
-        internal static string BattleUseKey(CharDef def, TraitDef t) => "场次:" + TraitKey(def.Id, t.Slot, t.Face);
+        internal static string BattleUseKey(CharDef def, TraitDef t) => BattleUseKey(TraitKey(def.Id, t.Slot, t.Face));
+
+        /// <summary>同上,按已拼好的特性键(<see cref="TraitKey"/>)取;折桂退次(RefundBattleUse)与记次共用这一个拼法。</summary>
+        internal static string BattleUseKey(string traitKey) => "场次:" + traitKey;
 
         /// <summary>这条限次特性本场已生效几次(只读)。</summary>
         private int BattleUsesOf(CharDef def, TraitDef t) =>
@@ -333,16 +336,34 @@ namespace Brushblade.Core
 
         internal int PendingReactionCount => _reactions.Count;
 
-        /// <summary>入队。战斗已分胜负时丢弃。</summary>
+        /// <summary>入队。战斗已分胜负时丢弃 —— 带 GrantChar(折桂)的除外:它产出跨场的字库资源,排空时照常兑现(终审 Important 1)。</summary>
         internal void Enqueue(in Reaction reaction)
         {
-            if (Phase == BattlePhase.Won || Phase == BattlePhase.Lost) return;
+            if ((Phase == BattlePhase.Won || Phase == BattlePhase.Lost) && !GrantsChar(reaction)) return;
             _reactions.Enqueue(reaction);
+        }
+
+        private static bool GrantsChar(in Reaction reaction)
+        {
+            foreach (var e in reaction.Effects)
+                if (e.Kind == EffectKind.GrantChar) return true;
+            return false;
+        }
+
+        /// <summary>胜负已分时的排空:伤害等反应一律丢弃,只兑现其中的 GrantChar(字库跨场;battleLimit 计次与满库退次照常,
+        /// 见 <see cref="GrantTraitChars"/>)。打死最后一名敌人的那一击(DamageEnemy 当场 CheckWin)就走这里。</summary>
+        private void SettleGrantsOnDecided()
+        {
+            var pending = _reactions.ToArray();
+            _reactions.Clear();
+            foreach (var r in pending)
+                foreach (var e in r.Effects)
+                    if (e.Kind == EffectKind.GrantChar) GrantTraitChars(e);
         }
 
         /// <summary>FIFO 排空;每条走 ApplyDetachedEffects(深度 = reaction.Depth)。
         /// 单次排空超过 <see cref="MaxReactionsPerDrain"/> 抛 InvalidOperationException(死循环保险)。
-        /// Phase 为 Won/Lost 时清空队列直接返回。</summary>
+        /// Phase 为 Won/Lost 时清空队列直接返回(其中的 GrantChar 先兑现,见 <see cref="SettleGrantsOnDecided"/>)。</summary>
         internal void DrainReactions()
         {
             int resolved = 0;
@@ -350,7 +371,7 @@ namespace Brushblade.Core
             {
                 if (Phase == BattlePhase.Won || Phase == BattlePhase.Lost)
                 {
-                    _reactions.Clear();
+                    SettleGrantsOnDecided();
                     return;
                 }
                 if (resolved >= MaxReactionsPerDrain)

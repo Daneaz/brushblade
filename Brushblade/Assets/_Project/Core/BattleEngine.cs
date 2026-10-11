@@ -1183,8 +1183,13 @@ namespace Brushblade.Core
             // 携带态来源受控,这条只是防越界,不是会触发的分支。
             if (startingSummons != null)
             {
+                var placedAt = new Dictionary<int, int>();   // 记下的槽 → 实际落位(小藻母体记号重映射用)
                 foreach (var summon in startingSummons)
-                    PlaceCarried(SummonState.Restore(summon), summon.Slot);
+                {
+                    int placed = PlaceCarried(SummonState.Restore(summon), summon.Slot);
+                    if (placed >= 0) placedAt.TryAdd(summon.Slot, placed);
+                }
+                RemapCarriedSproutParents(placedAt);
                 // 跨战斗携带的召唤物落位后要重算光环(2026-09-05):PlaceCarried 只管落位,
                 // AuraAttackBonus 缺省 0、不会自己补上 —— 否则带着 AuraAttack 被动跨场进来的
                 // 召唤物,新战斗开局那几拍会静默吃不到光环,直到本场再触发一次召唤/死亡才纠正。
@@ -5463,13 +5468,24 @@ namespace Brushblade.Core
             return -1;
         }
 
-        /// <summary>把携带/读档来的召唤物放回它记下的槽位;槽位非法或已被占则回落到最小空槽。</summary>
-        private void PlaceCarried(SummonState summon, int slot)
+        /// <summary>把携带/读档来的召唤物放回它记下的槽位;槽位非法或已被占则回落到最小空槽。返回实际落位(没落下 −1)。</summary>
+        private int PlaceCarried(SummonState summon, int slot)
         {
             if (!IsSlotOpen(slot) || _summons[slot] != null)
                 slot = NextEmptySlot();
-            if (slot < 0) return; // 全满:携带态来源受上限约束,走不到这;留作越界兜底
+            if (slot < 0) return -1; // 全满:携带态来源受上限约束,走不到这;留作越界兜底
             _summons[slot] = summon;
+            return slot;
+        }
+
+        /// <summary>跨场携带落位后,小藻的母体记号(SproutParentSlot)按母体的实际落位重映射;母体没被携带的置 −1
+        /// (终审 Minor 2:回落换槽时旧下标会指到别的木灵上,藻荇读错母体、丛生名下计数归零)。
+        /// <paramref name="placedAt"/> = 携带时记下的槽 → 实际落位(携带态的记下槽互不相同)。</summary>
+        private void RemapCarriedSproutParents(IReadOnlyDictionary<int, int> placedAt)
+        {
+            foreach (var s in _summons)
+                if (s != null && s.SproutParentSlot >= 0)
+                    s.SproutParentSlot = placedAt.TryGetValue(s.SproutParentSlot, out int to) ? to : -1;
         }
 
         /// <summary>条件基础值:目标带指定状态时翻倍(10.3.1;2026-08-25 泛化成

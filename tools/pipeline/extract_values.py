@@ -316,6 +316,8 @@ ALLY_PICKS = {"Self": {"Cleanse", "Taunt", "CritBuff"}, "SummonedThisCast": {"En
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
 # 必须写 pick 的我方侧效果(Primary 写法没有落点,ConfigLoader 会拒):合法 pick 一律由 ALLY_PICKS 推导,不另抄一份
 REQUIRED_ALLY_PICK_KINDS = {"Taunt", "SummonEmpower"}
+# 必须写敌方侧 pick 的效果(同上,ConfigLoader 经 EffectPickRules.Allows(Primary) 拒绝缺省写法):攀附(D2-木 M7)
+REQUIRED_ENEMY_PICK_KINDS = {"Bind"}
 
 
 def _ally_picks_of(kind):
@@ -1049,6 +1051,8 @@ def _attach_ally_tokens(config, char, effects, consumed):
         if e["kind"] in REQUIRED_ALLY_PICK_KINDS and e.get("pick") not in _ally_picks_of(e["kind"]):
             raise ValueError(f"{char}:`{e['kind']}` 必须配 "
                              + " / ".join(f"`pick {p}`" for p in _ally_picks_of(e["kind"])))
+        if e["kind"] in REQUIRED_ENEMY_PICK_KINDS and e.get("pick") not in ENEMY_PICKS:
+            raise ValueError(f"{char}:`{e['kind']}` 必须配敌方侧 `pick`({sorted(ENEMY_PICKS)})")
         if "onlyIf" in e and e["kind"] in ALLY_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 

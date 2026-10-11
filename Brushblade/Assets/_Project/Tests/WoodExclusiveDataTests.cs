@@ -532,6 +532,19 @@ namespace Brushblade.Core.Tests
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.CharGranted), Is.False, "每场 1 次");
         }
 
+        [Test]
+        public void ZheGui_FinalBlowOnSingleEnemy_StillGrants()
+        {
+            // 终审探针 P2:单敌战的最后一击(当场判胜)也入库 —— 字库跨场
+            var b = Battle("桂", 5, new[] { Dummy(10) }, copies: 4, config: Config(unlocked: new[] { "花", "藤", "森" }));
+            int lib = b.Library.Count;
+            Cast(b, "桂", 0, attack: true);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won), "前提:清场");
+            Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.CharGranted), Is.EqualTo(1));
+            Assert.That(b.Library.Count, Is.EqualTo(lib), "出掉 1 张、入 1 张(净 +1 相对修复前)");
+            Assert.That(b.Library.Contains("森"), Is.True);
+        }
+
         // ================= 11 林立:本体 1 只 100% → 2 只各 60%;全部木灵 3 回合攻击 +20% =================
 
         [Test]

@@ -313,8 +313,8 @@ namespace Brushblade.Core.Tests
             rarity: CardRarity.Gold);
         private static readonly CharDef GoldB = new("金乙", Element.Metal, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }, isComponent: false,
             rarity: CardRarity.Gold);
-        private static readonly CharDef Red = new("赤", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }, isComponent: false,
-            rarity: CardRarity.Red);
+        private static readonly CharDef Red = new("赤", Element.Fire, recipe: new[] { "甲" },
+            effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }, isComponent: false, rarity: CardRarity.Red);
 
         private static BattleEngine LaurelBattle(BattleConfig config, int copies = 3, int perBattle = 1, params EnemyDef[] enemies)
         {
@@ -347,6 +347,22 @@ namespace Brushblade.Core.Tests
             var b = LaurelBattle(Config());
             b.Cast("桂", 0, attackMode: true);
             Assert.That(Granted(b), Is.EqualTo(new[] { "赤" }), "全字表非部件里的最高档");
+        }
+
+        [Test]
+        public void M10_GrantChar_Fallback_SkipsLeafChars_LikeRewardPool()
+        {
+            // 没有拥有记录时退回全字表:没配方的字(IsLeaf,奖励池拿不到)不进候选,哪怕它档位最高
+            var laurel = Laurel();
+            var leafTop = new CharDef("赭", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) },
+                isComponent: false, rarity: CardRarity.Red);
+            var crafted = new CharDef("赫", Element.Fire, recipe: new[] { "甲" },
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }, isComponent: false, rarity: CardRarity.Orange);
+            var b = new BattleEngine(RebalanceFixture.Graph(laurel, leafTop, crafted), Config(),
+                Enumerable.Repeat("桂", 3).ToArray(), Array.Empty<string>(), new[] { Foe(10), Foe() }, seed: 5,
+                cardLevels: new Dictionary<string, int> { ["桂"] = 5 });
+            b.Cast("桂", 0, attackMode: true);
+            Assert.That(Granted(b), Is.EqualTo(new[] { "赫" }), "只在有配方的字里取最高档");
         }
 
         [Test]
@@ -393,6 +409,76 @@ namespace Brushblade.Core.Tests
             restored.Cast("桂", 1, attackMode: true);
             Assert.That(restored.Enemies[1].Alive, Is.False);
             Assert.That(Granted(restored), Is.EqualTo(new[] { "金甲" }), "读档后次数仍在:不再入");
+        }
+
+        // ---- 终审 Important 1:折桂打死最后一名敌人时也入库(字库跨场;伤害类反应照旧随胜负丢弃)----
+
+        [Test]
+        public void M10_GrantChar_FinalBlow_SingleEnemy_StillGrants()
+        {
+            var b = LaurelBattle(Config(owned: new[] { "金甲" }), copies: 3, perBattle: 1, Foe(10));
+            Assert.That(b.Cast("桂", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won), "夹具前提:这一击清场");
+            Assert.That(Granted(b), Is.EqualTo(new[] { "金甲" }), "单敌战的最后一击照常入库");
+            Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.CharGranted), Is.EqualTo(1));
+            Assert.That(b.Capture().TraitUsesThisBattle["场次:桂/5/Attack"], Is.EqualTo(1), "照常计次");
+        }
+
+        [Test]
+        public void M10_GrantChar_FinalBlow_Boss_StillGrants()
+        {
+            var boss = new EnemyDef("噬", Element.Heart, 10, 0,
+                phases: new[] { new BossPhaseDef("甲", Element.Heart, 10, 0) });
+            var b = LaurelBattle(Config(owned: new[] { "金甲" }), copies: 3, perBattle: 1, boss);
+            Assert.That(b.Enemies[0].IsBoss, Is.True, "夹具前提:Boss");
+            b.Cast("桂", 0, attackMode: true);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+            Assert.That(Granted(b), Is.EqualTo(new[] { "金甲" }), "Boss 战的最后一击照常入库");
+        }
+
+        [Test]
+        public void M10_GrantChar_FinalBlow_MultiEnemy_ClosingKillStillGrants()
+        {
+            // 每场 2 次:第一张先杀 0 号(1 张),第二张收尾杀 1 号(清场)仍入第 2 张
+            var b = LaurelBattle(Config(owned: new[] { "金甲" }), copies: 3, perBattle: 2, Foe(10), Foe(100000));
+            b.Cast("桂", 0, attackMode: true);
+            Assert.That(Granted(b).Count, Is.EqualTo(1), "夹具前提:非最后一击已入一张");
+            b.Enemies[1].Hp = 5;
+            b.Cast("桂", 1, attackMode: true);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+            Assert.That(Granted(b), Is.EqualTo(new[] { "金甲", "金甲" }), "多敌战收尾一击照常入库");
+        }
+
+        [Test]
+        public void M10_GrantChar_FinalBlow_LibraryFull_NotAdded_UseRefunded()
+        {
+            // 字库上限 2、起手 3 张:出一张剩 2 = 满库 → 清场一击也不入、退次(满库口径与非终局一致)
+            var b = LaurelBattle(Config(library: 2, owned: new[] { "金甲" }), copies: 3, perBattle: 1, Foe(10));
+            b.Cast("桂", 0, attackMode: true);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+            Assert.That(Granted(b), Is.Empty, "满库不入");
+            Assert.That(b.Capture().TraitUsesThisBattle.TryGetValue("场次:桂/5/Attack", out int used) ? used : 0, Is.EqualTo(0),
+                "退次");
+        }
+
+        [Test]
+        public void M10_FinalBlow_DamageReactionsStillDropped()
+        {
+            // 同一击挂一条伤害类击杀时(OverkillSplash 之类不必要,直接用 DamageSingle):胜负已分时伤害反应照旧丢弃,
+            // 只兑现 GrantChar。玩家不掉血、不出 Damage 事件之外的额外伤害事件,且队列清空(Capture 不抛)。
+            var laurel = WoodCard("桂", new[] { Body(ch: "桂") },
+                new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) },
+                new[] { new TraitDef(TraitSlot.Lv5, TraitFace.Attack, TraitForm.Passive, null, "折桂",
+                    new[] { new EffectDef(EffectKind.GrantChar, 1), new EffectDef(EffectKind.HealSelf, 50) },
+                    trigger: TraitTrigger.OnKill, maxPerBattle: 1) });
+            var b = new BattleEngine(RebalanceFixture.Graph(laurel, GoldA), Config(owned: new[] { "金甲" }),
+                Enumerable.Repeat("桂", 3).ToArray(), Array.Empty<string>(), new[] { Foe(10) }, seed: 5,
+                startingHp: 1000, cardLevels: new Dictionary<string, int> { ["桂"] = 5 });
+            b.Cast("桂", 0, attackMode: true);
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+            Assert.That(Granted(b), Is.EqualTo(new[] { "金甲" }), "GrantChar 兑现");
+            Assert.That(b.PlayerHp, Is.EqualTo(1000), "同一条反应里的非 GrantChar 效果照旧丢弃");
+            Assert.DoesNotThrow(() => b.Capture(), "队列已清空");
         }
 
         // ================= M11 水草 HealMirror =================

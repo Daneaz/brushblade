@@ -614,6 +614,15 @@ def test_required_ally_picks_derive_from_ally_picks():
                            else f"`{kind} 2` + `pick {pick}`", "测")
 
 
+def test_bind_requires_enemy_pick():
+    """终审 Minor 4:攀附 `Bind N` 必须写敌方侧 pick(ConfigLoader 经 EffectPickRules.Allows(Primary) 拒绝缺省写法),
+    管线层就拦下,与 Taunt / SummonEmpower 对称。"""
+    assert _parse_effects("`Bind 100` + `pick HighestHp`", "藤") == [
+        {"kind": "Bind", "value": 100, "pick": "HighestHp"}]
+    with pytest.raises(ValueError, match="pick"):
+        _parse_effects("`Bind 100`", "藤")
+
+
 @pytest.mark.parametrize("config", [
     "`Taunt 1`",                               # 嘲讽必须写 pick
     "`Taunt 1` + `pick Random`",               # 嘲讽不认敌方侧选择器
