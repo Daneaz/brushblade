@@ -175,7 +175,14 @@ namespace Brushblade.Presentation
             if (p.Regen > 0) Old(Strings.T("summon.passive.regen", ("regen", p.Regen)));
             if (p.Dodge > 0) Old(Strings.T("summon.passive.dodge", ("dodge", p.Dodge)));
             if (p.Speed > 100) Old(Strings.T("summon.passive.haste", ("speed", p.Speed)));
-            // 没有图标的,按数据顺序(D2-0 Task 6 那批本命,再接 D2-木 的)
+            // 没有图标的:先 D2-木 的(Lv4–Lv8 特性追加,稿的柘灵例「守护 › 良弓 › 坚木」),再 D2-0 那批 Lv1 / Lv3 本命
+            Wood(CharInfo.NatureKey.AttackPercent, x => x.AttackPercent > 0);
+            Wood(CharInfo.NatureKey.HealAllyPercent, x => x.HealAllyPercent > 0);
+            Wood(CharInfo.NatureKey.HealMirror, x => x.HealMirror > 0);
+            Wood(CharInfo.NatureKey.ReturnFire, x => x.ReturnFire > 0);
+            Wood(CharInfo.NatureKey.DeathBlast, x => x.DeathBlast > 0);
+            Wood(CharInfo.NatureKey.SproutDeathSlow, x => x.SproutDeathSlow > 0);
+            Wood(CharInfo.NatureKey.DeathPart, x => x.DeathPart);
             if (p.HealAllyTimes > 1)
                 Named(x => x.HealAllyTimes > 1, Strings.T("char.passive.healallytimes", ("value", p.HealAllyTimes)));
             if (p.PerAllyAttackPercent > 0)
@@ -189,13 +196,6 @@ namespace Brushblade.Presentation
             if (p.OnHitCharmChance > 0)
                 Named(x => x.OnHitCharmChance > 0, Strings.T("char.passive.onhitcharm", ("chance", p.OnHitCharmChance)));
             if (p.Armor > 0) Named(x => x.Armor > 0, Strings.T("char.passive.armor", ("value", p.Armor)));
-            Wood(CharInfo.NatureKey.AttackPercent, x => x.AttackPercent > 0);
-            Wood(CharInfo.NatureKey.HealAllyPercent, x => x.HealAllyPercent > 0);
-            Wood(CharInfo.NatureKey.HealMirror, x => x.HealMirror > 0);
-            Wood(CharInfo.NatureKey.ReturnFire, x => x.ReturnFire > 0);
-            Wood(CharInfo.NatureKey.DeathBlast, x => x.DeathBlast > 0);
-            Wood(CharInfo.NatureKey.SproutDeathSlow, x => x.SproutDeathSlow > 0);
-            Wood(CharInfo.NatureKey.DeathPart, x => x.DeathPart);
 
             // 第一条 = 战场上那枚 chip(有图标才算):与战场同一个优先级函数,两处对得上
             string chipIcon = NatureChipIcon(p);
