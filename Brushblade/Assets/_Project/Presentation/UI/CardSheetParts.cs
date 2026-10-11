@@ -33,10 +33,12 @@ namespace Brushblade.Presentation
             public int Role, Landing;
             // 数值格(.stats / .sb)
             public float StatH = 65f, StatGap;
-            public int StatK, StatV = 31, StatUnit;
-            // 特性行(component/TraitRow)
-            public float RowPadV, RowPadH, RowHead = 29f, RowGap = 6f, BodyGap = 4f;
-            public int Name, Body;
+            public int StatK, StatV = 31, StatUnit, StatPadH;
+            // 特性行(component/TraitRow;战斗版按 CardSheetBattle 稿缩档)
+            public float RowPadV, RowPadH, RowHead, RowGap, BodyGap = 4f, LvTagH;
+            public int Name, Body, LvTagFont, KindFont;
+            /// <summary>特性行与数值格的圆角(铺满 7pt → 15,战斗 6pt → 12.6 取整 13)。</summary>
+            public int CellRadius;
             // 两面条
             public float SharedLabelW, SharedRowH;
             public int SharedLabelFont, SharedText;
@@ -46,8 +48,9 @@ namespace Brushblade.Presentation
                 Battle = false,
                 Pip = 40f, Bar = 10.5f, BarRadius = 5f, Mark = 15f, Mark2 = 12.6f, MarkGap = 3f, LadderVGap = 6f, LadderNum = 15f,
                 FacePadV = 17f, HeadH = 50f, Seal = Ui.FaceSealL, HeadGap = 15f, Role = 25, Landing = 19,
-                StatGap = 12.6f, StatK = 17, StatUnit = 18,
-                RowPadV = 8f, RowPadH = 17f, Name = 24, Body = 20,
+                StatGap = 12.6f, StatK = 17, StatUnit = 18, StatPadH = 15,
+                RowPadV = 8f, RowPadH = 17f, RowHead = 29f, RowGap = 6f, LvTagH = 25f, LvTagFont = 16, KindFont = 17,
+                Name = 24, Body = 20, CellRadius = 15,
                 SharedLabelW = 71f, SharedLabelFont = 21,
             };
 
@@ -56,8 +59,9 @@ namespace Brushblade.Presentation
                 Battle = true,
                 Pip = 36f, Bar = 8f, BarRadius = 4f, Mark = 12.6f, Mark2 = 10.5f, MarkGap = 2f, LadderVGap = 4f, LadderNum = 0f,
                 FacePadV = 15f, HeadH = 42f, Seal = Ui.FaceSealM, HeadGap = 12.6f, Role = 24, Landing = 18,
-                StatGap = 10.5f, StatK = 16, StatUnit = 17,
-                RowPadV = 6f, RowPadH = 15f, Name = 22, Body = 19,
+                StatGap = 10.5f, StatK = 16, StatUnit = 17, StatPadH = 13,
+                RowPadV = 6f, RowPadH = 15f, RowHead = 25f, RowGap = 8.4f, LvTagH = 23f, LvTagFont = 15, KindFont = 16,
+                Name = 22, Body = 19, CellRadius = 13,
                 SharedLabelW = 63f, SharedLabelFont = 20, SharedRowH = 46f, SharedText = 18,
             };
 
@@ -67,11 +71,8 @@ namespace Brushblade.Presentation
             public float LadderHeight => Mark + LadderVGap + Bar + (LadderNum > 0 ? LadderVGap + LadderNum : 0f);
         }
 
-        // 行头里几件小东西的尺寸,两版相同(component/TraitRow)
-        private const float LvTagH = 25f;
-        private const int LvTagFont = 16;
+        // 行头里几件小东西的尺寸,两版相同(component/TraitRow);Lv 标高 / 字号、类别字号随版走(Sizes)
         private const float LvTagPadX = 8f;
-        private const int KindFont = 17;
         private const int TailFont = 17;
         private const float TailIcon = 17f;
         private const float HeadItemGap = 10.5f;    // 行头各件之间 5pt
@@ -132,27 +133,8 @@ namespace Brushblade.Presentation
                 _ => Strings.T("charsheet.landing.summon"),
             };
             if (target == FaceTarget.Summon) return where;
-            var area = AreaFor(def, face, level) ?? TargetArea.Single;
+            var area = CardSheetRules.AreaOf(def, face, level) ?? TargetArea.Single;
             return Strings.T("charsheet.landing.line", ("target", where), ("area", CharInfo.ShapeLabel(area)));
-        }
-
-        /// <summary><see cref="CardSheetRules.AreaOf"/> 之上再扣一条:持续治疗(润泽)的 TargetAll 说的是「含召唤物」,
-        /// 不是「打全体」—— 只有它让面变成 All 时,范围按单体印(稿上冷 / 水五行面是「单体」)。</summary>
-        private static TargetArea? AreaFor(CharDef def, CardFace face, int level)
-        {
-            var area = CardSheetRules.AreaOf(def, face, level);
-            if (area != TargetArea.All) return area;
-            var cast = TraitRules.CastEffects(def, BattleEngine.FaceOf(def, face == CardFace.Attack), level);
-            foreach (var e in cast)
-            {
-                if (e.Kind == EffectKind.DamageSingle) return area;   // 有伤害时 All 来自伤害本身
-                if (e.Kind == EffectKind.HealOverTime) continue;
-                if (e.Kind == EffectKind.BurnAll || e.Kind == EffectKind.HealAll || e.Kind == EffectKind.ShieldAll
-                    || e.TargetAll || e.Shape == TargetArea.All
-                    || (EffectPickRules.Supports(e.Kind) && EffectPickRules.Effective(e) == EffectPick.All))
-                    return area;
-            }
-            return TargetArea.Single;
         }
 
         /// <summary>面名:攻击 / 五行面。</summary>
@@ -202,30 +184,34 @@ namespace Brushblade.Presentation
             _ => stat.Value.ToString(),
         };
 
-        /// <summary>Lv3 行的「本体差」(Q2):「灼 3→4 层；减攻 2→3 回合」。木五行面本命强化只改被动(差为空),
-        /// 这时退回那条特性的 <see cref="CharInfo.TraitEffectsText"/>。</summary>
+        /// <summary>Lv3 行的「本体差」(Q2):「灼 3→4 层；减攻 15→20%；减攻 2→3 回合」。木五行面本命强化只改被动(差为空),
+        /// 这时退回那条特性的 <see cref="CharInfo.TraitEffectsText"/>。
+        /// 口径:差里一律用**短标签**(减攻 / 护甲 / 灼…,不用数值格上的「目标攻击」),持续差按它跟的那一格起名
+        /// (<see cref="StatDelta.DurationOf"/>,一面有两组时各配各的);百分号紧贴数字,层 / 次 / 回合前空一格。</summary>
         private static string Lv3Text(CharDef def, CardFace face, TraitDef trait, int level)
         {
             var deltas = FaceStats.Lv3Change(def, face, level);
             if (deltas.Count == 0)
                 return CharInfo.TraitEffectsText(trait, def, Math.Max(level, trait.UnlockLevel));
-            var body = FaceStats.Body(def, face, Math.Max(level, (int)TraitSlot.Lv3));
-            var parts = deltas.Select(d =>
-                Strings.T("charsheet.lv3.delta", ("label", DeltaLabel(body, d.Kind)), ("from", d.From), ("to", d.To),
-                    ("unit", d.Kind == FaceStatKind.Weaken ? Strings.T("charsheet.unit.pct") : StatUnit(d.Kind))).TrimEnd());
-            return string.Join(Strings.T("charsheet.lv3.sep"), parts);
+            return string.Join(Strings.T("charsheet.lv3.sep"), deltas.Select(DeltaText));
         }
 
-        /// <summary>差里的「持续」要说清是谁的回合(稿「减攻 2→3 回合」):取本体格里紧挨在它前面的那一格。</summary>
-        private static string DeltaLabel(IReadOnlyList<FaceStat> body, FaceStatKind kind)
+        private static string DeltaText(StatDelta d)
         {
-            if (kind != FaceStatKind.Duration) return StatLabel(kind);
-            for (int i = 1; i < body.Count; i++)
-                if (body[i].Kind == FaceStatKind.Duration)
-                    return body[i - 1].Kind == FaceStatKind.Weaken ? Strings.T("charsheet.stat.weaken_short")
-                         : body[i - 1].Kind == FaceStatKind.Armor ? Strings.T("charsheet.stat.armor")
-                         : StatLabel(kind);
-            return StatLabel(kind);
+            string label = DeltaLabel(d);
+            if (d.Kind == FaceStatKind.Weaken)
+                return Strings.T("charsheet.lv3.delta_pct", ("label", label), ("from", d.From), ("to", d.To));
+            string unit = StatUnit(d.Kind);
+            return unit.Length == 0
+                ? Strings.T("charsheet.lv3.delta_plain", ("label", label), ("from", d.From), ("to", d.To))
+                : Strings.T("charsheet.lv3.delta", ("label", label), ("from", d.From), ("to", d.To), ("unit", unit));
+        }
+
+        /// <summary>差的短标签:减攻(数值格上写「目标攻击」)、持续按归属格起名(减攻 / 护甲),其余同数值格。</summary>
+        private static string DeltaLabel(StatDelta d)
+        {
+            var kind = d.Kind == FaceStatKind.Duration && d.DurationOf is { } owner ? owner : d.Kind;
+            return kind == FaceStatKind.Weaken ? Strings.T("charsheet.stat.weaken_short") : StatLabel(kind);
         }
 
         private static CardFace FaceOfTrait(TraitDef trait) =>
@@ -342,10 +328,10 @@ namespace Brushblade.Presentation
         /// <summary>行头放不下时先丢类别小字、再截名字(component/TraitRow:「off 态放不下时去掉类别小字,保留锁尾标」)。</summary>
         private static (string Name, bool ShowKind) FitHead(RowModel row, float width, Sizes z)
         {
-            float tag = TagWidth(row.Level);
+            float tag = TagWidth(row.Level, z);
             float tail = TailWidth(row);
             float name = Ui.EstimateWidth(row.Name, z.Name);
-            float kind = Ui.EstimateWidth(row.Kind, KindFont);
+            float kind = Ui.EstimateWidth(row.Kind, z.KindFont);
             float fixedPart = tag + HeadItemGap + (tail > 0 ? HeadItemGap + tail : 0f);
             if (fixedPart + name + HeadItemGap + kind <= width) return (row.Name, true);
             return (Ui.Truncate(row.Name, z.Name, width - fixedPart), false);
@@ -353,7 +339,7 @@ namespace Brushblade.Presentation
 
         private static string LvText(int level) => Strings.T("charsheet.trait.lv", ("level", level));
 
-        private static float TagWidth(int level) => Ui.EstimateWidth(LvText(level), LvTagFont) + 2f * LvTagPadX;
+        private static float TagWidth(int level, Sizes z) => Ui.EstimateWidth(LvText(level), z.LvTagFont) + 2f * LvTagPadX;
 
         private static float TailWidth(RowModel row) => row.State switch
         {
@@ -476,12 +462,12 @@ namespace Brushblade.Presentation
                 if (stat.Kind == FaceStatKind.Nature && icon == null) continue;
 
                 var cell = Ui.OutlinedPanel(row.transform, "Stat", back ? Theme.CardWhite : Theme.PanelPaper,
-                    Theme.PanelBorder, 15, 2);
+                    Theme.PanelBorder, z.CellRadius, 2);
                 Ui.Sized(cell.gameObject, height: z.StatH, flexWidth: 1);
                 var stack = Ui.VStack(cell.transform, "Stack", 0);
                 var layout = stack.GetComponent<VerticalLayoutGroup>();
                 layout.childAlignment = TextAnchor.MiddleLeft;
-                layout.padding = new RectOffset(15, 15, 6, 6);
+                layout.padding = new RectOffset(z.StatPadH, z.StatPadH, 6, 6);
                 Ui.Stretch((RectTransform)stack.transform);
 
                 var key = Ui.ThemedLabel(stack.transform, StatLabel(stat.Kind), z.StatK, Theme.TextDim);
@@ -517,8 +503,10 @@ namespace Brushblade.Presentation
         /// off / spent:去底、描边 80%、字压 text-faint(背面 text-dim 78%),尾标锁 +「Lv{n} 解锁」或「本场已用」胶囊。
         /// <paramref name="width"/> = 行的外宽。</summary>
         /// <param name="minHeight">两面条里并排的行要等高,传整条的高;面里的行传 0(按自己的内容高)。</param>
+        /// <param name="onFill">on 态的底色;缺省按所在面取(正面 panel-paper / 背面 card-face)。
+        /// 两面条不在任何一面之下,传 card-face(稿 .shared .tr)。</param>
         public static void TraitRow(Transform parent, CharDef def, RowModel row, bool back, float width, Sizes z,
-            float minHeight = 0f)
+            float minHeight = 0f, Color? onFill = null)
         {
             bool on = row.State == RowState.On;
             Color nameColor = on ? Theme.TextMain : back ? WithAlpha(Theme.TextDim, 0.78f) : Theme.LockGray;
@@ -528,8 +516,9 @@ namespace Brushblade.Presentation
             // on:实底 + 描边;off / spent:去底,只剩 80% 的一圈描线(OutlinedPanel 是「描边色垫底 + 内层填充」,
             // 内层给透明会露出整块描边色,所以去底的一律用空心环)
             var card = on
-                ? Ui.OutlinedPanel(parent, "TraitRow", back ? Theme.CardWhite : Theme.PanelPaper, Theme.PanelBorder, 15, 2).gameObject
-                : Ring(parent, "TraitRow", WithAlpha(Theme.PanelBorder, 0.8f), 15, 2);
+                ? Ui.OutlinedPanel(parent, "TraitRow", onFill ?? (back ? Theme.CardWhite : Theme.PanelPaper),
+                    Theme.PanelBorder, z.CellRadius, 2).gameObject
+                : Ring(parent, "TraitRow", WithAlpha(Theme.PanelBorder, 0.8f), z.CellRadius, 2);
             Ui.Sized(card, width, height);
             var stack = Ui.VStack(card.transform, "Stack", z.BodyGap);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
@@ -544,10 +533,10 @@ namespace Brushblade.Presentation
             var head = Ui.Row(stack.transform, "Head", HeadItemGap);
             head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Sized(head, textW, z.RowHead);
-            LvTag(head.transform, row.Level, on);
+            LvTag(head.transform, row.Level, on, z);
             var nameLabel = Ui.ThemedLabel(head.transform, name, z.Name, nameColor, Theme.TitleFont);
             nameLabel.fontStyle = FontStyle.Bold;
-            if (showKind) Ui.ThemedLabel(head.transform, row.Kind, KindFont, dimColor);
+            if (showKind) Ui.ThemedLabel(head.transform, row.Kind, z.KindFont, dimColor);
             if (!on)
             {
                 var spring = Ui.Panel(head.transform, "Spring");
@@ -591,17 +580,17 @@ namespace Brushblade.Presentation
             return label;
         }
 
-        private static void LvTag(Transform parent, int level, bool on)
+        private static void LvTag(Transform parent, int level, bool on, Sizes z)
         {
             string text = LvText(level);
-            float w = TagWidth(level);
+            float w = TagWidth(level, z);
             GameObject tag;
             if (on)
                 tag = Ui.CardPanel(parent, "LvTag", Theme.Ink, 12).gameObject;
             else
                 tag = Ring(parent, "LvTag", Theme.LockGray, 12, 2);   // 去底:只剩一圈 text-faint 描线(稿 .tr.off .lvt)
-            Ui.Sized(tag, w, LvTagH);
-            var label = Ui.ThemedLabel(tag.transform, text, LvTagFont, on ? Color.white : Theme.LockGray);
+            Ui.Sized(tag, w, z.LvTagH);
+            var label = Ui.ThemedLabel(tag.transform, text, z.LvTagFont, on ? Color.white : Theme.LockGray);
             Ui.Stretch(label.rectTransform);
         }
 
@@ -661,7 +650,7 @@ namespace Brushblade.Presentation
             foreach (var row in rows)
             {
                 if (z.Battle) CompactRow(strip.transform, def, row, rowW, height, z);
-                else TraitRow(strip.transform, def, row, false, rowW, z, height);
+                else TraitRow(strip.transform, def, row, false, rowW, z, height, Theme.CardWhite);
             }
         }
 
@@ -672,7 +661,7 @@ namespace Brushblade.Presentation
         /// <summary>战斗版两面条的一行:压成单行(稿 .shared .tr 高 22pt)。两小句各带 xs 面印,宽度均分后各自截断。</summary>
         private static void CompactRow(Transform parent, CharDef def, RowModel row, float width, float height, Sizes z)
         {
-            var card = Ui.OutlinedPanel(parent, "TraitRow", Theme.PanelPaper, Theme.PanelBorder, 15, 2);
+            var card = Ui.OutlinedPanel(parent, "TraitRow", Theme.CardWhite, Theme.PanelBorder, z.CellRadius, 2);
             Ui.Sized(card.gameObject, width, height);
             var line = Ui.Row(card.transform, "Line", 12.6f);
             var layout = line.GetComponent<HorizontalLayoutGroup>();
@@ -681,13 +670,13 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(padH, padH, 0, 0);
             Ui.Stretch((RectTransform)line.transform);
 
-            LvTag(line.transform, row.Level, true);
+            LvTag(line.transform, row.Level, true, z);
             float inner = width - 2f * z.RowPadH;
             string name = Ui.Truncate(row.Name, z.Name, inner * 0.4f);
             var nameLabel = Ui.ThemedLabel(line.transform, name, z.Name, Theme.TextMain, Theme.TitleFont);
             nameLabel.fontStyle = FontStyle.Bold;
 
-            float rest = inner - TagWidth(row.Level) - Ui.EstimateWidth(name, z.Name) - 2f * 12.6f;
+            float rest = inner - TagWidth(row.Level, z) - Ui.EstimateWidth(name, z.Name) - 2f * 12.6f;
             float each = rest / Mathf.Max(1, row.Lines.Count) - (row.Lines.Count > 1 ? 12.6f : 0f);
             foreach (var (seal, text) in row.Lines)
             {

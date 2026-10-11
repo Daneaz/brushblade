@@ -40,13 +40,18 @@ namespace Brushblade.Core
         public EffectKind Source { get; }
         /// <summary>只在 <see cref="FaceStatKind.Nature"/> 格非 null:折叠后(含 Lv3 本命强化)的召唤被动。</summary>
         public SummonPassive Passive { get; }
+        /// <summary>只在 <see cref="FaceStatKind.Duration"/> 格非 null:这条持续跟的是哪一格(减攻 / 护甲),
+        /// 一面同时有两组时各配各的前缀。</summary>
+        public FaceStatKind? DurationOf { get; }
 
-        public FaceStat(FaceStatKind kind, int value, EffectKind source, SummonPassive passive = null)
+        public FaceStat(FaceStatKind kind, int value, EffectKind source, SummonPassive passive = null,
+            FaceStatKind? durationOf = null)
         {
             Kind = kind;
             Value = value;
             Source = source;
             Passive = passive;
+            DurationOf = durationOf;
         }
     }
 
@@ -57,13 +62,16 @@ namespace Brushblade.Core
         public FaceStatKind Kind { get; }
         public int From { get; }
         public int To { get; }
+        /// <summary>同 <see cref="FaceStat.DurationOf"/>:持续差跟的是哪一格;其余为 null。</summary>
+        public FaceStatKind? DurationOf { get; }
 
-        public StatDelta(CardFace face, FaceStatKind kind, int from, int to)
+        public StatDelta(CardFace face, FaceStatKind kind, int from, int to, FaceStatKind? durationOf = null)
         {
             Face = face;
             Kind = kind;
             From = from;
             To = to;
+            DurationOf = durationOf;
         }
     }
 
@@ -124,7 +132,8 @@ namespace Brushblade.Core
                 seen[cell.Kind] = nth + 1;
                 var before = from.Where(c => c.Kind == cell.Kind).Skip(nth).Cast<FaceStat?>().FirstOrDefault();
                 if (before == null) continue;   // 新出现的格不算「差」(现行数据不会出现)
-                if (before.Value.Value != cell.Value) into.Add(new StatDelta(face, cell.Kind, before.Value.Value, cell.Value));
+                if (before.Value.Value != cell.Value)
+                    into.Add(new StatDelta(face, cell.Kind, before.Value.Value, cell.Value, cell.DurationOf));
             }
         }
 
@@ -184,11 +193,11 @@ namespace Brushblade.Core
                     break;
                 case EffectKind.Weaken:
                     rest.Add(new FaceStat(FaceStatKind.Weaken, Scaled(e, level), e.Kind));
-                    rest.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(e), e.Kind));
+                    rest.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(e), e.Kind, durationOf: FaceStatKind.Weaken));
                     break;
                 case EffectKind.DefenseBuff:
                     rest.Add(new FaceStat(FaceStatKind.Armor, Scaled(e, level), e.Kind));
-                    rest.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(e), e.Kind));
+                    rest.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(e), e.Kind, durationOf: FaceStatKind.Armor));
                     break;
                 case EffectKind.Freeze:
                     rest.Add(new FaceStat(FaceStatKind.Freeze, TraitRules.TurnsOf(e), e.Kind));

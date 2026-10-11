@@ -485,6 +485,19 @@ namespace Brushblade.Presentation
             return lines * fontSize * 1.35f;
         }
 
+        /// <summary>视觉高度不足 <paramref name="tapMin"/> 的可点件:垫一层透明子节点把触控高度撑到 tapMin
+        /// (竖向居中、横向与本体同宽)。点击 / 拖拽 / 长按都会从命中的子节点冒泡到本体的 Button 等组件。
+        /// 排第一个子节点:画在本体内容之下,不挡任何东西。战斗字库牌、卡组详情脚钮共用这一份。</summary>
+        public static void PadTapHeight(GameObject target, float visualH, float tapMin)
+        {
+            if (visualH >= tapMin) return;
+            var pad = Panel(target.transform, "TapPad");
+            pad.transform.SetAsFirstSibling();
+            pad.AddComponent<Image>().color = new Color(0, 0, 0, 0);
+            Anchor((RectTransform)pad.transform, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(0f, -tapMin / 2f), new Vector2(0f, tapMin / 2f));
+        }
+
         /// <summary>单行文字的估算宽度:全角(汉字、全角标点)按一个字号,其余(ASCII 数字字母、半角标点)按 0.55 个字号。
         /// 纯函数,口径与 <see cref="WrappedTextHeight"/> 同族(不测量、不等一帧布局)。</summary>
         public static float EstimateWidth(string text, int fontSize)

@@ -570,7 +570,7 @@ namespace Brushblade.Presentation
         /// <summary>生克一行(静态):克的那行 danger-bg 底、倍率 cinnabar-dark;被克的 panel-inset 底、倍率 text-dim。</summary>
         private static void WxRow(Transform parent, Element other, string who, float multiplier, bool up)
         {
-            var row = SideRow(parent, "Wx", 50f, 15, up ? Theme.DangerBg : Theme.PanelInset);
+            var row = SideRow(parent, "Wx", 50f, 15, 12.6f, up ? Theme.DangerBg : Theme.PanelInset);   // 稿 .wxr gap 6pt
             Dot(row, other, 31f, 19);
             var label = Ui.ThemedLabel(row, who, 19, Theme.TextMain);
             label.alignment = TextAnchor.MiddleLeft;
@@ -596,7 +596,7 @@ namespace Brushblade.Presentation
                 float multiplier = apparent is { } shown ? WuxingResolver.KeMultiplier(attacker, shown) : 1f;
                 bool unknown = apparent == null;
                 bool ke = !unknown && multiplier > 1f, bei = !unknown && multiplier < 1f;
-                var row = SideRow(parent, "Foe", 44f, 13, ke ? Theme.DangerBg : Theme.PanelInset);
+                var row = SideRow(parent, "Foe", 44f, 13, 10.5f, ke ? Theme.DangerBg : Theme.PanelInset);   // 战斗稿 gap 5pt
                 Dot(row, apparent, 29f, 18);
                 Color tone = ke ? Theme.CinnabarDark : Theme.TextDim;
                 string mulText = unknown ? "" : Strings.T("charsheet.wx.mult", ("mult", multiplier.ToString("0.0")));
@@ -627,9 +627,9 @@ namespace Brushblade.Presentation
             Note(parent, note, 17);
         }
 
-        private static Transform SideRow(Transform parent, string name, float height, int padX, Color bg)
+        private static Transform SideRow(Transform parent, string name, float height, int padX, float gap, Color bg)
         {
-            var row = Ui.Row(parent, name, 10.5f);
+            var row = Ui.Row(parent, name, gap);
             var layout = row.GetComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.padding = new RectOffset(padX, padX, 0, 0);

@@ -331,15 +331,7 @@ namespace Brushblade.Presentation
         /// <summary>视觉高度不足 <see cref="TapMin"/> 的可点牌:垫一层透明子节点把触控高度撑到
         /// TapMin(竖向居中、横向与牌同宽)。点击/拖拽/长按都会从命中的子节点冒泡到牌本身的
         /// Button / DragToAttack / HoldToPreview。排第一个子节点:画在牌面之下,不挡任何东西。</summary>
-        private static void PadTapHeight(GameObject tile, float visualH)
-        {
-            if (visualH >= TapMin) return;
-            var pad = Ui.Panel(tile.transform, "TapPad");
-            pad.transform.SetAsFirstSibling();
-            pad.AddComponent<Image>().color = new Color(0, 0, 0, 0);
-            Ui.Anchor((RectTransform)pad.transform, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                new Vector2(0f, -TapMin / 2f), new Vector2(0f, TapMin / 2f));
-        }
+        private static void PadTapHeight(GameObject tile, float visualH) => Ui.PadTapHeight(tile, visualH, TapMin);
 
         // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawBattleSettle 败北支专用。
         //

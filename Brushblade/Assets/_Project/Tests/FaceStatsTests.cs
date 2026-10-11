@@ -182,5 +182,40 @@ namespace Brushblade.Core.Tests
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Attack, 10)), Is.EqualTo("Attack.Burn:3->4"));
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Attack, 1)), Is.EqualTo("Attack.Burn:3->4"), "未解锁时按 Lv3 印(Q17)");
         }
+
+        // ---------------- 持续格的归属(E2 Task 3 review Minor 4) ----------------
+
+        /// <summary>一面同时有「减攻 + 持续」与「护甲 + 持续」两组:每条持续格 / 持续差都记着它跟的是哪一组,
+        /// Presentation 按它配前缀(「减攻 2→3 回合」「护甲 2→4 回合」),不再去本体里找第一条持续格。</summary>
+        [Test]
+        public void Duration_CarriesOwner_TwoGroupsOnOneFace()
+        {
+            var def = new CharDef("锐", Element.Metal,
+                effects: new[]
+                {
+                    new EffectDef(EffectKind.Weaken, 15, turns: 2),
+                    new EffectDef(EffectKind.DefenseBuff, 50, turns: 2),
+                },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10) },
+                traits: new[]
+                {
+                    new TraitDef(TraitSlot.Lv1, TraitFace.Both, TraitForm.Passive, null, "锐", new EffectDef[0]),
+                    new TraitDef(TraitSlot.Lv3, TraitFace.Feature, TraitForm.Passive, TraitSlot.Lv1, "锐·强化", new[]
+                    {
+                        new EffectDef(EffectKind.Weaken, 15, turns: 3),
+                        new EffectDef(EffectKind.DefenseBuff, 50, turns: 4),
+                    }),
+                });
+
+            var body = FaceStats.Body(def, CardFace.Feature, 1).Where(c => c.Kind == FaceStatKind.Duration).ToList();
+            Assert.That(body.Select(c => c.DurationOf), Is.EqualTo(new FaceStatKind?[] { FaceStatKind.Weaken }),
+                "Body 截前 3 格:减攻 / 持续 / 护甲,第二条持续被截掉");
+
+            var diffs = FaceStats.Lv3Change(def, CardFace.Feature).Where(d => d.Kind == FaceStatKind.Duration).ToList();
+            Assert.That(diffs.Select(d => $"{d.DurationOf}:{d.From}->{d.To}"),
+                Is.EqualTo(new[] { "Weaken:2->3", "Armor:2->4" }));
+            Assert.That(FaceStats.Lv3Change(def, CardFace.Feature).Where(d => d.Kind != FaceStatKind.Duration)
+                .All(d => d.DurationOf == null), Is.True, "只有持续格带归属");
+        }
     }
 }

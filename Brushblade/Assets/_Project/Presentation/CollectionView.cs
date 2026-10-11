@@ -585,17 +585,13 @@ namespace Brushblade.Presentation
         private const float FootButtonH = 54f;   // 稿 26pt
         private const float FootTapMin = 92f;    // 44pt 触控下限(C5)
 
-        /// <summary>脚钮:视觉 54 高(字 25、左右 33),触控靠一层透明扩边补到 92(同 BattleView.PadTapHeight 的做法)。</summary>
+        /// <summary>脚钮:视觉 54 高(字 25、左右 33),触控靠 <see cref="Ui.PadTapHeight"/> 的透明扩边补到 92。</summary>
         private static void FootButton(Transform parent, string text, System.Action onClick, Color bg, Color fg, bool interactable)
         {
             var button = Ui.PillButton(parent, text, onClick, bg, fg, 25,
                 new Vector2(Ui.EstimateWidth(text, 25) + 66f, FootButtonH));
             button.interactable = interactable;
-            var pad = Ui.Panel(button.transform, "TapPad");
-            pad.transform.SetAsFirstSibling();
-            pad.AddComponent<Image>().color = new Color(0, 0, 0, 0);
-            Ui.Anchor((RectTransform)pad.transform, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
-                new Vector2(0f, -FootTapMin / 2f), new Vector2(0f, FootTapMin / 2f));
+            Ui.PadTapHeight(button.gameObject, FootButtonH, FootTapMin);
         }
 
         // ---- 右栏 · 卡池概览(2026-09-06,取代出阵编组) ----
