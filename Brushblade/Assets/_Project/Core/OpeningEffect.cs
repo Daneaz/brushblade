@@ -22,19 +22,22 @@ namespace Brushblade.Core
         public TargetArea Shape { get; set; }
         /// <summary>形状百分比(同上)。老存档缺字段 = 100(EffectDef 的缺省)。</summary>
         public int ShapePercent { get; set; } = 100;
+        /// <summary>条件门(D2-木 E50,一叶知秋 `if OwnSummonAlive`):回合脉冲载荷带它,触发时按出字前快照判。
+        /// 开局效果不带(ConfigLoader 拒绝带 OnlyIf 的开局效果)。老存档缺字段 = None。</summary>
+        public DamageCondition OnlyIf { get; set; }
 
         public OpeningEffect Clone() => (OpeningEffect)MemberwiseClone();
         public EffectDef ToEffect() => new EffectDef(Kind, Value, turns: Turns, targetAll: TargetAll,
-            shape: Shape, shapePercent: ShapePercent, pick: Pick);
+            shape: Shape, shapePercent: ShapePercent, pick: Pick, onlyIf: OnlyIf);
 
         /// <summary>出字时登记(EffectDef.OpeningBattles &gt; 0)与 ConfigLoader 加载校验共用的同一份转换 ——
         /// 校验判的就是运行时会登记、开局时会执行的那个效果。记**未缩放**的 Value(开局结算时按来源字等级缩放)。
-        /// OnlyIf / AmpTerms 不随登记保留,ConfigLoader 拒绝带它们的开局效果。</summary>
+        /// AmpTerms 不随登记保留;OnlyIf 随登记保留(D2-木 E50,回合脉冲载荷用),ConfigLoader 仍拒绝带它的开局效果。</summary>
         public static OpeningEffect Of(EffectDef e, string sourceCharId, Element element) => new OpeningEffect
         {
             SourceCharId = sourceCharId, Element = element, Kind = e.Kind, Value = e.Value,
             Turns = e.Turns, TargetAll = e.TargetAll, BattlesLeft = e.OpeningBattles,
-            Pick = e.Pick, Shape = e.Shape, ShapePercent = e.ShapePercent,
+            Pick = e.Pick, Shape = e.Shape, ShapePercent = e.ShapePercent, OnlyIf = e.OnlyIf,
         };
     }
 

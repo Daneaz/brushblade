@@ -26,6 +26,9 @@ namespace Brushblade.Core
         HighestHp,          // 当前生命最高的存活敌人,同值取下标小;不过滤状态(浩瀚)
         SlowedByThisCast,   // 本次出字的 Slow 落到过(施加或续回合)的敌人(淋漓)
         AllAllies,          // 我方侧:玩家 + 全部存活木灵(只给 Cleanse,水大无际)
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;附录 M1)。⚠ 只在末尾追加 ----
+        OtherSummons,       // 我方侧:出字时在场、且不是本次召出的每只存活木灵(擎天,只给 SummonEmpower)
+        StrongestSummon,    // 我方侧:出字结束时有效攻击最高的存活木灵,同值取槽位小(桂冠,只给 SummonEmpower;推迟到本面效果之后结算)
     }
 
     /// <summary>哪些效果 Kind 认 <see cref="EffectDef.Pick"/> / 条件门 <see cref="EffectDef.OnlyIf"/>。
@@ -50,19 +53,27 @@ namespace Brushblade.Core
                 or EffectKind.ChargeDelay
                 or EffectKind.BuffBlock   // D2-水 Task 3 洗尽铅华
                 or EffectKind.Silence   // D2-土 E33 杜塞(`if NotBoss`)
-                or EffectKind.SkillCut => true,   // D2-土 G6 杜塞(`if IsBoss`)
+                or EffectKind.SkillCut   // D2-土 G6 杜塞(`if IsBoss`)
+                or EffectKind.ThornMark   // D2-木 M6 荆刺
+                or EffectKind.Bind => true,   // D2-木 M7 攀附(必须写 pick,见 Allows)
             _ => false,
         };
 
         /// <summary>这条效果能不能写这个选择器(ConfigLoader 校验用)。Primary 恒可;敌方侧选择器只给 Supports 列出的 kind;
-        /// Self 给 Cleanse / Taunt;SummonedThisCast 给 Endure / Taunt;AllSummons 只给 Taunt;Taunt 必须写 pick。</summary>
+        /// Self 给 Cleanse / Taunt / CritBuff;SummonedThisCast 给 Endure / Taunt;AllSummons 给 Taunt / SummonEmpower;
+        /// OtherSummons / StrongestSummon 只给 SummonEmpower(D2-木 M1);Taunt 与 SummonEmpower 必须写 pick。</summary>
         public static bool Allows(EffectKind kind, EffectPick pick) => pick switch
         {
             // 保命必须写 SummonedThisCast(Ruling 10):Primary 写法选不到召唤物(Endure 不在友方目标名单),会静默空转
-            EffectPick.Primary => kind != EffectKind.Endure && kind != EffectKind.Taunt,
-            EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt,
+            // 木灵攻击光环(D2-木 M1)同理:落点只能是这三种木灵选择器,Primary 写法没有落点
+            // 攀附(D2-木 M7,Q13)同样必须写 pick(敌方选择器,数据写 HighestHp)
+            EffectPick.Primary => kind != EffectKind.Endure && kind != EffectKind.Taunt && kind != EffectKind.SummonEmpower
+                && kind != EffectKind.Bind,
+            // 月桂(D2-木 Task 6,Q23):攻面「本回合我方暴击 +N」写 `CritBuff pick Self`,免选、直接挂玩家
+            EffectPick.Self => kind == EffectKind.Cleanse || kind == EffectKind.Taunt || kind == EffectKind.CritBuff,
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
-            EffectPick.AllSummons => kind == EffectKind.Taunt,
+            EffectPick.AllSummons => kind == EffectKind.Taunt || kind == EffectKind.SummonEmpower,
+            EffectPick.OtherSummons or EffectPick.StrongestSummon => kind == EffectKind.SummonEmpower,
             EffectPick.AllAllies => kind == EffectKind.Cleanse,   // D2-水 E15(水大无际)
             // Reshape 带敌方侧选择器 = 重选目标(D2-火 E3):本面没有伤害时把主目标效果换成该选择器
             _ => Supports(kind) || kind == EffectKind.Reshape,

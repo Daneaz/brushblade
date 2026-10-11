@@ -219,6 +219,9 @@ namespace Brushblade.Core.Tests
                 EffectKind.HitCap, EffectKind.ShieldShatter,
                 // D2-土 Task 4:溢出平分(作用于已打出的伤害)/ 大招削减是百分比,AP 代价是点数
                 EffectKind.OverkillSplash, EffectKind.SkillCut, EffectKind.ApCost,
+                // D2-木 Task 1 预留:光环 / 荆刺 / 攀附是百分比,远程 / 并入 / 立即行动不用 Value,折桂是张数
+                EffectKind.SummonEmpower, EffectKind.SummonThorns, EffectKind.ThornMark, EffectKind.Bind,
+                EffectKind.SummonRanged, EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

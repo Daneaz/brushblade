@@ -122,12 +122,14 @@ namespace Brushblade.Presentation
                         + ShapeSuffix(e),
                     // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」
                     // 纯属绕口;只有召别的字时才点名。数据侧的默认值仍是「木」,不同名照旧显示
+                    // 本命追加 / 本命强化(D2-木 E37、D2-0 E8):`Summon 0` 不是一条 0 血召唤,是把本命字段并进本面的本体召唤
+                    EffectKind.Summon when e.Value == 0 => Strings.T("char.effect.summon.nature", ("list", PassiveText(e.Passive, bare: true))),
                     EffectKind.Summon => (e.SummonChar == def?.Id
                             ? Strings.T("char.effect.summon.self", ("count", e.SummonCount))
                             : Strings.T("char.effect.summon.other", ("count", e.SummonCount)) + "「" + e.SummonChar + "」") +
                         Strings.T("char.effect.summon.stats",
                             ("hp", shown), ("atk", MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)))
-                        + PassiveText(e.Passive) + SummonShieldText(e) + SummonDefenseText(e),
+                        + SummonPercentText(e) + PassiveText(e.Passive) + SummonShieldText(e) + SummonDefenseText(e),
                     // 流血回合(D2-金 E8):读 turns,缺省 BleedDefaultTurns;不吃等级
                     EffectKind.Bleed => Strings.T("char.effect.bleed", ("value", shown),
                         ("turns", e.Turns > 0 ? e.Turns : BattleEngine.BleedDefaultTurns)),
@@ -187,7 +189,14 @@ namespace Brushblade.Presentation
                             : Strings.T("char.effect.block", ("value", e.Value)))
                         + (e.CounterPercent > 0 ? Strings.T("char.effect.block.counter", ("percent", e.CounterPercent)) : "")
                         + BlockRidersText(e, cardLevel),
-                    EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
+                    // 万木回春(D2-木 E43):Value 0 = 全部尸体;ReviveHpPercent > 0 = 按最大生命百分比复活(缺省半血)
+                    EffectKind.Revive => e.Value == 0
+                        ? (e.ReviveHpPercent > 0
+                            ? Strings.T("char.effect.revive.all.pct", ("percent", e.ReviveHpPercent))
+                            : Strings.T("char.effect.revive.all"))
+                        : e.ReviveHpPercent > 0
+                            ? Strings.T("char.effect.revive.pct", ("value", shown), ("percent", e.ReviveHpPercent))
+                            : Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
                     // 烟熏(D1 Task 9):附着在灼上的致盲没有回合数,随灼存续
@@ -303,8 +312,11 @@ namespace Brushblade.Presentation
                     EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
                     EffectKind.Endure => e.Pick == EffectPick.SummonedThisCast
                         ? Strings.T("char.effect.endure.summoned") : Strings.T("char.effect.endure"),
+                    // 双木(E41 fromBody)/ 丛藻(E47 sprout)
                     EffectKind.SummonSapling => Strings.T("char.effect.summonsapling",
-                        ("count", e.SummonCount), ("value", shown)),
+                            ("count", e.SummonCount), ("value", shown))
+                        + (e.FromBody ? Strings.T("char.effect.summonsapling.frombody") : "")
+                        + (e.Sprout ? Strings.T("char.effect.summonsapling.sprout") : ""),
                     // 沐恩(D2-水 E24):按本次治疗量的百分比,不吃等级(读 e.Value)
                     EffectKind.HealSummons when e.OfHeal => Strings.T("char.effect.healsummons.ofheal", ("value", e.Value)),
                     EffectKind.HealSummons => e.PercentOfMax
@@ -313,7 +325,12 @@ namespace Brushblade.Presentation
                     // 碉楼 / 载物(D2-土 E28):按本次护盾量的百分比,不吃等级(读 e.Value)
                     EffectKind.ShieldSummons when e.OfShield => Strings.T("char.effect.shieldsummons.ofshield", ("value", e.Value)),
                     EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
-                    EffectKind.SummonStrike => Strings.T("char.effect.summonstrike", ("value", shown)),
+                    // 柘弓(E46):只让本字最强的一只出手;byArmor = 按护甲(CL 要求 byArmor 必配 own)
+                    EffectKind.SummonStrike => e.OwnSummons
+                        ? (e.ByArmor
+                            ? Strings.T("char.effect.summonstrike.own.armor", ("value", shown))
+                            : Strings.T("char.effect.summonstrike.own", ("value", shown)))
+                        : Strings.T("char.effect.summonstrike", ("value", shown)),
                     EffectKind.ShieldFromHeal => Strings.T("char.effect.shieldfromheal", ("value", shown)),
                     EffectKind.AddWellspring when e.Fill => Strings.T("char.effect.addwellspring.fill"),   // D2-水 E21 泽及四方
                     EffectKind.AddWellspring => Strings.T("char.effect.addwellspring", ("value", shown)),
@@ -346,6 +363,20 @@ namespace Brushblade.Presentation
                     EffectKind.SkillCut => Strings.T("char.effect.skillcut", ("value", e.Value)),
                     // 杜门不出(G7):代价,不算减益
                     EffectKind.ApCost => Strings.T("char.effect.apcost", ("value", e.Value)),
+                    // ---- D2-木 Task 5:木专属新机制(措辞贴特性原文)。百分比 / 回合离散,读 e.Value ----
+                    // 木灵攻击光环(M1 林立 / 擎天 / 桂冠):落点按 pick —— 全部(含之后召出的)/ 出字时在场的其他木灵 / 攻击最高的一只
+                    EffectKind.SummonEmpower => Strings.T("char.effect.summonempower", ("value", e.Value), ("turns", Math.Max(1, e.Turns)))
+                        + (e.Pick == EffectPick.AllSummons ? Strings.T("char.effect.summonempower.all") : PickText(e.Pick)),
+                    EffectKind.SummonThorns => Strings.T("char.effect.summonthorns", ("value", e.Value), ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.SummonRanged => Strings.T("char.effect.summonranged"),
+                    // 攀附(M7):目标选择器后缀(生命最高的敌人)由下面的通用 PickText 补
+                    EffectKind.Bind => Strings.T("char.effect.bind", ("value", e.Value)),
+                    // 荆刺(M6):按该敌人的行动次数递减
+                    EffectKind.ThornMark => Strings.T("char.effect.thornmark", ("value", e.Value), ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.SummonMerge => Strings.T("char.effect.summonmerge"),
+                    EffectKind.SummonAct => Strings.T("char.effect.summonact"),
+                    // 折桂(M10):触发前缀「击杀时:」由 TriggerText 印,每场次数由 battleLimit 印
+                    EffectKind.GrantChar => Strings.T("char.effect.grantchar", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -485,7 +516,8 @@ namespace Brushblade.Presentation
         /// <summary>召唤物被动(2026-08-23)。此前**卡面完全不印**,导致柳(血80/攻30)与
         /// 松(血120/攻30)除血量外毫无区别 —— 而柳实际带 50% 闪避,玩家没法判断该留哪张。
         /// 顺序与 SummonPassive 的字段声明一致,措辞与 gen_char_doc.py 的 PASSIVE 表同口径。</summary>
-        private static string PassiveText(SummonPassive p)
+        /// <param name="bare">true = 只要逗号前的清单本身(本命追加的整句「本命:…」自己带抬头),不套 char.passive.wrap。</param>
+        private static string PassiveText(SummonPassive p, bool bare = false)
         {
             if (p == null) return "";
             var parts = new List<string>();
@@ -534,8 +566,91 @@ namespace Brushblade.Presentation
                 parts.Add(Strings.T("char.passive.sprout", ("value", p.SproutPercent), ("max", p.SproutMax)));
             if (p.EntrySaplings > 0) parts.Add(Strings.T("char.passive.entrysaplings", ("value", p.EntrySaplings)));
             if (p.OnHitCharmChance > 0) parts.Add(Strings.T("char.passive.onhitcharm", ("chance", p.OnHitCharmChance)));
+            // 本命新字段(D2-木,SummonInfoNature 稿的说明句;召唤物详情右栏同读这些 key)
+            parts.AddRange(WoodNatureLines(p));
+            if (bare) return string.Join("/", parts);
             return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
         }
+
+        /// <summary>D2-木 的 14 个本命字段,各一句(SummonInfoNature 稿「13 个新字段的说明句」,林荫的上限并在同一句)。
+        /// 卡面 <see cref="PassiveText"/> 与召唤物详情右栏(<c>SummonInfo</c>)共用 —— 两处说的是同一件事,只有一份文案。
+        /// 顺序与 <see cref="SummonPassive"/> 的字段声明一致。CardFaceCoverageTests 把 PassiveText 与本方法的方法体
+        /// 合在一起扫(本方法只由 PassiveText 与召唤物详情调用),新字段写在这里同样算「已渲染」。</summary>
+        internal static List<string> WoodNatureLines(SummonPassive p) => WoodNatureLines(p, null);
+
+        /// <param name="onto">非 null 时逐条回调 (字段键, 句子),供召唤物详情按 chip 优先级重排;键见 <see cref="NatureKey"/>。</param>
+        internal static List<string> WoodNatureLines(SummonPassive p, Action<NatureKey, string> onto)
+        {
+            var lines = new List<string>();
+            void Add(NatureKey key, string text) { lines.Add(text); onto?.Invoke(key, text); }
+            if (p == null) return lines;
+            if (p.AttackPercent > 0) Add(NatureKey.AttackPercent, Strings.T("char.passive.attackpercent", ("value", p.AttackPercent)));
+            if (p.HealAllyPercent > 0) Add(NatureKey.HealAllyPercent, Strings.T("char.passive.healallypercent", ("value", p.HealAllyPercent)));
+            if (p.HealMirror > 0)
+                Add(NatureKey.HealMirror, p.HealMirror == 100
+                    ? Strings.T("char.passive.healmirror")
+                    : Strings.T("char.passive.healmirror.pct", ("value", p.HealMirror)));
+            if (p.ThornsBleed > 0) Add(NatureKey.ThornsBleed, Strings.T("char.passive.thornsbleed", ("value", p.ThornsBleed)));
+            if (p.CritAura > 0) Add(NatureKey.CritAura, Strings.T("char.passive.crit_aura", ("value", p.CritAura)));
+            if (p.GroveCut > 0)
+                Add(NatureKey.GroveCut, p.GroveCutCap > 0
+                    ? Strings.T("char.passive.grovecut.cap", ("value", p.GroveCut), ("cap", p.GroveCutCap))
+                    : Strings.T("char.passive.grovecut", ("value", p.GroveCut)));
+            if (p.ThicketCut > 0)
+                Add(NatureKey.ThicketCut, Strings.T("char.passive.thicketcut", ("value", p.ThicketCut), ("min", p.ThicketMin)));
+            if (p.Guard > 0) Add(NatureKey.Guard, Strings.T("char.passive.guard", ("value", p.Guard)));
+            if (p.ReturnFire > 0) Add(NatureKey.ReturnFire, Strings.T("char.passive.returnfire", ("value", p.ReturnFire)));
+            if (p.DeathBlast > 0)
+                Add(NatureKey.DeathBlast, Strings.T("char.passive.deathblast", ("mult", (p.DeathBlast / 100f).ToString("0.##"))));
+            if (p.SproutDeathSlow > 0) Add(NatureKey.SproutDeathSlow, Strings.T("char.passive.sproutdeathslow", ("value", p.SproutDeathSlow)));
+            if (p.DeathPart) Add(NatureKey.DeathPart, Strings.T("char.passive.deathpart"));
+            return lines;
+        }
+
+        /// <summary>D2-木 本命字段的标识(召唤物详情按战场 chip 优先级排序用)。</summary>
+        internal enum NatureKey
+        {
+            AttackPercent, HealAllyPercent, HealMirror, ThornsBleed, CritAura, GroveCut, ThicketCut,
+            Guard, ReturnFire, DeathBlast, SproutDeathSlow, DeathPart,
+        }
+
+        /// <summary>特性名(游戏数据,不进字符串表):<paramref name="charId"/> 的特性表里第一条含满足 <paramref name="match"/>
+        /// 的效果的特性名。光环 / 魅惑这类状态只记来源字、不记是哪条特性挂的,详情与飘字靠它把「林立」「移花接木」翻出来。
+        /// 取不到(graph 为空、字不在图谱、没有这条特性)返回 null,调用方退回不带名的文案。
+        /// <paramref name="charId"/> 为 null = 整张图谱里找第一条(绿潮 / 折桂这类每个效果只由一条特性给的)。</summary>
+        internal static string TraitNameOf(RecipeGraph graph, string charId, Func<EffectDef, bool> match)
+        {
+            if (graph == null) return null;
+            if (charId == null)
+            {
+                foreach (var any in graph.All)
+                    foreach (var t in any.Traits)
+                        if (t.Effects.Any(match)) return t.Name;
+                return null;
+            }
+            if (!graph.TryGet(charId, out var def)) return null;
+            foreach (var t in def.Traits)
+                if (t.Effects.Any(match)) return t.Name;
+            return null;
+        }
+
+        /// <summary>本命特性名(D2-木):整张图谱里第一条「`Summon 0` 本命追加、本命满足 <paramref name="has"/>」的特性名
+        /// (守护、林荫、蟾宫…)。本命会随嫁接换到别的字的木灵身上,所以不按木灵的来源字查,按字段查 —— 每个木系本命字段
+        /// 只由一条特性给。取不到返回 null。</summary>
+        internal static string NatureTraitName(RecipeGraph graph, Func<SummonPassive, bool> has)
+        {
+            if (graph == null) return null;
+            foreach (var def in graph.All)
+                foreach (var t in def.Traits)
+                    foreach (var e in t.Effects)
+                        if (e.Kind == EffectKind.Summon && e.Value == 0 && e.Passive != null && has(e.Passive))
+                            return t.Name;
+            return null;
+        }
+
+        /// <summary>召唤改形(D2-木 E48,林立 `summonPercent`):召出的木灵血 / 攻 × N%。缺省 100 不印。</summary>
+        private static string SummonPercentText(EffectDef e) =>
+            e.SummonPercent != 100 ? Strings.T("char.effect.summon.percent", ("percent", e.SummonPercent)) : "";
 
         /// <summary>出字瞬间给**全场存活召唤物**各加盾(桂 = 60)。不并进 PassiveText ——
         /// 它作用于出字时已在场的其他召唤物,不是这只召唤物自带的被动。</summary>
@@ -593,6 +708,9 @@ namespace Brushblade.Presentation
             EffectPick.AdjacentOne => Strings.T("char.effect.pick.adjacentone"),
             EffectPick.HighestHp => Strings.T("char.effect.pick.highesthp"),
             EffectPick.SlowedByThisCast => Strings.T("char.effect.pick.slowed"),
+            // D2-木 M1(只给 SummonEmpower)
+            EffectPick.OtherSummons => Strings.T("char.effect.pick.othersummons"),
+            EffectPick.StrongestSummon => Strings.T("char.effect.pick.strongestsummon"),
             _ => "",
         };
 
@@ -617,6 +735,7 @@ namespace Brushblade.Presentation
             DamageCondition.MoraleFull => Strings.T("char.effect.onlyif.moralefull"),
             DamageCondition.IsBoss => Strings.T("char.effect.onlyif.isboss"),     // D2-水 E14
             DamageCondition.NotBoss => Strings.T("char.effect.onlyif.notboss"),
+            DamageCondition.OwnSummonAlive => Strings.T("char.effect.onlyif.ownsummonalive"),   // D2-木 E50 一叶知秋
             _ => "",
         };
 
@@ -657,6 +776,9 @@ namespace Brushblade.Presentation
             e.Pick != EffectPick.Primary
                 // 重选目标(D2-火 E3,烈风):本面没有伤害时,落在主目标上的效果改落到选择器上
                 ? Strings.T("char.effect.reshape.retarget") + PickText(e.Pick)
+                // 召唤改形(D2-木 E48,林立):本面召出的木灵血 / 攻 × N%(只数由同面的 Augment 印)
+                : e.SummonPercent != 100
+                    ? Strings.T("char.effect.reshape.summonpercent", ("percent", e.SummonPercent))
                 // 治疗改形(D2-水 E20):本面没有伤害、shape All → 第一条治疗改为全体友方,每人各治 shapePercent%
                 // 护盾面(D2-土 E29 / E30):留存护盾 / 盾量 + 护甲 × N%
                 : e.PersistOnce || e.ArmorShieldPercent > 0
@@ -704,6 +826,8 @@ namespace Brushblade.Presentation
                 // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),
                 ScaleBasis.Cleansed => Strings.T("char.effect.per.cleansed"),
+                // D2-木 E39(众木 / 林深):出字前的存活木灵数(含幼苗)
+                ScaleBasis.SummonCount => Strings.T("char.effect.per.summoncount"),
                 // D2-土 E36(地裂):出字前护盾每 ScaleDivisor 点 +1 击,上限写在同一句里(单位是击,不是百分点)
                 ScaleBasis.Shield => e.ScaleCap > 0   // cap 0 = 不设上限,不印「最多 +0 击」
                     ? Strings.T("char.effect.per.shield.hits", ("divisor", e.ScaleDivisor), ("cap", e.ScaleCap))
@@ -719,7 +843,11 @@ namespace Brushblade.Presentation
             + (e.ShotPercent != 100 ? Strings.T("char.effect.shotpercent", ("percent", e.ShotPercent)) : "")
             + (e.ForceCrit ? Strings.T("char.effect.forcecrit") : "")
             + (e.ArmorIgnorePercent > 0 ? Strings.T("char.effect.armorignore", ("percent", e.ArmorIgnorePercent)) : "")
-            + (e.ShieldStrikePercent > 0 ? Strings.T("char.effect.shieldstrike", ("percent", e.ShieldStrikePercent)) : "");
+            + (e.ShieldStrikePercent > 0 ? Strings.T("char.effect.shieldstrike", ("percent", e.ShieldStrikePercent)) : "")
+            // D2-木 E40:按木灵攻击 / 本字木灵攻击 / 本字木灵护甲加伤(森罗 / 撼天 / 硬弓),加在每个主目标的第一段
+            + (e.SummonAtkStrikePercent > 0 ? Strings.T("char.effect.summonatkstrike", ("percent", e.SummonAtkStrikePercent)) : "")
+            + (e.HostAtkStrikePercent > 0 ? Strings.T("char.effect.hostatkstrike", ("percent", e.HostAtkStrikePercent)) : "")
+            + (e.HostArmorStrikePercent > 0 ? Strings.T("char.effect.hostarmorstrike", ("percent", e.HostArmorStrikePercent)) : "");
 
         private static string PierceText(EffectDef e) =>
             e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";

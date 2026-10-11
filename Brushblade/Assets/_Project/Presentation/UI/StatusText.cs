@@ -246,14 +246,14 @@ namespace Brushblade.Presentation
                         Strings.T("status.taunt.desc"));
                 case StatusKind.DamageCut:
                     // 本回合减伤(D1 Task 7):玩家身上,TurnsLeft 1。名与说明取 designer 补稿词条;
-                    // 图标待 Task 7b(补稿拍板后),IconKey 先留 null(与 Heft/Wellspring 同处理)。
-                    return new Info(null, Strings.T("status.damagecut.name"),
+                    // 图标 bulwark(StatusChips 10-04 补,2026-10-11 拍板;林荫 / 森严共用这一枚)
+                    return new Info("bulwark", Strings.T("status.damagecut.name"),
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.damagecut.desc"));
                 case StatusKind.HitCap:
-                    // 铜墙铁壁(D2-土 G2):玩家身上,TurnsLeft 1 = 本回合。与减伤同组(Q20:chip 复用「减伤」那枚,稿待拍板 ——
-                    // 战场 chip 未接),名取同一条「减伤」,说明区分「单次 ≤ N%」;IconKey null(同 DamageCut)
-                    return new Info(null, Strings.T("status.damagecut.name"),
+                    // 铜墙铁壁(D2-土 G2):玩家身上,TurnsLeft 1 = 本回合。StatusChipsWood 拍板(2026-10-11)单出「受伤上限」
+                    // —— 一个封顶、一个打折,不与减伤共用;图标 hitcap(≤)
+                    return new Info("hitcap", Strings.T("status.hitcap.name"),
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.hitcap.desc", ("magnitude", magnitude)));
                 case StatusKind.CounterBoost:
@@ -312,6 +312,32 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.turnpulse.name"),
                         Duration(turnsLeft),
                         Strings.T("status.turnpulse.desc.generic"));
+                // ---- D2-木 Task 5(StatusChipsWood / SummonInfoNature 稿,2026-10-11 拍板)----
+                case StatusKind.SummonEmpower:
+                    // 木灵攻击光环(林立 / 擎天 / 桂冠):玩家袋,按玩家回合计;落在哪只木灵见 Of(StatusEffect) 的 TargetSlot 分支
+                    return new Info("attack", Strings.T("status.summonempower.name", ("magnitude", magnitude)),
+                        Duration(turnsLeft),
+                        Strings.T("status.summonempower.desc", ("magnitude", magnitude)));
+                case StatusKind.SummonThorns:
+                    // 荆棘光环(荆天棘地):玩家袋,全部木灵,与本命盾反取较大的
+                    return new Info("thorns", Strings.T("status.summonthorns.name", ("magnitude", magnitude)),
+                        Duration(turnsLeft),
+                        Strings.T("status.summonthorns.desc", ("magnitude", magnitude)));
+                case StatusKind.SummonRanged:
+                    // 箭灵:本场全部木灵远程(战场上不另出 chip,攻 chip 的射程图标换成远程)
+                    return new Info("ranged", Strings.T("status.summonranged.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.summonranged.desc"));
+                case StatusKind.Bind:
+                    // 被缠(攀附):敌人身上,本场(藤灵离场即解开);藤灵在哪一格见 Of(StatusEffect) 的重载
+                    return new Info("bind", Strings.T("status.bind.name"),
+                        Strings.T("status.duration.while_vine"),
+                        Strings.T("status.bind.desc", ("who", Strings.T("status.bind.who")), ("magnitude", magnitude)));
+                case StatusKind.ThornMark:
+                    // 荆刺:敌人身上,按该敌人的行动递减(同洗尽铅华「次行动」)
+                    return new Info("thornmark", Strings.T("status.thornmark.name"),
+                        turnsLeft > 0 ? Strings.T("status.duration.actions", ("value", turnsLeft)) : Duration(turnsLeft),
+                        Strings.T("status.thornmark.desc", ("magnitude", magnitude)));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句
@@ -332,11 +358,21 @@ namespace Brushblade.Presentation
         /// <see cref="StatusEffect.WardCount"/>)、回敬与回合脉冲的载荷(<see cref="StatusEffect.OnHit"/>)。
         /// 其余状态与 <see cref="Of(StatusKind, int, int, bool)"/> 逐字相同。
         /// <paramref name="cardLevelOf"/>(可空):载荷存的是未缩放值、结算时按来源字等级缩放,传它才印得出实际量;null 按 1 级印。</summary>
-        public static Info Of(StatusEffect effect, bool isPlayer = false, Func<string, int> cardLevelOf = null)
+        /// <param name="slotLabelOf">(可空,D2-木 Task 5)木灵槽位 → 「前排第 1 位」;被缠的说明据此点名是哪只藤灵。</param>
+        public static Info Of(StatusEffect effect, bool isPlayer = false, Func<string, int> cardLevelOf = null,
+            Func<int, string> slotLabelOf = null)
         {
             var info = Of(effect.Kind, effect.Magnitude, effect.TurnsLeft, isPlayer);
             switch (effect.Kind)
             {
+                case StatusKind.SummonEmpower when effect.TargetSlot >= 0:
+                    // 擎天 / 桂冠:按槽位挂在某一只木灵身上
+                    return new Info(info.IconKey, info.Name, info.Duration,
+                        Strings.T("status.summonempower.desc.one", ("magnitude", effect.Magnitude)));
+                case StatusKind.Bind when slotLabelOf != null && slotLabelOf(effect.TargetSlot) is { } vine:
+                    return new Info(info.IconKey, info.Name, info.Duration,
+                        Strings.T("status.bind.desc", ("who", Strings.T("status.bind.who.slot", ("slot", vine))),
+                            ("magnitude", effect.Magnitude)));
                 case StatusKind.Seed when effect.WhileSlowed:
                     // 淋漓(D2-水 E25):持有者不在减速中时不触发
                     return new Info(info.IconKey, info.Name, info.Duration,

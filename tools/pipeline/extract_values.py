@@ -55,6 +55,20 @@ SUMMON_PASSIVE = {
     "SproutMax": "sproutMax",                 # 丛生:同时存活上限
     "EntrySaplings": "entrySaplings",         # 森然:入场附带 N 只幼苗
     "OnHitCharm": "onHitCharmChance",         # 迷香:出手 N% 魅惑 1 回合(吃卡等级,钳 100)
+    # D2-木 Task 1 预留的本命字段(Ruling 17;结算归 Task 2–4)。布尔 `DeathPart` 在召唤分支里单独认
+    "AttackPercent": "attackPercent",         # 参天之力
+    "HealAllyPercent": "healAllyPercent",     # 馥郁
+    "HealMirror": "healMirror",               # 水草
+    "ThornsBleed": "thornsBleed",             # 披荆(吃卡等级)
+    "CritAura": "critAura",                   # 蟾宫
+    "GroveCut": "groveCut",                   # 林荫
+    "GroveCutCap": "groveCutCap",
+    "ThicketCut": "thicketCut",               # 森严
+    "ThicketMin": "thicketMin",
+    "Guard": "guard",                         # 守护
+    "ReturnFire": "returnFire",               # 良弓
+    "DeathBlast": "deathBlast",               # 落木
+    "SproutDeathSlow": "sproutDeathSlow",     # 藻荇
 }
 
 
@@ -117,6 +131,10 @@ VALUELESS_EFFECTS = {
     # D2-土 Task 2(附录 G1):地裂 `ShieldSpend` 不带数值 = 清两桶(100%);塔倾 `ShieldSpend 50` 带数值走通用正则。
     # 整串带反引号匹配,`ShieldSpend` 不吞 `ShieldSpend 50`。土生金 `ShieldToMorale N`、浮屠 `ShieldCarry N` 带数值走通用正则。
     "ShieldSpend": {"kind": "ShieldSpend", "value": 100},
+    # D2-木 Task 1 预留(Ruling 17;结算归 Task 2 / 4):箭灵 `SummonRanged`、绿潮 `SummonMerge`、四木成林 `SummonAct`,不带数值
+    "SummonRanged": {"kind": "SummonRanged", "value": 0},
+    "SummonMerge": {"kind": "SummonMerge", "value": 0},
+    "SummonAct": {"kind": "SummonAct", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -158,7 +176,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
                   "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
                   "ShieldCarry",               # D2-土 Task 2:回合初留盾(浮屠),同上
-                  "HurtShield"}                # D2-土 Task 3:受击得盾(堡垒),同上
+                  "HurtShield",                # D2-土 Task 3:受击得盾(堡垒),同上
+                  "SummonEmpower", "SummonThorns", "ThornMark"}   # D2-木 Task 1 预留:木灵光环 / 荆刺,同上
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -239,6 +258,11 @@ DAMAGE_MARKER_VALUE_TOKENS = {
     # 写在 Reshape 格里会静默消失 —— 小写这一个挂 Reshape)
     "shotPercent": "shotPercent",
     "shots": "shots",
+    # D2-木 E40(森罗 / 撼天 / 硬弓):按木灵攻击 / 本字木灵攻击 / 本字木灵护甲加伤;E48(林立):召唤改形百分比
+    "summonAtkStrike": "summonAtkStrikePercent",
+    "hostAtkStrike": "hostAtkStrikePercent",
+    "hostArmorStrike": "hostArmorStrikePercent",
+    "summonPercent": "summonPercent",
 }
 # 与 Core 的 AmpScope / DamageCondition / TargetArea 枚举名一致;写错直接报错,不静默落成缺省
 AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All", "Burn"}   # Burn:灼的火力(D2-火 G3)
@@ -247,7 +271,8 @@ CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Fro
               "FirstCastThisTurn", "Countering",
               "PlayerHpAbove70", "HasSummon",   # D2-火 Task 1(附录 E1)
               "MoraleFull",                     # D2-金 Task 1(附录 E6)
-              "IsBoss", "NotBoss"}              # D2-水 Task 1(附录 E14)
+              "IsBoss", "NotBoss",              # D2-水 Task 1(附录 E14)
+              "OwnSummonAlive"}                 # D2-木 Task 1(附录 E50)
 # D1 Task 4:Augment 叠加修饰器:`Augment 1` + `of Block` + `field Count`。`Augment N` 走通用循环成 kind=Augment,
 # `of X` / `field Y` 在 _attach_modifier_tokens 里挂上去(一条 Augment 配一对 of/field,按出现顺序对应;缺哪个都报错)。
 AUGMENT_OF_TOKEN = "of"
@@ -270,7 +295,8 @@ ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blin
                     "FrostBite", "ThawStrike", "ThawSlow", "ChargeDelay",
                     "BuffBlock",   # D2-水 Task 3 洗尽铅华
                     "Silence",     # D2-土 E33 杜塞(`if NotBoss`)
-                    "SkillCut"}    # D2-土 G6 杜塞(`if IsBoss`)
+                    "SkillCut",    # D2-土 G6 杜塞(`if IsBoss`)
+                    "Bind", "ThornMark"}   # D2-木 Task 1 预留:攀附 / 荆刺
 ENEMY_PICKS = {"All", "Random", "HitTargets", "MostBurn", "FrozenByThisCast",
                "Row", "Adjacent", "BurnedByThisCast",   # D2-火 Task 1(附录 E2)
                "Column", "AdjacentOne", "HighestHp", "SlowedByThisCast"}   # D2-水 Task 1(附录 E15)
@@ -282,9 +308,21 @@ RESHAPE_PICK_KINDS = {"Reshape"}
 # 它们也要进 PICK_KINDS —— `pick` token 按位置挂到前一条 PICK_KINDS 效果上。
 # D2-0 Task 2:嘲讽 `Taunt N`(N = 回合数,0 = 本场)必须写 pick,落点 Self / SummonedThisCast / AllSummons。
 # D2-水 E15:`pick AllAllies` = 玩家 + 全部存活木灵,只给 Cleanse(水大无际)。
-ALLY_PICKS = {"Self": {"Cleanse", "Taunt"}, "SummonedThisCast": {"Endure", "Taunt"}, "AllSummons": {"Taunt"},
-              "AllAllies": {"Cleanse"}}
+# D2-木 Task 2(M1):木灵攻击光环 `SummonEmpower N` 必须写 pick AllSummons(林立)/ OtherSummons(擎天)/ StrongestSummon(桂冠)。
+# D2-木 Task 6(月桂,Q23):`CritBuff N` `pick Self` = 攻面「本回合我方暴击」免选、直接落玩家(缺省写法仍选友方)。
+ALLY_PICKS = {"Self": {"Cleanse", "Taunt", "CritBuff"}, "SummonedThisCast": {"Endure", "Taunt"},
+              "AllSummons": {"Taunt", "SummonEmpower"}, "AllAllies": {"Cleanse"},
+              "OtherSummons": {"SummonEmpower"}, "StrongestSummon": {"SummonEmpower"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
+# 必须写 pick 的我方侧效果(Primary 写法没有落点,ConfigLoader 会拒):合法 pick 一律由 ALLY_PICKS 推导,不另抄一份
+REQUIRED_ALLY_PICK_KINDS = {"Taunt", "SummonEmpower"}
+# 必须写敌方侧 pick 的效果(同上,ConfigLoader 经 EffectPickRules.Allows(Primary) 拒绝缺省写法):攀附(D2-木 M7)
+REQUIRED_ENEMY_PICK_KINDS = {"Bind"}
+
+
+def _ally_picks_of(kind):
+    """该 kind 在 ALLY_PICKS 里能写的选择器(按名排序)。"""
+    return sorted(p for p, ks in ALLY_PICKS.items() if kind in ks)
 PICK_KINDS = ENEMY_PICK_KINDS | ALLY_PICK_KINDS | RESHAPE_PICK_KINDS
 PICKS = ENEMY_PICKS | set(ALLY_PICKS)
 PICK_TOKEN = "pick"
@@ -317,7 +355,8 @@ CAP_TOKEN = "cap"
 # Morale 档不经 `per`:伤害击数写 `hitsPerMorale`、格挡次数写 `countPerMorale`(见 _attach_metal_ops)。
 SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify", "HealSelf"},
                "ExtraHitTarget": {"Morale"},
-               "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"}}   # D2-水 E22:洪峰 / 濯身
+               "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"},   # D2-水 E22:洪峰 / 濯身
+               "SummonCount": {"Amplify"}}                             # D2-木 E39:众木 / 林深
 SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
 # 段必须写在格子末尾,段内每个 `+` 分段恰好一条效果、按书写顺序落表(_parse_segment,终审 5),
@@ -339,8 +378,11 @@ RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vu
 # 落进 chars.json 的 perHit 字段(同 onHit)。名单与 BattleEngine.TurnPulseAllows 一致(不收伤害);没有主目标,
 # 敌方效果必须写 `pick All` 之类不选主目标的选择器;不能带条件门 / 附着 / 本体百分比。
 ON_TURN_TOKEN = "onTurn"
-TURN_PULSE_ALLOWED = {"Slow", "Freeze", "Weaken", "Blind", "HealSelf", "Shield", "AddWellspring"}
-TURN_PULSE_ENEMY_KINDS = {"Slow", "Freeze", "Weaken", "Blind"}
+TURN_PULSE_ALLOWED = {"Slow", "Freeze", "Weaken", "Blind", "HealSelf", "Shield", "AddWellspring",
+                      "Vulnerable"}   # D2-木 E50(一叶知秋)
+TURN_PULSE_ENEMY_KINDS = {"Slow", "Freeze", "Weaken", "Blind", "Vulnerable"}
+# 回合脉冲载荷的条件门只收与目标无关的 OwnSummonAlive(D2-木 E50,与 ConfigLoader 同口径)
+TURN_PULSE_CONDITIONS = {"OwnSummonAlive"}
 # 载荷存成 OpeningEffect,只带 kind / value / turns / targetAll / pick / shape / shapePercent;以下字段写了会被静默丢掉,一律拒绝
 # (与 ConfigLoader 回合脉冲校验同一张名单)
 TURN_PULSE_DROPPED_FIELDS = {"extend", "fill", "whileSlowed", "ofHeal", "scaleBy", "wardOf", "wardCount"}
@@ -392,6 +434,15 @@ HITS_PER_SHIELD_TOKEN = "hitsPerShield"
 # `ofShield`(碉楼 / 载物,E28):本格唯一 ShieldSummons 的量 = 本次名义护盾 × N%;`minArmor N`(山岳,E32):本格唯一 Retaliate 的护甲门槛。
 OF_SHIELD_TOKEN = "ofShield"
 MIN_ARMOR_TOKEN = "minArmor"
+
+# ---- D2-木 Task 1(附录 E41 / E43 / E46 / E47)----
+# `fromBody`(双木):本格唯一 SummonSapling 没有召出时取本字生面本体;`sprout`(丛藻):新幼苗记母体槽位;
+# `own` / `byArmor`(柘弓):本格唯一 SummonStrike 只让本字最强一只出手 / 基数取护甲(byArmor 须配 own);
+# `pct N`(万木回春):本格唯一 Revive 的复活血量百分比(无数值的 `pct` 仍是 HealSummons 的 percentOfMax)。
+FROM_BODY_TOKEN = "fromBody"
+SPROUT_TOKEN = "sprout"
+OWN_TOKEN = "own"
+BY_ARMOR_TOKEN = "byArmor"
 
 BLOCK_RIDER_TOKENS = {
     "counterHits": "counterHits",
@@ -464,12 +515,14 @@ def _attach_on_turn(config, char, effects, riders):
         raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 后面没有效果")
     for r in riders:
         bad = (r["kind"] not in TURN_PULSE_ALLOWED
-               or set(r) & {"onlyIf", "riderOf", "bodyPercent", "perHit", "openingBattles"}
+               or ("onlyIf" in r and r["onlyIf"] not in TURN_PULSE_CONDITIONS)
+               or set(r) & {"riderOf", "bodyPercent", "perHit", "openingBattles"}
                or set(r) & TURN_PULSE_DROPPED_FIELDS
                or (r["kind"] in TURN_PULSE_ENEMY_KINDS and r.get("pick", "Primary") == "Primary"))
         if bad:
             raise ValueError(f"{char}:配置格「{config}」的 `{ON_TURN_TOKEN}` 段只能是 {sorted(TURN_PULSE_ALLOWED)}"
-                             f"(敌方效果须写 `pick All`),不能带条件门 / 附着 / 本体百分比 / {sorted(TURN_PULSE_DROPPED_FIELDS)}:{r}")
+                             f"(敌方效果须写 `pick All` 之类),条件门只收 {sorted(TURN_PULSE_CONDITIONS)},"
+                             f"不能带附着 / 本体百分比 / {sorted(TURN_PULSE_DROPPED_FIELDS)}:{r}")
     hosts[0]["perHit"] = riders
 
 
@@ -635,6 +688,30 @@ def _attach_earth_ops(config, char, effects, consumed):
             if len(cap) > 1 or int(cap[0]) < 1:
                 raise ValueError(f"{char}:配置格「{config}」的 `cap` 只能写一个,且须 ≥ 1")
             host["scaleCap"] = int(cap[0])
+
+
+def _attach_wood_ops(config, char, effects, consumed):
+    """D2-木 Task 1:`fromBody` / `sprout` / `own` / `byArmor` / `pct N`(Revive)。宿主不唯一或不存在一律报错。"""
+    def only(kind, token):
+        hosts = [e for e in effects if e["kind"] == kind]
+        if len(hosts) != 1:
+            raise ValueError(f"{char}:配置格「{config}」写了 `{token}`,但本格没有唯一的一条 {kind} 可挂 —— 它会静默消失。")
+        return hosts[0]
+
+    for token, field, kind in ((FROM_BODY_TOKEN, "fromBody", "SummonSapling"), (SPROUT_TOKEN, "sprout", "SummonSapling"),
+                               (OWN_TOKEN, "ownSummons", "SummonStrike"), (BY_ARMOR_TOKEN, "byArmor", "SummonStrike")):
+        if f"`{token}`" in config:
+            consumed.add(token)
+            only(kind, token)[field] = True
+    for e in effects:
+        if e.get("byArmor") and not e.get("ownSummons"):
+            raise ValueError(f"{char}:配置格「{config}」的 `{BY_ARMOR_TOKEN}` 须配 `{OWN_TOKEN}`(柘弓:本字最强一只按护甲出手)")
+    revive_pct = re.findall(rf"`{PERCENT_OF_MAX_TOKEN} (\d+)`", config)
+    if revive_pct:
+        consumed.add(PERCENT_OF_MAX_TOKEN)
+        if len(revive_pct) > 1 or not 1 <= int(revive_pct[0]) <= 100:
+            raise ValueError(f"{char}:配置格「{config}」的 `{PERCENT_OF_MAX_TOKEN} N` 只能写一个,且须在 1..100")
+        only("Revive", f"{PERCENT_OF_MAX_TOKEN} N")["reviveHpPercent"] = int(revive_pct[0])
 
 
 def _positional_hosts(position, effects, kinds=None):
@@ -965,14 +1042,17 @@ def _attach_ally_tokens(config, char, effects, consumed):
             raise ValueError(f"{char}:`pick {pick}` 只能挂在 {sorted(ally_kinds)} 上,当前挂到了 {e['kind']}")
         if ally_kinds is None and e["kind"] not in ENEMY_PICK_KINDS | RESHAPE_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不认敌方侧选择器 `pick {pick}`(只认 "
-                             f"{sorted(p for p, ks in ALLY_PICKS.items() if e['kind'] in ks)})")
+                             f"{_ally_picks_of(e['kind'])})")
     for e in effects:
         # 保命必须写 `pick SummonedThisCast`(Ruling 10):缺省写法引擎选不到召唤物,会静默空转
         if e["kind"] == "Endure" and e.get("pick") != "SummonedThisCast":
             raise ValueError(f"{char}:`Endure` 必须配 `pick SummonedThisCast`(落点是本次召出的召唤物)")
-        # 嘲讽同理:必须写 pick Self / SummonedThisCast / AllSummons(Primary 写法 ConfigLoader 会拒绝)
-        if e["kind"] == "Taunt" and e.get("pick") not in ALLY_PICKS:
-            raise ValueError(f"{char}:`Taunt` 必须配 `pick Self` / `pick SummonedThisCast` / `pick AllSummons`")
+        # 嘲讽 / 木灵攻击光环(D2-木 M1)同理:必须写 ALLY_PICKS 里给它的选择器(Primary 写法 ConfigLoader 会拒绝)
+        if e["kind"] in REQUIRED_ALLY_PICK_KINDS and e.get("pick") not in _ally_picks_of(e["kind"]):
+            raise ValueError(f"{char}:`{e['kind']}` 必须配 "
+                             + " / ".join(f"`pick {p}`" for p in _ally_picks_of(e["kind"])))
+        if e["kind"] in REQUIRED_ENEMY_PICK_KINDS and e.get("pick") not in ENEMY_PICKS:
+            raise ValueError(f"{char}:`{e['kind']}` 必须配敌方侧 `pick`({sorted(ENEMY_PICKS)})")
         if "onlyIf" in e and e["kind"] in ALLY_PICK_KINDS:
             raise ValueError(f"{char}:{e['kind']} 不能带条件门 `if`(只给 Amplify 与敌方侧效果)")
 
@@ -1061,6 +1141,9 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
         if "`Taunt`" in config:             # 无数值的布尔标记(2026-08-25,荆/堡)
             passive["taunt"] = True
             consumed.add("Taunt")
+        if "`DeathPart`" in config:         # 无数值的布尔标记(D2-木 预留,秋实)
+            passive["deathPart"] = True
+            consumed.add("DeathPart")
         # 目标形状(2026-08-22,spec §9.1):召唤物自动攻击也能带形状,与伤害侧同一套 token,
         # 落进 passive 的 shape/shots/shapePercent —— **不**新增独立 effect(与 Ranged 同处理)。
         # Chain/ShapePercent/Shots 这三个带数值的 token 不会被下面的通用循环二次吞掉
@@ -1140,6 +1223,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             continue  # D2-水 Task 3:免疫减益的次数,下面按位置挂到 DebuffWard 上
         if kind in (ARMOR_SHIELD_TOKEN, HITS_PER_SHIELD_TOKEN, MIN_ARMOR_TOKEN):
             continue  # D2-土 Task 1:Reshape / 伤害的修饰数值,下面由 _attach_earth_ops 挂
+        if kind == PERCENT_OF_MAX_TOKEN:
+            continue  # D2-木 Task 1:`pct N` = Revive 的复活血量百分比,下面由 _attach_wood_ops 挂
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -1285,6 +1370,7 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     _attach_fire_ops(config, char, effects, consumed)
     _attach_metal_ops(config, char, effects, consumed)
     _attach_earth_ops(config, char, effects, consumed)
+    _attach_wood_ops(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)

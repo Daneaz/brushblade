@@ -579,6 +579,50 @@ def test_taunt_effect_with_picks():
         {"kind": "Taunt", "value": 2, "pick": "AllSummons"}]
 
 
+def test_summon_aura_effects_with_picks():
+    """D2-木 Task 2(M1):木灵攻击光环按 pick 落点;荆棘 / 远程光环不带 pick。"""
+    for pick in ("AllSummons", "OtherSummons", "StrongestSummon"):
+        assert _parse_effects(f"`SummonEmpower 20` + `turns 3` + `pick {pick}`", "林") == [
+            {"kind": "SummonEmpower", "value": 20, "turns": 3, "pick": pick}]
+    assert _parse_effects("`SummonThorns 30` + `turns 3`", "荆") == [
+        {"kind": "SummonThorns", "value": 30, "turns": 3}]
+    assert _parse_effects("`SummonRanged`", "箭") == [{"kind": "SummonRanged", "value": 0}]
+
+
+@pytest.mark.parametrize("config", [
+    "`SummonEmpower 20` + `turns 3`",                          # 攻击光环必须写 pick
+    "`SummonEmpower 20` + `turns 3` + `pick Random`",          # 不认敌方侧选择器
+    "`SummonEmpower 20` + `turns 3` + `pick SummonedThisCast`",
+    "`SummonThorns 30` + `turns 3` + `pick AllSummons`",       # 荆棘光环恒为全部
+    "`Taunt 1` + `pick OtherSummons`",                         # 新 pick 只给攻击光环
+    "`Taunt 1` + `pick StrongestSummon`",
+    "`SummonEmpower 20` + `pick AllSummons`",                  # 必写 turns(DURATION_KINDS)
+])
+def test_summon_aura_pick_combos_rejected(config):
+    with pytest.raises(ValueError):
+        _parse_effects(config, "测")
+
+
+def test_required_ally_picks_derive_from_ally_picks():
+    """fix round 1(Minor 4):必须写 pick 的 kind,合法选择器与 ALLY_PICKS 同源,不另抄一份。"""
+    from extract_values import ALLY_PICKS, REQUIRED_ALLY_PICK_KINDS, _ally_picks_of
+    for kind in REQUIRED_ALLY_PICK_KINDS:
+        picks = _ally_picks_of(kind)
+        assert picks == sorted(p for p, ks in ALLY_PICKS.items() if kind in ks) and picks
+        for pick in picks:
+            _parse_effects(f"`{kind} 2` + `turns 3` + `pick {pick}`" if kind == "SummonEmpower"
+                           else f"`{kind} 2` + `pick {pick}`", "测")
+
+
+def test_bind_requires_enemy_pick():
+    """终审 Minor 4:攀附 `Bind N` 必须写敌方侧 pick(ConfigLoader 经 EffectPickRules.Allows(Primary) 拒绝缺省写法),
+    管线层就拦下,与 Taunt / SummonEmpower 对称。"""
+    assert _parse_effects("`Bind 100` + `pick HighestHp`", "藤") == [
+        {"kind": "Bind", "value": 100, "pick": "HighestHp"}]
+    with pytest.raises(ValueError, match="pick"):
+        _parse_effects("`Bind 100`", "藤")
+
+
 @pytest.mark.parametrize("config", [
     "`Taunt 1`",                               # 嘲讽必须写 pick
     "`Taunt 1` + `pick Random`",               # 嘲讽不认敌方侧选择器
@@ -1450,3 +1494,69 @@ def test_battles_attaches_to_valueless_token_whose_kind_has_another_name():
     assert effects == [
         {"kind": "Morale", "value": 2},
         {"kind": "Morale", "value": 0, "fill": True, "openingBattles": 3}]
+
+
+# ---- D2-木 Task 1:共用小扩展 E39 / E40 / E41 / E43 / E46 / E47 / E48 / E50 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 森罗 / 撼天 / 硬弓(E40)
+    ("`Reshape` `summonAtkStrike 20`", [{"kind": "Reshape", "value": 0, "summonAtkStrikePercent": 20}]),
+    ("`Reshape` `hostAtkStrike 200`", [{"kind": "Reshape", "value": 0, "hostAtkStrikePercent": 200}]),
+    ("`Reshape` `hostArmorStrike 400` `armorIgnore 100`",
+     [{"kind": "Reshape", "value": 0, "hostArmorStrikePercent": 400, "armorIgnorePercent": 100}]),
+    # 林立(E48):1 只 → 2 只各 60%
+    ("`Augment 1` `of Summon` `field Count` + `Reshape` `summonPercent 60`",
+     [{"kind": "Augment", "value": 1, "augmentKind": "Summon", "augmentField": "Count"},
+      {"kind": "Reshape", "value": 0, "summonPercent": 60}]),
+    # 双木(E41)/ 丛藻(E47)
+    ("`SummonSapling 20` `count 2` `fromBody`", [{"kind": "SummonSapling", "value": 20, "count": 2, "fromBody": True}]),
+    ("`SummonSapling 30` `count 2` `sprout`", [{"kind": "SummonSapling", "value": 30, "count": 2, "sprout": True}]),
+    # 柘弓(E46)
+    ("`SummonStrike 200` `own` `byArmor`", [{"kind": "SummonStrike", "value": 200, "ownSummons": True, "byArmor": True}]),
+    # 万木回春(E43)
+    ("`Revive 0` `pct 30`", [{"kind": "Revive", "value": 0, "reviveHpPercent": 30}]),
+    # 众木(E39)
+    ("`Amplify 10` `scope Damage` `per SummonCount`",
+     [{"kind": "Amplify", "value": 10, "scope": "Damage", "scaleBy": "SummonCount"}]),
+    # 移花接木(E45):既有 Count 认 Charm
+    ("`Augment 100` `of Charm` `field Count`", [{"kind": "Augment", "value": 100, "augmentKind": "Charm", "augmentField": "Count"}]),
+    # 一叶知秋(E50):回合脉冲载荷收标记 + if OwnSummonAlive
+    ("`TurnPulse` `turns 3` `onTurn` `Vulnerable 30` `turns 1` `pick Random` `if OwnSummonAlive`",
+     [{"kind": "TurnPulse", "value": 0, "turns": 3,
+       "perHit": [{"kind": "Vulnerable", "value": 30, "turns": 1, "pick": "Random", "onlyIf": "OwnSummonAlive"}]}]),
+])
+def test_d2wood_shared_tokens(config, expected):
+    assert _parse_effects(config, "木") == expected
+
+
+def test_d2wood_reserved_passive_and_kind_tokens():
+    """D2-木 Task 1 预留(Ruling 17):本命新字段走 SUMMON_PASSIVE,`DeathPart` 是布尔;三个无值新 Kind 进 VALUELESS_EFFECTS。"""
+    effects = _parse_effects("`Summon 1`(0 血/攻 0) `Guard 30` `GroveCut 5` `GroveCutCap 20` `DeathPart`", "柘")
+    assert effects == [{"kind": "Summon", "value": 0, "count": 1, "attack": 0, "summonChar": "柘",
+                        "passive": {"guard": 30, "groveCut": 5, "groveCutCap": 20, "deathPart": True}}]
+    assert _parse_effects("`SummonAct`", "𣛧") == [{"kind": "SummonAct", "value": 0}]
+    assert _parse_effects("`ThornMark 30` `turns 2`", "荆") == [{"kind": "ThornMark", "value": 30, "turns": 2}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`DamageSingle 10` `fromBody`", "fromBody"),            # 只挂 SummonSapling
+    ("`DamageSingle 10` `sprout`", "sprout"),
+    ("`HealSelf 10` `own`", "own"),                          # 只挂 SummonStrike
+    ("`SummonStrike 100` `byArmor`", "byArmor"),             # 须配 own
+    ("`HealSummons 10` `pct 30`", "pct"),                    # 带数值的 pct 只挂 Revive
+    ("`Shield 10` `summonPercent 60`", "summonPercent"),     # 没有 Reshape 可挂
+    ("`HealSelf 10` `per SummonCount`", "per"),              # SummonCount 只挂 Amplify
+    ("`TurnPulse` `turns 3` `onTurn` `Vulnerable 30` `turns 1` `pick Random` `if Burning`", "onTurn"),   # 其余条件仍拒
+])
+def test_d2wood_shared_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+def test_d2wood_critbuff_pick_self():
+    """D2-木 Task 6(月桂,Q23):攻面「本回合我方暴击」写 `CritBuff N` `turns 1` `pick Self`,免选、直接落玩家。"""
+    assert _parse_effects("`CritBuff 30` `turns 1` `pick Self`", "桂") == [
+        {"kind": "CritBuff", "value": 30, "turns": 1, "pick": "Self"}]
+    with pytest.raises(ValueError):
+        _parse_effects("`CritBuff 30` `turns 1` `pick AllSummons`", "桂")

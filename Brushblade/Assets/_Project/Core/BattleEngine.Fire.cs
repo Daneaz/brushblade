@@ -88,8 +88,10 @@ namespace Brushblade.Core
         /// <summary>一条带计数缩放的 Amplify 加成项:百分点 × 计数(出字前),cap &gt; 0 时钳到 cap。</summary>
         private int ScaledAmpPercent(int percent, ScaleBasis per, int cap, int enemyIndex)
         {
+            // ⚠ 每一档必须显式写分支:最后一支是「带灼敌人数」,漏写的新档会静默落到那里(D2-木 E39 反向测试钉住)
             long count = per == ScaleBasis.BurnStack ? PreCastBurnStacksOf(enemyIndex)
                 : per == ScaleBasis.Wellspring ? PreCastWellspringStacks()   // D2-水 E22a 洪峰
+                : per == ScaleBasis.SummonCount ? _cast.PreCastSummons ?? AliveSummons()   // D2-木 E39 众木 / 林深
                 : PreCastBurningEnemies();
             long sum = percent * count;
             if (cap > 0) sum = Math.Min(sum, cap);

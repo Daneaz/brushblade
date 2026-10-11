@@ -231,6 +231,16 @@ namespace Brushblade.Core
                         // 支持 Pick / OnlyIf。离散。敌对。
         ApCost,         // 杜门不出:AP 代价 —— 给玩家挂 Buff 极性的 Seal(Magnitude = Value ≥ 1,TurnsLeft 2 = 下个玩家回合 AP −N),
                         // 直接 bag.Apply、不经 ApplyStatus:不被免疫减益(DebuffWard)拦、不被净化清(R4「代价不算减益」,Q2)。离散。非敌对。
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;结算归 Task 2–4,附录 M1 / M6–M10)。⚠ 只在末尾追加 ----
+        SummonEmpower,  // M1 木灵攻击光环(林立 / 桂冠 / 擎天):玩家袋 StatusKind.SummonEmpower,TargetSlot −1 = 全部、≥0 = 那一只。
+                        // Value = 基础攻击 +N%(离散),Turns = 玩家回合;必须写 pick AllSummons / OtherSummons / StrongestSummon
+        SummonThorns,   // M1 木灵荆棘光环(荆天棘地):玩家袋 StatusKind.SummonThorns,与本命荆棘取最强;Turns = 玩家回合
+        SummonRanged,   // M1 木灵远程(箭灵):玩家袋 StatusKind.SummonRanged,本场,含之后召出的(Value 不用)
+        Bind,           // M7 攀附:敌人 StatusKind.Bind(TargetSlot = 藤灵槽),敌人行动开始时该木灵打它一下。Task 4
+        ThornMark,      // M6 荆刺:敌人 StatusKind.ThornMark,并入两条反弹管线的 Reflect 合计。Task 3
+        SummonMerge,    // M8 绿潮:小藻并入本次召出的藻灵。Task 4
+        SummonAct,      // M9 四木成林:每只存活木灵立即出手一次。Task 4
+        GrantChar,      // M10 折桂:击杀时本场字库 +Value 张(_traitRandom)。Task 4
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -248,6 +258,8 @@ namespace Brushblade.Core
         Cleansed,       // HealSelf:本次出字 Cleanse 实际清掉的条数(结算那一刻;濯身)
         // ---- D2-土 Task 1(附录 E36)。⚠ 只在末尾追加 ----
         Shield,         // DamageSingle / Reshape:击数 = HitCount + min(ScaleCap, ⌊出字前护盾(两桶)/ ScaleDivisor⌋)(地裂;R3)
+        // ---- D2-木 Task 1(附录 E39)。⚠ 只在末尾追加 ----
+        SummonCount,    // Amplify:出字前的存活木灵数(含幼苗;R3,同 PreCastConditions 一并取)。众木 / 林深
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -578,6 +590,39 @@ namespace Brushblade.Core
         /// 不扣次数(写进 <see cref="StatusEffect.MinArmor"/>)。0 = 无门槛。</summary>
         public int MinArmor { get; }
 
+        // ---- D2-木 Task 1(附录 E40 / E41 / E43 / E46 / E47 / E48)。全缺省 = 原行为,逐位恒等 ----
+
+        /// <summary>按木灵攻击加伤(E40,森罗 `summonAtkStrike N`):DamageSingle / Reshape —— 每个主目标的第一段额外
+        /// + Σ 存活木灵有效攻击 × N%(位置同 shieldStrike,随这一击过生克 / 暴击 / 护甲)。同面多条相加。0 = 不启用。</summary>
+        public int SummonAtkStrikePercent { get; }
+
+        /// <summary>按本字木灵攻击加伤(E40,撼天 `hostAtkStrike N`):同上,基数 = 本字木灵(SourceChar == 本字、非幼苗)
+        /// 有效攻击的最大值;不在场为 0。同面多条相加。0 = 不启用。</summary>
+        public int HostAtkStrikePercent { get; }
+
+        /// <summary>按本字木灵护甲加伤(E40,硬弓 `hostArmorStrike N`):同上,基数 = 本字木灵 SummonDefense 的最大值。0 = 不启用。</summary>
+        public int HostArmorStrikePercent { get; }
+
+        /// <summary>幼苗取本体(E41,双木 `fromBody`):只给 SummonSapling —— 本次出字没有召出时,属性取本字生面本体首条 Summon
+        /// (血按卡等级、攻 = ScaleSummonAttack(卡等级))× Value%。false = 原口径(没有召出就空转)。</summary>
+        public bool FromBody { get; }
+
+        /// <summary>小藻(E47,丛藻 `sprout`):只给 SummonSapling —— 新幼苗记 SproutParentSlot = 属性来源木灵的槽位。</summary>
+        public bool Sprout { get; }
+
+        /// <summary>只让本字木灵出手(E46,柘弓 `own`):只给 SummonStrike —— 只取本字木灵里基数最大的一只(同值取槽位小)。</summary>
+        public bool OwnSummons { get; }
+
+        /// <summary>按护甲出手(E46,柘弓 `byArmor`):只给 SummonStrike —— 基数取 SummonDefense(含富甲)而不是有效攻击。</summary>
+        public bool ByArmor { get; }
+
+        /// <summary>复活血量百分比(E43,万木回春 `pct N`):只给 Revive —— 生命 = ⌈MaxHp × N%⌉;0 = 原口径半血。</summary>
+        public int ReviveHpPercent { get; }
+
+        /// <summary>召唤改形百分比(E48,林立 `summonPercent N`):Summon / Reshape —— 召出木灵的血 / 攻在缩放之后再 × N%。
+        /// 缺省 100 不做乘除;≤0 兜回 100。</summary>
+        public int SummonPercent { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -612,7 +657,10 @@ namespace Brushblade.Core
             bool extend = false, DamageCondition executeIf = DamageCondition.None, bool whileSlowed = false,
             bool ofHeal = false, StatusKind? wardOf = null, int wardCount = 0,
             int armorShieldPercent = 0, bool armorStrikeEach = false, int scaleDivisor = 0,
-            bool ofShield = false, int minArmor = 0)
+            bool ofShield = false, int minArmor = 0,
+            int summonAtkStrikePercent = 0, int hostAtkStrikePercent = 0, int hostArmorStrikePercent = 0,
+            bool fromBody = false, bool sprout = false, bool ownSummons = false, bool byArmor = false,
+            int reviveHpPercent = 0, int summonPercent = 100)
         {
             Kind = kind;
             Value = value;
@@ -683,6 +731,15 @@ namespace Brushblade.Core
             ScaleDivisor = scaleDivisor;
             OfShield = ofShield;
             MinArmor = minArmor;
+            SummonAtkStrikePercent = summonAtkStrikePercent;
+            HostAtkStrikePercent = hostAtkStrikePercent;
+            HostArmorStrikePercent = hostArmorStrikePercent;
+            FromBody = fromBody;
+            Sprout = sprout;
+            OwnSummons = ownSummons;
+            ByArmor = byArmor;
+            ReviveHpPercent = reviveHpPercent;
+            SummonPercent = summonPercent <= 0 ? 100 : summonPercent;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -705,8 +762,10 @@ namespace Brushblade.Core
             int? stallPushPercent = null, int? bonusTurns = null, DamageCondition? bonusIf = null,
             DamageCondition? executeIf = null,
             bool? persistOnce = null, int? armorShieldPercent = null, bool? armorStrikeEach = null,
-            int? scaleDivisor = null, int? scaleCap = null) =>
-            new EffectDef(Kind, value ?? Value, DoubleVs, persistOnce ?? PersistOnce, SummonCount, SummonAttack, SummonChar,
+            int? scaleDivisor = null, int? scaleCap = null,
+            int? summonAtkStrikePercent = null, int? hostAtkStrikePercent = null, int? hostArmorStrikePercent = null,
+            int? summonCount = null, int? summonPercent = null) =>
+            new EffectDef(Kind, value ?? Value, DoubleVs, persistOnce ?? PersistOnce, summonCount ?? SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
@@ -722,7 +781,10 @@ namespace Brushblade.Core
                 stallPushPercent ?? StallPushPercent, bonusTurns ?? BonusTurns, bonusIf ?? BonusIf,
                 Extend, executeIf ?? ExecuteIf, WhileSlowed, OfHeal, WardOf, WardCount,
                 armorShieldPercent ?? ArmorShieldPercent, armorStrikeEach ?? ArmorStrikeEach, scaleDivisor ?? ScaleDivisor,
-                OfShield, MinArmor)
+                OfShield, MinArmor,
+                summonAtkStrikePercent ?? SummonAtkStrikePercent, hostAtkStrikePercent ?? HostAtkStrikePercent,
+                hostArmorStrikePercent ?? HostArmorStrikePercent,
+                FromBody, Sprout, OwnSummons, ByArmor, ReviveHpPercent, summonPercent ?? SummonPercent)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

@@ -24,11 +24,17 @@ namespace Brushblade.Presentation
         /// 调用方判据见 <see cref="BattleView.ShowCarriedShield"/>,与角标读的是同一条。
         /// <paramref name="hpOverride"/>/<paramref name="maxHpOverride"/> 同理(2026-09-18):
         /// 旧实例的血量不含奇遇的回血/扣血与上限增减。
-        /// <paramref name="cardLevelOf"/>(可空,D2-水 Task 5):回敬 / 回合脉冲详情里的载荷按来源字等级印。</summary>
+        /// <paramref name="cardLevelOf"/>(可空,D2-水 Task 5):回敬 / 回合脉冲详情里的载荷按来源字等级印。
+        /// <paramref name="graph"/>(可空,D2-木 Task 5):光环 / 林荫 / 蟾宫的来源特性名。</summary>
         public static UnitDetail Sheet(BattleEngine battle, MetaState meta, int? shieldOverride = null,
-            int? hpOverride = null, int? maxHpOverride = null, System.Func<string, int> cardLevelOf = null)
+            int? hpOverride = null, int? maxHpOverride = null, System.Func<string, int> cardLevelOf = null,
+            RecipeGraph graph = null)
         {
             int shield = shieldOverride ?? battle.PlayerShield;
+            var statuses = UnitDetailChip.BuildStatuses(battle.PlayerStatuses, isPlayer: true, graph: graph,
+                cardLevelOf: cardLevelOf);
+            // 林荫 / 蟾宫(D2-木 M2):本命在场光环护到玩家身上,袋子里没有条目,合成一条(StatusChipsWood 稿「减伤」「暴击」)
+            UnitDetailChip.AddWoodNatureEntries(statuses, battle, graph, forSummon: false);
             return new UnitDetail
             {
                 PortraitPrefix = null, // 执笔人没有立绘管线,稿子写着「立绘待补·现用墨底字块」
@@ -43,7 +49,7 @@ namespace Brushblade.Presentation
                 Shield = shield,
                 ActionMeter = battle.PlayerActionMeter,
                 Figures = BuildFigures(battle, meta),
-                Statuses = UnitDetailChip.BuildStatuses(battle.PlayerStatuses, isPlayer: true, cardLevelOf: cardLevelOf),
+                Statuses = statuses,
                 // 留存护盾只在读实时引擎时有(战后携带值走 shieldOverride,两桶已合并成一个数)
                 Abilities = BuildAbilities(battle, meta, shield, shieldOverride == null ? battle.ShieldPersist : 0),
                 Wuxing = null,

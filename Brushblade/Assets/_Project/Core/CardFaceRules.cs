@@ -71,6 +71,7 @@ namespace Brushblade.Core
             EffectKind.ChargeDelay,   // D2-水 Task 2:推迟 Boss 蓄力
             EffectKind.BuffBlock,     // D2-水 Task 3:挂在敌人身上(DebuffWard 挂我方,不敌对)
             EffectKind.OverkillSplash, EffectKind.SkillCut,   // D2-土 Task 4:打 / 挂在敌人身上(ApCost 挂玩家,不敌对)
+            EffectKind.Bind, EffectKind.ThornMark,   // D2-木 Task 1 预留:攀附 / 荆刺挂在敌人身上
         };
 
         /// <summary>敌对且取目标为 Primary 或全体(落任一敌人即成立)。pick Random / HitTargets / MostBurn /

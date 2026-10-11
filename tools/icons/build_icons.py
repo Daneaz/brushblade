@@ -255,6 +255,33 @@ ICONS = {
         f'<path {FILL} d="M26 15h12v25l-6 10-6-10z"/>'
         f'<path {STROKE5} d="M8 58h48"/>'
     ),
+    # 字卡特性 D2-木 Task 5(2026-10-11 拍板):路径逐字取自 traits-data.js 标「10-11 补」的四枚 + 「10-04 补」的减伤
+    # 荆刺:标记的菱形(线宽 5)+ 实心圆心 + 四角倒刺 —— 打我方时自己被扎;不用 thorns(那是倒刺 / 盾反,方向相反)
+    "thornmark": (
+        f'<path {STROKE5} d="M32 16l16 16-16 16-16-16z"/>'
+        f'<circle cx="32" cy="32" r="5" {FILL}/>'
+        f'<path {FILL} d="M40 24l12-12-3 15zM40 40l12 12-15-3zM24 40L12 52l3-15zM24 24L12 12l15 3z"/>'
+    ),
+    # 被缠(攀附):一根桩 + 三道藤绕上去(藤线宽 5)
+    "bind": (
+        f'<path {STROKE} d="M32 6v52"/>'
+        f'<path {STROKE5} d="M20 14c16 4 16 10 0 14M44 28c-16 4-16 10 0 14M20 42c16 4 16 10 0 14"/>'
+    ),
+    # 守护(柘灵本命):实心盾挡在一个人前面。盾形同 keepshield / block 那条盾路径,缩放 .62 平移到左下
+    "guard": (
+        f'<circle cx="44" cy="20" r="8" {FILL}/>'
+        f'<path {FILL} d="M30 50a14 14 0 0 1 28 0v6H30z"/>'
+        f'<path {FILL} transform="translate(2 14) scale(.62)" d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
+    ),
+    # 受伤上限(铜墙铁壁):≤ —— 单次不超过;与减伤的城垛分开(一个封顶、一个打折)
+    "hitcap": (
+        f'<path {STROKE} d="M46 12L18 26l28 14"/>'
+        f'<path {STROKE} d="M18 52h28"/>'
+    ),
+    # 减伤(10-04 补;林荫 / 森严 / DamageCut 共用):城垛实心墙 + 镂空城门(evenodd 挖洞,不靠蒙版)
+    "bulwark": (
+        f'<path {FILL} fill-rule="evenodd" d="M8 56V18h10v10h9V18h10v10h9V18h10v38zM26 56V47a6 6 0 0 1 12 0v9z"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

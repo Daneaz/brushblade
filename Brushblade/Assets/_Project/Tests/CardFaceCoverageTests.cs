@@ -161,8 +161,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EverySummonPassiveField_IsRenderedOrExempt()
         {
-            // 只看 PassiveText 的方法体 —— 召唤物被动的卡面文案全在这一个函数里出
-            var body = MethodBody(CharInfoSource(), "string PassiveText(SummonPassive");
+            // 只看 PassiveText 的方法体 —— 召唤物被动的卡面文案全在这一个函数里出。
+            // D2-木 Task 5:木系本命字段的句子拆到 WoodNatureLines(PassiveText 与召唤物详情共用),一并扫
+            var src = CharInfoSource();
+            var body = MethodBody(src, "string PassiveText(SummonPassive")
+                + MethodBody(src, "WoodNatureLines(SummonPassive p, Action");
             var missing = PropertyNames(typeof(SummonPassive))
                 .Where(n => !PassiveExempt.ContainsKey(n) && !body.Contains(n))
                 .OrderBy(n => n)

@@ -654,6 +654,15 @@ namespace Brushblade.Presentation
                 case EffectKind.SkillCut:
                 case EffectKind.ApCost:
                     break;
+                case EffectKind.SummonEmpower:   // D2-木 Task 5(林立 / 擎天 / 桂冠 / 荆天棘地 / 箭灵 / 攀附 / 荆刺 /
+                case EffectKind.SummonThorns:    // 绿潮 / 四木成林 / 折桂):同上 —— 都是木专属特性,只出现在特性里,
+                case EffectKind.SummonRanged:    // 本节扫的是本体效果,不出 chip;卡面文案由 CharInfo 印
+                case EffectKind.Bind:
+                case EffectKind.ThornMark:
+                case EffectKind.SummonMerge:
+                case EffectKind.SummonAct:
+                case EffectKind.GrantChar:
+                    break;
                 default:
                     // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                     AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

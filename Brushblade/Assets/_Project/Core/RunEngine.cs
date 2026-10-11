@@ -926,8 +926,9 @@ namespace Brushblade.Core
                 snapshot.ActionMeter = 0;
                 // 「本场」状态(嘲讽 / 格挡 / 保命 / 减伤 / 反击增强)不跨战斗(spec §3.3,E3);按 Kind 剥,不碰 TurnsLeft = -1 的入场护甲;
                 // 出字挂上的本场护甲(圭臬,D2-土 E34)另剥
+                // D2-木 E44(Ruling 16):限时(TurnsLeft > 0)的条目不跨场,与玩家侧同口径;入场护甲 / 灼(−1)照常携带
                 snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)
-                    && !IsBattleLongCastArmor(st)).ToList();
+                    && !IsBattleLongCastArmor(st) && st.TurnsLeft <= 0).ToList();
                 // §2.2 本场改的属性在这里复原(E3);解封已清掉记号的,Element 即最终属性
                 if (summon.BaseElement.HasValue) snapshot.Element = summon.BaseElement.Value;
                 snapshot.BaseElement = null;

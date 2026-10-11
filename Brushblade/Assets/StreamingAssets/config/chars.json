@@ -1829,6 +1829,103 @@
               }
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "参天之力",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "参天之力",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "",
+              "passive": {
+                "attackPercent": 20
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "四木成林",
+          "effects": [
+            {
+              "kind": "SummonAct",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "独木生林",
+          "effects": [
+            {
+              "kind": "SummonSapling",
+              "value": 30,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "落木",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "",
+              "passive": {
+                "deathBlast": 300
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "撼天",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hostAtkStrikePercent": 200
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "擎天",
+          "effects": [
+            {
+              "kind": "SummonEmpower",
+              "value": 30,
+              "pick": "OtherSummons",
+              "turns": 3
+            }
+          ]
         }
       ]
     },
@@ -1901,6 +1998,93 @@
               "passive": {
                 "entrySaplings": 2
               }
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnCompose",
+          "name": "三木",
+          "effects": [
+            {
+              "kind": "HealSummons",
+              "value": 100,
+              "percentOfMax": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "森罗",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "summonAtkStrikePercent": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "丛林",
+          "effects": [
+            {
+              "kind": "SummonSapling",
+              "value": 40,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "森严",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "森",
+              "passive": {
+                "thicketCut": 25,
+                "thicketMin": 3
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "林深",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "All",
+              "shapePercent": 50
+            },
+            {
+              "kind": "Amplify",
+              "value": 10,
+              "scope": "Damage",
+              "scaleBy": "SummonCount"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "万木回春",
+          "effects": [
+            {
+              "kind": "Revive",
+              "value": 0,
+              "reviveHpPercent": 30
             }
           ]
         }
@@ -1979,6 +2163,33 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "trigger": "OnDismantle",
+          "name": "双木",
+          "effects": [
+            {
+              "kind": "SummonSapling",
+              "value": 20,
+              "fromBody": true,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "众木",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 10,
+              "scope": "Damage",
+              "scaleBy": "SummonCount"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "新芽",
@@ -1986,6 +2197,60 @@
             {
               "kind": "SummonSapling",
               "value": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "林荫",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "林",
+              "passive": {
+                "groveCut": 5,
+                "groveCutCap": 20
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "林海",
+          "effects": [
+            {
+              "kind": "SummonStrike",
+              "value": 70
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "林立",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 1,
+              "augmentKind": "Summon",
+              "augmentField": "Count"
+            },
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "summonPercent": 60
+            },
+            {
+              "kind": "SummonEmpower",
+              "value": 20,
+              "pick": "AllSummons",
+              "turns": 3
             }
           ]
         }
@@ -2102,6 +2367,17 @@
           ]
         },
         {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "箭灵",
+          "effects": [
+            {
+              "kind": "SummonRanged",
+              "value": 0
+            }
+          ]
+        },
+        {
           "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
@@ -2111,6 +2387,24 @@
               "kind": "Endure",
               "value": 1,
               "pick": "SummonedThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "万箭齐发",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Scatter",
+              "shotPercent": 40,
+              "shots": 5
+            },
+            {
+              "kind": "SummonStrike",
+              "value": 50
             }
           ]
         },
@@ -2204,6 +2498,49 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "秋实",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 18,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "秋实",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "楸",
+              "passive": {
+                "deathPart": true
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "落叶",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 1,
+              "pick": "All"
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "新芽",
@@ -2224,6 +2561,46 @@
               "kind": "Endure",
               "value": 1,
               "pick": "SummonedThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "秋风扫叶",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "shape": "Row",
+              "shapePercent": 60,
+              "hitPercent": 60
+            },
+            {
+              "kind": "BurnSingle",
+              "value": 1,
+              "pick": "HitTargets"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "一叶知秋",
+          "effects": [
+            {
+              "kind": "TurnPulse",
+              "value": 0,
+              "turns": 3,
+              "perHit": [
+                {
+                  "kind": "Vulnerable",
+                  "value": 30,
+                  "onlyIf": "OwnSummonAlive",
+                  "pick": "Random",
+                  "turns": 1
+                }
+              ]
             }
           ]
         }
@@ -2301,6 +2678,49 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "披荆",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 18,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "披荆",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "荆",
+              "passive": {
+                "thornsBleed": 35
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "荆刺",
+          "effects": [
+            {
+              "kind": "ThornMark",
+              "value": 30,
+              "turns": 2
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "沃土",
@@ -2321,6 +2741,37 @@
               "kind": "Endure",
               "value": 1,
               "pick": "SummonedThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "荆鞭",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "hitCount": 3,
+              "hitPercent": 40,
+              "perHit": [
+                {
+                  "kind": "Bleed",
+                  "value": 35
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "荆天棘地",
+          "effects": [
+            {
+              "kind": "SummonThorns",
+              "value": 30,
+              "turns": 3
             }
           ]
         }
@@ -2399,6 +2850,112 @@
               }
             }
           ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "水草",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "水草",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "藻",
+              "passive": {
+                "healMirror": 100
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "缠足",
+          "effects": [
+            {
+              "kind": "Slow",
+              "value": 1,
+              "pick": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "丛藻",
+          "effects": [
+            {
+              "kind": "SummonSapling",
+              "value": 30,
+              "sprout": true,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "藻荇",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "藻",
+              "passive": {
+                "sproutDeathSlow": 1
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "藻缚",
+          "effects": [
+            {
+              "kind": "Freeze",
+              "value": 1
+            },
+            {
+              "kind": "Slow",
+              "value": 2,
+              "pick": "Adjacent"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "绿潮",
+          "effects": [
+            {
+              "kind": "SummonMerge",
+              "value": 0
+            },
+            {
+              "kind": "Taunt",
+              "value": 2,
+              "pick": "SummonedThisCast"
+            }
+          ]
         }
       ]
     },
@@ -2471,6 +3028,106 @@
                 "healAlly": 30,
                 "healAllyTimes": 2
               }
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "馥郁",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 25,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "馥郁",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "桂",
+              "passive": {
+                "healAllyPercent": 30
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "折桂",
+          "maxPerBattle": 1,
+          "effects": [
+            {
+              "kind": "GrantChar",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv5",
+          "face": "Feature",
+          "name": "桂花雨",
+          "effects": [
+            {
+              "kind": "HealAll",
+              "value": 75
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "蟾宫",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "桂",
+              "passive": {
+                "critAura": 10
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "月桂",
+          "effects": [
+            {
+              "kind": "CritBuff",
+              "value": 30,
+              "pick": "Self",
+              "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "桂冠",
+          "effects": [
+            {
+              "kind": "SummonEmpower",
+              "value": 50,
+              "pick": "StrongestSummon",
+              "turns": 3
             }
           ]
         }
@@ -2550,6 +3207,25 @@
           ]
         },
         {
+          "slot": "Lv4",
+          "form": "Passive",
+          "name": "坚心",
+          "effects": []
+        },
+        {
+          "slot": "Lv5",
+          "face": "Attack",
+          "name": "柘弓",
+          "effects": [
+            {
+              "kind": "SummonStrike",
+              "value": 200,
+              "ownSummons": true,
+              "byArmor": true
+            }
+          ]
+        },
+        {
           "slot": "Lv5",
           "face": "Feature",
           "name": "沃土",
@@ -2557,6 +3233,54 @@
             {
               "kind": "HealSummons",
               "value": 63
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "守护",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "柘",
+              "passive": {
+                "guard": 30
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "硬弓",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "armorIgnorePercent": 100,
+              "hostArmorStrikePercent": 400
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "良弓",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "柘",
+              "passive": {
+                "returnFire": 200
+              }
             }
           ]
         }
@@ -2693,6 +3417,18 @@
               "value": 1
             }
           ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Feature",
+          "name": "攀附",
+          "effects": [
+            {
+              "kind": "Bind",
+              "value": 100,
+              "pick": "HighestHp"
+            }
+          ]
         }
       ]
     },
@@ -2814,6 +3550,19 @@
               "kind": "Endure",
               "value": 1,
               "pick": "SummonedThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv8",
+          "face": "Attack",
+          "name": "移花接木",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 100,
+              "augmentKind": "Charm",
+              "augmentField": "Count"
             }
           ]
         },

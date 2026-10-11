@@ -33,6 +33,10 @@ namespace Brushblade.Presentation
         // 加成此前与护盾这类随时会消失的实时资源混排在同一列表、同款卡片、无任何视觉区分,
         // 丢了「这两类性质不同」这层信息。
         public string Section;
+        // 召唤物详情右栏(SummonInfoNature 稿,D2-木 Task 5):Lead = 战场上那枚本命 chip 对应的一条 ——
+        // 卡片左缘一道朱砂、名字后尾标「战场上那枚」、名字与说明分两行;Inline = 名字与说明排在同一行(其余本命与射程)
+        public bool Lead;
+        public bool Inline;
     }
 
     /// <summary>一张详情的全部内容。三类单位(敌人/召唤物/执笔人)共用,字段为 null 表达
@@ -61,6 +65,7 @@ namespace Brushblade.Presentation
         public (string label, string value, string note)[] Figures;  // 攻/甲/速/行动
         public List<StatusEntry> Statuses;
         public List<AbilityEntry> Abilities;
+        public string AbilitiesTitle;   // 右栏标题;null = 缺省「特性 · 技能」(召唤物详情写「本命」,SummonInfoNature 稿)
         public (Element beats, Element beatenBy)? Wuxing;  // 生克行;执笔人为 null
     }
 
@@ -96,6 +101,7 @@ namespace Brushblade.Presentation
             // 标记(D1 Task 6,StatusChips 稿 k-dot):朱砂,与灼烧同属「持续伤害与威胁」
             StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed or StatusKind.Vulnerable
                 or StatusKind.Mine   // 埋雷(StatusChipsFire 稿 k-dot 朱砂)
+                or StatusKind.Bind or StatusKind.ThornMark   // 被缠 / 荆刺(StatusChipsWood 稿 k-dot 朱砂:效果是挨打)
                 or StatusKind.Doom => Theme.Cinnabar,   // 致命(traits StatusChips 稿 k-dot 朱砂)
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
                 or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
@@ -110,9 +116,12 @@ namespace Brushblade.Presentation
                 or StatusKind.HitCap   // 铜墙铁壁(D2-土 G2):与减伤同组(Q20)
                 or StatusKind.HurtShield   // 堡垒(D2-土 G3):守御类;无图标,chip 印护盾量(不然是一块空白色块)
                 or StatusKind.HurtHeal     // 栉风沐雨(D2-水 W5):同堡垒,与持续回复同组;chip 印回血量
+                or StatusKind.SummonThorns   // 荆棘光环(StatusChipsWood 稿 k-heal 翠玉:临时的荆棘)
                 or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
+                or StatusKind.SummonEmpower   // 攻击光环(StatusChipsWood 稿 k-gold 赭金)
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
+            StatusKind.SummonRanged => Positioning,   // 远程光环:射程一类(攻击模式与站位)
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
             // 与 morale/attack/pierce 同属「我方增益」大类,按气质就近归到金,而不是新开一支色。
             StatusKind.ApBoost => Theme.RarityColor(CardRarity.Gold),
@@ -143,10 +152,13 @@ namespace Brushblade.Presentation
                 // 干涸 / 埋雷 / 回敬(StatusChipsFire 稿):正式图标已进管线,chip 不带字。埋雷的伤害写在说明里;
                 // 回敬的剩余次数只在战场 chip 上(要读 Core 的本回合计数,StatusBag 里没有)
                 or StatusKind.HealBlock or StatusKind.Mine or StatusKind.Retaliate
+                or StatusKind.Bind or StatusKind.ThornMark or StatusKind.SummonRanged   // 被缠 / 荆刺 / 远程光环:无数字(StatusChipsWood 稿)
                 or StatusKind.Doom => "",   // 致命(traits StatusChips 稿):无数字,剩余回合在时长行
-            // 减伤 / 反击加倍 / 保命(D1 Task 7):补稿三枚都不显示数字。图标待 Task 7b(IconKey 为 null),
-            // 空串会在详情弹窗里画出一块空白色块 —— 先用设计稿的兜底字(终审 Minor 5)
-            StatusKind.DamageCut or StatusKind.HitCap => Strings.T("detail.chip.damagecut"),   // 铜墙铁壁复用减伤兜底字(Q20)
+            // 减伤 / 受伤上限有了正式图标(bulwark / hitcap,2026-10-11 拍板):详情 chip 印百分比(SummonInfoNature 稿「减伤 15%」);
+            // 战场上不带数字。反击加倍 / 保命仍待 Plan E2 接图标,先用设计稿的兜底字(终审 Minor 5)
+            // 攻击 / 荆棘光环(StatusChipsWood / SummonInfoNature 稿):详情 chip 印百分比
+            StatusKind.DamageCut or StatusKind.HitCap or StatusKind.SummonEmpower or StatusKind.SummonThorns =>
+                Strings.T("detail.chip.plain_pct", ("value", magnitude)),
             StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
             StatusKind.Endure => Strings.T("detail.chip.endure"),
             StatusKind.SpeedModifier => magnitude < 0
@@ -174,15 +186,22 @@ namespace Brushblade.Presentation
         /// AttackBuff 的说明文案敌我口径不同(百分比 vs 点数),只有 PlayerInfo 传 true。
         /// <paramref name="graph"/>(可空)只用来把带门槛的减攻翻出特性名(「炽焰:灼满 5 层时……」),
         /// 取不到时退回状态名。
-        /// <paramref name="cardLevelOf"/>(可空,D2-水 Task 5):回敬 / 回合脉冲的载荷按来源字等级缩放后印,只有执笔人那一份传。</summary>
+        /// <paramref name="cardLevelOf"/>(可空,D2-水 Task 5):回敬 / 回合脉冲的载荷按来源字等级缩放后印,只有执笔人那一份传。
+        /// <paramref name="slotLabelOf"/>(可空,D2-木 Task 5):木灵槽位 → 「前排第 1 位」,被缠点名藤灵用。</summary>
         public static List<StatusEntry> BuildStatuses(StatusBag statuses, bool isPlayer = false, RecipeGraph graph = null,
-            Func<string, int> cardLevelOf = null)
+            Func<string, int> cardLevelOf = null, Func<int, string> slotLabelOf = null) =>
+            BuildStatuses(statuses.All, statuses, isPlayer, graph, cardLevelOf, slotLabelOf);
+
+        /// <summary>同上,但条目可以只是袋子的一部分(召唤物详情:玩家袋里落在这只木灵身上的光环,D2-木 Task 5)。
+        /// <paramref name="statuses"/> 是条目所在的袋子(炽焰门槛要读同袋的灼)。</summary>
+        public static List<StatusEntry> BuildStatuses(IEnumerable<StatusEffect> effects, StatusBag statuses, bool isPlayer = false,
+            RecipeGraph graph = null, Func<string, int> cardLevelOf = null, Func<int, string> slotLabelOf = null)
         {
             var list = new List<StatusEntry>();
-            foreach (var effect in statuses.All)
+            foreach (var effect in effects)
             {
                 // 整条状态取词:淋漓 / 免疫减益 / 回敬 / 回合脉冲的说明要读三元组以外的字段
-                var info = StatusText.Of(effect, isPlayer, cardLevelOf);
+                var info = StatusText.Of(effect, isPlayer, cardLevelOf, slotLabelOf);
                 if (info.Name == null) continue;
                 var entry = new StatusEntry
                 {
@@ -207,10 +226,88 @@ namespace Brushblade.Presentation
                             ("min", effect.MinBurn), ("magnitude", effect.Magnitude), ("burn", burn));
                     }
                 }
+                // 移花接木(W13,WoodCues 稿):魅惑在「改为攻击自己阵营」后接「伤害 ×2(移花接木)」,倍数取 Magnitude(100 + Augment);
+                // 没有时原句不变。特性名是游戏数据,从来源字的特性表里找(找不到就不带括号)
+                if (effect.Kind == StatusKind.Charm && effect.Magnitude > 100)
+                {
+                    string mult = (effect.Magnitude / 100f).ToString("0.##");
+                    string trait = CharInfo.TraitNameOf(graph, effect.SourceId,
+                        e => e.Kind == EffectKind.Augment && e.AugmentKind == EffectKind.Charm);
+                    entry.Desc = trait != null
+                        ? Strings.T("status.charm.desc.mult", ("mult", mult), ("trait", trait))
+                        : Strings.T("status.charm.desc.mult.plain", ("mult", mult));
+                }
+                // 木灵光环(SummonInfoNature 稿):时长行写来源 ——「林立光环 · 剩 2 回合」;特性名取不到时退回来源字
+                if (effect.Kind == StatusKind.SummonEmpower || effect.Kind == StatusKind.SummonThorns
+                    || effect.Kind == StatusKind.SummonRanged)
+                {
+                    var kind = effect.Kind == StatusKind.SummonEmpower ? EffectKind.SummonEmpower
+                        : effect.Kind == StatusKind.SummonThorns ? EffectKind.SummonThorns : EffectKind.SummonRanged;
+                    string source = CharInfo.TraitNameOf(graph, effect.SourceId, e => e.Kind == kind) ?? effect.SourceId;
+                    if (source != null)
+                        entry.Duration = Strings.T("status.summonaura.source", ("source", source), ("duration", info.Duration));
+                }
                 list.Add(entry);
             }
             return list;
         }
+
+        /// <summary>本命在场光环(D2-木 M2:林荫 / 森严 / 蟾宫)不是状态条目 —— 它们实时读场上存活木灵的本命,
+        /// 袋子里没有一条可列。详情里合成一条(SummonInfoNature 稿「减伤 15% · 林荫 · 林灵在场时」、StatusChipsWood 稿
+        /// 「暴击 +10% · 蟾宫」),数值读 Core 读口(与结算同源),来源取特性名(游戏数据,取不到退回「本命」)。
+        /// <paramref name="forSummon"/>:木灵侧(林荫与森严取最强)/ 玩家侧(只有林荫)。</summary>
+        public static void AddWoodNatureEntries(List<StatusEntry> list, BattleEngine battle, RecipeGraph graph, bool forSummon)
+        {
+            int cut = battle.WoodDamageCutPercent(forSummon);
+            int alive = battle.AliveSummonCount;
+            int crit = 0;
+            var cutLines = new List<string>();
+            var cutNames = new List<string>();
+            string critName = null;
+            foreach (var s in battle.Summons)
+            {
+                var p = s != null && s.Alive ? s.Passive : null;
+                if (p == null) continue;
+                // 森严只在木灵数够门槛时生效(同 Core WoodCutPercent),没生效的不列
+                bool grove = p.GroveCut > 0, thicket = forSummon && p.ThicketCut > 0 && alive >= p.ThicketMin;
+                if (cut > 0 && (grove || thicket))
+                    CharInfo.WoodNatureLines(p, (key, line) =>
+                    {
+                        if (!(key == CharInfo.NatureKey.GroveCut && grove) && !(key == CharInfo.NatureKey.ThicketCut && thicket)) return;
+                        if (!cutLines.Contains(line)) cutLines.Add(line);
+                        string name = CharInfo.NatureTraitName(graph, key == CharInfo.NatureKey.GroveCut
+                            ? x => x.GroveCut > 0 : x => x.ThicketCut > 0);
+                        if (name != null && !cutNames.Contains(name)) cutNames.Add(name);
+                    });
+                if (p.CritAura > crit) crit = p.CritAura;
+            }
+            if (crit > 0) critName = CharInfo.NatureTraitName(graph, x => x.CritAura > 0);
+            if (cut > 0)
+                list.Add(new StatusEntry
+                {
+                    IconKey = "bulwark",
+                    ChipText = Strings.T("detail.chip.plain_pct", ("value", cut)),
+                    ChipColor = ColorFor(StatusKind.DamageCut, cut),
+                    Name = Strings.T("status.woodcut.name", ("value", cut)),
+                    Duration = NatureDuration(cutNames.Count > 0 ? string.Join(" / ", cutNames) : null),
+                    Desc = Strings.T("status.woodcut.desc", ("list", string.Join(";", cutLines)), ("count", alive),
+                        ("cap", CombatCaps.NonArmorReductionPercent)),
+                });
+            if (crit > 0)
+                list.Add(new StatusEntry
+                {
+                    IconKey = "crit",
+                    ChipText = Strings.T("detail.chip.plain_pct", ("value", crit)),
+                    ChipColor = ColorFor(StatusKind.CritBuff, crit),
+                    Name = Strings.T("status.critaura.name", ("value", crit)),
+                    Duration = NatureDuration(critName),
+                    Desc = Strings.T("char.passive.crit_aura", ("value", crit)),
+                });
+        }
+
+        private static string NatureDuration(string trait) => trait != null
+            ? Strings.T("status.nature.duration", ("trait", trait))
+            : Strings.T("status.nature.duration.plain");
 
         /// <summary>生克提示:「克 X ×1.5 · 被 Y 克」还原成 (beats, beatenBy) 元组。
         /// 五行环(木火土金水)里每个属性必然同时有一个「我克」与一个「克我」;心不在环内,

@@ -22,6 +22,9 @@ namespace Brushblade.Core
             public readonly IReadOnlyList<EffectDef> Effects;
             public readonly int TargetIndex;   // 敌人下标;-1 = 不选敌
             public readonly int Depth;         // 入队时的 TriggerDepth + 1
+            /// <summary>非空 = 引擎内部结算(D2-木 M3 落木 / 藻荇):排空时以 TriggerDepth = Depth 直接调用,不经 ApplyEffects ——
+            /// 这类兑现的量在入队时已定死(阵亡时的有效攻击),不该再吃卡等级 / 攻击力 / 暴击 / Amplify。为空走效果表(原路径)。</summary>
+            public readonly Action Run;
 
             public Reaction(string sourceCharId, Element element, IReadOnlyList<EffectDef> effects, int targetIndex, int depth)
             {
@@ -30,6 +33,17 @@ namespace Brushblade.Core
                 Effects = effects;
                 TargetIndex = targetIndex;
                 Depth = depth;
+                Run = null;
+            }
+
+            public Reaction(Action run, int depth)
+            {
+                SourceCharId = null;
+                Element = Element.Heart;
+                Effects = Array.Empty<EffectDef>();
+                TargetIndex = -1;
+                Depth = depth;
+                Run = run;
             }
         }
 
@@ -59,7 +73,10 @@ namespace Brushblade.Core
         internal static string TraitKey(string charId, TraitSlot slot, TraitFace face) => $"{charId}/{(int)slot}/{face}";
 
         /// <summary>特性级每场次数的键(D2-土 E35):「场次:字/槽/面」,与其余次数阀的键不撞。</summary>
-        internal static string BattleUseKey(CharDef def, TraitDef t) => "场次:" + TraitKey(def.Id, t.Slot, t.Face);
+        internal static string BattleUseKey(CharDef def, TraitDef t) => BattleUseKey(TraitKey(def.Id, t.Slot, t.Face));
+
+        /// <summary>同上,按已拼好的特性键(<see cref="TraitKey"/>)取;折桂退次(RefundBattleUse)与记次共用这一个拼法。</summary>
+        internal static string BattleUseKey(string traitKey) => "场次:" + traitKey;
 
         /// <summary>这条限次特性本场已生效几次(只读)。</summary>
         private int BattleUsesOf(CharDef def, TraitDef t) =>
@@ -104,12 +121,17 @@ namespace Brushblade.Core
 
             /// <summary>本次出字召出的召唤物槽位(按落位顺序;幼苗、SummonedThisCast 选择器用,D1 Task 7)。</summary>
             public List<int> SummonedSlots = new List<int>();
+            /// <summary>本次出字落位的森然入场幼苗(D2-木 擎天 OtherSummons 也排除它们;不进 SummonedSlots,不改既有选择器)。</summary>
+            public List<int> EntrySaplingSlots = new List<int>();
 
             /// <summary>本次出字 Morale 效果累计溢出的层数(聚金,D2-金 J7;补满与锋芒不计)。</summary>
             public int MoraleOverflow;
 
             /// <summary>本次出字内的**实际**治疗量(溢出不算;治疗转盾用)。</summary>
             public int HealTotal;
+
+            /// <summary>HealTotal 里落在带水草(HealMirror)的木灵身上的那部分(D2-木 M11,Q17:镜像量不含给藻灵自己的)。</summary>
+            public int MirrorHealed;
 
             /// <summary>本次出字(顶层 Cast,TriggerDepth == 0)已解锁、面匹配的暴击时 / 击杀时特性;其余时候为 null。</summary>
             public IReadOnlyList<TraitDef> OnCrit;
@@ -136,6 +158,9 @@ namespace Brushblade.Core
 
             /// <summary>出字前玩家的护盾(两桶之和;D2-土 E36,地裂 ScaleBasis.Shield 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
             public int? PreCastShield;
+
+            /// <summary>出字前的存活木灵数(含幼苗;D2-木 E39,众木 / 林深 ScaleBasis.SummonCount 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            public int? PreCastSummons;
 
             /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
             public int ShieldNominal;
@@ -166,14 +191,18 @@ namespace Brushblade.Core
             var body = EffectsOf(_cast.TraitDef, _cast.AttackMode);
             foreach (var t in traits)
             {
-                // 出字内次数上限(N13,连爆「最多 2 次」):计数随 CastContext,下一张字重新起算
+                // 出字内次数上限(N13,连爆「最多 2 次」):计数随 CastContext,下一张字重新起算。先判它再扣场次(fix round 1):
+                // 被出字内上限挡下的那一次不白扣每场次数
+                int castUsed = 0;
                 if (t.MaxPerCast > 0)
                 {
                     _cast.Enqueued ??= new Dictionary<TraitDef, int>();
-                    _cast.Enqueued.TryGetValue(t, out int used);
-                    if (used >= t.MaxPerCast) continue;
-                    _cast.Enqueued[t] = used + 1;
+                    _cast.Enqueued.TryGetValue(t, out castUsed);
+                    if (castUsed >= t.MaxPerCast) continue;
                 }
+                // 每场次数(D2-土 E35 扩到击杀时,D2-木 E49 折桂):入队即记次,用尽的不再入队。没有 limit 的特性不进这一句
+                if (t.MaxPerBattle > 0 && !TryUseTrait(BattleUseKey(_cast.TraitDef, t), perTurn: 0, perBattle: t.MaxPerBattle)) continue;
+                if (t.MaxPerCast > 0) _cast.Enqueued[t] = castUsed + 1;
                 Enqueue(new Reaction(_cast.TraitDef.Id, element,
                     t.Effects.Select(e => ResolveOverkill(TraitRules.ForCast(e, t, _cast.TraitDef, body), overkill)).ToList(),
                     enemyIndex, TriggerDepth + 1));
@@ -307,16 +336,34 @@ namespace Brushblade.Core
 
         internal int PendingReactionCount => _reactions.Count;
 
-        /// <summary>入队。战斗已分胜负时丢弃。</summary>
+        /// <summary>入队。战斗已分胜负时丢弃 —— 带 GrantChar(折桂)的除外:它产出跨场的字库资源,排空时照常兑现(终审 Important 1)。</summary>
         internal void Enqueue(in Reaction reaction)
         {
-            if (Phase == BattlePhase.Won || Phase == BattlePhase.Lost) return;
+            if ((Phase == BattlePhase.Won || Phase == BattlePhase.Lost) && !GrantsChar(reaction)) return;
             _reactions.Enqueue(reaction);
+        }
+
+        private static bool GrantsChar(in Reaction reaction)
+        {
+            foreach (var e in reaction.Effects)
+                if (e.Kind == EffectKind.GrantChar) return true;
+            return false;
+        }
+
+        /// <summary>胜负已分时的排空:伤害等反应一律丢弃,只兑现其中的 GrantChar(字库跨场;battleLimit 计次与满库退次照常,
+        /// 见 <see cref="GrantTraitChars"/>)。打死最后一名敌人的那一击(DamageEnemy 当场 CheckWin)就走这里。</summary>
+        private void SettleGrantsOnDecided()
+        {
+            var pending = _reactions.ToArray();
+            _reactions.Clear();
+            foreach (var r in pending)
+                foreach (var e in r.Effects)
+                    if (e.Kind == EffectKind.GrantChar) GrantTraitChars(e);
         }
 
         /// <summary>FIFO 排空;每条走 ApplyDetachedEffects(深度 = reaction.Depth)。
         /// 单次排空超过 <see cref="MaxReactionsPerDrain"/> 抛 InvalidOperationException(死循环保险)。
-        /// Phase 为 Won/Lost 时清空队列直接返回。</summary>
+        /// Phase 为 Won/Lost 时清空队列直接返回(其中的 GrantChar 先兑现,见 <see cref="SettleGrantsOnDecided"/>)。</summary>
         internal void DrainReactions()
         {
             int resolved = 0;
@@ -324,7 +371,7 @@ namespace Brushblade.Core
             {
                 if (Phase == BattlePhase.Won || Phase == BattlePhase.Lost)
                 {
-                    _reactions.Clear();
+                    SettleGrantsOnDecided();
                     return;
                 }
                 if (resolved >= MaxReactionsPerDrain)
@@ -337,8 +384,19 @@ namespace Brushblade.Core
                 resolved++;
                 // ApplyDetachedEffects 自己会 +1,这里先摆到 Depth − 1,结算期间深度 = r.Depth
                 int outerDepth = TriggerDepth;
-                TriggerDepth = r.Depth - 1;
-                try { ApplyDetachedEffects(r.SourceCharId, r.Element, r.Effects, r.TargetIndex); }
+                try
+                {
+                    if (r.Run != null)
+                    {
+                        TriggerDepth = r.Depth;   // 内部结算(D2-木 M3):不经 ApplyDetachedEffects,直接摆到 Depth
+                        r.Run();
+                    }
+                    else
+                    {
+                        TriggerDepth = r.Depth - 1;
+                        ApplyDetachedEffects(r.SourceCharId, r.Element, r.Effects, r.TargetIndex);
+                    }
+                }
                 finally { TriggerDepth = outerDepth; }
             }
         }

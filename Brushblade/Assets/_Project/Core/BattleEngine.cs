@@ -346,6 +346,16 @@ namespace Brushblade.Core
                        // 顶到上限实际没涨时不发。
         Graft,         // 嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满并换本命,不召新木灵
                        // (SecondIndex = 被嫁接的召唤物槽位,与 Summon 事件同口径;TargetIndex = −1)。
+        // ---- D2-木 Task 3(⚠ 只在末尾追加)----
+        GuardTransfer, // 守护(M5,Q9):玩家这一击的一部分转给带守护的木灵(TargetIndex = 攻击者敌人下标,Amount = 转移量,
+                       // SecondIndex = 承担的木灵槽位,Absorbed = 其中被木灵护盾吃掉的部分)。不算挥击,不发 SummonHit
+                       // (那条会驱动第二次攻击者冲刺动效,且受击类钩子据此触发);表现层归 Plan D2-木 Task 5(W5)。
+        PartGranted,   // 秋实(M3):木灵阵亡,部件池 +「木」(TargetIndex = 阵亡木灵槽位,Amount = 入池个数 1);满池不入不发。
+        // ---- D2-木 Task 4(⚠ 只在末尾追加)----
+        SummonMerged,  // 绿潮(M8,Q18):一只小藻并入藻灵(TargetIndex = 被并入的小藻槽位,已置空;SecondIndex = 接收的藻灵槽位,
+                       // Amount = 并入的生命)。不算阵亡,不发 SummonDied;表现层归 Plan D2-木 Task 5。
+        CharGranted,   // 折桂(M10,Q16):本场字库 +1 张(Amount = 入库后的字库下标,同 CharDrawn 口径);满库不入不发。
+                       // 不复用 CharDrawn:那条是回合掉字的动画源,语义不同;表现层归 Task 5。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -379,6 +389,9 @@ namespace Brushblade.Core
         ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
         OverkillSplash,// 粉身碎骨(D2-土 G5):击杀溢出平分给其余敌人;R4 特性伤害,溅射击杀不入队击杀时;表现层按普通伤害飘字(来源标签归 Plan E)
         ShieldSpend,   // 扣盾(D2-土 G1 塔倾 / 地裂、G8 土生金):**ShieldBroken** 事件的 Source,区分「部分扣盾」与倾覆清空(倾覆为 None)
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为)。⚠ 只在末尾追加 ----
+        DeathBlast,    // 落木(M3,Task 3):巨木灵阵亡对全体敌人的反应伤害;R4 特性伤害
+        ReturnFire,    // 良弓(M4,Task 3):带良弓的木灵被挥击命中后射还;进 60% 反伤预算
     }
 
     public readonly struct BattleEvent
@@ -628,6 +641,8 @@ namespace Brushblade.Core
             DamageCondition.MoraleFull,
             // D2-水 Task 1(附录 E14)
             DamageCondition.IsBoss, DamageCondition.NotBoss,
+            // D2-木 Task 1(附录 E50)
+            DamageCondition.OwnSummonAlive,
         };
 
         /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
@@ -636,7 +651,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 18 种),新增枚举值前先核这一条。
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 19 种,含 None;最大值 18),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -662,7 +677,8 @@ namespace Brushblade.Core
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
             || c == DamageCondition.FirstCastThisTurn
             || c == DamageCondition.PlayerHpAbove70 || c == DamageCondition.HasSummon
-            || c == DamageCondition.MoraleFull;
+            || c == DamageCondition.MoraleFull
+            || c == DamageCondition.OwnSummonAlive;   // D2-木 E50
 
         /// <summary>灼的火力加成(D2-火 G3):scope Burn / All 的 Amplify 乘在火力上,不改层数。无加成项原样返回。</summary>
         private int AmpBurnPotency(EffectDef effect, int potency, int enemyIndex) =>
@@ -937,7 +953,8 @@ namespace Brushblade.Core
         /// 的 ≥100 短路成为一条**必然到达**的路径(锋 叠满时靠它省掉摇点)。
         /// 下钳到 0 是防御性的,理由同 <see cref="AttackHits"/> 那条钳位。</summary>
         public int EffectiveCrit =>
-            Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff), 0, 100);
+            Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff)
+                + SummonCritAura(), 0, 100);   // 蟾宫(D2-木 M2,Q23):存活木灵本命 CritAura 取最大,没有 = 0
 
         /// <summary>一次暴击判定。**两端都短路,一次随机都不摇**。
         ///
@@ -998,7 +1015,8 @@ namespace Brushblade.Core
         /// 这正是 E-b2 那条「不得新增第四个无条件消费方」的恒等性硬线:召唤物每拍都出手,
         /// 无条件摇一次会平移整条随机流,让所有依赖种子的既有测试全红。</summary>
         private bool RollCritForSummon(SummonState summon) =>
-            RollCritWith(Math.Clamp(summon.Statuses.TotalMagnitude(StatusKind.CritBuff), 0, 100));
+            // 蟾宫(D2-木 M2,Ruling 18):桂灵在场才加值 —— 不在场时 SummonCritAura() = 0,仍走下端短路、不摇号
+            RollCritWith(SummonCritPercent(summon));   // 与木灵格暴击 chip 同读一处
 
         private bool RollCritWith(int chance)
         {
@@ -1165,8 +1183,13 @@ namespace Brushblade.Core
             // 携带态来源受控,这条只是防越界,不是会触发的分支。
             if (startingSummons != null)
             {
+                var placedAt = new Dictionary<int, int>();   // 记下的槽 → 实际落位(小藻母体记号重映射用)
                 foreach (var summon in startingSummons)
-                    PlaceCarried(SummonState.Restore(summon), summon.Slot);
+                {
+                    int placed = PlaceCarried(SummonState.Restore(summon), summon.Slot);
+                    if (placed >= 0) placedAt.TryAdd(summon.Slot, placed);
+                }
+                RemapCarriedSproutParents(placedAt);
                 // 跨战斗携带的召唤物落位后要重算光环(2026-09-05):PlaceCarried 只管落位,
                 // AuraAttackBonus 缺省 0、不会自己补上 —— 否则带着 AuraAttack 被动跨场进来的
                 // 召唤物,新战斗开局那几拍会静默吃不到光环,直到本场再触发一次召唤/死亡才纠正。
@@ -1315,9 +1338,10 @@ namespace Brushblade.Core
             }
             foreach (var summon in snapshot.Summons)
                 engine.PlaceCarried(SummonState.Restore(summon), summon.Slot);
-            // 断点读档同一条理由(2026-09-05):见构造函数里 startingSummons 那句注释。
-            engine.RefreshSummonAura();
             engine._playerStatuses.CopyFrom(snapshot.PlayerStatuses ?? new List<StatusEffect>());
+            // 断点读档同一条理由(2026-09-05):见构造函数里 startingSummons 那句注释。
+            // 排在玩家袋恢复之后(D2-木 Task 2 fix round 1):战意 / 厚的乘区与木灵攻击光环都读玩家袋,先刷会读到空袋
+            engine.RefreshSummonAura();
             return engine;
         }
 
@@ -1690,8 +1714,10 @@ namespace Brushblade.Core
             }
 
             _castingCharId = charId;   // HookArgs.CastCharId:只在本张字的效果表结算期间非 null
+            _castMirrorBase = 0;
             try { ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot, partExtra); }
             finally { _castingCharId = null; }
+            MirrorCastHeal();   // 水草(D2-木 M11):本次出字的实际治疗量镜像给藻灵;没有治疗 / 没有水草时一次判断即返回
             DrainReactions();   // 安全点:出字内触发的特性反应在这里兑现(收光环 / 判胜之前)
             if (_config.Tally != null)
             {
@@ -1944,8 +1970,9 @@ namespace Brushblade.Core
             return Math.Min(count, SummonCapacity);
         }
 
-        /// <summary>幼苗的显示字(D1 Task 7,M14)。是游戏数据级的字形,不进字符串表。</summary>
-        internal const string SaplingChar = "苗";
+        /// <summary>幼苗的显示字(D1 Task 7,M14)。是游戏数据级的字形,不进字符串表。
+        /// public(D2-木 Task 5):表现层据此认出小藻(改显示藻灵的字,WoodCues 稿 W10)。</summary>
+        public const string SaplingChar = "苗";
 
         /// <summary>森然入场幼苗的属性百分比(spec §3.1「幼苗属性为本体的 20%」)。</summary>
         internal const int EntrySaplingPercent = 20;
@@ -1998,6 +2025,7 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
                     || effect.Kind == EffectKind.Weaken
                     || effect.Kind == EffectKind.Seed || effect.Kind == EffectKind.Vulnerable
+                    || effect.Kind == EffectKind.ThornMark   // 荆刺(D2-木 M6):主目标挂在选中的敌人身上
                     // 群刺(D1 Task 7):木灵打的是玩家选定的那个敌人
                     || effect.Kind == EffectKind.SummonStrike
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
@@ -2073,7 +2101,9 @@ namespace Brushblade.Core
                     // 第二批(2026-08-28):攻击/暴击/穿透。召唤物侧的结算链路同批建好 ——
                     // SummonState.EffectiveAttack / RollCritForSummon / EffectiveEnemyDefense 的
                     // attackerBag,三条都真读得到。
-                    || effect.Kind == EffectKind.Empower || effect.Kind == EffectKind.CritBuff
+                    || effect.Kind == EffectKind.Empower
+                    // 月桂(D2-木 Task 6):`pick Self` 的暴击直接给玩家,不选友方(同净化 Self)
+                    || (effect.Kind == EffectKind.CritBuff && effect.Pick != EffectPick.Self)
                     || effect.Kind == EffectKind.PierceBuff
                     // 第三批(2026-08-28):护甲与反弹。至此七条纯增益全部单体化。
                     // 玩家专属的四条**不在这张名单上,别顺手加**:战意(连续出字的节奏奖励,
@@ -2493,6 +2523,7 @@ namespace Brushblade.Core
             // 与 桂 的 SummonShield 要攒厚不矛盾:桂 是玩家出的字,光环是召唤物的被动。
             // 同理**不**触发水脉 L2「溢流」(2026-09-13):与不攒泉是同一条理由 ——
             // 光环是每回合自动触发的被动,不是玩家主动投入。
+            if (heal > 0) heal = HealAllyAmountOf(summon.Passive);   // 馥郁(D2-木):× (100 + N)/100;缺省原值
             if (heal > 0)
                 for (int hn = 0, times = Math.Max(1, summon.Passive.HealAllyTimes); hn < times; hn++)   // 桂香·强化:N 次
                     HealPlayerAndSummons(heal, overflowToDamage: false);
@@ -2573,12 +2604,15 @@ namespace Brushblade.Core
             foreach (var summon in _summons)
                 if (summon != null && summon.Alive) { total += summon.Passive?.AuraAttack ?? 0; alive++; }
             int percent = SummonAttackPercent;
-            foreach (var summon in _summons)
-                if (summon != null)
-                {
-                    summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent;
-                    summon.OtherAliveSummons = summon.Alive ? alive - 1 : alive;   // 成林:其他存活木灵数
-                }
+            bool empower = _playerStatuses.Has(StatusKind.SummonEmpower);   // D2-木 M1:没有攻击光环时一次判断,注入恒 0
+            for (int slot = 0; slot < _summons.Length; slot++)
+            {
+                var summon = _summons[slot];
+                if (summon == null) continue;
+                summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent;
+                summon.OtherAliveSummons = summon.Alive ? alive - 1 : alive;   // 成林:其他存活木灵数
+                summon.TraitAttackPercent = empower ? EmpowerPercentOf(slot) : 0;   // 林立 / 擎天 / 桂冠,同一只取最强(Q6)
+            }
         }
 
         /// <summary>召唤物死亡的统一汇流点(2026-09-13)。
@@ -2596,6 +2630,7 @@ namespace Brushblade.Core
         {
             Raise(HookKind.SummonDied, UnitRef.Summon(slot), killer);
             HealFromSummonDeath(slot);
+            OnSummonDeathTraits(slot, killer);   // D2-木 M3 / M7 等阵亡挂点(BattleEngine.Wood.cs);没有本命字段时空转
             RefreshSummonAura();
         }
 
@@ -2632,6 +2667,10 @@ namespace Brushblade.Core
 
             // 种(D1 Task 6):每次行动开始(含稍后被冻结 / 冰滞跳过的这一拍)触发,先于灼烧结算。
             TriggerSeeds(enemy);
+
+            // 攀附(D2-木 M7,Q13):同种的时点 —— 每次行动开始(含稍后被冻结跳过的这一拍),先于冻结判定。没有 Bind 时一次判断即返回
+            SettleBinds(enemyIndex);
+            if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }
 
             // 怀山(D2-水 W1):冻结中每次行动开始(种之后、冻结跳过之前,含被跳过的这一拍)结算。没有 FrostBite 时一次判断即返回
             SettleFrostBite(enemyIndex);
@@ -2703,7 +2742,10 @@ namespace Brushblade.Core
                     // 让玩家身上的穿透帮被魅惑的敌人破队友的甲;传攻击者(被魅惑者)自己的
                     // 袋子,与「敌人打敌人不读玩家袋子」的语义一致(它目前没有 PierceBuff
                     // 来源,读到的就是 0,行为上等价于「不吃玩家穿透」)。
-                    DamageEnemy(victim, enemy.Attack, enemy.Element, crit: false,
+                    // 移花接木(D2-木 E45):反打 × max(100, Magnitude)/100;缺省 Magnitude 1 不做乘除
+                    int charmPercent = enemy.Statuses.MaxMagnitude(StatusKind.Charm);
+                    int charmDamage = charmPercent > 100 ? enemy.Attack * charmPercent / 100 : enemy.Attack;
+                    DamageEnemy(victim, charmDamage, enemy.Element, crit: false,
                         attackerBag: enemy.Statuses, allowBarb: false, attackerRef: UnitRef.Enemy(enemyIndex));
                 }
                 // 状态回合递减不能漏——与 Freeze 分支同一条理由:提前 return 就跳过了方法
@@ -2841,7 +2883,8 @@ namespace Brushblade.Core
             // 近战打敌方前排、远程优先打后排(2026-08-20);2026-09-13 起同排内均匀随机,
             // 走 _targetRandom。敌人只剩一只时短路不摇随机数,那一档仍与改前逐位等价。
             var shape = passive?.Shape ?? TargetArea.Single;
-            int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
+            // 箭灵(D2-木 M1,Q1):远程光环;本命已是远程时不再查袋子(与战场射程图标同读 IsSummonRanged)
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, IsSummonRanged(summonIndex),
                 _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
                 preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
@@ -3101,7 +3144,9 @@ namespace Brushblade.Core
         private void TickPlayerStatuses()
         {
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
+            bool empowered = _playerStatuses.Has(StatusKind.SummonEmpower);   // D2-木 M1(Q7):攻击光环按玩家回合到期
             _playerStatuses.TickTurns();
+            if (empowered) RefreshSummonAura();   // 到期后木灵攻击即时回落;没有光环时不刷(恒等)
 
             // 战意(2026-09-30 用户拍板):**本场战斗保留、不衰减,战斗结束清零**。
             // 推翻 2026-08-15「每回合末消减一层」与 2026-08-18「从 0 起手首回合宽限」。
@@ -3167,6 +3212,7 @@ namespace Brushblade.Core
                 CritBonus = outer.CritBonus, PreCastConditions = outer.PreCastConditions, PreCastBurnStacks = outer.PreCastBurnStacks,
                 OnCrit = outer.OnCrit, OnKill = outer.OnKill, OnExecute = outer.OnExecute, TraitDef = outer.TraitDef,
                 PreCastWellspring = outer.PreCastWellspring, PreCastShield = outer.PreCastShield,
+                PreCastSummons = outer.PreCastSummons,
             };
             try
             {
@@ -3216,7 +3262,7 @@ namespace Brushblade.Core
             bool reviveTargetPending = false;
             if (allySlot >= 0 && HasRevive(def, attackMode) && CanReviveSlot(allySlot))
             {
-                ReviveAt(allySlot);
+                ReviveAt(allySlot, RevivePercentOf(def, attackMode, cardLevel));
                 reviveTargetPending = true;
             }
 
@@ -3225,6 +3271,7 @@ namespace Brushblade.Core
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
             _cast.PreCastShield ??= _shieldNormal + _shieldPersist;   // 地裂(D2-土 E36),只读
+            _cast.PreCastSummons ??= AliveSummons();   // 众木 / 林深(D2-木 E39),只读
             // 每场次数(D2-土 E35,杜门不出):顶层出字先偷看次数,用尽的特性整条不进 Fold;没有这类特性时与原路径同一调用
             var battleLimited = topLevelCast ? TraitRules.BattleLimited(def, castFace, cardLevel) : Array.Empty<TraitDef>();
             var castEffects = battleLimited.Count == 0
@@ -3275,6 +3322,8 @@ namespace Brushblade.Core
                     RegisterOpening(OpeningEffect.Of(effect, def.Id, attacker));
                     return;
                 }
+                // 本字木灵在场(D2-木 E50,一叶知秋):与目标无关的条件门在选目标 / 摇号之前判,不满足整条空转(不多摇)
+                if (effect.OnlyIf == DamageCondition.OwnSummonAlive && !PreCastConditionMet(DamageCondition.OwnSummonAlive, -1)) return;
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
@@ -3372,6 +3421,10 @@ namespace Brushblade.Core
                                 // 随这一击一起过生克 / 暴击 / 护甲
                                 if (primary && hit == 0 && effect.ShieldStrikePercent > 0)
                                     damage += (_shieldNormal + _shieldPersist) * effect.ShieldStrikePercent / 100;
+                                // 按木灵攻击 / 本字木灵攻击 / 护甲加伤(D2-木 E40,森罗 / 撼天 / 硬弓):同位置;三项缺省时整句跳过
+                                if (primary && hit == 0 && (effect.SummonAtkStrikePercent > 0 || effect.HostAtkStrikePercent > 0
+                                        || effect.HostArmorStrikePercent > 0))
+                                    damage += SummonStrikeBonus(effect, def.Id);
                                 // 摇点位置不变(原先就在 DamageEnemy 的实参里、伤害算完之后):提成局部量只为暴击时入队
                                 bool crit = RollCrit(effect.ForceCrit);
                                 DamageEnemy(tgt, damage, attacker,
@@ -3531,7 +3584,8 @@ namespace Brushblade.Core
                             ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Charm, Polarity = StatusPolarity.Debuff,
-                                Magnitude = 1,
+                                // 移花接木(D2-木 E45):Value = Augment Count 写进的反打加成百分点 → Magnitude 100 + N;缺省仍是 1
+                                Magnitude = effect.Value > 0 ? 100 + effect.Value : 1,
                                 TurnsLeft = Math.Max(1, effect.Turns),
                                 SourceId = def.Id,
                             }, UnitRef.Enemy(targetIndex), UnitRef.Player);
@@ -3664,11 +3718,21 @@ namespace Brushblade.Core
                         // 无本命。只占空槽 / 尸体槽 —— 落位表的下一格站着活人就退回最小空槽,还没有就不召(不顶替)。
                         // 嫁接时没有「本次召出的」,属性来源取被嫁接的木灵(allySlot,Task 5 裁定)
                         int saplingSrc = graft ? allySlot : _cast.SummonedSlots.Count > 0 ? _cast.SummonedSlots[0] : -1;
-                        if (saplingSrc < 0) break;
-                        var first = _summons[saplingSrc];
-                        if (first == null) break;
-                        int saplingHp = Math.Max(1, first.MaxHp * value / 100);
-                        int saplingAttack = first.Attack * value / 100;
+                        int saplingHp, saplingAttack;
+                        if (saplingSrc >= 0)
+                        {
+                            var first = _summons[saplingSrc];
+                            if (first == null) break;
+                            saplingHp = Math.Max(1, first.MaxHp * value / 100);
+                            saplingAttack = first.Attack * value / 100;
+                        }
+                        // 双木(D2-木 E41,fromBody):本次没有召出 → 取本字生面本体 Summon × N%;不写 fromBody 原口径空转
+                        else if (effect.FromBody && BodySummonStats(def, cardLevel, out int bodyHp, out int bodyAttack))
+                        {
+                            saplingHp = Math.Max(1, bodyHp * value / 100);
+                            saplingAttack = bodyAttack * value / 100;
+                        }
+                        else break;
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
                             int planned = -1;
@@ -3676,6 +3740,8 @@ namespace Brushblade.Core
                                 planned = summonSlots[summonCursor++];
                             int slot = PlaceSapling(attacker, saplingHp, saplingAttack, def.Id, planned);
                             if (slot < 0) break;
+                            // 丛藻(D2-木 E47,sprout):新幼苗记母体槽位,成为它名下的小藻;取本体(没有母体)时不记
+                            if (effect.Sprout && saplingSrc >= 0) _summons[slot].SproutParentSlot = saplingSrc;
                             _cast.SummonedSlots.Add(slot);
                         }
                         RefreshSummonAura();
@@ -3719,12 +3785,17 @@ namespace Brushblade.Core
                         // 暴击沿用 _random(D5,与召唤物平时出手同口径)。目标死了就停(不改打别人)。
                         if (targetIndex < 0 || targetIndex >= _enemies.Count) break;
                         RefreshSummonAura();   // 战意 / 厚可能在本次出字里变了,先刷乘区
+                        // 柘弓(D2-木 E46):own = 只让本字木灵里基数最大的一只出手;byArmor = 基数取护甲(含富甲)。缺省原口径
+                        int onlySlot = effect.OwnSummons
+                            ? StrongestOwnSummon(def.Id, s => effect.ByArmor ? SummonDefense(s) : s.EffectiveAttack) : -1;
+                        if (effect.OwnSummons && onlySlot < 0) break;
                         for (int slot = 0; slot < _summons.Length; slot++)
                         {
                             var summon = _summons[slot];
                             if (summon == null || !summon.Alive) continue;
+                            if (effect.OwnSummons && slot != onlySlot) continue;
                             if (!_enemies[targetIndex].Alive) break;
-                            int strike = summon.EffectiveAttack * value / 100;
+                            int strike = (effect.ByArmor ? SummonDefense(summon) : summon.EffectiveAttack) * value / 100;
                             if (strike <= 0) continue;   // 0 伤不出手:不发事件、不触发出手附带
                             StrikeTargetWithSummon(slot, targetIndex, strike, sameSwing: false);
                         }
@@ -3766,13 +3837,14 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Revive:
                         // 玩家点了尸体(见方法头):那一具已经救过,算第一只
-                        for (int n = reviveTargetPending ? 1 : 0; n < value; n++)
+                        // 万木回春(D2-木 E43):Revive 0 = 全部尸体(仍受存活上限约束);pct N → 生命 ⌈MaxHp × N%⌉
+                        for (int n = reviveTargetPending ? 1 : 0, reviveCount = effect.Value == 0 ? int.MaxValue : value; n < reviveCount; n++)
                         {
                             // 死尸占着槽位,复活不新增条目但存活数 +1 —— 满员时停手,免得超上限
                             if (AliveSummons() >= SummonCapacity) break;
                             int slot = FirstDeadSummonIndex();
                             if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
-                            ReviveAt(slot);
+                            ReviveAt(slot, effect.ReviveHpPercent);
                         }
                         reviveTargetPending = false;
                         // 复活把一只召唤物从死亡拉回存活集合(2026-09-05):它自己要吃到
@@ -3939,6 +4011,37 @@ namespace Brushblade.Core
                         foreach (int ti in PickTargets(effect, targetIndex))
                             if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBuffBlock(ti, effect, def.Id);
                         break;
+                    // 木灵光环(D2-木 M1):Value 离散,读 effect.Value;玩家袋、按玩家回合计
+                    case EffectKind.SummonEmpower:
+                        ApplySummonEmpower(effect, def.Id);
+                        break;
+                    case EffectKind.SummonThorns:
+                        ApplySummonAura(StatusKind.SummonThorns, effect.Value, effect.Turns, def.Id, -1);
+                        break;
+                    case EffectKind.SummonRanged:   // 箭灵(Q1):本场,全部木灵(含之后召出的)
+                        ApplySummonAura(StatusKind.SummonRanged, 1, 0, def.Id, -1);
+                        break;
+                    case EffectKind.ThornMark:   // 荆刺(D2-木 M6,Q11):Value 离散(反伤 %),turns = 该敌人行动次数;同源刷新
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyThornMark(ti, effect, def.Id);
+                        break;
+                    case EffectKind.Bind:   // 攀附(D2-木 M7,Q13):Value 离散(打击 %);藤灵 = 本次召出的第一只(嫁接 = 被嫁接者)
+                    {
+                        int vine = FirstSummonedThisCast();
+                        if (vine < 0) break;   // 本次没召出:空转(在选目标之前判,不多摇)
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                            if (OnlyIfMet(effect, ti) && _enemies[ti].Alive) ApplyBind(ti, effect, def.Id, vine);
+                        break;
+                    }
+                    case EffectKind.SummonMerge:   // 绿潮(D2-木 M8,Q18):小藻并入本次召出的藻灵
+                        MergeSaplingsInto(def.Id);
+                        break;
+                    case EffectKind.SummonAct:   // 四木成林(D2-木 M9,Q24):每只存活木灵立即出手一次
+                        ActAllSummonsNow();
+                        break;
+                    case EffectKind.GrantChar:   // 折桂(D2-木 M10,Q16):击杀时反应里结算(CL 只放行击杀时特性)
+                        GrantTraitChars(effect);
+                        break;
                     // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):Value 离散,读 effect.Value
                     case EffectKind.HurtHeal:
                         ApplyHurtHeal(effect, def.Id);
@@ -4055,7 +4158,9 @@ namespace Brushblade.Core
                         // 不在这里钳上限,由 EffectiveCrit 的 Clamp 统一负责:钳在施加处的话
                         // 「90 + 20」会被存成 100,后来驱散掉一条反而看不出原本该剩多少。
                         // 2026-08-28:改单体;召唤物侧由 RollCritForSummon 读走(它自己钳)。
-                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
+                        // 月桂(D2-木 Task 6):pick Self 恒落玩家(攻面出字的 allySlot 不是友方落点)
+                        int critSlot = effect.Pick == EffectPick.Self ? Targeting.PlayerTarget : allySlot;
+                        ApplyStatus(AllyStatuses(critSlot), new StatusEffect
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
@@ -4064,7 +4169,7 @@ namespace Brushblade.Core
                             // 这条兜住它们逐字节不变。
                             TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        }, AllyRef(allySlot), UnitRef.Player);
+                        }, AllyRef(critSlot), UnitRef.Player);
                         break;
                     case EffectKind.ApBoost:
                         // 利(2026-08-12):AP 是「节奏/经济」不是「资源」,与驱散条数、
@@ -4286,6 +4391,7 @@ namespace Brushblade.Core
                             // 只结算一次;SummonShield / SummonDefense 不发,幼苗等其余效果照常。
                             if (grafted) break;
                             grafted = true;
+                            _cast.SummonedSlots.Add(allySlot);   // D2-木 E42(Q4):嫁接算「本次召出」,嘲讽 / 保命 / 攀附的 SummonedThisCast 认它
                             var target = _summons[allySlot];
                             target.BasePassive ??= target.Passive?.Clone() ?? new SummonPassive();
                             // Ruling 4:嫁接不发护甲不附幼苗,被动对象与行为一致;Speed 沿用被嫁接者原被动(底速是属性不是本命)
@@ -4304,6 +4410,16 @@ namespace Brushblade.Core
                             break;
                         }
                         var newbornSlots = new List<int>();
+                        // 生面精进(D2-木 E38):攻击同样吃 Amplify(血已在通用 Amplify 行乘过);林立(E48)血 / 攻再 × summonPercent。
+                        // 两项缺省时 summonHp == value、summonAttack 与原式逐位相同
+                        int summonHp = value;
+                        int summonAttack = ScaleSummonAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel));
+                        if (effect.AmpTerms.Count > 0) summonAttack = Amplified(summonAttack, AmpPercent(effect, targetIndex));
+                        if (effect.SummonPercent != 100)
+                        {
+                            summonHp = Math.Max(1, summonHp * effect.SummonPercent / 100);
+                            summonAttack = summonAttack * effect.SummonPercent / 100;
+                        }
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些「资源」随等级涨,
@@ -4322,8 +4438,7 @@ namespace Brushblade.Core
                             // 把方向调回「玩家最先」之后,玩家插到了召唤物前面,这个头寸就重新
                             // 成为必需:实测它让失败测试从 32 条降到 16 条(spec §2.3)。
                             // 它不是补丁,是「玩家优先」那一整套设计的组成部分。
-                            var newborn = new SummonState(effect.SummonChar, attacker, value,
-                                ScaleSummonAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
+                            var newborn = new SummonState(effect.SummonChar, attacker, summonHp, summonAttack,
                                 ScalePassiveByCardLevel(effect.Passive, cardLevel),
                                 sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
                             newborn.ActionMeter = TurnScheduler.Threshold;
@@ -4363,6 +4478,8 @@ namespace Brushblade.Core
                             // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
                             ClearSproutParent(slot);
+                            ClearSlotAuras(slot);   // D2-木 M1:顶替 / 尸体槽复用不继承旧单位的按槽光环
+                            ClearSlotBinds(slot);   // D2-木 M7:被顶替的藤灵不再攀附(顶替不走阵亡)
                             _summons[slot] = newborn;
                             _summonThresholdCrossed.Remove(slot);   // R5:新单位不继承旧单位的跌破标记
                             newbornSlots.Add(slot);
@@ -4382,7 +4499,7 @@ namespace Brushblade.Core
                                 }, UnitRef.Summon(slot), UnitRef.Player);
                             summonCursor++; // 每落一只推进一格,跨 effect 持续累加
                             _cast.SummonedSlots.Add(slot);   // D1 Task 7:幼苗 / 保命选择器用
-                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
+                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, summonHp, slot));
                         }
                         // 森然(D2-0 Task 6):入场附带幼苗,属性 = 这只木灵 × 20%。放在本体全部落位之后,
                         // 免得占掉后面几只本体计划好的槽位;不记入 _cast.SummonedSlots(不改变「本次召出的」选择器)。
@@ -4393,7 +4510,9 @@ namespace Brushblade.Core
                             for (int es = 0; es < entry; es++)
                             {
                                 int sapHp = Math.Max(1, host.MaxHp * EntrySaplingPercent / 100);
-                                if (PlaceSapling(attacker, sapHp, host.Attack * EntrySaplingPercent / 100, def.Id, -1) < 0) break;
+                                int sapSlot = PlaceSapling(attacker, sapHp, host.Attack * EntrySaplingPercent / 100, def.Id, -1);
+                                if (sapSlot < 0) break;
+                                _cast.EntrySaplingSlots.Add(sapSlot);   // D2-木 擎天:本次召唤的一部分,不算「出字时在场」
                             }
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
@@ -4423,6 +4542,8 @@ namespace Brushblade.Core
             }
             finally
             {
+                // 水草(D2-木 M11,Q17):顶层出字的实际治疗量(不含给带水草的藻灵的部分)要在恢复外层之前带出来
+                if (TriggerDepth == 0 && _castingCharId == def.Id) _castMirrorBase = _cast.HealTotal - _cast.MirrorHealed;
                 _cast = outer;
                 _inApplyEffects = false;
             }
@@ -4439,6 +4560,8 @@ namespace Brushblade.Core
             var sapling = new SummonState(SaplingChar, element, hp, attack, passive: null, sourceChar: sourceChar);
             sapling.ActionMeter = TurnScheduler.Threshold;   // 与本体召唤同口径:上场即满格
             ClearSproutParent(slot);
+            ClearSlotAuras(slot);   // D2-木 M1:同本体召唤落位
+            ClearSlotBinds(slot);   // D2-木 M7:同本体召唤落位
             _summons[slot] = sapling;
             _summonThresholdCrossed.Remove(slot);
             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, hp, slot));
@@ -4529,6 +4652,9 @@ namespace Brushblade.Core
                     MetaRules.ScaleByCardLevel(scaled.OnHitCharmChance, cardLevel));
             if (scaled.Armor > 0)
                 scaled.Armor = MetaRules.ScaleByCardLevel(scaled.Armor, cardLevel);
+            // D2-木 M4 披荆:流血量吃等级(附录 §3 同步清单);其余木本命百分比是节奏量,不吃
+            if (scaled.ThornsBleed > 0)
+                scaled.ThornsBleed = MetaRules.ScaleByCardLevel(scaled.ThornsBleed, cardLevel);
             return scaled;
         }
 
@@ -5127,7 +5253,7 @@ namespace Brushblade.Core
                 // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
-                if (_inApplyEffects) _cast.HealTotal += given;
+                if (_inApplyEffects) CountCastHealOnSummon(summon, given);
                 // 每只被治疗的召唤物各发一条治疗事件,**插在自己那发溢流伤害之前**。
                 //
                 // 2026-09-18 只补了「溢流」那一支(满血召唤物 given=0,不发事件的话伤害凭空冒出来),
@@ -5210,7 +5336,7 @@ namespace Brushblade.Core
             if (summon == null || !summon.Alive) return; // Cast 已拦下,这里是纵深防御
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
-            if (_inApplyEffects) _cast.HealTotal += given;
+            if (_inApplyEffects) CountCastHealOnSummon(summon, given);
             int summonEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
             if (overflowToDamage && SettleOverheal(amount - given, slot))
@@ -5301,10 +5427,11 @@ namespace Brushblade.Core
         /// 复活救不回一个从未存在过的召唤物。</summary>
         /// <summary>把这一格的尸体救回半血(EffectKind.Revive 的单只口径,2026-09-27 抽出:
         /// 自动救最前一具与玩家点名救某一具共用)。调用方负责判「是尸体、未满员」。</summary>
-        private void ReviveAt(int slot)
+        private void ReviveAt(int slot, int hpPercent = 0)
         {
             var revived = _summons[slot];
-            revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
+            // 半血,向上取整;hpPercent > 0(D2-木 E43 万木回春)= ⌈MaxHp × N%⌉
+            revived.Hp = hpPercent > 0 ? (revived.MaxHp * hpPercent + 99) / 100 : (revived.MaxHp + 1) / 2;
             // 复活不走治疗入口、也永不溢出(半血 ≤ 上限),所以水脉 L2
             // 「溢流」对它天然不涉及 —— 不是漏接(2026-09-13)。
             revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
@@ -5341,13 +5468,24 @@ namespace Brushblade.Core
             return -1;
         }
 
-        /// <summary>把携带/读档来的召唤物放回它记下的槽位;槽位非法或已被占则回落到最小空槽。</summary>
-        private void PlaceCarried(SummonState summon, int slot)
+        /// <summary>把携带/读档来的召唤物放回它记下的槽位;槽位非法或已被占则回落到最小空槽。返回实际落位(没落下 −1)。</summary>
+        private int PlaceCarried(SummonState summon, int slot)
         {
             if (!IsSlotOpen(slot) || _summons[slot] != null)
                 slot = NextEmptySlot();
-            if (slot < 0) return; // 全满:携带态来源受上限约束,走不到这;留作越界兜底
+            if (slot < 0) return -1; // 全满:携带态来源受上限约束,走不到这;留作越界兜底
             _summons[slot] = summon;
+            return slot;
+        }
+
+        /// <summary>跨场携带落位后,小藻的母体记号(SproutParentSlot)按母体的实际落位重映射;母体没被携带的置 −1
+        /// (终审 Minor 2:回落换槽时旧下标会指到别的木灵上,藻荇读错母体、丛生名下计数归零)。
+        /// <paramref name="placedAt"/> = 携带时记下的槽 → 实际落位(携带态的记下槽互不相同)。</summary>
+        private void RemapCarriedSproutParents(IReadOnlyDictionary<int, int> placedAt)
+        {
+            foreach (var s in _summons)
+                if (s != null && s.SproutParentSlot >= 0)
+                    s.SproutParentSlot = placedAt.TryGetValue(s.SproutParentSlot, out int to) ? to : -1;
         }
 
         /// <summary>条件基础值:目标带指定状态时翻倍(10.3.1;2026-08-25 泛化成
@@ -5385,6 +5523,7 @@ namespace Brushblade.Core
             DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
             DamageCondition.IsBoss => target.IsBoss,     // D2-水 E14
             DamageCondition.NotBoss => !target.IsBoss,
+            DamageCondition.OwnSummonAlive => OwnSummonAlive(_cast.TraitDef?.Id),   // D2-木 E50:与目标无关
             _ => false,
         };
 
@@ -5808,7 +5947,8 @@ namespace Brushblade.Core
             int counter = 0;
             // 本回合减伤(D1 Task 7,附录 M12):与格挡的 40% 合计后一起钳(§5.2.4)。两者都没有时整段跳过 —— 恒等。
             // 多来源取最强(spec §5.2 第 1 律,Ruling 11)。
-            int damageCut = _playerStatuses.MaxMagnitude(StatusKind.DamageCut);
+            // 林荫(D2-木 M2,Q8):与 DamageCut 取最强,再与格挡合计钳 60%;没有林荫木灵时 = 0,恒等
+            int damageCut = Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: false));
             bool blocking = block != null && block.Magnitude > 0;
             int preCut = damage;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (blocking || damageCut > 0)
@@ -5828,18 +5968,24 @@ namespace Brushblade.Core
                 if (block.Magnitude <= 0) _playerStatuses.RemoveEntry(block);
             }
 
-            int fromNormal = Math.Min(_shieldNormal, damage);
+            // 守护(D2-木 M5,Q9):减伤 / HitCap 之后、护盾之前,把这一击的 N% 转给带守护的木灵(只认挥击)。
+            // landed = 玩家实际承受的量(护盾 / 血 / EnemyAttack / 栉风沐雨 / 堡垒);镜 / 格挡反击 / 反震 / 碎玉的预算仍以 damage(转移前)为基数。
+            // 没有守护木灵时 guardSlot = −1、landed == damage —— 恒等
+            int guardSlot = allowReflect ? GuardSlot() : -1;
+            int landed = guardSlot >= 0 ? damage - TransferToGuard(enemyIndex, guardSlot, damage) : damage;
+
+            int fromNormal = Math.Min(_shieldNormal, landed);
             _shieldNormal -= fromNormal;
-            int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
+            int fromPersist = Math.Min(_shieldPersist, landed - fromNormal);
             _shieldPersist -= fromPersist;
             int absorbed = fromNormal + fromPersist;
-            PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
-            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+            PlayerHp = Math.Max(0, PlayerHp - (landed - absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, landed, -1, absorbed));
 
             // 立即判负(Task 12,spec §4.3.1):归零即当场收口,不推迟到下一次 BeginPlayerTurn ——
             // 逐格驱动下,推迟意味着已经死了还要陪剩下的怪把动画读完才弹结算。
             if (PlayerHp <= 0) Phase = BattlePhase.Lost;
-            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), damage, source: source, absorbed: absorbed);
+            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), landed, source: source, absorbed: absorbed);
             CheckThreshold(UnitRef.Player, hpBefore, PlayerHp, _config.PlayerMaxHp);
 
             // 反弹(2026-08-07,镜):按**打过来的总伤害**照回去,不是按实际掉血 ——
@@ -5848,8 +5994,9 @@ namespace Brushblade.Core
             // 命中判定打空与免疫完全挡下都在方法更早处 return 了,走不到这里 —— 没吃到就没得反。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」。
             // 总量钳 60%(2026-09-05,任务 6):见 CombatCaps.ReflectPercent 注释。
+            // 荆刺(D2-木 M6,Q11):攻击者身上的标记并入同一份合计后再钳;没有标记 = 0
             int reflect = allowReflect
-                ? Math.Min(CombatCaps.ReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect))
+                ? Math.Min(CombatCaps.ReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect) + ThornMarkOf(enemyIndex))
                 : 0;
             int bounced = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
@@ -5889,8 +6036,11 @@ namespace Brushblade.Core
                 EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
                 DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
             }
-            TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
-            TriggerHurtShield(damage, allowReflect);   // 堡垒(D2-土 G3):同上
+            TriggerHurtHeal(landed, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回(守护:按玩家实际承受)
+            TriggerHurtShield(landed, allowReflect);   // 堡垒(D2-土 G3):同上
+            // 守护转移致死(Q15):排在这一击全部反应之后,与 DamageSummon 挨打死亡同序;玩家已阵亡则战斗已分胜负,不再结算
+            if (guardSlot >= 0 && !_summons[guardSlot].Alive && Phase != BattlePhase.Lost)
+                OnSummonDeath(guardSlot, UnitRef.Enemy(enemyIndex));
             return true;
         }
 
@@ -5947,8 +6097,10 @@ namespace Brushblade.Core
             // 没有格挡时 blockPercent = 0,整段退化为原来的单独钳 60% —— 恒等。
             StatusEffect block = summon.Statuses.Find(StatusKind.Block);
             bool blocking = block != null && block.Magnitude > 0;
+            // 林荫 / 森严(D2-木 M2,Q8):与 DamageCut 取最强后加格挡、钳 60%;没有这类木灵时 = 0,恒等
             int summonCut = Math.Min(
-                (blocking ? BattleConfig.BlockReductionPercent : 0) + _playerStatuses.MaxMagnitude(StatusKind.DamageCut),
+                (blocking ? BattleConfig.BlockReductionPercent : 0)
+                + Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
                 CombatCaps.NonArmorReductionPercent);
             int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
@@ -6010,7 +6162,7 @@ namespace Brushblade.Core
             // 后挂的 壁/圭 把荆的本体机制挤掉一部分 —— 一张字的固有能力不该被另一张字的 buff
             // 稀释;反过来(反伤先扣)又会让荆在有 buff 时几乎打不出东西。且两次弹射本来就是
             // 分开结算的,顺序分配比按比例缩放算出来的零碎数字更好解释、实现也更直白。
-            int thornsRaw = summon.Passive?.Thorns ?? 0;
+            int thornsRaw = ThornsPercentOf(summonIndex, summon);   // 荆天棘地(D2-木 M1,Q12):与荆棘光环取最强;无光环 = 本命
             int thornsEffective = Math.Min(CombatCaps.ReflectPercent, thornsRaw);
             int thornsDealt = 0;   // 荆棘实际折返的量,格挡反击要从同一份 60% 预算里扣(D2-0 Task 3)
             if (thornsEffective > 0 && _enemies[enemyIndex].Alive)
@@ -6020,10 +6172,13 @@ namespace Brushblade.Core
                 int bounced = taken * thornsEffective / 100;
                 thornsDealt = bounced;
                 if (bounced > 0)
+                {
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
                         allowBarb: false,      // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
                         source: EffectSource.Thorns, attackerRef: UnitRef.Summon(summonIndex));
+                    ThornsBleed(enemyIndex, summonIndex, summon);   // 披荆(D2-木 M4,Q12):只认本命荆棘;没有字段时一次判断即返回
+                }
             }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
@@ -6050,7 +6205,9 @@ namespace Brushblade.Core
             int reflectBudget = CombatCaps.ReflectPercent - thornsEffective;
             int reflect = Math.Min(reflectBudget,
                 _playerStatuses.TotalMagnitude(StatusKind.Reflect)
-                + summon.Statuses.TotalMagnitude(StatusKind.Reflect));
+                + summon.Statuses.TotalMagnitude(StatusKind.Reflect)
+                + ThornMarkOf(enemyIndex));   // 荆刺(D2-木 M6,Q11):攻击者身上的标记并入,同钳;没有标记 = 0
+
             int reflectDealt = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
@@ -6066,8 +6223,11 @@ namespace Brushblade.Core
             }
             // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
             // 结算与玩家侧共用 ResolveCounter(D2-金 J1)
-            ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
+            int counterDealt = ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
                 taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
+            // 良弓(D2-木 M4,Q10):60% 预算的最后一段,荆棘 → 反弹 → 格挡反击 → 良弓;没有字段时一次判断即返回
+            ReturnFire(enemyIndex, summonIndex, summon,
+                taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。

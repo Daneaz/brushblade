@@ -138,6 +138,13 @@ namespace Brushblade.Core
         ShieldShatter,    // 碎玉(隐藏载体,Q21):Magnitude = 反伤百分比,TurnsLeft = -1,同类只留最强一条;随两桶护盾归零移除。
         // ---- D2-土 Task 4:敌人侧(附录 G6,仅 Boss)。⚠ 只在末尾追加 ----
         SkillCut,         // 杜塞(Boss,隐藏,Q21):Magnitude = 下一次大招伤害的削减百分比,TurnsLeft = -1;CastBossSkill 开头取最大并整类移除。
+        // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;附录 M1 / M6 / M7)。⚠ 只在末尾追加 ----
+        SummonEmpower,    // M1 木灵攻击光环(玩家袋,按玩家回合计):Magnitude = 基础攻击 +N%,TargetSlot −1 = 全部木灵(含之后召出的)、
+                          // ≥0 = 那一只(阵亡 / 顶替 / 落位时清理);同一只取最强,SourceId = 字 ID(同源同槽刷新)
+        SummonThorns,     // M1 木灵荆棘光环(玩家袋,按玩家回合计,TargetSlot −1):与本命荆棘取最强(Q12)
+        SummonRanged,     // M1 木灵远程(玩家袋,本场 TurnsLeft −1,TargetSlot −1):木灵出手按远程选目标
+        Bind,             // M7 攀附(敌人,TargetSlot = 藤灵槽,Magnitude = 打击百分比)。Task 4
+        ThornMark,        // M6 荆刺(敌人,Magnitude = 反弹百分比,按该敌人行动递减)。Task 3
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -153,7 +160,8 @@ namespace Brushblade.Core
             || kind == StatusKind.DebuffWard   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
             || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse   // D2-水 Task 4(防御性)
             || kind == StatusKind.ShieldCarry   // D2-土 Task 2(防御性)
-            || kind == StatusKind.HitCap || kind == StatusKind.HurtShield || kind == StatusKind.ShieldShatter;   // D2-土 Task 3(防御性)
+            || kind == StatusKind.HitCap || kind == StatusKind.HurtShield || kind == StatusKind.ShieldShatter   // D2-土 Task 3(防御性)
+            || kind == StatusKind.SummonEmpower || kind == StatusKind.SummonThorns || kind == StatusKind.SummonRanged;   // D2-木 M1(防御性)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -330,6 +338,9 @@ namespace Brushblade.Core
                 if (_list[i].Kind != effect.Kind) continue;
                 if (_list[i].SourceId != effect.SourceId) continue;
                 if (_list[i].TraitKey != effect.TraitKey) continue;   // 附着带出的状态不覆盖同字的普通状态(普通状态恒 null,恒等)
+                // 按槽位挂的条目(D2-木 M1 擎天 / 桂冠):同源不同槽各一条。其余状态 TargetSlot 恒为缺省 −1;
+                // 唯一另设 TargetSlot 的 HoT 每次铸唯一 SourceId,本来就不会撞 —— 恒等
+                if (_list[i].TargetSlot != effect.TargetSlot) continue;
                 _list[i] = effect;
                 return;
             }
