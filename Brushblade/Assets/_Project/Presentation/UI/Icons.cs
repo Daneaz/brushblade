@@ -79,6 +79,12 @@ namespace Brushblade.Presentation
             { "retaliate", "敬" },
             // D2-金(M2,traits StatusChips 稿):致命
             { "mortal", "危" },
+            // D2-木 Task 5(2026-10-11 拍板,StatusChipsWood + StatusChips 10-04):荆刺 / 被缠 / 守护 / 受伤上限 / 减伤
+            { "thornmark", "棘" },
+            { "bind", "缠" },
+            { "guard", "护" },
+            { "hitcap", "限" },
+            { "bulwark", "壁" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },
