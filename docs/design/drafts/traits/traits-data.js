@@ -57,7 +57,7 @@ window.ZD = (function () {
   ['单体', '溅射', '横扫', '贯穿', '散射', '弹射', '全体'].forEach(function (k) { GLOSS_KIND[k] = '范围'; });
   ['本场', '跨场', '跨段'].forEach(function (k) { GLOSS_KIND[k] = '存续'; });
 
-  var TGT = { enemy: '拖到敌人', ally: '拖到自己或木灵', summon: '拖到空位召唤 · 拖到木灵上嫁接' };
+  var TGT = { enemy: '拖到敌人', ally: '拖到自己或木灵', summon: '空位召唤 · 木灵嫁接' };
 
   var SIDE = 1; // = SideFacePercent / 100,缺省 100(v6.1 起不打折)
   function sc(L) { return 1 + 0.06 * (L - 1); }
