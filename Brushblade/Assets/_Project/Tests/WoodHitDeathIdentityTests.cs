@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Brushblade.Core;
 using NUnit.Framework;
 
@@ -226,6 +227,9 @@ namespace Brushblade.Core.Tests
             foreach (var needle in new[] { "SummonDied:Summon", "SummonBurnTick:", ":SummonDeathHeal:", ":None-1:" })
                 Assert.That(raw.Contains(needle), Is.True, $"场景没走到 {needle}\n{raw}");
             Assert.That(raw.Contains("R=None;"), Is.True, "场景没走到顶替召唤\n" + raw);
+            // 防空转(Task 3 review Minor 3):藻荇 / 落木的落点 —— 带母体记号的小藻阵亡、𣛧 的木灵阵亡(尸体血 0)
+            Assert.That(Regex.IsMatch(raw, @",W\d:苗:藻:0/\d+/\d+/\d+/\d+/[0-9]\["), Is.True, "场景没走到「带母体记号的小藻阵亡」\n" + raw);
+            Assert.That(Regex.IsMatch(raw, @",W\d:木:" + Regex.Escape(giant.Id) + ":0/"), Is.True, "场景没走到「𣛧 阵亡」\n" + raw);
             Assert.That(raw.Split(new[] { "SummonDied:" }, StringSplitOptions.None).Length - 1, Is.GreaterThanOrEqualTo(4),
                 "阵亡次数不够\n" + raw);
             Assert.That(raw.Count(c => c == '\n'), Is.EqualTo(10));

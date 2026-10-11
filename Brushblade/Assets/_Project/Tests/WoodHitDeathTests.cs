@@ -363,6 +363,93 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Summons[1].Hp, Is.EqualTo(1000));
         }
 
+        // ---- Task 3 review Minor 1 / 2:守护与反震 / 碎玉同场,守护三条边界 ----
+
+        private static StatusEffect Recoil(int percent) => new()
+            { Kind = StatusKind.ShieldRecoil, Polarity = StatusPolarity.Buff, Magnitude = percent, TurnsLeft = -1, SourceId = "护" };
+
+        private static StatusEffect Shatter(int percent) => new()
+            { Kind = StatusKind.ShieldShatter, Polarity = StatusPolarity.Buff, Magnitude = percent, TurnsLeft = -1, SourceId = "玉" };
+
+        [Test]
+        public void M5_Guard_WithShieldRecoil_AmountFromPostTransferAbsorbed()
+        {
+            // 1000 → 守护转 300,玩家 700 全被盾 1000 吸。反震 50% 按吸收量:700 × 50% = 350(不是转移前的 500)
+            var shield = Card("盾", new EffectDef(EffectKind.Shield, 1000));
+            var b = Battle(new[] { shield }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { Shooter(1000) });
+            b.Cast("盾");
+            b.PlayerStatuses.Apply(Recoil(50));
+            b.EndTurn();
+            Assert.That(5000 - b.Summons[1].Hp, Is.EqualTo(300), "夹具前提:守护转移 300");
+            Assert.That(Dealt(b, EffectSource.ShieldRecoil), Is.EqualTo(350));
+        }
+
+        [Test]
+        public void M5_Guard_WithShieldRecoilAndShatter_BudgetFromPreTransferDamage()
+        {
+            // 1000 → 守护转 300,玩家 700 恰好打空盾 700。反震 50% = 350;碎玉 100% = 700 钳在剩余预算:
+            // 预算以转移前 1000 × 60% = 600 为基数 → 碎玉 250(若按转移后 700 × 60% = 420 则只剩 70)
+            var shield = Card("盾", new EffectDef(EffectKind.Shield, 700));
+            var b = Battle(new[] { shield }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { Shooter(1000) });
+            b.Cast("盾");
+            b.PlayerStatuses.Apply(Recoil(50));
+            b.PlayerStatuses.Apply(Shatter(100));
+            int hp = b.PlayerHp;
+            b.EndTurn();
+            Assert.That((hp - b.PlayerHp, b.ShieldNormal), Is.EqualTo((0, 0)), "夹具前提:盾恰好吃满");
+            Assert.That((Dealt(b, EffectSource.ShieldRecoil), Dealt(b, EffectSource.ShieldShatter)), Is.EqualTo((350, 250)));
+        }
+
+        [Test]
+        public void M5_Guard_NotOnIronBarbBacklash()
+        {
+            // 铁画反噬(allowReflect = false)不是敌人挥击:不转移,玩家全额承受
+            var hit = Card("击", new EffectDef(EffectKind.DamageSingle, 1000));
+            var barb = new EnemyDef("铁", Element.Heart, 100000, 0, ability: EnemyAbility.Barb);
+            var b = Battle(new[] { hit }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { barb });
+            int hp = b.PlayerHp;
+            Assert.That(b.Cast("击", 0), Is.EqualTo(BattleError.None));
+            Assert.That(hp - b.PlayerHp, Is.GreaterThan(0), "夹具前提:反噬确实发生");
+            Assert.That(b.Summons[1].Hp, Is.EqualTo(5000), "反噬不转移");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.GuardTransfer), Is.False);
+        }
+
+        [Test]
+        public void M5_Guard_BossSkillPlayerShare_IsTransferred()
+        {
+            // 倾覆:玩家份 = 攻击 × 2 = 1000,守护转 300,玩家 700
+            var boss = new EnemyDef("覆", Element.Heart, 100000, 500,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, 100000, 500, skill: BossSkill.Topple) });
+            var cfg = Config();
+            cfg.BossChargeEvery = 1;
+            var b = Battle(Array.Empty<CharDef>(), new[] { W(1, hp: 50000, passive: GuardP) }, new[] { boss }, cfg);
+            for (int t = 0; t < 6; t++)
+            {
+                int hp = b.PlayerHp, wood = b.Summons[1].Hp;
+                b.EndTurn();
+                if (!b.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast)) continue;
+                Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.GuardTransfer).Amount, Is.EqualTo(300));
+                Assert.That((hp - b.PlayerHp, wood - b.Summons[1].Hp), Is.EqualTo((700, 300)), "大招玩家份照常转移");
+                return;
+            }
+            Assert.Fail("夹具前提:Boss 没放出倾覆");
+        }
+
+        [Test]
+        public void M5_Guard_PlayerAndGuardDieSameHit_SkipsDeathFlow()
+        {
+            // 玩家 3000:5000 → 守护转 1500 打死柘灵(100 血),玩家 3500 阵亡 → 战斗已分胜负,不走阵亡流程(秋实不入池)
+            var log = new HookLog();
+            var b = Battle(Array.Empty<CharDef>(),
+                new[] { W(1, hp: 100, passive: new SummonPassive { Guard = 30, DeathPart = true }) }, new[] { Shooter(5000) });
+            b.AddHookListener(log);
+            b.EndTurn();
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Lost), "夹具前提:玩家阵亡");
+            Assert.That(b.Summons[1].Hp, Is.EqualTo(0), "夹具前提:柘灵被转移打死");
+            Assert.That(b.Pool, Is.Empty, "不走阵亡流程:秋实不入池");
+            Assert.That(log.All.Any(h => h.Kind == HookKind.SummonDied), Is.False);
+        }
+
         // ================= Review Focus 2 组合 =================
 
         [Test]
@@ -547,6 +634,26 @@ namespace Brushblade.Core.Tests
             }
             Assert.That(b.Summons[0].Alive, Is.False, "夹具前提:被吞噬");
             Assert.That(blast, Is.EqualTo(300), "吞噬致死同样触发落木");
+        }
+
+        [Test]
+        public void M3_DeathBlast_KillDoesNotChainOnKillTraits()
+        {
+            // 落木打死的敌人身上挂着焚城(击杀时入队 BurnBurst 的载体):落木是反应(Depth ≥ 1),R4 —— 不连锁焚城。
+            // 若连锁,其余敌人会再吃一发「死者剩余灼」的结算;这里只吃落木的 300
+            var b = Battle(Array.Empty<CharDef>(),
+                new[] { W(0, hp: 100, attack: 100, passive: new SummonPassive { DeathBlast = 300, Taunt = true }) },
+                new[] { Melee(1000), new EnemyDef("靶", Element.Heart, 300, 0), Dummy() });
+            var victim = b.Enemies[1].Statuses;
+            victim.Apply(new StatusEffect
+                { Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff, Magnitude = 1, TurnsLeft = -1, Potency = 100 });
+            victim.Apply(new StatusEffect
+                { Kind = StatusKind.BurnBurstMark, Polarity = StatusPolarity.Debuff, TurnsLeft = -1, SourceId = "燃" });
+            b.EndTurn();
+            Assert.That((b.Summons[0].Alive, b.Enemies[1].Alive), Is.EqualTo((false, false)), "夹具前提:木灵阵亡、落木打死靶");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyDied && e.TargetIndex == 1), Is.True);
+            Assert.That(100000 - b.Enemies[2].Hp, Is.EqualTo(300), "只吃落木,不连锁焚城");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.BurnTick && e.TargetIndex == 2), Is.False);
         }
 
         // ================= M3 藻荇 SproutDeathSlow =================

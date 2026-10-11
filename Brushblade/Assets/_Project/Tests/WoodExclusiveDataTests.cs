@@ -264,7 +264,8 @@ namespace Brushblade.Core.Tests
             var b = new BattleEngine(g, Config(), Enumerable.Repeat("桂", 6).ToArray(), Array.Empty<string>(),
                 new[] { Dummy() }, seed: 1);
             Cast(b, "桂");   // 先召一只木灵:证明不落到木灵上
-            Cast(b, "桂", 0, attack: true);
+            // 显式指向 0 号木灵(Task 6 review Minor 1):攻面不再校验 allySlot,Self 写法必须无视它、落玩家(critSlot 分支)
+            Assert.That(b.Cast("桂", 0, attackMode: true, allySlot: 0), Is.EqualTo(BattleError.None));
             var s = b.PlayerStatuses.Find(StatusKind.CritBuff);
             Assert.That((s?.Magnitude, s?.TurnsLeft), Is.EqualTo(((int?)30, (int?)1)), "挂玩家、1 回合");
             Assert.That(b.Summons[0].Statuses.Has(StatusKind.CritBuff), Is.False, "木灵不吃");
@@ -470,6 +471,8 @@ namespace Brushblade.Core.Tests
             var zao = alive[0];
             int born = b.LastEvents.First(e => e.Kind == BattleEventKind.Summon).Amount;
             Assert.That(zao.MaxHp, Is.EqualTo(born + merged.Sum(e => e.Amount)), "血量相加");
+            Assert.That(zao.Hp, Is.EqualTo(zao.MaxHp), "当前生命也相加(Q18;三只都满血 → 合计满血)");
+            Assert.That(zao.Attack, Is.EqualTo(164 + 49 + 49), "攻击相加(Q18):藻灵 164;小藻各 30% = 49");
             Assert.That(zao.Statuses.Find(StatusKind.Taunt)?.TurnsLeft, Is.EqualTo(2), "嘲讽 2");
             Assert.That(log.All.Any(h => h.Kind == HookKind.SummonDied), Is.False, "并入不算阵亡");
             Assert.That((born, merged[0].Amount, merged[1].Amount, zao.MaxHp), Is.EqualTo((892, 267, 267, 1426)),

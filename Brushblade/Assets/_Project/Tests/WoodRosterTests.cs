@@ -339,6 +339,13 @@ namespace Brushblade.Core.Tests
             Assert.That(got[0] == "金甲" || got[0] == "金乙", Is.True, "候选 = 已拥有里档位最高的一档(不含未拥有的赤)");
             Assert.That(b.Capture().TraitRandomState, Is.Not.EqualTo(trait), "用 _traitRandom 抽");
             Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.CharGranted), Is.EqualTo(1));
+            // 主 RNG 不动(Task 4 review Minor 2):与「同字表、桂没有折桂」的对照档同种子出同一张,主 RandomState 逐位相同
+            var plain = WoodCard("桂", new[] { Body(ch: "桂") }, new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) });
+            var control = new BattleEngine(RebalanceFixture.Graph(plain, GoldA, GoldB, Red), Config(owned: new[] { "桂", "金甲", "金乙" }),
+                Enumerable.Repeat("桂", 3).ToArray(), Array.Empty<string>(), new[] { Foe(10), Foe(10), Foe() }, seed: 5,
+                cardLevels: new Dictionary<string, int> { ["桂"] = 5 });
+            control.Cast("桂", 0, attackMode: true);
+            Assert.That(b.Capture().RandomState, Is.EqualTo(control.Capture().RandomState), "折桂不消耗主 RNG");
         }
 
         [Test]
