@@ -554,18 +554,18 @@ namespace Brushblade.Presentation
                 footActions: row => SheetActions(row, def));
         }
 
-        /// <summary>弹窗底部那条操作钮带。判据(拥有 / 份数 / 墨锭)全留在这里,
-        /// 没有搬进 CharPreview —— 那一屏不该跟着长出一套养成规则。
+        /// <summary>弹窗脚上靠右的那颗钮(Plan E2 稿 CardSheet `.foot .btn`:26pt 高的小钮,取代原先 100 高的钮带)。
+        /// 判据(拥有 / 份数 / 墨锭)全留在这里,没有搬进 CharPreview —— 那一屏不该跟着长出一套养成规则。
         /// 升级钮点完会 Rebuild 整页、弹窗随 Ui.Clear 一起消失,这是刻意的:
-        /// 升级改了这张字的状态,原地留一张已经过期的详情比关掉更糟。</summary>
+        /// 升级改了这张字的状态,原地留一张已经过期的详情比关掉更糟。
+        /// 底色沿用现状(石青 Primary / 不可升 panel-inset / 满级 gold-soft):稿上是 gold,但 tokens 自 2026-10-04 起
+        /// 花墨锭的钮一律石青(同 C2 的理由)。</summary>
         private void SheetActions(Transform parent, CharDef def)
         {
             if (!_meta.OwnedCards.Contains(def.Id))
             {
                 // 「去开宝箱」= 回主界面,那是宝箱的唯一入口
-                var locked = Ui.PillButton(parent, Strings.T("collection.button.locked"),
-                    () => _onBack(), Theme.ShopNav, Color.white, 24, new Vector2(0, 75));
-                locked.GetComponent<LayoutElement>().flexibleWidth = 1;
+                FootButton(parent, Strings.T("collection.button.locked"), () => _onBack(), Theme.ShopNav, Color.white, true);
                 return;
             }
 
@@ -576,13 +576,26 @@ namespace Brushblade.Presentation
                 ? Strings.T("collection.button.maxed")
                 : (canUpgrade ? Strings.T("collection.button.upgrade", ("level", level + 1))
                               : Strings.T("collection.button.upgrade_short"));
-            var upButton = Ui.PillButton(parent, upText,
-                () => ShowUpgradePreview(def.Id),
+            FootButton(parent, upText, () => ShowUpgradePreview(def.Id),
                 maxed ? Theme.GoldSoft : (canUpgrade ? Theme.Primary : Theme.PanelInset),
                 maxed ? Theme.GoldDeep : (canUpgrade ? Color.white : Theme.LockGray),
-                24, new Vector2(0, 75));
-            upButton.GetComponent<LayoutElement>().flexibleWidth = 1;
-            upButton.interactable = canUpgrade;
+                canUpgrade);
+        }
+
+        private const float FootButtonH = 54f;   // 稿 26pt
+        private const float FootTapMin = 92f;    // 44pt 触控下限(C5)
+
+        /// <summary>脚钮:视觉 54 高(字 25、左右 33),触控靠一层透明扩边补到 92(同 BattleView.PadTapHeight 的做法)。</summary>
+        private static void FootButton(Transform parent, string text, System.Action onClick, Color bg, Color fg, bool interactable)
+        {
+            var button = Ui.PillButton(parent, text, onClick, bg, fg, 25,
+                new Vector2(Ui.EstimateWidth(text, 25) + 66f, FootButtonH));
+            button.interactable = interactable;
+            var pad = Ui.Panel(button.transform, "TapPad");
+            pad.transform.SetAsFirstSibling();
+            pad.AddComponent<Image>().color = new Color(0, 0, 0, 0);
+            Ui.Anchor((RectTransform)pad.transform, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(0f, -FootTapMin / 2f), new Vector2(0f, FootTapMin / 2f));
         }
 
         // ---- 右栏 · 卡池概览(2026-09-06,取代出阵编组) ----
