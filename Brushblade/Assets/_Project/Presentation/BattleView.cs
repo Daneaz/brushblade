@@ -510,6 +510,8 @@ namespace Brushblade.Presentation
             catch (System.Exception ex)
             {
                 Debug.LogException(ex);
+                // 起演出前已排进去的出字飘名(QueueCastTraits)没播就断了:清掉,免得漏到下一段 Play 开头
+                _juice.QueueCastTraits(System.Array.Empty<TraitCue>(), null);
                 ReleaseOnce();
             }
         }
