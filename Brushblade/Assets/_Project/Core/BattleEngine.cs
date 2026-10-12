@@ -356,6 +356,13 @@ namespace Brushblade.Core
                        // Amount = 并入的生命)。不算阵亡,不发 SummonDied;表现层归 Plan D2-木 Task 5。
         CharGranted,   // 折桂(M10,Q16):本场字库 +1 张(Amount = 入库后的字库下标,同 CharDrawn 口径);满库不入不发。
                        // 不复用 CharDrawn:那条是回合掉字的动画源,语义不同;表现层归 Task 5。
+        // ---- Plan E3 Task 1(⚠ 只在末尾追加)----
+        DebuffWarded,  // 免疫减益拦下一条减益(濯身 / 浇熄 / 杜绝;TargetIndex = −1 玩家 / 木灵槽位;Amount = (int)被挡的 StatusKind;
+                       // SecondIndex = (int)拦它的那条 WardOf,全量免疫为 −1;Absorbed = 挡下的层数(灼按增量)/ 条数 1)。
+                       // 转盾的 Shield 紧跟其后(稿:护盾数字跟在删除线后面)。只在真拦下时发,增量 ≤ 0 的灼不发。
+        BuffBlocked,   // 禁增益拦下一条增益(洗尽铅华;TargetIndex = 敌人下标;Amount = (int)被挡的 StatusKind)。霜抗豁免、不发。
+        GlyphTrait,    // 字形特性生效(拆字 / 成字;TargetIndex = −1;Amount = 该特性在 def.Traits 的下标;
+                       // SecondIndex = (int)TraitTrigger)。发在次数阀通过之后、效果落地 / 挂印记之前,印记类也发(双焰 / 火山同样飘名)。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -392,6 +399,9 @@ namespace Brushblade.Core
         // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为)。⚠ 只在末尾追加 ----
         DeathBlast,    // 落木(M3,Task 3):巨木灵阵亡对全体敌人的反应伤害;R4 特性伤害
         ReturnFire,    // 良弓(M4,Task 3):带良弓的木灵被挥击命中后射还;进 60% 反伤预算
+        // ---- Plan E3 Task 1:只当事件标签,不进伤害钩子。⚠ 只在末尾追加 ----
+        SkillCut,      // BossSkillCast 的 Source:这次大招吃了杜塞(伤害已按 SkillCut 削减)
+        ShieldCarry,   // Shield 的 Source:浮屠在回合初加回的那份(与金气回合初的 Shield 区分)
     }
 
     public readonly struct BattleEvent
@@ -1564,13 +1574,15 @@ namespace Brushblade.Core
 
         private readonly List<BattleEvent> _events = new();
 
-        /// <summary>最近一次动作(Cast/EndTurn)产生的结算事件,动作开始时清空。</summary>
+        /// <summary>最近一次动作(Cast/EndTurn/Dismantle/Compose)产生的结算事件,动作开始时清空。
+        /// Cast 在校验通过后才清(失败时残留上一次的);拆合在相位检查后即清(E3)。</summary>
         public IReadOnlyList<BattleEvent> LastEvents => _events;
 
         /// <summary>拆(免 AP,2026-08-03 拍板)。</summary>
         public BattleError Dismantle(string charId)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
+            _events.Clear();   // E3:拆合也是一次动作 —— LastEvents 只装本次(字形特性),不残留上一次出字的事件
 
             var result = ForgeEngine.TryDismantle(charId, _graph, _forge, _config.PoolCapacity, _config.LibraryCapacity);
             if (!result.Success)
@@ -1590,6 +1602,7 @@ namespace Brushblade.Core
         public BattleError Compose(string charId)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
+            _events.Clear();   // E3:同 Dismantle
             if (Ap < 1) return BattleError.NotEnoughAp;
 
             var result = ForgeEngine.TryCompose(charId, _graph, _forge, _config.LibraryCapacity,
@@ -1640,11 +1653,10 @@ namespace Brushblade.Core
 
             // 拆字印记(D2-0 Task 7,E10):从池中出手的部件带着印记效果出手 —— 选目标也按并入后的效果表判
             // (火山把山改成全体后不再要目标)。没有印记时 partExtra 为 null,下面逐字走原路径。
+            // E3:选目标判据与公开读口 CastEffectsNow / NeedsTargetNow 同一个函数 —— 表现层的落点预览与这里的受理同源
             IReadOnlyList<EffectDef> partExtra = null;
             int partMark = fromPool ? FindPartMark(charId, out partExtra) : -1;
-            bool needsTarget = partExtra != null
-                ? TraitRules.FoldExtra(CastEffectsOf(def, attackMode, CardLevelOf(def.Id)), partExtra).Any(EffectNeedsTarget)
-                : NeedsTarget(def, attackMode, CardLevelOf(def.Id));
+            bool needsTarget = CastEffectsNow(def, attackMode, partExtra).Any(EffectNeedsTarget);
 
             // 单体效果需要有效的存活目标;未指定或不合法时,存活目标恰好一个则自动锁定(3.8.3 单敌免选)。
             // 2026-09-30 取消「偷袭」:**只有召唤物和敌人有前后排的概念**,我方字卡不受排位限制,
@@ -4404,9 +4416,10 @@ namespace Brushblade.Core
                                 grafted2.EntrySaplings = 0;
                             }
                             target.Passive = grafted2;
+                            int healed = target.MaxHp - target.Hp;   // E3(Q14):Amount = 回复量,表现层飘治疗数字
                             target.Hp = target.MaxHp;
                             RefreshSummonAura();
-                            _events.Add(new BattleEvent(BattleEventKind.Graft, -1, 0, allySlot));
+                            _events.Add(new BattleEvent(BattleEventKind.Graft, -1, healed, allySlot));
                             break;
                         }
                         var newbornSlots = new List<int>();
@@ -4894,7 +4907,10 @@ namespace Brushblade.Core
             {
                 // 洗尽铅华(Q21):霜抗豁免 —— 否则冻结可无限连锁(破 R1)
                 if (target.Side == UnitSide.Enemy && effect.Kind != StatusKind.FrostResist && bag.Has(StatusKind.BuffBlock))
+                {
+                    _events.Add(new BattleEvent(BattleEventKind.BuffBlocked, target.Index, (int)effect.Kind));   // E3:只在真拦下时发
                     return false;
+                }
             }
             else if (target.Side != UnitSide.Enemy && bag.Has(StatusKind.DebuffWard) && WardOff(bag, effect, target))
                 return false;
@@ -6276,9 +6292,11 @@ namespace Brushblade.Core
         /// 「四个敌方回合里 2 普攻…」,方向刚好相反,实际节拍是 3 回合一轮,见 Finding 1)。</summary>
         private void CastBossSkill(int index, EnemyState enemy, BossSkill skill)
         {
-            _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill));
-            // 杜塞(D2-土 G6,Q3):本次大招对玩家 / 木灵的伤害 × (100 − N)%,放完即移除;没挂时一次 Has 判断即返回 0,下面 Cut 原样返回
+            // 杜塞(D2-土 G6,Q3):本次大招对玩家 / 木灵的伤害 × (100 − N)%,放完即移除;没挂时一次 Has 判断即返回 0,下面 Cut 原样返回。
+            // E3:先取再发事件,吃了杜塞的那次带 Source = SkillCut(TakeSkillCut 不发事件,顺序互换不改事件流)
             int cut = TakeSkillCut(enemy);
+            _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill,
+                source: cut > 0 ? EffectSource.SkillCut : EffectSource.None));
             int Cut(int damage) => cut == 0 ? damage : damage * (100 - cut) / 100;
 
             switch (skill)

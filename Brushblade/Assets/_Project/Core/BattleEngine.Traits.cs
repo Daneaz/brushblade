@@ -82,10 +82,16 @@ namespace Brushblade.Core
         private int BattleUsesOf(CharDef def, TraitDef t) =>
             _traitUsesThisBattle.TryGetValue(BattleUseKey(def, t), out int used) ? used : 0;
 
-        /// <summary>这条带每场次数(<see cref="TraitDef.MaxPerBattle"/> &gt; 0)的特性本场是否已用尽(Plan E2 Q19,
-        /// 战斗版字卡详情的「本场已用」:杜门不出、折桂)。只读次数表;不限次的特性恒 false。</summary>
-        public bool TraitSpentThisBattle(CharDef def, TraitDef trait) =>
-            trait.MaxPerBattle > 0 && BattleUsesOf(def, trait) >= trait.MaxPerBattle;
+        /// <summary>这条特性本场是否已用尽(Plan E2 Q19,战斗版字卡详情的「本场已用」)。只读次数表:
+        /// 带每场次数(<see cref="TraitDef.MaxPerBattle"/> &gt; 0)的查「场次:」键(杜门不出、折桂);
+        /// 字形特性(拆字 / 成字,每场 1 次,E9)的次数阀键是裸 <see cref="TraitKey"/>(见 FireGlyphTraits),查它 ≥ 1(Plan E3);
+        /// 其余不限次的特性恒 false。</summary>
+        public bool TraitSpentThisBattle(CharDef def, TraitDef trait)
+        {
+            if (trait.Trigger == TraitTrigger.OnDismantle || trait.Trigger == TraitTrigger.OnCompose)
+                return _traitUsesThisBattle.TryGetValue(TraitKey(def.Id, trait.Slot, trait.Face), out int used) && used >= 1;
+            return trait.MaxPerBattle > 0 && BattleUsesOf(def, trait) >= trait.MaxPerBattle;
+        }
 
         /// <summary>次数阀:perTurn / perBattle 为 0 = 不限。两项都未满才算用掉并计数;失败不扣任何一项。</summary>
         internal bool TryUseTrait(string key, int perTurn, int perBattle)
@@ -292,6 +298,8 @@ namespace Brushblade.Core
                 if (t.PartChar != null && !def.Recipe.Contains(t.PartChar)) continue;   // 配方变动的保险
                 string key = TraitKey(def.Id, t.Slot, t.Face);
                 if (!TryUseTrait(key, perTurn: 0, perBattle: 1)) continue;
+                // E3:飘「拆」/「合」+ 特性名。次数阀通过之后、效果落地 / 挂印记之前;印记类也发
+                _events.Add(new BattleEvent(BattleEventKind.GlyphTrait, -1, IndexOfTrait(def, t), (int)trigger));
                 if (t.PartChar != null)
                 {
                     _partMarks.Add(new PartMark(t.PartChar, t.PartCount, key, def.Id));
@@ -322,8 +330,7 @@ namespace Brushblade.Core
             {
                 var m = _partMarks[i];
                 if (m.PartChar != partId || m.Remaining <= 0) continue;
-                if (!_graph.TryGet(m.SourceCharId, out var src)) continue;
-                var trait = src.Traits.FirstOrDefault(t => TraitKey(src.Id, t.Slot, t.Face) == m.TraitKey);
+                var trait = MarkTraitOf(m);
                 if (trait == null) continue;
                 effects = trait.Effects;
                 return i;
@@ -337,6 +344,86 @@ namespace Brushblade.Core
             var m = _partMarks[index];
             if (m.Remaining <= 1) _partMarks.RemoveAt(index);
             else _partMarks[index] = new PartMark(m.PartChar, m.Remaining - 1, m.TraitKey, m.SourceCharId);
+        }
+
+        private static int IndexOfTrait(CharDef def, TraitDef trait)
+        {
+            for (int i = 0; i < def.Traits.Count; i++)
+                if (ReferenceEquals(def.Traits[i], trait)) return i;
+            return -1;
+        }
+
+        // ---- Plan E3 Task 1:印记 / 本次实际效果表的只读读口(表现层画「印」角标、「山」全体落点用) ----
+
+        /// <summary>部件 <paramref name="partId"/> 上本回合有效的印记,按先来先用的顺序。
+        /// 来源特性在字表里找不到的跳过 —— 与 <see cref="FindPartMark"/> 同口径。</summary>
+        public IReadOnlyList<PartMarkView> PartMarksOf(string partId)
+        {
+            var list = new List<PartMarkView>();
+            foreach (var m in _partMarks)
+            {
+                if (m.PartChar != partId || m.Remaining <= 0) continue;
+                var trait = MarkTraitOf(m);
+                if (trait == null) continue;
+                list.Add(new PartMarkView(m.PartChar, m.Remaining, m.SourceCharId, trait));
+            }
+            return list;
+        }
+
+        /// <summary>部件 <paramref name="partId"/> 的印记剩余次数之和(稿:角标个数 = 剩余次数)。</summary>
+        public int PartMarkCharges(string partId)
+        {
+            int sum = 0;
+            foreach (var v in PartMarksOf(partId)) sum += v.Remaining;
+            return sum;
+        }
+
+        /// <summary>这一发此刻实际的出字效果表:池中部件(且不在字库里,与 CastCore 的 fromPool 同判据)有印记 → 并入第一条印记;
+        /// 否则 = 静态的 CastEffectsOf(def, attackMode, CardLevelOf)。不在图谱里的字返回空表。
+        /// CastCore 的选目标判据也调它,保证预览与受理同源。</summary>
+        public IReadOnlyList<EffectDef> CastEffectsNow(string charId, bool attackMode)
+        {
+            if (!_graph.TryGet(charId, out var def)) return Array.Empty<EffectDef>();
+            return CastEffectsNow(def, attackMode, PoolMarkEffectsOf(def));
+        }
+
+        /// <summary>这一发此刻要不要玩家选敌方目标(<see cref="CastEffectsNow(string, bool)"/> 里任一条 <see cref="EffectNeedsTarget"/>)。</summary>
+        public bool NeedsTargetNow(string charId, bool attackMode) => CastEffectsNow(charId, attackMode).Any(EffectNeedsTarget);
+
+        /// <summary>这一发此刻是否打全体敌人:全体伤害 / 全体灼 / 选择器为 All 的敌对效果(与 BattleView.FaceHitsAllEnemies 同判据)。</summary>
+        public bool HitsAllEnemiesNow(string charId, bool attackMode)
+        {
+            foreach (var e in CastEffectsNow(charId, attackMode))
+            {
+                if (e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All) return true;
+                if (e.Kind == EffectKind.BurnAll) return true;
+                if (CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) == EffectPick.All) return true;
+            }
+            return false;
+        }
+
+        /// <summary>池中出手的部件此刻会并入的印记效果;字库里的字 / 没有印记 = null。</summary>
+        private IReadOnlyList<EffectDef> PoolMarkEffectsOf(CharDef def)
+        {
+            bool fromPool = !_forge.Library.Contains(def.Id) && def.IsComponent && _forge.Pool.Contains(def.Id);
+            if (!fromPool) return null;
+            FindPartMark(def.Id, out var extra);
+            return extra;
+        }
+
+        private List<EffectDef> CastEffectsNow(CharDef def, bool attackMode, IReadOnlyList<EffectDef> partExtra)
+        {
+            var cast = CastEffectsOf(def, attackMode, CardLevelOf(def.Id));
+            return partExtra != null ? TraitRules.FoldExtra(cast, partExtra) : cast;
+        }
+
+        /// <summary>印记的来源特性(按 TraitKey 回查);找不到 = null(数据变动)。</summary>
+        private TraitDef MarkTraitOf(in PartMark m)
+        {
+            if (!_graph.TryGet(m.SourceCharId, out var src)) return null;
+            foreach (var t in src.Traits)
+                if (TraitKey(src.Id, t.Slot, t.Face) == m.TraitKey) return t;
+            return null;
         }
 
         internal int PendingReactionCount => _reactions.Count;
