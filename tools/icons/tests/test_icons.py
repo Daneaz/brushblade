@@ -58,6 +58,9 @@ EXPECTED = {
     "thornmark", "bind", "guard", "hitcap", "bulwark",
     # 字卡特性 E2(2026-10-11):字卡详情「Lv N 解锁」的锁,取自 CardSheet 稿内联 svg。
     "lock",
+    # 字卡特性 E3(2026-10-1x 拍板):StatusChipsWaterEarth 八枚 + StatusChips 10-04 的 riposte / lastlife。
+    "buffblock", "ward", "wardburn", "hurtheal", "hurtshield", "turnpulse", "shieldcarry", "skillcut",
+    "riposte", "lastlife",
 }
 
 

@@ -287,6 +287,57 @@ ICONS = {
         '<path fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/>'
         f'<path {FILL} d="M15 30h34v24H15z"/>'
     ),
+    # 字卡特性 E3(2026-10-1x 拍板):路径逐字取自 traits-data.js 标「10-10 补」的水土八枚 + 「10-04 补」的 riposte / lastlife
+    # 禁增益:两块实心(沿斜杠几何切开,同 healblock)+ 一道斜杠
+    "buffblock": (
+        f'<path {FILL} d="M32 10L38.5 21.7 10.2 50H10z"/>'
+        f'<path {FILL} d="M44.5 32.7L54 50H27.2z"/>'
+        f'<path {STROKE} d="M14 54L54 14"/>'
+    ),
+    # 御:圆环 + 实心 ▼
+    "ward": (
+        f'<circle cx="32" cy="32" r="25" {STROKE5}/>'
+        f'<path {FILL} d="M32 45L20 23h24z"/>'
+    ),
+    # 御焚:圆环 + 缩小的火焰(burn 路径)
+    "wardburn": (
+        f'<circle cx="32" cy="32" r="25" {STROKE5}/>'
+        f'<path {FILL} transform="translate(13.8 13.5) scale(.57)" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/>'
+    ),
+    # 受击回复:来箭 + 实心十字
+    "hurtheal": (
+        f'<path {STROKE} d="M8 8l14 14M23 11v12H11"/>'
+        f'<path {FILL} d="M35 24h10v11h11v10H45v11H35V45H24V35h11z"/>'
+    ),
+    # 受击得盾:来箭 + 实心盾
+    "hurtshield": (
+        f'<path {STROKE} d="M8 8l14 14M23 11v12H11"/>'
+        f'<path {FILL} transform="translate(20.5 17.5) scale(.66)" d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
+    ),
+    # 每回合效果:回环 + 箭头 + 实心圆心
+    "turnpulse": (
+        f'<path {STROKE} d="M54 32A22 22 0 1 1 47.6 16.4"/>'
+        f'<path {STROKE} d="M37.6 16.4h10v-10"/>'
+        f'<circle cx="32" cy="32" r="7" {FILL}/>'
+    ),
+    # 护盾回流:同回环 + 实心盾
+    "shieldcarry": (
+        f'<path {STROKE} d="M54 32A22 22 0 1 1 47.6 16.4"/>'
+        f'<path {STROKE} d="M37.6 16.4h10v-10"/>'
+        f'<path {FILL} transform="translate(19.8 17.4) scale(.38)" d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
+    ),
+    # 大招削弱:圆 + 实心半圆
+    "skillcut": (
+        f'<circle cx="32" cy="32" r="22" {STROKE}/>'
+        f'<path {FILL} d="M32 10a22 22 0 0 0 0 44z"/>'
+    ),
+    # 反击加倍(10-04 补):两道左尖括号
+    "riposte": f'<path {STROKE} d="M30 16L14 32l16 16M50 16L34 32l16 16"/>',
+    # 保命(10-04 补):心形描边 + 实心心尖
+    "lastlife": (
+        f'<path {STROKE} d="M32 54C14 42 8 32 8 23a12 12 0 0 1 24-3 12 12 0 0 1 24 3c0 9-6 19-24 31z"/>'
+        f'<path {FILL} d="M32 54c-8-5.5-12.5-10-15-14h30c-2.5 4-7 8.5-15 14z"/>'
+    ),
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'
