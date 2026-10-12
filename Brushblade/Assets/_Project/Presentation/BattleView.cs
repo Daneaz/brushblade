@@ -4174,6 +4174,9 @@ namespace Brushblade.Presentation
                     Foes = battle.Enemies,
                     UpFace = upFace,
                     TraitSpent = live ? (System.Func<TraitDef, bool>)(trait => battle.TraitSpentThisBattle(def, trait)) : null,
+                    // 部件印记(E3):只在本场还在打时查,同上一条的理由;印记本回合有效,回合初 Core 清空
+                    PartMarks = live && def.IsComponent ? battle.PartMarksOf(charId) : null,
+                    CardLevelOf = _run.CardLevel,
                 });
         }
 
@@ -4295,6 +4298,41 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)badge.transform, anchor, anchor, offsetMin, offsetMax);
         }
 
+        // 「印」角标(PartsAndGraft 稿 .pl2 .mk):圆径 12pt、右 / 上各外挂 4pt、字 7pt 粗、外圈 1px 纸色
+        private const float MarkBadgeD = 25f;        // 12pt × 2.093
+        private const float MarkBadgeOut = 8f;       // 4pt
+        private const float MarkBadgeRing = 2f;      // 1px 纸色描边
+        private const int MarkBadgeFont = 15;        // 7pt
+
+        /// <summary>部件印记角标(E3,Q3):赭金小圆 +「印」,外挂在右上角,与右上的同源角标部分重叠,压在最上。
+        /// 外挂的 8 与部件池行距 8 相同,不会伸进右邻那张。不吃射线:伸出卡外的那一角不能变成这张卡的点击区。
+        /// <paramref name="scale"/> = 卡高 / 稿高,部件池按行宽缩卡时角标同比缩。</summary>
+        private static void PlaceMarkBadge(Transform tile, float scale)
+        {
+            float d = MarkBadgeD * scale, o = MarkBadgeOut * scale;
+            var ring = Ui.Panel(tile, "MarkBadge");
+            var ringImage = ring.AddComponent<Image>();
+            ringImage.sprite = Theme.Circle;
+            ringImage.color = Theme.PanelPaper;
+            ringImage.raycastTarget = false;
+            var corner = new Vector2(1, 1);
+            Ui.Anchor((RectTransform)ring.transform, corner, corner,
+                new Vector2(o - d - MarkBadgeRing, o - d - MarkBadgeRing), new Vector2(o + MarkBadgeRing, o + MarkBadgeRing));
+            var disc = Ui.Panel(ring.transform, "Disc");
+            var discImage = disc.AddComponent<Image>();
+            discImage.sprite = Theme.Circle;
+            discImage.color = Theme.Gold;
+            discImage.raycastTarget = false;
+            Ui.Anchor((RectTransform)disc.transform, Vector2.zero, Vector2.one,
+                new Vector2(MarkBadgeRing, MarkBadgeRing), new Vector2(-MarkBadgeRing, -MarkBadgeRing));
+            var label = Ui.ThemedLabel(disc.transform, Strings.T("battle.part.mark"),
+                Mathf.RoundToInt(MarkBadgeFont * scale), Theme.GoldText);
+            label.fontStyle = FontStyle.Bold;
+            label.raycastTarget = false;
+            Ui.Stretch(label.rectTransform);
+            ring.transform.SetAsLastSibling();
+        }
+
         /// <summary>部件池行末尾的广告扩容位(稿 .adpart):扩容之后整个撤掉、不留灰槽,
         /// 与 <see cref="DrawHandAdSlot"/> 同一个理由、同一套取舍(实线近似虚线边框)。</summary>
         private void DrawPoolAdSlot(Vector2 size)
@@ -4337,6 +4375,8 @@ namespace Brushblade.Presentation
             float partW = poolSlots == 0 ? PartTileW
                 : Mathf.Min(PartTileW, (_fieldWidth - CountCaptionW - poolSlots * poolSpacing) / poolSlots);
             var partSize = new Vector2(partW, partW * (PartTileH / PartTileW));
+            // 部件印记(E3,PartsAndGraft):角标个数 = 剩余次数,挂在排在前面的同字部件上。奖励页不画(印记只活在本回合)
+            var markBadges = rewardPhase ? null : PartMarkRules.Badges(poolChars, Battle.PartMarkCharges);
             for (int pi = 0; pi < poolChars.Count; pi++)
             {
                 string charId = poolChars[pi];
@@ -4380,6 +4420,8 @@ namespace Brushblade.Presentation
                     if (Time.unscaledTime >= tailUntil) _freshPoolTail.Remove(charId);
                     else _juice.Glow((RectTransform)tile.transform, Theme.ElementColor(def.Element), tailUntil);
                 }
+                // 「印」画在同源角标与光晕之后,压在最上层(Q3)
+                if (markBadges != null && markBadges[pi]) PlaceMarkBadge(tile.transform, partSize.y / PartTileH);
             }
             // 稿 .poolnote「下回合掉 1 个」没有照抄:2026-08-04 起部件已经不再随回合掉落
             // (BattleEngine.cs:1784「部件不再掉落——五行部件只能靠拆字获得」),掉的是字、

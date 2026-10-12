@@ -46,6 +46,10 @@ namespace Brushblade.Presentation
             public CardFace? UpFace;
             /// <summary>这条每场限次的特性本场是否已用尽(<see cref="BattleEngine.TraitSpentThisBattle"/>);null = 不查。</summary>
             public System.Func<TraitDef, bool> TraitSpent;
+            /// <summary>这个部件本回合挂着的印记(<see cref="BattleEngine.PartMarksOf"/>,Plan E3);null / 空 = 不画那一行。</summary>
+            public IReadOnlyList<PartMarkView> PartMarks;
+            /// <summary>印记来源字的本场卡等级(印记效果按来源字等级印);PartMarks 非空时必给。</summary>
+            public System.Func<string, int> CardLevelOf;
         }
 
         // ---- 稿上的骨架尺寸(pt → 逻辑单位,1pt = 2.093) ----
@@ -118,7 +122,7 @@ namespace Brushblade.Presentation
             // (见 DescPanel / BuildCraftColumn),内容再多也不会把这一层撑高,
             // 所以照旧直接铺在卡里、吃掉剩下的高度。
             var body = BodyRow(content, fill: true);
-            BuildSoloColumn(body.transform, def, cardLevel, bodyW * 0.46f);
+            BuildSoloColumn(body.transform, def, graph, cardLevel, battle, bodyW * 0.46f);
             BuildCraftColumn(body.transform, def, graph, battle, bodyW * 0.54f);
 
             var foot = Ui.ThemedLabel(content, battle == null ? Strings.T("charsheet.foot.outside")
@@ -662,11 +666,26 @@ namespace Brushblade.Presentation
 
         // ================= 部件专属两栏 =================
 
-        private static void BuildSoloColumn(Transform parent, CharDef def, int cardLevel, float width)
+        private static void BuildSoloColumn(Transform parent, CharDef def, RecipeGraph graph, int cardLevel,
+            BattleContext battle, float width)
         {
             var col = Column(parent, "Solo", width);
             SectionTitle(col, Strings.T("charsheet.section.solo"));
             DescPanel(col, def, CharInfo.EffectsText(def, cardLevel), width);
+            // 部件印记(PartsAndGraft 稿):「印记 · 双焰:本回合出手附带灼 2(还剩 1 次)」,一条印记一行,赭金字
+            if (battle?.PartMarks != null)
+                foreach (var mark in battle.PartMarks)
+                {
+                    if (!graph.TryGet(mark.SourceCharId, out var source)) continue;
+                    int level = battle.CardLevelOf?.Invoke(source.Id) ?? 1;
+                    string text = Strings.T("charsheet.part.mark", ("trait", mark.Trait.Name),
+                        ("effects", CharInfo.SideEffectsText(mark.Trait.Effects, source, level)),
+                        ("count", mark.Remaining));
+                    var line = Ui.ThemedLabel(col, text, 20, Theme.GoldDeep);
+                    line.alignment = TextAnchor.UpperLeft;
+                    line.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    Ui.Sized(line.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(text, 20, width));
+                }
             SectionTitle(col, Strings.T("charsheet.section.howto"));
             string howto = Strings.T("charsheet.solo.howto");
             var note = Ui.ThemedLabel(col, howto, 20, Theme.TextDim);
