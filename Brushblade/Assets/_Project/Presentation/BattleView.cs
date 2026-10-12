@@ -127,6 +127,11 @@ namespace Brushblade.Presentation
         // 起拖时点亮的「这一发打得着谁」(2026-09-03)。与悬停预览是叠着的两层:这一层
         // 在整个拖拽期间常亮、答「能打谁」;悬停那层临时压在它上面、答「松在这儿会打到哪几格」。
         private readonly System.Collections.Generic.List<(int index, Color original)> _dragTargetCells = new();
+        // 原路径(部件池 / 单面字)的预估签与「山」火色描环(Plan E4 Task 4,A-Q13 / B-Qd1):
+        // 起拖时在 _enemyHitAreas[i] 下**新建**(不重画敌人行、不碰正被拖的牌),悬停只切签的显隐与描环粗细,
+        // ClearDragTargets 销毁。面拖拽走 _faceMarks,这两张表在那条路径上恒空。
+        private readonly System.Collections.Generic.List<(int index, GameObject label)> _dragLabels = new();
+        private readonly System.Collections.Generic.List<Image> _dragRings = new();
         // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
         // 槽位 → 整格矩形(2026-08-21,拖拽落位命中判定用)。与 _summonRectByCore 的区别有二:
@@ -2235,7 +2240,14 @@ namespace Brushblade.Presentation
             if (FaceDragging)
             {
                 if ((_faceDragLanding & FaceLanding.Self) != 0 && Battle.CanHealSlot(Targeting.PlayerTarget))
-                    AddFaceMark(_bottomRow, _playerAllyRect, FaceMarkKind.Player, Targeting.PlayerTarget, null);
+                {
+                    // 预估签(Plan E4 T4):与松手时 DropFaceDrag 的 Player 分支同参试算
+                    var est = EstimateSafe(_faceDragDef.Id, -1, _faceDragFace == CardFace.Attack, _faceDragIndex,
+                        Targeting.PlayerTarget);
+                    var text = EstimateText.ForAlly(est);
+                    AddFaceMark(_bottomRow, _playerAllyRect, FaceMarkKind.Player, Targeting.PlayerTarget,
+                        text?.Main, text?.Dim);
+                }
                 else
                     DimForFaceDrag(_bottomRow.gameObject);
             }
@@ -3097,6 +3109,8 @@ namespace Brushblade.Presentation
             _hoverPreviewPrimary = -1;
             _hoverPreviewCells.Clear();
             _dragTargetCells.Clear();
+            _dragLabels.Clear();   // 挂在旧格子下,随整排一起销毁
+            _dragRings.Clear();
 
             var frontCells = new GameObject[Targeting.RowCapacity];
             var backCells = new GameObject[Targeting.RowCapacity];
@@ -3786,7 +3800,7 @@ namespace Brushblade.Presentation
                         Ui.Clear(_enemyBackRow);
                         DrawEnemies();
                         RedrawSummonRows();          // 只重画召唤两排:全量 Refresh 会销毁正被拖的这张字牌
-                        ShowDragTargets(def);        // 敌方那一面同样标出「打得着哪几只」
+                        ShowDragTargets(def, libraryIndex);        // 敌方那一面同样标出「打得着哪几只」
                         return;
                     }
                     if (!summons && !allyOnly && !dualDirection)
@@ -3794,7 +3808,7 @@ namespace Brushblade.Presentation
                         // 纯打人字:起拖就把「这一发够得着的敌人」全部压暗(2026-09-03 用户拍板)。
                         // 此前只有把指针悬到某一只头上才有反馈,而「刺 只打得到同列的、
                         // 冷 四只随便打」这条规则玩家得先猜中悬到哪儿才看得见。
-                        ShowDragTargets(def);
+                        ShowDragTargets(def, libraryIndex);
                         return;
                     }
                     if (dualDirection)
@@ -3808,7 +3822,7 @@ namespace Brushblade.Presentation
                         _pendingAllyEnemyTarget = -1;
                         _pendingAttackMode = true;   // 敌方侧置灰按攻击面算;落到友方时就地改回
                         RedrawDualTargets();
-                        ShowDragTargets(def);        // 敌方那一面同样标出「打得着哪几只」
+                        ShowDragTargets(def, libraryIndex);        // 敌方那一面同样标出「打得着哪几只」
                         return;
                     }
                     if (allyOnly)
@@ -3993,22 +4007,26 @@ namespace Brushblade.Presentation
             if (hit == _faceHover) return;
             _faceHover = hit;
             bool allEnemies = hit != null && hit.Kind == FaceMarkKind.Enemy && _faceDragHitsAll;
+            // R1:全体面悬停任一只 → 全排描环加深,但签只亮悬停那只(FlipSpec「预估签只挂悬停那只」)
             foreach (var mark in _faceMarks)
-                SetFaceMarkHover(mark, mark == hit || (allEnemies && mark.Kind == FaceMarkKind.Enemy));
+                SetFaceMarkHover(mark, mark == hit || (allEnemies && mark.Kind == FaceMarkKind.Enemy), mark == hit);
         }
 
-        private void SetFaceMarkHover(FaceMark mark, bool hover)
+        /// <summary><paramref name="hover"/> 管描环粗细与底色深浅,<paramref name="showLabel"/> 管预估签显隐 ——
+        /// 两者分开(R1):全体面一排一起加深,签只挂悬停那只。</summary>
+        private void SetFaceMarkHover(FaceMark mark, bool hover, bool showLabel)
         {
             if (mark.Ring != null) mark.Ring.sprite = Theme.RoundedRing(FaceMarkRadius, hover ? FaceRingHover : FaceRingOk);
             if (mark.Tint != null)
                 mark.Tint.color = mark.Kind == FaceMarkKind.EmptySlot
                     ? new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, FaceTintSlot)
                     : new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, hover ? FaceTintHover : FaceTintOk);
-            if (mark.Label != null) mark.Label.SetActive(hover);
+            if (mark.Label != null) mark.Label.SetActive(showLabel);
         }
 
         /// <summary>给一格挂落点标记。底色垫在格内容之下、描环压在最上;都不吃射线。</summary>
-        private void AddFaceMark(Transform host, RectTransform hitRect, FaceMarkKind kind, int index, string hoverLabel)
+        private void AddFaceMark(Transform host, RectTransform hitRect, FaceMarkKind kind, int index, string hoverLabel,
+            string dimLabel = null)
         {
             var mark = new FaceMark { Kind = kind, Index = index, Rect = hitRect };
 
@@ -4030,36 +4048,84 @@ namespace Brushblade.Presentation
                 Ui.Stretch(ghost.rectTransform);
             }
 
-            var ringGo = Ui.Panel(host, "LandRing");
-            ringGo.AddComponent<LayoutElement>().ignoreLayout = true;
-            mark.Ring = ringGo.AddComponent<Image>();
-            mark.Ring.type = Image.Type.Sliced;
-            mark.Ring.fillCenter = false;
-            mark.Ring.raycastTarget = false;
             // 描环色 = 朝上那面的字形色;攻击面是墨(F7)
-            mark.Ring.color = _faceDragFace == CardFace.Attack ? Theme.Ink : Theme.GlyphColor(_faceDragDef.Element);
-            Ui.Stretch((RectTransform)ringGo.transform);
+            mark.Ring = AddLandingRing(host,
+                _faceDragFace == CardFace.Attack ? Theme.Ink : Theme.GlyphColor(_faceDragDef.Element), FaceMarkRadius);
 
-            if (hoverLabel != null)
-            {
-                var label = Ui.Chip(host, hoverLabel, Theme.Ink, Color.white, FaceLabelFontSize, FaceLabelPadX, FaceLabelPadY);
-                var element = label.GetComponent<LayoutElement>();
-                element.ignoreLayout = true;
-                float w = element.preferredWidth, h = element.preferredHeight;
-                Ui.Anchor((RectTransform)label.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                    new Vector2(-w / 2f, FaceLabelRise - h), new Vector2(w / 2f, FaceLabelRise));
-                foreach (var graphic in label.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
-                // 签探出格上沿:单独排序压在相邻排之上,免得被后画的那一排盖住
-                var canvas = label.AddComponent<Canvas>();
-                canvas.overrideSorting = true;
-                var root = host.GetComponentInParent<Canvas>();
-                canvas.sortingOrder = (root != null ? root.rootCanvas.sortingOrder : 0) + 1;
-                mark.Label = label;
-            }
+            if (hoverLabel != null || dimLabel != null)
+                mark.Label = BuildEstimateLabel(host, hoverLabel, dimLabel);
 
-            SetFaceMarkHover(mark, false);
+            SetFaceMarkHover(mark, false, false);
             _faceMarks.Add(mark);
         }
+
+        /// <summary>落点描环(从 AddFaceMark 抽出,原路径的「山」火色描环共用):撑满 host、压在最上、不吃射线、不进布局。
+        /// 粗细初始为 <see cref="FaceRingOk"/>,悬停时由调用方换 sprite。</summary>
+        private static Image AddLandingRing(Transform host, Color color, int radius)
+        {
+            var ringGo = Ui.Panel(host, "LandRing");
+            ringGo.AddComponent<LayoutElement>().ignoreLayout = true;
+            var ring = ringGo.AddComponent<Image>();
+            ring.sprite = Theme.RoundedRing(radius, FaceRingOk);
+            ring.type = Image.Type.Sliced;
+            ring.fillCenter = false;
+            ring.raycastTarget = false;
+            ring.color = color;
+            Ui.Stretch((RectTransform)ringGo.transform);
+            return ring;
+        }
+
+        /// <summary>墨底白字的落点签(HandFlip .tg-lbl):水平居中、探出 host 上沿 <see cref="FaceLabelRise"/>,不吃射线,
+        /// 单独排序压在相邻排之上。<paramref name="dim"/> 是压浅段(「X已用」,白 55%,WaterEarthCues 稿):
+        /// 两段各一个 Text 横排,不用 rich text;签宽按两段拼起来的纯文本算(R6)。建好后是**隐藏**的,悬停才显示。</summary>
+        private static GameObject BuildEstimateLabel(Transform host, string main, string dim)
+        {
+            string plain = (main ?? "") + (dim ?? "");
+            // 单段时走 Chip 自带的那个 Text,与改前逐字相同;双段时 Chip 只出底,两段另排
+            var label = Ui.Chip(host, dim == null ? main : "", Theme.Ink, Color.white,
+                FaceLabelFontSize, FaceLabelPadX, FaceLabelPadY);
+            var element = label.GetComponent<LayoutElement>();
+            element.ignoreLayout = true;
+            float w = Ui.ChipWidth(plain, FaceLabelFontSize, FaceLabelPadX), h = element.preferredHeight;
+            Ui.Anchor((RectTransform)label.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(-w / 2f, FaceLabelRise - h), new Vector2(w / 2f, FaceLabelRise));
+            if (dim != null)
+            {
+                var segs = Ui.Panel(label.transform, "Segs");
+                Ui.Stretch((RectTransform)segs.transform);
+                var row = segs.AddComponent<HorizontalLayoutGroup>();
+                row.childAlignment = TextAnchor.MiddleCenter;
+                row.childControlWidth = true;
+                row.childControlHeight = true;
+                row.childForceExpandWidth = false;
+                row.childForceExpandHeight = true;
+                row.spacing = 0f;
+                if (!string.IsNullOrEmpty(main)) Ui.ThemedLabel(segs.transform, main, FaceLabelFontSize, Color.white);
+                Ui.ThemedLabel(segs.transform, dim, FaceLabelFontSize, new Color(1f, 1f, 1f, EstimateDimAlpha));
+            }
+            foreach (var graphic in label.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
+            // 签探出格上沿:单独排序压在相邻排之上,免得被后画的那一排盖住
+            var canvas = label.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            var root = host.GetComponentInParent<Canvas>();
+            canvas.sortingOrder = (root != null ? root.rootCanvas.sortingOrder : 0) + 1;
+            label.SetActive(false);
+            return label;
+        }
+
+        /// <summary>预估签的试算(Core 影子出字)。起拖回调里抛异常会让这一拖只建了一半标记,所以兜住:记日志、不出签。</summary>
+        private CastEstimate EstimateSafe(string charId, int targetIndex, bool attackMode, int libraryIndex,
+            int allySlot = Targeting.PlayerTarget)
+        {
+            try { return Battle.EstimateCast(charId, targetIndex, attackMode, libraryIndex, allySlot); }
+            catch (System.Exception ex)
+            {
+                Debug.LogException(ex);
+                return null;
+            }
+        }
+
+        private const float EstimateDimAlpha = 0.55f;   // WaterEarthCues .tg-lbl i:rgba(255,255,255,.55)
 
         /// <summary>不可落 = 整格压到 0.42(.tg-no)。格子都是这次重画新建的(玩家条除外,它在
         /// DrawPlayerStats 开头复位),所以只管加不管撤。</summary>
@@ -4075,12 +4141,21 @@ namespace Brushblade.Presentation
         {
             bool attackMode = _faceDragFace == CardFace.Attack;
             bool enemyFace = (_faceDragLanding & FaceLanding.Enemy) != 0;
+            // 预估签(Plan E4 T4):每个可落格各试算一次(与松手 DropFaceDrag 的 Enemy 分支同参);
+            // 全体面一次试算就读得出全部目标,只算一次。起拖时建好,悬停只切显隐
+            CastEstimate allEstimate = null;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
                 var area = _enemyHitAreas[i];
                 if (area == null) continue;
                 if (enemyFace && Battle.CanTarget(_faceDragDef, i, attackMode))
-                    AddFaceMark(area.transform, area.rectTransform, FaceMarkKind.Enemy, i, null);
+                {
+                    var est = _faceDragHitsAll
+                        ? allEstimate ??= EstimateSafe(_faceDragDef.Id, i, attackMode, _faceDragIndex)
+                        : EstimateSafe(_faceDragDef.Id, i, attackMode, _faceDragIndex);
+                    var text = EstimateText.ForEnemy(est, i);
+                    AddFaceMark(area.transform, area.rectTransform, FaceMarkKind.Enemy, i, text?.Main, text?.Dim);
+                }
                 else
                     DimForFaceDrag(area.gameObject);
             }
@@ -4093,7 +4168,13 @@ namespace Brushblade.Presentation
             if ((_faceDragLanding & FaceLanding.Graft) != 0)
                 AddFaceMark(cell.transform, rect, FaceMarkKind.Graft, slot, Strings.T("battle.landing.graft"));
             else if ((_faceDragLanding & FaceLanding.Summons) != 0 && Battle.CanHealSlot(slot))
-                AddFaceMark(cell.transform, rect, FaceMarkKind.Summon, slot, SummonLandingLabel());
+            {
+                // 结果签不改(A-Q11),本面有本场用尽的限次特性时追加压浅的「X已用」段;与松手 Summon 分支同参试算
+                string result = SummonLandingLabel();
+                var est = EstimateSafe(_faceDragDef.Id, -1, _faceDragFace == CardFace.Attack, _faceDragIndex, slot);
+                AddFaceMark(cell.transform, rect, FaceMarkKind.Summon, slot, result,
+                    EstimateText.SpentOnly(est, afterMain: result != null));
+            }
             else
                 DimForFaceDrag(cell);
         }
@@ -4142,6 +4223,7 @@ namespace Brushblade.Presentation
             if (target == _hoverPreviewPrimary) return; // 悬停格没变,别做无用功
             _hoverPreviewPrimary = target;
             ClearHoverPreview();
+            HoverDragMarks(target);
 
             if (target < 0 || !Battle.CanTarget(def, target, attackMode)) return;
 
@@ -4196,26 +4278,59 @@ namespace Brushblade.Presentation
         /// 只对**需要选敌人**的字点亮:群体伤害与不指定目标的字拖到哪只怪身上都一样,
         /// 给它们涂一片阴影反而在暗示「要挑一只」。
         ///
-        /// ⚠ 与 <see cref="OnDragHover"/> 一样只改已存在物件的颜色,不重绘任何 GameObject
-        /// —— 起拖回调里销毁正被拖的字牌会掐断 OnEndDrag(DragToAttack.cs 顶部整段警告)。
+        /// ⚠ 不重绘任何已有 GameObject,只改 <see cref="_enemyHitAreas"/> 的颜色,另在格下**新建**预估签 / 描环
+        /// (Plan E4 T4;新建不受限)—— 起拖回调里销毁正被拖的字牌会掐断 OnEndDrag(DragToAttack.cs 顶部整段警告)。
         /// 两层的叠放顺序也靠这一点成立:悬停层存原色时存到的正是本层涂过的颜色,
         /// 撤悬停自然落回本层,不需要谁记得重涂。</summary>
-        private void ShowDragTargets(CharDef def)
+        private void ShowDragTargets(CharDef def, int libraryIndex)
         {
             ClearDragTargets();
             // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
             // 所以拖拽时照样要把能落的敌人标出来。
             // 打全体(E3:带火山印记的「山」)例外:不要目标,但落在任一只都算 —— 拖起即全部活敌描出来。
             // 判据走 Core 实例读口(印记算在内),与 CastCore 的 needsTarget 同源
-            if (!Battle.HitsAllEnemiesNow(def.Id, attackMode: true)
+            bool hitsAll = Battle.HitsAllEnemiesNow(def.Id, attackMode: true);
+            if (!hitsAll
                 && !Battle.NeedsTargetNow(def.Id, attackMode: true)
                 && BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id)).Shape != TargetArea.Scatter) return;
+            // 带印记打全体的部件(PartsAndGraft:火山「山」):全部可落敌人加火色描环(B-Qd1 底色不换,只加描环)。
+            // 描环色 = 印记来源字的字形色(火山来自「灿」→ 火),不是部件自己的土色。字库里的字不吃池中印记(同 CastCore fromPool)
+            Color? ringColor = null;
+            if (hitsAll && libraryIndex < 0)
+            {
+                var marks = Battle.PartMarksOf(def.Id);
+                if (marks.Count > 0 && _graph.TryGet(marks[0].SourceCharId, out var source))
+                    ringColor = Theme.GlyphColor(source.Element);
+            }
+            CastEstimate allEstimate = null;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
                 if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode: true)) continue;
                 _dragTargetCells.Add((i, _enemyHitAreas[i].color));
                 _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, DragTargetAlpha);
+                // 只在格下**新建**子物件(不重画敌人行、不碰正被拖的牌);DragToAttack 的警告只禁销毁被拖对象
+                var host = _enemyHitAreas[i].transform;
+                if (ringColor is { } color) _dragRings.Add(AddLandingRing(host, color, FaceMarkRadius));
+                // 预估签(A-Q13):起拖时每个可落格各试算一次(全体只算一次),与松手 BeginCast(def.Id, target, true, libraryIndex) 同参
+                var est = hitsAll
+                    ? allEstimate ??= EstimateSafe(def.Id, i, attackMode: true, libraryIndex)
+                    : EstimateSafe(def.Id, i, attackMode: true, libraryIndex);
+                var text = EstimateText.ForEnemy(est, i);
+                if (text is { } t) _dragLabels.Add((i, BuildEstimateLabel(host, t.Main, t.Dim)));
             }
+        }
+
+        /// <summary>原路径悬停:签只亮悬停那只;描环(只有带印记打全体的才有)悬停任一可落格时全部加粗(B-Qd2)。
+        /// 只切显隐 / 换 sprite,不建不删。悬停格变了才由 <see cref="OnDragHover"/> 调。</summary>
+        private void HoverDragMarks(int target)
+        {
+            foreach (var (i, label) in _dragLabels)
+                if (label != null) label.SetActive(i == target);
+            if (_dragRings.Count == 0) return;
+            bool onTarget = target >= 0 && _dragTargetCells.Exists(c => c.index == target);
+            var sprite = Theme.RoundedRing(FaceMarkRadius, onTarget ? FaceRingHover : FaceRingOk);
+            foreach (var ring in _dragRings)
+                if (ring != null) ring.sprite = sprite;
         }
 
         /// <summary>把「打得着」那一层改过色的格子原样还原。松手/取消时调。</summary>
@@ -4225,6 +4340,13 @@ namespace Brushblade.Presentation
                 if (i < _enemyHitAreas.Count && _enemyHitAreas[i] != null)
                     _enemyHitAreas[i].color = original;
             _dragTargetCells.Clear();
+            // 预估签与火色描环是起拖时新建的:松手 / 取消 / 拖回手牌行一律销毁(Review Focus 2)
+            foreach (var (_, label) in _dragLabels)
+                if (label != null) Destroy(label);
+            _dragLabels.Clear();
+            foreach (var ring in _dragRings)
+                if (ring != null) Destroy(ring.gameObject);
+            _dragRings.Clear();
         }
 
         /// <summary>「打得着」那一层的墨色不透明度。比溅射预览
