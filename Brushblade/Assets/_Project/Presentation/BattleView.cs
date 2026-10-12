@@ -3564,8 +3564,9 @@ namespace Brushblade.Presentation
             //     友方落点,拖到自己或某只召唤物身上松手即施放。
             //   · **既要敌人又要友方**的(沝/澡/沐/垚/圭/垒):照旧拖到敌人身上,松手后进第二段
             //     点友方 —— 与点「出字」那条路径同一个状态机,不写第二套。
+            // 要不要选敌人读 Core 的实例读口(E3):池中部件带印记时效果表会变(火山「山」改全体),静态 NeedsTarget 看不到
             bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
-                && !BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id));
+                && !Battle.NeedsTargetNow(def.Id, attackMode: true);
             // 双方向字(2026-09-03):起拖时**敌我两边一起点亮**,与双击那条路径同构 ——
             // 拖到哪边就是哪边,可落点必须在起拖那一刻就看得见,否则玩家得靠猜。
             // 排在 allyOnly 之后判:纯友方字(㵘/淼 这类没有单体攻击面的)仍走它自己那一支,
@@ -3779,7 +3780,7 @@ namespace Brushblade.Presentation
             _pendingAttackMode = _faceDragFace == CardFace.Attack;
             int level = _run.CardLevel(def.Id);
             _faceDragLanding = CardFaceRules.Landing(def, _faceDragFace, level);
-            _faceDragHitsAll = FaceHitsAllEnemies(def, _faceDragFace, level);
+            _faceDragHitsAll = Battle.HitsAllEnemiesNow(def.Id, attackMode: _faceDragFace == CardFace.Attack);   // 与 Core 同一份判据(E3)
             _faceMarks.Clear();
             _faceHover = null;
 
@@ -3990,18 +3991,6 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>这一面打全体(全体伤害或 pick = All 的敌对效果):悬停任一敌人时整排一起加深。</summary>
-        private static bool FaceHitsAllEnemies(CharDef def, CardFace face, int level)
-        {
-            foreach (var e in TraitRules.CastEffects(def, face, level))
-            {
-                if (e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All) return true;
-                if (e.Kind == EffectKind.BurnAll) return true;
-                if (CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) == EffectPick.All) return true;
-            }
-            return false;
-        }
-
         /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
         /// 判据一律走 <see cref="Targeting.ExpandTargets"/>,形状/连发数也一律走
         /// <see cref="BattleEngine.AttackShapeOf"/>(2026-08-22 评审 Finding 2 后从表现层自己
@@ -4028,6 +4017,19 @@ namespace Brushblade.Presentation
             ClearHoverPreview();
 
             if (target < 0 || !Battle.CanTarget(def, target, attackMode)) return;
+
+            // 打全体(E3,PartsAndGraft:带火山印记的「山」,以及全体面):悬停任一只 = 全部活敌一起加深,悬停那只算主目标。
+            // 判据是 Core 的实例读口,池中部件的印记算在内 —— 与 CastCore 受理同源
+            if (Battle.HitsAllEnemiesNow(def.Id, attackMode))
+            {
+                for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
+                {
+                    if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode)) continue;
+                    _hoverPreviewCells.Add((i, _enemyHitAreas[i].color));
+                    _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, HoverPreviewPrimaryAlpha);
+                }
+                return;
+            }
 
             var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode, _run.CardLevel(def.Id));
             // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
@@ -4077,7 +4079,10 @@ namespace Brushblade.Presentation
             ClearDragTargets();
             // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
             // 所以拖拽时照样要把能落的敌人标出来。
-            if (!BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id))
+            // 打全体(E3:带火山印记的「山」)例外:不要目标,但落在任一只都算 —— 拖起即全部活敌描出来。
+            // 判据走 Core 实例读口(印记算在内),与 CastCore 的 needsTarget 同源
+            if (!Battle.HitsAllEnemiesNow(def.Id, attackMode: true)
+                && !Battle.NeedsTargetNow(def.Id, attackMode: true)
                 && BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id)).Shape != TargetArea.Scatter) return;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
@@ -6272,7 +6277,8 @@ namespace Brushblade.Presentation
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
             // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
             // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
-            if (BattleEngine.NeedsTarget(def, attackMode, _run.CardLevel(def.Id)) && LegalTargetCount(def, attackMode) > 1)
+            // E3:读 Core 实例读口 —— 带印记的「山」不要目标,点「出」/ 再点直出不能还进选目标态(Core 不要、UI 要)
+            if (Battle.NeedsTargetNow(def.Id, attackMode) && LegalTargetCount(def, attackMode) > 1)
             {
                 _targeting = true;
                 _pendingAttackMode = attackMode;
