@@ -280,6 +280,15 @@ namespace Brushblade.Core
             copy.PlayerMaxHp = playerMaxHp;
             return copy;
         }
+
+        /// <summary>预估试算(Plan E4)的影子引擎用:浅拷贝且不计统计(<see cref="Tally"/> = null),
+        /// 影子出字写不到共享的计数器,改容量上限等也只改这份副本。</summary>
+        internal BattleConfig ForEstimate()
+        {
+            var copy = (BattleConfig)MemberwiseClone();
+            copy.Tally = null;
+            return copy;
+        }
     }
 
     /// <summary>结算事件(供表现层做打击感,13.3;架构:表现监听 Core 事件,不反向驱动)。</summary>
@@ -363,6 +372,9 @@ namespace Brushblade.Core
         BuffBlocked,   // 禁增益拦下一条增益(洗尽铅华;TargetIndex = 敌人下标;Amount = (int)被挡的 StatusKind)。霜抗豁免、不发。
         GlyphTrait,    // 字形特性生效(拆字 / 成字;TargetIndex = −1;Amount = 该特性在 def.Traits 的下标;
                        // SecondIndex = (int)TraitTrigger)。发在次数阀通过之后、效果落地 / 挂印记之前,印记类也发(双焰 / 火山同样飘名)。
+        // ---- Plan E4 Task 1(⚠ 只在末尾追加)----
+        EndureSaved,   // 保命挡下致命一击(TargetIndex = 木灵槽位;Amount = 被挡掉的伤害 = 这一下 − (挡前血 − 1);SecondIndex = −1)。
+                       // 紧跟在那一下的事件之后(SummonHit / SummonBurnTick / GuardTransfer);只在保命真的触发时发。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -402,6 +414,8 @@ namespace Brushblade.Core
         // ---- Plan E3 Task 1:只当事件标签,不进伤害钩子。⚠ 只在末尾追加 ----
         SkillCut,      // BossSkillCast 的 Source:这次大招吃了杜塞(伤害已按 SkillCut 削减)
         ShieldCarry,   // Shield 的 Source:浮屠在回合初加回的那份(与金气回合初的 Shield 区分)
+        // ---- Plan E4 Task 1:只当事件标签。⚠ 只在末尾追加 ----
+        BurnGrow,      // Burn 的 Source:上炎在敌人行动开始时加的那几层(GrowBurnOn)
     }
 
     public readonly struct BattleEvent
@@ -985,6 +999,12 @@ namespace Brushblade.Core
         /// 暴击袋子,把它算进玩家战意会让木+金 build 白拿双份(spec §2.3)。</summary>
         private bool RollCrit(bool force = false)
         {
+            // 预估试算(Plan E4 A-Q1):影子不摇号,按不暴击算;必暴是确定量,照常兑现锋芒(后续段吃到同一份战意)。本体恒 false
+            if (_estimate)
+            {
+                if (force) GrantMoraleFromCrit();
+                return force;
+            }
             // 必暴(ForceCrit,D1 Task 3):chance 100 走 RollCritWith 的上端短路,不摇号;锋芒照常兑现
             bool crit = RollCritWith(force ? 100 : Math.Clamp(EffectiveCrit + _cast.CritBonus, 0, 100));
             if (crit) GrantMoraleFromCrit();
@@ -1227,6 +1247,8 @@ namespace Brushblade.Core
             // 跨场开局效果(spec v6 §5.1):在开场调度之前对全场结算
             if (startingOpenings != null && startingOpenings.Count > 0)
             {
+                foreach (var opening in startingOpenings)
+                    _appliedOpenings.Add(opening.Clone());   // Plan E4:开局卷轴读它;不进快照
                 foreach (var opening in startingOpenings)
                     ApplyDetachedEffects(opening.SourceCharId, opening.Element, new[] { opening.ToEffect() });
                 DrainReactions();   // 安全点:开局效果之后、开场调度之前
@@ -2577,26 +2599,33 @@ namespace Brushblade.Core
 
             int tick = burn.Magnitude * OurSideBurnPerStack;
             int hpBefore = summon.Hp;
-            LoseSummonHp(summon, tick);   // 保命也挡灼烧致死(「将要阵亡时」)
+            bool saved = LoseSummonHp(summon, tick);   // 保命也挡灼烧致死(「将要阵亡时」)
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
+            if (saved) _events.Add(EndureSavedEvent(slot, tick, hpBefore));
             CheckThreshold(UnitRef.Summon(slot), hpBefore, summon.Hp, summon.MaxHp);
             if (!summon.Alive) OnSummonDeath(slot, UnitRef.None);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
         }
 
         /// <summary>召唤物掉血的唯一入口(受击与灼烧共用,D1 Task 7):这一下会致命且带保命 → 留 1 血、移除一条保命。
-        /// 吞噬不走这里(直接移除单位,不算受伤)。</summary>
-        private static void LoseSummonHp(SummonState summon, int amount)
+        /// 吞噬不走这里(直接移除单位,不算受伤)。返回保命是否触发(Plan E4:调用点据此在自己那条事件之后发 EndureSaved)。</summary>
+        private static bool LoseSummonHp(SummonState summon, int amount)
         {
             var endure = amount >= summon.Hp ? summon.Statuses.Find(StatusKind.Endure) : null;
             if (endure != null)
             {
                 summon.Statuses.RemoveEntry(endure);
                 summon.Hp = 1;
+                return true;
             }
-            else summon.Hp = Math.Max(0, summon.Hp - amount);
+            summon.Hp = Math.Max(0, summon.Hp - amount);
+            return false;
         }
+
+        /// <summary>保命触发事件(Plan E4,附录 §B b3):Amount = 被挡掉的伤害 = amount − (挡前血 − 1)。</summary>
+        private static BattleEvent EndureSavedEvent(int slot, int amount, int hpBefore) =>
+            new BattleEvent(BattleEventKind.EndureSaved, slot, amount - (hpBefore - 1));
 
         /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
         /// 与玩家侧 <see cref="EffectiveAttack"/> 共用同一个 <see cref="AttackPercent"/> 属性
@@ -3286,14 +3315,11 @@ namespace Brushblade.Core
             _cast.PreCastSummons ??= AliveSummons();   // 众木 / 林深(D2-木 E39),只读
             // 每场次数(D2-土 E35,杜门不出):顶层出字先偷看次数,用尽的特性整条不进 Fold;没有这类特性时与原路径同一调用
             var battleLimited = topLevelCast ? TraitRules.BattleLimited(def, castFace, cardLevel) : Array.Empty<TraitDef>();
-            var castEffects = battleLimited.Count == 0
-                ? CastEffectsOf(def, attackMode, cardLevel)
-                : TraitRules.Fold(EffectsOf(def, attackMode), def, castFace, cardLevel,
-                    skip: t => t.MaxPerBattle > 0 && BattleUsesOf(def, t) >= t.MaxPerBattle);
+            // 拆字印记(E10)在里面并入;预估试算(Plan E4)读同一个函数,杜绝「预估 ≠ 实际」的分叉
+            var castEffects = EffectsForCast(def, attackMode, cardLevel, battleLimited, partExtra);
             // 推迟施加(Ruling 11 + D2-水 E16 同一条队列,按原顺序):Status 非 null = 按战意计次的格挡(状态已定死,只差次数);
             // Status 为 null = 名单类效果(pick FrozenByThisCast / SlowedByThisCast),循环末尾再结算,名单才收得全
             List<(EffectDef Effect, StatusEffect Status)> deferred = null;
-            if (partExtra != null) castEffects = TraitRules.FoldExtra(castEffects, partExtra);   // 拆字印记(E10)
             // 自损(D2-火 N10b / G9,玉石俱焚):出字开头、出字前快照之后结算;循环里的 SelfCost 分支空转
             foreach (var castEffect in castEffects)
                 if (castEffect.Kind == EffectKind.SelfCost && castEffect.OpeningBattles == 0) PaySelfCost(castEffect.Value);
@@ -5613,7 +5639,9 @@ namespace Brushblade.Core
             int armorIgnorePercent = 0)
         {
             var enemy = _enemies[enemyIndex];
-            int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
+            // 预估试算(Plan E4 A-Q2):影子按玩家看得到的属性判生克 —— 未现形 = 中立,伪装 = 假身;本体恒 false,用真身
+            var defender = _estimate ? enemy.ApparentElement ?? Element.Heart : enemy.Element;
+            int damage = WuxingResolver.ResolveEffect(baseValue, attacker, defender);
             // 2026-08-12(E-b4 T3):这里原先有一整段乘法减伤 —— 承伤系数 enemy.DamageTaken、
             // 「减免遭克制失效」的补丁、穿甲的「只忽略减免 + 无条件 +15%」、破甲的「承伤 +25%」。
             // 四个乘数全部删除,守方侧从此只剩下面那一句护甲折算(spec §4.1)。
@@ -5673,7 +5701,7 @@ namespace Brushblade.Core
             // 对称性备查:敌人侧今天无处落地 —— 玩家没有五行属性(DamagePlayerDirect 收的是
             // 算好的 enemy.Attack,不过 KeMultiplier),召唤物走五行但 SummonState 没有护甲字段。
             // 哪天给召唤物加了护甲,这条规则要一并在 DamageSummon 里补上。
-            float wuxing = WuxingResolver.KeMultiplier(attacker, enemy.Element);
+            float wuxing = WuxingResolver.KeMultiplier(attacker, defender);
             bool counters = wuxing > 1f;
             bool countered = wuxing < 1f; // 吃亏的那一头(0.5x):与 counters 同源、互斥
             if (!bypassDefense && !counters)
@@ -6152,9 +6180,10 @@ namespace Brushblade.Core
 
             int absorbed = Math.Min(summon.Shield, taken);
             summon.Shield -= absorbed;
-            LoseSummonHp(summon, taken - absorbed);
+            bool saved = LoseSummonHp(summon, taken - absorbed);
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
+            if (saved) _events.Add(EndureSavedEvent(summonIndex, taken - absorbed, hpBefore));
             Raise(HookKind.SummonHit, UnitRef.Summon(summonIndex), UnitRef.Enemy(enemyIndex), taken, absorbed: absorbed);
             CheckThreshold(UnitRef.Summon(summonIndex), hpBefore, summon.Hp, summon.MaxHp);
             // ⚠ 挨打死亡的 OnSummonDeath(归根)挪到本方法末尾(2026-09-30 用户报):荆棘/镜/反震

@@ -41,15 +41,67 @@ namespace Brushblade.Core
         };
     }
 
+    /// <summary>开局卷轴的一行(Plan E4 附录 §D 一.3,D-Q1 方案 A:不出灰显行,没有 Shadowed 字段)。</summary>
+    public readonly struct OpeningRow
+    {
+        /// <summary>这条开局效果(克隆)。</summary>
+        public OpeningEffect Effect { get; }
+        /// <summary>本场开局时的剩余场数(含本场)。</summary>
+        public int LeftBefore { get; }
+        /// <summary>本场结束后还剩几场 = max(0, LeftBefore − 1);0 = 本场是最后一场。</summary>
+        public int LeftAfter { get; }
+
+        public OpeningRow(OpeningEffect effect, int leftBefore)
+        {
+            Effect = effect;
+            LeftBefore = leftBefore;
+            LeftAfter = Math.Max(0, leftBefore - 1);
+        }
+    }
+
     /// <summary>同类开局效果只取最强(spec v7 §5.2 第 1 律):按 (Kind, TargetAll) 分组,
     /// Value 大者胜;Value 相同取 BattlesLeft 长者。</summary>
     public static class OpeningRules
     {
+        /// <summary>分组键:Merge 的「同类」判据。</summary>
+        internal static (EffectKind, bool) GroupKey(OpeningEffect o) => (o.Kind, o.TargetAll);
+
         public static List<OpeningEffect> Merge(IEnumerable<OpeningEffect> existing, IEnumerable<OpeningEffect> incoming) =>
             existing.Concat(incoming)
                 .Where(o => o.BattlesLeft > 0)
-                .GroupBy(o => (o.Kind, o.TargetAll))
+                .GroupBy(GroupKey)
                 .Select(g => g.OrderByDescending(o => o.Value).ThenByDescending(o => o.BattlesLeft).First().Clone())
                 .ToList();
+
+        /// <summary>开局卷轴的行:按输入顺序,每条一行(输入即本场携带的那批,已经 Merge 过,同类只剩一条)。
+        /// BattlesLeft ≤ 0 的不出行(与 Merge 同一过滤)。null / 空 = 空表。</summary>
+        public static IReadOnlyList<OpeningRow> Display(IReadOnlyList<OpeningEffect> openings)
+        {
+            if (openings == null || openings.Count == 0) return Array.Empty<OpeningRow>();
+            var rows = new List<OpeningRow>(openings.Count);
+            foreach (var o in openings)
+                if (o.BattlesLeft > 0) rows.Add(new OpeningRow(o.Clone(), o.BattlesLeft));
+            return rows;
+        }
+
+        /// <summary>本场之后仍在的条数(顶栏 chip 的 N,D-Q2):LeftAfter &gt; 0 的行数。</summary>
+        public static int LiveCount(IReadOnlyList<OpeningEffect> openings)
+        {
+            int n = 0;
+            foreach (var row in Display(openings))
+                if (row.LeftAfter > 0) n++;
+            return n;
+        }
+
+        /// <summary>挂这条开局效果的特性:来源字特性里 OpeningBattles &gt; 0、Kind 与 Value(未缩放)都相同的那一条;
+        /// 找不到 = null。数据守卫保证每个字的开局效果 (Kind, Value) 唯一。</summary>
+        public static TraitDef SourceTrait(CharDef source, OpeningEffect o)
+        {
+            if (source == null || o == null) return null;
+            foreach (var t in source.Traits)
+                foreach (var e in t.Effects)
+                    if (e.OpeningBattles > 0 && e.Kind == o.Kind && e.Value == o.Value) return t;
+            return null;
+        }
     }
 }

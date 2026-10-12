@@ -460,6 +460,12 @@ namespace Brushblade.Core
         /// Phase 为 Won/Lost 时清空队列直接返回(其中的 GrantChar 先兑现,见 <see cref="SettleGrantsOnDecided"/>)。</summary>
         internal void DrainReactions()
         {
+            // 预估试算(Plan E4 A-Q5):影子只算这张字的直接结算,反应链(击杀时 / 暴击时 / 溢出溅射等)清队不兑现。本体恒 false
+            if (_estimate)
+            {
+                _reactions.Clear();
+                return;
+            }
             int resolved = 0;
             while (_reactions.Count > 0)
             {

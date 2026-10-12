@@ -57,6 +57,15 @@ namespace Brushblade.Core
         public TutorialStep Step => _index < Script.Length ? Script[_index].step : TutorialStep.Done;
         public bool Done => Step == TutorialStep.Done;
 
+        /// <summary>当前步只认某一面出字、且 <paramref name="charId"/> 就是这一步的演示字时,返回那一面;否则 null
+        /// (Plan E4 附录 §D 二.3:CastDemo 期间锁剿的翻面)。只读现有 Script,不新增状态。</summary>
+        public CardFace? RequiredFace(string charId)
+        {
+            if (Done || charId == null) return null;
+            var current = Script[_index];
+            return current.action == TutorialAction.Cast && current.charId == charId ? current.face : null;
+        }
+
         /// <param name="face">出字落在哪一面(只对 Cast 有意义;调用方用 BattleEngine.FaceOf 求)。</param>
         public void Notify(TutorialAction action, string charId = null, CardFace? face = null)
         {

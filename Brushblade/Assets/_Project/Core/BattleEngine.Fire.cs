@@ -185,7 +185,7 @@ namespace Brushblade.Core
             int grow = bag.MaxMagnitude(StatusKind.BurnGrow);
             if (grow <= 0 || !bag.Has(StatusKind.Burn)) return;
             int gain = ApplyBurn(enemyIndex, grow, UnitRef.Player);
-            if (gain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, enemyIndex, gain));
+            if (gain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, enemyIndex, gain, source: EffectSource.BurnGrow));   // Plan E4:飘「上炎」用
         }
 
         /// <summary>焚城入队(ResolveDefeat 调,余烬之前):死者带焚城标记、剩余灼 S &gt; 0 时,每条标记入队一条

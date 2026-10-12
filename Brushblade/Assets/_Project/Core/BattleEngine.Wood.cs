@@ -312,8 +312,9 @@ namespace Brushblade.Core
             int hpBefore = guard.Hp;
             int absorbed = Math.Min(guard.Shield, transfer);
             guard.Shield -= absorbed;
-            LoseSummonHp(guard, transfer - absorbed);
+            bool saved = LoseSummonHp(guard, transfer - absorbed);
             _events.Add(new BattleEvent(BattleEventKind.GuardTransfer, enemyIndex, transfer, slot, absorbed));
+            if (saved) _events.Add(EndureSavedEvent(slot, transfer - absorbed, hpBefore));
             CheckThreshold(UnitRef.Summon(slot), hpBefore, guard.Hp, guard.MaxHp);
             return transfer;
         }
