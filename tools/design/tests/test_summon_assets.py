@@ -46,8 +46,8 @@ def test_python_and_csharp_slug_tables_agree():
 
 # 已登记的「形象待出稿」召唤字:游戏里暂时回落成纯字牌格(功能不受影响),形象要先经 designer 出稿,
 # 不能由实现侧自己画(CLAUDE.md「UI 设计流程」)。出稿落地后从这里删掉,下面的测试会逼着补齐四处对账。
-# - 花(2026-10-05,D1 Task 12):花 拆两面,生面召唤花灵(spec v7 §9 木系「花例外」)。
-PENDING_ART = {"花"}
+# - 当前为空:花(2026-10-05 登记)已于 E3 出稿落地(compose_hua)。
+PENDING_ART = set()
 
 
 def test_every_summon_char_has_a_slug():

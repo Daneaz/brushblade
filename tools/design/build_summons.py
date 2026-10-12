@@ -57,6 +57,7 @@ SLUGS = {
     "桂": "gui",
     "柘": "zhe",
     "藤": "teng",
+    "花": "hua",
 }
 
 LAYERS = ("body", "leaf")
@@ -237,6 +238,18 @@ def compose_zao(rng):
     return body, leaves
 
 
+def petal(x, y, angle, l, w):
+    """一片圆头花瓣:瓣根在 (x,y),沿 angle 伸出 l,头部比 leaf() 圆。"""
+    return (f'<path transform="translate({_f(x)} {_f(y)}) rotate({_f(angle)})" '
+            f'd="M0 0 C{_f(l * .1)} {_f(-w)} {_f(l * .95)} {_f(-w * 1.15)} {_f(l)} 0 '
+            f'C{_f(l * .95)} {_f(w * 1.15)} {_f(l * .1)} {_f(w)} 0 0 Z"/>')
+
+def flower(x, y, r, rot=0.0):
+    """一朵五瓣花:圆头花瓣(leaf 层)从花心放射,花心一点墨(body 层)。"""
+    petals = "".join(petal(x, y, -90 + rot + k * 72, r, r * .5) for k in range(5))
+    return dot(x, y, r * .2), petals
+
+
 def compose_gui(rng):
     """桂:右侧一棵桂树,叶间缀满小簇的花(桂的被动是自带护盾 —— 花团锦簇)。"""
     body, leaves = tree(rng, 104, 108, 22, 3.8, lean=-4, crown=8, crown_len=16)
@@ -289,10 +302,35 @@ def compose_teng(rng):
     return body, leaves
 
 
+def compose_hua(rng):
+    """花:左侧一枝斜出,枝头四朵五瓣花 + 花苞;右侧两缕香气卷着往上飘、几片落瓣(花灵本命「迷香」)。"""
+    body = ground(108, 6, 60)
+    body += stalk(14, 110, 22, 44, 3.0, 1.4, bend=-4)
+    body += stalk(18, 82, 5, 62, 1.6, .6, bend=2)
+    body += stalk(21, 52, 34, 24, 1.4, .6, bend=-2)
+    body += stalk(22, 46, 10, 28, 1.2, .5, bend=2)
+    leaves = ""
+    for fx, fy, fr, rot in ((36, 17, 10.5, 6), (6, 56, 9, -10), (11, 24, 8.5, 20), (25, 40, 7, -4)):
+        bd, pt = flower(fx, fy, fr, rot)
+        body += bd
+        leaves += pt
+    leaves += leaf(17, 72, 200, 10, 4.2) + leaf(20, 94, -20, 11, 4.6) + leaf(29, 62, -30, 8, 3.6)
+    # 迷香:右侧两缕卷曲的香气(细墨线,不吃色)
+    for x0, y0, n, s in ((100, 100, 3, 1), (111, 84, 2, -1)):
+        d = f"M{x0} {y0}"
+        for i in range(n):
+            d += f" c{-6*s} -5 {6*s} -10 0 -15"
+        body += f'<path d="{d}" fill="none" stroke="{INK}" stroke-width="1.5" stroke-linecap="round"/>'
+    # 落瓣
+    for px_, py_, a_ in ((96, 30, 30), (106, 50, -50), (92, 50, 100), (110, 18, 60)):
+        leaves += petal(px_, py_, a_, 5.5, 2.8)
+    return body, leaves
+
+
 COMPOSERS = {
     "lin": compose_lin, "sen": compose_sen, "simu": compose_simu, "jian": compose_jian,
     "qiu": compose_qiu, "jing": compose_jing, "zao": compose_zao, "gui": compose_gui,
-    "zhe": compose_zhe, "teng": compose_teng,
+    "zhe": compose_zhe, "teng": compose_teng, "hua": compose_hua,
 }
 
 # ---------------------------------------------------------------- 动效贴图
