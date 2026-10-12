@@ -331,7 +331,7 @@ def desc(e):
         # 破甲 2026-08-13 起是「削目标护甲 v 点」,不再是「承伤 +25% 持续 t 回合」
         # 利/锋 是限时增益(回合数不随卡等级,spec v7 §1),
         # 管线已强制它们必须带 turns(P2 Task 4a 把两者移进 DURATION_KINDS),
-        # 所以不留「本场」那一支 —— 与 CharInfo.cs / CardTraits.cs 两处同口径
+        # 所以不留「本场」那一支 —— 与 CharInfo.EffectsText / 字卡详情特性行(CardSheetParts + TraitDef)两处同口径
         # (2026-09-07 P2 Task 4d 修的是那两处,这里是同一个 bug 的第三个读取点)。
         'ArmorBreak': ("全体" if e.get('pick') == 'All' else "") + f"破甲 {v}(削目标护甲," + (f"{t} 回合" if t else "本场") + ")", 'Empower': f"攻击力 +{v},{t} 回合",
         'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
@@ -375,11 +375,12 @@ def desc(e):
 
 # ===== 特性 · 技能 =====
 # 「特性技能」列回答的是「这张字除了多大(数值)、打谁(攻击模式)之外**还带什么**」,
-# 与卡面详情的「特性 · 技能」段是同一件事 —— 那段由 `Presentation/CardTraits.Of` 生成,
-# 词表在 `strings.zh-CN.json` 的 `collection.trait.*`。此处逐条对着 CardTraits 抄,
+# 与卡面详情的「特性 · 技能」是同一件事 —— 效果文案由 `Presentation/CharInfo.EffectsText` 生成,
+# 词表在 `strings.zh-CN.json` 的 `char.effect.*`;字卡详情的特性行由 `CardSheetParts` + `Core/TraitDef` 驱动
+# (旧的 `CardTraits.Of` / `collection.trait.*` 已删除)。此处逐条对着 CharInfo.EffectsText 抄,
 # 玩家在卡面读到的名字与本表读到的必须一致(2026-09-05 新增本列时定的口径)。
 #
-# ⚠ CardTraits 有分支的 EffectKind / SummonPassive 字段这里都要有一条 —— 漏一个的表现
+# ⚠ CharInfo.EffectsText 有分支的 EffectKind / SummonPassive 字段这里都要有一条 —— 漏一个的表现
 # 不是报错,是该字的特性列凭空少一项。兜底走 `f"{kind} {v}"`,好歹看得见英文枚举名。
 #
 # 不入本列的两类(它们在别的列):伤害/护盾/治疗的**量**在攻击力列与功能列;召唤只数
@@ -413,12 +414,12 @@ TRAITS = {
     'SpendWellspring': lambda e, v: "涌泉相报",
     'Dispel': lambda e, v: ("全体驱散" if e.get('targetAll') else "驱散")
                            + ("" if v < 0 else f" {v}"),
-    # 2026-09-16「土水系机制重做」Task 11 新增三条,对着 CardTraits.cs 抄(:371-396)
+    # 2026-09-16「土水系机制重做」Task 11 新增三条,对着 CharInfo.EffectsText 抄
     'Quench': lambda e, v: f"蓄热 +{v}",
-    'Haste': lambda e, v: (f"急速 +{v}%" if v >= 100 else f"加速 +{v}%"),  # 阈值同 CardTraits:
+    'Haste': lambda e, v: (f"急速 +{v}%" if v >= 100 else f"加速 +{v}%"),  # 阈值同 CharInfo:
                                                                           # 未缩放基础值 ≥100 记急速
     'Unseal': lambda e, v: "解封",
-    # D1 Task 12:对着 CardTraits.cs 的 collection.trait.weaken / seed / block 抄
+    # D1 Task 12:对着 CharInfo.EffectsText 的 char.effect.weaken / seed / block 抄
     'Weaken': lambda e, v: f"减攻 {v}%",
     'Seed': lambda e, v: f"种 {v}",
     'Block': lambda e, v: f"格挡 {v}",
@@ -430,7 +431,7 @@ TRAITS = {
 DOUBLE_VS = {'Burning': "对灼烧", 'Bleeding': "对流血",
              'Controlled': "对控制", 'ArmorBroken': "对破甲"}
 
-# 召唤物被动 → 特性名。顺序与 CardTraits.SummonTraits 一致。
+# 召唤物被动 → 特性名。顺序与 CharInfo 的召唤物被动文案一致。
 # shape / shapePercent / shots 不在这里 —— 三个字段要合成一句(见 `_shape_trait`),
 # 这份表只做「一个字段 → 一句话」的简单映射,合不进来;ranged(近战/远程)仍是攻击模式,不入特性列。
 SUMMON_TRAITS = [
@@ -451,7 +452,7 @@ SUMMON_TRAITS = [
 
 
 def _dmg_mods(e):
-    """挂在一击上的修饰(穿透 / 分段 / 斩杀 / 条件翻倍),与 CardTraits.DamageModifiers 同序。"""
+    """挂在一击上的修饰(穿透 / 分段 / 斩杀 / 条件翻倍),与 CharInfo.EffectsText 里一击修饰的顺序同序。"""
     out = []
     if e.get('pierce'): out.append(f"穿透 {e['pierce']}")
     if e.get('hitCount', 1) > 1: out.append(f"分 {e['hitCount']} 段")
@@ -475,7 +476,7 @@ def _shape_trait(shape, shots=None, pct=None):
 def traits(c):
     """这个字的全部特性,已去重、保序。
 
-    召唤字列的是**那几只的被动**(与 CardTraits 一致:召唤字自己不出手,它带什么
+    召唤字列的是**那几只的被动**(与 CharInfo 一致:召唤字自己不出手,它带什么
     等于召唤物带什么);`summonShield`(桂)是召唤字本体给全场加盾,不属于被动,单列。
     """
     out = []
@@ -603,7 +604,7 @@ A("  (全表 74 字里原本只有 4 字吃得到,是条空转规则;焚/蒸/刲
 A("  本表的攻击力与功能列因此不再需要 `70×3=210` 这类换算式,直接就是实战数字;卡面(CharInfo)同口径。")
 A("- **特性技能**:这个字除了「多大」(攻击力/功能列的数值)、「打谁」(功能列的单体/全体)之外**还带什么** ——")
 A("  灼烧、冻结、破甲、斩杀、战意…… 与卡面详情的「特性 · 技能」段同一批名字")
-A("  (`Presentation/CardTraits.Of` + `strings.zh-CN.json` 的 `collection.trait.*`),读表与玩家读卡对得上。")
+A("  (`Presentation/CharInfo.EffectsText` + `strings.zh-CN.json` 的 `char.effect.*`;字卡详情特性行见 `CardSheetParts` + `TraitDef`),读表与玩家读卡对得上。")
 A("  **召唤字列的是那几只召唤物的被动**(召唤字自己不出手,它带什么就等于召唤物带什么);")
 A("  目标形状(横扫 / 贯穿 / 溅射 / 连发 / 弹射)2026-09-05 起改判为**特性**(见设计稿 §0),故入本列;")
 A("  召唤物的近战/远程仍算**攻击模式**,不入本列,仍见功能列。")
