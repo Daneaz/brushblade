@@ -964,7 +964,7 @@ namespace Brushblade.Presentation
             var head = Ui.Row(stack.transform, "Head", NewHeadGap);
             head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Sized(head, inner, Ui.FaceSealM);
-            NewSeal(head.transform, def, card.Row.Face, Ui.FaceSealM);
+            NewSeal(head.transform, def, card.Row, Ui.FaceSealM);
             if (card.ShowWhere)
             {
                 var where = Ui.ThemedLabel(head.transform, card.Where, NewWhereFont, Theme.TextMain, Theme.TitleFont);
@@ -982,10 +982,13 @@ namespace Brushblade.Presentation
                 CardSheetParts.BodyLine(stack.transform, def, seal, text, NewBodyFont(two), Theme.TextDim, inner);
         }
 
-        /// <summary>按行的面出印:攻 / 本系五行面字;两面通用(Lv3 / Lv4)出「两」(ink-soft 底,component/FaceSeal)。</summary>
-        private static void NewSeal(Transform parent, CharDef def, TraitFace face, float size)
+        /// <summary>按行的面出印:攻 / 本系五行面字;两面通用(Lv3 / Lv4)出「两」(ink-soft 底,component/FaceSeal);
+        /// 字形特性(拆字 / 成字时)出「拆 / 合」(B-Qe1,<see cref="Ui.TraitSeal"/>)—— 它不是两面通用的面效果。
+        /// 分面两条的行(Defs 一攻一五行)不能拿 Defs[0] 去 TraitSeal(会印成「攻」),所以只在有字形特性时走 TraitSeal。</summary>
+        private static void NewSeal(Transform parent, CharDef def, SheetTrait row, float size)
         {
-            var seal = face switch
+            var glyph = CardSheetParts.GlyphTrait(row);
+            var seal = glyph != null ? Ui.TraitSeal(parent, def, glyph, size) : row.Face switch
             {
                 TraitFace.Attack => Ui.FaceSeal(parent, def, CardFace.Attack, size),
                 TraitFace.Feature => Ui.FaceSeal(parent, def, CardFace.Feature, size),
@@ -1021,7 +1024,7 @@ namespace Brushblade.Presentation
                 var line = Ui.Row(stack.transform, "Next", NextRowGap);
                 line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                 Ui.Sized(line, inner, Ui.FaceSealS);
-                NewSeal(line.transform, def, row.Face, Ui.FaceSealS);
+                NewSeal(line.transform, def, row, Ui.FaceSealS);
                 string where = Strings.T("collection.modal.next_where", ("where", NewWhereText(row)));
                 Ui.ThemedLabel(line.transform, where, NextWhereFont, Theme.TextDim);
                 float nameW = inner - Ui.FaceSealS - Ui.EstimateWidth(where, NextWhereFont) - 2f * NextRowGap;

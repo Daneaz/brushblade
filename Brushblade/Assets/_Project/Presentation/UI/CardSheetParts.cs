@@ -17,8 +17,10 @@ namespace Brushblade.Presentation
     /// 高度一律**先算后画**(<see cref="FaceHeight"/> / <see cref="SharedHeight"/>):两面要等高,
     /// 行高要按实际面宽折行(16:9 下面内宽只有 431),靠布局组事后撑高做不到「两面取较高的那一面」。
     ///
-    /// ⚠ 一律不挂点击:组件卡给特性行预留了词条气泡(Glossary)的点击位,E2 不挂;
-    /// 战斗长按版挂了就破坏「长按只看不出手」(<see cref="HoldToPreview"/>)。</summary>
+    /// 点击只有一种:有术语的特性行 / 单术语数值格点了开词条气泡(Plan E4 Glossary,<see cref="GlossaryBubble"/>),
+    /// 回调由调用方传(<see cref="TermsTap"/>,null = 不挂)。战斗长按版也挂(C-Q1):点行只开气泡、不出字,
+    /// 不破坏「长按只看不出手」(<see cref="HoldToPreview"/>)。没有术语的行 / 格不挂、也没有按下态(R7)。
+    /// 正文 <see cref="RowModel.Lines"/> 始终是**纯文本**:测量、截断、比较都吃它,上色只在最后赋 Text.text 时做。</summary>
     public static class CardSheetParts
     {
         /// <summary>两版尺寸(稿 pt × 2.093 = 逻辑单位)。铺满版 = 卡组 / 开箱 / 商城;战斗版 = 长按。</summary>
@@ -81,6 +83,10 @@ namespace Brushblade.Presentation
 
         public enum RowState { On, Off, Spent }
 
+        /// <summary>点了有术语的行 / 格:<paramref name="target"/> = 被点的那块(选中描环挂在它上),<paramref name="radius"/> = 它的圆角,
+        /// <paramref name="title"/> = 行名或格名(气泡标题「名 · 词条」),<paramref name="terms"/> = 按出现顺序去重的术语。</summary>
+        public delegate void TermsTap(RectTransform target, int radius, string title, IReadOnlyList<GlossaryTerm> terms);
+
         /// <summary>一条特性行要画的东西。<see cref="Lines"/> 每句可带一枚 xs 面印前缀(两面效果不同时分两小句,Q3)。</summary>
         public sealed class RowModel
         {
@@ -88,7 +94,12 @@ namespace Brushblade.Presentation
             public string Name;
             public string Kind;
             public RowState State;
+            /// <summary>正文,一律纯文本(不带富文本标签)。</summary>
             public readonly List<(CardFace? Seal, string Text)> Lines = new();
+            /// <summary>这一行出现的术语(各句合并,按首次出现顺序去重,R5);空 = 这一行不给点。</summary>
+            public IReadOnlyList<GlossaryTerm> Terms = Array.Empty<GlossaryTerm>();
+            /// <summary>字形特性(拆字 / 成字时)的行首 xs 印「拆 / 合」(B-Qe1);null = 不印。</summary>
+            public TraitDef HeadSeal;
         }
 
         /// <summary>一面要画的东西。</summary>
@@ -244,8 +255,19 @@ namespace Brushblade.Presentation
                 State = state,
             };
             model.Lines.Add((null, CharInfo.TraitEffectsText(trait, def, Math.Max(level, trait.UnlockLevel))));
+            return WithTerms(model);
+        }
+
+        private static RowModel WithTerms(RowModel model)
+        {
+            model.Terms = GlossaryText.TermsOf(model.Lines.Select(l => l.Text));
             return model;
         }
+
+        /// <summary>这一行里的字形特性(拆字 / 成字时触发,<see cref="TraitCueRules.SealOf"/> = 拆 / 合);没有 = null。
+        /// 字卡详情两面条行首印与升级预览卡头印共用。</summary>
+        public static TraitDef GlyphTrait(SheetTrait row) =>
+            row.Defs.FirstOrDefault(t => TraitCueRules.SealOf(t) is TraitSealKind.Dismantle or TraitSealKind.Compose);
 
         /// <summary>两面条的一行(Lv3 / Lv4)。分面的两条:正文相同合成一句;不同则两小句各带 xs 面印(Q2 / Q3)。
         /// Review Focus 2:两条 Defs 都要画到,不能只取第一条。</summary>
@@ -257,12 +279,13 @@ namespace Brushblade.Presentation
                 Name = NameText(row),
                 Kind = KindText(row),
                 State = state,
+                HeadSeal = GlyphTrait(row),
             };
             int textLevel = Math.Max(level, (int)row.Slot);
             if (row.Defs.Count == 1)
             {
                 model.Lines.Add((null, CharInfo.TraitEffectsText(row.Defs[0], def, textLevel)));
-                return model;
+                return WithTerms(model);
             }
             var parts = row.Defs.Select(t => (Face: FaceOfTrait(t),
                 Text: row.Slot == TraitSlot.Lv3 ? Lv3Text(def, FaceOfTrait(t), t, level)
@@ -271,7 +294,7 @@ namespace Brushblade.Presentation
                 model.Lines.Add((null, parts[0].Text));
             else
                 foreach (var p in parts) model.Lines.Add((p.Face, p.Text));
-            return model;
+            return WithTerms(model);
         }
 
         // ================= 等级条 =================
@@ -347,7 +370,8 @@ namespace Brushblade.Presentation
             float tail = TailWidth(row);
             float name = Ui.EstimateWidth(row.Name, z.Name);
             float kind = Ui.EstimateWidth(row.Kind, z.KindFont);
-            float fixedPart = tag + HeadItemGap + (tail > 0 ? HeadItemGap + tail : 0f);
+            float fixedPart = tag + HeadItemGap + (tail > 0 ? HeadItemGap + tail : 0f)
+                + (row.HeadSeal != null ? Ui.FaceSealXs + HeadItemGap : 0f);
             if (fixedPart + name + HeadItemGap + kind <= width) return (row.Name, true);
             return (Ui.Truncate(row.Name, z.Name, width - fixedPart), false);
         }
@@ -407,7 +431,8 @@ namespace Brushblade.Presentation
 
         /// <summary>一面:正面(攻击)纸白底 + panel-border 内描边;背面(五行面)<see cref="Theme.FaceTint"/> 底 + 本系字形色 22% 内描边。
         /// 战斗版朝上的那一面换 1.5pt 墨色描环 +「朝上」签(稿 .face.up / .uptag)。</summary>
-        public static void FacePanel(Transform parent, CharDef def, FaceModel face, float faceW, float faceH, Sizes z)
+        public static void FacePanel(Transform parent, CharDef def, FaceModel face, float faceW, float faceH, Sizes z,
+            TermsTap onTerms = null)
         {
             bool back = face.Face == CardFace.Feature;
             Color border = face.Up ? Theme.Ink
@@ -428,11 +453,11 @@ namespace Brushblade.Presentation
 
             FaceHead(stack.transform, def, face, inner, z);
             Gap(stack.transform, z.FaceGap);
-            StatCells(stack.transform, def, face, back, z);
+            StatCells(stack.transform, def, face, back, z, onTerms);
             for (int i = 0; i < face.Rows.Count; i++)
             {
                 Gap(stack.transform, i == 0 ? z.FaceGap : z.RowGap);
-                TraitRow(stack.transform, def, face.Rows[i], back, inner, z);
+                TraitRow(stack.transform, def, face.Rows[i], back, inner, z, onTerms: onTerms);
             }
             if (face.LockedLine != null)
             {
@@ -467,8 +492,9 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>数值格(<see cref="FaceStats.Body"/>,每面 1–3 格)。生面「本命」格印本命 chip 的图标,没有图标就省掉这一格(Q7)。
-        /// 正面格底 panel-paper、背面格底 card-face(稿 .face.front .sb)。</summary>
-        private static void StatCells(Transform parent, CharDef def, FaceModel face, bool back, Sizes z)
+        /// 正面格底 panel-paper、背面格底 card-face(稿 .face.front .sb)。
+        /// 带术语的格(<see cref="GlossaryRules.TermOf"/>)标签按术语样式画(加粗 ink-soft),点格开气泡(R6);其余格不挂。</summary>
+        private static void StatCells(Transform parent, CharDef def, FaceModel face, bool back, Sizes z, TermsTap onTerms)
         {
             var row = Ui.Row(parent, "Stats", z.StatGap);
             row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
@@ -487,8 +513,20 @@ namespace Brushblade.Presentation
                 layout.padding = new RectOffset(z.StatPadH, z.StatPadH, 6, 6);
                 Ui.Stretch((RectTransform)stack.transform);
 
-                var key = Ui.ThemedLabel(stack.transform, StatLabel(stat.Kind), z.StatK, Theme.TextDim);
+                var term = GlossaryRules.TermOf(stat.Kind);
+                string keyText = StatLabel(stat.Kind);
+                var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.InkSoft : Theme.TextDim);
                 key.alignment = TextAnchor.MiddleLeft;
+                if (term != null)
+                {
+                    key.fontStyle = FontStyle.Bold;
+                    if (onTerms != null)
+                    {
+                        var terms = new[] { term.Value };
+                        var cellRect = (RectTransform)cell.transform;
+                        TapTarget(cell, () => onTerms(cellRect, z.CellRadius, keyText, terms));
+                    }
+                }
                 Ui.Sized(key.gameObject, height: z.StatK + 2f, flexWidth: 1);
 
                 var value = Ui.Row(stack.transform, "Value", 4);
@@ -522,8 +560,9 @@ namespace Brushblade.Presentation
         /// <param name="minHeight">两面条里并排的行要等高,传整条的高;面里的行传 0(按自己的内容高)。</param>
         /// <param name="onFill">on 态的底色;缺省按所在面取(正面 panel-paper / 背面 card-face)。
         /// 两面条不在任何一面之下,传 card-face(稿 .shared .tr)。</param>
+        /// <param name="onTerms">点行开词条气泡;null 或这一行没有术语时不挂(R7)。</param>
         public static void TraitRow(Transform parent, CharDef def, RowModel row, bool back, float width, Sizes z,
-            float minHeight = 0f, Color? onFill = null)
+            float minHeight = 0f, Color? onFill = null, TermsTap onTerms = null)
         {
             bool on = row.State == RowState.On;
             Color nameColor = on ? Theme.TextMain : back ? WithAlpha(Theme.TextDim, 0.78f) : Theme.LockGray;
@@ -537,6 +576,11 @@ namespace Brushblade.Presentation
                     Theme.PanelBorder, z.CellRadius, 2).gameObject
                 : Ring(parent, "TraitRow", WithAlpha(Theme.PanelBorder, 0.8f), z.CellRadius, 2);
             Ui.Sized(card, width, height);
+            if (onTerms != null && row.Terms.Count > 0)
+            {
+                var cardRect = (RectTransform)card.transform;
+                TapTarget(card.GetComponent<Image>(), () => onTerms(cardRect, z.CellRadius, row.Name, row.Terms));
+            }
             var stack = Ui.VStack(card.transform, "Stack", z.BodyGap);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperLeft;
@@ -551,6 +595,7 @@ namespace Brushblade.Presentation
             head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Sized(head, textW, z.RowHead);
             LvTag(head.transform, row.Level, on, z);
+            if (row.HeadSeal != null) HeadSeal(head.transform, def, row.HeadSeal, on);
             var nameLabel = Ui.ThemedLabel(head.transform, name, z.Name, nameColor, Theme.TitleFont);
             nameLabel.fontStyle = FontStyle.Bold;
             if (showKind) Ui.ThemedLabel(head.transform, row.Kind, z.KindFont, dimColor);
@@ -563,23 +608,44 @@ namespace Brushblade.Presentation
             }
 
             foreach (var line in row.Lines)
-                BodyLine(stack.transform, def, line.Seal, line.Text, z.Body, dimColor, textW);
+                BodyLine(stack.transform, def, line.Seal, line.Text, z.Body, dimColor, textW, muted: !on);
         }
 
-        /// <summary>正文一句:无印 = 折行文字;有印 = xs 面印 + 折行文字。高度取 <see cref="LineHeight"/>。</summary>
-        internal static void BodyLine(Transform parent, CharDef def, CardFace? seal, string text, int font, Color color, float width)
+        /// <summary>字形特性行首的 xs「拆 / 合」印(<see cref="Ui.TraitSeal"/>);off / spent 跟正文一起压到 α .78(附录 §B Q-e4)。</summary>
+        private static void HeadSeal(Transform parent, CharDef def, TraitDef trait, bool on)
+        {
+            var seal = Ui.TraitSeal(parent, def, trait, Ui.FaceSealXs);
+            Ui.Sized(seal, Ui.FaceSealXs, Ui.FaceSealXs);
+            if (!on) seal.AddComponent<CanvasGroup>().alpha = 0.78f;
+        }
+
+        /// <summary>把一块已有的图挂成「点了开气泡」:不做按下态(只读弹窗里没有可按的控件感)。</summary>
+        private static void TapTarget(Image graphic, Action onTap)
+        {
+            var button = graphic.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = graphic;
+            button.onClick.AddListener(() => onTap());
+        }
+
+        /// <summary>正文一句:无印 = 折行文字;有印 = xs 面印 + 折行文字。高度取 <see cref="LineHeight"/>(吃纯文本)。
+        /// <paramref name="text"/> 必须是纯文本;术语 / 数字的样式在这里、赋 Text.text 那一刻才套上(<see cref="GlossaryText.Rich"/>)。
+        /// <paramref name="muted"/>:off / spent 态,术语与数字只加粗、不换色(R3)。</summary>
+        internal static void BodyLine(Transform parent, CharDef def, CardFace? seal, string text, int font, Color color, float width,
+            bool muted = false)
         {
             float h = LineHeight(text, seal != null, font, width);
+            string rich = GlossaryText.Rich(text, muted);
             if (seal == null)
             {
-                WrapLabel(parent, text, font, color, width, h);
+                WrapLabel(parent, rich, font, color, width, h);
                 return;
             }
             var line = Ui.Row(parent, "Line", LineSealGap);
             line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(line, width, h);
             SealXs(line.transform, def, seal.Value);
-            WrapLabel(line.transform, text, font, color, width - Ui.FaceSealXs - LineSealGap, h);
+            WrapLabel(line.transform, rich, font, color, width - Ui.FaceSealXs - LineSealGap, h);
         }
 
         /// <summary>两小句前缀的 xs 面印(component/FaceSeal xs 档)。</summary>
@@ -650,7 +716,8 @@ namespace Brushblade.Presentation
 
         /// <summary>两面条:左一格竖排「两面」(Unity Text 不能竖排,写成「两\n面」),右侧本卡的 Lv3 / Lv4 行并排、等高。
         /// 铺满版每行照常折行;战斗版每行压成单行(Lv 标 + 名 + 截断后的正文,不印类别)。</summary>
-        public static void SharedStrip(Transform parent, CharDef def, IReadOnlyList<RowModel> rows, float width, float height, Sizes z)
+        public static void SharedStrip(Transform parent, CharDef def, IReadOnlyList<RowModel> rows, float width, float height, Sizes z,
+            TermsTap onTerms = null)
         {
             var strip = Ui.Row(parent, "Shared", 17f);
             var stripLayout = strip.GetComponent<HorizontalLayoutGroup>();
@@ -667,8 +734,8 @@ namespace Brushblade.Presentation
             float rowW = SharedRowWidth(width, rows.Count, z);
             foreach (var row in rows)
             {
-                if (z.Battle) CompactRow(strip.transform, def, row, rowW, height, z);
-                else TraitRow(strip.transform, def, row, false, rowW, z, height, Theme.CardWhite);
+                if (z.Battle) CompactRow(strip.transform, def, row, rowW, height, z, onTerms);
+                else TraitRow(strip.transform, def, row, false, rowW, z, height, Theme.CardWhite, onTerms);
             }
         }
 
@@ -676,11 +743,18 @@ namespace Brushblade.Presentation
         public static float SharedRowWidth(float width, int count, Sizes z) =>
             count <= 0 ? 0f : (width - z.SharedLabelW - 17f * count) / count;
 
-        /// <summary>战斗版两面条的一行:压成单行(稿 .shared .tr 高 22pt)。两小句各带 xs 面印,宽度均分后各自截断。</summary>
-        private static void CompactRow(Transform parent, CharDef def, RowModel row, float width, float height, Sizes z)
+        /// <summary>战斗版两面条的一行:压成单行(稿 .shared .tr 高 22pt)。两小句各带 xs 面印,宽度均分后各自截断。
+        /// 先截纯文本、再对截断后的串扫术语上色(截半的词不标);气泡列的是整行完整句的术语(<see cref="RowModel.Terms"/>)。</summary>
+        private static void CompactRow(Transform parent, CharDef def, RowModel row, float width, float height, Sizes z,
+            TermsTap onTerms)
         {
             var card = Ui.OutlinedPanel(parent, "TraitRow", Theme.CardWhite, Theme.PanelBorder, z.CellRadius, 2);
             Ui.Sized(card.gameObject, width, height);
+            if (onTerms != null && row.Terms.Count > 0)
+            {
+                var cardRect = (RectTransform)card.transform;
+                TapTarget(card, () => onTerms(cardRect, z.CellRadius, row.Name, row.Terms));
+            }
             var line = Ui.Row(card.transform, "Line", 12.6f);
             var layout = line.GetComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleLeft;
@@ -690,11 +764,17 @@ namespace Brushblade.Presentation
 
             LvTag(line.transform, row.Level, true, z);
             float inner = width - 2f * z.RowPadH;
+            float headSealW = 0f;
+            if (row.HeadSeal != null)
+            {
+                HeadSeal(line.transform, def, row.HeadSeal, true);
+                headSealW = Ui.FaceSealXs + 12.6f;
+            }
             string name = Ui.Truncate(row.Name, z.Name, inner * 0.4f);
             var nameLabel = Ui.ThemedLabel(line.transform, name, z.Name, Theme.TextMain, Theme.TitleFont);
             nameLabel.fontStyle = FontStyle.Bold;
 
-            float rest = inner - TagWidth(row.Level, z) - Ui.EstimateWidth(name, z.Name) - 2f * 12.6f;
+            float rest = inner - TagWidth(row.Level, z) - headSealW - Ui.EstimateWidth(name, z.Name) - 2f * 12.6f;
             float each = rest / Mathf.Max(1, row.Lines.Count) - (row.Lines.Count > 1 ? 12.6f : 0f);
             foreach (var (seal, text) in row.Lines)
             {
@@ -704,7 +784,8 @@ namespace Brushblade.Presentation
                     SealXs(line.transform, def, seal.Value);
                     textW -= Ui.FaceSealXs + 12.6f;
                 }
-                Ui.ThemedLabel(line.transform, Ui.Truncate(text, z.SharedText, textW), z.SharedText, Theme.TextDim);
+                Ui.ThemedLabel(line.transform, GlossaryText.Rich(Ui.Truncate(text, z.SharedText, textW), false),
+                    z.SharedText, Theme.TextDim);
             }
         }
 

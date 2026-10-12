@@ -284,7 +284,11 @@ namespace Brushblade.Presentation
             float facesW = contentW - SideW - BodyGap;
             var scroll = Ui.ScrollList(body.transform, "Faces", tall ? 15f : 12.6f, out var faces);
             Ui.Sized(scroll, facesW, flexHeight: 1);
-            BuildFaces(faces, def, level, traitLevel, battle, facesW, z);
+            // 词条气泡挂在 overlay 上(两面区在 ScrollList 里,挂在行下会被 Mask 裁掉);两版都挂(C-Q1),只开气泡、不出字
+            var host = (RectTransform)overlay.transform;
+            CardSheetParts.TermsTap onTerms = (target, radius, title, terms) =>
+                GlossaryBubble.Show(host, target, radius, title, terms);
+            BuildFaces(faces, def, level, traitLevel, battle, facesW, z, onTerms);
 
             var side = Ui.ScrollList(body.transform, "Side", tall ? 12.6f : 8.4f, out var sideContent);
             Ui.Sized(side, SideW, flexHeight: 1);
@@ -297,7 +301,8 @@ namespace Brushblade.Presentation
                 var foot = Ui.Row(content, "Foot", 21);
                 foot.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                 Ui.Sized(foot, flexWidth: 1, height: 54);
-                var hint = Ui.ThemedLabel(foot.transform, Strings.T("charsheet.foot.outside"), 19, Theme.LockGray);
+                // 脚提示(稿 CardSheet R18):「点一行或一格」加粗 —— 粗体写在文案里
+                var hint = Ui.ThemedLabel(foot.transform, Strings.T("charsheet.foot.glossary"), 19, Theme.LockGray);
                 hint.alignment = TextAnchor.MiddleLeft;
                 Ui.Sized(hint.gameObject, flexWidth: 1);
                 footActions?.Invoke(foot.transform);
@@ -455,7 +460,7 @@ namespace Brushblade.Presentation
         /// <summary>正左背右两面(等宽、等高)+ 底部「两面」条。战斗版:朝上那面描环 + 签;面里只列已解锁行,
         /// 未解锁的收成一行;每场限次且本场已用尽的行走 spent 态;两面条只列已解锁的、压成单行。</summary>
         private static void BuildFaces(Transform parent, CharDef def, int level, int traitLevel,
-            BattleContext battle, float facesW, CardSheetParts.Sizes z)
+            BattleContext battle, float facesW, CardSheetParts.Sizes z, CardSheetParts.TermsTap onTerms)
         {
             float faceW = (facesW - PairGap) / 2f;
             // 正左背右:CardFace 的枚举值是 Feature = 0、Attack = 1,不能按枚举排序,这里写死顺序
@@ -469,7 +474,7 @@ namespace Brushblade.Presentation
             pair.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(pair, facesW, pairH);
             foreach (var model in models)
-                CardSheetParts.FacePanel(pair.transform, def, model, faceW, pairH, z);
+                CardSheetParts.FacePanel(pair.transform, def, model, faceW, pairH, z, onTerms);
 
             var rows = new List<CardSheetParts.RowModel>();
             foreach (var row in CardSheetRules.SharedTraits(def, traitLevel))
@@ -480,7 +485,7 @@ namespace Brushblade.Presentation
             }
             if (rows.Count == 0) return;
             float rowW = CardSheetParts.SharedRowWidth(facesW, rows.Count, z);
-            CardSheetParts.SharedStrip(parent, def, rows, facesW, CardSheetParts.SharedHeight(rows, rowW, z), z);
+            CardSheetParts.SharedStrip(parent, def, rows, facesW, CardSheetParts.SharedHeight(rows, rowW, z), z, onTerms);
         }
 
         private static CardSheetParts.FaceModel FaceModel(CharDef def, CardFace face, int level, int traitLevel,

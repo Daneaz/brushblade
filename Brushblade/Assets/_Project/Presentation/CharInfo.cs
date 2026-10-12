@@ -395,13 +395,18 @@ namespace Brushblade.Presentation
                         ? Strings.T("char.effect.perhit.from", ("from", e.PerHitFrom), ("list", list))
                         : Strings.T("char.effect.perhit", ("list", list)));
                 }
-                // 开局登记(D2-火 N12):这条本场不执行,之后 N 场开局对全场结算 —— 整段前缀「下 N 场开局:」,
-                // 不能让玩家把后面的效果读成本场就生效
-                if (e.OpeningBattles > 0)
+                // 开局登记(D2-火 N12):这条本场不执行,之后 N 场开局对全场结算 —— 整段前缀「跨场:下 N 场开局:」,
+                // 不能让玩家把后面的效果读成本场就生效。5 场是橙档的「跨段」(spec §5.1,词条 C-Q2),单用一条文案
+                if (e.OpeningBattles == BandBattles)
+                    parts.Insert(segStart, Strings.T("char.effect.opening.band", ("battles", e.OpeningBattles)));
+                else if (e.OpeningBattles > 0)
                     parts.Insert(segStart, Strings.T("char.effect.opening", ("battles", e.OpeningBattles)));
             }
             return parts.ToString();
         }
+
+        /// <summary>跨段 = 持续之后 5 场(spec §3.3 / §5.1;词条「跨段」的说明写的也是 5)。</summary>
+        private const int BandBattles = 5;
 
         /// <summary>一条特性的整句效果文案(D2-火 N13):效果逐条印,带 <see cref="TraitDef.MaxPerCast"/>(limit)时补「每次出字最多触发 N 次」。
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>

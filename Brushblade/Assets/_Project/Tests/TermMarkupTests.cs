@@ -75,6 +75,42 @@ namespace Brushblade.Core.Tests
             Assert.That(TermMarkup.Scan("灼烧", null).Spans.Count, Is.EqualTo(0));
         }
 
+        [Test]
+        public void Scan_NotBefore_Alternatives_PipeSeparated()
+        {
+            var lexicon = new[] { new TermSurface("减伤", GlossaryTerm.DamageCut, notBefore: "(|,") };
+            Assert.That(TermMarkup.Scan("护甲 +5(减伤 20%)", lexicon).Spans.Count, Is.EqualTo(0), "左括号排除");
+            Assert.That(TermMarkup.Scan("(自带护甲 9,减伤 8%)", lexicon).Spans.Count, Is.EqualTo(0), "逗号同样排除");
+            Assert.That(TermMarkup.Scan("减伤:本回合", lexicon).Spans.Count, Is.EqualTo(1));
+            Assert.That(TermMarkup.Scan("我方减伤 5%", lexicon).Spans.Count, Is.EqualTo(1), "其余前文不排除");
+        }
+
+        [Test]
+        public void BuildLexicon_NamesAliases_AndExclusions()
+        {
+            var lexicon = TermMarkup.BuildLexicon(new[]
+            {
+                (GlossaryTerm.Burn, "灼", "灼烧"),
+                (GlossaryTerm.Hot, "润泽", "持续治疗|群体润泽"),
+                (GlossaryTerm.Shield, "护盾", (string)null),
+                (GlossaryTerm.DamageCut, "减伤", ""),
+                (GlossaryTerm.AreaAll, "全体", null),
+            });
+            var texts = lexicon.Select(s => (s.Text, s.Term)).ToList();
+            Assert.That(texts, Is.EqualTo(new[]
+            {
+                ("灼", GlossaryTerm.Burn), ("灼烧", GlossaryTerm.Burn),
+                ("润泽", GlossaryTerm.Hot), ("持续治疗", GlossaryTerm.Hot), ("群体润泽", GlossaryTerm.Hot),
+                ("护盾", GlossaryTerm.Shield), ("减伤", GlossaryTerm.DamageCut), ("全体", GlossaryTerm.AreaAll),
+            }), "显示名在前、别名按 | 拆开;空别名不出词");
+            Assert.That(TermMarkup.Scan("护甲 +5(减伤 20%)", lexicon).Spans.Count, Is.EqualTo(0), "减伤带护甲括注排除");
+            Assert.That(TermMarkup.Scan("(自带护甲 9,减伤 8%)", lexicon).Spans.Count, Is.EqualTo(0));
+            Assert.That(TermMarkup.Scan("减攻 20%(全体敌人)", lexicon).Spans.Count, Is.EqualTo(0), "选择器后缀");
+            Assert.That(TermMarkup.Scan("我方全体清除全部减益", lexicon).Spans.Count, Is.EqualTo(0), "我方全体");
+            Assert.That(TermMarkup.Scan("治疗改为全体", lexicon).Terms, Is.EqualTo(new[] { GlossaryTerm.AreaAll }));
+            Assert.That(TermMarkup.Scan("群体持续治疗 9", lexicon).Terms, Is.EqualTo(new[] { GlossaryTerm.Hot }));
+        }
+
         // ---------------- Numbers / Rich / Strip ----------------
 
         private const string TO = "<b><color=#3D4E69>", TC = "</color></b>", NO = "<b>", NC = "</b>";

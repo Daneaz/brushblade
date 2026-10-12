@@ -8,7 +8,8 @@ using Brushblade.Core;
 namespace Brushblade.Data
 {
     /// <summary>词表里的一种写法(显示名或别名)。<see cref="NotBefore"/> / <see cref="NotAfter"/>:
-    /// 紧挨在前 / 在后是这段文字时不算术语(如护甲括注「(减伤」、选择器后缀「全体敌人)」、「我方全体」)。null / 空 = 不排除。</summary>
+    /// 紧挨在前 / 在后是这段文字时不算术语(如护甲括注「(减伤」、选择器后缀「全体敌人)」、「我方全体」)。null / 空 = 不排除。
+    /// 多种上下文用「|」隔开,任一命中即排除(如减伤前面是左括号或逗号)。</summary>
     public readonly struct TermSurface
     {
         public string Text { get; }
@@ -79,15 +80,46 @@ namespace Brushblade.Data
 
         private static bool Excluded(string plain, int start, in TermSurface s)
         {
-            var before = s.NotBefore;
-            if (!string.IsNullOrEmpty(before) && start >= before.Length
-                && string.CompareOrdinal(plain, start - before.Length, before, 0, before.Length) == 0)
-                return true;
-            var after = s.NotAfter;
+            if (!string.IsNullOrEmpty(s.NotBefore))
+                foreach (var before in s.NotBefore.Split('|'))
+                    if (before.Length > 0 && start >= before.Length
+                        && string.CompareOrdinal(plain, start - before.Length, before, 0, before.Length) == 0)
+                        return true;
             int end = start + s.Text.Length;
-            return !string.IsNullOrEmpty(after) && end + after.Length <= plain.Length
-                && string.CompareOrdinal(plain, end, after, 0, after.Length) == 0;
+            if (!string.IsNullOrEmpty(s.NotAfter))
+                foreach (var after in s.NotAfter.Split('|'))
+                    if (after.Length > 0 && end + after.Length <= plain.Length
+                        && string.CompareOrdinal(plain, end, after, 0, after.Length) == 0)
+                        return true;
+            return false;
         }
+
+        /// <summary>按「显示名 + 别名」拼词表,并给需要的术语挂排除上下文(附录 §C 3.2 第 2 条、C-Q5)。
+        /// 表现层(从字符串表取名)与对账测试共用这一个入口,排除规则只有一份。
+        /// <paramref name="entries"/>:每条术语的显示名与别名(多个用「|」隔开;null / 空 = 无别名)。输出按入参顺序,显示名在前。</summary>
+        public static IReadOnlyList<TermSurface> BuildLexicon(IEnumerable<(GlossaryTerm Term, string Name, string Aliases)> entries)
+        {
+            var list = new List<TermSurface>();
+            if (entries == null) return list;
+            foreach (var (term, name, aliases) in entries)
+            {
+                var (notBefore, notAfter) = ExclusionsOf(term);
+                if (!string.IsNullOrEmpty(name)) list.Add(new TermSurface(name, term, notBefore, notAfter));
+                if (string.IsNullOrEmpty(aliases)) continue;
+                foreach (var alias in aliases.Split('|'))
+                    if (alias.Length > 0) list.Add(new TermSurface(alias, term, notBefore, notAfter));
+            }
+            return list;
+        }
+
+        /// <summary>减伤:护甲括注「(减伤 N%)」「,减伤 N%」是护甲的换算,不是减伤状态;
+        /// 全体:选择器后缀「(全体敌人)」与「我方全体」不是范围(C-Q5;「全体灼烧」「治疗改为全体」照标)。</summary>
+        private static (string NotBefore, string NotAfter) ExclusionsOf(GlossaryTerm term) => term switch
+        {
+            GlossaryTerm.DamageCut => ("(|,", null),
+            GlossaryTerm.AreaAll => ("我方", "敌人)"),
+            _ => (null, null),
+        };
 
         /// <summary>纯文本里的数字段(位置升序)。</summary>
         public static IReadOnlyList<(int Start, int Length)> Numbers(string plain)

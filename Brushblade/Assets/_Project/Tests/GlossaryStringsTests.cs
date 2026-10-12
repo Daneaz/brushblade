@@ -1,0 +1,155 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using Brushblade.Data;
+using NUnit.Framework;
+
+namespace Brushblade.Core.Tests
+{
+    /// <summary>Plan E4 Task 5:词条文案与拼句模板的对账(附录 §C 3.5 第 3、4 条),读真实字符串表。
+    ///
+    /// · 每个 <see cref="GlossaryTerm"/> 都有 <c>term.&lt;id&gt;.name</c> / <c>.desc</c>(id = 枚举名转 snake_case)。
+    ///   这里按约定拼 key 不受字面量扫描约束;「不是孤儿」那个方向由表现层 GlossaryText 的字面量 switch 负责。
+    /// · 词表按表现层同一个入口 <see cref="TermMarkup.BuildLexicon"/> 从表里拼(显示名 + 别名 + 排除上下文),
+    ///   遍历 <c>char.effect.*</c> / <c>char.passive.*</c> / <c>char.shape.*</c> 模板:「一个术语都扫不出」的模板列成白名单快照 ——
+    ///   新增模板时会红,逼人确认它是真没有术语,还是用了词表认不得的新写法(附录 §C 风险 1:措辞与词表漂移)。
+    ///
+    /// ⚠ 仓库根只能用 TestContext.CurrentContext.TestDirectory(见 StringsTableTests)。</summary>
+    public sealed class GlossaryStringsTests
+    {
+        private static DirectoryInfo RepoRoot()
+        {
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Brushblade")))
+                dir = dir.Parent;
+            Assert.That(dir, Is.Not.Null, "找不到含 Brushblade/ 的仓库根");
+            return dir;
+        }
+
+        [SetUp]
+        public void LoadRealTable() => Strings.Load(File.ReadAllText(Path.Combine(RepoRoot().FullName,
+            "Brushblade", "Assets", "StreamingAssets", "config", "strings.zh-CN.json")));
+
+        private static IEnumerable<GlossaryTerm> AllTerms() => Enum.GetValues(typeof(GlossaryTerm)).Cast<GlossaryTerm>();
+
+        /// <summary>FrostResist → frost_resist。</summary>
+        private static string Id(GlossaryTerm term) => Regex.Replace(term.ToString(), "(?<!^)([A-Z])", "_$1").ToLowerInvariant();
+
+        private static string Opt(string key) => Strings.Keys.Contains(key) ? Strings.T(key) : null;
+
+        private static IReadOnlyList<TermSurface> RealLexicon() => TermMarkup.BuildLexicon(
+            AllTerms().Select(t => (t, Strings.T($"term.{Id(t)}.name"), Opt($"term.{Id(t)}.alias"))));
+
+        [Test]
+        public void EveryTerm_HasNameAndDesc()
+        {
+            var missing = new List<string>();
+            foreach (var t in AllTerms())
+                foreach (var part in new[] { "name", "desc" })
+                {
+                    string key = $"term.{Id(t)}.{part}";
+                    if (!Strings.Keys.Contains(key) || string.IsNullOrWhiteSpace(Strings.T(key))) missing.Add(key);
+                }
+            Assert.That(missing, Is.Empty, "缺词条文案:\n" + string.Join("\n", missing));
+        }
+
+        [Test]
+        public void TermKeys_OnlyKnownIds()
+        {
+            var ids = new HashSet<string>(AllTerms().Select(Id));
+            var stray = Strings.Keys.Where(k => k.StartsWith("term.", StringComparison.Ordinal))
+                .Where(k => !ids.Contains(k.Split('.')[1])).OrderBy(k => k).ToArray();
+            Assert.That(stray, Is.Empty, "term.* 里有枚举外的 id:\n" + string.Join("\n", stray));
+        }
+
+        [Test]
+        public void EveryTerm_NameScansBackToItself()
+        {
+            var lexicon = RealLexicon();
+            foreach (var t in AllTerms())
+            {
+                var scan = TermMarkup.Scan(Strings.T($"term.{Id(t)}.name"), lexicon);
+                Assert.That(scan.Terms, Is.EqualTo(new[] { t }), t.ToString());
+            }
+        }
+
+        /// <summary>C-Q2 / C-Q3 改过的模板:改完术语必须扫得出来(不改就永远点不到)。</summary>
+        [Test]
+        public void ChangedTemplates_CarryTheirTerms()
+        {
+            var lexicon = RealLexicon();
+            var expected = new (string Key, GlossaryTerm Term)[]
+            {
+                ("char.effect.opening", GlossaryTerm.Carry),
+                ("char.effect.opening.band", GlossaryTerm.Band),
+                ("char.effect.damagecut", GlossaryTerm.DamageCut),
+                ("char.effect.counterboost", GlossaryTerm.CounterBoost),
+                ("char.effect.counterboost", GlossaryTerm.Block),
+                ("char.shape.volley", GlossaryTerm.AreaScatter),
+                ("char.effect.healovertime.single", GlossaryTerm.Hot),
+                ("char.effect.defensebuff", GlossaryTerm.Armor),
+            };
+            foreach (var (key, term) in expected)
+            {
+                var terms = TermMarkup.Scan(Strings.T(key), lexicon).Terms;
+                Assert.That(terms.Contains(term), Is.True, $"{key} 扫不出 {term}");
+            }
+            Assert.That(TermMarkup.Scan(Strings.T("char.effect.defensebuff"), lexicon).Terms.Contains(GlossaryTerm.DamageCut),
+                Is.False, "护甲括注里的减伤不算");
+            Assert.That(TermMarkup.Scan(Strings.T("char.effect.pick.all"), lexicon).Terms.Count, Is.EqualTo(0), "(全体敌人) 不算范围");
+        }
+
+        /// <summary>模板白名单快照:下列模板里一个术语都没有(扫描结果为空)。新增 / 改写模板让这张表变化时会红 ——
+        /// 确认后更新快照;若是用了新写法(又一个「召唤物」),先给词条加别名。</summary>
+        private static readonly string[] NoTermTemplates =
+        {
+            "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.heal", "char.effect.apcost",
+            "char.effect.armorstrike.each", "char.effect.augment", "char.effect.augment.field.count", "char.effect.augment.field.shots",
+            "char.effect.augment.field.turns", "char.effect.augment.target.damage", "char.effect.augment.target.healself",
+            "char.effect.bind", "char.effect.blind.single", "char.effect.block.counter", "char.effect.blockmod.counter",
+            "char.effect.blockmod.hits", "char.effect.blockmod.refund", "char.effect.chargedelay", "char.effect.cleanse",
+            "char.effect.cleanse.allies", "char.effect.cleanse.allies.count", "char.effect.cleanse.count", "char.effect.cleanse.self",
+            "char.effect.cleanse.self.count", "char.effect.damagesingle", "char.effect.damagesingle.body", "char.effect.debuffward",
+            "char.effect.debuffward.count", "char.effect.debuffward.of", "char.effect.dispel.single.count", "char.effect.dispel.single.full",
+            "char.effect.empower", "char.effect.execute.double", "char.effect.extrastrike", "char.effect.grantchar",
+            "char.effect.haste", "char.effect.healself", "char.effect.healself.victim", "char.effect.hitcap", "char.effect.hitcount",
+            "char.effect.hitpercent", "char.effect.hurtheal", "char.effect.immunity", "char.effect.mine", "char.effect.mine.body",
+            "char.effect.onlyif.countering", "char.effect.onlyif.firstcastthisturn", "char.effect.onlyif.isboss",
+            "char.effect.onlyif.notboss", "char.effect.onlyif.playerhpabove70", "char.effect.onlyif.playerhpbelow50",
+            "char.effect.onlyif.targethpabove70", "char.effect.onlyif.targethpbelow30", "char.effect.overkillsplash",
+            "char.effect.overkillsplash.all", "char.effect.per.cap", "char.effect.per.cleansed", "char.effect.per.extrahittarget",
+            "char.effect.perhit", "char.effect.perhit.from", "char.effect.pick.adjacent", "char.effect.pick.adjacentone",
+            "char.effect.pick.all", "char.effect.pick.column", "char.effect.pick.highesthp", "char.effect.pick.hittargets",
+            "char.effect.pick.random", "char.effect.pick.row", "char.effect.rapid", "char.effect.reflect", "char.effect.reshape",
+            "char.effect.reshape.retarget", "char.effect.retaliate", "char.effect.retaliate.cap", "char.effect.retaliate.turns",
+            "char.effect.retaliate.turns.cap", "char.effect.reveal", "char.effect.selfcost", "char.effect.shield.persistonce",
+            "char.effect.shotpercent", "char.effect.silence", "char.effect.skillcut", "char.effect.summon.other",
+            "char.effect.summon.percent", "char.effect.summon.self", "char.effect.summon.stats", "char.effect.summonsapling.sprout",
+            "char.effect.taunt.self", "char.effect.thornmark", "char.effect.turnpulse", "char.passive.attackpercent",
+            "char.passive.backrowbonus", "char.passive.deathpart", "char.passive.dodge", "char.passive.guard", "char.passive.healallypercent",
+            "char.passive.healallytimes", "char.passive.healmirror", "char.passive.healmirror.pct", "char.passive.ranged",
+            "char.passive.regen", "char.passive.speed", "char.passive.sprout", "char.passive.wrap", "char.shape.chain.desc",
+            "char.shape.suffix.all", "char.shape.suffix.chain", "char.shape.suffix.splash", "char.shape.suffix.volley",
+            "char.shape.sweep.desc", "char.shape.volley.desc",
+        };
+
+        [Test]
+        public void TemplatesWithoutTerms_MatchSnapshot()
+        {
+            var lexicon = RealLexicon();
+            var prefixes = new[] { "char.effect.", "char.passive.", "char.shape." };
+            var actual = Strings.Keys
+                .Where(k => prefixes.Any(p => k.StartsWith(p, StringComparison.Ordinal)))
+                .Where(k => TermMarkup.Scan(Strings.T(k), lexicon).Terms.Count == 0)
+                .OrderBy(k => k, StringComparer.Ordinal).ToArray();
+            var snapshot = NoTermTemplates.OrderBy(k => k, StringComparer.Ordinal).ToArray();
+            var added = actual.Except(snapshot).ToArray();
+            var removed = snapshot.Except(actual).ToArray();
+            Assert.That(added.Length + removed.Length, Is.EqualTo(0),
+                "无术语模板快照变了。\n新增(扫不出术语):\n  " + string.Join("\n  ", added)
+                + "\n不再无术语:\n  " + string.Join("\n  ", removed));
+        }
+    }
+}
