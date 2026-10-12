@@ -611,7 +611,6 @@
   "juice.popup.regrow_partial_with_heal": "补全 {index}/3 +{amount}",
   "juice.fx.punct_big": "!",
   "juice.fx.punct_bits": "，。、",
-  "juice.popup.taunt": "嘲讽",
   "juice.popup.shield_absorbed": "盾-{absorbed}",
   "juice.popup.source.armor_strike": "镇压 {amount}",
   "juice.popup.source.crit_morale": "锋芒 战意+{amount}",
@@ -1479,6 +1478,5 @@
   "status.critaura.name": "暴击 +{value}%",
   "status.nature.duration": "{trait} · 在场时",
   "status.nature.duration.plain": "本命 · 在场时",
-  "juice.popup.source.trait": "{name} {amount}",
   "battle.summon.sprout_name": "小{char}"
 }

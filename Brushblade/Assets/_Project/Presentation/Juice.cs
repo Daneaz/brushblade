@@ -211,6 +211,7 @@ namespace Brushblade.Presentation
             // 飘字排队表同理:锚点是跨帧持有的 RectTransform,重绘一过就全成了空引用。
             // 一整段结算之间必然隔着重绘,所以整表清掉即可,不用逐个判空
             _popupSlots.Clear();
+            _tagSlots.Clear();   // 名签的叠层表同理(JuiceTriggerFx)
             // 召唤格原位/令牌:只清已被重绘销毁的格 —— 两段 Play 之间不一定隔着重绘,
             // 整表清掉会让上一段还在归位的格子把半路位置记成原位
             PruneDestroyed(_summonHome);
@@ -220,6 +221,7 @@ namespace Brushblade.Presentation
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
+            yield return PlayCastTraits();   // 主动特性出字飘名(B-Qa1):目标敌人格先飘名,停一拍再落效果
             yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged, castStyle);
             if (castStyle != CastStyle.Glyph) yield return CastFinisher(castStyle); // 奥义 / 绝技的收尾(JuiceAttacks)
             ResetCastTier();
@@ -250,7 +252,11 @@ namespace Brushblade.Presentation
             RectTransform lastTank = null;
             int lastTankSlot = -1;           // 同上,槽位(披荆查它的本命)
             BattleEvent? pendingGuard = null;  // 守护(W5):等这一击打到玩家那一刻再一起飘,两边同时
-            int lastDiedEnemy = -1;          // 折桂(W8):特性名从被杀的敌人格飘出
+            int lastDiedEnemy = -1;          // 折桂(W8):特性名从被杀的敌人格飘出;粉身碎骨同
+            RectTransform lastHurtSummon = null;   // 落木(B-Qa5):这一批里最后一只挨打 / 挨烧的木灵 = 阵亡格
+            var namedCarriers = new HashSet<RectTransform>();   // 落木打全体:同一载体(阵亡格)只飘一次名
+            bool overkillNamed = false;      // 粉身碎骨:一批里只飘一次名(一次出字至多一次击杀时兑现)
+            BattleEvent? pendingEndure = null;   // 保命(B-Qb1):目标是待演守护的柘灵时,等守护演完再播
             var mergeGroup = new List<BattleEvent>();   // 绿潮(W10):连续的 SummonMerged 成一组依次飞
             int enemyActor = -1;             // 这一段的行动者是敌人时它的下标:那一拍里木灵打它 = 攀附(W3)
             bool bindShown = false;          // 这一拍已经飘过「攀附」
@@ -277,7 +283,30 @@ namespace Brushblade.Presentation
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
                         // 碎玉(E3,WaterEarthCues):护盾角标闪 →「碎玉」飘出 → 再往下照常飘反伤数字
-                        if (e.Source == EffectSource.ShieldShatter) yield return PlayShieldShatter();
+                        if (e.Source == EffectSource.ShieldShatter) yield return PlayShieldBadgeTrait(EffectKind.ShieldShatter);
+                        // 反震(TriggerFx C,Plan E4):同一套 —— 护盾角标闪、「反震」从角标飘出,停一拍再飘反伤数字
+                        if (e.Source == EffectSource.ShieldRecoil) yield return PlayShieldBadgeTrait(EffectKind.ShieldRecoil);
+                        // 埋雷(StatusChipsFire 稿):爆炸时埋雷 chip 闪 →「埋雷」飘出 → 停一拍再飘伤害;chip 随之后的重绘消失
+                        if (e.Source == EffectSource.Mine)
+                        {
+                            EnemyChipTrait(e.TargetIndex, "mine", EffectKind.Mine, enemyAnchor(e.TargetIndex));
+                            yield return Beat(CueFollowGap);
+                        }
+                        // 名签 + 数字拆成两条(B-Qa5):落木从阵亡那一格飘(这一批里最后一只挨打的木灵)、粉身碎骨从被杀的敌人格飘,
+                        // 打全体 / 溅射的那一串同一载体只飘一次;良弓从挨打的木灵(立绘闪)飘。数字照旧落在敌人身上
+                        if (e.Source == EffectSource.DeathBlast && lastHurtSummon != null && namedCarriers.Add(lastHurtSummon))
+                            TraitCueAt(NatureCueOf?.Invoke(p => p.DeathBlast > 0), lastHurtSummon);
+                        // 粉身碎骨:载体取第一记溅射之前那个被杀的敌人;溅射又打死的会改写 lastDiedEnemy,所以这一串只认第一记
+                        if (e.Source == EffectSource.OverkillSplash && !overkillNamed && lastDiedEnemy >= 0)
+                        {
+                            overkillNamed = true;
+                            TraitCueAt(EffectCueOf?.Invoke(EffectKind.OverkillSplash), enemyAnchor(lastDiedEnemy));
+                        }
+                        if (e.Source == EffectSource.ReturnFire && lastTank != null)
+                        {
+                            FlashPortrait(lastTank);
+                            TraitCueAt(NatureCueOf?.Invoke(p => p.ReturnFire > 0), lastTank);
+                        }
                         // 溢流(2026-09-18,用户要求单独一种扣血表现):串行、从溢出者身上飞一注水过去 ——
                         // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
@@ -291,7 +320,9 @@ namespace Brushblade.Presentation
                         if (e.Source == EffectSource.Thorns && lastTank != null && !kills
                             && summonInfo?.Invoke(lastTankSlot)?.Passive is { Thorns: > 0, ThornsBleed: > 0 })
                         {
-                            TraitName(NatureNameOf?.Invoke(p => p.ThornsBleed > 0), lastTank);
+                            // 载体 = 这只木灵的本命 chip(荆棘那一枚,盾反与披荆同一枚);chip 不在退回立绘
+                            var thornsChip = FlashIcon(SummonCellAt?.Invoke(lastTankSlot), "thorns");
+                            TraitCueAt(NatureCueOf?.Invoke(p => p.ThornsBleed > 0), thornsChip != null ? thornsChip : lastTank);
                             ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "bleed");
                         }
                         if (e.Source == EffectSource.Overheal)
@@ -511,6 +542,7 @@ namespace Brushblade.Presentation
                         if (guard != null) GuardHit(guard);
                         lastTank = tank;
                         lastTankSlot = e.SecondIndex;
+                        lastHurtSummon = tank;
                         // 敌方那一记同样按**攻击者**的五行上色(2026-08-30):这两类事件的 TargetIndex
                         // 就是攻击者下标,属性顺着它查得到,所以 Core 侧刻意没给它们加 Attacker 字段。
                         // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性。
@@ -542,7 +574,7 @@ namespace Brushblade.Presentation
                             && LastHitOnSummon(events, idx, e.SecondIndex)
                             && (summonInfo?.Invoke(tankState.SproutParentSlot)?.Passive?.SproutDeathSlow ?? 0) > 0)
                         {
-                            TraitName(NatureNameOf?.Invoke(p => p.SproutDeathSlow > 0), tank);
+                            TraitCueAt(NatureCueOf?.Invoke(p => p.SproutDeathSlow > 0), tank);   // 载体 = 阵亡那一格
                             ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "slow");
                         }
                         serialPending = true;
@@ -571,6 +603,7 @@ namespace Brushblade.Presentation
                         {
                             PlayGuard(guardHit, summonAnchor, foeColor, onImpact);
                             pendingGuard = null;
+                            if (pendingEndure is { } endureAfterGuard) { PlayEndure(endureAfterGuard, summonAnchor); pendingEndure = null; }
                         }
                         PlayClip(_thudClip, 0.8f);
                         HitStop(hpLoss > 0 ? HitStopHeavy : HitStopLight); // 盾全吃下就轻一档
@@ -581,6 +614,9 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.Burn:
                         if (e.Source == EffectSource.Embers) { deferred.Add(e); break; }
+                        // 上炎(TriggerFx D,B-Qa3):灼 chip 闪,「上炎」从它飘出,再飘「灼 +N」(行动开始时,chip 还在格上)
+                        if (e.Source == EffectSource.BurnGrow)
+                            EnemyChipTrait(e.TargetIndex, "burn", EffectKind.BurnGrow, enemyAnchor(e.TargetIndex));
                         Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)),
                             Theme.GlyphColor(Element.Fire), enemyAnchor(e.TargetIndex), small: true);
                         break;
@@ -594,6 +630,7 @@ namespace Brushblade.Presentation
                     case BattleEventKind.SummonBurnTick:
                         if (serialPending) yield return Beat(StepGap);
                         var burntSummon = summonAnchor?.Invoke(e.TargetIndex);
+                        lastHurtSummon = burntSummon;
                         Popup($"-{e.Amount}", Theme.GlyphColor(Element.Fire), burntSummon,
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         FlameBurst(burntSummon);
@@ -721,16 +758,25 @@ namespace Brushblade.Presentation
                     // ---- D2-木 Task 5(WoodCues 稿)----
                     case BattleEventKind.GuardTransfer:   // 守护:先记下,等紧随其后的 EnemyAttack 打到玩家时同时飘
                         if (pendingGuard is { } stale)    // 防御性:上一条没等到 EnemyAttack,先演掉
+                        {
                             PlayGuard(stale, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(stale.TargetIndex)), onImpact);
+                            if (pendingEndure is { } staleEndure) { PlayEndure(staleEndure, summonAnchor); pendingEndure = null; }
+                        }
                         pendingGuard = e;
                         break;
                     case BattleEventKind.PartGranted:     // 秋实:特性名从阵亡那一格飘出;部件池的「木」由 BattleView 记成新到手(光晕)
-                        TraitName(NatureNameOf?.Invoke(p => p.DeathPart), summonAnchor?.Invoke(e.TargetIndex));
+                        TraitCueAt(NatureCueOf?.Invoke(p => p.DeathPart), summonAnchor?.Invoke(e.TargetIndex));
                         onImpact?.Invoke(e);
                         break;
                     case BattleEventKind.CharGranted:     // 折桂:特性名从被杀的敌人格飘出;字库那张新字由 BattleView 记成新到手(光晕)
-                        TraitName(EffectNameOf?.Invoke(EffectKind.GrantChar), lastDiedEnemy >= 0 ? enemyAnchor(lastDiedEnemy) : null);
+                        TraitCueAt(EffectCueOf?.Invoke(EffectKind.GrantChar), lastDiedEnemy >= 0 ? enemyAnchor(lastDiedEnemy) : null);
                         onImpact?.Invoke(e);
+                        break;
+                    // 保命(Plan E4,B-Qb1):紧跟 SummonHit / SummonBurnTick / GuardTransfer。守护转伤是延后演的(pendingGuard),
+                    // 保命的是那只柘灵时也跟着延后,守护演完再播 —— 否则「扎根」先于那一下伤害飘出来
+                    case BattleEventKind.EndureSaved:
+                        if (pendingGuard is { } guarding && guarding.SecondIndex == e.TargetIndex) pendingEndure = e;
+                        else PlayEndure(e, summonAnchor);
                         break;
                     case BattleEventKind.SummonMerged:    // 绿潮:攒成一组,组尾一起依次飞(见循环开头)
                         mergeGroup.Add(e);
@@ -762,6 +808,7 @@ namespace Brushblade.Presentation
             if (mergeGroup.Count > 0) yield return PlayMerge(mergeGroup, summonAnchor, onImpact);
             if (pendingGuard is { } lastGuard)   // 防御性:守护后面没有 EnemyAttack(玩家这一下全被转走)
                 PlayGuard(lastGuard, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(lastGuard.TargetIndex)), onImpact);
+            if (pendingEndure is { } lastEndure) PlayEndure(lastEndure, summonAnchor);
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
                 yield return Beat(StepGap);
             foreach (var d in deferred)
@@ -1388,10 +1435,6 @@ namespace Brushblade.Presentation
                 case EffectSource.Reflect: return Strings.T("juice.popup.source.reflect", ("amount", e.Amount));
                 case EffectSource.ArmorStrike: return Strings.T("juice.popup.source.armor_strike", ("amount", e.Amount));
             }
-            // 落木 / 良弓(D2-木 W9):标特性名(游戏数据,取不到退回裸数字)
-            string trait = e.Source == EffectSource.DeathBlast ? NatureNameOf?.Invoke(p => p.DeathBlast > 0)
-                : e.Source == EffectSource.ReturnFire ? NatureNameOf?.Invoke(p => p.ReturnFire > 0) : null;
-            if (trait != null) return Strings.T("juice.popup.source.trait", ("name", trait), ("amount", e.Amount));
             if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
             if (e.Crit) return Strings.T("juice.popup.crit_damage", ("amount", e.Amount));
             if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));
@@ -2238,7 +2281,7 @@ namespace Brushblade.Presentation
             }
 
             StartCoroutine(FloatAndFade(rect, label));
-            return label;   // 删除线 / 面印等附件挂在它上面(JuiceWaterEarth)
+            return label;
         }
 
         // 飘字三段的分界(占总时长的比例):弹出 → 悬停 → 上浮淡出

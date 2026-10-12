@@ -825,6 +825,20 @@ namespace Brushblade.Presentation
             return go;
         }
 
+        /// <summary>某条特性的面印(Plan E4,TriggerFx 名签 / 字卡详情字形特性行共用):按 <see cref="Brushblade.Core.TraitCueRules.SealOf"/> 分派 ——
+        /// 攻击面 / 五行面走按面取的那枚;两面通用「两」与字形特性「拆」「合」一律 <see cref="Theme.InkSoft"/> 底。</summary>
+        public static GameObject TraitSeal(Transform parent, Brushblade.Core.CharDef def, Brushblade.Core.TraitDef trait, float size)
+        {
+            switch (Brushblade.Core.TraitCueRules.SealOf(trait))
+            {
+                case Brushblade.Core.TraitSealKind.Attack: return FaceSeal(parent, def, Brushblade.Core.CardFace.Attack, size);
+                case Brushblade.Core.TraitSealKind.Feature: return FaceSeal(parent, def, Brushblade.Core.CardFace.Feature, size);
+                case Brushblade.Core.TraitSealKind.Dismantle: return FaceSeal(parent, Strings.T("face.seal.dismantle"), Theme.InkSoft, size);
+                case Brushblade.Core.TraitSealKind.Compose: return FaceSeal(parent, Strings.T("face.seal.compose"), Theme.InkSoft, size);
+                default: return FaceSeal(parent, FaceSealBothText(), Theme.InkSoft, size);
+            }
+        }
+
         /// <summary>两面通用印上的字(字符串表 face.seal.both);底色用 <see cref="Theme.InkSoft"/>。</summary>
         public static string FaceSealBothText() => Strings.T("face.seal.both");
 

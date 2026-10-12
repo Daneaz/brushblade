@@ -618,33 +618,41 @@ namespace Brushblade.Presentation
         /// 的效果的特性名。光环 / 魅惑这类状态只记来源字、不记是哪条特性挂的,详情与飘字靠它把「林立」「移花接木」翻出来。
         /// 取不到(graph 为空、字不在图谱、没有这条特性)返回 null,调用方退回不带名的文案。
         /// <paramref name="charId"/> 为 null = 整张图谱里找第一条(绿潮 / 折桂这类每个效果只由一条特性给的)。</summary>
-        internal static string TraitNameOf(RecipeGraph graph, string charId, Func<EffectDef, bool> match)
+        internal static string TraitNameOf(RecipeGraph graph, string charId, Func<EffectDef, bool> match) =>
+            TraitCueOf(graph, charId, match)?.Trait.Name;
+
+        /// <summary>同 <see cref="TraitNameOf"/>,但连字带特性一起返回(Plan E4 TriggerFx:名签要字形色与面印)。</summary>
+        internal static TraitCue? TraitCueOf(RecipeGraph graph, string charId, Func<EffectDef, bool> match)
         {
             if (graph == null) return null;
             if (charId == null)
             {
                 foreach (var any in graph.All)
                     foreach (var t in any.Traits)
-                        if (t.Effects.Any(match)) return t.Name;
+                        if (t.Effects.Any(match)) return new TraitCue(any, t);
                 return null;
             }
             if (!graph.TryGet(charId, out var def)) return null;
             foreach (var t in def.Traits)
-                if (t.Effects.Any(match)) return t.Name;
+                if (t.Effects.Any(match)) return new TraitCue(def, t);
             return null;
         }
 
         /// <summary>本命特性名(D2-木):整张图谱里第一条「`Summon 0` 本命追加、本命满足 <paramref name="has"/>」的特性名
         /// (守护、林荫、蟾宫…)。本命会随嫁接换到别的字的木灵身上,所以不按木灵的来源字查,按字段查 —— 每个木系本命字段
         /// 只由一条特性给。取不到返回 null。</summary>
-        internal static string NatureTraitName(RecipeGraph graph, Func<SummonPassive, bool> has)
+        internal static string NatureTraitName(RecipeGraph graph, Func<SummonPassive, bool> has) =>
+            NatureTraitCue(graph, has)?.Trait.Name;
+
+        /// <summary>同 <see cref="NatureTraitName"/>,连字带特性一起返回(Plan E4 TriggerFx)。</summary>
+        internal static TraitCue? NatureTraitCue(RecipeGraph graph, Func<SummonPassive, bool> has)
         {
             if (graph == null) return null;
             foreach (var def in graph.All)
                 foreach (var t in def.Traits)
                     foreach (var e in t.Effects)
                         if (e.Kind == EffectKind.Summon && e.Value == 0 && e.Passive != null && has(e.Passive))
-                            return t.Name;
+                            return new TraitCue(def, t);
             return null;
         }
 

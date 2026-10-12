@@ -482,7 +482,7 @@ namespace Brushblade.Presentation
             if (IsGuardian(state))
             {
                 Ring(tank, TauntRed);
-                Popup(Strings.T("juice.popup.taunt"), TauntRed, tank, small: true);
+                StatusLabel(StatusKind.Taunt, 1, false, tank);   // 状态名签(B-Qa4):战场 chip 色底 + 嘲讽图标
                 for (int i = 1; i < 10; i += 2)   // 锁定虚线:一截截短线
                 {
                     var dash = Bit(null, new Vector2(d.magnitude / 12f, 3f), TauntRed, a + d * (i / 10f), out var img);
