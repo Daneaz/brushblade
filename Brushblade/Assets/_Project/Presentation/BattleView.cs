@@ -424,6 +424,7 @@ namespace Brushblade.Presentation
             _juice.SummonCellAt = slot => _summonCellByCore.TryGetValue(slot, out var cell) ? cell : null;
             _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
             _juice.ChipCue = (on, index, icon) => _woodCues.Add((on, index, icon, null));
+            _juice.PlayerCell = _bottomRow;   // 水土提示(E3 Task 5):玩家的免疫 / 护盾回流 chip 与护盾角标都在底栏里
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
@@ -6510,7 +6511,7 @@ namespace Brushblade.Presentation
                 AppendBossPhaseMessage();
                 AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
                 AppendUnsealMessage(); // 解封重掷召唤物属性,同样产自 Cast() 自己的 _events
-                AppendGraftMessage();  // 嫁接(木生面落木灵):回满并换本命,最小反馈
+                // 嫁接不弹文字条(E3 Q8):提示全在 Juice(JuiceWaterEarth.PlayGraft)
             }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
@@ -6745,19 +6746,6 @@ namespace Brushblade.Presentation
                         ? Battle.Summons[e.TargetIndex].Char : "";
                     _message += Strings.T("battle.msg.unseal",
                         ("charId", charId), ("element", CharInfo.ElementName((Element)e.Amount)));
-                }
-        }
-
-        /// <summary>嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满生命并换本命。完整交互归 Plan E,这里只播一句。</summary>
-        private void AppendGraftMessage()
-        {
-            foreach (var e in Battle.LastEvents)
-                if (e.Kind == BattleEventKind.Graft)
-                {
-                    string charId = e.SecondIndex >= 0 && e.SecondIndex < Battle.Summons.Count
-                        && Battle.Summons[e.SecondIndex] != null
-                        ? Battle.Summons[e.SecondIndex].Char : "";
-                    _message += Strings.T("battle.msg.graft", ("charId", charId));
                 }
         }
 
