@@ -352,8 +352,9 @@ namespace Brushblade.Presentation
 
             // IconKey 可能是 null——那是「走文字 chip」,不是「跳过整条」(StatusText 的契约)。
             // Ui.Chip 本身已经处理了 iconKey == null 的分支(只画文字),这里不需要再判断一次。
-            var chip = Ui.Chip(row.transform, status.ChipText, status.ChipColor, Color.white,
-                StatusChipFont, StatusChipPadX, StatusChipPadY, status.IconKey);
+            // 描边态(封字·代价)透传 ChipFg / ChipBorder;缺省实底白字。描边不吃宽高(Ui.Chip 注释),下面的宽度账不变
+            var chip = Ui.Chip(row.transform, status.ChipText, status.ChipColor, status.ChipFg ?? Color.white,
+                StatusChipFont, StatusChipPadX, StatusChipPadY, status.IconKey, border: status.ChipBorder);
             // chip 宽度按 Ui 自己那套纯函数算一遍(与 Ui.Chip 内部挂 LayoutElement 用的是同一
             // 条公式),好把剩余宽度算给右边的文字列 —— 见下面那段注释。
             float chipWidth = Ui.ChipWidth(status.ChipText, StatusChipFont, StatusChipPadX)
