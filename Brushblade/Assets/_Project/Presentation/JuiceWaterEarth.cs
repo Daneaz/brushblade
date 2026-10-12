@@ -117,6 +117,29 @@ namespace Brushblade.Presentation
             PlayClip(_healClip, 0.7f);
         }
 
+        /// <summary>拆合播放的上下文(Plan E3 Task 6):BattleView 在播拆 / 合的事件前设好 —— 哪张字、拆合台的结果格
+        /// (拆:新进池的部件;合:合出的字牌)。只有 <see cref="BattleEventKind.GlyphTrait"/> 读它们,而那只产自拆合。</summary>
+        public CharDef ForgeChar { get; set; }
+        public RectTransform ForgeResult { get; set; }
+
+        /// <summary>特性名飘出后到效果落地之间的停顿:稿「特性名先飘,紧接着效果在战场上落地」。</summary>
+        private const float GlyphCueLead = 0.35f;
+
+        /// <summary>字形特性(PartsAndGraft):特性名从结果格飘出,面印位是墨蓝「拆」/「合」(FaceSeal 文字 + 底色重载,Q13 只做飘字)。
+        /// 名取自 def.Traits[Amount](游戏数据);取不到不飘、不停。印记类(双焰 / 火山)同样飘,之后没有战场效果。</summary>
+        private IEnumerator PlayGlyphTrait(BattleEvent e)
+        {
+            var def = ForgeChar;
+            if (def == null || e.Amount < 0 || e.Amount >= def.Traits.Count) yield break;
+            string name = def.Traits[e.Amount].Name;
+            if (string.IsNullOrEmpty(name)) yield break;
+            string seal = e.SecondIndex == (int)TraitTrigger.OnCompose
+                ? Strings.T("face.seal.compose")
+                : Strings.T("face.seal.dismantle");
+            PopupSealed(seal, Theme.InkSoft, name, Theme.GlyphColor(def.Element), ForgeResult);
+            yield return Beat(GlyphCueLead);
+        }
+
         /// <summary>土系特性名飘字(小号、土字形色)。名取不到就不飘。</summary>
         private void EarthTraitName(string name, RectTransform anchor)
         {

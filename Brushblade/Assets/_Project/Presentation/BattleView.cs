@@ -464,12 +464,32 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
-        private void BeginAnim() => _animsInFlight++;
+        private void BeginAnim()
+        {
+            _animsInFlight++;
+            SyncOpsInput();
+        }
+
+        /// <summary>操作区(字库带 / 部件池 / 拆合台)三块的 CanvasGroup:动画锁期间不接射线(Plan E3)。</summary>
+        private readonly System.Collections.Generic.List<CanvasGroup> _opsInput = new();
+
+        /// <summary>操作区跟着动画锁开关点击(E3)。此前锁只靠「锁期间不画操作区」(Refresh 的 Animating 分支);
+        /// 拆合播放要在锁期间**照画**操作区(结果格要在、特性名从它飘出),所以点击另用 CanvasGroup 挡住 ——
+        /// 一处挡住全部入口(出 / 拆 / 弃 / 合 / 结束回合 / 翻面 / 长按 / 起拖),不靠逐个回调判 Animating。</summary>
+        private void SyncOpsInput()
+        {
+            foreach (var group in _opsInput)
+                if (group != null) group.blocksRaycasts = !Animating;
+        }
+
+        /// <summary>拆合播放中(E3):Refresh 在动画锁里照画操作区(字库 / 部件池 / 拆合台),点击由 <see cref="SyncOpsInput"/> 挡住。</summary>
+        private bool _forgeCuePlaying;
 
         /// <summary>动画落幕:计数 -1,死亡怪转正式置灰;全部落幕才重绘(放行输入/结算 UI/胜负标语)。</summary>
         private void OnAnimDone(System.Collections.Generic.List<int> deaths)
         {
             _animsInFlight = System.Math.Max(0, _animsInFlight - 1);
+            SyncOpsInput();
             _dyingEnemies.ExceptWith(deaths); // 动画已把它们置灰,后续重绘照常画灰
             if (!Animating) _mergeGhosts.Clear();   // 绿潮:被并入的小藻格动画演完才清
             if (!Animating) Refresh();         // 期间不重绘:锁输入,血条 fill/label 引用不被毁
@@ -1109,6 +1129,7 @@ namespace Brushblade.Presentation
             // 把战场四排挤扁 —— 所以是两个铺满同一个槽的叠放层,各自 Ui.Clear / 绘制。
             var band = Ui.Panel(NarrowSlot("Band").transform, "Band");
             Ui.Sized(band, width: _fieldWidth, height: HandBandH);
+            _opsInput.Add(band.AddComponent<CanvasGroup>());   // 动画锁期间不接点击(见 SyncOpsInput)
 
             // 字库行左对齐(2026-09-01 用户拍板):稿 .hand 是 justify-content:center,
             // 但计数标题在行首 —— 整组居中会让标题的 x 随牌数左右漂,与下面同样带标题的
@@ -1128,12 +1149,14 @@ namespace Brushblade.Presentation
             Ui.Sized(poolGo, width: _fieldWidth);
             poolGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             _poolRow = poolGo.transform;
+            _opsInput.Add(poolGo.AddComponent<CanvasGroup>());
             _statusRow = Ui.Row(mid.transform, "Status").transform;
 
             // ---- 右栏:拆合台(稿 .bench) ----
             // 薄宣纸卡(半透,融层段染色);2026-08-20 从底部横卡改为右侧竖栏。
             var workbenchCard = Ui.CardPanel(arena.transform, "Workbench", Theme.PaperCard, 20);
             Ui.Sized(workbenchCard.gameObject, width: BenchW).minWidth = BenchW;
+            _opsInput.Add(workbenchCard.gameObject.AddComponent<CanvasGroup>());
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", BenchGap);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             var workbenchLayout = workbenchStack.GetComponent<VerticalLayoutGroup>();
@@ -1463,7 +1486,8 @@ namespace Brushblade.Presentation
                     // 销毁了。任何「等 Refresh 把字牌画出来再拿它的 RectTransform」的代码
                     // (飞牌起终点之类)都必须排在动画落幕之后,见 DealRoutine 的文档
                     // (2026-08-27:抽卡动画就是栽在这里,整段静默空跑)。
-                    if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
+                    // 拆合播放(E3)例外:操作区照画(结果格要在),点击由 SyncOpsInput 挡住
+                    if (Animating && !_forgeCuePlaying) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
                     {
                         _resolvingHint = true; // 「结算中……」由 Refresh 末尾画进底部提示行
                         break;
@@ -6824,7 +6848,9 @@ namespace Brushblade.Presentation
         {
             bool hasFrom = TryGetTilePos(charId, out var fromPos);
             var recipe = _graph.Get(charId).Recipe;
+            SnapshotPreHp();   // 字形特性(双木召幼苗等)的结算要从拆前的血量演起;只在动画锁里被读
             var error = Battle.Dismantle(charId);
+            var forgeEvents = BeginForgeCue(error);   // 须在下面那次重绘之前:锁要先上,血条才画拆前值
             if (error == BattleError.None)
             {
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
@@ -6840,6 +6866,9 @@ namespace Brushblade.Presentation
             CancelSelection();
             if (error == BattleError.None)
             {
+                // 结果格 = 拆出来的部件(同名取最后一张,即新进池的那张);重绘后已登记
+                PlayForgeCue(forgeEvents, charId,
+                    recipe.Count > 0 && _tileRects.TryGetValue(recipe[recipe.Count - 1], out var newPart) ? newPart : null);
                 if (hasFrom) // 部件从原字牌位置散落到池中新位(重绘后已登记)
                     foreach (var part in recipe)
                     {
@@ -6859,7 +6888,9 @@ namespace Brushblade.Presentation
             foreach (var part in _graph.Get(charId).Recipe)
                 if (TryGetTilePos(part, out var pos))
                     partsFrom.Add((part, pos));
+            SnapshotPreHp();   // 同 OnDismantle:三焰 / 三木 / 三土的结算从合前的血量演起
             var error = Battle.Compose(charId);
+            var forgeEvents = BeginForgeCue(error);
             if (error == BattleError.None)
             {
                 _tutorial?.Notify(TutorialAction.Compose, charId);
@@ -6873,6 +6904,7 @@ namespace Brushblade.Presentation
             CancelSelection();
             if (error == BattleError.None)
             {
+                PlayForgeCue(forgeEvents, charId, _tileRects.TryGetValue(charId, out var resultRect) ? resultRect : null);
                 if (_tileRects.TryGetValue(charId, out var resultTile) && resultTile != null && partsFrom.Count > 0)
                 {
                     int arrived = 0; // 闭包共享:全部到齐才弹跳
@@ -6882,6 +6914,48 @@ namespace Brushblade.Presentation
                 }
                 MaybeAutoEndTurn();
             }
+        }
+
+        /// <summary>拆合播放第一步(Plan E3,Review Focus 3):拆 / 合成功且 Core 发了事件(字形特性及其结算)时,
+        /// 拍下事件快照、登记死怪与被顶替槽、上动画锁,并让接下来那次重绘在锁里**照画操作区**(<see cref="_forgeCuePlaying"/>)。
+        /// 必须在 CancelSelection 那次重绘**之前**调:锁先上,战场血条才画拆合前的值(与 ExecuteCast 同序)。
+        /// 没有事件(绝大多数拆合)返回 null,整条路径与改前一样不上锁 —— 连拆 / 连合 / 拆完立刻拖出都不受影响。
+        /// Core 的拆合进门即清事件,快照只含这一次,不会重播上一次出字的旧事件。</summary>
+        private System.Collections.Generic.List<BattleEvent> BeginForgeCue(BattleError error)
+        {
+            if (error != BattleError.None || Battle.LastEvents.Count == 0) return null;
+            var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
+            _dyingEnemies.UnionWith(DeathsOf(events));   // 三焰结算灼可能烧死怪:重绘据此保持着色
+            DropReplacedSummonSnapshots();
+            _forgeCuePlaying = true;
+            BeginAnim();   // 锁输入(SyncOpsInput 挡住操作区点击、DragToAttack 不许起拖)
+            return events;
+        }
+
+        /// <summary>拆合播放第二步:重绘之后播。<paramref name="resultTile"/> = 拆合台的结果格(拆:新进池的部件;合:合出的字牌),
+        /// 字形特性名从它飘出(JuiceWaterEarth.PlayGlyphTrait)。收尾先撤 _forgeCuePlaying 再 OnAnimDone,落幕那次重绘照常。
+        /// 播放期间不重绘:操作区是锁前那次画好的,结果格引用一直有效;起拖被 !Animating 挡住,所以不会有「重绘销毁正被拖的牌」。</summary>
+        private void PlayForgeCue(System.Collections.Generic.List<BattleEvent> events, string charId, RectTransform resultTile)
+        {
+            if (events == null) return;
+            var deaths = DeathsOf(events);
+            _juice.ForgeChar = _graph.Get(charId);
+            _juice.ForgeResult = resultTile;
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () =>
+                {
+                    _forgeCuePlaying = false;
+                    _juice.ForgeChar = null;   // 只服务这一次拆合播放(Juice 的 Summon 弹跳据它判是不是拆合)
+                    _juice.ForgeResult = null;
+                    OnAnimDone(deaths);
+                }, OnImpact, SummonAt, EnemyElement, EnemyRanged);
+        }
+
+        private static System.Collections.Generic.List<int> DeathsOf(System.Collections.Generic.IReadOnlyList<BattleEvent> events)
+        {
+            var deaths = new System.Collections.Generic.List<int>();
+            foreach (var e in events)
+                if (e.Kind == BattleEventKind.EnemyDied) deaths.Add(e.TargetIndex);
+            return deaths;
         }
 
         private void OnEndTurn()

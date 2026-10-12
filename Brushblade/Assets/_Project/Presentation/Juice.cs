@@ -730,6 +730,15 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Graft:           // 嫁接:立绘闪、治疗数字、新本命 chip 闪、「嫁接」(生)
                         PlayGraft(e, summonAnchor, summonInfo);
                         break;
+                    // ---- E3 Task 6(PartsAndGraft)----
+                    case BattleEventKind.GlyphTrait:      // 字形特性:结果格飘墨蓝「拆」/「合」+ 特性名,停一拍再让效果落地
+                        yield return PlayGlyphTrait(e);
+                        break;
+                    // 拆合播放里的召唤(双木召幼苗):幼苗格在特性名之后弹一下 —— 格子是锁前那次重绘画好的,
+                    // 不弹就看不出是这次拆字召出来的。只在拆合播放里(ForgeChar 有值)演,出字路径的召唤不变
+                    case BattleEventKind.Summon when ForgeChar != null:
+                        PopTile(summonAnchor?.Invoke(e.SecondIndex));
+                        break;
                 }
             }
             if (mergeGroup.Count > 0) yield return PlayMerge(mergeGroup, summonAnchor, onImpact);
