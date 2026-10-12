@@ -134,6 +134,10 @@ namespace Brushblade.Presentation
         /// 否则按住屏幕时段内飞快、段间照旧慢等,整体反而更别扭。</summary>
         public IEnumerator Wait(float seconds) => Beat(seconds);
 
+        /// <summary>本帧的演出帧间隔(同 <see cref="Beat"/>:吃按住快进 / 固定加速,顿帧期间为 0)。
+        /// 给外层逐帧插值的演出用(跨场卷轴,Plan E4 Task 6),节拍与 Juice 自己的一致。</summary>
+        public float FrameDt => Dt;
+
         private IEnumerator Beat(float seconds)
         {
             float t = 0f;

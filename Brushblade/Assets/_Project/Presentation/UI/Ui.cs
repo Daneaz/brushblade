@@ -520,6 +520,17 @@ namespace Brushblade.Presentation
             return text.Substring(0, n).TrimEnd() + ellipsis;
         }
 
+        /// <summary>单行放进 <paramref name="width"/>(Plan E4 D-Q7,跨场卷轴效果栏):原字号放得下原样;
+        /// 放不下先降到 <paramref name="minFontSize"/>;仍放不下就按小字号 <see cref="Truncate"/> 补「…」。
+        /// 只吃纯文本(估算宽,同 <see cref="EstimateWidth"/>);返回值里 Fitted = 原文未被截断。</summary>
+        public static (string Text, int Size, bool Fitted) FitSingleLine(string text, int fontSize, int minFontSize, float width)
+        {
+            if (string.IsNullOrEmpty(text) || EstimateWidth(text, fontSize) <= width) return (text, fontSize, true);
+            int small = Mathf.Min(fontSize, minFontSize);
+            if (EstimateWidth(text, small) <= width) return (text, small, true);
+            return (Truncate(text, small, width), small, false);
+        }
+
         /// <summary>带图标的 chip 宽度。图标占 <see cref="Icons.Size"/>,后面还有 Gap;
         /// 纯图标(无量值)时不留 Gap。无图标时与 <see cref="ChipWidth(string,int,int)"/> 等价。
         ///

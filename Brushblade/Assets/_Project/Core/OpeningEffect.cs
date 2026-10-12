@@ -59,6 +59,30 @@ namespace Brushblade.Core
         }
     }
 
+    /// <summary>开局卷轴 / 跨场气泡里剩余场数 pill 的三态(CarryOver 稿 R8)。</summary>
+    public enum OpeningPillKind
+    {
+        /// <summary>「剩 N 场」(panel-inset 底)。</summary>
+        Left,
+        /// <summary>「最后一场」(警示底):只在结算前(① 拍)、开局前恰剩 1 场时。</summary>
+        Last,
+        /// <summary>「用完」(透明底描边):结算后剩 0。</summary>
+        Done,
+    }
+
+    /// <summary>pill 的状态 + 场数(<see cref="OpeningPillKind.Left"/> 时用)。</summary>
+    public readonly struct OpeningPill
+    {
+        public OpeningPillKind Kind { get; }
+        public int Count { get; }
+
+        public OpeningPill(OpeningPillKind kind, int count)
+        {
+            Kind = kind;
+            Count = count;
+        }
+    }
+
     /// <summary>同类开局效果只取最强(spec v7 §5.2 第 1 律):按 (Kind, TargetAll) 分组,
     /// Value 大者胜;Value 相同取 BattlesLeft 长者。</summary>
     public static class OpeningRules
@@ -91,6 +115,25 @@ namespace Brushblade.Core
             foreach (var row in Display(openings))
                 if (row.LeftAfter > 0) n++;
             return n;
+        }
+
+        /// <summary>本场之后仍在的行(跨场气泡,D-Q2 / D-Q3):LeftAfter &gt; 0,按输入顺序。行数 == <see cref="LiveCount"/>。</summary>
+        public static IReadOnlyList<OpeningRow> LiveRows(IReadOnlyList<OpeningEffect> openings)
+        {
+            var live = new List<OpeningRow>();
+            foreach (var row in Display(openings))
+                if (row.LeftAfter > 0) live.Add(row);
+            return live;
+        }
+
+        /// <summary>剩余场数 pill(稿 row()):<paramref name="settled"/> = false 是 ① 拍(开局前的场数,恰剩 1 场 =「最后一场」);
+        /// true 是 ② 拍与气泡(减一后的场数,0 =「用完」,否则一律「剩 N 场」)。</summary>
+        public static OpeningPill Pill(OpeningRow row, bool settled)
+        {
+            int left = settled ? row.LeftAfter : row.LeftBefore;
+            if (left <= 0) return new OpeningPill(OpeningPillKind.Done, 0);
+            if (!settled && left == 1) return new OpeningPill(OpeningPillKind.Last, 1);
+            return new OpeningPill(OpeningPillKind.Left, left);
         }
 
         /// <summary>挂这条开局效果的特性:来源字特性里 OpeningBattles &gt; 0、Kind 与 Value(未缩放)都相同的那一条;

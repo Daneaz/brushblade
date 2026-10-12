@@ -544,6 +544,18 @@ namespace Brushblade.Presentation
         /// <summary>拆合播放中(E3):Refresh 在动画锁里照画操作区(字库 / 部件池 / 拆合台),点击由 <see cref="SyncOpsInput"/> 挡住。</summary>
         private bool _forgeCuePlaying;
 
+        // ---- 跨场卷轴与顶栏「跨场 N」(Plan E4 Task 6,CarryOver 稿) ----
+        /// <summary>开局卷轴播放中:顶栏先不画 chip,③ 拍收进顶栏时才弹出来(R13)。</summary>
+        private bool _carryChipHidden;
+        /// <summary>本次重绘画出的 chip(气泡箭头对准它);没画 = null。</summary>
+        private RectTransform _carryChip;
+        /// <summary>气泡开着:重绘时按新 chip 重建(R14)。chip 不画了就自动关。</summary>
+        private bool _carryPopOpen;
+        /// <summary>气泡的接点击层(销毁它即关)。挂根节点,Refresh 清顶栏时一并销毁。</summary>
+        private GameObject _carryPop;
+        /// <summary>正在播的开局卷轴;协程出错时由 GuardedOpening 的收尾销毁。</summary>
+        private CarryOverScroll _carryScroll;
+
         /// <summary>动画落幕:计数 -1,死亡怪转正式置灰;全部落幕才重绘(放行输入/结算 UI/胜负标语)。</summary>
         private void OnAnimDone(System.Collections.Generic.List<int> deaths)
         {
@@ -1511,6 +1523,7 @@ namespace Brushblade.Presentation
             _resolvingHint = false; // 本次重绘是否处在动画锁里,末尾决定底部那行画什么
             Ui.Clear(_topLeft);
             Ui.Clear(_topRight);
+            DestroyCarryPop();   // 气泡挂根节点、箭头对准 chip:chip 随顶栏重建,气泡跟着按新位置重建(DrawTopBar 末尾)
             Ui.Clear(_enemyBackRow);
             Ui.Clear(_enemyFrontRow);
             Ui.Clear(_suggestRow);
@@ -1787,6 +1800,7 @@ namespace Brushblade.Presentation
             // InkCounter 随之翻出「+N」;进度指纹含 EarnedInk,这一笔会跟着落盘。
             _run.SyncKillInk();
             Ui.InkCounter(_topRight, _run.AvailableInk, 18);
+            DrawCarryOverChip(_topRight);   // 稿 R13:层数之后、「回合」之前(层数在左组,右组里即墨锭之后)
             Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
             DrawSpeedToggle(_topRight);
             Ui.PillButton(_topRight, Strings.T("battle.btn.settings"), OpenSettings,
@@ -1806,6 +1820,144 @@ namespace Brushblade.Presentation
                         (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Ui.DangerOutline, Theme.CinnabarDark),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
             }, Theme.Info, Color.white, 15, new Vector2(90, 38)); // 退出 = Info 浓墨;不可逆的弃塔在弹窗里走朱砂描边
+            if (_carryPopOpen) ShowCarryPop();   // 顶栏全部建完才能量 chip 的位置
+        }
+
+        // ---- 顶栏「跨场 N」chip 与气泡(Plan E4 Task 6,CarryOver 稿 R13/R14) ----
+
+        private const float CarryChipH = 31f;           // 稿 .cobtn 15pt
+        private const int CarryChipRadius = 16;         // 7.5pt
+        private const int CarryChipPadL = 8, CarryChipPadR = 13;   // 0 6 0 4pt
+        private const float CarryChipGap = 6f;          // 3pt
+        private const float CarryChipIcon = 17f;        // 8pt
+        private const int CarryChipFont = 16;           // 7.6pt
+        private const int CarryChipNumFont = 18;        // 8.5pt 宋体 700
+
+        /// <summary>chip 宽(纯算式,屏比验算用):左内边距 + 图标 + 间距 +「跨场」+ 间距 + 数字 + 右内边距。</summary>
+        private static float CarryChipWidth(string label, string number) =>
+            CarryChipPadL + CarryChipIcon + CarryChipGap + Ui.EstimateWidth(label, CarryChipFont)
+            + CarryChipGap + Ui.EstimateWidth(number, CarryChipNumFont) + CarryChipPadR;
+
+        /// <summary>「⌄ 跨场 N」:N = 本场之后仍在的条数(D-Q2,减一后 &gt; 0;本场新登记的不算,D-Q3),N = 0 不画。
+        /// 只在战斗中画;断点续爬回来同样画(卷轴不补播,D-Q4)。战斗中 run 手里的表是减一前的值,与卷轴同一口径。</summary>
+        private void DrawCarryOverChip(Transform parent)
+        {
+            _carryChip = null;
+            if (_run.Phase != RunPhase.InBattle || _carryChipHidden) return;
+            int live = OpeningRules.LiveCount(_run.CarriedOpenings);
+            if (live <= 0)
+            {
+                _carryPopOpen = false;
+                return;
+            }
+            string label = Strings.T("battle.carryover.chip");
+            string number = live.ToString();
+            var go = Ui.Panel(parent, "CarryOverChip");
+            Ui.Sized(go, CarryChipWidth(label, number), CarryChipH);
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(CarryChipRadius);
+            image.type = Image.Type.Sliced;
+            image.color = Theme.InkSoft;
+            var button = go.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = image;
+            button.onClick.AddListener(ToggleCarryPop);
+
+            var content = Ui.Row(go.transform, "Content", CarryChipGap);
+            Ui.Stretch((RectTransform)content.transform);
+            var contentLayout = content.GetComponent<HorizontalLayoutGroup>();
+            contentLayout.childAlignment = TextAnchor.MiddleLeft;
+            contentLayout.padding = new RectOffset(CarryChipPadL, CarryChipPadR, 0, 0);
+            var iconSlot = Ui.Panel(content.transform, "Icon");
+            Ui.Sized(iconSlot, CarryChipIcon, CarryChipIcon);
+            var sprite = Icons.Get("chevron");
+            if (sprite != null)   // chevron 原图朝右,转 −90° 朝下(稿 ⌄);PNG 缺失时只留空位,宽度不变
+            {
+                var iconImage = iconSlot.AddComponent<Image>();
+                iconImage.sprite = sprite;
+                iconImage.color = Color.white;
+                iconImage.preserveAspect = true;
+                iconImage.raycastTarget = false;
+                iconSlot.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
+            }
+            var text = Ui.ThemedLabel(content.transform, label, CarryChipFont, Color.white);
+            text.raycastTarget = false;
+            Ui.Sized(text.gameObject, Ui.EstimateWidth(label, CarryChipFont), CarryChipH);
+            var num = Ui.ThemedLabel(content.transform, number, CarryChipNumFont, Color.white, Theme.TitleFont);
+            num.fontStyle = FontStyle.Bold;
+            num.raycastTarget = false;
+            Ui.Sized(num.gameObject, Ui.EstimateWidth(number, CarryChipNumFont), CarryChipH);
+            PadTapHeight(go, CarryChipH);   // 透明扩边补到 TapMin(44pt)触控高
+            _carryChip = (RectTransform)go.transform;
+        }
+
+        /// <summary>开 / 关气泡。不走 Refresh:chip 在动画锁期间也能点,而锁里重绘会毁掉血条 / 行动条引用。</summary>
+        private void ToggleCarryPop()
+        {
+            _carryPopOpen = !_carryPopOpen;
+            if (_carryPopOpen) ShowCarryPop();
+            else DestroyCarryPop();
+        }
+
+        private void ShowCarryPop()
+        {
+            DestroyCarryPop();
+            if (_carryChip == null)
+            {
+                _carryPopOpen = false;
+                return;
+            }
+            // chip 刚建(或刚随顶栏重建):先把右组排一遍,读到的才是它这一帧的真实位置
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)_topRight);
+            var root = (RectTransform)transform;
+            var corners = new Vector3[4];
+            _carryChip.GetWorldCorners(corners);   // 0 左下、2 右上
+            Vector2 bl = root.InverseTransformPoint(corners[0]);
+            Vector2 tr = root.InverseTransformPoint(corners[2]);
+            _carryPop = CarryOverScroll.ShowPop(root, (bl.x + tr.x) / 2f, bl.y,
+                OpeningRules.LiveRows(_run.CarriedOpenings), _graph.Get, _run.CardLevel, () =>
+                {
+                    _carryPopOpen = false;
+                    DestroyCarryPop();
+                });
+        }
+
+        private void DestroyCarryPop()
+        {
+            if (_carryPop != null) Object.Destroy(_carryPop);
+            _carryPop = null;
+        }
+
+        /// <summary>只重画顶栏(③ 拍把 chip 收进顶栏):顶栏里没有血条 / 行动条引用,动画锁里重画它是安全的。</summary>
+        private void RedrawTopBar()
+        {
+            Ui.Clear(_topLeft);
+            Ui.Clear(_topRight);
+            DestroyCarryPop();
+            DrawTopBar();
+        }
+
+        /// <summary>chip 弹出 0.2s(D-Q6):0 → 1.15 → 1,只改 scale 不动布局。装饰,没人等。</summary>
+        private System.Collections.IEnumerator PopCarryChip(RectTransform chip)
+        {
+            const float duration = 0.2f;
+            for (float t = 0f; t < duration; t += _juice.FrameDt)
+            {
+                if (chip == null) yield break;
+                float k = t / duration;
+                float s = k < 0.6f ? Mathf.Lerp(0f, 1.15f, k / 0.6f) : Mathf.Lerp(1.15f, 1f, (k - 0.6f) / 0.4f);
+                chip.localScale = Vector3.one * s;
+                yield return null;
+            }
+            if (chip != null) chip.localScale = Vector3.one;
+        }
+
+        /// <summary>收掉开局卷轴并放出 chip(③ 拍收尾 / 协程出错兜底共用,幂等)。</summary>
+        private void EndCarryScroll()
+        {
+            _carryScroll?.Destroy();
+            _carryScroll = null;
+            _carryChipHidden = false;
         }
 
         /// <summary>顶栏「速度 ×N」开关(2026-09-30):与设置页「战斗加速」读写同一个
@@ -4882,7 +5034,9 @@ namespace Brushblade.Presentation
 
             // 翻面钮(HandFlip 稿 .flipsw):两格并排,选中的那格就是朝上的面,点另一格即翻
             // 只在静止选中态画:选目标态里方向已经按朝上的面定了,此时翻面会让待选目标与面错位
-            if (twoFaces && !_targeting && !_allyTargeting) DrawFlipSwitch(def, _selectedIndex);
+            // 教程锁面(D-QT3):不画翻面钮;面印照印锁定面(GetFace)
+            bool flippable = twoFaces && LockedFace(def.Id) == null;
+            if (flippable && !_targeting && !_allyTargeting) DrawFlipSwitch(def, _selectedIndex);
 
             // 转位提示(2026-08-15 用户裁定,2026-09-01 用户拍板还原):选中五系部件时,把
             // **同组全部**可互换的成员列出来 —— 选 氵 显示「⇄ 水 冫」,选 刂 显示「⇄ 金 钅」。
@@ -4955,8 +5109,8 @@ namespace Brushblade.Presentation
                 Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.Info, Color.white, 17, new Vector2(76, 52));
             // 五色语义(2026-10-04):出 = Primary 石青、拆 = Info 浓墨、弃 = 不可逆 → 朱砂描边
             Ui.DangerButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), 17, new Vector2(76, 52), radius: 10);
-            // HandFlip 稿 .bhint:两面字选中时说清「再点 = 翻面、拖出 = 按朝上的面」
-            if (twoFaces)
+            // HandFlip 稿 .bhint:两面字选中时说清「再点 = 翻面、拖出 = 按朝上的面」;教程锁面时不教翻面
+            if (flippable)
             {
                 _actionHintRow.gameObject.SetActive(true);
                 BenchHint(_actionHintRow, Strings.T("battle.hint.flip_selected"), BenchHintFontSize, Theme.TextDim);
@@ -6262,7 +6416,8 @@ namespace Brushblade.Presentation
             {
                 // 两面字(Plan E1,spec §2.1):再点一次 = 翻面,不出字;出字走「出」钮或拖出。
                 // 单面字维持原手势:再点一次 = 直接出字。
-                if (twoFaces) { FlipHandFace(index); return; }
+                // 教程 CastDemo 锁住剿的面(Plan E4 D-QT1):再点不翻面,按攻击面直接出字(同单面字手势)
+                if (twoFaces && LockedFace(charId) == null) { FlipHandFace(index); return; }
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
             }
@@ -6273,7 +6428,7 @@ namespace Brushblade.Presentation
             _pendingAllyEnemyTarget = -1;
             _pendingAttackMode = false; // 改点了另一张字:上一张待定的方向作废
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
-            _message = Brief(charId) + (twoFaces
+            _message = Brief(charId) + (twoFaces && LockedFace(charId) == null   // 锁面时不教「再点翻面」
                 ? Strings.T("battle.hint.suffix_tap_again_flip")
                 : Strings.T("battle.hint.suffix_tap_again_cast"));
             Refresh();
@@ -6302,9 +6457,20 @@ namespace Brushblade.Presentation
 
         // ---- 手牌翻面(Plan E1,spec §2.1;HandFlip / FlipSpec 稿) ----
 
-        /// <summary>字库这一格朝上的面;没翻过 = 攻击面(正面)。</summary>
-        private CardFace GetFace(int index) =>
-            index >= 0 && _handFace.TryGetValue(index, out var face) ? face : CardFace.Attack;
+        /// <summary>字库这一格朝上的面;没翻过 = 攻击面(正面)。
+        /// 教程锁面时(<see cref="LockedFace"/>)一律按锁定面 —— 剿在第 1、2 步可能已被翻过(先翻后合),
+        /// 只拦翻面入口兜不住;四个读取点(手牌绘制 / 拖拽定面 / 选中卡面印 / 「出」钮)经这里一次全覆盖(D-QT3)。</summary>
+        private CardFace GetFace(int index)
+        {
+            if (index >= 0 && Battle != null && index < Battle.Library.Count
+                && LockedFace(Battle.Library[index]) is { } locked)
+                return locked;
+            return index >= 0 && _handFace.TryGetValue(index, out var face) ? face : CardFace.Attack;
+        }
+
+        /// <summary>教程 CastDemo 这一步、演示字(剿)只认某一面出字时返回那一面,否则 null(Plan E4 附录 §D 二)。
+        /// 跳过引导后不锁(D-QT2);「?」重开引导会复位 _tutorialSkipped,锁随之回来。</summary>
+        private CardFace? LockedFace(string charId) => _tutorialSkipped ? null : _tutorial?.RequiredFace(charId);
 
         /// <summary>字库重排(出字 / 合字 / 掉字 / 弃字)后,丢掉卡位已越界或那一格已换了字的条目(F1)。</summary>
         private void PruneHandFaces()
@@ -6348,6 +6514,7 @@ namespace Brushblade.Presentation
         {
             if (index < 0 || index >= Battle.Library.Count) return;
             string charId = Battle.Library[index];
+            if (LockedFace(charId) != null) return;   // 防御守卫:教程锁面期间任何入口都翻不动(将来新增入口也兜住)
             _handFace[index] = GetFace(index) == CardFace.Attack ? CardFace.Feature : CardFace.Attack;
             _handFaceChar[index] = charId;
             if (_slotPicking) ResetSlotPicking();
@@ -7349,7 +7516,12 @@ namespace Brushblade.Presentation
         private System.Collections.IEnumerator GuardedOpening()
         {
             var hold = new AnimHold(this, held: true);
-            return Guarded(OpeningRoutine(hold), hold);
+            return RoutineRunner.Guard(OpeningRoutine(hold), IsNestedRoutine, Debug.LogException, () =>
+            {
+                // 出错时卷轴别留在屏上、chip 别永久藏着;正常路径早已收掉,这里是空操作。须在解锁重绘之前
+                EndCarryScroll();
+                hold.ReleaseOnError();
+            });
         }
 
         /// <summary>DealRoutine 自己上锁(BeginAnim 在两条早退之后):生来不持锁,上锁时 Hold。
@@ -7460,6 +7632,10 @@ namespace Brushblade.Presentation
                     if (e.Kind == BattleEventKind.EnemyDied) allDeaths.Add(e.TargetIndex);
             _dyingEnemies.UnionWith(allDeaths);
             hold.Deaths = allDeaths;   // 出错补调 OnAnimDone 时一并清掉
+            // 跨场开局效果(Plan E4 Task 6):有就先演卷轴三拍,steps[0] 就是开局效果那一拍(BattleEngine.AppliedOpenings)。
+            // 没有时下面每一处都走原分支,开局流程逐帧不变。断点续爬恢复的战斗 OpeningSteps 为空,根本进不来(D-Q4)。
+            bool carryOver = Battle.AppliedOpenings.Count > 0 && steps.Count > 0;
+            if (carryOver) _carryChipHidden = true;   // 须在下面那次 Refresh 之前:chip 等 ③ 拍才弹出
 
             // 先画一次,再动条 —— 条的 fill/label 引用是 switch 里的 Draw* 建出来的,而上面那个
             // 接入点是 return 掉整个 switch 的(首战更是一次都没画过),不补这次重绘
@@ -7488,8 +7664,26 @@ namespace Brushblade.Presentation
             while (GetComponentInChildren<BandTitleCard>(true) != null)
                 yield return null;
 
-            foreach (var step in steps)
+            // ① 拍:卷轴展开,停到约 0.9s(稿连播脚本 ①0 → ②900ms)
+            if (carryOver)
             {
+                _carryScroll = BuildCarryScroll();
+                yield return _carryScroll.Unroll(() => _juice.FrameDt);
+                yield return _juice.Wait(CarryScrollHold - CarryOverScroll.UnrollSeconds);
+            }
+
+            for (int stepIndex = 0; stepIndex < steps.Count; stepIndex++)
+            {
+                var step = steps[stepIndex];
+                // ② 拍 = 开局效果那一拍:不是谁攒满了行动,行动条一格不动(原先落进下面 Ticks <= 0 的分支,
+                // 玩家条被按到满格再回落 —— 空闪一下满格,附录 §D 一.2)
+                bool effectsBeat = carryOver && stepIndex == 0;
+                float beatElapsed = 0f;
+                if (effectsBeat && _carryScroll != null)
+                {
+                    _carryScroll.Settle();   // 副题「已结算」、pill 减一、α 0.85(D-Q5)
+                    StartCoroutine(_carryScroll.Stamp(() => _juice.FrameDt));
+                }
                 var post = (player: step.PlayerMeter,
                     summons: ToArray(step.SummonMeters), enemies: ToArray(step.EnemyMeters));
                 // Ticks == 0 是「这一拍推进前已经满格」的实证(TurnScheduler.Advance 的
@@ -7497,7 +7691,7 @@ namespace Brushblade.Presentation
                 // FillActionBars 遇 ticks <= 0 会直接 yield break、不画任何东西,于是玩家会
                 // 看到「空条的召唤物挥了一刀」(spec §5.7 的反例,2026-08-18 修 I3)。这里先把
                 // 该行动者的条按到 Threshold,再走正常的播动作 → 回落(DropActingBar)。
-                if (step.Ticks <= 0)
+                if (step.Ticks <= 0 && !effectsBeat)
                 {
                     switch (step.Actor.Kind)
                     {
@@ -7514,7 +7708,7 @@ namespace Brushblade.Presentation
                             break;
                     }
                 }
-                yield return FillActionBars(pre, post, step.Actor, step.Ticks);
+                if (!effectsBeat) yield return FillActionBars(pre, post, step.Actor, step.Ticks);
                 // 与 AdvanceRoutine 同一条守卫:每批必以 ActorActed 开头(段首标记),
                 // 只有标记时不该白播一整段动画 + 停顿。末拍是玩家自己那一拍,其 Events 是
                 // BeginPlayerTurn/StartTurn 那一批(发牌/AP/玩家灼烧),照常播。
@@ -7528,10 +7722,24 @@ namespace Brushblade.Presentation
                     // 开场中途死掉的召唤物实例仍留在 Summons 里(按下标照样查得到 Char)
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt,
                         enemyElement: EnemyElement, enemyRanged: EnemyRanged);
-                    while (!done) yield return null;
+                    while (!done)
+                    {
+                        if (effectsBeat) beatElapsed += _juice.FrameDt;
+                        yield return null;
+                    }
                     yield return _juice.Wait(0.12f);
+                    beatElapsed += 0.12f;
                 }
-                DropActingBar(step.Actor, post);
+                if (effectsBeat)
+                {
+                    // ② 拍至少 1.2s(稿 ②900 → ③2100ms):落印、减一、飘字都看得清;然后 ③ 拍收进顶栏
+                    if (beatElapsed < CarrySettleMin) yield return _juice.Wait(CarrySettleMin - beatElapsed);
+                    if (_carryScroll != null) yield return _carryScroll.FadeOut(() => _juice.FrameDt);
+                    EndCarryScroll();
+                    RedrawTopBar();
+                    if (_carryChip != null) StartCoroutine(PopCarryChip(_carryChip));
+                }
+                else DropActingBar(step.Actor, post);
                 // 这一拍分裂了就放行那几只克隆,并重绘让它们**此刻**登场 —— 放行必须排在
                 // 本拍的 _juice.Play 之后:重绘会重建敌人格(血条 fill 引用一并作废),
                 // 动画还在播的时候动它就是那条「期间不重绘」的禁忌。循环里其余的拍不重绘,
@@ -7560,6 +7768,24 @@ namespace Brushblade.Presentation
             Refresh();
             hold.Release(allDeaths); // = OnAnimDone:解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
             yield return GuardedDeal(drawnIndices); // 首回合的发牌同样要飞一遍(顺序同 AdvanceRoutine)
+        }
+
+        /// <summary>① 拍展开后停到这一刻(稿连播 ② 起于 900ms)。</summary>
+        private const float CarryScrollHold = 0.9f;
+        /// <summary>② 拍最短时长(稿 ② 900ms → ③ 2100ms)。</summary>
+        private const float CarrySettleMin = 1.2f;
+
+        /// <summary>建开局卷轴:挂根节点(同 Message / EventBody,不进布局组),横向在中区居中、底边贴手牌带底边向上长(R3)。
+        /// 手牌带在中区里定宽居中,所以取字库行的底边中点即可。行 = 本场实际结算过的那批(AppliedOpenings)。</summary>
+        private CarryOverScroll BuildCarryScroll()
+        {
+            var root = (RectTransform)transform;
+            var corners = new Vector3[4];
+            ((RectTransform)_libraryRow).GetWorldCorners(corners);   // 0 左下、3 右下
+            Vector2 bl = root.InverseTransformPoint(corners[0]);
+            Vector2 br = root.InverseTransformPoint(corners[3]);
+            return new CarryOverScroll(root, new Vector2((bl.x + br.x) / 2f, bl.y),
+                OpeningRules.Display(Battle.AppliedOpenings), _graph.Get, _run.CardLevel);
         }
 
         /// <summary>把 <see cref="BattleEventKind.CharDrawn"/> 从事件批里摘出来,落位下标记进

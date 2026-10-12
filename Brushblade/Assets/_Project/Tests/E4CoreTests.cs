@@ -193,6 +193,46 @@ namespace Brushblade.Core.Tests
             Assert.That(OpeningRules.LiveCount(null), Is.EqualTo(0));
         }
 
+        // ---- 剩余场数 pill 三态(Plan E4 Task 6,CarryOver 稿 R8):① 拍按开局前,② 拍 / 气泡按减一后 ----
+
+        [Test]
+        public void Pill_BeforeSettle_LastBattleIsWarn()
+        {
+            var rows = OpeningRules.Display(new[] { O("焱", EffectKind.BurnAll, 2, 5), O("杜", EffectKind.Shield, 63, 1) });
+            var five = OpeningRules.Pill(rows[0], settled: false);
+            Assert.That((five.Kind, five.Count), Is.EqualTo((OpeningPillKind.Left, 5)), "① 拍:剩 5 场");
+            var one = OpeningRules.Pill(rows[1], settled: false);
+            Assert.That(one.Kind, Is.EqualTo(OpeningPillKind.Last), "① 拍:开局前只剩 1 场 = 最后一场");
+        }
+
+        [Test]
+        public void Pill_AfterSettle_ZeroIsDone_NeverLast()
+        {
+            var rows = OpeningRules.Display(new[]
+            {
+                O("焱", EffectKind.BurnAll, 2, 5), O("沐", EffectKind.HealOverTime, 17, 2), O("杜", EffectKind.Shield, 63, 1),
+            });
+            var four = OpeningRules.Pill(rows[0], settled: true);
+            Assert.That((four.Kind, four.Count), Is.EqualTo((OpeningPillKind.Left, 4)), "② 拍:减一后剩 4");
+            var oneLeft = OpeningRules.Pill(rows[1], settled: true);
+            Assert.That((oneLeft.Kind, oneLeft.Count), Is.EqualTo((OpeningPillKind.Left, 1)),
+                "减一后剩 1 仍是「剩 1 场」—— 「最后一场」只在 ① 拍出现(稿 row())");
+            Assert.That(OpeningRules.Pill(rows[2], settled: true).Kind, Is.EqualTo(OpeningPillKind.Done), "1 → 0 = 用完");
+        }
+
+        [Test]
+        public void LiveRows_OnlyLeftAfterPositive_CountMatchesLiveCount()
+        {
+            var input = new[]
+            {
+                O("焱", EffectKind.BurnAll, 2, 5), O("杜", EffectKind.Shield, 63, 1), O("沐", EffectKind.HealOverTime, 17, 2),
+            };
+            var live = OpeningRules.LiveRows(input);
+            Assert.That(live.Select(r => (r.Effect.SourceCharId, r.LeftAfter)), Is.EqualTo(new[] { ("焱", 4), ("沐", 1) }));
+            Assert.That(live.Count, Is.EqualTo(OpeningRules.LiveCount(input)), "chip 的 N 与气泡行数同一口径");
+            Assert.That(OpeningRules.LiveRows(null).Count, Is.EqualTo(0));
+        }
+
         private static IEnumerable<(CharDef Def, TraitDef Trait, EffectDef Effect)> RealOpenings() =>
             from d in Real.All
             from t in d.Traits
