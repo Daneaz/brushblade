@@ -318,6 +318,13 @@ namespace Brushblade.Core.Tests
             var missing = PlayerBarStatuses.Where(n => !ContainsKindRef(player, "StatusKind", n)).Select(n => "玩家栏 " + n)
                 .Concat(SummonCellStatuses.Where(n => !ContainsKindRef(summon, "StatusKind", n)).Select(n => "木灵格 " + n))
                 .ToList();
+            // 封字两态(Q6):StatusKind.Seal 本来就在玩家栏里(倾覆那枚),光查它钉不住代价态 ——
+            // 另要求按极性分支(StatusPolarity.Buff)且有第二枚带描边参数的 seal chip(new(…, "seal", Theme.X) 的 border 形)
+            bool sealByPolarity = ContainsKindRef(player, "StatusPolarity", nameof(StatusPolarity.Buff));
+            int sealChips = Regex.Matches(player, "\"seal\"").Count;
+            bool sealOutlined = Regex.IsMatch(player, "\"seal\"\\s*,\\s*Theme\\.\\w+\\s*\\)");
+            if (!sealByPolarity || sealChips < 2 || !sealOutlined)
+                missing.Add("玩家栏 Seal 代价态(杜门不出:按极性分出的第二枚、描边纸底)");
             if (!player.Contains("AddWardChips(")) missing.Add("玩家栏 DebuffWard(没调 AddWardChips)");
             if (!summon.Contains("AddWardChips(")) missing.Add("木灵格 DebuffWard(没调 AddWardChips)");
             if (!ContainsKindRef(ward, "StatusKind", nameof(StatusKind.DebuffWard))) missing.Add("AddWardChips 不读 DebuffWard");

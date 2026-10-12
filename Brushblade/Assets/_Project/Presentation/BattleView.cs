@@ -2610,7 +2610,7 @@ namespace Brushblade.Presentation
             _unitSheetSource = () =>
             {
                 var s = Battle.Summons[index];
-                return s != null && s.Alive ? SummonInfo.Sheet(Battle, index, _graph) : null;
+                return s != null && s.Alive ? SummonInfo.Sheet(Battle, index, _graph, _run.CardLevel) : null;
             };
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }

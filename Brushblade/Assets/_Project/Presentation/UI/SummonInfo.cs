@@ -21,8 +21,10 @@ namespace Brushblade.Presentation
         /// 护甲读 <see cref="BattleEngine.SummonDefense"/>(含富甲光环,D2-金 Q15)、射程读 <see cref="BattleEngine.IsSummonRanged"/>
         /// (含箭灵光环)、左栏补上玩家袋里落在这只身上的木灵光环与林荫 / 森严 / 蟾宫(D2-木 Task 5)——
         /// 这些都挂在玩家身上或读全队,SummonState 自己算不出来,所以传引擎与槽位。
-        /// <paramref name="graph"/>(可空)只用来把光环 / 本命翻出特性名(游戏数据);取不到时退回不带名的句子。</summary>
-        public static UnitDetail Sheet(BattleEngine battle, int slot, RecipeGraph graph = null)
+        /// <paramref name="graph"/>(可空)只用来把光环 / 本命翻出特性名(游戏数据);取不到时退回不带名的句子。
+        /// <paramref name="cardLevelOf"/>(可空,E3):回敬载荷按来源字等级印,与玩家详情同一口径。</summary>
+        public static UnitDetail Sheet(BattleEngine battle, int slot, RecipeGraph graph = null,
+            Func<string, int> cardLevelOf = null)
         {
             var summon = battle.Summons[slot];
             bool ranged = battle.IsSummonRanged(slot);
@@ -31,10 +33,18 @@ namespace Brushblade.Presentation
             var auras = new List<StatusEffect>();
             foreach (var aura in battle.SummonAurasAt(slot))
                 if (aura.Kind != StatusKind.SummonRanged) auras.Add(aura);
-            // 玩家袋里护到木灵的本回合减伤 / 受伤上限(战场木灵格画了 chip,详情要有对应条目;Core 木灵承伤同读这两条)
+            // 玩家袋里护到木灵的条目 —— 战场木灵格(BattleView.AddSummonStatusChips)读玩家袋画的每一枚,详情都要有对应条目,
+            // 条件与战场同源:本回合减伤 / 受伤上限(Core 木灵承伤同读这两条);反击加倍(E3 Q7:这只木灵有格挡时);
+            // 回敬(战场读 RetaliateArmed:有回敬且本回合还能触发)
+            bool blocking = summon.Statuses.TotalMagnitude(StatusKind.Block) > 0;
+            bool retaliateArmed = battle.RetaliateArmed;
             foreach (var st in battle.PlayerStatuses.All)
-                if (st.Kind == StatusKind.DamageCut || st.Kind == StatusKind.HitCap) auras.Add(st);
-            statuses.AddRange(UnitDetailChip.BuildStatuses(auras, battle.PlayerStatuses, graph: graph));
+                if (st.Kind == StatusKind.DamageCut || st.Kind == StatusKind.HitCap
+                    || (st.Kind == StatusKind.CounterBoost && blocking)
+                    || (st.Kind == StatusKind.Retaliate && retaliateArmed && st.OnHit is { Count: > 0 }))
+                    auras.Add(st);
+            statuses.AddRange(UnitDetailChip.BuildStatuses(auras, battle.PlayerStatuses, graph: graph,
+                cardLevelOf: cardLevelOf));
             UnitDetailChip.AddWoodNatureEntries(statuses, battle, graph, forSummon: true);
             return new UnitDetail
             {
