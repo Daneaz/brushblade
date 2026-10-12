@@ -1521,8 +1521,7 @@ namespace Brushblade.Presentation
             // 全量重画会销毁正被拖的字牌,拖拽就此作废:两面字拖拽的落点状态一并收掉(Plan E1)
             if (FaceDragging) EndFaceDrag();
             _resolvingHint = false; // 本次重绘是否处在动画锁里,末尾决定底部那行画什么
-            Ui.Clear(_topLeft);
-            Ui.Clear(_topRight);
+            ClearTopBar();
             DestroyCarryPop();   // 气泡挂根节点、箭头对准 chip:chip 随顶栏重建,气泡跟着按新位置重建(DrawTopBar 末尾)
             Ui.Clear(_enemyBackRow);
             Ui.Clear(_enemyFrontRow);
@@ -1931,10 +1930,24 @@ namespace Brushblade.Presentation
         /// <summary>只重画顶栏(③ 拍把 chip 收进顶栏):顶栏里没有血条 / 行动条引用,动画锁里重画它是安全的。</summary>
         private void RedrawTopBar()
         {
-            Ui.Clear(_topLeft);
-            Ui.Clear(_topRight);
+            ClearTopBar();
             DestroyCarryPop();
             DrawTopBar();
+        }
+
+        /// <summary>清顶栏两组:旧子物体先 SetActive(false) 再 Destroy。Destroy 要到帧末才生效,
+        /// 同帧 <see cref="ShowCarryPop"/> 里 ForceRebuildLayoutImmediate(_topRight) 时旧物体若还算在布局里,
+        /// 右组总宽超槽宽、HorizontalLayoutGroup 按比例压缩全部子物体,新 chip 的 x 读错,帧末归位后气泡不跟
+        /// (E4 Task 6 审查 fix 1)。停用的子物体不参与布局组排版。只在顶栏这一处这么做,不改 Ui.Clear。</summary>
+        private void ClearTopBar()
+        {
+            foreach (var group in new[] { _topLeft, _topRight })
+                for (int i = group.childCount - 1; i >= 0; i--)
+                {
+                    var child = group.GetChild(i).gameObject;
+                    child.SetActive(false);
+                    Object.Destroy(child);
+                }
         }
 
         /// <summary>chip 弹出 0.2s(D-Q6):0 → 1.15 → 1,只改 scale 不动布局。装饰,没人等。</summary>
@@ -7502,8 +7515,14 @@ namespace Brushblade.Presentation
         /// <summary>同 Juice.IsNestedRoutine:CustomYieldInstruction(WaitForSecondsRealtime)归 Unity 驱动,不展平。</summary>
         private static bool IsNestedRoutine(object yielded) => yielded is System.Collections.IEnumerator && !(yielded is CustomYieldInstruction);
 
-        private System.Collections.IEnumerator Guarded(System.Collections.IEnumerator body, AnimHold hold) =>
-            RoutineRunner.Guard(body, IsNestedRoutine, Debug.LogException, hold.ReleaseOnError);
+        /// <param name="beforeRelease">收尾时先于补调解锁执行的清理(须幂等:正常路径也会调一次)。</param>
+        private System.Collections.IEnumerator Guarded(System.Collections.IEnumerator body, AnimHold hold,
+            System.Action beforeRelease = null) =>
+            RoutineRunner.Guard(body, IsNestedRoutine, Debug.LogException, () =>
+            {
+                beforeRelease?.Invoke();
+                hold.ReleaseOnError();
+            });
 
         /// <summary>调用方已 BeginAnim(OnEndTurn / 复活续跑):生来持锁。</summary>
         private System.Collections.IEnumerator GuardedAdvance()
@@ -7516,12 +7535,8 @@ namespace Brushblade.Presentation
         private System.Collections.IEnumerator GuardedOpening()
         {
             var hold = new AnimHold(this, held: true);
-            return RoutineRunner.Guard(OpeningRoutine(hold), IsNestedRoutine, Debug.LogException, () =>
-            {
-                // 出错时卷轴别留在屏上、chip 别永久藏着;正常路径早已收掉,这里是空操作。须在解锁重绘之前
-                EndCarryScroll();
-                hold.ReleaseOnError();
-            });
+            // 出错时卷轴别留在屏上、chip 别永久藏着;正常路径早已收掉,这里是空操作。须在解锁重绘之前
+            return Guarded(OpeningRoutine(hold), hold, EndCarryScroll);
         }
 
         /// <summary>DealRoutine 自己上锁(BeginAnim 在两条早退之后):生来不持锁,上锁时 Hold。
