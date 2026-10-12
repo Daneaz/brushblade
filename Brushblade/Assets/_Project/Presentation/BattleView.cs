@@ -1479,7 +1479,7 @@ namespace Brushblade.Presentation
                 // 这是一次性转换(_lastPhase 已在上面改成 InBattle),AdvanceRoutine 内部会
                 // 反复自己调 Refresh() 把后续帧画出来,本帧不再往下走完整的 switch 绘制。
                 BeginAnim();
-                StartCoroutine(AdvanceRoutine());
+                StartCoroutine(GuardedAdvance());
                 return;
             }
 
@@ -1494,7 +1494,7 @@ namespace Brushblade.Presentation
             {
                 _openingPlayedForBattle = _run.BattleIndex;
                 BeginAnim();
-                StartCoroutine(OpeningRoutine());
+                StartCoroutine(GuardedOpening());
                 return;
             }
 
@@ -7292,7 +7292,73 @@ namespace Brushblade.Presentation
             CancelSelection();
             Battle.YieldTurn();
             _tutorial?.Notify(TutorialAction.EndTurn);
-            StartCoroutine(AdvanceRoutine());
+            StartCoroutine(GuardedAdvance());
+        }
+
+        /// <summary>持锁协程对 <see cref="OnAnimDone"/> 的「恰好一次」(Plan E4 Task 6,接 Task 2 的兜底)。
+        ///
+        /// AdvanceRoutine / OpeningRoutine / DealRoutine 在 BeginAnim 与 OnAnimDone 之间跑大量 BattleView 代码
+        /// (Refresh、Battle.AdvanceOnce……),任何一处抛异常,Unity 就把整条协程链掐断,OnAnimDone 永远不来,
+        /// 输入永久锁死。现在三条都经 <see cref="RoutineRunner.Guard"/> 起:正常路径照旧由协程体在原位置
+        /// <see cref="Release"/>(节拍不变,仍等动画播完才解锁);出错时 Guard 记日志并调 <see cref="ReleaseOnError"/>,
+        /// 若这条协程还持着锁就补调一次。每条协程各一个实例,标志互不串。
+        /// B-Qc2:出错后只保证解锁复位,不补播、不清残留画面。</summary>
+        private sealed class AnimHold
+        {
+            private readonly BattleView _view;
+            private bool _held;
+
+            /// <summary>出错补调时传给 OnAnimDone 的死亡下标:协程已登记进 _dyingEnemies 的那批,一并清掉。</summary>
+            public System.Collections.Generic.List<int> Deaths = NoDeaths;
+
+            public AnimHold(BattleView view, bool held)
+            {
+                _view = view;
+                _held = held;
+            }
+
+            /// <summary>协程自己 BeginAnim 之后调(DealRoutine:早退在锁之前,不持锁就不该补调)。</summary>
+            public void Hold() => _held = true;
+
+            /// <summary>协程体的正常解锁点。先清标志再调:OnAnimDone 里的重绘再抛,Guard 的收尾也不会二次解锁。</summary>
+            public void Release(System.Collections.Generic.List<int> deaths)
+            {
+                if (!_held) return;
+                _held = false;
+                _view.OnAnimDone(deaths);
+            }
+
+            /// <summary>Guard 的收尾回调:正常路径上协程体早已 Release,这里是空操作;出错时补那一次。</summary>
+            public void ReleaseOnError() => Release(Deaths);
+        }
+
+        /// <summary>同 Juice.IsNestedRoutine:CustomYieldInstruction(WaitForSecondsRealtime)归 Unity 驱动,不展平。</summary>
+        private static bool IsNestedRoutine(object yielded) => yielded is System.Collections.IEnumerator && !(yielded is CustomYieldInstruction);
+
+        private System.Collections.IEnumerator Guarded(System.Collections.IEnumerator body, AnimHold hold) =>
+            RoutineRunner.Guard(body, IsNestedRoutine, Debug.LogException, hold.ReleaseOnError);
+
+        /// <summary>调用方已 BeginAnim(OnEndTurn / 复活续跑):生来持锁。</summary>
+        private System.Collections.IEnumerator GuardedAdvance()
+        {
+            var hold = new AnimHold(this, held: true);
+            return Guarded(AdvanceRoutine(hold), hold);
+        }
+
+        /// <summary>调用方(Refresh 的开场回放入口)已 BeginAnim:生来持锁。</summary>
+        private System.Collections.IEnumerator GuardedOpening()
+        {
+            var hold = new AnimHold(this, held: true);
+            return Guarded(OpeningRoutine(hold), hold);
+        }
+
+        /// <summary>DealRoutine 自己上锁(BeginAnim 在两条早退之后):生来不持锁,上锁时 Hold。
+        /// 嵌在外层协程里 <c>yield return</c>:外层 Guard 把它当子程展平,而它自己的 Guard 吞掉体内异常、
+        /// 只放自己的锁 —— 外层(已解锁)不受牵连。</summary>
+        private System.Collections.IEnumerator GuardedDeal(System.Collections.Generic.IReadOnlyList<int> libraryIndices)
+        {
+            var hold = new AnimHold(this, held: false);
+            return Guarded(DealRoutine(libraryIndices, hold), hold);
         }
 
         /// <summary>逐格推进(2026-08-15 ATB 改造):一次 AdvanceOnce 播一个行动者的动画,原先是
@@ -7304,10 +7370,11 @@ namespace Brushblade.Presentation
         /// AppendBossSkillMessage 须按批调用而非等循环结束才读一次:蓄力/释放/护盾被掀空这些事件
         /// 可能出在本轮任意一个行动者的批次里,循环结束后 Battle.LastEvents 只剩最后一批
         /// (通常是轮回玩家那个只带 ActorActed 标记的空批),整轮跑到一半的播报会被静默吞掉。</summary>
-        private System.Collections.IEnumerator AdvanceRoutine()
+        private System.Collections.IEnumerator AdvanceRoutine(AnimHold hold)
         {
             _message = ""; // 蓄力/释放/护盾被掀空的播报按批累加在这里,回合前缀最后再补上
             var allDeaths = new System.Collections.Generic.List<int>();
+            hold.Deaths = allDeaths;   // 出错补调 OnAnimDone 时一并清掉已登记的死亡着色
             var drawnIndices = new System.Collections.Generic.List<int>(); // 本轮掉字落在哪几个卡位
             while (true)
             {
@@ -7345,13 +7412,13 @@ namespace Brushblade.Presentation
             }
             _message = (Battle.Phase == BattlePhase.PlayerTurn
                 ? Strings.T("battle.phase.new_turn_prefix", ("turn", Battle.Turn), ("apPerTurn", Battle.ApPerTurn)) : "") + _message;
-            OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
+            hold.Release(allDeaths); // = OnAnimDone:解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
             // 抽卡动画必须排在 OnAnimDone **之后**(2026-08-27 修):循环内那几次 Refresh 都发生在
             // BeginAnim 的锁里,而 Refresh 的玩家回合分支遇 Animating 会在 DrawLibrary() 之前
             // 就 break —— 动画期间字库一张牌都不画(且 Refresh 开头的 Ui.Clear 已把旧牌销毁)。
             // 放在 OnAnimDone 之前,DealRoutine 拿到的 _libraryTileRects 恒为空,整段静默空跑。
             // 是 OnAnimDone 归零后那次 Refresh 才把新牌建出来的。
-            yield return DealRoutine(drawnIndices);
+            yield return GuardedDeal(drawnIndices);
         }
 
         /// <summary>回放开场那几拍(2026-08-17)。构造函数已经把开场推进跑完了(spec §5.2),
@@ -7377,7 +7444,7 @@ namespace Brushblade.Presentation
         /// 一起补(详见 Core.EnemyDef.Speed 的文档):没接 AppendBossSkillMessage(Boss 蓄力
         /// 播报读的是 Battle.LastEvents 而非逐拍的 step.Events);开场中途死掉的召唤物在
         /// DrawSummons 里连头像格都不画(SnapshotPreHp 只在开场结束后跑一次)。</summary>
-        private System.Collections.IEnumerator OpeningRoutine()
+        private System.Collections.IEnumerator OpeningRoutine(AnimHold hold)
         {
             var steps = Battle.OpeningSteps;
             var pre = (player: 0, summons: new int[Battle.Summons.Count],
@@ -7392,6 +7459,7 @@ namespace Brushblade.Presentation
                 foreach (var e in step.Events)
                     if (e.Kind == BattleEventKind.EnemyDied) allDeaths.Add(e.TargetIndex);
             _dyingEnemies.UnionWith(allDeaths);
+            hold.Deaths = allDeaths;   // 出错补调 OnAnimDone 时一并清掉
 
             // 先画一次,再动条 —— 条的 fill/label 引用是 switch 里的 Draw* 建出来的,而上面那个
             // 接入点是 return 掉整个 switch 的(首战更是一次都没画过),不补这次重绘
@@ -7490,8 +7558,8 @@ namespace Brushblade.Presentation
 
             _openingEnemyCap = -1;   // 回放结束,解除限流:收尾这次重绘要把全场画全
             Refresh();
-            OnAnimDone(allDeaths); // 解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
-            yield return DealRoutine(drawnIndices); // 首回合的发牌同样要飞一遍(顺序同 AdvanceRoutine)
+            hold.Release(allDeaths); // = OnAnimDone:解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
+            yield return GuardedDeal(drawnIndices); // 首回合的发牌同样要飞一遍(顺序同 AdvanceRoutine)
         }
 
         /// <summary>把 <see cref="BattleEventKind.CharDrawn"/> 从事件批里摘出来,落位下标记进
@@ -7552,7 +7620,7 @@ namespace Brushblade.Presentation
         private const float DealStagger = 0.12f;
 
         private System.Collections.IEnumerator DealRoutine(
-            System.Collections.Generic.IReadOnlyList<int> libraryIndices)
+            System.Collections.Generic.IReadOnlyList<int> libraryIndices, AnimHold hold)
         {
             if (libraryIndices.Count == 0) yield break;
 
@@ -7570,6 +7638,7 @@ namespace Brushblade.Presentation
             if (tiles.Count == 0) yield break;
 
             BeginAnim(); // 早退在此之前,锁不会失配;配对的 OnAnimDone 在本协程末尾
+            hold.Hold();
             yield return null; // 坑 ②:等布局跑完,下面读到的 position 才是牌的真实落点
 
             // 入口在**最右那张新牌的右侧**(2026-08-27 用户拍板):掉字一律 append 到字库末尾,
@@ -7605,7 +7674,7 @@ namespace Brushblade.Presentation
                     yield return new WaitForSecondsRealtime(DealStagger); // 多张错峰,不糊成一团
             }
             while (pending > 0) yield return null;
-            OnAnimDone(NoDeaths); // 与上面那次 BeginAnim 配对:解锁输入 + 归零后重绘(恢复牌的 scale)
+            hold.Release(NoDeaths); // = OnAnimDone,与上面那次 BeginAnim 配对:解锁输入 + 归零后重绘(恢复牌的 scale)
         }
 
         /// <summary>给不牵扯死亡的 <see cref="OnAnimDone"/> 调用用的空表(它只拿来做 ExceptWith)。</summary>
