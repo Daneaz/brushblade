@@ -24,6 +24,7 @@ namespace Brushblade.Presentation
             { "桂", "gui" },
             { "柘", "zhe" },
             { "藤", "teng" },
+            { "花", "hua" },
         };
 
         /// <summary>该召唤字的资产前缀;没有形象返回 null —— 调用方回落到纯字牌格。</summary>

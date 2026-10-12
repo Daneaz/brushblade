@@ -14,6 +14,10 @@ namespace Brushblade.Presentation
         public string IconKey;    // null = 走文字 chip
         public string ChipText;   // chip 上的数字或短字(「3」/「−25%」/「缺笔 2/3」)
         public Color ChipColor;
+        // 描边态(封字·代价,StatusChipsWaterEarth 拍板「详情同样描边」):非 null 时 chip 前景改用 ChipFg、外圈画 ChipBorder。
+        // 缺省 null = 实底白字,与从前相同
+        public Color? ChipFg;
+        public Color? ChipBorder;
         public string Name;       // 「灼烧 3 层」
         public string Duration;   // 「层数即时长」/「剩 2 回合」/「本场持久」
         public string Desc;
@@ -106,19 +110,21 @@ namespace Brushblade.Presentation
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
                 or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
                 or StatusKind.Taunt   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
-                or StatusKind.HealBlock => Control,   // 干涸(StatusChipsFire 稿 k-ctrl 墨蓝,与减攻同组)
+                or StatusKind.HealBlock   // 干涸(StatusChipsFire 稿 k-ctrl 墨蓝,与减攻同组)
+                or StatusKind.BuffBlock or StatusKind.SkillCut => Control,   // 禁增益 / 大招削弱(StatusChipsWaterEarth 稿 k-ctrl 墨蓝)
             StatusKind.SpeedModifier => magnitude < 0 ? Control : Guard,
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime
                 or StatusKind.Seed => Guard,   // 种(D1 Task 6,稿 k-heal 翠玉)
-            // 本回合减伤 / 反击加倍 / 保命(D1 Task 7):我方守御类,补稿(待审)同归守御组
-            StatusKind.DamageCut or StatusKind.CounterBoost or StatusKind.Endure
+            // 本回合减伤 / 保命(D1 Task 7):我方守御类(StatusChips 10-04 稿翠玉)
+            StatusKind.DamageCut or StatusKind.Endure
                 or StatusKind.HitCap   // 铜墙铁壁(D2-土 G2):与减伤同组(Q20)
-                or StatusKind.HurtShield   // 堡垒(D2-土 G3):守御类;无图标,chip 印护盾量(不然是一块空白色块)
-                or StatusKind.HurtHeal     // 栉风沐雨(D2-水 W5):同堡垒,与持续回复同组;chip 印回血量
+                or StatusKind.HurtShield or StatusKind.HurtHeal   // 堡垒 / 栉风沐雨(StatusChipsWaterEarth 稿 k-heal 翠玉)
+                or StatusKind.DebuffWard or StatusKind.TurnPulse or StatusKind.ShieldCarry   // 免疫减益 / 每回合效果 / 护盾回流(同稿 k-heal)
                 or StatusKind.SummonThorns   // 荆棘光环(StatusChipsWood 稿 k-heal 翠玉:临时的荆棘)
                 or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
+                or StatusKind.CounterBoost    // 反击加倍(StatusChips 10-04 稿赭金:加的是伤害)
                 or StatusKind.SummonEmpower   // 攻击光环(StatusChipsWood 稿 k-gold 赭金)
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
             StatusKind.SummonRanged => Positioning,   // 远程光环:射程一类(攻击模式与站位)
@@ -143,8 +149,7 @@ namespace Brushblade.Presentation
             // UnitMe.dc.html 的「−1AP」而不是 glossary 的「−1」——具体屏稿优先于分类图鉴,
             // 这条不改。
             StatusKind.Burn or StatusKind.Bleed or StatusKind.Immunity or StatusKind.Block
-                or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak
-                or StatusKind.HurtShield or StatusKind.HurtHeal =>
+                or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
             StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
                 or StatusKind.IceStall or StatusKind.Seed or StatusKind.Vulnerable
@@ -153,14 +158,14 @@ namespace Brushblade.Presentation
                 // 回敬的剩余次数只在战场 chip 上(要读 Core 的本回合计数,StatusBag 里没有)
                 or StatusKind.HealBlock or StatusKind.Mine or StatusKind.Retaliate
                 or StatusKind.Bind or StatusKind.ThornMark or StatusKind.SummonRanged   // 被缠 / 荆刺 / 远程光环:无数字(StatusChipsWood 稿)
-                or StatusKind.Doom => "",   // 致命(traits StatusChips 稿):无数字,剩余回合在时长行
+                or StatusKind.Doom   // 致命(traits StatusChips 稿):无数字,剩余回合在时长行
+                // 反击加倍 / 保命(StatusChips 10-04 稿)、受击回复 / 受击得盾(E3 Q9:有了图标,数值在说明里):只出图标
+                or StatusKind.CounterBoost or StatusKind.Endure or StatusKind.HurtShield or StatusKind.HurtHeal => "",
             // 减伤 / 受伤上限有了正式图标(bulwark / hitcap,2026-10-11 拍板):详情 chip 印百分比(SummonInfoNature 稿「减伤 15%」);
-            // 战场上不带数字。反击加倍 / 保命仍待 Plan E2 接图标,先用设计稿的兜底字(终审 Minor 5)
+            // 战场上不带数字。
             // 攻击 / 荆棘光环(StatusChipsWood / SummonInfoNature 稿):详情 chip 印百分比
             StatusKind.DamageCut or StatusKind.HitCap or StatusKind.SummonEmpower or StatusKind.SummonThorns =>
                 Strings.T("detail.chip.plain_pct", ("value", magnitude)),
-            StatusKind.CounterBoost => Strings.T("detail.chip.counterboost"),
-            StatusKind.Endure => Strings.T("detail.chip.endure"),
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),
@@ -212,6 +217,13 @@ namespace Brushblade.Presentation
                     Duration = info.Duration,
                     Desc = info.Desc,
                 };
+                // 封字·代价态(杜门不出,Buff 极性):墨蓝描边纸底,同战场那枚(StatusChipsWaterEarth 拍板「详情同样描边」)
+                if (effect.Kind == StatusKind.Seal && effect.Polarity == StatusPolarity.Buff)
+                {
+                    entry.ChipColor = Theme.PanelPaper;
+                    entry.ChipFg = Theme.InkSoft;
+                    entry.ChipBorder = Theme.InkSoft;
+                }
                 // 炽焰(StatusChipsFire 稿):门槛没到的减攻不算进攻击力、战场上不出 chip,详情里照列、文字压暗,
                 // 说明换成「炽焰:灼满 5 层时攻击 −30%(现在 4 层)」。判据与 EnemyState.ActiveCurse 同口径。
                 if (effect.Kind == StatusKind.Curse && effect.MinBurn > 0)

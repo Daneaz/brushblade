@@ -206,6 +206,9 @@ namespace Brushblade.Core
                 units = Math.Min(effect.Magnitude, CombatCaps.BurnStacks) - (bag.Find(StatusKind.Burn)?.Magnitude ?? 0);
                 if (units <= 0) return false;
             }
+            // E3:拦截事件在转盾 Shield 之前(稿:护盾数字跟在删除线后面)。到这里一定拦下
+            _events.Add(new BattleEvent(BattleEventKind.DebuffWarded, onSummon ? target.Index : Targeting.PlayerTarget,
+                (int)effect.Kind, ward.WardOf.HasValue ? (int)ward.WardOf.Value : -1, absorbed: units));
             if (ward.WardCount > 0 && --ward.WardCount == 0) bag.RemoveEntry(ward);
 
             int shield = ward.Magnitude * units;

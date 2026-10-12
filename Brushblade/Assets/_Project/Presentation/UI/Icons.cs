@@ -87,6 +87,17 @@ namespace Brushblade.Presentation
             { "bulwark", "壁" },
             // E2 字卡详情:「Lv N 解锁」的锁
             { "lock", "锁" },
+            // E3 拍板 chip(2026-10-1x):水土八枚 + riposte / lastlife
+            { "buffblock", "禁" },
+            { "ward", "御" },
+            { "wardburn", "熄" },
+            { "hurtheal", "复" },
+            { "hurtshield", "垒" },
+            { "turnpulse", "轮" },
+            { "shieldcarry", "流" },
+            { "skillcut", "削" },
+            { "riposte", "反" },
+            { "lastlife", "保" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

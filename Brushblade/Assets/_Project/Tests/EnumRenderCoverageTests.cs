@@ -66,16 +66,12 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.FrostBite)] = "隐藏载体(D2-水 V5,怀山):冻结中每拍的伤害本身就是反馈,来源标签归 Plan E",
             [nameof(StatusKind.ThawStrike)] = "隐藏载体(D2-水 V5,寒彻):冻结结束时的伤害本身就是反馈,来源标签归 Plan E",
             [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
-            // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(StatusText 有文案),chip 待稿,不在这里
+            // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(E3 起战场 chip 已接),不在这里
             [nameof(StatusKind.ShieldFrost)] = "隐藏载体(D2-水 V5,冰晶):护盾被打破时攻击者被冻结本身就是反馈,触发反馈归 Plan E",
-            // D2-土 Task 2(Q21):浮屠是隐藏载体
-            [nameof(StatusKind.ShieldCarry)] = "隐藏载体(D2-土 Q21,浮屠):回合开始时留下的护盾数本身就是反馈,触发反馈归 Plan E",
-            // D2-土 Task 3(Q21):碎玉是隐藏载体(永久豁免)
-            [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):护盾被打破时的反伤本身就是反馈,触发反馈归 Plan E",
-            // D2-土 Task 4(Q21):杜塞的大招削减是 Boss 身上的隐藏载体(永久豁免);「大招减半」显示在蓄力预警上归 Plan E
-            [nameof(StatusKind.SkillCut)] = "隐藏载体(D2-土 Q21,杜塞):Boss 下一次大招伤害削减,预警提示归 Plan E",
-            // 铜墙铁壁(HitCap)/ 堡垒(HurtShield)不在这里:StatusText 有详情文案(同 W5 受击回复),
-            // 战场 chip 分别待 Q20「减伤」稿 / 与 W5 合出的「受击收益」稿
+            // 浮屠(护盾回流)/ 杜塞(大招削弱)E3 起出 chip(StatusChipsWaterEarth 2026-10-11 拍板),已移出豁免。
+            // 碎玉是永久豁免:稿明写「不出 chip」—— 它附在这次护盾上、护盾空了就移除(同反震),只走触发反馈
+            [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):StatusChipsWaterEarth 稿明写不出 chip —— " +
+                "附在护盾上、护盾空了就没了,只走触发反馈(护盾角标闪、「碎玉」飘出、反伤数字)",
         };
 
         /// <summary>手工列「会挂在敌人身上」的 StatusKind —— 不推导,写死一张诚实的表。
@@ -112,8 +108,28 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Doom),       // 致命(D2-金 M2,traits StatusChips 稿)
             nameof(StatusKind.Bind),       // 被缠(D2-木 M7,StatusChipsWood 稿 2026-10-11)
             nameof(StatusKind.ThornMark),  // 荆刺(D2-木 M6,StatusChipsWood 稿 2026-10-11)
-            // 待稿(D2-水 V5):BuffBlock(洗尽铅华)也挂在敌人身上、玩家可见,但 chip 稿已请 designer 出、尚未拍板 ——
-            // 按 V3 门控 Core 照做、chip 不画,所以暂不列入;StatusText 已有详情文案。稿拍板、BattleView 接上 chip 时加进来。
+            nameof(StatusKind.BuffBlock),  // 禁增益(D2-水 W3 洗尽铅华,StatusChipsWaterEarth 稿 2026-10-11)
+            nameof(StatusKind.SkillCut),   // 大招削弱(D2-土 G6 杜塞,只挂 Boss;同稿)
+        };
+
+        /// <summary>E3 起玩家状态栏 / 木灵格要画的我方状态(StatusChipsWaterEarth + StatusChips 10-04 稿,2026-10-11 拍板)。
+        /// 与 <see cref="EnemyFacingStatuses"/> 同理:那两段是手写的 if 链,不在里面就不显示 —— 而 2026-09-02 势/水势、
+        /// D2-水 / 土 这批都是「Core 做了、chip 漏了」。只列这一批拍板 chip;更早的我方 chip 不回头补列。
+        /// 免疫减益两处共用 <c>AddWardChips</c>,所以按调用 + 该方法体分开查。</summary>
+        private static readonly string[] PlayerBarStatuses =
+        {
+            nameof(StatusKind.Seal),         // 封字两态(倾覆实底 / 杜门不出描边,Q6)
+            nameof(StatusKind.CounterBoost), // 反击加倍(随格挡)
+            nameof(StatusKind.HurtHeal),
+            nameof(StatusKind.HurtShield),
+            nameof(StatusKind.TurnPulse),
+            nameof(StatusKind.ShieldCarry),
+        };
+
+        private static readonly string[] SummonCellStatuses =
+        {
+            nameof(StatusKind.Endure),       // 保命(只挂木灵)
+            nameof(StatusKind.CounterBoost), // 反击加倍(木灵 Block > 0 时,Q7)
         };
 
         private static string Root()
@@ -289,6 +305,30 @@ namespace Brushblade.Core.Tests
             Assert.That(missing, Is.Empty,
                 "这些会挂在敌人身上的状态,战斗画面的敌人格没有任何提示:\n  "
                 + string.Join("\n  ", missing));
+        }
+
+        /// <summary>玩家状态栏(DrawPlayerStats)与木灵格(AddSummonStatusChips)要画 E3 拍板的我方状态 chip。</summary>
+        [Test]
+        public void EveryAllyStatus_HasBattleViewChip()
+        {
+            var full = Source("BattleView.cs");
+            var player = MethodBody(full, "private void DrawPlayerStats()");
+            var summon = MethodBody(full, "private void AddSummonStatusChips(");
+            var ward = MethodBody(full, "private static void AddWardChips(");
+            var missing = PlayerBarStatuses.Where(n => !ContainsKindRef(player, "StatusKind", n)).Select(n => "玩家栏 " + n)
+                .Concat(SummonCellStatuses.Where(n => !ContainsKindRef(summon, "StatusKind", n)).Select(n => "木灵格 " + n))
+                .ToList();
+            // 封字两态(Q6):StatusKind.Seal 本来就在玩家栏里(倾覆那枚),光查它钉不住代价态 ——
+            // 另要求按极性分支(StatusPolarity.Buff)且有第二枚带描边参数的 seal chip(new(…, "seal", Theme.X) 的 border 形)
+            bool sealByPolarity = ContainsKindRef(player, "StatusPolarity", nameof(StatusPolarity.Buff));
+            int sealChips = Regex.Matches(player, "\"seal\"").Count;
+            bool sealOutlined = Regex.IsMatch(player, "\"seal\"\\s*,\\s*Theme\\.\\w+\\s*\\)");
+            if (!sealByPolarity || sealChips < 2 || !sealOutlined)
+                missing.Add("玩家栏 Seal 代价态(杜门不出:按极性分出的第二枚、描边纸底)");
+            if (!player.Contains("AddWardChips(")) missing.Add("玩家栏 DebuffWard(没调 AddWardChips)");
+            if (!summon.Contains("AddWardChips(")) missing.Add("木灵格 DebuffWard(没调 AddWardChips)");
+            if (!ContainsKindRef(ward, "StatusKind", nameof(StatusKind.DebuffWard))) missing.Add("AddWardChips 不读 DebuffWard");
+            Assert.That(missing, Is.Empty, "这些我方状态在战斗画面上没有 chip:\n  " + string.Join("\n  ", missing));
         }
 
         /// <summary>修饰类枚举(条件 / 选择器 / 计数口径 / Augment 字段)在 CharInfo 里都有文案,或是「缺省不印」的那一档

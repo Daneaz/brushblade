@@ -257,12 +257,13 @@ namespace Brushblade.Presentation
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.hitcap.desc", ("magnitude", magnitude)));
                 case StatusKind.CounterBoost:
-                    return new Info(null, Strings.T("status.counterboost.name"),
+                    // 反击加倍(StatusChips 10-04 补,2026-10-11 拍板):图标 riposte
+                    return new Info("riposte", Strings.T("status.counterboost.name"),
                         Strings.T("status.duration.this_turn"),
                         Strings.T("status.counterboost.desc"));
                 case StatusKind.Endure:
                     // 保命(D1 Task 7,扎根):召唤物身上,一次性 —— 时长行报次数(与免疫同口径)
-                    return new Info(null, Strings.T("status.endure.name"),
+                    return new Info("lastlife", Strings.T("status.endure.name"),
                         Strings.T("status.duration.charges", ("value", magnitude)),
                         Strings.T("status.endure.desc"));
                 case StatusKind.HealBlock:
@@ -288,30 +289,42 @@ namespace Brushblade.Presentation
                         Strings.T("status.retaliate.desc"));
                 case StatusKind.BuffBlock:
                     // 洗尽铅华(D2-水 W3):敌人身上,按**该敌人的行动**递减(冻结跳过那拍也算)——时长写「次行动」不写「回合」。
-                    // 战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
-                    return new Info(null, Strings.T("status.buffblock.name"),
+                    // StatusChipsWaterEarth(2026-10-11 拍板):墨蓝、buffblock 图标、战场 chip 无数字
+                    return new Info("buffblock", Strings.T("status.buffblock.name"),
                         turnsLeft > 0 ? Strings.T("status.duration.actions", ("value", turnsLeft)) : Duration(turnsLeft),
                         Strings.T("status.buffblock.desc"));
                 case StatusKind.DebuffWard:
-                    // 濯身 / 浇熄(D2-水 W4):玩家或木灵身上。战场 chip 待 designer 稿(V5 门控),IconKey null。
+                    // 濯身 / 浇熄(D2-水 W4):玩家或木灵身上。图标按 WardOf 分 ward / wardburn(StatusChipsWaterEarth 拍板)。
                     // 只拦哪一种 / 剩几次要读 StatusEffect 的字段 —— 详情走 Of(StatusEffect) 那个重载;这里是只有三元组时的全量口径
                     return WardInfo(null, 0, magnitude, turnsLeft);
                 case StatusKind.HurtHeal:
-                    // 栉风沐雨(D2-水 W5):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;详情弹窗照列
-                    return new Info(null, Strings.T("status.hurtheal.name"),
+                    // 栉风沐雨(D2-水 W5):玩家身上。hurtheal 图标(StatusChipsWaterEarth 拍板)
+                    return new Info("hurtheal", Strings.T("status.hurtheal.name"),
                         Duration(turnsLeft),
                         Strings.T("status.hurtheal.desc", ("magnitude", magnitude)));
                 case StatusKind.HurtShield:
-                    // 堡垒(D2-土 G3):玩家身上。同 HurtHeal:战场 chip 不出(Q21,与 W5 合稿),详情弹窗照列;Magnitude = 出字时定死的护盾量
-                    return new Info(null, Strings.T("status.hurtshield.name"),
+                    // 堡垒(D2-土 G3):玩家身上。hurtshield 图标(与受击回复合稿);Magnitude = 出字时定死的护盾量
+                    return new Info("hurtshield", Strings.T("status.hurtshield.name"),
                         Duration(turnsLeft),
                         Strings.T("status.hurtshield.desc", ("magnitude", magnitude)));
                 case StatusKind.TurnPulse:
-                    // 大雨滂沱(D2-水 W7):玩家身上。战场 chip 待 designer 稿(V5 门控),IconKey null;
+                    // 大雨滂沱(D2-水 W7):玩家身上。turnpulse 图标(StatusChipsWaterEarth 拍板;战场 chip 数字 = 剩余次数)。
                     // 载荷在 StatusEffect.OnHit 上 —— 详情走 Of(StatusEffect) 重载逐条列出,这里只有三元组时不列
-                    return new Info(null, Strings.T("status.turnpulse.name"),
+                    return new Info("turnpulse", Strings.T("status.turnpulse.name"),
                         Duration(turnsLeft),
                         Strings.T("status.turnpulse.desc.generic"));
+                case StatusKind.ShieldCarry:
+                    // 护盾回流(浮屠,D2-土 G9;StatusChipsWaterEarth 拍板出 chip):玩家身上,翠玉、shieldcarry 图标,
+                    // 战场 chip 数字 = 剩余次数(TurnsLeft,E3 附录 §1.3)
+                    return new Info("shieldcarry", Strings.T("status.shieldcarry.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.shieldcarry.desc", ("magnitude", magnitude)));
+                case StatusKind.SkillCut:
+                    // 大招削弱(杜塞,D2-土 G6;StatusChipsWaterEarth 拍板出 chip):Boss 身上,墨蓝、skillcut 图标、无数字。
+                    // 放完大招即整类移除 —— 时长写「下次大招前」,不写「本场持久」(E3 Q14)
+                    return new Info("skillcut", Strings.T("status.skillcut.name"),
+                        Strings.T("status.duration.until_skill"),
+                        Strings.T("status.skillcut.desc", ("magnitude", magnitude)));
                 // ---- D2-木 Task 5(StatusChipsWood / SummonInfoNature 稿,2026-10-11 拍板)----
                 case StatusKind.SummonEmpower:
                     // 木灵攻击光环(林立 / 擎天 / 桂冠):玩家袋,按玩家回合计;落在哪只木灵见 Of(StatusEffect) 的 TargetSlot 分支
@@ -390,8 +403,9 @@ namespace Brushblade.Presentation
                 case StatusKind.Retaliate when effect.MinArmor > 0:
                     return new Info(info.IconKey, info.Name, info.Duration, RetaliateGate(effect) + info.Desc);
                 case StatusKind.Seal when effect.Polarity == StatusPolarity.Buff:
-                    // 杜门不出的 AP 代价(D2-土 G7):Buff 极性的封字,不是倾覆挂的 —— 说明不能写「Boss 技能「倾覆」」
-                    return new Info(info.IconKey, info.Name, info.Duration,
+                    // 杜门不出的 AP 代价(D2-土 G7):Buff 极性的封字,不是倾覆挂的 —— 说明不能写「Boss 技能「倾覆」」;
+                    // 时长行补「清不掉」(StatusChipsWaterEarth 封字代价态,详情 chip 同样描边,见 UnitDetailChip.BuildStatuses)
+                    return new Info(info.IconKey, info.Name, Strings.T("status.duration.next_turn.cost"),
                         Strings.T("status.seal.desc.cost", ("magnitude", effect.Magnitude)));
                 case StatusKind.TurnPulse when effect.OnHit is { Count: > 0 }:
                     return new Info(info.IconKey, info.Name, info.Duration,
@@ -424,7 +438,8 @@ namespace Brushblade.Presentation
                     : Strings.T("status.debuffward.shield.entry", ("value", shield));
             if (wardCount > 0)
                 desc += Strings.T("status.debuffward.count", ("count", wardCount));
-            return new Info(null, name, Duration(turnsLeft), desc);
+            // 图标(StatusChipsWaterEarth):只拦灼 = wardburn;全量与其它单一种类暂落 ward(稿:以后环里换那一种的图标)
+            return new Info(wardOf == StatusKind.Burn ? "wardburn" : "ward", name, Duration(turnsLeft), desc);
         }
 
         /// <summary>敌人天生能力。文案取自既有 `enemy.ability.*`(EnemyInfo.cs 的图鉴/战斗面板

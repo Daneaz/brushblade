@@ -260,6 +260,8 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
+                        // 碎玉(E3,WaterEarthCues):护盾角标闪 →「碎玉」飘出 → 再往下照常飘反伤数字
+                        if (e.Source == EffectSource.ShieldShatter) yield return PlayShieldShatter();
                         // 溢流(2026-09-18,用户要求单独一种扣血表现):串行、从溢出者身上飞一注水过去 ——
                         // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
@@ -461,6 +463,7 @@ namespace Brushblade.Presentation
                         for (int j = idx + 1; j < events.Count; j++)
                             if (events[j].Kind == BattleEventKind.SummonHit && events[j].TargetIndex == e.TargetIndex)
                             { front = summonAnchor?.Invoke(events[j].SecondIndex); break; }
+                        if (e.Source == EffectSource.SkillCut) PlaySkillCut(e.TargetIndex, enemyAnchor(e.TargetIndex));   // 杜塞(E3)
                         yield return BossSkillCast(enemyAnchor(e.TargetIndex), EnemyAt?.Invoke(e.TargetIndex), (BossSkill)e.Amount, front);
                         _skillCaster = e.TargetIndex;
                         serialPending = false;
@@ -656,7 +659,12 @@ namespace Brushblade.Presentation
                         serialPending = true;
                         break;
                     case BattleEventKind.Shield:
-                        Popup(Strings.T("juice.popup.shield_gain", ("amount", e.Amount)), Theme.SplitBlue, null);
+                        // 木灵护盾到上限时转盾给 0(Water.cs 浇熄照发 Shield):不飘「+0」。OnImpact 对 0 本来就是空操作
+                        if (e.Amount <= 0) break;
+                        if (e.Source == EffectSource.ShieldCarry) yield return PlayShieldCarry();   // 浮屠(E3)
+                        // TargetIndex ≥0 = 盾加在木灵身上(浇熄护木灵转盾,E3):数字飘在那只木灵身上
+                        Popup(Strings.T("juice.popup.shield_gain", ("amount", e.Amount)), Theme.SplitBlue,
+                            e.TargetIndex >= 0 ? summonAnchor?.Invoke(e.TargetIndex) : null);
                         PlayClip(_shieldClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨护盾条
                         break;
@@ -713,6 +721,25 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.MoraleGain: // 锋芒:批末再播,见 PlayDeferredProc
                         deferred.Add(e);
+                        break;
+                    // ---- E3 Task 5(WaterEarthCues / PartsAndGraft,JuiceWaterEarth)----
+                    case BattleEventKind.DebuffWarded:    // 免疫减益挡下:chip 闪 + 删除线状态名,转盾数字跟在后面
+                        yield return PlayWarded(events, idx, summonAnchor);
+                        break;
+                    case BattleEventKind.BuffBlocked:     // 禁增益挡下:chip 闪 + 删除线状态名
+                        PlayBuffBlocked(e, enemyAnchor);
+                        break;
+                    case BattleEventKind.Graft:           // 嫁接:立绘闪、治疗数字、新本命 chip 闪、「嫁接」(生)
+                        PlayGraft(e, summonAnchor, summonInfo);
+                        break;
+                    // ---- E3 Task 6(PartsAndGraft)----
+                    case BattleEventKind.GlyphTrait:      // 字形特性:结果格飘墨蓝「拆」/「合」+ 特性名,停一拍再让效果落地
+                        yield return PlayGlyphTrait(e);
+                        break;
+                    // 拆合播放里的召唤(双木召幼苗):幼苗格在特性名之后弹一下 —— 格子是锁前那次重绘画好的,
+                    // 不弹就看不出是这次拆字召出来的。只在拆合播放里(ForgeChar 有值)演,出字路径的召唤不变
+                    case BattleEventKind.Summon when ForgeChar != null:
+                        PopTile(summonAnchor?.Invoke(e.SecondIndex));
                         break;
                 }
             }
@@ -1372,6 +1399,7 @@ namespace Brushblade.Presentation
         /// 而且不用再占一个新颜色:属性仍然认得出,只是暗下去了。</summary>
         private static Color DamageColor(BattleEvent e)
         {
+            if (e.Source == EffectSource.ShieldShatter) return Theme.GlyphColor(Element.Earth);   // 碎玉反伤:稿用土字形色
             var color = Theme.GlyphColor(e.Attacker);
             return e.Countered ? Color.Lerp(color, Theme.Paper, CounteredFade) : color;
         }
@@ -2152,7 +2180,7 @@ namespace Brushblade.Presentation
 
         /// <param name="outline">描边色。相克专用(2026-08-30):飘字本身已经交给五行属性色了,
         /// 「这记打对了属性」得靠别的通道说 —— 一圈金边既不抢属性色,又是全场独一份的信号。</param>
-        private void Popup(string text, Color color, RectTransform anchor, bool small = false,
+        private Text Popup(string text, Color color, RectTransform anchor, bool small = false,
             float sizeScale = 1f, Color? outline = null)
         {
             var go = new GameObject("Popup", typeof(RectTransform));
@@ -2194,6 +2222,7 @@ namespace Brushblade.Presentation
             }
 
             StartCoroutine(FloatAndFade(rect, label));
+            return label;   // 删除线 / 面印等附件挂在它上面(JuiceWaterEarth)
         }
 
         // 飘字三段的分界(占总时长的比例):弹出 → 悬停 → 上浮淡出

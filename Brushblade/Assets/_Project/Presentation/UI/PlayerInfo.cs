@@ -31,7 +31,12 @@ namespace Brushblade.Presentation
             RecipeGraph graph = null)
         {
             int shield = shieldOverride ?? battle.PlayerShield;
-            var statuses = UnitDetailChip.BuildStatuses(battle.PlayerStatuses, isPlayer: true, graph: graph,
+            // 反击加倍:格挡用完时不起作用,与战场 riposte chip(BattleView 状态 chip 列表)、木灵详情同口径,按 Block > 0 过滤
+            bool blocking = battle.PlayerStatuses.TotalMagnitude(StatusKind.Block) > 0;
+            var shown = new List<StatusEffect>();
+            foreach (var st in battle.PlayerStatuses.All)
+                if (st.Kind != StatusKind.CounterBoost || blocking) shown.Add(st);
+            var statuses = UnitDetailChip.BuildStatuses(shown, battle.PlayerStatuses, isPlayer: true, graph: graph,
                 cardLevelOf: cardLevelOf);
             // 林荫 / 蟾宫(D2-木 M2):本命在场光环护到玩家身上,袋子里没有条目,合成一条(StatusChipsWood 稿「减伤」「暴击」)
             UnitDetailChip.AddWoodNatureEntries(statuses, battle, graph, forSummon: false);

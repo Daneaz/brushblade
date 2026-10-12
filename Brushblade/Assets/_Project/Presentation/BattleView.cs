@@ -424,6 +424,7 @@ namespace Brushblade.Presentation
             _juice.SummonCellAt = slot => _summonCellByCore.TryGetValue(slot, out var cell) ? cell : null;
             _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
             _juice.ChipCue = (on, index, icon) => _woodCues.Add((on, index, icon, null));
+            _juice.PlayerCell = _bottomRow;   // 水土提示(E3 Task 5):玩家的免疫 / 护盾回流 chip 与护盾角标都在底栏里
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
@@ -463,12 +464,32 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
-        private void BeginAnim() => _animsInFlight++;
+        private void BeginAnim()
+        {
+            _animsInFlight++;
+            SyncOpsInput();
+        }
+
+        /// <summary>操作区(字库带 / 部件池 / 拆合台)三块的 CanvasGroup:动画锁期间不接射线(Plan E3)。</summary>
+        private readonly System.Collections.Generic.List<CanvasGroup> _opsInput = new();
+
+        /// <summary>操作区跟着动画锁开关点击(E3)。此前锁只靠「锁期间不画操作区」(Refresh 的 Animating 分支);
+        /// 拆合播放要在锁期间**照画**操作区(结果格要在、特性名从它飘出),所以点击另用 CanvasGroup 挡住 ——
+        /// 一处挡住全部入口(出 / 拆 / 弃 / 合 / 结束回合 / 翻面 / 长按 / 起拖),不靠逐个回调判 Animating。</summary>
+        private void SyncOpsInput()
+        {
+            foreach (var group in _opsInput)
+                if (group != null) group.blocksRaycasts = !Animating;
+        }
+
+        /// <summary>拆合播放中(E3):Refresh 在动画锁里照画操作区(字库 / 部件池 / 拆合台),点击由 <see cref="SyncOpsInput"/> 挡住。</summary>
+        private bool _forgeCuePlaying;
 
         /// <summary>动画落幕:计数 -1,死亡怪转正式置灰;全部落幕才重绘(放行输入/结算 UI/胜负标语)。</summary>
         private void OnAnimDone(System.Collections.Generic.List<int> deaths)
         {
             _animsInFlight = System.Math.Max(0, _animsInFlight - 1);
+            SyncOpsInput();
             _dyingEnemies.ExceptWith(deaths); // 动画已把它们置灰,后续重绘照常画灰
             if (!Animating) _mergeGhosts.Clear();   // 绿潮:被并入的小藻格动画演完才清
             if (!Animating) Refresh();         // 期间不重绘:锁输入,血条 fill/label 引用不被毁
@@ -1108,6 +1129,7 @@ namespace Brushblade.Presentation
             // 把战场四排挤扁 —— 所以是两个铺满同一个槽的叠放层,各自 Ui.Clear / 绘制。
             var band = Ui.Panel(NarrowSlot("Band").transform, "Band");
             Ui.Sized(band, width: _fieldWidth, height: HandBandH);
+            _opsInput.Add(band.AddComponent<CanvasGroup>());   // 动画锁期间不接点击(见 SyncOpsInput)
 
             // 字库行左对齐(2026-09-01 用户拍板):稿 .hand 是 justify-content:center,
             // 但计数标题在行首 —— 整组居中会让标题的 x 随牌数左右漂,与下面同样带标题的
@@ -1127,12 +1149,14 @@ namespace Brushblade.Presentation
             Ui.Sized(poolGo, width: _fieldWidth);
             poolGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             _poolRow = poolGo.transform;
+            _opsInput.Add(poolGo.AddComponent<CanvasGroup>());
             _statusRow = Ui.Row(mid.transform, "Status").transform;
 
             // ---- 右栏:拆合台(稿 .bench) ----
             // 薄宣纸卡(半透,融层段染色);2026-08-20 从底部横卡改为右侧竖栏。
             var workbenchCard = Ui.CardPanel(arena.transform, "Workbench", Theme.PaperCard, 20);
             Ui.Sized(workbenchCard.gameObject, width: BenchW).minWidth = BenchW;
+            _opsInput.Add(workbenchCard.gameObject.AddComponent<CanvasGroup>());
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", BenchGap);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             var workbenchLayout = workbenchStack.GetComponent<VerticalLayoutGroup>();
@@ -1462,7 +1486,8 @@ namespace Brushblade.Presentation
                     // 销毁了。任何「等 Refresh 把字牌画出来再拿它的 RectTransform」的代码
                     // (飞牌起终点之类)都必须排在动画落幕之后,见 DealRoutine 的文档
                     // (2026-08-27:抽卡动画就是栽在这里,整段静默空跑)。
-                    if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
+                    // 拆合播放(E3)例外:操作区照画(结果格要在),点击由 SyncOpsInput 挡住
+                    if (Animating && !_forgeCuePlaying) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
                     {
                         _resolvingHint = true; // 「结算中……」由 Refresh 末尾画进底部提示行
                         break;
@@ -2016,8 +2041,17 @@ namespace Brushblade.Presentation
             // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):排在我方 chip 首位,无数字
             if (Battle.PlayerStatuses.Has(StatusKind.Taunt))
                 statusChips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
-            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
-                statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
+            // 封字两态(StatusChipsWaterEarth,E3 Q6):倾覆挂的是减益 → 墨蓝实底;杜门不出的 AP 代价是 Buff 极性 →
+            // 墨蓝描边纸底(「特性的代价,清不掉」,同霜抗的描边写法)。两者清除规则不同,并存时各出一枚,都在嘲讽后
+            bool sealDebuff = false, sealCost = false;
+            foreach (var s in Battle.PlayerStatuses.All)
+                if (s.Kind == StatusKind.Seal && s.Magnitude > 0)
+                {
+                    if (s.Polarity == StatusPolarity.Buff) sealCost = true;
+                    else sealDebuff = true;
+                }
+            if (sealDebuff) statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
+            if (sealCost) statusChips.Add(new("", Theme.PanelPaper, Theme.InkSoft, "seal", Theme.InkSoft));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0) statusChips.Add(new($"{playerBurn}", Theme.Cinnabar, Color.white, "burn"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity) > 0)
@@ -2038,10 +2072,21 @@ namespace Brushblade.Presentation
             // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
             int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
             if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
+            // 反击加倍(StatusChips 10-04 补,2026-10-11 拍板):赭金(加的是伤害)、紧跟格挡、无数字;
+            // 格挡用完即隐藏(此时它不起作用),同回合再得格挡就重新出现
+            if (Battle.PlayerStatuses.Has(StatusKind.CounterBoost) && playerBlock > 0)
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "riposte"));
             // 回敬(D2-火,StatusChipsFire 稿):翠玉底,紧跟格挡 / 反击加倍(都在说「挨打时会怎样」)。
             // 有每回合上限时带剩余次数,不限次数不带;用完隐藏(同格挡)。召唤物格同样画,见 AddSummonStatusChips。
             var retaliate = RetaliateChip();
             if (retaliate.HasValue) statusChips.Add(retaliate.Value);
+            // 受击回复 · 受击得盾(StatusChipsWaterEarth):紧跟回敬 —— 回敬说「挨打时会怎样」,这两枚说「挨打后得到什么」;
+            // 翠玉、无数字(持续时长在详情)。免疫减益 / 免疫灼烧接在后面(同属「对我施加的东西会怎样」)
+            if (Battle.PlayerStatuses.Has(StatusKind.HurtHeal))
+                statusChips.Add(new("", Theme.Jade, Color.white, "hurtheal"));
+            if (Battle.PlayerStatuses.Has(StatusKind.HurtShield))
+                statusChips.Add(new("", Theme.Jade, Color.white, "hurtshield"));
+            AddWardChips(statusChips, Battle.PlayerStatuses);
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
@@ -2092,6 +2137,11 @@ namespace Brushblade.Presentation
             int waterPower = Battle.WellspringStacks;
             if (waterPower > 0)
                 statusChips.Add(new($"{Strings.T("status.wellspring.chip")}{waterPower}", Theme.Jade, Color.white, null));
+            // 每回合效果 · 护盾回流(StatusChipsWaterEarth):垫底 —— 「回合开始自己发生」,不用玩家盯。带剩余次数
+            var turnPulse = CountdownChip(Battle.PlayerStatuses, StatusKind.TurnPulse, "turnpulse");
+            if (turnPulse.HasValue) statusChips.Add(turnPulse.Value);
+            var shieldCarry = CountdownChip(Battle.PlayerStatuses, StatusKind.ShieldCarry, "shieldcarry");
+            if (shieldCarry.HasValue) statusChips.Add(shieldCarry.Value);
             // 2026-09-19:与单位格 chip 同一套尺寸(字号 12 → 15)
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, UnitChipFontSize, 2,
                 UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
@@ -2585,7 +2635,7 @@ namespace Brushblade.Presentation
             _unitSheetSource = () =>
             {
                 var s = Battle.Summons[index];
-                return s != null && s.Alive ? SummonInfo.Sheet(Battle, index, _graph) : null;
+                return s != null && s.Alive ? SummonInfo.Sheet(Battle, index, _graph, _run.CardLevel) : null;
             };
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
@@ -2688,6 +2738,43 @@ namespace Brushblade.Presentation
             return new Ui.ChipSpec(left.HasValue ? $"{left.Value}" : "", Theme.Jade, Color.white, "retaliate");
         }
 
+        /// <summary>免疫减益 chip(StatusChipsWaterEarth,2026-10-11 拍板;玩家栏与木灵格共用):翠玉。
+        /// 只拦灼 = wardburn,全量(与其它单一种类,稿:以后环里换那一种的图标)= ward;两种并存各出一枚(E3 Q5),全量在前。
+        /// 「前 N 次」形态(杜绝,WardCount &gt; 0)带剩余次数:同一枚里全是限次的才带、取和;有一条不限次数就不带(挡不完)。</summary>
+        private static void AddWardChips(List<Ui.ChipSpec> chips, StatusBag bag)
+        {
+            for (int pass = 0; pass < 2; pass++)
+            {
+                bool burnOnly = pass == 1, any = false, unlimited = false;
+                int count = 0;
+                foreach (var s in bag.All)
+                {
+                    if (s.Kind != StatusKind.DebuffWard || (s.WardOf == StatusKind.Burn) != burnOnly) continue;
+                    any = true;
+                    if (s.WardCount > 0) count += s.WardCount;
+                    else unlimited = true;
+                }
+                if (any)
+                    chips.Add(new(unlimited ? "" : $"{count}", Theme.Jade, Color.white, burnOnly ? "wardburn" : "ward"));
+            }
+        }
+
+        /// <summary>每回合效果 / 护盾回流(StatusChipsWaterEarth):翠玉,数字 = 还会再发生几次 = TurnsLeft(E3 附录 §1.3);
+        /// 多条(大雨滂沱 + 重土 + 一叶知秋)取 max(E3 Q4:取和会把同一回合的两次算成两回合)。没有这条状态返回 null。</summary>
+        private static Ui.ChipSpec? CountdownChip(StatusBag bag, StatusKind kind, string icon)
+        {
+            bool any = false;
+            int left = 0;
+            foreach (var s in bag.All)
+                if (s.Kind == kind)
+                {
+                    any = true;
+                    if (s.TurnsLeft > left) left = s.TurnsLeft;
+                }
+            if (!any) return null;
+            return new Ui.ChipSpec(left > 0 ? $"{left}" : "", Theme.Jade, Color.white, icon);
+        }
+
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
         ///
         /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
@@ -2740,6 +2827,8 @@ namespace Brushblade.Presentation
             // 状态与本命都有时只出一枚
             if (st.Has(StatusKind.Taunt) || (summon.Passive?.Taunt ?? false))
                 chips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
+            // 保命(扎根,StatusChips 10-04 补):嘲讽后第一枚(「谁挨打、挨得住吗」一起看),翠玉、一次性不带数字
+            if (st.Has(StatusKind.Endure)) chips.Add(new("", Theme.Jade, Color.white, "lastlife"));
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
             Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);
@@ -2768,8 +2857,14 @@ namespace Brushblade.Presentation
             if (Battle.PlayerStatuses.Has(StatusKind.HitCap))
                 chips.Add(new("", Theme.Jade, Color.white, "hitcap"));
             Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
+            // 反击加倍(E3 Q7):状态挂在玩家身上,木灵格挡的反击同样吃(Core 受击结算读玩家袋的 CounterBoost)——
+            // 这只木灵有格挡时才画,用完隐藏(同玩家栏)
+            if (Battle.PlayerStatuses.Has(StatusKind.CounterBoost) && st.TotalMagnitude(StatusKind.Block) > 0)
+                chips.Add(new("", Theme.Gold, Theme.GoldText, "riposte"));
             // 回敬(StatusChipsFire 稿):状态只挂在玩家身上,但护全队 —— 每只召唤物也画,玩家要看得出「打木灵也会被点火」
             if (retaliate.HasValue) chips.Add(retaliate.Value);
+            // 免疫减益 / 免疫灼烧(濯身 / 浇熄落在木灵身上):格挡 / 回敬之后、攻击增益之前(StatusChipsWaterEarth 木灵行)
+            AddWardChips(chips, st);
             // 攻击光环占攻击增益的位置;与自身的攻击增益同一枚图标、同一个意思(「攻击变高了」),只出一枚,分项在详情
             if (attackAura || st.TotalMagnitude(StatusKind.AttackBuff) > 0) chips.Add(new("", Theme.Gold, Theme.GoldText, "attack"));
             Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
@@ -2861,6 +2956,8 @@ namespace Brushblade.Presentation
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
+        // 跨排 Boss 格(E3,StatusChipsWaterEarth 拍板):块高 251,头行 24 + chip 3×20+2×3 + 血条 19 + 行动条 6 + 间距 4×3 ≈ 127
+        private const int BossChipMaxLines = 3;
         // 后排召唤格只有 88 高,两行 chip 装不下(见头行拆两行那段的纵向预算)
         private const int SummonBackChipMaxLines = 1;
 
@@ -3127,6 +3224,11 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
                             ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
+                // 大招削弱(杜塞,StatusChipsWaterEarth 2026-10-11 拍板):墨蓝、skillcut 图标、无数字。紧跟蓄力预警 ——
+                // 它改的正是那一招;没在蓄力时就是攻 / 甲之后第一位(同一插入点自然成立)。不并进蓄力 chip:
+                // 预警 + 4 字招名宽 205,逼近 16:9 Boss 列宽 209
+                if (enemy.Statuses.Has(StatusKind.SkillCut))
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "skillcut"));
                 // 冰滞(spec v7 R1b):Boss 被冻结的替身 —— 水字形色实底、chill 图标、无数字。
                 // 顺序按 StatusChips 稿「敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗,
                 // 威胁在前,溢出从尾部丢」。
@@ -3193,6 +3295,10 @@ namespace Brushblade.Presentation
                 // 只对会回血的怪有用,溢出时先丢;它和霜抗同属「不能被怎样」的说明。
                 if (enemy.Statuses.Has(StatusKind.HealBlock))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "healblock"));
+                // 禁增益(洗尽铅华,StatusChipsWaterEarth):墨蓝、buffblock 图标、无数字(「剩 N 次行动」在详情)。
+                // 紧跟干涸:两条都是「得不到什么」,只对会加增益的怪有用,溢出先丢
+                if (enemy.Statuses.Has(StatusKind.BuffBlock))
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "buffblock"));
                 // 破甲(2026-09-06 补,与 AddSummonStatusChips 的 Flag 同口径):量在挂着期间
                 // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
                 // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
@@ -3221,8 +3327,10 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new("", Theme.PanelPaper, Theme.GlyphColor(Element.Water), "frostguard",
                         Theme.GlyphColor(Element.Water)));
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
+                // 跨排 Boss 放到 3 行(StatusChipsWaterEarth 拍板):16:9 下蓄力预警 + 削弱 / 灼在 2 行里会把预警本身收进「+N」。
+                // 按跨排判断而不是 IsBoss —— 纵向余量来自跨排的块高 251(信息列 3 行 ≈127)
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
-                    ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
+                    crossRow ? BossChipMaxLines : ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。
@@ -3480,8 +3588,9 @@ namespace Brushblade.Presentation
             //     友方落点,拖到自己或某只召唤物身上松手即施放。
             //   · **既要敌人又要友方**的(沝/澡/沐/垚/圭/垒):照旧拖到敌人身上,松手后进第二段
             //     点友方 —— 与点「出字」那条路径同一个状态机,不写第二套。
+            // 要不要选敌人读 Core 的实例读口(E3):池中部件带印记时效果表会变(火山「山」改全体),静态 NeedsTarget 看不到
             bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
-                && !BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id));
+                && !Battle.NeedsTargetNow(def.Id, attackMode: true);
             // 双方向字(2026-09-03):起拖时**敌我两边一起点亮**,与双击那条路径同构 ——
             // 拖到哪边就是哪边,可落点必须在起拖那一刻就看得见,否则玩家得靠猜。
             // 排在 allyOnly 之后判:纯友方字(㵘/淼 这类没有单体攻击面的)仍走它自己那一支,
@@ -3695,7 +3804,7 @@ namespace Brushblade.Presentation
             _pendingAttackMode = _faceDragFace == CardFace.Attack;
             int level = _run.CardLevel(def.Id);
             _faceDragLanding = CardFaceRules.Landing(def, _faceDragFace, level);
-            _faceDragHitsAll = FaceHitsAllEnemies(def, _faceDragFace, level);
+            _faceDragHitsAll = Battle.HitsAllEnemiesNow(def.Id, attackMode: _faceDragFace == CardFace.Attack);   // 与 Core 同一份判据(E3)
             _faceMarks.Clear();
             _faceHover = null;
 
@@ -3906,18 +4015,6 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>这一面打全体(全体伤害或 pick = All 的敌对效果):悬停任一敌人时整排一起加深。</summary>
-        private static bool FaceHitsAllEnemies(CharDef def, CardFace face, int level)
-        {
-            foreach (var e in TraitRules.CastEffects(def, face, level))
-            {
-                if (e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All) return true;
-                if (e.Kind == EffectKind.BurnAll) return true;
-                if (CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) == EffectPick.All) return true;
-            }
-            return false;
-        }
-
         /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
         /// 判据一律走 <see cref="Targeting.ExpandTargets"/>,形状/连发数也一律走
         /// <see cref="BattleEngine.AttackShapeOf"/>(2026-08-22 评审 Finding 2 后从表现层自己
@@ -3945,10 +4042,22 @@ namespace Brushblade.Presentation
 
             if (target < 0 || !Battle.CanTarget(def, target, attackMode)) return;
 
+            // 打全体(E3,PartsAndGraft:带火山印记的「山」,以及全体面):悬停任一只 = 全部活敌一起加深,悬停那只算主目标。
+            // 判据是 Core 的实例读口,池中部件的印记算在内 —— 与 CastCore 受理同源
+            if (Battle.HitsAllEnemiesNow(def.Id, attackMode))
+            {
+                for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
+                {
+                    if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode)) continue;
+                    _hoverPreviewCells.Add((i, _enemyHitAreas[i].color));
+                    _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, HoverPreviewPrimaryAlpha);
+                }
+                return;
+            }
+
             var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode, _run.CardLevel(def.Id));
-            // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
-            // 对全体字返回 Single,预览只标悬停那只。本次是恒等重构,预览沿用旧样子;
-            // 要改成「标出全场」是另一件视觉改动,不在这里顺手做。
+            // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):打全体的已在上面 HitsAllEnemiesNow 那支
+            // 标出全场并返回(E3)。走到这里还是 All 只是兜底,按单体只标悬停那只。
             if (shape == TargetArea.All) shape = TargetArea.Single;
             // 连发(2026-09-27):松手时引擎让首发落在这只身上(volleyLeadsWithPrimary),
             // 预览必须走同一个口径 —— 此前这里传 −1,预览与实际落点双双无视玩家指的那只。
@@ -3993,7 +4102,10 @@ namespace Brushblade.Presentation
             ClearDragTargets();
             // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
             // 所以拖拽时照样要把能落的敌人标出来。
-            if (!BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id))
+            // 打全体(E3:带火山印记的「山」)例外:不要目标,但落在任一只都算 —— 拖起即全部活敌描出来。
+            // 判据走 Core 实例读口(印记算在内),与 CastCore 的 needsTarget 同源
+            if (!Battle.HitsAllEnemiesNow(def.Id, attackMode: true)
+                && !Battle.NeedsTargetNow(def.Id, attackMode: true)
                 && BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id)).Shape != TargetArea.Scatter) return;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
@@ -4090,6 +4202,9 @@ namespace Brushblade.Presentation
                     Foes = battle.Enemies,
                     UpFace = upFace,
                     TraitSpent = live ? (System.Func<TraitDef, bool>)(trait => battle.TraitSpentThisBattle(def, trait)) : null,
+                    // 部件印记(E3):只在本场还在打时查,同上一条的理由;印记本回合有效,回合初 Core 清空
+                    PartMarks = live && def.IsComponent ? battle.PartMarksOf(charId) : null,
+                    CardLevelOf = _run.CardLevel,
                 });
         }
 
@@ -4211,6 +4326,41 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)badge.transform, anchor, anchor, offsetMin, offsetMax);
         }
 
+        // 「印」角标(PartsAndGraft 稿 .pl2 .mk):圆径 12pt、右 / 上各外挂 4pt、字 7pt 粗、外圈 1px 纸色
+        private const float MarkBadgeD = 25f;        // 12pt × 2.093
+        private const float MarkBadgeOut = 8f;       // 4pt
+        private const float MarkBadgeRing = 2f;      // 1px 纸色描边
+        private const int MarkBadgeFont = 15;        // 7pt
+
+        /// <summary>部件印记角标(E3,Q3):赭金小圆 +「印」,外挂在右上角,与右上的同源角标部分重叠,压在最上。
+        /// 外挂的 8 与部件池行距 8 相同,不会伸进右邻那张。不吃射线:伸出卡外的那一角不能变成这张卡的点击区。
+        /// <paramref name="scale"/> = 卡高 / 稿高,部件池按行宽缩卡时角标同比缩。</summary>
+        private static void PlaceMarkBadge(Transform tile, float scale)
+        {
+            float d = MarkBadgeD * scale, o = MarkBadgeOut * scale;
+            var ring = Ui.Panel(tile, "MarkBadge");
+            var ringImage = ring.AddComponent<Image>();
+            ringImage.sprite = Theme.Circle;
+            ringImage.color = Theme.PanelPaper;
+            ringImage.raycastTarget = false;
+            var corner = new Vector2(1, 1);
+            Ui.Anchor((RectTransform)ring.transform, corner, corner,
+                new Vector2(o - d - MarkBadgeRing, o - d - MarkBadgeRing), new Vector2(o + MarkBadgeRing, o + MarkBadgeRing));
+            var disc = Ui.Panel(ring.transform, "Disc");
+            var discImage = disc.AddComponent<Image>();
+            discImage.sprite = Theme.Circle;
+            discImage.color = Theme.Gold;
+            discImage.raycastTarget = false;
+            Ui.Anchor((RectTransform)disc.transform, Vector2.zero, Vector2.one,
+                new Vector2(MarkBadgeRing, MarkBadgeRing), new Vector2(-MarkBadgeRing, -MarkBadgeRing));
+            var label = Ui.ThemedLabel(disc.transform, Strings.T("battle.part.mark"),
+                Mathf.RoundToInt(MarkBadgeFont * scale), Theme.GoldText);
+            label.fontStyle = FontStyle.Bold;
+            label.raycastTarget = false;
+            Ui.Stretch(label.rectTransform);
+            ring.transform.SetAsLastSibling();
+        }
+
         /// <summary>部件池行末尾的广告扩容位(稿 .adpart):扩容之后整个撤掉、不留灰槽,
         /// 与 <see cref="DrawHandAdSlot"/> 同一个理由、同一套取舍(实线近似虚线边框)。</summary>
         private void DrawPoolAdSlot(Vector2 size)
@@ -4253,6 +4403,8 @@ namespace Brushblade.Presentation
             float partW = poolSlots == 0 ? PartTileW
                 : Mathf.Min(PartTileW, (_fieldWidth - CountCaptionW - poolSlots * poolSpacing) / poolSlots);
             var partSize = new Vector2(partW, partW * (PartTileH / PartTileW));
+            // 部件印记(E3,PartsAndGraft):角标个数 = 剩余次数,挂在排在前面的同字部件上。奖励页不画(印记只活在本回合)
+            var markBadges = rewardPhase ? null : PartMarkRules.Badges(poolChars, Battle.PartMarkCharges);
             for (int pi = 0; pi < poolChars.Count; pi++)
             {
                 string charId = poolChars[pi];
@@ -4296,6 +4448,8 @@ namespace Brushblade.Presentation
                     if (Time.unscaledTime >= tailUntil) _freshPoolTail.Remove(charId);
                     else _juice.Glow((RectTransform)tile.transform, Theme.ElementColor(def.Element), tailUntil);
                 }
+                // 「印」画在同源角标与光晕之后,压在最上层(Q3)
+                if (markBadges != null && markBadges[pi]) PlaceMarkBadge(tile.transform, partSize.y / PartTileH);
             }
             // 稿 .poolnote「下回合掉 1 个」没有照抄:2026-08-04 起部件已经不再随回合掉落
             // (BattleEngine.cs:1784「部件不再掉落——五行部件只能靠拆字获得」),掉的是字、
@@ -6146,7 +6300,8 @@ namespace Brushblade.Presentation
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
             // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
             // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
-            if (BattleEngine.NeedsTarget(def, attackMode, _run.CardLevel(def.Id)) && LegalTargetCount(def, attackMode) > 1)
+            // E3:读 Core 实例读口 —— 带印记的「山」不要目标,点「出」/ 再点直出不能还进选目标态(Core 不要、UI 要)
+            if (Battle.NeedsTargetNow(def.Id, attackMode) && LegalTargetCount(def, attackMode) > 1)
             {
                 _targeting = true;
                 _pendingAttackMode = attackMode;
@@ -6427,7 +6582,7 @@ namespace Brushblade.Presentation
                 AppendBossPhaseMessage();
                 AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
                 AppendUnsealMessage(); // 解封重掷召唤物属性,同样产自 Cast() 自己的 _events
-                AppendGraftMessage();  // 嫁接(木生面落木灵):回满并换本命,最小反馈
+                // 嫁接不弹文字条(E3 Q8):提示全在 Juice(JuiceWaterEarth.PlayGraft)
             }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
@@ -6665,19 +6820,6 @@ namespace Brushblade.Presentation
                 }
         }
 
-        /// <summary>嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满生命并换本命。完整交互归 Plan E,这里只播一句。</summary>
-        private void AppendGraftMessage()
-        {
-            foreach (var e in Battle.LastEvents)
-                if (e.Kind == BattleEventKind.Graft)
-                {
-                    string charId = e.SecondIndex >= 0 && e.SecondIndex < Battle.Summons.Count
-                        && Battle.Summons[e.SecondIndex] != null
-                        ? Battle.Summons[e.SecondIndex].Char : "";
-                    _message += Strings.T("battle.msg.graft", ("charId", charId));
-                }
-        }
-
         private void AppendBossSkillMessage()
         {
             foreach (var e in Battle.LastEvents)
@@ -6705,7 +6847,9 @@ namespace Brushblade.Presentation
         {
             bool hasFrom = TryGetTilePos(charId, out var fromPos);
             var recipe = _graph.Get(charId).Recipe;
+            SnapshotPreHp();   // 字形特性(双木召幼苗等)的结算要从拆前的血量演起;只在动画锁里被读
             var error = Battle.Dismantle(charId);
+            var forgeEvents = BeginForgeCue(error);   // 须在下面那次重绘之前:锁要先上,血条才画拆前值
             if (error == BattleError.None)
             {
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
@@ -6721,6 +6865,9 @@ namespace Brushblade.Presentation
             CancelSelection();
             if (error == BattleError.None)
             {
+                // 结果格 = 拆出来的部件(同名取最后一张,即新进池的那张);重绘后已登记
+                PlayForgeCue(forgeEvents, charId,
+                    recipe.Count > 0 && _tileRects.TryGetValue(recipe[recipe.Count - 1], out var newPart) ? newPart : null);
                 if (hasFrom) // 部件从原字牌位置散落到池中新位(重绘后已登记)
                     foreach (var part in recipe)
                     {
@@ -6740,7 +6887,9 @@ namespace Brushblade.Presentation
             foreach (var part in _graph.Get(charId).Recipe)
                 if (TryGetTilePos(part, out var pos))
                     partsFrom.Add((part, pos));
+            SnapshotPreHp();   // 同 OnDismantle:三焰 / 三木 / 三土的结算从合前的血量演起
             var error = Battle.Compose(charId);
+            var forgeEvents = BeginForgeCue(error);
             if (error == BattleError.None)
             {
                 _tutorial?.Notify(TutorialAction.Compose, charId);
@@ -6754,6 +6903,7 @@ namespace Brushblade.Presentation
             CancelSelection();
             if (error == BattleError.None)
             {
+                PlayForgeCue(forgeEvents, charId, _tileRects.TryGetValue(charId, out var resultRect) ? resultRect : null);
                 if (_tileRects.TryGetValue(charId, out var resultTile) && resultTile != null && partsFrom.Count > 0)
                 {
                     int arrived = 0; // 闭包共享:全部到齐才弹跳
@@ -6763,6 +6913,48 @@ namespace Brushblade.Presentation
                 }
                 MaybeAutoEndTurn();
             }
+        }
+
+        /// <summary>拆合播放第一步(Plan E3,Review Focus 3):拆 / 合成功且 Core 发了事件(字形特性及其结算)时,
+        /// 拍下事件快照、登记死怪与被顶替槽、上动画锁,并让接下来那次重绘在锁里**照画操作区**(<see cref="_forgeCuePlaying"/>)。
+        /// 必须在 CancelSelection 那次重绘**之前**调:锁先上,战场血条才画拆合前的值(与 ExecuteCast 同序)。
+        /// 没有事件(绝大多数拆合)返回 null,整条路径与改前一样不上锁 —— 连拆 / 连合 / 拆完立刻拖出都不受影响。
+        /// Core 的拆合进门即清事件,快照只含这一次,不会重播上一次出字的旧事件。</summary>
+        private System.Collections.Generic.List<BattleEvent> BeginForgeCue(BattleError error)
+        {
+            if (error != BattleError.None || Battle.LastEvents.Count == 0) return null;
+            var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
+            _dyingEnemies.UnionWith(DeathsOf(events));   // 三焰结算灼可能烧死怪:重绘据此保持着色
+            DropReplacedSummonSnapshots();
+            _forgeCuePlaying = true;
+            BeginAnim();   // 锁输入(SyncOpsInput 挡住操作区点击、DragToAttack 不许起拖)
+            return events;
+        }
+
+        /// <summary>拆合播放第二步:重绘之后播。<paramref name="resultTile"/> = 拆合台的结果格(拆:新进池的部件;合:合出的字牌),
+        /// 字形特性名从它飘出(JuiceWaterEarth.PlayGlyphTrait)。收尾先撤 _forgeCuePlaying 再 OnAnimDone,落幕那次重绘照常。
+        /// 播放期间不重绘:操作区是锁前那次画好的,结果格引用一直有效;起拖被 !Animating 挡住,所以不会有「重绘销毁正被拖的牌」。</summary>
+        private void PlayForgeCue(System.Collections.Generic.List<BattleEvent> events, string charId, RectTransform resultTile)
+        {
+            if (events == null) return;
+            var deaths = DeathsOf(events);
+            _juice.ForgeChar = _graph.Get(charId);
+            _juice.ForgeResult = resultTile;
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () =>
+                {
+                    _forgeCuePlaying = false;
+                    _juice.ForgeChar = null;   // 只服务这一次拆合播放(Juice 的 Summon 弹跳据它判是不是拆合)
+                    _juice.ForgeResult = null;
+                    OnAnimDone(deaths);
+                }, OnImpact, SummonAt, EnemyElement, EnemyRanged);
+        }
+
+        private static System.Collections.Generic.List<int> DeathsOf(System.Collections.Generic.IReadOnlyList<BattleEvent> events)
+        {
+            var deaths = new System.Collections.Generic.List<int>();
+            foreach (var e in events)
+                if (e.Kind == BattleEventKind.EnemyDied) deaths.Add(e.TargetIndex);
+            return deaths;
         }
 
         private void OnEndTurn()

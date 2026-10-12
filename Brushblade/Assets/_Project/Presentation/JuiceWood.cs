@@ -50,15 +50,20 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>某个根节点下、图标为 <paramref name="iconKey"/> 的 chip 闪一下(白闪 + 弹一下,同受击的 HitReact)。
-        /// 按图标 Sprite 找;PNG 缺失走兜底字的 chip 找不到,安静跳过。</summary>
-        public void FlashIcon(Transform root, string iconKey)
+        /// 按图标 Sprite 找;PNG 缺失走兜底字的 chip 找不到,安静跳过。返回首个命中的 chip(飘字锚点用),没有返回 null。</summary>
+        public RectTransform FlashIcon(Transform root, string iconKey)
         {
-            if (root == null) return;
+            if (root == null) return null;
             var sprite = Icons.Get(iconKey);
-            if (sprite == null) return;
+            if (sprite == null) return null;
+            RectTransform first = null;
             foreach (var image in root.GetComponentsInChildren<Image>())
                 if (image.sprite == sprite && image.transform.parent is RectTransform chip)
+                {
+                    first ??= chip;
                     HitReact(chip, 0.7f);
+                }
+            return first;
         }
 
         /// <summary>重绘后的特性名飘字(光环挂上:特性名只飘一次,BattleView 选落点)。</summary>

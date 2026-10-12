@@ -58,7 +58,8 @@ namespace Brushblade.Core
             int kept = clearedNormal * Math.Min(percent, 100) / 100;
             if (kept <= 0) return;
             int granted = AddPlayerShield(kept, persist: false);
-            if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+            if (granted > 0)
+                _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted, source: EffectSource.ShieldCarry));
         }
 
         // ---- Task 3:受击挂点族(G2 / G3 / G4) ----

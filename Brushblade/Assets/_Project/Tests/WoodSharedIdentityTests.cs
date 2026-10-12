@@ -336,7 +336,9 @@ namespace Brushblade.Core.Tests
 
         private const string HealAllyExpected = "a0dba9e573253865 6345";
         private const string CharmExpected = "e9fb1d457f6e0db1 7216";
-        private const string GraftExpected = "40191a65b2438a21 9264";
+        // Plan E3 Task 1(Q14):Graft 事件的 Amount 由恒 0 改为回复量 —— 指纹只因这一个字段变化(原值 "40191a65b2438a21 9264";
+        // 把 Amount 临时写回 0 时本测试原样通过,已核验)。
+        private const string GraftExpected = "6b74b2e958eb187a 9266";
         private const string SummonFamilyExpected = "e524cbf0cff04a05 18948";
         private const string ThornsExpected = "5a776f5f6463ca6d 7005";
         private const string CarryExpected = "2944619ae0101fd6 403";
