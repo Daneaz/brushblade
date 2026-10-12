@@ -2016,8 +2016,17 @@ namespace Brushblade.Presentation
             // 嘲讽(D2-0 Task 2,稿 StatusChips k-ctrl):排在我方 chip 首位,无数字
             if (Battle.PlayerStatuses.Has(StatusKind.Taunt))
                 statusChips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
-            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
-                statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
+            // 封字两态(StatusChipsWaterEarth,E3 Q6):倾覆挂的是减益 → 墨蓝实底;杜门不出的 AP 代价是 Buff 极性 →
+            // 墨蓝描边纸底(「特性的代价,清不掉」,同霜抗的描边写法)。两者清除规则不同,并存时各出一枚,都在嘲讽后
+            bool sealDebuff = false, sealCost = false;
+            foreach (var s in Battle.PlayerStatuses.All)
+                if (s.Kind == StatusKind.Seal && s.Magnitude > 0)
+                {
+                    if (s.Polarity == StatusPolarity.Buff) sealCost = true;
+                    else sealDebuff = true;
+                }
+            if (sealDebuff) statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
+            if (sealCost) statusChips.Add(new("", Theme.PanelPaper, Theme.InkSoft, "seal", Theme.InkSoft));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0) statusChips.Add(new($"{playerBurn}", Theme.Cinnabar, Color.white, "burn"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity) > 0)
@@ -2038,10 +2047,21 @@ namespace Brushblade.Presentation
             // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
             int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
             if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
+            // 反击加倍(StatusChips 10-04 补,2026-10-11 拍板):赭金(加的是伤害)、紧跟格挡、无数字;
+            // 格挡用完即隐藏(此时它不起作用),同回合再得格挡就重新出现
+            if (Battle.PlayerStatuses.Has(StatusKind.CounterBoost) && playerBlock > 0)
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "riposte"));
             // 回敬(D2-火,StatusChipsFire 稿):翠玉底,紧跟格挡 / 反击加倍(都在说「挨打时会怎样」)。
             // 有每回合上限时带剩余次数,不限次数不带;用完隐藏(同格挡)。召唤物格同样画,见 AddSummonStatusChips。
             var retaliate = RetaliateChip();
             if (retaliate.HasValue) statusChips.Add(retaliate.Value);
+            // 受击回复 · 受击得盾(StatusChipsWaterEarth):紧跟回敬 —— 回敬说「挨打时会怎样」,这两枚说「挨打后得到什么」;
+            // 翠玉、无数字(持续时长在详情)。免疫减益 / 免疫灼烧接在后面(同属「对我施加的东西会怎样」)
+            if (Battle.PlayerStatuses.Has(StatusKind.HurtHeal))
+                statusChips.Add(new("", Theme.Jade, Color.white, "hurtheal"));
+            if (Battle.PlayerStatuses.Has(StatusKind.HurtShield))
+                statusChips.Add(new("", Theme.Jade, Color.white, "hurtshield"));
+            AddWardChips(statusChips, Battle.PlayerStatuses);
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
@@ -2092,6 +2112,11 @@ namespace Brushblade.Presentation
             int waterPower = Battle.WellspringStacks;
             if (waterPower > 0)
                 statusChips.Add(new($"{Strings.T("status.wellspring.chip")}{waterPower}", Theme.Jade, Color.white, null));
+            // 每回合效果 · 护盾回流(StatusChipsWaterEarth):垫底 —— 「回合开始自己发生」,不用玩家盯。带剩余次数
+            var turnPulse = CountdownChip(Battle.PlayerStatuses, StatusKind.TurnPulse, "turnpulse");
+            if (turnPulse.HasValue) statusChips.Add(turnPulse.Value);
+            var shieldCarry = CountdownChip(Battle.PlayerStatuses, StatusKind.ShieldCarry, "shieldcarry");
+            if (shieldCarry.HasValue) statusChips.Add(shieldCarry.Value);
             // 2026-09-19:与单位格 chip 同一套尺寸(字号 12 → 15)
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, UnitChipFontSize, 2,
                 UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
@@ -2688,6 +2713,43 @@ namespace Brushblade.Presentation
             return new Ui.ChipSpec(left.HasValue ? $"{left.Value}" : "", Theme.Jade, Color.white, "retaliate");
         }
 
+        /// <summary>免疫减益 chip(StatusChipsWaterEarth,2026-10-11 拍板;玩家栏与木灵格共用):翠玉。
+        /// 只拦灼 = wardburn,全量(与其它单一种类,稿:以后环里换那一种的图标)= ward;两种并存各出一枚(E3 Q5),全量在前。
+        /// 「前 N 次」形态(杜绝,WardCount &gt; 0)带剩余次数:同一枚里全是限次的才带、取和;有一条不限次数就不带(挡不完)。</summary>
+        private static void AddWardChips(List<Ui.ChipSpec> chips, StatusBag bag)
+        {
+            for (int pass = 0; pass < 2; pass++)
+            {
+                bool burnOnly = pass == 1, any = false, unlimited = false;
+                int count = 0;
+                foreach (var s in bag.All)
+                {
+                    if (s.Kind != StatusKind.DebuffWard || (s.WardOf == StatusKind.Burn) != burnOnly) continue;
+                    any = true;
+                    if (s.WardCount > 0) count += s.WardCount;
+                    else unlimited = true;
+                }
+                if (any)
+                    chips.Add(new(unlimited ? "" : $"{count}", Theme.Jade, Color.white, burnOnly ? "wardburn" : "ward"));
+            }
+        }
+
+        /// <summary>每回合效果 / 护盾回流(StatusChipsWaterEarth):翠玉,数字 = 还会再发生几次 = TurnsLeft(E3 附录 §1.3);
+        /// 多条(大雨滂沱 + 重土 + 一叶知秋)取 max(E3 Q4:取和会把同一回合的两次算成两回合)。没有这条状态返回 null。</summary>
+        private static Ui.ChipSpec? CountdownChip(StatusBag bag, StatusKind kind, string icon)
+        {
+            bool any = false;
+            int left = 0;
+            foreach (var s in bag.All)
+                if (s.Kind == kind)
+                {
+                    any = true;
+                    if (s.TurnsLeft > left) left = s.TurnsLeft;
+                }
+            if (!any) return null;
+            return new Ui.ChipSpec(left > 0 ? $"{left}" : "", Theme.Jade, Color.white, icon);
+        }
+
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
         ///
         /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
@@ -2740,6 +2802,8 @@ namespace Brushblade.Presentation
             // 状态与本命都有时只出一枚
             if (st.Has(StatusKind.Taunt) || (summon.Passive?.Taunt ?? false))
                 chips.Add(new("", Theme.InkSoft, Color.white, "taunt"));
+            // 保命(扎根,StatusChips 10-04 补):嘲讽后第一枚(「谁挨打、挨得住吗」一起看),翠玉、一次性不带数字
+            if (st.Has(StatusKind.Endure)) chips.Add(new("", Theme.Jade, Color.white, "lastlife"));
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
             Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);
@@ -2768,8 +2832,14 @@ namespace Brushblade.Presentation
             if (Battle.PlayerStatuses.Has(StatusKind.HitCap))
                 chips.Add(new("", Theme.Jade, Color.white, "hitcap"));
             Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
+            // 反击加倍(E3 Q7):状态挂在玩家身上,木灵格挡的反击同样吃(Core 受击结算读玩家袋的 CounterBoost)——
+            // 这只木灵有格挡时才画,用完隐藏(同玩家栏)
+            if (Battle.PlayerStatuses.Has(StatusKind.CounterBoost) && st.TotalMagnitude(StatusKind.Block) > 0)
+                chips.Add(new("", Theme.Gold, Theme.GoldText, "riposte"));
             // 回敬(StatusChipsFire 稿):状态只挂在玩家身上,但护全队 —— 每只召唤物也画,玩家要看得出「打木灵也会被点火」
             if (retaliate.HasValue) chips.Add(retaliate.Value);
+            // 免疫减益 / 免疫灼烧(濯身 / 浇熄落在木灵身上):格挡 / 回敬之后、攻击增益之前(StatusChipsWaterEarth 木灵行)
+            AddWardChips(chips, st);
             // 攻击光环占攻击增益的位置;与自身的攻击增益同一枚图标、同一个意思(「攻击变高了」),只出一枚,分项在详情
             if (attackAura || st.TotalMagnitude(StatusKind.AttackBuff) > 0) chips.Add(new("", Theme.Gold, Theme.GoldText, "attack"));
             Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
@@ -2861,6 +2931,8 @@ namespace Brushblade.Presentation
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
+        // 跨排 Boss 格(E3,StatusChipsWaterEarth 拍板):块高 251,头行 24 + chip 3×20+2×3 + 血条 19 + 行动条 6 + 间距 4×3 ≈ 127
+        private const int BossChipMaxLines = 3;
         // 后排召唤格只有 88 高,两行 chip 装不下(见头行拆两行那段的纵向预算)
         private const int SummonBackChipMaxLines = 1;
 
@@ -3127,6 +3199,11 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
                             ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
+                // 大招削弱(杜塞,StatusChipsWaterEarth 2026-10-11 拍板):墨蓝、skillcut 图标、无数字。紧跟蓄力预警 ——
+                // 它改的正是那一招;没在蓄力时就是攻 / 甲之后第一位(同一插入点自然成立)。不并进蓄力 chip:
+                // 预警 + 4 字招名宽 205,逼近 16:9 Boss 列宽 209
+                if (enemy.Statuses.Has(StatusKind.SkillCut))
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "skillcut"));
                 // 冰滞(spec v7 R1b):Boss 被冻结的替身 —— 水字形色实底、chill 图标、无数字。
                 // 顺序按 StatusChips 稿「敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗,
                 // 威胁在前,溢出从尾部丢」。
@@ -3193,6 +3270,10 @@ namespace Brushblade.Presentation
                 // 只对会回血的怪有用,溢出时先丢;它和霜抗同属「不能被怎样」的说明。
                 if (enemy.Statuses.Has(StatusKind.HealBlock))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "healblock"));
+                // 禁增益(洗尽铅华,StatusChipsWaterEarth):墨蓝、buffblock 图标、无数字(「剩 N 次行动」在详情)。
+                // 紧跟干涸:两条都是「得不到什么」,只对会加增益的怪有用,溢出先丢
+                if (enemy.Statuses.Has(StatusKind.BuffBlock))
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "buffblock"));
                 // 破甲(2026-09-06 补,与 AddSummonStatusChips 的 Flag 同口径):量在挂着期间
                 // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
                 // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
@@ -3221,8 +3302,10 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new("", Theme.PanelPaper, Theme.GlyphColor(Element.Water), "frostguard",
                         Theme.GlyphColor(Element.Water)));
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
+                // 跨排 Boss 放到 3 行(StatusChipsWaterEarth 拍板):16:9 下蓄力预警 + 削弱 / 灼在 2 行里会把预警本身收进「+N」。
+                // 按跨排判断而不是 IsBoss —— 纵向余量来自跨排的块高 251(信息列 3 行 ≈127)
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
-                    ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
+                    crossRow ? BossChipMaxLines : ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。
