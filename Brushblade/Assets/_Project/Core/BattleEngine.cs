@@ -295,7 +295,7 @@ namespace Brushblade.Core
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
         BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
         Heal,        // 治疗自身(Amount = 实际回复量,2026-07-19)
-        Summon,      // 召唤前排单位(Amount = 血量;SecondIndex = 被顶替的槽位,新增则 −1)
+        Summon,      // 召唤 / 幼苗落位 / 复活(Amount = 血量;SecondIndex = 落位槽,新召、顶替、复活都填,恒 ≥ 0)
         SummonHit,   // 召唤物替玩家承伤(Amount = 伤害;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
         EnemyBuff,   // 加攻(标点小妖给同伴 / 焦痕受击自燃;TargetIndex = 被加成的敌人)

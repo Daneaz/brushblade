@@ -346,10 +346,12 @@ namespace Brushblade.Core
             else _partMarks[index] = new PartMark(m.PartChar, m.Remaining - 1, m.TraitKey, m.SourceCharId);
         }
 
+        /// <summary>特性在 def.Traits 里的下标:按 Slot + Face 认(与 TraitKey 同口径),不靠引用相等 ——
+        /// TraitRules 以后若返回副本,下标也不会静默变成 −1。</summary>
         private static int IndexOfTrait(CharDef def, TraitDef trait)
         {
             for (int i = 0; i < def.Traits.Count; i++)
-                if (ReferenceEquals(def.Traits[i], trait)) return i;
+                if (def.Traits[i].Slot == trait.Slot && def.Traits[i].Face == trait.Face) return i;
             return -1;
         }
 
@@ -390,7 +392,7 @@ namespace Brushblade.Core
         /// <summary>这一发此刻要不要玩家选敌方目标(<see cref="CastEffectsNow(string, bool)"/> 里任一条 <see cref="EffectNeedsTarget"/>)。</summary>
         public bool NeedsTargetNow(string charId, bool attackMode) => CastEffectsNow(charId, attackMode).Any(EffectNeedsTarget);
 
-        /// <summary>这一发此刻是否打全体敌人:全体伤害 / 全体灼 / 选择器为 All 的敌对效果(与 BattleView.FaceHitsAllEnemies 同判据)。</summary>
+        /// <summary>这一发此刻是否打全体敌人:全体伤害 / 全体灼 / 选择器为 All 的敌对效果(表现层「山」全体落点 / 悬停加深直接调本读口,E3 Task 6)。</summary>
         public bool HitsAllEnemiesNow(string charId, bool attackMode)
         {
             foreach (var e in CastEffectsNow(charId, attackMode))

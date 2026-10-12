@@ -170,6 +170,27 @@ namespace Brushblade.Core.Tests
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.True, "前提:自燃照常");
         }
 
+        /// <summary>霜抗豁免禁增益(Q21):冻结到期照挂霜抗,不算「挡下」,不发 BuffBlocked。</summary>
+        [Test]
+        public void BuffBlocked_FrostResist_NotBlocked_NotEmitted()
+        {
+            var lockLong = RebalanceFixture.Char("锁",
+                new EffectDef(EffectKind.DamageSingle, 10), new EffectDef(EffectKind.BuffBlock, 0, turns: 3));
+            var chill = RebalanceFixture.Char("冻",
+                new EffectDef(EffectKind.DamageSingle, 10), new EffectDef(EffectKind.Freeze, 1));
+            var defs = new[] { lockLong, chill };
+            var b = new BattleEngine(RebalanceFixture.Graph(defs), Config,
+                defs.SelectMany(d => Enumerable.Repeat(d.Id, 10)).ToArray(), Array.Empty<string>(),
+                new[] { Mob() }, seed: 1);
+            Cast(b, "锁", 0);
+            Cast(b, "冻", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.True, "前提:冻上");
+            b.EndTurn();   // 冻结那拍到期 → 霜抗
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.BuffBlock), Is.True, "前提:禁增益仍在");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.True, "霜抗照挂");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.BuffBlocked), Is.False, "霜抗不算挡下,不发");
+        }
+
         // ================= BossSkillCast Source = SkillCut =================
 
         private static readonly CharDef Plug = RebalanceFixture.Char("塞",
@@ -218,6 +239,26 @@ namespace Brushblade.Core.Tests
             Assert.That(carried.Count, Is.EqualTo(1));
             Assert.That((carried[0].TargetIndex, carried[0].Source), Is.EqualTo((-1, EffectSource.ShieldCarry)));
             Assert.That(carried[0].Amount, Is.EqualTo(b.ShieldNormal));
+        }
+
+        /// <summary>同一回合初浮屠回流与金气加盾各发一条 Shield:只有回流那条带 ShieldCarry,金气那条 Source = None。</summary>
+        [Test]
+        public void ShieldCarry_MoraleShieldSameTurnStart_Untagged()
+        {
+            var carry = new CharDef("浮", Element.Heart, effects: new[]
+            {
+                new EffectDef(EffectKind.Shield, 400), new EffectDef(EffectKind.ShieldCarry, 50, turns: 3),
+                new EffectDef(EffectKind.Morale, CombatCaps.MoraleStacks), new EffectDef(EffectKind.MoraleShield, 40),
+            });
+            var b = Battle(carry);
+            Cast(b, "浮");
+            b.EndTurn();
+            var shields = b.LastEvents.Where(e => e.Kind == BattleEventKind.Shield).ToList();
+            Assert.That(shields.Count, Is.EqualTo(2), "回流一条 + 金气一条");
+            Assert.That(shields.Count(e => e.Source == EffectSource.ShieldCarry), Is.EqualTo(1));
+            var morale = shields.Single(e => e.Source != EffectSource.ShieldCarry);
+            Assert.That((morale.TargetIndex, morale.Source), Is.EqualTo((-1, EffectSource.None)), "金气那条不带标签");
+            Assert.That(morale.Amount, Is.GreaterThan(0));
         }
 
         // ================= Graft.Amount = 回复量 =================

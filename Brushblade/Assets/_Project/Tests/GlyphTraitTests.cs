@@ -318,6 +318,22 @@ namespace Brushblade.Core.Tests
             Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.GlyphTrait).Amount, Is.EqualTo(1));
         }
 
+        /// <summary>下标按 Slot + Face 认(与 TraitKey 同口径):同槽异面、同面异槽的特性排在前面都不能认错。</summary>
+        [Test]
+        public void Dismantle_GlyphTrait_AmountIsIndex_MatchesSlotAndFace()
+        {
+            var sameSlotAttack = new TraitDef(TraitSlot.Lv4, TraitFace.Attack, TraitForm.Passive, null, "攻面", Array.Empty<EffectDef>());
+            var sameSlotFeature = new TraitDef(TraitSlot.Lv4, TraitFace.Feature, TraitForm.Passive, null, "功面", Array.Empty<EffectDef>());
+            var sameFaceLv1 = new TraitDef(TraitSlot.Lv1, TraitFace.Both, TraitForm.Passive, null, "垫", Array.Empty<EffectDef>());
+            var glyph = Glyph(TraitTrigger.OnDismantle, null, 0, new EffectDef(EffectKind.Morale, 2));
+            var jin = new CharDef("鍂", Element.Heart, recipe: new[] { "金", "金" },
+                effects: new[] { new EffectDef(EffectKind.Shield, 10) },
+                traits: new[] { sameSlotAttack, sameSlotFeature, sameFaceLv1, glyph });
+            var b = Battle(new[] { jin }, 4, new[] { "鍂" }, Array.Empty<string>());
+            b.Dismantle("鍂");
+            Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.GlyphTrait).Amount, Is.EqualTo(3));
+        }
+
         // ---------------- E3 Task 1:TraitSpentThisBattle 覆盖字形特性 ----------------
 
         [Test]
@@ -462,6 +478,21 @@ namespace Brushblade.Core.Tests
                     Is.EqualTo(Shape(TraitRules.CastEffects(def, BattleEngine.FaceOf(def, attack), level))), $"{id} {attack}");
                 Assert.That(b.NeedsTargetNow(id, attack), Is.EqualTo(BattleEngine.NeedsTarget(def, attack, level)), $"{id} {attack}");
             }
+        }
+
+        /// <summary>印记只给池中出手的部件:字库里的同名字(不在池里)不受影响,与 CastCore 的 fromPool 同判据。</summary>
+        [Test]
+        public void CastEffectsNow_LibraryChar_IgnoresPartMark()
+        {
+            var can = Can();
+            var b = Battle(new[] { can }, 4, new[] { "灿", "山" }, Array.Empty<string>(), enemies: 3);
+            b.Dismantle("灿");
+            Assert.That(b.PartMarkCharges("山"), Is.EqualTo(1), "前提:山上挂着火山印记");
+            var def = RebalanceFixture.Graph(AllDefs(can)).Get("山");
+            Assert.That(Shape(b.CastEffectsNow("山", false)),
+                Is.EqualTo(Shape(TraitRules.CastEffects(def, BattleEngine.FaceOf(def, false), 1))), "字库里的山 = 静态效果表");
+            Assert.That(b.HitsAllEnemiesNow("山", false), Is.False);
+            Assert.That(b.NeedsTargetNow("山", false), Is.True);
         }
 
         [Test]
