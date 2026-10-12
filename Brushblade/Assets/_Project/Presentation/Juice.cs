@@ -659,6 +659,8 @@ namespace Brushblade.Presentation
                         serialPending = true;
                         break;
                     case BattleEventKind.Shield:
+                        // 木灵护盾到上限时转盾给 0(Water.cs 浇熄照发 Shield):不飘「+0」。OnImpact 对 0 本来就是空操作
+                        if (e.Amount <= 0) break;
                         if (e.Source == EffectSource.ShieldCarry) yield return PlayShieldCarry();   // 浮屠(E3)
                         // TargetIndex ≥0 = 盾加在木灵身上(浇熄护木灵转盾,E3):数字飘在那只木灵身上
                         Popup(Strings.T("juice.popup.shield_gain", ("amount", e.Amount)), Theme.SplitBlue,
@@ -722,7 +724,7 @@ namespace Brushblade.Presentation
                         break;
                     // ---- E3 Task 5(WaterEarthCues / PartsAndGraft,JuiceWaterEarth)----
                     case BattleEventKind.DebuffWarded:    // 免疫减益挡下:chip 闪 + 删除线状态名,转盾数字跟在后面
-                        yield return PlayWarded(e, summonAnchor);
+                        yield return PlayWarded(events, idx, summonAnchor);
                         break;
                     case BattleEventKind.BuffBlocked:     // 禁增益挡下:chip 闪 + 删除线状态名
                         PlayBuffBlocked(e, enemyAnchor);

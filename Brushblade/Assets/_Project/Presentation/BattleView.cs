@@ -4056,9 +4056,8 @@ namespace Brushblade.Presentation
             }
 
             var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode, _run.CardLevel(def.Id));
-            // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
-            // 对全体字返回 Single,预览只标悬停那只。本次是恒等重构,预览沿用旧样子;
-            // 要改成「标出全场」是另一件视觉改动,不在这里顺手做。
+            // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):打全体的已在上面 HitsAllEnemiesNow 那支
+            // 标出全场并返回(E3)。走到这里还是 All 只是兜底,按单体只标悬停那只。
             if (shape == TargetArea.All) shape = TargetArea.Single;
             // 连发(2026-09-27):松手时引擎让首发落在这只身上(volleyLeadsWithPrimary),
             // 预览必须走同一个口径 —— 此前这里传 −1,预览与实际落点双双无视玩家指的那只。

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Brushblade.Core;
 using Brushblade.Data;
 using UnityEngine;
@@ -34,32 +35,23 @@ namespace Brushblade.Presentation
 
         private static readonly Color EarthName = Theme.GlyphColor(Element.Earth);
 
-        /// <summary>某个根节点下第一枚图标为 <paramref name="iconKey"/> 的 chip(同 <see cref="FlashIcon"/> 的找法);没有返回 null。</summary>
-        private static RectTransform IconChipIn(Transform root, string iconKey)
+        /// <summary>拦截(DebuffWarded):玩家 / 木灵身上的免疫 chip 闪,被挡的减益名删除线飘出;紧随的转盾 Shield 照常飘数字。
+        /// 只在下一条真是同目标、有量的转盾 Shield 时停一拍(濯身 / 杜绝没有转盾,连挡多段不累积停顿)。</summary>
+        private IEnumerator PlayWarded(IReadOnlyList<BattleEvent> events, int idx, Func<int, RectTransform> summonAnchor)
         {
-            if (root == null || iconKey == null) return null;
-            var sprite = Icons.Get(iconKey);
-            if (sprite == null) return null;
-            foreach (var image in root.GetComponentsInChildren<Image>())
-                if (image.sprite == sprite && image.transform.parent is RectTransform chip)
-                    return chip;
-            return null;
-        }
-
-        /// <summary>拦截(DebuffWarded):玩家 / 木灵身上的免疫 chip 闪,被挡的减益名删除线飘出;紧随的转盾 Shield 照常飘数字。</summary>
-        private IEnumerator PlayWarded(BattleEvent e, Func<int, RectTransform> summonAnchor)
-        {
+            var e = events[idx];
             bool onSummon = e.TargetIndex >= 0;
             Transform root = onSummon ? SummonCellAt?.Invoke(e.TargetIndex) : PlayerCell;
             string icon = e.SecondIndex == (int)StatusKind.Burn ? "wardburn" : "ward";
             var kind = (StatusKind)e.Amount;
             // 减速与加速共用 SpeedModifier,按符号取名:这里挡的是减益,传负值
             string name = StatusText.Of(kind, -1, 0, isPlayer: !onSummon).Name;
-            var chip = IconChipIn(root, icon);
-            FlashIcon(root, icon);
+            var chip = FlashIcon(root, icon);
             PopupStruck(name, UnitDetailChip.ColorFor(kind, -1),
                 chip != null ? chip : onSummon ? summonAnchor?.Invoke(e.TargetIndex) : null);
-            yield return Beat(CueFollowGap);   // 浇熄转出的护盾数字跟在后面
+            if (idx + 1 < events.Count && events[idx + 1] is { Kind: BattleEventKind.Shield, Amount: > 0 } next
+                && next.TargetIndex == e.TargetIndex)
+                yield return Beat(CueFollowGap);   // 浇熄转出的护盾数字跟在后面
         }
 
         /// <summary>拦截(BuffBlocked):敌人身上的禁增益 chip 闪,被挡的增益名删除线飘出。</summary>
@@ -67,8 +59,7 @@ namespace Brushblade.Presentation
         {
             var root = EnemyCellAt?.Invoke(e.TargetIndex);
             var kind = (StatusKind)e.Amount;
-            var chip = IconChipIn(root, "buffblock");
-            FlashIcon(root, "buffblock");
+            var chip = FlashIcon(root, "buffblock");
             PopupStruck(StatusText.Of(kind, 1, 0).Name, UnitDetailChip.ColorFor(kind, 1),
                 chip != null ? chip : enemyAnchor(e.TargetIndex));
         }
@@ -83,8 +74,7 @@ namespace Brushblade.Presentation
         /// <summary>浮屠:护盾回流 chip 闪(数字 3 → 2 靠随后的重绘)、护盾角标闪,「浮屠」从 chip 飘出;停一拍再飘护盾数字。</summary>
         private IEnumerator PlayShieldCarry()
         {
-            var chip = IconChipIn(PlayerCell, "shieldcarry");
-            FlashIcon(PlayerCell, "shieldcarry");
+            var chip = FlashIcon(PlayerCell, "shieldcarry");
             FlashIcon(PlayerCell, "shield");
             EarthTraitName(EffectNameOf?.Invoke(EffectKind.ShieldCarry), chip);
             yield return Beat(CueFollowGap);
@@ -93,8 +83,7 @@ namespace Brushblade.Presentation
         /// <summary>碎玉:玩家护盾角标闪,「碎玉」从角标飘出;停一拍再在攻击者身上飘反伤数字(Damage 那一支照常)。</summary>
         private IEnumerator PlayShieldShatter()
         {
-            var badge = IconChipIn(PlayerCell, "shield");
-            FlashIcon(PlayerCell, "shield");
+            var badge = FlashIcon(PlayerCell, "shield");
             EarthTraitName(EffectNameOf?.Invoke(EffectKind.ShieldShatter), badge);
             yield return Beat(CueFollowGap);
         }
