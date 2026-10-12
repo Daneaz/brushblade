@@ -123,11 +123,11 @@ namespace Brushblade.Presentation
             if (_shakeTarget == null || targets == null || targets.Count == 0) { onArrive?.Invoke(); return; }
             _castHit = 0;
             SetCastTier(rarity);
-            StartCoroutine(CastRoutine(style, glyph, flourish, from, targets, onArrive));
+            SafeRun(CastRoutine(style, glyph, flourish, from, targets), onArrive);   // 出手段抛了也照样进结算,不卡锁
         }
 
         private IEnumerator CastRoutine(CastStyle style, string glyph, bool flourish, Vector3 fromWorld,
-            IReadOnlyList<RectTransform> targets, Action onArrive)
+            IReadOnlyList<RectTransform> targets)
         {
             Vector2 from = Local(fromWorld);
             var primary = targets[0];
@@ -164,7 +164,7 @@ namespace Brushblade.Presentation
                 case CastStyle.HeavyChop: yield return Beat(0.1f); break;
                 default: yield return Beat(0.06f); break; // Slash / DoubleChop:刀口在落点段出
             }
-            onArrive?.Invoke();
+            // onArrive 由 SafeRun 在这一帧调
         }
 
         /// <summary>横扫:一道拉长的刀光沿主目标那一排从左扫到右,后面拖两道残影。</summary>

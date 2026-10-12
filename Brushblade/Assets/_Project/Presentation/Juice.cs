@@ -179,12 +179,28 @@ namespace Brushblade.Presentation
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
             Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph)
         {
-            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact,
-                summonInfo, enemyElement, enemyRanged, castStyle));
+            SafeRun(PlayRoutine(events, enemyAnchor, summonAnchor, onImpact,
+                summonInfo, enemyElement, enemyRanged, castStyle), onComplete);
         }
 
+        /// <summary>带兜底地起一段**有收尾回调**的演出协程(Plan E4 Task 2)。onDone 恰好调一次:
+        /// 正常播完时在最后一帧调(与原先写在协程末尾同一帧);中途任何一层抛异常时记日志后立刻调。
+        ///
+        /// 外层(BattleView)靠这些回调解锁输入 —— 原先嵌套 <c>yield return</c> 的子程一抛(假 null 等),
+        /// 整条链被 Unity 终止,回调永不来,整场战斗卡死。所以:**凡是外面要等它回调的演出,一律经这里起,
+        /// 回调交给 onDone,不要写在协程末尾,也不要直接 StartCoroutine**。只管自己淡出、没人等的
+        /// 装饰协程(Shake / FadeAndKill……)照旧直接 StartCoroutine,抛了也只是少一点特效。
+        ///
+        /// 展平见 <see cref="RoutineRunner.Guard"/>:嵌套 IEnumerator 由栈驱动、节拍与 Unity 嵌套协程一致;
+        /// null / WaitForSeconds 等 YieldInstruction / CustomYieldInstruction 原样交还 Unity。</summary>
+        private Coroutine SafeRun(IEnumerator root, Action onDone) =>
+            StartCoroutine(RoutineRunner.Guard(root, IsNestedRoutine, Debug.LogException, onDone));
+
+        /// <summary>CustomYieldInstruction 也实现 IEnumerator,但它归 Unity 驱动(每帧问 keepWaiting),不展平。</summary>
+        private static bool IsNestedRoutine(object yielded) => yielded is IEnumerator && !(yielded is CustomYieldInstruction);
+
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact,
+            Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
             Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement, Func<int, bool> enemyRanged,
             CastStyle castStyle)
         {
@@ -209,7 +225,7 @@ namespace Brushblade.Presentation
             ResetCastTier();
 
             yield return Beat(TailGap);
-            onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
+            // 播完回调(关卡胜利标语 / 解锁输入)由 SafeRun 的 onDone 在这一帧调,出错时也保证调
         }
 
         /// <summary>结算一批事件的表现。受击致死者(紧随伤害的 EnemyDied)当帧内联:飘「正!」+ 立刻置灰,
@@ -1611,7 +1627,7 @@ namespace Brushblade.Presentation
             image.type = Image.Type.Sliced;
             image.color = core;
             image.raycastTarget = false;
-            StartCoroutine(FlyRoutine(rect, from, to, null, duration, easeOut: false, trail));
+            StartCoroutine(FlyRoutine(rect, from, to, duration, easeOut: false, trail));   // 装饰,没人等回调
         }
 
         /// <summary>同 <see cref="Ring"/>,但给没有 RectTransform 的点用(玩家 = 屏幕中下)。</summary>
@@ -1794,14 +1810,14 @@ namespace Brushblade.Presentation
             label.raycastTarget = false;
             Ui.Stretch(label.rectTransform);
 
-            StartCoroutine(FlyRoutine(rect, from, to, onArrive, duration, easeOut, color));
+            SafeRun(FlyRoutine(rect, from, to, duration, easeOut, color), onArrive);   // 到达回调走兜底:外层出字等它解锁
         }
 
         // 拖尾:每隔这么久落一片残影。0.03 ≈ 每两帧一片(60fps),0.22s 的一记出字大约留 7 片,
         // 够连成一条线又不至于铺满屏
         private const float TrailInterval = 0.03f;
 
-        private IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to, Action onArrive,
+        private IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to,
             float duration, bool easeOut, Color color)
         {
             float t = 0f;
@@ -1829,7 +1845,7 @@ namespace Brushblade.Presentation
             }
             if (rect != null)
                 UnityEngine.Object.Destroy(rect.gameObject);
-            onArrive?.Invoke();
+            // onArrive 由 SafeRun 在这一帧调
         }
 
         /// <summary>飞字残影:在当前位置落一片同色底板,原地淡出。只画底板不画字 ——

@@ -454,13 +454,42 @@ namespace Brushblade.Presentation
             return deaths;
         }
 
-        /// <summary>播放打击感:登记死亡怪(重绘保持着色)+ 计数在播动画(锁输入、血条画在出手前值)。
-        /// 须在 Refresh 之前 BeginAnim,Play 回调 OnAnimDone 归零才放行。</summary>
+        /// <summary>播放出字的打击感。锁由 <see cref="RunLockedAction"/> 上,<paramref name="release"/> 是它发的
+        /// 只放一次的解锁(内含 OnAnimDone(deaths)),Play 播完(或 Juice 协程出错)时回调。</summary>
         private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
-            System.Collections.Generic.List<int> deaths, CastStyle castStyle = CastStyle.Glyph)
+            System.Action release, CastStyle castStyle = CastStyle.Glyph)
         {
-            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt,
+            _juice.Play(events, EnemyAnchor, SummonAnchor, release, OnImpact, SummonAt,
                 EnemyElement, EnemyRanged, castStyle);
+        }
+
+        /// <summary>上动画锁 → 重绘 → 起演出(Plan E4 Task 2,出字与拆合两条路径共用)。
+        ///
+        /// <paramref name="startPlay"/> 拿到一个**只生效一次**的解锁 <c>release</c>,交给演出的落幕回调;
+        /// 成功时照旧等动画播完才解锁(所以这里用 catch 而不是 finally —— finally 会提前解锁)。
+        /// 重绘或起演出的同步段抛异常时记日志、立刻解锁复位(<paramref name="release"/> 负责复位
+        /// _forgeCuePlaying / ForgeChar 这类锁期状态),画面由 OnAnimDone 那次重绘拉回终态,不补播。
+        /// 协程里的异常由 Juice.SafeRun 兜:它保证落幕回调恰好调一次,和这里共用同一个 release,不会双放。</summary>
+        private void RunLockedAction(System.Action redraw, System.Action<System.Action> startPlay, System.Action release)
+        {
+            bool released = false;
+            void ReleaseOnce()
+            {
+                if (released) return;
+                released = true;
+                release();
+            }
+            BeginAnim();   // 锁输入 + 血条改画出手前值,须在重绘前置位
+            try
+            {
+                redraw();
+                startPlay(ReleaseOnce);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogException(ex);
+                ReleaseOnce();
+            }
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
@@ -6591,9 +6620,13 @@ namespace Brushblade.Presentation
             if (error == BattleError.None) DropReplacedSummonSnapshots(); // 被顶替的槽位:改画新召唤物,别停在旧血量
             if (error == BattleError.None) CollectMergeGhosts();         // 绿潮:被并入的小藻动画期间照画,藻灵血条从并入前起涨
             if (error == BattleError.None) CueNewAuras(aurasBefore);     // 光环挂上:重绘后受益木灵的 chip 闪、特性名飘一次
-            if (error == BattleError.None) BeginAnim(); // 锁输入 + 血条改画出手前值,须在重绘前置位
-            CancelSelection();
-            if (error == BattleError.None)
+            if (error != BattleError.None)
+            {
+                CancelSelection();
+                return;
+            }
+            // 上锁(血条改画出手前值)→ 重绘 → 起演出;同步段抛异常时解锁兜底(E4 Task 2)
+            RunLockedAction(CancelSelection, release =>
             {
                 // 飞牌到首个受击敌人,到达才播结算表现;事件快照防连点串场
                 var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
@@ -6604,14 +6637,14 @@ namespace Brushblade.Presentation
                 var style = CastStyles.For(castDef, attackMode);
                 if (hasFrom && toRect != null && style != CastStyle.Glyph)
                     _juice.CastAttack(style, castDef.Rarity, charId, FirstFlourishThisTurn(castDef), fromPos,
-                        CastTargetRects(events), () => PlayAnimated(events, deaths, style));
+                        CastTargetRects(events), () => PlayAnimated(events, release, style));
                 else if (hasFrom && toRect != null)
                     _juice.FlyGlyph(charId, Theme.ElementColor(castDef.Element), fromPos, toRect.position,
-                        () => PlayAnimated(events, deaths));
+                        () => PlayAnimated(events, release));
                 else
-                    PlayAnimated(events, deaths); // 无伤害目标(纯护盾等)或起点缺失:即时表现
-                MaybeAutoEndTurn();
-            }
+                    PlayAnimated(events, release); // 无伤害目标(纯护盾等)或起点缺失:即时表现
+            }, () => OnAnimDone(deaths));
+            MaybeAutoEndTurn();
         }
 
         /// <summary>顶替确认的正文:按玩家实际点的位子说话(2026-08-20)。
@@ -6848,8 +6881,9 @@ namespace Brushblade.Presentation
             bool hasFrom = TryGetTilePos(charId, out var fromPos);
             var recipe = _graph.Get(charId).Recipe;
             SnapshotPreHp();   // 字形特性(双木召幼苗等)的结算要从拆前的血量演起;只在动画锁里被读
+            var aurasBefore = AuraKeys();   // 光环挂上(W1):与出字同一套前后比对(E4,现有字形特性不挂光环,防御性对称)
             var error = Battle.Dismantle(charId);
-            var forgeEvents = BeginForgeCue(error);   // 须在下面那次重绘之前:锁要先上,血条才画拆前值
+            var forgeEvents = BeginForgeCue(error);   // 须在下面那次重绘之前:死怪着色 / 顶替槽要先登记
             if (error == BattleError.None)
             {
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
@@ -6862,12 +6896,12 @@ namespace Brushblade.Presentation
             else
                 MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? Strings.T("battle.msg.dismantle_success", ("charId", charId)) : Describe(error);
-            CancelSelection();
+            if (error == BattleError.None) CueNewAuras(aurasBefore);
+            // 有事件:上锁 → 重绘 → 播;结果格 = 拆出来的部件(同名取最后一张,即新进池的那张),重绘后已登记
+            RedrawForForge(forgeEvents, charId, () =>
+                recipe.Count > 0 && _tileRects.TryGetValue(recipe[recipe.Count - 1], out var newPart) ? newPart : null);
             if (error == BattleError.None)
             {
-                // 结果格 = 拆出来的部件(同名取最后一张,即新进池的那张);重绘后已登记
-                PlayForgeCue(forgeEvents, charId,
-                    recipe.Count > 0 && _tileRects.TryGetValue(recipe[recipe.Count - 1], out var newPart) ? newPart : null);
                 if (hasFrom) // 部件从原字牌位置散落到池中新位(重绘后已登记)
                     foreach (var part in recipe)
                     {
@@ -6888,6 +6922,7 @@ namespace Brushblade.Presentation
                 if (TryGetTilePos(part, out var pos))
                     partsFrom.Add((part, pos));
             SnapshotPreHp();   // 同 OnDismantle:三焰 / 三木 / 三土的结算从合前的血量演起
+            var aurasBefore = AuraKeys();   // 同 OnDismantle
             var error = Battle.Compose(charId);
             var forgeEvents = BeginForgeCue(error);
             if (error == BattleError.None)
@@ -6900,10 +6935,10 @@ namespace Brushblade.Presentation
             else
                 MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? Strings.T("battle.msg.compose_success", ("charId", charId)) : Describe(error);
-            CancelSelection();
+            if (error == BattleError.None) CueNewAuras(aurasBefore);
+            RedrawForForge(forgeEvents, charId, () => _tileRects.TryGetValue(charId, out var resultRect) ? resultRect : null);
             if (error == BattleError.None)
             {
-                PlayForgeCue(forgeEvents, charId, _tileRects.TryGetValue(charId, out var resultRect) ? resultRect : null);
                 if (_tileRects.TryGetValue(charId, out var resultTile) && resultTile != null && partsFrom.Count > 0)
                 {
                     int arrived = 0; // 闭包共享:全部到齐才弹跳
@@ -6916,8 +6951,8 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>拆合播放第一步(Plan E3,Review Focus 3):拆 / 合成功且 Core 发了事件(字形特性及其结算)时,
-        /// 拍下事件快照、登记死怪与被顶替槽、上动画锁,并让接下来那次重绘在锁里**照画操作区**(<see cref="_forgeCuePlaying"/>)。
-        /// 必须在 CancelSelection 那次重绘**之前**调:锁先上,战场血条才画拆合前的值(与 ExecuteCast 同序)。
+        /// 拍下事件快照、登记死怪与被顶替槽。必须在 CancelSelection 那次重绘**之前**调(重绘据此保持死怪着色)。
+        /// 上锁与 _forgeCuePlaying 置位在 <see cref="RedrawForForge"/> 里、紧挨重绘(E4 Task 2:收进 RunLockedAction 的兜底)。
         /// 没有事件(绝大多数拆合)返回 null,整条路径与改前一样不上锁 —— 连拆 / 连合 / 拆完立刻拖出都不受影响。
         /// Core 的拆合进门即清事件,快照只含这一次,不会重播上一次出字的旧事件。</summary>
         private System.Collections.Generic.List<BattleEvent> BeginForgeCue(BattleError error)
@@ -6926,27 +6961,51 @@ namespace Brushblade.Presentation
             var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
             _dyingEnemies.UnionWith(DeathsOf(events));   // 三焰结算灼可能烧死怪:重绘据此保持着色
             DropReplacedSummonSnapshots();
-            _forgeCuePlaying = true;
-            BeginAnim();   // 锁输入(SyncOpsInput 挡住操作区点击、DragToAttack 不许起拖)
             return events;
         }
 
-        /// <summary>拆合播放第二步:重绘之后播。<paramref name="resultTile"/> = 拆合台的结果格(拆:新进池的部件;合:合出的字牌),
-        /// 字形特性名从它飘出(JuiceWaterEarth.PlayGlyphTrait)。收尾先撤 _forgeCuePlaying 再 OnAnimDone,落幕那次重绘照常。
-        /// 播放期间不重绘:操作区是锁前那次画好的,结果格引用一直有效;起拖被 !Animating 挡住,所以不会有「重绘销毁正被拖的牌」。</summary>
-        private void PlayForgeCue(System.Collections.Generic.List<BattleEvent> events, string charId, RectTransform resultTile)
+        /// <summary>拆合的重绘 + 播放(E4 Task 2)。有事件:上锁(SyncOpsInput 挡住操作区点击、DragToAttack 不许起拖)
+        /// 并让这次重绘在锁里**照画操作区**(<see cref="_forgeCuePlaying"/>),重绘后播;同步段或 Juice 协程出错都走
+        /// <see cref="ReleaseForgeCue"/> 复位。没有事件:照旧只重绘;光环提示没有 OnAnimDone 可搭,重绘后直接演。
+        /// <paramref name="resultTile"/> 在重绘**之后**取(结果格是这次重绘建出来的)。</summary>
+        private void RedrawForForge(System.Collections.Generic.List<BattleEvent> events, string charId,
+            System.Func<RectTransform> resultTile)
         {
-            if (events == null) return;
+            if (events == null)
+            {
+                CancelSelection();
+                if (!Animating) FlushWoodCues();   // 现有数据下光环必伴字形特性事件,此支只是防御(不让 _woodCues 滞留到下一次)
+                return;
+            }
             var deaths = DeathsOf(events);
+            RunLockedAction(() =>
+                {
+                    _forgeCuePlaying = true;
+                    CancelSelection();
+                },
+                release => PlayForgeCue(events, charId, resultTile(), release),
+                () => ReleaseForgeCue(deaths));
+        }
+
+        /// <summary>拆合播放第二步:重绘之后播。<paramref name="resultTile"/> = 拆合台的结果格(拆:新进池的部件;合:合出的字牌),
+        /// 字形特性名从它飘出(JuiceWaterEarth.PlayGlyphTrait)。落幕回调 <paramref name="release"/> 即 <see cref="ReleaseForgeCue"/>(只放一次)。
+        /// 播放期间不重绘:操作区是锁前那次画好的,结果格引用一直有效;起拖被 !Animating 挡住,所以不会有「重绘销毁正被拖的牌」。</summary>
+        private void PlayForgeCue(System.Collections.Generic.List<BattleEvent> events, string charId, RectTransform resultTile,
+            System.Action release)
+        {
             _juice.ForgeChar = _graph.Get(charId);
             _juice.ForgeResult = resultTile;
-            _juice.Play(events, EnemyAnchor, SummonAnchor, () =>
-                {
-                    _forgeCuePlaying = false;
-                    _juice.ForgeChar = null;   // 只服务这一次拆合播放(Juice 的 Summon 弹跳据它判是不是拆合)
-                    _juice.ForgeResult = null;
-                    OnAnimDone(deaths);
-                }, OnImpact, SummonAt, EnemyElement, EnemyRanged);
+            _juice.Play(events, EnemyAnchor, SummonAnchor, release, OnImpact, SummonAt, EnemyElement, EnemyRanged);
+        }
+
+        /// <summary>拆合播放收尾(成功落幕与出错兜底同一份):先撤 _forgeCuePlaying 与 Juice 的拆合上下文,再 OnAnimDone,
+        /// 落幕那次重绘照常。ForgeChar 不清的话,之后出字路径的 Summon 事件会被误判成拆合而弹格子。</summary>
+        private void ReleaseForgeCue(System.Collections.Generic.List<int> deaths)
+        {
+            _forgeCuePlaying = false;
+            _juice.ForgeChar = null;   // 只服务这一次拆合播放(Juice 的 Summon 弹跳据它判是不是拆合)
+            _juice.ForgeResult = null;
+            OnAnimDone(deaths);
         }
 
         private static System.Collections.Generic.List<int> DeathsOf(System.Collections.Generic.IReadOnlyList<BattleEvent> events)
