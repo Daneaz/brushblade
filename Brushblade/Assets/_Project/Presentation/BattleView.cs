@@ -515,9 +515,10 @@ namespace Brushblade.Presentation
             catch (System.Exception ex)
             {
                 Debug.LogException(ex);
+                ReleaseOnce();   // 先解锁:后面清队列再出错也挡不住复位
                 // 起演出前已排进去的出字飘名(QueueCastTraits)没播就断了:清掉,免得漏到下一段 Play 开头
-                _juice.QueueCastTraits(System.Array.Empty<TraitCue>(), null);
-                ReleaseOnce();
+                try { _juice.QueueCastTraits(System.Array.Empty<TraitCue>(), null); }
+                catch (System.Exception clearEx) { Debug.LogException(clearEx); }
             }
         }
 
@@ -4142,7 +4143,9 @@ namespace Brushblade.Presentation
             bool attackMode = _faceDragFace == CardFace.Attack;
             bool enemyFace = (_faceDragLanding & FaceLanding.Enemy) != 0;
             // 预估签(Plan E4 T4):每个可落格各试算一次(与松手 DropFaceDrag 的 Enemy 分支同参);
-            // 全体面一次试算就读得出全部目标,只算一次。起拖时建好,悬停只切显隐
+            // 全体面且**不需要主目标**时一次试算就读得出全部目标,只算一次;全体但带 Primary 效果(燚五行面火海 + 灼·强化)
+            // 的主目标 = 悬停那只,必须按格各算(fix round 1)。起拖时建好,悬停只切显隐
+            bool shareAll = _faceDragHitsAll && !Battle.NeedsTargetNow(_faceDragDef.Id, attackMode);
             CastEstimate allEstimate = null;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
@@ -4150,7 +4153,7 @@ namespace Brushblade.Presentation
                 if (area == null) continue;
                 if (enemyFace && Battle.CanTarget(_faceDragDef, i, attackMode))
                 {
-                    var est = _faceDragHitsAll
+                    var est = shareAll
                         ? allEstimate ??= EstimateSafe(_faceDragDef.Id, i, attackMode, _faceDragIndex)
                         : EstimateSafe(_faceDragDef.Id, i, attackMode, _faceDragIndex);
                     var text = EstimateText.ForEnemy(est, i);
@@ -4302,6 +4305,8 @@ namespace Brushblade.Presentation
                 if (marks.Count > 0 && _graph.TryGet(marks[0].SourceCharId, out var source))
                     ringColor = Theme.GlyphColor(source.Element);
             }
+            // 全体且不需要主目标才共享一次试算;带 Primary 效果的全体字按格各算(主目标 = 悬停那只,fix round 1)
+            bool shareAll = hitsAll && !Battle.NeedsTargetNow(def.Id, attackMode: true);
             CastEstimate allEstimate = null;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
@@ -4312,7 +4317,7 @@ namespace Brushblade.Presentation
                 var host = _enemyHitAreas[i].transform;
                 if (ringColor is { } color) _dragRings.Add(AddLandingRing(host, color, FaceMarkRadius));
                 // 预估签(A-Q13):起拖时每个可落格各试算一次(全体只算一次),与松手 BeginCast(def.Id, target, true, libraryIndex) 同参
-                var est = hitsAll
+                var est = shareAll
                     ? allEstimate ??= EstimateSafe(def.Id, i, attackMode: true, libraryIndex)
                     : EstimateSafe(def.Id, i, attackMode: true, libraryIndex);
                 var text = EstimateText.ForEnemy(est, i);

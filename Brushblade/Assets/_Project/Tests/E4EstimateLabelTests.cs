@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
@@ -137,6 +138,53 @@ namespace Brushblade.Core.Tests
             var label = EstimateLabelRules.ForEnemy(est, 1);
             Assert.That(label.Main.Value.Kind, Is.EqualTo(EstimateSegKind.Freeze));
             Assert.That(label.Status.Value.Kind, Is.EqualTo(EstimateSegKind.Seed));
+        }
+
+        [Test]
+        public void Enemy_Killed_NoStatusSegment()
+        {
+            var est = Est(new[] { E(EffectKind.DamageSingle, 30), E(EffectKind.Slow, 2), E(EffectKind.BurnSingle, 2) },
+                new TargetHit(0, 500, 1, 2, false, false, false, killed: true));
+            var label = EstimateLabelRules.ForEnemy(est, 0);
+            Assert.That(label.Main.Value.Kind, Is.EqualTo(EstimateSegKind.Damage));
+            Assert.That(label.Status, Is.Null, "目标这一下就死了,不会再挂状态");
+        }
+
+        // ================= 全体 + Primary:不能共享一次试算(fix round 1 Important 1)=================
+
+        /// <summary>燚 五行面 Lv5:火海 BurnAll 2(全体)+ 灼·强化 BurnSingle 5(主目标)。打全体但仍要选主目标 ——
+        /// 悬停第 j 只的签必须按 j 为主目标单独试算;拿以第 0 只为主目标的那份去读第 j 只会少掉 BurnSingle 的 5 层。
+        /// BattleView 因此只在 !NeedsTargetNow 时共享全体试算。</summary>
+        [Test]
+        public void AllWithPrimary_EstimatePerTarget_MatchesRealCast()
+        {
+            var graph = CharTableTests.RealGraph();
+            var config = new BattleConfig
+            {
+                PlayerMaxHp = 5000, PlayerAttack = 100, ApPerTurn = 200, LibraryCapacity = 60, PoolCapacity = 20,
+                PlayerCritChance = 0, BossPhaseJitterPercent = 0,
+            };
+            var enemies = new[]
+            {
+                new EnemyDef("甲", Element.Heart, 100000, 0),
+                new EnemyDef("乙", Element.Heart, 100000, 0),
+                new EnemyDef("丙", Element.Heart, 100000, 0),
+            };
+            var levels = new Dictionary<string, int> { ["燚"] = 5 };
+            var b = new BattleEngine(graph, config, new[] { "燚", "燚" }, Array.Empty<string>(), enemies, seed: 1,
+                cardLevels: levels);
+            Assert.That(b.HitsAllEnemiesNow("燚", attackMode: false), Is.True, "夹具前提:打全体");
+            Assert.That(b.NeedsTargetNow("燚", attackMode: false), Is.True, "夹具前提:仍有主目标效果");
+
+            int BurnAt(CastEstimate est, int i) => est.Enemies.Where(h => h.Index == i).Sum(h => h.Burn);
+            var own = b.EstimateCast("燚", 2, attackMode: false);
+            var shared = b.EstimateCast("燚", 0, attackMode: false);
+            var defs = enemies.ToDictionary(e => e.Id);
+            var twin = BattleEngine.Restore(b.Capture(), graph, config, levels, defs);
+            Assert.That(twin.Cast("燚", 2, replaceSummon: true, attackMode: false), Is.EqualTo(BattleError.None));
+            int real = twin.LastEvents.Where(e => e.Kind == BattleEventKind.Burn && e.TargetIndex == 2).Sum(e => e.Amount);
+            Assert.That(BurnAt(own, 2), Is.EqualTo(real), "按悬停那只单独试算 == 实际");
+            Assert.That(BurnAt(shared, 2), Is.Not.EqualTo(real), "以别的敌人为主目标的试算读不出这一只的主目标灼");
         }
 
         // ================= 友方签 =================

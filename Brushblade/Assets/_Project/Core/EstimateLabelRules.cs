@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Brushblade.Core
@@ -82,8 +83,10 @@ namespace Brushblade.Core
                 label.Hits = hit.Hits >= 2 ? hit.Hits : 0;
             }
 
+            // 这一下就打死了:不会再挂上任何状态,只写伤害(fix round 1 Minor 2)
+            bool killed = found && hit.Killed && label.Main != null;
             var seen = new HashSet<EstimateSegKind>();
-            foreach (var e in est.Effects)
+            foreach (var e in killed ? Array.Empty<EffectDef>() : est.Effects)
             {
                 var seg = EnemySegOf(e, found ? hit.Burn : 0, est.MoraleGain);
                 if (seg == null || !seen.Add(seg.Value.Kind)) continue;
