@@ -914,7 +914,6 @@
   "shop.chest.cards_chip": "{count} 种 共 {cards} 张",
   "shop.chest.duration_chip": "{hours} 小时",
   "shop.chest.duration_chip_min": "{minutes} 分钟",
-  "shop.chest.slot_full_body": "箱位已满({count}/{limit})。\n先开掉一只再来。",
   "shop.chest.slots_full_label": "箱位已满",
   "shop.confirm.balance_label": "余额",
   "shop.confirm.balance_value": "{from} → {to}",
