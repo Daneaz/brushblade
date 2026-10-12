@@ -4800,12 +4800,12 @@ namespace Brushblade.Core
             // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
             // 才能在基准值下保住逐字节恒等
             // 相克标记与倍率同源:算式里本来就乘了这个倍率,>1 即相克(2026-08-30),<1 即被克(2026-08-31)
-            float burnWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+            float burnWuxing = WuxingResolver.KeMultiplier(Element.Fire, WuxingElementOf(enemy));
             bool burnKe = burnWuxing > 1f;
             bool burnCountered = burnWuxing < 1f;
             int tick = (int)Math.Floor(BurnBaseWithPotency((long)burn.Magnitude * EnemyBurnPerStack, burn.Potency)
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
-                * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
+                * WuxingResolver.KeMultiplier(Element.Fire, WuxingElementOf(enemy)));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
             RevealDisguise(enemyIndex); // 通假字:灼烧扣血也算挨打(2026-08-15 口径 7)
             // 不灭(2026-08-09):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
@@ -4893,12 +4893,12 @@ namespace Brushblade.Core
             long units = (long)(stacks * (stacks + 1) / 2) - (long)((stacks - fired) * (stacks - fired + 1) / 2);
             // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
             // 每层伤害用的是同一个量,不能只有一边吃
-            float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+            float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, WuxingElementOf(enemy));
             bool detonateKe = detonateWuxing > 1f;
             bool detonateCountered = detonateWuxing < 1f;
             int damage = (int)Math.Floor(BurnBaseWithPotency(units * EnemyBurnPerStack, burn.Potency)
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
-                * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
+                * WuxingResolver.KeMultiplier(Element.Fire, WuxingElementOf(enemy)));
             if (remain > 0) burn.Magnitude = remain;   // 部分引爆 / 保留:灼还在,附着不掉
             else
             {
@@ -5562,7 +5562,7 @@ namespace Brushblade.Core
             DamageCondition.HasSummon => AliveSummons() > 0,
             DamageCondition.MoraleFull => MoraleStacks >= MoraleCapOrDefault,   // D2-金 E6(Q13)
             DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
-            DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
+            DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, WuxingElementOf(target)) > 1f,   // 预估按表象,见 WuxingElementOf
             DamageCondition.IsBoss => target.IsBoss,     // D2-水 E14
             DamageCondition.NotBoss => !target.IsBoss,
             DamageCondition.OwnSummonAlive => OwnSummonAlive(_cast.TraitDef?.Id),   // D2-木 E50:与目标无关
@@ -5639,8 +5639,8 @@ namespace Brushblade.Core
             int armorIgnorePercent = 0)
         {
             var enemy = _enemies[enemyIndex];
-            // 预估试算(Plan E4 A-Q2):影子按玩家看得到的属性判生克 —— 未现形 = 中立,伪装 = 假身;本体恒 false,用真身
-            var defender = _estimate ? enemy.ApparentElement ?? Element.Heart : enemy.Element;
+            // 预估试算(Plan E4 A-Q2):影子按玩家出字前看到的属性判生克;本体 = enemy.Element(见 WuxingElementOf)
+            var defender = WuxingElementOf(enemy);
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, defender);
             // 2026-08-12(E-b4 T3):这里原先有一整段乘法减伤 —— 承伤系数 enemy.DamageTaken、
             // 「减免遭克制失效」的补丁、穿甲的「只忽略减免 + 无条件 +15%」、破甲的「承伤 +25%」。

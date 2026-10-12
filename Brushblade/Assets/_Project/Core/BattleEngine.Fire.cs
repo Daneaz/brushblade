@@ -212,7 +212,7 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[ti];
                 if (!enemy.Alive) continue;
-                float wuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+                float wuxing = WuxingResolver.KeMultiplier(Element.Fire, WuxingElementOf(enemy));
                 int damage = (int)Math.Floor(BurnBaseWithPotency((long)stacks * EnemyBurnPerStack, effect.BurstPotency)
                     * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                     * wuxing);

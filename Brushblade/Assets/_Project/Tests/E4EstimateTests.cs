@@ -54,8 +54,12 @@ namespace Brushblade.Core.Tests
         private static BattleEngine Twin(BattleEngine b, RecipeGraph graph, BattleConfig config, string id, int level) =>
             BattleEngine.Restore(b.Capture(), graph, config, new Dictionary<string, int> { [id] = level }, Defs(b));
 
+        /// <summary>本张字对敌人的直接伤害事件:挥击 + 引爆 + 即时灼 / 流血结算(与 TargetHit.Damage 同口径)。</summary>
+        private static bool DirectDamage(BattleEventKind k) =>
+            k == BattleEventKind.Damage || k == BattleEventKind.Detonate || k == BattleEventKind.BurnTick || k == BattleEventKind.BleedTick;
+
         private static Dictionary<int, int> DamageByEnemy(IEnumerable<BattleEvent> events) =>
-            events.Where(e => e.Kind == BattleEventKind.Damage && e.TargetIndex >= 0)
+            events.Where(e => DirectDamage(e.Kind) && e.TargetIndex >= 0)
                 .GroupBy(e => e.TargetIndex).ToDictionary(g => g.Key, g => g.Sum(e => e.Amount));
 
         private static Dictionary<int, int> BurnByEnemy(IEnumerable<BattleEvent> events) =>
@@ -369,6 +373,76 @@ namespace Brushblade.Core.Tests
             b.Enemies[0].Hp = 300;
             var h = b.EstimateCast("镰", 0, false).Enemies.Single();
             Assert.That((h.Executed, h.Killed), Is.EqualTo((true, true)));
+        }
+
+        // ================= fix round 1:表象属性冻结 / Countering / 引爆 =================
+
+        private static BattleEngine Hidden(CharDef def, Element truth, Element? shown)
+        {
+            var b = new BattleEngine(RebalanceFixture.Graph(def), Config(), new[] { def.Id, def.Id }, Array.Empty<string>(),
+                new[] { new EnemyDef("藏", Element.Heart, Hp, 0,
+                    shown == null ? EnemyAbility.Obscure : EnemyAbility.Disguise) }, seed: 1);
+            b.Enemies[0].Element = truth;
+            b.Enemies[0].ApparentElement = shown;
+            return b;
+        }
+
+        private static readonly CharDef Triple = new("剁", Element.Metal,
+            effects: new[] { new EffectDef(EffectKind.DamageSingle, 20, hitCount: 3) });
+
+        /// <summary>伪装:真身木、假身火。金打「火」= 被克 ×0.5,每段都按假身(第 1 段打完就现形,影子不能跟着现)。</summary>
+        [Test]
+        public void Estimate_MultiHit_Disguise_EverySegmentUsesFake()
+        {
+            var b = Hidden(Triple, Element.Wood, Element.Fire);
+            var h = b.EstimateCast("剁", 0, false).Enemies.Single();
+            Assert.That((h.Damage, h.Hits, h.Ke, h.Countered), Is.EqualTo((30, 3, false, true)), "3 段 × 20 × 0.5");
+            Assert.That(b.Enemies[0].ApparentElement, Is.EqualTo(Element.Fire), "本体不现形");
+            b.Cast("剁", 0);
+            Assert.That(b.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).Sum(e => e.Amount), Is.EqualTo(90),
+                "夹具前提:实际按真身(金克木 ×1.5)");
+        }
+
+        /// <summary>生僻字:受击两次就读懂;影子每段都按中立。</summary>
+        [Test]
+        public void Estimate_MultiHit_Obscure_EverySegmentNeutral()
+        {
+            var b = Hidden(Triple, Element.Wood, null);
+            var h = b.EstimateCast("剁", 0, false).Enemies.Single();
+            Assert.That((h.Damage, h.Ke, h.Countered), Is.EqualTo((60, false, false)), "3 段 × 20 × 1");
+            b.Cast("剁", 0);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyRevealed), Is.True, "夹具前提:实际中途读懂");
+        }
+
+        /// <summary>「克制时翻倍」(DamageCondition.Countering)也按表象判:未现形的木怪不算被金克。</summary>
+        [Test]
+        public void Estimate_CounteringCondition_UsesApparent()
+        {
+            var smite = new CharDef("劈", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 50, doubleVs: DamageCondition.Countering) });
+            var b = Hidden(smite, Element.Wood, null);
+            Assert.That(b.EstimateCast("劈", 0, false).Enemies.Single().Damage, Is.EqualTo(50), "不翻倍、不 ×1.5");
+            var shown = Hidden(smite, Element.Wood, Element.Wood);   // 表象就是木:照常翻倍 + 相克
+            Assert.That(shown.EstimateCast("劈", 0, false).Enemies.Single().Damage, Is.EqualTo(150));
+            b.Cast("劈", 0);
+            Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.Damage).Amount, Is.EqualTo(150), "夹具前提:实际按真身");
+        }
+
+        /// <summary>引爆是这一下的直接伤害,计入 TargetHit.Damage(controller 裁定)。</summary>
+        [Test]
+        public void Estimate_Detonate_CountedInDamage()
+        {
+            var blast = new CharDef("爆", Element.Heart, effects: new[]
+                { new EffectDef(EffectKind.DamageSingle, 20), new EffectDef(EffectKind.Detonate, 0) });
+            var b = Battle(RebalanceFixture.Graph(blast), "爆", 1);   // 3 号带灼 3
+            var est = b.EstimateCast("爆", 3, false).Enemies.Single();
+            b.Cast("爆", 3);
+            int real = b.LastEvents.Where(e => e.TargetIndex == 3 && (e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.Detonate))
+                .Sum(e => e.Amount);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Detonate && e.TargetIndex == 3), Is.True, "夹具前提:引爆了");
+            Assert.That(est.Damage, Is.EqualTo(real));
+            Assert.That(est.Damage, Is.GreaterThan(20));
+            Assert.That(est.Hits, Is.EqualTo(1), "引爆不算段");
         }
 
         /// <summary>A-Q6:多段 = 合计 + Hits。</summary>

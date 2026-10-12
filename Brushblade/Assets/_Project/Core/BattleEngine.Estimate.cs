@@ -19,7 +19,8 @@ namespace Brushblade.Core
         public int ShieldGranted;
         /// <summary>落在 allySlot 那个友方身上的实际回复合计;满血 = 0。</summary>
         public int HealAmount;
-        /// <summary>玩家战意这一下净涨的层数(出字前后之差,≥ 0;断金清空时为 0)。</summary>
+        /// <summary>玩家战意这一下的**净差**:影子出字后层数 − 出字前层数,下限 0(断金清空时为 0)。
+        /// 不取 MoraleGain 事件合计 —— 那条事件只有锋芒发,字卡自带的战意不发。</summary>
         public int MoraleGain;
         /// <summary>这次实际进结算的效果表:已扣本场用尽的限次特性、已并入部件印记(与 ApplyEffects 同一个函数)。</summary>
         public IReadOnlyList<EffectDef> Effects = Array.Empty<EffectDef>();
@@ -31,9 +32,11 @@ namespace Brushblade.Core
     public readonly struct TargetHit
     {
         public int Index { get; }
-        /// <summary>该下标所有 Damage 事件 Amount 之和。</summary>
+        /// <summary>这一下对该下标的直接伤害合计 = 下列事件 Amount 之和(反应链已在影子里清掉,出现的都是本张字直接造成的):
+        /// Damage(挥击)、Detonate(引爆)、BurnTick(立即结算灼 / 焚城式即时灼伤)、BleedTick(立即结算流血)。
+        /// 过生克 / 护甲 / 易伤,未扣敌盾,不封顶剩余血。</summary>
         public int Damage { get; }
-        /// <summary>段数:该下标 Damage 事件条数,跨排 Boss 的同一挥(SameSwing)不另计。</summary>
+        /// <summary>段数:该下标 Damage 事件条数(只数挥击,引爆 / 即时灼伤不算段),跨排 Boss 的同一挥(SameSwing)不另计。</summary>
         public int Hits { get; }
         /// <summary>该下标 Burn 事件 Amount 之和(实际入账层数)。</summary>
         public int Burn { get; }
@@ -61,8 +64,24 @@ namespace Brushblade.Core
     public sealed partial class BattleEngine
     {
         /// <summary>影子引擎标记(Plan E4)。只有 <see cref="EstimateCast"/> 造出的影子为 true;本体恒 false,
-        /// 读它的三处(RollCrit / DrainReactions / DamageEnemy 生克取元素)在 false 时与改前逐字节相同。</summary>
+        /// 读它的地方(RollCrit / DrainReactions / <see cref="WuxingElementOf"/>)在 false 时与改前逐字节相同。</summary>
         private bool _estimate;
+
+        /// <summary>影子出字前每只敌人的表象属性(EstimateCast 冻结)。多段伤害打完首段会现形(RevealDisguise / 生僻字读懂),
+        /// 不冻结的话第 2 段起按真身算,签就泄露了(A-Q2)。本体恒 null。</summary>
+        private Dictionary<EnemyState, Element?> _estimateApparent;
+
+        /// <summary>生克计算用的守方属性。本体 = 真身 <see cref="EnemyState.Element"/>(与改前一致);
+        /// 影子 = 出字前的表象属性,未现形 = 中立(心)、伪装 = 假身(A-Q2「一律按 ApparentElement」)。
+        /// 读取点:DamageEnemy、条件 Countering、灼烧结算 / 引爆 / 焚城的火克倍率。
+        /// 中途分裂出的新敌人不在冻结表里,按它当下的表象属性。</summary>
+        private Element WuxingElementOf(EnemyState enemy)
+        {
+            if (!_estimate) return enemy.Element;
+            Element? shown = _estimateApparent != null && _estimateApparent.TryGetValue(enemy, out var frozen)
+                ? frozen : enemy.ApparentElement;
+            return shown ?? Element.Heart;
+        }
 
         private readonly List<OpeningEffect> _appliedOpenings = new List<OpeningEffect>();
 
@@ -106,6 +125,8 @@ namespace Brushblade.Core
             foreach (var e in _enemies) enemyDefs[e.Def.Id] = e.Def;
             var shadow = Restore(Capture(), _graph, _config.ForEstimate(), _cardLevels, enemyDefs);
             shadow._estimate = true;
+            shadow._estimateApparent = new Dictionary<EnemyState, Element?>();
+            foreach (var e in shadow._enemies) shadow._estimateApparent[e] = e.ApparentElement;
             shadow.Ap = Math.Max(shadow.Ap, def.ApCost);
             var executions = new ExecutionLog();
             shadow.AddHookListener(executions);
@@ -130,6 +151,15 @@ namespace Brushblade.Core
                             touched = true;
                             damage += e.Amount;
                             if (!e.SameSwing) count++;
+                            ke |= e.Ke;
+                            countered |= e.Countered;
+                            break;
+                        // 非挥击的直接伤害(见 TargetHit.Damage 注释):计入合计,不计段数
+                        case BattleEventKind.Detonate:
+                        case BattleEventKind.BurnTick:
+                        case BattleEventKind.BleedTick:
+                            touched = true;
+                            damage += e.Amount;
                             ke |= e.Ke;
                             countered |= e.Countered;
                             break;
