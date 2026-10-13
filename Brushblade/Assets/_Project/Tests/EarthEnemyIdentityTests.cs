@@ -33,7 +33,7 @@ namespace Brushblade.Core.Tests
         private static readonly CharDef Grove = RebalanceFixture.Char("林",
             new EffectDef(EffectKind.Summon, 300, summonCount: 2, summonAttack: 10, summonChar: "木"));
         private static readonly CharDef Keep = RebalanceFixture.Char("留",
-            new EffectDef(EffectKind.Shield, 120, persistOnce: true));
+            new EffectDef(EffectKind.Shield, 120));
         private static readonly CharDef Armor = RebalanceFixture.Char("铠", new EffectDef(EffectKind.DefenseBuff, 20, turns: 2));
         private static readonly CharDef Poke = RebalanceFixture.Char("戳", new EffectDef(EffectKind.DamageSingle, 15));
 
@@ -79,14 +79,14 @@ namespace Brushblade.Core.Tests
             for (int t = 0; t < turns && b.Phase != BattlePhase.Won && b.Phase != BattlePhase.Lost; t++)
             {
                 eachTurn(b, t, sb);
-                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+{b.ShieldPersist}");
+                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 if (b.Phase == BattlePhase.Won) break;
                 b.EndTurn();
                 Dump(sb, b.LastEvents);
                 all.AddRange(b.LastEvents);
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
-                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+{b.ShieldPersist}[");
+                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+0[");
                 foreach (var s in b.PlayerStatuses.All) sb.Append($"{s.Kind}:{s.Magnitude}:{s.TurnsLeft}:{s.Polarity} ");
                 sb.Append(']');
                 foreach (var s in b.Summons)
@@ -176,6 +176,8 @@ namespace Brushblade.Core.Tests
         }
 
         private const string KillExpected = "d9d7f014f6dc5655 6469";
-        private const string BossExpected = "109d6d340ffb3bb5 20746";
+        // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
+        // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
+        private const string BossExpected = "d4aa3156089da689 20729";
     }
 }

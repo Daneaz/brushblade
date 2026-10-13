@@ -35,9 +35,9 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
             new CharDef("盾", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
-            // 留存护盾版:U1 之后普通护盾下一玩家回合开始就清空,倾覆的「先吸伤再清盾」探针要靠留存桶才撑得到倾覆
+            // 第二张护盾字(原留存护盾版;2026-10-13 取消留存桶后与「盾」同口径,保留只为不动测试牌序)
             new CharDef("壁", Element.Earth,
-                effects: new[] { new EffectDef(EffectKind.Shield, 20, persistOnce: true) }),
+                effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
             // 护甲 2 点(测试本地值,真实字表是 12):这里的 Boss 攻击力只有 5,
             // 拿 12 会把普攻直接归零,断言看不出「大招也吃护甲」这件事
             new CharDef("铠", Element.Metal,
@@ -311,26 +311,23 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Topple_ClearsAllShieldAndCutsNextTurnAp()
         {
-            // U1 之后普通护盾下一玩家回合开始就清空,要让倾覆同时清到两个桶:
-            // 第 1 回合立留存护盾 20,吃普攻后剩 15,蓄力回合过去,第 3 回合再叠普通护盾 20 再交回合
+            // 第 1 回合立护盾 20 吃普攻,蓄力回合过去,第 3 回合再叠护盾 20 再交回合(倾覆那一拍护盾 20)
             var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
                 new string[0], new[] { "壁", "盾", "壁", "盾", "火", "林" },
                 new[] { SkillBoss(BossSkill.Topple) }, seed: 1);
-            engine.Cast("壁"); // 土系留存护盾 20
+            engine.Cast("壁"); // 土系护盾 20
             Assert.That(engine.PlayerShield, Is.EqualTo(20));
             int full = engine.PlayerHp;
 
-            EndTurns(engine, 2); // 普攻(吃 5 点,留存 20→15)+ 蓄力
-            Assert.That(engine.ShieldPersist, Is.EqualTo(15));
-            Assert.That(engine.Cast("盾"), Is.EqualTo(BattleError.None), "第 3 回合叠普通护盾 20");
+            EndTurns(engine, 2); // 普攻(吃 5 点)+ 蓄力
+            Assert.That(engine.Cast("盾"), Is.EqualTo(BattleError.None), "第 3 回合叠护盾 20");
             Assert.That(engine.ShieldNormal, Is.EqualTo(20));
             engine.EndTurn(); // 倾覆(伤害 Attack×2=10)
 
-            // 结算顺序探针:倾覆先吸伤再清盾——伤害 10 应被盾吸收(普通桶 20→10),HP 不掉;
+            // 结算顺序探针:倾覆先吸伤再清盾——伤害 10 应被盾吸收(20→10),HP 不掉;
             // 若实现被写反(先清盾再结算伤害),这 10 点伤害直接打进 HP,PlayerHp 会少 10。
             Assert.That(engine.PlayerHp, Is.EqualTo(full), "倾覆伤害应被吸盾挡下,验证先吸伤再清盾的结算顺序");
-            Assert.That(engine.ShieldNormal, Is.EqualTo(0), "倾覆清普通桶");
-            Assert.That(engine.ShieldPersist, Is.EqualTo(0), "倾覆清留存桶");
+            Assert.That(engine.PlayerShield, Is.EqualTo(0), "倾覆清空护盾");
             Assert.That(engine.Ap, Is.EqualTo(2), "下回合 AP 由 3 降为 2");
         }
 

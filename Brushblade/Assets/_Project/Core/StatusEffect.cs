@@ -82,7 +82,7 @@ namespace Brushblade.Core
                           // (BattleEngine.DropRiders)连同 SourceId + TraitKey 相同的附带状态一起移除。
                           // 极性记 Debuff:敌人侧驱散只清 Buff,载体不能被驱散单独剥掉。
         ShieldRecoil,     // 反震(D1 Task 9,D9,仅玩家,隐藏):Magnitude = 反弹吸收量的百分比,TurnsLeft = -1,
-                          // TraitKey = 每回合次数阀的键。同类取最强(只留一条);两桶护盾归零 / 倾覆清盾时移除。
+                          // TraitKey = 每回合次数阀的键。同类取最强(只留一条);护盾归零 / 倾覆清盾时移除。
         Taunt,            // 嘲讽(D2-0 Task 2,spec §3.1,E11,玩家与木灵):敌人只能攻击带嘲讽的单位。Magnitude 不用,
                           // TurnsLeft = 回合数(-1 = 本场),SourceId = 字 ID(同源刷新)。玩家身上按玩家回合递减,木灵身上按木灵自己那一拍递减。
         // ---- D2-火 Task 3:灼附着族(附录 N5,仅敌人;全部挂在灼上,SourceId = 字 ID、TraitKey = 特性键,灼移除时随 DropRiders 移除) ----
@@ -125,17 +125,14 @@ namespace Brushblade.Core
         HurtHeal,         // 栉风沐雨(可见,chip 已画:E3 StatusChipsWaterEarth 稿):Magnitude = 回复百分比,TurnsLeft = 回合,SourceId = 字 ID。
                           // 多条取最强;每回合 1 次(次数阀键「受击回复」)。Q26:土·堡垒的护盾载荷以后复用同一挂点。
         ShieldFrost,      // 冰晶(隐藏载体):Magnitude = 冻结回合,OnHit = 打破时对攻击者结算的效果(本 plan 恒为 [Freeze N];
-                          // Q26:土·碎玉的伤害载荷以后放这里,须进 60% 反伤预算),TurnsLeft = -1,随两桶护盾归零移除。
+                          // Q26:土·碎玉的伤害载荷以后放这里,须进 60% 反伤预算),TurnsLeft = -1,随护盾归零移除。
         TurnPulse,        // 大雨滂沱(可见,chip 已画:E3 StatusChipsWaterEarth 稿):OnHit = 每个玩家回合开始结算的效果(未缩放,OpeningEffect 形态),
                           // TurnsLeft = 回合(施加当回合不触发,之后 N 次),SourceId = 字 ID、TraitKey = 特性键。
-        // ---- D2-土 Task 2:护盾操作族(附录 G9,仅玩家)。⚠ 只在末尾追加 ----
-        ShieldCarry,      // 浮屠(可见,E3 起画「护盾回流」chip,Q21):Magnitude = 回合初被清普通桶的加回百分比,TurnsLeft = 回合(按玩家回合递减,
-                          // 施加当回合不触发,之后 N 次),SourceId = 字 ID。多条取最强;加回作普通桶、不攒厚,排在判空移除载体之前。
         // ---- D2-土 Task 3:受击挂点族(附录 G2 / G3 / G4,仅玩家)。⚠ 只在末尾追加 ----
         HitCap,           // 铜墙铁壁(可见,chip「受伤上限」已画:StatusChipsWood 稿,Q20):Magnitude = 最大生命百分比,TurnsLeft 1;多条取最强。
                           // 玩家身上、我方全体受益:玩家按玩家最大生命、木灵按木灵 MaxHp 封顶,削减量并入 60% 非护甲减伤预算。
         HurtShield,       // 堡垒(可见,chip「受击得盾」已画:E3 StatusChipsWaterEarth 稿,Q21):Magnitude = 出字时定死的护盾量,TurnsLeft = 回合;多条取最强。
-        ShieldShatter,    // 碎玉(隐藏载体,Q21):Magnitude = 反伤百分比,TurnsLeft = -1,同类只留最强一条;随两桶护盾归零移除。
+        ShieldShatter,    // 碎玉(隐藏载体,Q21):Magnitude = 反伤百分比,TurnsLeft = -1,同类只留最强一条;随护盾归零移除。
         // ---- D2-土 Task 4:敌人侧(附录 G6,仅 Boss)。⚠ 只在末尾追加 ----
         SkillCut,         // 杜塞(Boss,可见,E3 起画「大招削弱」chip,Q21):Magnitude = 下一次大招伤害的削减百分比,TurnsLeft = -1;CastBossSkill 开头取最大并整类移除。
         // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为;附录 M1 / M6 / M7)。⚠ 只在末尾追加 ----
@@ -159,7 +156,6 @@ namespace Brushblade.Core
             || kind == StatusKind.MoraleArmor || kind == StatusKind.MoraleShield   // D2-金 Task 4:战意光环只管本场
             || kind == StatusKind.DebuffWard   // D2-水 Task 3:免疫减益只管本场(防御性,同 Retaliate)
             || kind == StatusKind.HurtHeal || kind == StatusKind.ShieldFrost || kind == StatusKind.TurnPulse   // D2-水 Task 4(防御性)
-            || kind == StatusKind.ShieldCarry   // D2-土 Task 2(防御性)
             || kind == StatusKind.HitCap || kind == StatusKind.HurtShield || kind == StatusKind.ShieldShatter   // D2-土 Task 3(防御性)
             || kind == StatusKind.SummonEmpower || kind == StatusKind.SummonThorns || kind == StatusKind.SummonRanged;   // D2-木 M1(防御性)
     }

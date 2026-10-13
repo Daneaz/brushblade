@@ -46,19 +46,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void LoadGraph_ParsesEffectFlags() // 灼/堡的条件标志
+        public void LoadGraph_ParsesEffectFlags() // 灼的条件标志(堡的留存护盾标志已于 2026-10-13 随留存桶取消)
         {
             var graph = ConfigLoader.LoadGraph(@"{
                 ""chars"": [
                     { ""id"": ""灼"", ""element"": ""Fire"",
                       ""effects"": [ { ""kind"": ""DamageSingle"", ""value"": 8, ""doubleVs"": ""Burning"" } ] },
                     { ""id"": ""堡"", ""element"": ""Earth"",
-                      ""effects"": [ { ""kind"": ""Shield"", ""value"": 10, ""persistOnce"": true } ] }
+                      ""effects"": [ { ""kind"": ""Shield"", ""value"": 10 } ] }
                 ]
             }");
             Assert.That(graph.Get("灼").Effects.Single().DoubleVs, Is.EqualTo(DamageCondition.Burning));
-            Assert.That(graph.Get("灼").Effects.Single().PersistOnce, Is.False);
-            Assert.That(graph.Get("堡").Effects.Single().PersistOnce, Is.True);
+            Assert.That(graph.Get("堡").Effects.Single().DoubleVs, Is.EqualTo(DamageCondition.None));
         }
 
         [Test]

@@ -355,7 +355,6 @@ namespace Brushblade.Core
         /// 静态字段进程一没就归零。跟着快照走,结算时快照作废,它也自然一起消失。</summary>
         public int BestDepthBeforeRun { get; set; }
         public int NormalShield { get; set; }   // 普通护盾(断点续爬恢复;整场爬塔延续)
-        public int PersistShield { get; set; }   // 堡型护盾(跨段保留)
         /// <summary>携带召唤物(2026-08-03):与普通盾同口径,整场爬塔延续,直到死亡,见 20.2。</summary>
         public List<SummonSnapshot> CarriedSummons { get; set; } = new();
 

@@ -39,7 +39,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.BurnPotency, 10) }), // 同真实字表(×10 后)
             new CharDef("只", null),
             new CharDef("堡", Element.Earth, new[] { "呆", "土" }, rarity: CardRarity.Purple,
-                effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
+                effects: new[] { new EffectDef(EffectKind.Shield, 10) }),
             new CharDef("呆", null),
         });
 
@@ -89,38 +89,35 @@ namespace Brushblade.Core.Tests
             var engine = new BattleEngine(Graph(), Config(),
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { MetalBoss() }, seed: 42, startingHp: null, cardLevels: null,
-                startingNormalShield: 5, startingPersistShield: 2);
+                startingNormalShield: 5);
             Assert.That(engine.ShieldNormal, Is.EqualTo(5));
-            Assert.That(engine.ShieldPersist, Is.EqualTo(2));
-            Assert.That(engine.PlayerShield, Is.EqualTo(7));
+            Assert.That(engine.PlayerShield, Is.EqualTo(5));
         }
 
         [Test]
         public void Constructor_CarriedShield_ClampedToMaxHp()
         {
-            // Config().PlayerMaxHp 下带入的护盾超上限:两桶之和钳到最大生命,豁免桶(persist)优先保留。
+            // Config().PlayerMaxHp 下带入的护盾超上限:钳到最大生命(单桶,2026-10-13 取消留存桶)。
             var cfg = Config();
             int max = cfg.PlayerMaxHp;
             var engine = new BattleEngine(Graph(), cfg,
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { MetalBoss() }, seed: 42, startingHp: null, cardLevels: null,
-                startingNormalShield: max + 30, startingPersistShield: 3);
+                startingNormalShield: max + 30);
             Assert.That(engine.PlayerShield, Is.EqualTo(max));
-            Assert.That(engine.ShieldPersist, Is.EqualTo(3), "persist 桶优先保留");
-            Assert.That(engine.ShieldNormal, Is.EqualTo(max - 3));
         }
 
         [Test]
-        public void Shield_PersistsThroughEnemyTurn() // 留存护盾段内持久;普通护盾在下一玩家回合开始清空(U1)
+        public void Shield_AbsorbsEnemyTurn() // 带入的护盾先于生命吃掉敌方攻击
         {
-            // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收
-            // 2026-10-04 U1:原用普通桶 5,现在 EndTurn 回到玩家回合时会被清空,改用留存桶观察「吸收后剩余」
+            // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收。
+            // 2026-10-13:留存桶取消,吸收后剩余的护盾在 U1 回合清盾下会被清掉(Task 4 删清盾后改回断言剩 2),这里只看吸收本身
             var engine = new BattleEngine(Graph(), Config(),
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { WoodMinion(hp: 100) }, seed: 42, startingHp: 50, cardLevels: null,
-                startingPersistShield: 5);
+                startingNormalShield: 5);
             engine.EndTurn();                 // 敌方攻击 3,护盾吸收
-            Assert.That(engine.PlayerShield, Is.EqualTo(2)); // 留存护盾不清,剩 2
+            Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack).Absorbed, Is.EqualTo(3));
             Assert.That(engine.PlayerHp, Is.EqualTo(50));    // 护盾垫住,血未掉
         }
 
@@ -181,7 +178,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = new BattleEngine(ArmorGraph(), Config(), Array.Empty<string>(),
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, seed: 42,
-                startingHp: null, cardLevels: null, startingNormalShield: 0, startingPersistShield: 0,
+                startingHp: null, cardLevels: null, startingNormalShield: 0,
                 startingSummons: null,
                 startingStatuses: new[] { new StatusEffect
                 {
@@ -661,15 +658,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Bao_ShieldPersistsThroughTurns() // 堡:护盾段内持久,多轮保留
+        public void Bao_ShieldAbsorbsEnemyTurn() // 堡:护盾挡下敌方这一拍
         {
+            // 2026-10-13:堡的留存护盾随留存桶取消;多轮保留归 Task 4(删回合清盾)后再断言
             var engine = Engine(library: new[] { "堡" }, enemies: new[] { WoodMinion(hp: 200) }); // 攻 3
             engine.Cast("堡");   // 护盾 10(呆中性+土,无相生)
-            engine.EndTurn();    // 吸收 3 → 7,护盾段内持久
-            Assert.That(engine.PlayerShield, Is.EqualTo(7));
-            engine.EndTurn();    // 吸收 3 → 4,护盾继续持久
-            Assert.That(engine.PlayerShield, Is.EqualTo(4));
-            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 两轮攻击全被盾挡
+            Assert.That(engine.PlayerShield, Is.EqualTo(10));
+            engine.EndTurn();    // 吸收 3
+            Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack).Absorbed, Is.EqualTo(3));
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));
         }
 
         // ---- 胜负(3.8.4) ----

@@ -155,7 +155,7 @@ namespace Brushblade.Core.Tests
                 Events(sb, b);
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
-                sb.Append($"|P{b.PlayerHp}/{b.ShieldNormal}/{b.ShieldPersist}");
+                sb.Append($"|P{b.PlayerHp}/{b.ShieldNormal}/0");
                 Bag(sb, b.PlayerStatuses);
                 foreach (var s in b.Summons)
                     if (s != null) { sb.Append($",S{s.Hp}/{s.Shield}"); Bag(sb, s.Statuses); }

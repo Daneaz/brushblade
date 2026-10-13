@@ -123,7 +123,6 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.HurtHeal),
             nameof(StatusKind.HurtShield),
             nameof(StatusKind.TurnPulse),
-            nameof(StatusKind.ShieldCarry),
         };
 
         private static readonly string[] SummonCellStatuses =

@@ -55,8 +55,7 @@ namespace Brushblade.Presentation
                 ActionMeter = battle.PlayerActionMeter,
                 Figures = BuildFigures(battle, meta),
                 Statuses = statuses,
-                // 留存护盾只在读实时引擎时有(战后携带值走 shieldOverride,两桶已合并成一个数)
-                Abilities = BuildAbilities(battle, meta, shield, shieldOverride == null ? battle.ShieldPersist : 0),
+                Abilities = BuildAbilities(battle, meta, shield),
                 Wuxing = null,
             };
         }
@@ -132,7 +131,7 @@ namespace Brushblade.Presentation
         /// <see cref="AbilityEntry.Section"/>,UnitSheet 据此画出那条分组标题(2026-09-01
         /// review 修:此前认为不加字段也不丢信息,但分组标题本身就是稿上要求的元素,
         /// 护盾与养成加成混排、无区分才是真的丢了信息)。</summary>
-        private static List<AbilityEntry> BuildAbilities(BattleEngine battle, MetaState meta, int shield, int persist)
+        private static List<AbilityEntry> BuildAbilities(BattleEngine battle, MetaState meta, int shield)
         {
             string growthSection = Strings.T("player.detail.perk_section");
             var list = new List<AbilityEntry>();
@@ -142,14 +141,6 @@ namespace Brushblade.Presentation
                     IconKey = "shield", ChipColor = Theme.RarityColor(CardRarity.Gold),
                     Name = Strings.T("player.detail.shield_name", ("value", shield)),
                     Desc = Strings.T("player.detail.shield_desc"),
-                });
-            // 留存护盾(spec v7 §3.1):护盾总数仍合计显示,留存量另起一张卡,图标取稿 StatusChips 的 keepshield
-            if (persist > 0)
-                list.Add(new AbilityEntry
-                {
-                    IconKey = "keepshield", ChipColor = Theme.Jade,
-                    Name = Strings.T("player.detail.keepshield_name", ("value", persist)),
-                    Desc = Strings.T("player.detail.keepshield_desc"),
                 });
 
             // 四条各自直写 Strings.T(字面量 key, ...)、不抽 (perkId, descKey) 参数化的共用方法——

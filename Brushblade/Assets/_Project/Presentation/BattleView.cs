@@ -1699,7 +1699,7 @@ namespace Brushblade.Presentation
               .Append(_run.CharPicksLeft).Append('|')
               .Append(_run.EarnedInk).Append('|')
               .Append(battle.Phase).Append('|').Append(battle.Turn).Append('|').Append(battle.Ap).Append('|')
-              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append(',').Append(battle.ShieldPersist).Append('|')
+              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append('|')
               .Append(string.Join(",", battle.Library)).Append('|')
               .Append(string.Join(",", battle.Pool));
             foreach (var enemy in battle.Enemies)
@@ -2104,7 +2104,7 @@ namespace Brushblade.Presentation
         /// <summary>与 <see cref="ShowCarriedShield"/> 配套的携带值本身,详情弹窗
         /// (<see cref="OnPlayerClicked"/>)传给 <see cref="PlayerInfo.Sheet"/> 用。</summary>
         private int? CarriedShieldOverride =>
-            ShowCarriedShield ? (int?)(_run.CarriedNormalShield + _run.CarriedPersistShield) : null;
+            ShowCarriedShield ? (int?)_run.CarriedNormalShield : null;
 
         /// <summary>血量/上限与护盾同一个坑、同一条判据(2026-09-18):战利品/奇遇页的
         /// <see cref="Battle"/> 是上一场的旧实例,<c>Battle.PlayerHp</c> 不含奇遇的回血/扣血,
@@ -2301,11 +2301,6 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", BattleChipColor(StatusKind.Immunity), Color.white, "immunity"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
                 statusChips.Add(new("", BattleChipColor(StatusKind.Reflect), Color.white, "reflect"));
-            // 留存护盾(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 留存量。普通护盾回合末清空,
-            // 这一枚是「清不掉的那部分」;玩家护盾总数仍在血条上合计显示,这里只额外报留存量。
-            // 顺序:稿定 嘲讽 · 保命 · 留存护盾 · 减伤 · 格挡 ...(前后几枚未实现,只按相对顺序放在格挡之前)
-            int keepShield = Battle.ShieldPersist;
-            if (keepShield > 0) statusChips.Add(new($"{keepShield}", Theme.Jade, Color.white, "keepshield"));
             // 减伤 / 受伤上限(StatusChips 10-04 补 + StatusChipsWood,2026-10-11 拍板):翠玉、无数字(同类取最强、不叠,% 在详情)。
             // 减伤 = 本回合减伤(DamageCut)或林荫(本命光环,Core 读口与结算同源);受伤上限(铜墙铁壁)紧跟减伤,一个打折、一个封顶
             if (Battle.PlayerStatuses.MaxMagnitude(StatusKind.DamageCut) > 0 || Battle.WoodDamageCutPercent(forSummon: false) > 0)
@@ -2380,11 +2375,9 @@ namespace Brushblade.Presentation
             int waterPower = Battle.WellspringStacks;
             if (waterPower > 0)
                 statusChips.Add(new($"{Strings.T("status.wellspring.chip")}{waterPower}", BattleChipColor(StatusKind.Wellspring), Color.white, null));
-            // 每回合效果 · 护盾回流(StatusChipsWaterEarth):垫底 —— 「回合开始自己发生」,不用玩家盯。带剩余次数
+            // 每回合效果(StatusChipsWaterEarth):垫底 —— 「回合开始自己发生」,不用玩家盯。带剩余次数
             var turnPulse = CountdownChip(Battle.PlayerStatuses, StatusKind.TurnPulse, "turnpulse");
             if (turnPulse.HasValue) statusChips.Add(turnPulse.Value);
-            var shieldCarry = CountdownChip(Battle.PlayerStatuses, StatusKind.ShieldCarry, "shieldcarry");
-            if (shieldCarry.HasValue) statusChips.Add(shieldCarry.Value);
             // 2026-09-19:与单位格 chip 同一套尺寸(字号 12 → 15)
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, UnitChipFontSize, 2,
                 UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
@@ -2992,7 +2985,7 @@ namespace Brushblade.Presentation
             StatusKind.SpeedModifier => magnitude > 0 ? Theme.Jade : Theme.InkSoft,
             StatusKind.Immunity or StatusKind.Reflect or StatusKind.Endure or StatusKind.DamageCut or StatusKind.HitCap
                 or StatusKind.Block or StatusKind.DefenseBuff or StatusKind.DodgeBuff or StatusKind.HurtHeal
-                or StatusKind.HurtShield or StatusKind.DebuffWard or StatusKind.TurnPulse or StatusKind.ShieldCarry
+                or StatusKind.HurtShield or StatusKind.DebuffWard or StatusKind.TurnPulse
                 or StatusKind.HealOverTime or StatusKind.Seed or StatusKind.Retaliate or StatusKind.SummonThorns
                 or StatusKind.Wellspring => Theme.Jade,
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff or StatusKind.PierceBuff
@@ -5416,7 +5409,7 @@ namespace Brushblade.Presentation
             _previewRewardIndex = -1;
             _message = (won && shieldBefore > 0)
                 ? Strings.T("battle.msg.shield_decay",
-                    ("from", shieldBefore), ("to", _run.CarriedNormalShield + _run.CarriedPersistShield))
+                    ("from", shieldBefore), ("to", _run.CarriedNormalShield))
                 : "";
             Refresh();
         }

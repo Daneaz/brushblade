@@ -23,7 +23,7 @@ namespace Brushblade.Core.Tests
         private static readonly CharDef Guard = RebalanceFixture.Char("护",
             new EffectDef(EffectKind.Shield, 300), new EffectDef(EffectKind.ShieldRecoil, 30));
         private static readonly CharDef Keep = RebalanceFixture.Char("留",
-            new EffectDef(EffectKind.Shield, 150, persistOnce: true));
+            new EffectDef(EffectKind.Shield, 150));
         private static readonly CharDef Crystal = new("冰", Element.Water, effects: new[]
         {
             new EffectDef(EffectKind.HealSelf, 100), new EffectDef(EffectKind.ShieldFromHeal, 100),
@@ -79,13 +79,13 @@ namespace Brushblade.Core.Tests
             for (int t = 0; t < turns && b.Phase == BattlePhase.PlayerTurn; t++)
             {
                 eachTurn(b, t, sb);
-                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+{b.ShieldPersist}");
+                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
                 foreach (var e in b.LastEvents)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
-                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+{b.ShieldPersist}[");
+                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+0[");
                 foreach (var s in b.PlayerStatuses.All) sb.Append($"{s.Kind}:{s.Magnitude}:{s.TurnsLeft} ");
                 sb.Append(']');
                 foreach (var s in b.Summons)
@@ -170,7 +170,9 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(SummonExpected), fp);
         }
 
-        private const string PlayerExpected = "10db0d2dc8abee73 8656";
+        // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
+        // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
+        private const string PlayerExpected = "49dcdc1888bb2ba4 8627";
         private const string SummonExpected = "8215fa34257c8abe 10842";
     }
 }

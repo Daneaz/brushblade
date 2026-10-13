@@ -202,26 +202,24 @@ namespace Brushblade.Core
         // ---- D2-水 Task 4:我方受击 / 回合挂点(附录 W5 / W6 / W7)。⚠ 只在末尾追加 ----
         HurtHeal,       // 栉风沐雨:给玩家挂 StatusKind.HurtHeal,Turns 回合(必填)内玩家被敌人挥击命中(damage > 0)时回复
                         // 这次伤害(减伤后、含护盾吸收)× Value%。每回合 1 次;不吃泉放大、不攒泉;判负之后不触发(Q12)。离散。非敌对。
-        ShieldFrost,    // 冰晶:本次出字给玩家实际加了盾(ShieldGranted > 0)才挂 StatusKind.ShieldFrost;敌人挥击把两桶护盾打到 0 时
+        ShieldFrost,    // 冰晶:本次出字给玩家实际加了盾(ShieldGranted > 0)才挂 StatusKind.ShieldFrost;敌人挥击把护盾打到 0 时
                         // 冻结攻击者 Value 回合(反应,安全点兑现;Boss → 冰滞)并移除。回合初 / 倾覆清盾只移除(Q15)。离散。非敌对。
         TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(清盾之后、TurnStarted 之前)
                         // 把 PerHit 里的效果入队一条反应(目标 −1:敌方效果按其 pick,我方效果落玩家),触发时按来源字等级缩放(Q17)。
                         // PerHit 白名单见 BattleEngine.TurnPulseAllows(不收伤害)。Value 不用。非敌对。
         // ---- D2-土 Task 2:护盾操作族(附录 G1 / G8 / G9)。⚠ 只在末尾追加 ----
-        ShieldSpend,    // 塔倾 / 地裂:玩家两桶护盾合计 × Value% 向下取整扣除(1..100;管线无值 token `ShieldSpend` = 100),先扣普通桶。
+        ShieldSpend,    // 塔倾 / 地裂:玩家护盾 × Value% 向下取整扣除(1..100;管线无值 token `ShieldSpend` = 100)。
                         // 不算受击:不触发冰晶 / 反震(以后的碎玉同理),只判空移除载体;发 ShieldBroken(−1, 扣除量)。离散。非敌对。
-        ShieldToMorale, // 土生金:同 ShieldSpend 扣两桶合计 × Value%(读结算那一刻,含本面先加的盾),战意 + ⌈扣除量 / ResourceThresholdValue⌉
+        ShieldToMorale, // 土生金:同 ShieldSpend 扣护盾 × Value%(读结算那一刻,含本面先加的盾),战意 + ⌈扣除量 / ResourceThresholdValue⌉
                         // (扣除量 0 → +0),钳 MoraleCap、不计溢出(聚金看不到)。离散。非敌对。
-        ShieldCarry,    // 浮屠:给玩家挂 StatusKind.ShieldCarry(Magnitude = Value%),Turns 回合(必填);之后每个玩家回合开始清普通桶时,
-                        // 把被清量 × N% 作普通桶加回(不攒厚),再判空移除载体。多条取最强。离散。非敌对。
         // ---- D2-土 Task 3:受击挂点族(附录 G2 / G3 / G4)。⚠ 只在末尾追加 ----
         HitCap,         // 铜墙铁壁:给玩家挂 StatusKind.HitCap(Magnitude = Value%,1..100),TurnsLeft 1(同 DamageCut);
                         // 单次受伤 ≤ 承伤者最大生命 × N%(玩家按玩家、木灵按木灵),削减量并入 60% 非护甲减伤预算(Q1)。离散。非敌对。
         HurtShield,     // 堡垒:给玩家挂 StatusKind.HurtShield,Magnitude = 出字时定死的护盾量(卡等级 + L3 + 攻击力,同 Shield),
-                        // Turns 回合(必填);玩家被敌人挥击命中且 damage > 0、未判负 → 每次都加普通桶护盾并攒厚。多条取最强(Q7)。连续。非敌对。
+                        // Turns 回合(必填);玩家被敌人挥击命中且 damage > 0、未判负 → 每次都加护盾并攒厚。多条取最强(Q7)。连续。非敌对。
         ShieldShatter,  // 碎玉:本次出字给玩家实际加了盾(同反震)才挂隐藏 StatusKind.ShieldShatter(Magnitude = Value%,1..100);
-                        // 敌人挥击把两桶打到 0 → 同步反伤「本击吸收量 × N%」,进 60% 反伤预算(镜 → 格挡 → 反震 → 碎玉,Q6);
-                        // 随两桶归零移除(倾覆 / 扣盾清空只移除不反伤)。离散。非敌对。
+                        // 敌人挥击把护盾打到 0 → 同步反伤「本击吸收量 × N%」,进 60% 反伤预算(镜 → 格挡 → 反震 → 碎玉,Q6);
+                        // 随护盾归零移除(倾覆 / 扣盾清空只移除不反伤)。离散。非敌对。
         // ---- D2-土 Task 4:敌人 / 回合侧(附录 G5 / G6 / G7)。⚠ 只在末尾追加 ----
         OverkillSplash, // 粉身碎骨:只能写在击杀时(OnKill)特性里。入队时把致死一击的溢出(过护甲 / 敌盾后的实际伤害 − 击杀前生命)
                         // × Value%(1..100)解析进 Value;兑现时平分给其余存活敌人(整数除,Boss 算 1 份):土属性、过生克与护甲、
@@ -257,7 +255,7 @@ namespace Brushblade.Core
         Wellspring,     // Amplify:出字前的泉层数(洪峰;R3,同 PreCastConditions 一并取)
         Cleansed,       // HealSelf:本次出字 Cleanse 实际清掉的条数(结算那一刻;濯身)
         // ---- D2-土 Task 1(附录 E36)。⚠ 只在末尾追加 ----
-        Shield,         // DamageSingle / Reshape:击数 = HitCount + min(ScaleCap, ⌊出字前护盾(两桶)/ ScaleDivisor⌋)(地裂;R3)
+        Shield,         // DamageSingle / Reshape:击数 = HitCount + min(ScaleCap, ⌊出字前护盾 / ScaleDivisor⌋)(地裂;R3)
         // ---- D2-木 Task 1(附录 E39)。⚠ 只在末尾追加 ----
         SummonCount,    // Amplify:出字前的存活木灵数(含幼苗;R3,同 PreCastConditions 一并取)。众木 / 林深
     }
@@ -295,9 +293,6 @@ namespace Brushblade.Core
         /// <summary>伤害类:目标带某状态时基础值翻倍(2026-08-25 由 DoubleVsBurning 泛化)。
         /// <see cref="DamageCondition.None"/> = 无条件。</summary>
         public DamageCondition DoubleVs { get; }
-
-        /// <summary>护盾类:本次护盾进留存桶(留存护盾,spec v7 §3.1)——普通护盾在玩家下一回合开始时清空,留存护盾不清。</summary>
-        public bool PersistOnce { get; }
 
         /// <summary>召唤类:召几个(林 = 2)。</summary>
         public int SummonCount { get; }
@@ -415,7 +410,7 @@ namespace Brushblade.Core
         public int ArmorIgnorePercent { get; }
 
         /// <summary>按我方当前护盾加伤(D1 Task 3,崩岩 40):加在**每个主目标的第一段**上,
-        /// 额外 + 玩家护盾(两桶之和,出手那一刻)× N%;全体(All)时每个目标都是主目标。0 = 不启用。</summary>
+        /// 额外 + 玩家护盾(出手那一刻)× N%;全体(All)时每个目标都是主目标。0 = 不启用。</summary>
         public int ShieldStrikePercent { get; }
 
         /// <summary>Augment 的目标效果 Kind(D1 Task 4)。其余 kind 不读。</summary>
@@ -643,7 +638,7 @@ namespace Brushblade.Core
         private static readonly EffectDef[] NoPerHit = new EffectDef[0];
 
         public EffectDef(EffectKind kind, int value,
-            DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
+            DamageCondition doubleVs = DamageCondition.None,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
             int turns = 0, bool targetAll = false,
             SummonPassive passive = null, int summonShield = 0, int summonDefense = 0,
@@ -676,7 +671,6 @@ namespace Brushblade.Core
             Kind = kind;
             Value = value;
             DoubleVs = doubleVs;
-            PersistOnce = persistOnce;
             SummonCount = summonCount;
             SummonAttack = summonAttack;
             SummonChar = summonChar;
@@ -774,11 +768,11 @@ namespace Brushblade.Core
             int? executeSplashPercent = null,
             int? stallPushPercent = null, int? bonusTurns = null, DamageCondition? bonusIf = null,
             DamageCondition? executeIf = null,
-            bool? persistOnce = null, int? armorShieldPercent = null, bool? armorStrikeEach = null,
+            int? armorShieldPercent = null, bool? armorStrikeEach = null,
             int? scaleDivisor = null, int? scaleCap = null,
             int? summonAtkStrikePercent = null, int? hostAtkStrikePercent = null, int? hostArmorStrikePercent = null,
             int? summonCount = null, int? summonPercent = null) =>
-            new EffectDef(Kind, value ?? Value, DoubleVs, persistOnce ?? PersistOnce, summonCount ?? SummonCount, SummonAttack, SummonChar,
+            new EffectDef(Kind, value ?? Value, DoubleVs, summonCount ?? SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,

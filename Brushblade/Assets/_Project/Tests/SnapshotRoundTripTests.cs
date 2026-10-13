@@ -27,7 +27,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.BurnPotency, 1) }),
             new CharDef("只", null),
             new CharDef("堡", Element.Earth, new[] { "呆", "土" },
-                effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
+                effects: new[] { new EffectDef(EffectKind.Shield, 10) }),
             new CharDef("呆", null),
             new CharDef("铠", Element.Metal,
                 effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12, turns: 4) }),
@@ -46,7 +46,7 @@ namespace Brushblade.Core.Tests
         {
             var sb = new StringBuilder();
             sb.Append($"hp{b.PlayerHp}|ap{b.Ap}|turn{b.Turn}|ph{b.Phase}")
-              .Append($"|sn{b.ShieldNormal}|sp{b.ShieldPersist}")
+              .Append($"|sn{b.ShieldNormal}|sp0")
               .Append($"|def{string.Join(",", b.PlayerStatuses.All.Where(s => s.Kind == StatusKind.DefenseBuff).OrderBy(s => s.SourceId).Select(s => $"{s.SourceId}{s.Magnitude}"))}")
               .Append($"|lib{string.Join(",", b.Library)}|pool{string.Join(",", b.Pool)}");
             foreach (var e in b.Enemies)
@@ -67,7 +67,7 @@ namespace Brushblade.Core.Tests
             sb.Append($"ph{r.Phase}|bi{r.BattleIndex}|cbi{r.ClearedBattleIndex}")
               .Append($"|ink{r.EarnedInk}|avail{r.AvailableInk}")
               .Append($"|cl{string.Join(",", r.CarriedLibrary)}|cp{string.Join(",", r.CarriedPool)}")
-              .Append($"|cns{r.CarriedNormalShield}|cps{r.CarriedPersistShield}")
+              .Append($"|cns{r.CarriedNormalShield}|cps0")
               .Append($"|cdr{string.Join(",", r.CarriedStatuses.OrderBy(s => s.SourceId).Select(s => $"{s.SourceId}{s.Magnitude}"))}")
               .Append($"|cs{string.Join(",", r.CarriedSummons.Select(s => $"{s.Char}{s.Element}{s.Hp}/{s.MaxHp}atk{s.Attack}"))}")
               .Append($"|cpk{r.CharPicksLeft}")
@@ -155,11 +155,10 @@ namespace Brushblade.Core.Tests
         {
             var def = new EnemyDef("枯", Element.Wood, 200, 5);
             var a = Battle(new[] { def }, new[] { "堡" }, new[] { "土" });
-            a.Cast("堡");  // 豁免桶
-            a.Cast("土");  // 普通桶
+            a.Cast("堡");
+            a.Cast("土");
             var b = Reload(a, def);
             Assert.That(b.ShieldNormal, Is.EqualTo(a.ShieldNormal));
-            Assert.That(b.ShieldPersist, Is.EqualTo(a.ShieldPersist));
             a.EndTurn(); b.EndTurn();
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }

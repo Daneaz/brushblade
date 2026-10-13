@@ -134,7 +134,6 @@ namespace Brushblade.Core.Tests
                 Assert.That(d.Effects.Select(e => e.Kind).ToList(),
                     Is.EqualTo(new[] { EffectKind.Shield, EffectKind.DefenseBuff }), $"{d.Id} 固 = 护盾 + 护甲");
                 Assert.That(Only(d.Effects, EffectKind.DefenseBuff, d.Id).Turns, Is.EqualTo(2), $"{d.Id} 固:护甲 2 回合");
-                Assert.That(Only(d.Effects, EffectKind.Shield, d.Id).PersistOnce, Is.False, $"{d.Id} 固:无豁免");
             }
         }
 
@@ -177,7 +176,6 @@ namespace Brushblade.Core.Tests
                     Assert.That(e.ExecuteBelowPercent, Is.EqualTo(0), $"{d.Id}:{e.Kind} 仍带斩杀");
                     Assert.That(e.ArmorStrikePercent, Is.EqualTo(0), $"{d.Id}:{e.Kind} 仍带镇压");
                     Assert.That(e.TrueDamage, Is.False, $"{d.Id}:{e.Kind} 仍带碾");
-                    Assert.That(e.PersistOnce, Is.False, $"{d.Id}:{e.Kind} 仍带豁免");
                     Assert.That(e.Shape == TargetArea.Single || e.Shape == TargetArea.All, Is.True,
                         $"{d.Id}:{e.Kind} 形状 {e.Shape} 不是单体 / 全体(U2)");
                 }

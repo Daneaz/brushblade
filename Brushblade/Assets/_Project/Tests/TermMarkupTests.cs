@@ -17,7 +17,6 @@ namespace Brushblade.Core.Tests
             new TermSurface("灼", GlossaryTerm.Burn),
             new TermSurface("灼烧", GlossaryTerm.Burn),
             new TermSurface("护盾", GlossaryTerm.Shield),
-            new TermSurface("留存护盾", GlossaryTerm.KeptShield),
             new TermSurface("护甲", GlossaryTerm.Armor),
             new TermSurface("破甲", GlossaryTerm.ArmorBreak),
             new TermSurface("减伤", GlossaryTerm.DamageCut, notBefore: "("),
@@ -36,8 +35,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Scan_LongestMatch_NoOverlap()
         {
-            Assert.That(Spans("获得留存护盾,并灼烧"), Is.EqualTo(new[]
-                { ("留存护盾", GlossaryTerm.KeptShield), ("灼烧", GlossaryTerm.Burn) }), "留存护盾先于护盾、灼烧先于灼");
+            // 2026-10-13:「留存护盾」词条随留存桶取消,最长匹配只剩「灼烧 / 灼」这一对来守
+            Assert.That(Spans("获得护盾,并灼烧"), Is.EqualTo(new[]
+                { ("护盾", GlossaryTerm.Shield), ("灼烧", GlossaryTerm.Burn) }), "灼烧先于灼");
             Assert.That(Spans("本字灼 3"), Is.EqualTo(new[] { ("灼", GlossaryTerm.Burn) }));
             Assert.That(Spans("护甲与破甲"), Is.EqualTo(new[]
                 { ("护甲", GlossaryTerm.Armor), ("破甲", GlossaryTerm.ArmorBreak) }), "破甲不含护甲,不会误标");
@@ -147,7 +147,7 @@ namespace Brushblade.Core.Tests
         {
             foreach (var plain in new[]
                      {
-                         "", "获得留存护盾,并灼烧", "护甲 +5(减伤 20%),持续 3 回合", "全体灼烧 2;我方全体清除全部减益",
+                         "", "获得护盾,并灼烧", "护甲 +5(减伤 20%),持续 3 回合", "全体灼烧 2;我方全体清除全部减益",
                          "下 3 场开局:全体灼 2", "本回合格挡反击×2",
                      })
             {
@@ -163,15 +163,16 @@ namespace Brushblade.Core.Tests
         // ---------------- GlossaryTerm / GlossaryRules ----------------
 
         [Test]
-        public void GlossaryTerm_42_InSpecOrder_Groups()
+        public void GlossaryTerm_41_InSpecOrder_Groups()
         {
+            // 2026-10-13:「留存护盾」词条随留存桶取消,关键词 32 → 31
             var all = Enum.GetValues(typeof(GlossaryTerm)).Cast<GlossaryTerm>().ToList();
-            Assert.That(all.Count, Is.EqualTo(42));
-            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(32), "关键词");
+            Assert.That(all.Count, Is.EqualTo(41));
+            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(31), "关键词");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 1), Is.EqualTo(7), "范围");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 2), Is.EqualTo(3), "存续");
             Assert.That(all.Select(GlossaryRules.Group), Is.Ordered, "组按 spec §3 顺序排");
-            Assert.That((all[0], all[31], all[32], all[38], all[39], all[41]), Is.EqualTo(
+            Assert.That((all[0], all[30], all[31], all[37], all[38], all[40]), Is.EqualTo(
                 (GlossaryTerm.Burn, GlossaryTerm.Crit, GlossaryTerm.AreaSingle, GlossaryTerm.AreaAll, GlossaryTerm.Battle, GlossaryTerm.Band)));
         }
 

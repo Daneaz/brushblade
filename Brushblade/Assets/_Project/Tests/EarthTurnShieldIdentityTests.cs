@@ -24,7 +24,7 @@ namespace Brushblade.Core.Tests
             new EffectDef(EffectKind.Shield, 300), new EffectDef(EffectKind.ShieldRecoil, 30));
         // 留存盾
         private static readonly CharDef Keep = RebalanceFixture.Char("留",
-            new EffectDef(EffectKind.Shield, 200, persistOnce: true));
+            new EffectDef(EffectKind.Shield, 200));
         // 冰晶(治疗转盾后挂)
         private static readonly CharDef Crystal = new("冰", Element.Water, effects: new[]
         {
@@ -76,13 +76,13 @@ namespace Brushblade.Core.Tests
             for (int t = 0; t < turns; t++)
             {
                 eachTurn(b, t, sb);
-                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+{b.ShieldPersist}");
+                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
                 foreach (var e in b.LastEvents)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
-                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+{b.ShieldPersist}[");
+                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+0[");
                 foreach (var s in b.PlayerStatuses.All) sb.Append($"{s.Kind}:{s.Magnitude}:{s.TurnsLeft} ");
                 sb.Append(']');
                 foreach (var s in b.Summons)
@@ -135,7 +135,7 @@ namespace Brushblade.Core.Tests
                 if (t > 0 && prevCarriers)
                 {
                     int absorbed = x.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed);
-                    if (prevNormal - absorbed > 0 && x.ShieldNormal == 0 && x.ShieldPersist == 0
+                    if (prevNormal - absorbed > 0 && x.PlayerShield == 0
                         && !x.PlayerStatuses.Has(StatusKind.ShieldRecoil) && !x.PlayerStatuses.Has(StatusKind.ShieldFrost))
                         sawTurnStartDrop = true;
                 }
@@ -148,7 +148,9 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(NormalOnlyExpected), fp);
         }
 
-        private const string BothExpected = "1ce2482c538fca41 7113";
+        // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
+        // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
+        private const string BothExpected = "4ba60d0779680e47 6831";
         private const string NormalOnlyExpected = "481d5617cbb1cc49 4270";
     }
 }

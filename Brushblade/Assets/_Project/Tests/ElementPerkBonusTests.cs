@@ -213,8 +213,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.BuffBlock, EffectKind.DebuffWard,
                 // D2-水 Task 4:受击回复是百分比、冰晶是冻结回合、回合脉冲的载荷触发时另行结算
                 EffectKind.HurtHeal, EffectKind.ShieldFrost, EffectKind.TurnPulse,
-                // D2-土 Task 2:扣盾 / 盾转战意 / 回合初留盾是百分比,不是本系字的护盾本体
-                EffectKind.ShieldSpend, EffectKind.ShieldToMorale, EffectKind.ShieldCarry,
+                // D2-土 Task 2:扣盾 / 盾转战意是百分比,不是本系字的护盾本体
+                EffectKind.ShieldSpend, EffectKind.ShieldToMorale,
                 // D2-土 Task 3:单次受伤上限 / 碎玉反伤是百分比
                 EffectKind.HitCap, EffectKind.ShieldShatter,
                 // D2-土 Task 4:溢出平分(作用于已打出的伤害)/ 大招削减是百分比,AP 代价是点数

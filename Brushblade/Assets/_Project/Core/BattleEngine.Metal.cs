@@ -24,7 +24,7 @@ namespace Brushblade.Core
         private int ShieldExtraHits(EffectDef effect)
         {
             if (effect.ScaleDivisor <= 0) return 0;
-            int extra = (_cast.PreCastShield ?? _shieldNormal + _shieldPersist) / effect.ScaleDivisor;
+            int extra = (_cast.PreCastShield ?? _shieldNormal) / effect.ScaleDivisor;
             return effect.ScaleCap > 0 ? Math.Min(effect.ScaleCap, extra) : extra;
         }
 
@@ -64,7 +64,7 @@ namespace Brushblade.Core
         {
             int amount = _cast.MoraleOverflow * value;
             if (amount <= 0) return;
-            int granted = AddPlayerShield(amount, persist: false);
+            int granted = AddPlayerShield(amount);
             _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
         }
 
@@ -103,7 +103,7 @@ namespace Brushblade.Core
         {
             var aura = _playerStatuses.Find(StatusKind.MoraleShield);
             if (aura == null || MoraleStacks < MoraleCapOrDefault) return;
-            int granted = AddPlayerShield(aura.Magnitude, persist: false);
+            int granted = AddPlayerShield(aura.Magnitude);
             if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
         }
 

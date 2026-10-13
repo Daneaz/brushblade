@@ -6,10 +6,10 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>护盾回合末清空与留存护盾(spec v7 §3.1,用户拍板 U1,2026-10-04)。
-    /// 「回合结束」= 一整轮结束,即**玩家下一回合开始时**清空普通护盾(玩家普通桶 + 全部召唤物护盾);
-    /// 留存护盾(<c>_shieldPersist</c>)不清。本场第一个玩家回合不清(跨场带入 / 开局效果给的盾
-    /// 写在构造函数里,第一回合开始就清的话它们一拍都挡不到)。</summary>
+    /// <summary>护盾回合末清空(spec v7 §3.1,用户拍板 U1,2026-10-04)。
+    /// 「回合结束」= 一整轮结束,即**玩家下一回合开始时**清空护盾(玩家 + 全部召唤物护盾)。
+    /// 本场第一个玩家回合不清(跨场带入 / 开局效果给的盾写在构造函数里,第一回合开始就清的话它们一拍都挡不到)。
+    /// 留存护盾已于 2026-10-13 取消(单桶);U1 本身归同 plan Task 4 删除。</summary>
     public class ShieldTurnClearTests
     {
         private static RecipeGraph Graph() => new(new[]
@@ -17,8 +17,6 @@ namespace Brushblade.Core.Tests
             new CharDef("木", Element.Wood),
             new CharDef("垒", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 100) }),
-            new CharDef("㙓", Element.Earth,
-                effects: new[] { new EffectDef(EffectKind.Shield, 200, persistOnce: true) }),
             new CharDef("兵", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 3, summonChar: "木") }),
             new CharDef("崩", Element.Earth,
@@ -28,10 +26,10 @@ namespace Brushblade.Core.Tests
         private static readonly BattleConfig Config = new() { DropTable = new[] { "木" }, PlayerMaxHp = 500 };
 
         private static BattleEngine Engine(string[] library, int enemyAttack = 0,
-            int normal = 0, int persist = 0) =>
+            int normal = 0) =>
             new(Graph(), Config, library, Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 3000, enemyAttack) }, 1,
-                startingNormalShield: normal, startingPersistShield: persist);
+                startingNormalShield: normal);
 
         [Test]
         public void NormalShield_ClearedAtNextPlayerTurnStart()
@@ -46,34 +44,6 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Turn, Is.GreaterThan(turn), "确认真的进了下一个玩家回合");
             Assert.That(engine.PlayerShield, Is.EqualTo(0), "挨了 30 剩下的普通盾也被清掉");
             Assert.That(engine.ShieldNormal, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void PersistShield_SurvivesTurnClear()
-        {
-            var engine = Engine(new[] { "㙓" });
-            Assert.That(engine.Cast("㙓"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.ShieldPersist, Is.EqualTo(200));
-            int turn = engine.Turn;
-
-            engine.EndTurn();
-
-            Assert.That(engine.Turn, Is.GreaterThan(turn));
-            Assert.That(engine.ShieldPersist, Is.EqualTo(200), "留存护盾不清");
-            Assert.That(engine.ShieldNormal, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void NormalCleared_PersistKept_WhenBothPresent()
-        {
-            var engine = Engine(new[] { "垒", "㙓" });
-            Assert.That(engine.Cast("垒"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.Cast("㙓"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.PlayerShield, Is.EqualTo(300));
-
-            engine.EndTurn();
-
-            Assert.That(engine.PlayerShield, Is.EqualTo(200), "只剩留存桶");
         }
 
         [Test]
@@ -95,15 +65,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void FirstPlayerTurn_KeepsCarriedInShield_ThenClearsNextTurn()
         {
-            var engine = Engine(new[] { "木" }, normal: 100, persist: 50);
+            var engine = Engine(new[] { "木" }, normal: 100);
             Assert.That(engine.Turn, Is.EqualTo(1));
             Assert.That(engine.ShieldNormal, Is.EqualTo(100), "第一个玩家回合不清带入的盾");
-            Assert.That(engine.ShieldPersist, Is.EqualTo(50));
 
             engine.EndTurn();
 
             Assert.That(engine.ShieldNormal, Is.EqualTo(0), "第二回合开始才清");
-            Assert.That(engine.ShieldPersist, Is.EqualTo(50));
         }
 
         [Test]

@@ -35,12 +35,12 @@ namespace Brushblade.Core.Tests
         private static BattleConfig Config => new BattleConfig
             { PlayerMaxHp = MaxHp, PlayerAttack = 100, ApPerTurn = 20, BossPhaseJitterPercent = 0 };
 
-        private static BattleEngine Battle(string id, int level, int normal, int persist, params EnemyDef[] enemies) =>
+        private static BattleEngine Battle(string id, int level, int shield, params EnemyDef[] enemies) =>
             new(Graph, Config, Enumerable.Repeat(id, 6).ToArray(), Array.Empty<string>(), enemies, seed: 1,
                 cardLevels: new Dictionary<string, int> { [id] = level },
-                startingNormalShield: normal, startingPersistShield: persist);
+                startingNormalShield: shield);
 
-        private static BattleEngine Battle(string id, int level, params EnemyDef[] enemies) => Battle(id, level, 0, 0, enemies);
+        private static BattleEngine Battle(string id, int level, params EnemyDef[] enemies) => Battle(id, level, 0, enemies);
 
         private static EnemyDef Mob(int hp = Hp, int attack = 0) => new("怔", Element.Heart, hp, attack);
 
@@ -76,7 +76,6 @@ namespace Brushblade.Core.Tests
             if (e.ArmorStrikePercent != 0) p.Add($"armorStrike {e.ArmorStrikePercent}");
             if (e.ArmorShieldPercent != 0) p.Add($"armorShield {e.ArmorShieldPercent}");
             if (e.ArmorStrikeEach) p.Add("armorStrikeEach");
-            if (e.PersistOnce) p.Add("persist");
             if (e.OfShield) p.Add("ofShield");
             if (e.PerShieldTenth) p.Add("perShieldTenth");
             if (e.OfPlayerShield) p.Add("ofPlayerShield");
@@ -192,40 +191,39 @@ namespace Brushblade.Core.Tests
             Assert.That(Folded("㙓", CardFace.Feature, 4, EffectKind.DefenseBuff).Turns, Is.EqualTo(8));
         }
 
-        // ================= 地裂:出字前护盾每 100 点 +1 击、总击数 ≤ 5,打完清两桶(Q5) =================
+        // ================= 地裂:出字前护盾每 100 点 +1 击、总击数 ≤ 5,打完清空护盾(Q5) =================
 
-        [TestCase(0, 0, 1)]
-        [TestCase(99, 0, 1)]
-        [TestCase(250, 0, 3)]
-        [TestCase(200, 200, 5)]   // 普通桶与留存桶各一半:两桶都计入击数、也都被清
-        [TestCase(2000, 0, 5)]
-        public void DiLie_ExtraHitsFromPreCastShield_CappedAtFiveTotal(int normal, int persist, int hits)
+        [TestCase(0, 1)]
+        [TestCase(99, 1)]
+        [TestCase(250, 3)]
+        [TestCase(400, 5)]
+        [TestCase(2000, 5)]
+        public void DiLie_ExtraHitsFromPreCastShield_CappedAtFiveTotal(int shield, int hits)
         {
-            var b = Battle("崩", 8, normal, persist, Mob(), Mob());
-            Assert.That((b.ShieldNormal, b.ShieldPersist), Is.EqualTo((normal, persist)), "前提:开局两桶如夹具所设");
+            var b = Battle("崩", 8, shield, Mob(), Mob());
+            Assert.That(b.PlayerShield, Is.EqualTo(shield), "前提:开局护盾如夹具所设");
             Cast(b, "崩", 0, attack: true);
             for (int i = 0; i < 2; i++)
                 Assert.That(Damage(b, EffectSource.None).Count(e => e.TargetIndex == i), Is.EqualTo(hits),
-                    $"护盾 {normal}+{persist}:#{i} 吃 {hits} 击(全体每一击都打到每个人)");
-            Assert.That(b.ShieldNormal, Is.EqualTo(0), "伤害之后清普通桶");
-            Assert.That(b.ShieldPersist, Is.EqualTo(0), "伤害之后清留存桶");
+                    $"护盾 {shield}:#{i} 吃 {hits} 击(全体每一击都打到每个人)");
+            Assert.That(b.PlayerShield, Is.EqualTo(0), "伤害之后清空护盾");
         }
 
-        // ================= 塔倾:伤害 + 当前护盾 50%(扣盾前),之后两桶合计减半、先扣普通桶(Q10) =================
+        // ================= 塔倾:伤害 + 当前护盾 50%(扣盾前),之后护盾减半(Q10) =================
 
         [Test]
-        public void TaQing_StrikeReadsFullShield_ThenHalvesNormalFirst()
+        public void TaQing_StrikeReadsFullShield_ThenHalves()
         {
-            int Dealt(int normal, int persist, out BattleEngine b)
+            int Dealt(int shield, out BattleEngine b)
             {
-                b = Battle("塔", 5, normal, persist, Mob());
+                b = Battle("塔", 5, shield, Mob());
                 Cast(b, "塔", 0, attack: true);
                 return Hp - b.Enemies[0].Hp;
             }
-            int bare = Dealt(0, 0, out _);
-            int full = Dealt(300, 100, out var b);
+            int bare = Dealt(0, out _);
+            int full = Dealt(400, out var b);
             Assert.That(full - bare, Is.EqualTo(200), "400 × 50%,读的是扣盾前的护盾");
-            Assert.That((b.ShieldNormal, b.ShieldPersist), Is.EqualTo((100, 100)), "400 → 200:普通桶扣 200,留存桶不动");
+            Assert.That(b.PlayerShield, Is.EqualTo(200), "400 → 200");
             Assert.That(bare, Is.EqualTo(132), "钉值:本体 106 按 Lv5");
         }
 
@@ -260,13 +258,13 @@ namespace Brushblade.Core.Tests
             var body = Armors(bare);
             Assert.That(body.Count, Is.EqualTo(1), "151 < 500:0 层不挂,只剩本体(破甲·强化)那条护甲");
 
-            var b = Battle("塔", 8, 2000, 0, Mob());
+            var b = Battle("塔", 8, 2000, Mob());
             Cast(b, "塔", -1, attack: false);
             Assert.That(b.PlayerShield, Is.EqualTo(2151));
             Assert.That(Armors(b), Is.EqualTo(new[] { body[0], perLayer * 4 }), "2151 × 10 / 5000 = 4 层,排在本体护甲之后");
             Assert.That(b.PlayerStatuses.All.Last(s => s.Kind == StatusKind.DefenseBuff).TurnsLeft, Is.EqualTo(4));
 
-            var full = Battle("塔", 8, MaxHp, 0, Mob());
+            var full = Battle("塔", 8, MaxHp, Mob());
             Cast(full, "塔", -1, attack: false);
             Assert.That(Armors(full), Is.EqualTo(new[] { body[0], perLayer * 7 }), "护盾顶满(10 层)钳 7");
         }

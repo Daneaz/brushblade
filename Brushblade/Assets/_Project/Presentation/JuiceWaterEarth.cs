@@ -15,7 +15,6 @@ namespace Brushblade.Presentation
     ///   战场 chip 色底、60% 透明、白删除线,Plan E4);浇熄转出的护盾数字跟在后面(Shield 那一支)。
     ///   不飘特性名:挡下那一刻状态本身就是理由。
     /// · 杜塞:Boss 放招(BossSkillCast 带 Source = SkillCut)时大招削弱 chip 闪、「杜塞」飘出,伤害照常。
-    /// · 浮屠:回合初护盾回流(Shield 带 Source = ShieldCarry)时护盾回流 chip 闪、「浮屠」飘出,再飘护盾数字。
     /// · 碎玉:不出 chip,护盾被打空反伤时(Damage 带 Source = ShieldShatter)玩家护盾角标闪、「碎玉」从角标飘出,再飘反伤数字。
     /// · 嫁接:立绘闪、治疗数字(Graft.Amount = 回复量)、换上的本命 chip 闪,「嫁接」(面印 生)从格子飘出。不弹文字条(Q8)。
     ///
@@ -62,15 +61,6 @@ namespace Brushblade.Presentation
         {
             var chip = FlashIcon(EnemyCellAt?.Invoke(enemyIndex), "skillcut");
             TraitCueAt(EffectCueOf?.Invoke(EffectKind.SkillCut), chip != null ? chip : enemy);
-        }
-
-        /// <summary>浮屠:护盾回流 chip 闪(数字 3 → 2 靠随后的重绘)、护盾角标闪,「浮屠」从 chip 飘出;停一拍再飘护盾数字。</summary>
-        private IEnumerator PlayShieldCarry()
-        {
-            var chip = FlashIcon(PlayerCell, "shieldcarry");
-            FlashIcon(PlayerCell, "shield");
-            TraitCueAt(EffectCueOf?.Invoke(EffectKind.ShieldCarry), chip);   // chip 不在 = 玩家侧
-            yield return Beat(CueFollowGap);
         }
 
         /// <summary>碎玉 / 反震(TriggerFx C):玩家护盾角标闪,特性名从角标飘出;停一拍再在攻击者身上飘反伤数字(Damage 那一支照常)。</summary>

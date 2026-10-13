@@ -57,7 +57,6 @@ namespace Brushblade.Data
             // 2026-08-25:从 bool doubleVsBurning 换成条件名(Burning/Bleeding/Controlled/ArmorBroken)。
             // 缺省 null → DamageCondition.None。
             public string DoubleVs { get; set; }
-            public bool PersistOnce { get; set; }
             public int Count { get; set; } = 1;        // 召唤:召几个
             public int Attack { get; set; }            // 召唤:攻击力
             public string SummonChar { get; set; } = "木"; // 召唤:显示字
@@ -124,7 +123,7 @@ namespace Brushblade.Data
             // D2-水 Task 3(附录 W4)
             public string WardOf { get; set; }              // DebuffWard:只拦这一种减益(浇熄 = Burn);空 = 全部
             public int WardCount { get; set; }              // DebuffWard:前 N 次(0 = 期间不限,土·杜绝)
-            // D2-土 Task 1(附录 E29 / E30 / E31 / E36);E29 的 persist 复用 PersistOnce(写在 Reshape 上)
+            // D2-土 Task 1(附录 E30 / E31 / E36)
             public int ArmorShieldPercent { get; set; }     // Reshape:无伤害面第一条护盾 + 护甲 × N%(塔基固面)
             public bool ArmorStrikeEach { get; set; }       // DamageSingle / Reshape:镇压逐发结算(三山)
             public int ScaleDivisor { get; set; }           // DamageSingle / Reshape:scaleBy Shield 的除数(地裂)
@@ -916,7 +915,7 @@ namespace Brushblade.Data
                         throw new ConfigException($"字「{dto.Id}」的 Augment 加量至少为 1,当前:{effect.Value}");
                 }
                 effects.Add(new EffectDef(kind, effect.Value,
-                    ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
+                    ParseCondition(effect.DoubleVs, dto.Id),
                     effect.Count, effect.Attack, effect.SummonChar,
                     // 流血缺省 3 回合(D2-金 E8):加载时规范成 3,Augment +N 回合才从 3 起加(修复轮 1;运行时兜底保留)
                     kind == EffectKind.Bleed && effect.Turns == 0 ? BattleEngine.BleedDefaultTurns : effect.Turns, effect.TargetAll,
@@ -1148,12 +1147,9 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 须写回合数(turns ≥ 1{(kind == EffectKind.TurnPulse ? ",或 -1 = 本场" : "")}),当前:{e.Turns}");
             if ((kind == EffectKind.HurtHeal || kind == EffectKind.ShieldFrost) && e.Value < 1)
                 throw new ConfigException($"字「{id}」的 {kind} 须写 N ≥ 1,当前:{e.Value}");
-            // D2-土 Task 2(G1 / G8 / G9):扣盾 / 盾转战意 / 回合初留盾的百分比须在 1..100;留盾必须写回合
-            if ((kind == EffectKind.ShieldSpend || kind == EffectKind.ShieldToMorale || kind == EffectKind.ShieldCarry)
-                && (e.Value < 1 || e.Value > 100))
+            // D2-土 Task 2(G1 / G8):扣盾 / 盾转战意的百分比须在 1..100
+            if ((kind == EffectKind.ShieldSpend || kind == EffectKind.ShieldToMorale) && (e.Value < 1 || e.Value > 100))
                 throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
-            if (kind == EffectKind.ShieldCarry && e.Turns < 1)
-                throw new ConfigException($"字「{id}」的 ShieldCarry 须写回合数(turns ≥ 1),当前:{e.Turns}");
             // D2-土 Task 3(G2 / G3 / G4):单次受伤上限 / 碎玉反伤的百分比须在 1..100;堡垒须写护盾量与回合
             if ((kind == EffectKind.HitCap || kind == EffectKind.ShieldShatter) && (e.Value < 1 || e.Value > 100))
                 throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1..100,当前:{e.Value}");
@@ -1167,12 +1163,10 @@ namespace Brushblade.Data
         }
 
         /// <summary>D2-土 Task 1 的字段(附录 E29 / E30 / E31 / E36):写在不读它的效果上引擎会静默忽略 —— 一律拦下。
-        /// persist / armorShield「只在无伤害面」的面级校验见 <see cref="ValidateShieldReshapeFaces"/>。</summary>
+        /// armorShield「只在无伤害面」的面级校验见 <see cref="ValidateShieldReshapeFaces"/>。</summary>
         private static void ValidateEarthOps(string id, EffectKind kind, EffectDto e)
         {
             bool damageLike = kind == EffectKind.DamageSingle || kind == EffectKind.Reshape;
-            if (e.PersistOnce && kind != EffectKind.Shield && kind != EffectKind.ShieldAll && kind != EffectKind.Reshape)
-                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 persistOnce(只给 Shield / ShieldAll,或 Reshape 的 persist)");
             if (e.ArmorShieldPercent != 0 && (kind != EffectKind.Reshape || e.ArmorShieldPercent < 0))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 armorShieldPercent(只给 Reshape,且须 > 0)");
             if (e.ArmorStrikeEach && (!damageLike || e.ArmorStrikePercent <= 0))
@@ -1189,9 +1183,9 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofPlayerShield(只给 ShieldSummons,百分比须 ≥ 1,且不与 ofShield 同用)");
             if (e.MinArmor != 0 && (kind != EffectKind.Retaliate || e.MinArmor < 0))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 minArmor(只给 Retaliate,且须 > 0)");
-            if (e.OpeningBattles != 0 && (e.PersistOnce && kind == EffectKind.Reshape || e.ArmorShieldPercent != 0 || e.ArmorStrikeEach
+            if (e.OpeningBattles != 0 && (e.ArmorShieldPercent != 0 || e.ArmorStrikeEach
                     || e.ScaleDivisor != 0 || e.OfShield || e.MinArmor != 0))
-                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 persist / armorShield / armorStrikeEach / scaleDivisor / ofShield / minArmor(登记时会丢)");
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 armorShield / armorStrikeEach / scaleDivisor / ofShield / minArmor(登记时会丢)");
         }
 
         /// <summary>D2-木 Task 1 的字段(附录 E40 / E41 / E43 / E46 / E47 / E48):写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
@@ -1233,7 +1227,7 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 D2-木 的召唤修饰字段(登记时会丢)");
         }
 
-        /// <summary>Reshape 的 persist / armorShield(D2-土 E29 / E30)只在**本体没有伤害**的那一面改护盾;写在伤害面上
+        /// <summary>Reshape 的 armorShield(D2-土 E30)只在**本体没有伤害**的那一面改护盾;写在伤害面上
         /// Fold 会改伤害、这两项静默无效 —— 加载期拦下。ShieldSummons ofShield(E28)所在面须有 Shield / ShieldAll。</summary>
         private static void ValidateShieldReshapeFaces(CharDef def)
         {
@@ -1242,9 +1236,9 @@ namespace Brushblade.Data
                 if (face == CardFace.Attack && def.AttackEffects.Count == 0) continue;
                 var body = face == CardFace.Attack ? def.AttackEffects : def.Effects;   // 与 EffectsOf 同口径(Data 看不到 internal)
                 bool shieldReshape = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects))
-                    .Any(e => e.Kind == EffectKind.Reshape && (e.PersistOnce || e.ArmorShieldPercent > 0));
+                    .Any(e => e.Kind == EffectKind.Reshape && e.ArmorShieldPercent > 0);
                 if (shieldReshape && body.Any(e => e.Kind == EffectKind.DamageSingle))
-                    throw new ConfigException($"字「{def.Id}」的 {face} 面有伤害,Reshape 的 persist / armorShield 只作用于无伤害面的护盾");
+                    throw new ConfigException($"字「{def.Id}」的 {face} 面有伤害,Reshape 的 armorShield 只作用于无伤害面的护盾");
                 // 召唤改形(D2-木 E48,林立 summonPercent)同理:有伤害的面上 Reshape 改的是第一条伤害,summonPercent 会被静默丢掉
                 bool summonReshape = body.Concat(def.Traits.Where(t => t.AppliesTo(face)).SelectMany(t => t.Effects))
                     .Any(e => e.Kind == EffectKind.Reshape && e.SummonPercent != 100);

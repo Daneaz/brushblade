@@ -244,10 +244,10 @@ namespace Brushblade.Core.Tests
 
         // ---------------- 反震:本字护盾挨打时反弹吸收量 30%,每回合 1 次 ----------------
 
-        private static CharDef Quake(int shield, bool block = false, bool persist = false) => new("震", Element.Heart,
+        private static CharDef Quake(int shield, bool block = false) => new("震", Element.Heart,
             effects: block
-                ? new[] { new EffectDef(EffectKind.Shield, shield, persistOnce: persist), new EffectDef(EffectKind.Block, 1) }
-                : new[] { new EffectDef(EffectKind.Shield, shield, persistOnce: persist) },
+                ? new[] { new EffectDef(EffectKind.Shield, shield), new EffectDef(EffectKind.Block, 1) }
+                : new[] { new EffectDef(EffectKind.Shield, shield) },
             attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 50) },
             traits: new[] { Passive(TraitFace.Feature, TraitTrigger.Cast, new EffectDef(EffectKind.ShieldRecoil, 30)) });
 
@@ -275,12 +275,13 @@ namespace Brushblade.Core.Tests
             b.Cast("震", -1);
             Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldRecoil), Is.False);
 
-            // 2026-10-04 U1:普通护盾在下一玩家回合开始清空,「下回合恢复」要靠留存护盾才有盾可吃(原用普通桶)
-            var b6 = Battle(new[] { Quake(150, persist: true) }, 6, new[] { RebalanceFixture.Mob(attack: 40), RebalanceFixture.Mob(attack: 40) }, "震");
+            // 2026-10-04 U1:护盾在下一玩家回合开始清空;留存桶 2026-10-13 取消,「下回合恢复」改为下回合再出一次立盾
+            var b6 = Battle(new[] { Quake(150) }, 6, new[] { RebalanceFixture.Mob(attack: 40), RebalanceFixture.Mob(attack: 40) }, "震", "震");
             b6.Cast("震", -1);
-            Assert.That(b6.PlayerShield, Is.GreaterThanOrEqualTo(160), "盾够吃 4 下");
+            Assert.That(b6.PlayerShield, Is.GreaterThanOrEqualTo(80), "盾够吃 2 下");
             b6.EndTurn();
             Assert.That(EnemyLost(b6), Is.EqualTo(40 * 30 / 100), "同回合第二下不触发");
+            Assert.That(b6.Cast("震", -1), Is.EqualTo(BattleError.None));
             b6.EndTurn();
             Assert.That(EnemyLost(b6), Is.EqualTo(2 * (40 * 30 / 100)), "下回合恢复");
         }

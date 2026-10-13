@@ -124,7 +124,7 @@ namespace Brushblade.Core.Tests
             "char.effect.pick.all", "char.effect.pick.column", "char.effect.pick.highesthp", "char.effect.pick.hittargets",
             "char.effect.pick.random", "char.effect.pick.row", "char.effect.rapid", "char.effect.reflect", "char.effect.reshape",
             "char.effect.reshape.retarget", "char.effect.retaliate", "char.effect.retaliate.cap", "char.effect.retaliate.turns",
-            "char.effect.retaliate.turns.cap", "char.effect.reveal", "char.effect.selfcost", "char.effect.shield.persistonce",
+            "char.effect.retaliate.turns.cap", "char.effect.reveal", "char.effect.selfcost",
             "char.effect.shotpercent", "char.effect.silence", "char.effect.skillcut", "char.effect.summon.other",
             "char.effect.summon.percent", "char.effect.summon.self", "char.effect.summon.stats", "char.effect.summonsapling.sprout",
             "char.effect.taunt.self", "char.effect.thornmark", "char.effect.turnpulse", "char.passive.attackpercent",

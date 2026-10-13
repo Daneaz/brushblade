@@ -1036,7 +1036,7 @@ namespace Brushblade.Core.Tests
                 new BattleConfig { DropTable = new[] { "木" } },
                 startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
                 cardLevels: null, startingInk: 0, startingHp: null,
-                startingNormalShield: 5, startingPersistShield: 0, perFloorNormalShield: 2);
+                startingNormalShield: 5, perFloorNormalShield: 2);
             Assert.That(run.Battle.PlayerShield, Is.EqualTo(5)); // 第 1 关:段首注入,不重复加
             WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,护盾不变)
             run.AdvanceAfterBattle();

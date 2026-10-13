@@ -199,7 +199,6 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             var absorbed = b.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Select(e => e.Absorbed).ToList();
             Assert.That(absorbed, Is.EqualTo(new[] { 0, 10 }));
-            Assert.That(b.ShieldPersist, Is.EqualTo(0), "进普通桶,不进留存桶");
         }
 
         [Test]
@@ -274,9 +273,9 @@ namespace Brushblade.Core.Tests
 
         // ---------------- G4 ShieldShatter ----------------
 
-        private static CharDef Jade(int shield, int shatter = 50, bool persist = false, int recoil = 0)
+        private static CharDef Jade(int shield, int shatter = 50, int recoil = 0)
         {
-            var effects = new List<EffectDef> { new EffectDef(EffectKind.Shield, shield, persistOnce: persist) };
+            var effects = new List<EffectDef> { new EffectDef(EffectKind.Shield, shield) };
             if (recoil > 0) effects.Add(new EffectDef(EffectKind.ShieldRecoil, recoil));
             effects.Add(new EffectDef(EffectKind.ShieldShatter, shatter));
             return RebalanceFixture.Char("碎", effects.ToArray());
@@ -298,14 +297,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ShieldShatter_NotBroken_NoReflect_StaysUntilBroken()
         {
-            // 留存桶撑过回合初清盾;第一回合 30 没打穿,第二回合 300 打穿剩下的 70
-            var b = Battle(new[] { Jade(100, persist: true) }, new[] { Mob(30) });
+            // 30 没打穿不反伤;同一敌方段里第二只 300 打穿剩下的 70 才反伤
+            // (2026-10-13 起留存桶取消:跨回合的「没打穿就留着」归 Task 4 删回合清盾后再断言)
+            var b = Battle(new[] { Jade(100) }, new[] { Mob(30) });
             b.Cast("碎", -1);
             b.EndTurn();
             Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(0));
-            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldShatter), Is.True);
 
-            var b2 = Battle(new[] { Jade(100, persist: true) }, new[] { Mob(30), Mob(300) });
+            var b2 = Battle(new[] { Jade(100) }, new[] { Mob(30), Mob(300) });
             b2.Cast("碎", -1);
             b2.EndTurn();
             Assert.That(SourceDamage(b2, EffectSource.ShieldShatter), Is.EqualTo(35), "打破那一击只吸收了 70 → 35");
@@ -409,12 +408,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Enums_AppendedAtTail()
         {
-            Assert.That((int)EffectKind.HitCap, Is.EqualTo((int)EffectKind.ShieldCarry + 1));
-            Assert.That((int)EffectKind.HurtShield, Is.EqualTo((int)EffectKind.ShieldCarry + 2));
-            Assert.That((int)EffectKind.ShieldShatter, Is.EqualTo((int)EffectKind.ShieldCarry + 3));
-            Assert.That((int)StatusKind.HitCap, Is.EqualTo((int)StatusKind.ShieldCarry + 1));
-            Assert.That((int)StatusKind.HurtShield, Is.EqualTo((int)StatusKind.ShieldCarry + 2));
-            Assert.That((int)StatusKind.ShieldShatter, Is.EqualTo((int)StatusKind.ShieldCarry + 3));
+            // 2026-10-13:前面的 ShieldCarry(浮屠)随回合清盾退役删除,这三条紧跟 ShieldToMorale / TurnPulse
+            Assert.That((int)EffectKind.HitCap, Is.EqualTo((int)EffectKind.ShieldToMorale + 1));
+            Assert.That((int)EffectKind.HurtShield, Is.EqualTo((int)EffectKind.ShieldToMorale + 2));
+            Assert.That((int)EffectKind.ShieldShatter, Is.EqualTo((int)EffectKind.ShieldToMorale + 3));
+            Assert.That((int)StatusKind.HitCap, Is.EqualTo((int)StatusKind.TurnPulse + 1));
+            Assert.That((int)StatusKind.HurtShield, Is.EqualTo((int)StatusKind.TurnPulse + 2));
+            Assert.That((int)StatusKind.ShieldShatter, Is.EqualTo((int)StatusKind.TurnPulse + 3));
             Assert.That((int)EffectSource.ShieldShatter, Is.EqualTo((int)EffectSource.FreezeRider + 1));
         }
 

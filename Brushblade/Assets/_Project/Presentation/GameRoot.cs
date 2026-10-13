@@ -277,7 +277,6 @@ namespace Brushblade.Presentation
                 // 爬塔层清算与字摊收支都记进 run.EarnedInk,随赚随结进账户,不再有「滚存」这条旁路
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
-                startingPersistShield: snapshot.PersistShield,
                 startingSummons: snapshot.CarriedSummons, // 召唤物跨段延续(2026-08-03),与普通盾同口径
                 startingStatuses: snapshot.CarriedStatuses, // 减伤跨段延续(2026-08-04),同上
                 // 广告扩容走构造参数而非事后 TryExpand*(2026-08-18):RunEngine 的构造函数里就开打
@@ -430,7 +429,6 @@ namespace Brushblade.Presentation
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
             snapshot.NormalShield = run.CarriedNormalShield;
-            snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
             snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
@@ -487,7 +485,6 @@ namespace Brushblade.Presentation
             // 段末护盾照常延续(2026-07-26 拍板:盾叠加本场爬塔通吃,不再 5 关一清),
             // 由土系护盾字与御枝护甲提供;NormalShield 无生产代码路径赋值(金汤已废止)
             snapshot.NormalShield = run.CarriedNormalShield;
-            snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
             snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);

@@ -17,10 +17,10 @@ namespace Brushblade.Core.Tests
     /// 攒层余数(ShieldAccum / HealAccum)**不减半** —— 它们不是护盾,是厚/泉的进度条。</summary>
     public sealed class ShieldDecayTests
     {
-        private static RunSnapshot WinAndCapture(int normal, int persist,
+        private static RunSnapshot WinAndCapture(int normal,
             int shieldAccum = 0, int healAccum = 0)
         {
-            var run = RebalanceFixture.Run(normalShield: normal, persistShield: persist);
+            var run = RebalanceFixture.Run(normalShield: normal);
             if (shieldAccum > 0) run.Battle.GainHeftForTest(shieldAccum);
             if (healAccum > 0) run.Battle.GainWellspringForTest(healAccum);
             run.Battle.Cast("甲", 0);
@@ -32,9 +32,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CarriedShield_HalvesAfterBattle()
         {
-            var snap = WinAndCapture(normal: 301, persist: 100);
-            Assert.That(snap.CarriedNormalShield, Is.EqualTo(150), "301 / 2 = 150(整数除,向下取整)");
-            Assert.That(snap.CarriedPersistShield, Is.EqualTo(50), "两个桶各自减半");
+            var snap = WinAndCapture(normal: 301);
+            Assert.That(snap.CarriedNormalShield, Is.EqualTo(150), "301 / 2 = 150(整数除,向下取整;单桶,2026-10-13 取消留存桶)");
         }
 
         [Test]
@@ -43,7 +42,7 @@ namespace Brushblade.Core.Tests
             // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,原来的 77 已经跨过一层
             // (变成 1 层 + 余 6),那样断的就不是「余数」了。这条守的是「余数不减半」,
             // 输入必须**纯粹是余数**:改成 55(< 71,且是奇数 —— 真被减半会变 27,看得出来)。
-            var snap = WinAndCapture(normal: 0, persist: 0, shieldAccum: 55, healAccum: 33);
+            var snap = WinAndCapture(normal: 0, shieldAccum: 55, healAccum: 33);
             Assert.That(snap.CarriedShieldAccum, Is.EqualTo(55), "余数是厚的进度条,不是护盾");
             Assert.That(snap.CarriedHealAccum, Is.EqualTo(33));
         }
@@ -51,11 +50,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CarriedShield_OfOne_DecaysToZero()
         {
-            var snap = WinAndCapture(normal: 1, persist: 0);
+            var snap = WinAndCapture(normal: 1);
             Assert.That(snap.CarriedNormalShield, Is.EqualTo(0), "1 / 2 = 0,不留残渣");
         }
 
-        /// <summary>2026-09-30 bugfix:衰减只写了玩家的两个桶,召唤物的 Shield 随
+        /// <summary>2026-09-30 bugfix:衰减只写了玩家的护盾,召唤物的 Shield 随
         /// CaptureAliveSummons 原样带过场 —— 召唤物成了「第二条血条」的漏网通道。
         /// 衰减口径对我方所有持盾单位一致:玩家 + 每只存活召唤物。</summary>
         [Test]

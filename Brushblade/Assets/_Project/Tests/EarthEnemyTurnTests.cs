@@ -163,9 +163,9 @@ namespace Brushblade.Core.Tests
             new EffectDef(EffectKind.SkillCut, 50, onlyIf: DamageCondition.IsBoss));
         private static readonly CharDef Grove = RebalanceFixture.Char("林",
             new EffectDef(EffectKind.Summon, 1000, summonCount: 2, summonAttack: 0, summonChar: "木"));
-        private static readonly CharDef Keep = RebalanceFixture.Char("留", new EffectDef(EffectKind.Shield, 500, persistOnce: true));
+        private static readonly CharDef Keep = RebalanceFixture.Char("留", new EffectDef(EffectKind.Shield, 500));
 
-        /// <summary>开场:可选召木灵 / 留存盾 / 杜塞,再推两个敌方回合(普攻 → 蓄力),停在大招前。</summary>
+        /// <summary>开场:可选召木灵,再推两个敌方回合(普攻 → 蓄力),可选立盾 / 杜塞,停在大招前。</summary>
         private static BattleEngine BeforeSkill(BossSkill skill, bool cut, bool summons = true, bool shield = false)
         {
             var b = Battle(new[] { Block, Grove, Keep }, new[] { SkillBoss(skill) });
@@ -219,12 +219,12 @@ namespace Brushblade.Core.Tests
         public void SkillCut_Topple_HalvesDamage_ShieldClearAndSealStillApply()
         {
             var b = BeforeSkill(BossSkill.Topple, cut: true, summons: false, shield: true);
-            int shieldBefore = b.ShieldNormal + b.ShieldPersist;
-            Assert.That(shieldBefore, Is.GreaterThan(BossAttack), "前提:留存盾够吸这一击");
+            int shieldBefore = b.PlayerShield;
+            Assert.That(shieldBefore, Is.GreaterThan(BossAttack), "前提:护盾够吸这一击");
             b.EndTurn();
             var hit = b.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
             Assert.That(hit.Amount, Is.EqualTo(BossAttack), "倾覆伤害 Attack × 2 × 50%");
-            Assert.That(b.ShieldNormal + b.ShieldPersist, Is.EqualTo(0), "清盾照常");
+            Assert.That(b.PlayerShield, Is.EqualTo(0), "清盾照常");
             Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.ShieldBroken).Amount, Is.EqualTo(shieldBefore - BossAttack));
             Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.ShieldBroken).Source, Is.EqualTo(EffectSource.None),
                 "倾覆清盾不带来源标签 —— 表现层据此只给倾覆播「护盾被掀空」并把护盾条归零(D2-土 Task 5)");

@@ -25,7 +25,7 @@ namespace Brushblade.Core.Tests
         private static readonly CharDef Guard = new("护", Element.Earth,
             effects: new[] { new EffectDef(EffectKind.Shield, 200) });
         private static readonly CharDef Bulwark = new("垒", Element.Earth,
-            effects: new[] { new EffectDef(EffectKind.Shield, 40, persistOnce: true) });
+            effects: new[] { new EffectDef(EffectKind.Shield, 40) });
 
         private sealed class HookLog : IBattleHookListener
         {
@@ -113,7 +113,7 @@ namespace Brushblade.Core.Tests
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
-                sb.Append($"|P{b.PlayerHp}/{b.ShieldNormal}/{b.ShieldPersist}");
+                sb.Append($"|P{b.PlayerHp}/{b.ShieldNormal}/0");
                 Bag(sb, b.PlayerStatuses);
                 for (int i = 0; i < b.Enemies.Count; i++)
                 {
@@ -140,7 +140,9 @@ namespace Brushblade.Core.Tests
             return fp;
         }
 
-        private const string ExpectedNoRetaliate = "d4b67847f51d3143 9643";
-        private const string ExpectedWithRetaliate = "a7f9faceb52ee1f7 10935";
+        // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
+        // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
+        private const string ExpectedNoRetaliate = "06361cecbb95ed93 9639";
+        private const string ExpectedWithRetaliate = "c48060232ad2d874 10931";
     }
 }

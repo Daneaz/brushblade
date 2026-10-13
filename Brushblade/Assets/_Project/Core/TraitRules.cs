@@ -380,7 +380,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>Reshape:只改**第一条** DamageSingle;Reshape 上非缺省的字段覆盖原值(shieldStrike / armorStrike 相加,D2-土 E27)。
-        /// 没有伤害时:persist / armorShield 改第一条护盾(E29 / E30),其余见下。</summary>
+        /// 没有伤害时:armorShield 改第一条护盾(E30),其余见下。</summary>
         private static void ApplyReshape(List<EffectDef> effects, EffectDef r)
         {
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
@@ -393,15 +393,11 @@ namespace Brushblade.Core
                     int summon = effects.FindIndex(e => e.Kind == EffectKind.Summon);
                     if (summon >= 0) effects[summon] = effects[summon].With(summonPercent: r.SummonPercent);
                 }
-                // 护盾面(D2-土 E29 / E30,垒砌 / 厚德载物 / 塔基固面):persist → 第一条 Shield / ShieldAll 改为留存;
-                // armorShield → 第一条 Shield 盾量 + 护甲 × N%。排在治疗改形之前;两项都缺省时整段跳过
-                if (r.PersistOnce || r.ArmorShieldPercent > 0)
+                // 护盾面(D2-土 E30,塔基固面):armorShield → 第一条 Shield 盾量 + 护甲 × N%。排在治疗改形之前;缺省时整段跳过
+                if (r.ArmorShieldPercent > 0)
                 {
-                    int shield = effects.FindIndex(e => e.Kind == EffectKind.Shield || (r.PersistOnce && e.Kind == EffectKind.ShieldAll));
-                    if (shield >= 0 && r.PersistOnce) effects[shield] = effects[shield].With(persistOnce: true);
                     int plain = effects.FindIndex(e => e.Kind == EffectKind.Shield);
-                    if (plain >= 0 && r.ArmorShieldPercent > 0)
-                        effects[plain] = effects[plain].With(armorShieldPercent: r.ArmorShieldPercent);
+                    if (plain >= 0) effects[plain] = effects[plain].With(armorShieldPercent: r.ArmorShieldPercent);
                 }
                 // 治疗改形(D2-水 E20,海纳百川 / 细雨 / 泽被…):本面没有伤害、Reshape 不带选择器、写的是 shape All 时,
                 // 改本面第一条 HealSelf 为全体(shapePercent 同伤害的口径:没写就是全额 100)。其余形状不碰治疗

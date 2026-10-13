@@ -167,7 +167,7 @@ namespace Brushblade.Core
             /// <summary>本次出字的 Slow 施加过或续过回合的敌人(D2-水 E15,选择器 SlowedByThisCast)。</summary>
             public List<int> SlowedTargets = new List<int>();
 
-            /// <summary>出字前玩家的护盾(两桶之和;D2-土 E36,地裂 ScaleBasis.Shield 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
+            /// <summary>出字前玩家的护盾(D2-土 E36,地裂 ScaleBasis.Shield 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
             public int? PreCastShield;
 
             /// <summary>出字前的存活木灵数(含幼苗;D2-木 E39,众木 / 林深 ScaleBasis.SummonCount 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
@@ -238,10 +238,10 @@ namespace Brushblade.Core
                     bag.RemoveEntry(s);
         }
 
-        /// <summary>两桶护盾都空了:反震(D9)、冰晶(D2-水 W6)与碎玉(D2-土 G4)失去载体,移除。</summary>
+        /// <summary>护盾空了:反震(D9)、冰晶(D2-水 W6)与碎玉(D2-土 G4)失去载体,移除。单桶(2026-10-13 取消留存桶)。</summary>
         private void DropShieldRecoilIfEmpty()
         {
-            if (_shieldNormal + _shieldPersist > 0) return;
+            if (_shieldNormal > 0) return;
             _playerStatuses.Remove(StatusKind.ShieldRecoil);
             _playerStatuses.Remove(StatusKind.ShieldFrost);
             _playerStatuses.Remove(StatusKind.ShieldShatter);

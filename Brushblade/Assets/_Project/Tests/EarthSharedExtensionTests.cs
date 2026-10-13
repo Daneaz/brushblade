@@ -17,9 +17,9 @@ namespace Brushblade.Core.Tests
             new(slot, face, form, null, "土" + (int)slot + face, effects);
 
         private static EffectDef Reshape(int shieldStrike = 0, int armorStrike = 0, TargetArea shape = TargetArea.Single,
-            int shots = 0, bool persist = false, int armorShield = 0, bool armorStrikeEach = false,
+            int shots = 0, int armorShield = 0, bool armorStrikeEach = false,
             ScaleBasis scaleBy = ScaleBasis.None, int scaleDivisor = 0, int scaleCap = 0) =>
-            new(EffectKind.Reshape, 0, persistOnce: persist, shape: shape, shots: shots,
+            new(EffectKind.Reshape, 0, shape: shape, shots: shots,
                 shieldStrikePercent: shieldStrike, armorStrikePercent: armorStrike, armorShieldPercent: armorShield,
                 armorStrikeEach: armorStrikeEach, scaleBy: scaleBy, scaleDivisor: scaleDivisor, scaleCap: scaleCap);
 
@@ -83,32 +83,6 @@ namespace Brushblade.Core.Tests
                         Assert.That(dmg.ArmorStrikePercent, Is.EqualTo(body.ArmorStrikePercent + reshapes.Sum(r => r.ArmorStrikePercent)),
                             $"{def.Id}/{face}/Lv{level} armorStrike");
                     }
-        }
-
-        // ---------------- E29:Reshape persist ----------------
-
-        [Test]
-        public void E29_ReshapePersist_OnFeatureFace_MakesFirstShieldPersist()
-        {
-            var def = new CharDef("试", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.Shield, 60), new EffectDef(EffectKind.Shield, 10) },
-                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
-                traits: new[] { Trait(TraitSlot.Lv8, TraitFace.Feature, TraitForm.Active, Reshape(persist: true)) });
-            var lv7 = TraitRules.CastEffects(def, CardFace.Feature, 7);
-            var lv8 = TraitRules.CastEffects(def, CardFace.Feature, 8);
-            Assert.That(lv7[0].PersistOnce, Is.False);
-            Assert.That(lv8[0].PersistOnce, Is.True, "第一条护盾改为留存");
-            Assert.That(lv8[1].PersistOnce, Is.False, "只改第一条");
-            Assert.That(lv8.Any(e => e.Kind == EffectKind.Reshape), Is.False, "修饰器不进结算表");
-        }
-
-        [Test]
-        public void E29_ReshapePersist_ShieldAllAlsoCounts()
-        {
-            var def = new CharDef("试", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.ShieldAll, 60) },
-                traits: new[] { Trait(TraitSlot.Lv8, TraitFace.Feature, TraitForm.Active, Reshape(persist: true)) });
-            Assert.That(TraitRules.CastEffects(def, CardFace.Feature, 8)[0].PersistOnce, Is.True);
         }
 
         // ---------------- E30:Reshape armorShield ----------------
@@ -495,8 +469,6 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Loader_ReadsSharedModifierFields()
         {
-            var persist = Load(@"{""kind"":""Reshape"",""value"":0,""persistOnce"":true}").Get("塔").Traits[0].Effects[0];
-            Assert.That(persist.PersistOnce, Is.True);
             var armorShield = Load(@"{""kind"":""Reshape"",""value"":0,""armorShieldPercent"":300}").Get("塔").Traits[0].Effects[0];
             Assert.That(armorShield.ArmorShieldPercent, Is.EqualTo(300));
             var each = Load(@"{""kind"":""Reshape"",""value"":0,""shape"":""Scatter"",""shots"":3,""armorStrikePercent"":300,""armorStrikeEach"":true}",
@@ -524,10 +496,8 @@ namespace Brushblade.Core.Tests
                   ""traits"":[{""slot"":""Lv8"",""face"":""Feature"",""name"":""杜门不出"",""maxPerBattle"":-1,""effects"":[{""kind"":""DamageCut"",""value"":60}]}]}]}"));
         }
 
-        [TestCase(@"{""kind"":""Reshape"",""value"":0,""persistOnce"":true}", "Attack")]                       // 伤害面上的 persist
         [TestCase(@"{""kind"":""Reshape"",""value"":0,""armorShieldPercent"":300}", "Attack")]                 // 伤害面上的 armorShield
         [TestCase(@"{""kind"":""Shield"",""value"":10,""armorShieldPercent"":300}", "Feature")]                // armorShield 只给 Reshape
-        [TestCase(@"{""kind"":""DefenseBuff"",""value"":10,""turns"":2,""persistOnce"":true}", "Feature")]    // persistOnce 宿主不对
         [TestCase(@"{""kind"":""Reshape"",""value"":0,""armorStrikeEach"":true}", "Attack")]                   // 逐发镇压没有镇压
         [TestCase(@"{""kind"":""Reshape"",""value"":0,""scaleBy"":""Shield""}", "Attack")]                     // 缺除数
         [TestCase(@"{""kind"":""Reshape"",""value"":0,""scaleDivisor"":100}", "Attack")]                      // 除数没配 scaleBy Shield

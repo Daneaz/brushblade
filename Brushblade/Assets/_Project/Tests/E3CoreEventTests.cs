@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>Plan E3 Task 1:拍板 chip 落地缺的 Core 信息 —— 拦截事件(DebuffWarded / BuffBlocked)、
-    /// 两个来源标签(BossSkillCast 的 SkillCut、浮屠 Shield 的 ShieldCarry)、Graft.Amount = 回复量。
+    /// 来源标签(BossSkillCast 的 SkillCut;浮屠 Shield 的 ShieldCarry 已于 2026-10-13 随浮屠退役删除)、Graft.Amount = 回复量。
     /// 字形特性事件、印记读口、CastEffectsNow 在 <see cref="GlyphTraitTests"/>,Badges 在 <see cref="PartMarkRulesTests"/>。
     /// 夹具:Element.Heart、PlayerAttack = 100、10 万血靶子。</summary>
     public class E3CoreEventTests
@@ -53,8 +53,7 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(Enumerable.Range((int)BattleEventKind.CharGranted + 1, 3)));
             // E4 Task 1 在其后追加 EndureSaved(E4CoreTests.E4EnumValues_AppendedAtEnd 守它的位置)
             Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.EndureSaved));
-            Assert.That(((int)EffectSource.SkillCut, (int)EffectSource.ShieldCarry),
-                Is.EqualTo(((int)EffectSource.ReturnFire + 1, (int)EffectSource.ReturnFire + 2)));
+            Assert.That((int)EffectSource.SkillCut, Is.EqualTo((int)EffectSource.ReturnFire + 1));
             // E4 Task 1 在其后追加 BurnGrow
             Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.BurnGrow));
         }
@@ -223,44 +222,6 @@ namespace Brushblade.Core.Tests
         public void BossSkillCast_WithoutSkillCut_SourceNone()
         {
             Assert.That(SkillCast(cut: false).Source, Is.EqualTo(EffectSource.None));
-        }
-
-        // ================= 浮屠 Shield Source = ShieldCarry =================
-
-        [Test]
-        public void ShieldCarry_TurnStartShield_TaggedShieldCarry()
-        {
-            var carry = new CharDef("浮", Element.Heart, effects: new[]
-                { new EffectDef(EffectKind.Shield, 400), new EffectDef(EffectKind.ShieldCarry, 50, turns: 3) });
-            var b = Battle(carry);
-            Cast(b, "浮");
-            Assert.That(b.LastEvents.Where(e => e.Kind == BattleEventKind.Shield).Select(e => e.Source),
-                Has.All.EqualTo(EffectSource.None), "出字给的盾不带标签");
-            b.EndTurn();
-            var carried = b.LastEvents.Where(e => e.Kind == BattleEventKind.Shield).ToList();
-            Assert.That(carried.Count, Is.EqualTo(1));
-            Assert.That((carried[0].TargetIndex, carried[0].Source), Is.EqualTo((-1, EffectSource.ShieldCarry)));
-            Assert.That(carried[0].Amount, Is.EqualTo(b.ShieldNormal));
-        }
-
-        /// <summary>同一回合初浮屠回流与金气加盾各发一条 Shield:只有回流那条带 ShieldCarry,金气那条 Source = None。</summary>
-        [Test]
-        public void ShieldCarry_MoraleShieldSameTurnStart_Untagged()
-        {
-            var carry = new CharDef("浮", Element.Heart, effects: new[]
-            {
-                new EffectDef(EffectKind.Shield, 400), new EffectDef(EffectKind.ShieldCarry, 50, turns: 3),
-                new EffectDef(EffectKind.Morale, CombatCaps.MoraleStacks), new EffectDef(EffectKind.MoraleShield, 40),
-            });
-            var b = Battle(carry);
-            Cast(b, "浮");
-            b.EndTurn();
-            var shields = b.LastEvents.Where(e => e.Kind == BattleEventKind.Shield).ToList();
-            Assert.That(shields.Count, Is.EqualTo(2), "回流一条 + 金气一条");
-            Assert.That(shields.Count(e => e.Source == EffectSource.ShieldCarry), Is.EqualTo(1));
-            var morale = shields.Single(e => e.Source != EffectSource.ShieldCarry);
-            Assert.That((morale.TargetIndex, morale.Source), Is.EqualTo((-1, EffectSource.None)), "金气那条不带标签");
-            Assert.That(morale.Amount, Is.GreaterThan(0));
         }
 
         // ================= Graft.Amount = 回复量 =================

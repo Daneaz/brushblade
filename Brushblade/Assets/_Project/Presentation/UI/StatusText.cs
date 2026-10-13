@@ -313,12 +313,6 @@ namespace Brushblade.Presentation
                     return new Info("turnpulse", Strings.T("status.turnpulse.name"),
                         Duration(turnsLeft),
                         Strings.T("status.turnpulse.desc.generic"));
-                case StatusKind.ShieldCarry:
-                    // 护盾回流(浮屠,D2-土 G9;StatusChipsWaterEarth 拍板出 chip):玩家身上,翠玉、shieldcarry 图标,
-                    // 战场 chip 数字 = 剩余次数(TurnsLeft,E3 附录 §1.3)
-                    return new Info("shieldcarry", Strings.T("status.shieldcarry.name"),
-                        Duration(turnsLeft),
-                        Strings.T("status.shieldcarry.desc", ("magnitude", magnitude)));
                 case StatusKind.SkillCut:
                     // 大招削弱(杜塞,D2-土 G6;StatusChipsWaterEarth 拍板出 chip):Boss 身上,墨蓝、skillcut 图标、无数字。
                     // 放完大招即整类移除 —— 时长写「下次大招前」,不写「本场持久」(E3 Q14)

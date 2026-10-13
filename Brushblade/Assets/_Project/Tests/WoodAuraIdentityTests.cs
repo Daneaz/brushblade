@@ -48,7 +48,7 @@ namespace Brushblade.Core.Tests
 
         private static void AppendState(StringBuilder sb, BattleEngine b)
         {
-            sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+{b.ShieldPersist}/C{b.EffectiveCrit}[");
+            sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+0/C{b.EffectiveCrit}[");
             foreach (var s in b.PlayerStatuses.All) sb.Append($"{s.Kind}:{s.Magnitude}:{s.TurnsLeft}:{s.TargetSlot} ");
             sb.Append(']');
             int i = 0;
@@ -79,7 +79,7 @@ namespace Brushblade.Core.Tests
             for (int t = 0; t < turns && b.Phase == BattlePhase.PlayerTurn; t++)
             {
                 eachTurn(b, t, sb);
-                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+{b.ShieldPersist}");
+                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
                 foreach (var e in b.LastEvents)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source}:{e.Crit};");

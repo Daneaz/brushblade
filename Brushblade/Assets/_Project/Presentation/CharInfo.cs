@@ -105,12 +105,10 @@ namespace Brushblade.Presentation
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
-                        + ArmorShieldText(e)
-                        + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
+                        + ArmorShieldText(e),
                     // 群体护盾(2026-09-05,崩):与 HealAll 同款「(含召唤物)」的措辞 ——
                     // 玩家要知道的是这一份盾不只给自己
-                    EffectKind.ShieldAll => Strings.T("char.effect.shieldall", ("value", shown))
-                        + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
+                    EffectKind.ShieldAll => Strings.T("char.effect.shieldall", ("value", shown)),
                     EffectKind.BurnPotency => Strings.T("char.effect.burnpotency", ("value", shown)),
                     // 治疗弹射(2026-09-16,水,海/澡):Shape 只在配 Chain 时才有意义,
                     // 缺省 Single 时这两截都要吐空串——不然全体既有治疗字都会平白多出「单体」
@@ -348,7 +346,6 @@ namespace Brushblade.Presentation
                     EffectKind.ShieldToMorale => Strings.T("char.effect.shieldtomorale",
                         ("value", e.Value), ("per", BattleEngine.ResourceThresholdValue)),
                     // 浮屠(G9):「上回合末剩余护盾」= 回合开始被清掉的普通护盾
-                    EffectKind.ShieldCarry => Strings.T("char.effect.shieldcarry", ("turns", Math.Max(1, e.Turns)), ("value", e.Value)),
                     // 铜墙铁壁(G2):单次伤害上限,本回合
                     EffectKind.HitCap => Strings.T("char.effect.hitcap", ("value", e.Value)),
                     // 堡垒(G3):每次受击后加护盾(出字时定死,同 Shield)
@@ -793,9 +790,9 @@ namespace Brushblade.Presentation
                 : e.SummonPercent != 100
                     ? Strings.T("char.effect.reshape.summonpercent", ("percent", e.SummonPercent))
                 // 治疗改形(D2-水 E20):本面没有伤害、shape All → 第一条治疗改为全体友方,每人各治 shapePercent%
-                // 护盾面(D2-土 E29 / E30):留存护盾 / 盾量 + 护甲 × N%
-                : e.PersistOnce || e.ArmorShieldPercent > 0
-                    ? (e.PersistOnce ? Strings.T("char.effect.reshape.persist") : "") + ArmorShieldText(e)
+                // 护盾面(D2-土 E30):盾量 + 护甲 × N%
+                : e.ArmorShieldPercent > 0
+                    ? ArmorShieldText(e)
                 : healReshape && e.Shape == TargetArea.All
                     ? (e.ShapePercent < 100
                         ? Strings.T("char.effect.reshape.heal.percent", ("percent", e.ShapePercent))

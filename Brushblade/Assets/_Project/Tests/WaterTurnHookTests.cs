@@ -200,7 +200,7 @@ namespace Brushblade.Core.Tests
             Assert.That(b.ShieldNormal, Is.GreaterThan(0), "前提:治疗转盾");
             Assert.That(b.PlayerStatuses.Find(StatusKind.ShieldFrost)?.Magnitude, Is.EqualTo(1));
             b.EndTurn();
-            Assert.That(b.ShieldNormal + b.ShieldPersist, Is.EqualTo(0));
+            Assert.That(b.PlayerShield, Is.EqualTo(0));
             Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Freeze)?.TurnsLeft, Is.EqualTo(1), "攻击者冻结 1 回合(拍末递减之后才施加)");
             Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Freeze), Is.False, "只冻攻击者");
             Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.False, "触发后移除");
@@ -259,22 +259,6 @@ namespace Brushblade.Core.Tests
             Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.False, "回合初清盾 → 只移除");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "没打穿、清盾都不冻");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.False);
-        }
-
-        /// <summary>留存桶还有盾时回合初清普通桶不移除;两桶都空才移除。</summary>
-        [Test]
-        public void ShieldFrost_TurnClear_KeptWhilePersistRemains()
-        {
-            var bulwark = RebalanceFixture.Char("垒", new EffectDef(EffectKind.Shield, 40, persistOnce: true));
-            var defs = new[] { Crystal, bulwark };
-            var b = new BattleEngine(RebalanceFixture.Graph(defs), Config, new[] { "冰", "冰", "垒", "垒" }, Array.Empty<string>(),
-                new[] { Mob(0) }, seed: 1, startingHp: StartHp);
-            Cast(b, "冰");
-            Cast(b, "垒");
-            Assert.That(b.ShieldPersist, Is.GreaterThan(0));
-            b.EndTurn();
-            Assert.That(b.ShieldNormal, Is.EqualTo(0));
-            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.True, "留存桶还在 → 冰晶留着");
         }
 
         [Test]

@@ -26,7 +26,7 @@ namespace Brushblade.Core.Tests
 
         private static void AppendState(StringBuilder sb, BattleEngine b)
         {
-            sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+{b.ShieldPersist}/A{b.Ap}[");
+            sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+0/A{b.Ap}[");
             foreach (var s in b.PlayerStatuses.All) sb.Append($"{s.Kind}:{s.Magnitude}:{s.TurnsLeft} ");
             sb.Append(']');
             for (int i = 0; i < b.Summons.Count; i++)

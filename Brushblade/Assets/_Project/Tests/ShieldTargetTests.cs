@@ -7,11 +7,7 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>护盾选友方目标(2026-08-26)。土系 5 张护盾字(㙓/垚/圭/垒/壁)从「只能加给
     /// 玩家」改成「加给玩家或某只召唤物」,与单体治疗(spec §8.1)共用同一套
-    /// NeedsAllyTarget / CanHealSlot / allySlot 流程,不写第二份。
-    ///
-    /// 召唤物没有豁免桶(SummonState.Shield 只有一个整数),所以 persistOnce 的那一张(㙓)
-    /// 加到召唤物身上时并进同一个 Shield —— 豁免桶本来就是玩家侧「倾覆清盾」的对策,
-    /// 召唤物不吃倾覆。</summary>
+    /// NeedsAllyTarget / CanHealSlot / allySlot 流程,不写第二份。</summary>
     public class ShieldTargetTests
     {
         private static RecipeGraph Graph() => new(new[]
@@ -20,9 +16,9 @@ namespace Brushblade.Core.Tests
             // 垒:护盾 50(纯盾,不带伤害;真实字表的 垒 还带 DamageSingle 30,那一支单独测)
             new CharDef("垒", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 50) }),
-            // 㙓:豁免桶护盾 450
+            // 㙓:护盾 450(大于召唤物上限)
             new CharDef("㙓", Element.Earth,
-                effects: new[] { new EffectDef(EffectKind.Shield, 450, persistOnce: true) }),
+                effects: new[] { new EffectDef(EffectKind.Shield, 450) }),
             // 圭:护盾 + 单体伤害 —— 这张要**先选敌人再选友方**
             new CharDef("圭", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 200),
@@ -117,17 +113,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Shield_PersistOnceGoesIntoTheSummonsSingleBucket()
+        public void Shield_OnSummon_ClampedToItsMaxHp()
         {
-            // 召唤物没有豁免桶,㙓 的 450 并进同一个 Shield;
-            // spec v7 §5.2.2 起 ≤ 召唤物 MaxHp(100),450 被钳到 100
+            // spec v7 §5.2.2 起 ≤ 召唤物 MaxHp(100),㙓 的 450 被钳到 100
             var engine = Engine(new[] { "兵", "㙓" });
             engine.Cast("兵");
             engine.Cast("㙓", allySlot: 0);
 
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(100));
-            Assert.That(engine.ShieldPersist, Is.EqualTo(0));
-            Assert.That(engine.ShieldNormal, Is.EqualTo(0));
+            Assert.That(engine.PlayerShield, Is.EqualTo(0));
         }
 
         [Test]

@@ -83,7 +83,6 @@ namespace Brushblade.Core
         // 局外 Meta.MaxHpFor 硬顶 1480(50 级),而怪物 scale 无上限 —— 这是关内把上限顶上去的唯一手段。
         private int _maxHpBonus;
         private int _carriedNormalShield;
-        private int _carriedPersistShield;
         private int _carriedShieldAccum;
         private int _carriedHealAccum;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
@@ -95,7 +94,7 @@ namespace Brushblade.Core
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
-            int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
+            int? startingHp = null, int startingNormalShield = 0,
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
             bool libraryExpanded = false, bool poolExpanded = false, int maxHpBonus = 0,
@@ -125,7 +124,6 @@ namespace Brushblade.Core
             Phase = RunPhase.InBattle;
             BattleIndex = 0;
             _carriedNormalShield = startingNormalShield;
-            _carriedPersistShield = startingPersistShield;
             _perFloorNormalShield = perFloorNormalShield;
             if (startingSummons != null) _carriedSummons = new List<SummonSnapshot>(startingSummons);
             if (startingStatuses != null)
@@ -171,7 +169,6 @@ namespace Brushblade.Core
                 CarriedHp = _carriedHp,
                 MaxHpBonus = _maxHpBonus,
                 CarriedNormalShield = _carriedNormalShield,
-                CarriedPersistShield = _carriedPersistShield,
                 CarriedShieldAccum = _carriedShieldAccum,
                 CarriedHealAccum = _carriedHealAccum,
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
@@ -214,7 +211,6 @@ namespace Brushblade.Core
                 _carriedHp = snapshot.CarriedHp,
                 _maxHpBonus = snapshot.MaxHpBonus,
                 _carriedNormalShield = snapshot.CarriedNormalShield,
-                _carriedPersistShield = snapshot.CarriedPersistShield,
                 _carriedShieldAccum = snapshot.CarriedShieldAccum,
                 _carriedHealAccum = snapshot.CarriedHealAccum,
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
@@ -291,7 +287,6 @@ namespace Brushblade.Core
         public IReadOnlyList<string> CarriedPool => _carriedPool;
 
         public int CarriedNormalShield => _carriedNormalShield;
-        public int CarriedPersistShield => _carriedPersistShield;
 
         /// <summary>战斗间携带的减伤来源(段内持久,到段末才清)。</summary>
         public IReadOnlyList<StatusEffect> CarriedStatuses => _carriedStatuses;
@@ -648,8 +643,7 @@ namespace Brushblade.Core
             // 就永久留在身上,战斗不会输也打不死怪(中层刮痧)。整数除、向下取整。
             // ⚠ 只衰减护盾,不动 _carriedShieldAccum / _carriedHealAccum:
             // 那两个是厚/泉的攒层余数,不是护盾。
-            _carriedNormalShield = Battle.ShieldNormal * _battleConfig.ShieldCarryPercent / 100;
-            _carriedPersistShield = Battle.ShieldPersist * _battleConfig.ShieldCarryPercent / 100;
+            _carriedNormalShield = Battle.PlayerShield * _battleConfig.ShieldCarryPercent / 100;   // 单桶(2026-10-13 取消留存桶)
             _carriedShieldAccum = Battle.ShieldAccum;
             _carriedHealAccum = Battle.HealAccum;
             _carriedSummons = CaptureAliveSummons();
@@ -972,7 +966,7 @@ namespace Brushblade.Core
         {
             return new BattleEngine(_graph, BattleConfigForRun(), library, pool,
                 _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
-                _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedStatuses,
+                _carriedNormalShield, _carriedSummons, _carriedStatuses,
                 _carriedShieldAccum, _carriedHealAccum, startingOpenings: _carriedOpenings);
         }
     }

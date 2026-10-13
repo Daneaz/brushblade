@@ -14,8 +14,7 @@ namespace Brushblade.Core
         public int Ap { get; set; }
         public int Turn { get; set; }
         public BattlePhase Phase { get; set; }
-        public int ShieldNormal { get; set; }
-        public int ShieldPersist { get; set; }
+        public int ShieldNormal { get; set; }   // 玩家护盾(单桶;2026-10-13 起取消留存桶)
 
         /// <summary>已开始的玩家回合数(护盾回合末清空用:0 = 第一个玩家回合,不清)。</summary>
         public int PlayerTurnsStarted { get; set; }
@@ -165,7 +164,6 @@ namespace Brushblade.Core
         public int CarriedHp { get; set; }
         public int MaxHpBonus { get; set; } // 局内血量上限加成(奇遇累加,2026-08-04)
         public int CarriedNormalShield { get; set; }
-        public int CarriedPersistShield { get; set; }
         public int CarriedShieldAccum { get; set; }
         public int CarriedHealAccum { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)

@@ -718,7 +718,6 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Shield:
                         // 木灵护盾到上限时转盾给 0(Water.cs 浇熄照发 Shield):不飘「+0」。OnImpact 对 0 本来就是空操作
                         if (e.Amount <= 0) break;
-                        if (e.Source == EffectSource.ShieldCarry) yield return PlayShieldCarry();   // 浮屠(E3)
                         // TargetIndex ≥0 = 盾加在木灵身上(浇熄护木灵转盾,E3):数字飘在那只木灵身上
                         Popup(Strings.T("juice.popup.shield_gain", ("amount", e.Amount)), Theme.SplitBlue,
                             e.TargetIndex >= 0 ? summonAnchor?.Invoke(e.TargetIndex) : null);

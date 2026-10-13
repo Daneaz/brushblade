@@ -266,7 +266,7 @@ namespace Brushblade.Core
         /// <summary>燎原(火 L4,2026-10-02):敌人自己结算灼烧后仍有层数,向上下左右相邻存活敌人各 +1 层。缺省 false。</summary>
         public bool BurnSpreadAdjacent { get; set; }
 
-        /// <summary>战斗结束时护盾保留的百分比(玩家两桶与召唤物一致)。缺省 50 = 2026-09-05 的「打对折」;
+        /// <summary>战斗结束时护盾保留的百分比(玩家与召唤物一致)。缺省 50 = 2026-09-05 的「打对折」;
         /// 土脉 L3「固本」在其上 +25。整数除向下取整,50 时与旧的 /2 逐值相同。</summary>
         public int ShieldCarryPercent { get; set; } = 50;
 
@@ -321,7 +321,7 @@ namespace Brushblade.Core
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
         BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
         BossSkillCast,  // Boss 释放技能(Amount = BossSkill);随后是各目标的受击事件
-        ShieldBroken,   // 玩家护盾被扣(TargetIndex = −1,Amount = 扣掉的量):Source None = 倾覆清空两桶;
+        ShieldBroken,   // 玩家护盾被扣(TargetIndex = −1,Amount = 扣掉的量):Source None = 倾覆清空护盾;
                         // Source ShieldSpend = 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 G1 / G8),可能只扣一部分
         EnemyMend,   // 涂改给同伴回血(TargetIndex = **被治疗的**敌人,Amount = 实际回血;2026-08-29)。
                      // 不复用 Regrow:那个的 TargetIndex 是「自补全的那只自己」且带补全进度,
@@ -415,7 +415,7 @@ namespace Brushblade.Core
         Mine,         // 埋雷(D2-火 Task 4):敌人出手前爆炸,Damage 事件的 Source;表现层按普通伤害飘字(来源标签归 Plan E)
         ExecuteSplash,// 斩杀溅射(D2-金 J4,铡刀落):特性伤害,溅射击杀不入队击杀时 / 斩杀时(R4);表现层按普通伤害飘字(来源标签归 Plan E)
         FreezeRider,  // 冻结附着伤害(D2-水 W1,怀山 / 寒彻):R4 特性伤害,不触发死亡 / 受击类被动;表现层按普通伤害飘字(来源标签归 Plan E)
-        ShieldShatter,// 碎玉(D2-土 G4):挥击把两桶打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
+        ShieldShatter,// 碎玉(D2-土 G4):挥击把护盾打空时按本击吸收量反伤,同反震;表现层按普通伤害飘字(来源标签归 Plan E)
         OverkillSplash,// 粉身碎骨(D2-土 G5):击杀溢出平分给其余敌人;R4 特性伤害,溅射击杀不入队击杀时;表现层按普通伤害飘字(来源标签归 Plan E)
         ShieldSpend,   // 扣盾(D2-土 G1 塔倾 / 地裂、G8 土生金):**ShieldBroken** 事件的 Source,区分「部分扣盾」与倾覆清空(倾覆为 None)
         // ---- D2-木 Task 1:预留(Ruling 17,只加名、不加行为)。⚠ 只在末尾追加 ----
@@ -423,7 +423,6 @@ namespace Brushblade.Core
         ReturnFire,    // 良弓(M4,Task 3):带良弓的木灵被挥击命中后射还;进 60% 反伤预算
         // ---- Plan E3 Task 1:只当事件标签,不进伤害钩子。⚠ 只在末尾追加 ----
         SkillCut,      // BossSkillCast 的 Source:这次大招吃了杜塞(伤害已按 SkillCut 削减)
-        ShieldCarry,   // Shield 的 Source:浮屠在回合初加回的那份(与金气回合初的 Shield 区分)
         // ---- Plan E4 Task 1:只当事件标签。⚠ 只在末尾追加 ----
         BurnGrow,      // Burn 的 Source:上炎在敌人行动开始时加的那几层(GrowBurnOn)
     }
@@ -645,7 +644,6 @@ namespace Brushblade.Core
         private int OurSideBurnPerStack => _config?.BurnPerStack ?? BattleConfig.BaseBurnPerStack;
         private int _shieldNormal;          // 普通护盾:玩家下一回合开始清空(U1,2026-10-04);战后按 ShieldCarryPercent 带到下一场(2026-07-26 起关间延续)
         private int _playerTurnsStarted;    // 已开始的玩家回合数(BeginPlayerTurn 计);0 = 本场第一个玩家回合还没开,此时不清盾
-        private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
         private int _healAccum;             // 泉的余数:不足一层的治疗名义值
 
@@ -1194,7 +1192,7 @@ namespace Brushblade.Core
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
             IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null,
             IReadOnlyDictionary<string, int> cardLevels = null,
-            int startingNormalShield = 0, int startingPersistShield = 0,
+            int startingNormalShield = 0,
             IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
             int startingShieldAccum = 0, int startingHealAccum = 0,
@@ -1213,10 +1211,9 @@ namespace Brushblade.Core
             AssignSlots();
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
-            // 带入/起始护盾两桶之和 ≤ 最大生命(spec v7 §5.2);超出时 persist 桶优先保留,普通桶吃缺口。
+            // 带入/起始护盾 ≤ 最大生命(spec v7 §5.2;单桶,2026-10-13 取消留存桶)。
             // 快照恢复(FromSnapshot)直接还原、不钳:快照来自引擎自己的出口,本就守着上限。
-            _shieldPersist = Math.Min(startingPersistShield, config.PlayerMaxHp);
-            _shieldNormal = Math.Min(startingNormalShield, config.PlayerMaxHp - _shieldPersist);
+            _shieldNormal = Math.Min(startingNormalShield, config.PlayerMaxHp);
             _slotMask = ClampSlotMask(config);
             // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)。
             // 携带的召唤物按原槽位落位(2026-08-20)。Slot 越界或撞车一律回落到最小空槽 ——
@@ -1301,7 +1298,6 @@ namespace Brushblade.Core
                 Turn = Turn,
                 Phase = Phase,
                 ShieldNormal = _shieldNormal,
-                ShieldPersist = _shieldPersist,
                 PlayerTurnsStarted = _playerTurnsStarted,
                 BurnPerStack = _burnPerStack,
                 RandomState = _random.State,
@@ -1351,7 +1347,6 @@ namespace Brushblade.Core
                 Turn = snapshot.Turn,
                 Phase = snapshot.Phase,
                 _shieldNormal = snapshot.ShieldNormal,
-                _shieldPersist = snapshot.ShieldPersist,
                 _playerTurnsStarted = snapshot.PlayerTurnsStarted,
                 _burnPerStack = snapshot.BurnPerStack,
                 _pendingDrop = snapshot.PendingDrop,
@@ -1399,7 +1394,7 @@ namespace Brushblade.Core
 
         /// <summary>待决议的掉落字(满库时挂起);无待决议时为 null。</summary>
         public string PendingDrop => _pendingDrop;
-        public int PlayerShield => _shieldNormal + _shieldPersist;
+        public int PlayerShield => _shieldNormal;
 
         /// <summary>厚/泉的当前层数与余数(2026-09-02),给 UI 与测试。</summary>
         public int HeftStacks => _playerStatuses.TotalMagnitude(StatusKind.Heft);
@@ -1527,7 +1522,6 @@ namespace Brushblade.Core
         }
 
         public int ShieldNormal => _shieldNormal;
-        public int ShieldPersist => _shieldPersist;
 
         /// <summary>玩家侧状态容器(HoT / 减伤),供战斗结束时取回跨战斗延续(2026-08-04)。</summary>
         public StatusBag PlayerStatuses => _playerStatuses;
@@ -2911,17 +2905,15 @@ namespace Brushblade.Core
         private void BeginPlayerTurn()
         {
             // 护盾回合末清空(spec v7 §3.1,用户拍板 U1):「回合结束」= 一整轮结束,即玩家下一回合开始。
-            // 清普通桶与全部召唤物护盾,留存桶(_shieldPersist)不动。排在 TurnStarted 之前:
+            // 清玩家护盾与全部召唤物护盾。排在 TurnStarted 之前:
             // 本回合开始时的特性反应看到的是清空后的盾。本场第一个玩家回合(_playerTurnsStarted == 0)不清:
             // 跨场带入 / 开局效果给的护盾写在构造函数里,第一回合开始就清的话它们一拍都挡不到。
             if (_playerTurnsStarted > 0)
             {
-                int clearedNormal = _shieldNormal;
                 _shieldNormal = 0;
                 foreach (var summon in _summons)
                     if (summon != null) summon.Shield = 0;
-                CarryShieldOnTurnClear(clearedNormal);   // 浮屠(D2-土 G9):判空之前加回;没挂时一次判断即返回
-                DropShieldRecoilIfEmpty();   // 两桶都空 → 反震失去载体(D1 Task 9)
+                DropShieldRecoilIfEmpty();   // 护盾空 → 反震失去载体(D1 Task 9)
             }
             ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
             EnqueueTurnPulses();   // 大雨滂沱(D2-水 W7):同一时点入队,TurnStarted 之后的安全点兑现;没挂时一次判断即返回
@@ -3351,7 +3343,7 @@ namespace Brushblade.Core
             _cast.PreCastConditions = outer.PreCastConditions ?? CapturePreCastConditions(attacker);
             _cast.PreCastBurnStacks = outer.PreCastBurnStacks ?? CapturePreCastBurnStacks();   // 计数缩放(D2-火 N4)同一时机
             _cast.PreCastWellspring ??= _playerStatuses.TotalMagnitude(StatusKind.Wellspring);   // 洪峰(D2-水 E22a),只读
-            _cast.PreCastShield ??= _shieldNormal + _shieldPersist;   // 地裂(D2-土 E36),只读
+            _cast.PreCastShield ??= _shieldNormal;   // 地裂(D2-土 E36),只读
             _cast.PreCastSummons ??= AliveSummons();   // 众木 / 林深(D2-木 E39),只读
             // 每场次数(D2-土 E35,杜门不出):顶层出字先偷看次数,用尽的特性整条不进 Fold;没有这类特性时与原路径同一调用
             var battleLimited = topLevelCast ? TraitRules.BattleLimited(def, castFace, cardLevel) : Array.Empty<TraitDef>();
@@ -3500,7 +3492,7 @@ namespace Brushblade.Core
                                 // (全体时每个目标都是主目标),
                                 // 随这一击一起过生克 / 暴击 / 护甲
                                 if (primary && hit == 0 && effect.ShieldStrikePercent > 0)
-                                    damage += (_shieldNormal + _shieldPersist) * effect.ShieldStrikePercent / 100;
+                                    damage += _shieldNormal * effect.ShieldStrikePercent / 100;
                                 // 按木灵攻击 / 本字木灵攻击 / 护甲加伤(D2-木 E40,森罗 / 撼天 / 硬弓):同位置;三项缺省时整句跳过
                                 if (primary && hit == 0 && (effect.SummonAtkStrikePercent > 0 || effect.HostAtkStrikePercent > 0
                                         || effect.HostArmorStrikePercent > 0))
@@ -3889,7 +3881,7 @@ namespace Brushblade.Core
                         // 不再吃护盾 Amplify / 筑垒 / L3:它是治疗量的折算,不是本字的护盾本体。不攒厚(同理)。
                         int converted = _cast.HealTotal * value / 100;
                         if (converted <= 0) break;
-                        int granted = AddPlayerShield(converted, persist: false);
+                        int granted = AddPlayerShield(converted);
                         _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
                         break;
                     }
@@ -4141,9 +4133,6 @@ namespace Brushblade.Core
                     case EffectKind.ShieldToMorale:
                         ResolveShieldToMorale(effect.Value);
                         break;
-                    case EffectKind.ShieldCarry:
-                        ApplyShieldCarry(effect, def.Id);
-                        break;
                     // 受击挂点族(D2-土 G2 / G3 / G4)
                     case EffectKind.HitCap:
                         ApplyHitCap(effect, def.Id);
@@ -4355,13 +4344,9 @@ namespace Brushblade.Core
                         _cast.ShieldNominal += shield;   // 碉楼 / 载物(D2-土 E28)读
                         int shieldGranted;
                         if (allySlot == Targeting.PlayerTarget)
-                            shieldGranted = AddPlayerShield(shield, effect.PersistOnce);
+                            shieldGranted = AddPlayerShield(shield);
                         else
-                        {
-                            // 召唤物只有一个盾桶:豁免桶是玩家侧「倾覆清盾」的对策,召唤物不吃倾覆,
-                            // 分两桶存也没有任何一处读得出区别。PersistOnce 在这一支被有意忽略。
                             shieldGranted = AddSummonShield(allySlot, shield);
-                        }
                         // 攒厚(2026-09-02):按获得量算,加给谁都一样 ——
                         // 给召唤物的盾同样是「你堆了防御」。按**请求量**不按入账量(spec v7 §5.2.2:
                         // 厚有自己的 10 层上限,被护盾上限截掉的部分照样算「堆了防御」)。
@@ -4378,7 +4363,7 @@ namespace Brushblade.Core
                         // GainWellspring 收的也是基础值)。按总量攒会让「场上召唤物越多、
                         // 同一张字攒的厚越多」,而厚记的是你堆了多少防御,不是堆给了几个人。
                         GainHeft(shieldAll);
-                        ShieldPlayerAndSummons(shieldAll, effect.PersistOnce);
+                        ShieldPlayerAndSummons(shieldAll);
                         break;
                     }
                     case EffectKind.BurnPotency:
@@ -5368,11 +5353,10 @@ namespace Brushblade.Core
         /// (与 <see cref="HealPlayerAndSummons"/> 同一条口径)。
         ///
         /// 每个受盾方各发一条 Shield 事件 —— 表现层按事件给立绘角标/飘字,合成一条会让
-        /// 除玩家之外的人身上一点反馈都没有。玩家那一份仍分两桶(豁免/普通),召唤物只有
-        /// 一个桶(见 Shield 那一支的注释:豁免桶是玩家侧「倾覆清盾」的对策,召唤物不吃倾覆)。</summary>
-        private void ShieldPlayerAndSummons(int shield, bool persistOnce)
+        /// 除玩家之外的人身上一点反馈都没有。</summary>
+        private void ShieldPlayerAndSummons(int shield)
         {
-            int playerGranted = AddPlayerShield(shield, persistOnce);
+            int playerGranted = AddPlayerShield(shield);
             _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, playerGranted));
             for (int slot = 0; slot < _summons.Length; slot++)
             {
@@ -5382,15 +5366,14 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>给玩家加盾的唯一入口(spec v7 §5.2.2):两桶之和 ≤ 最大生命 × ShieldPercentOfMaxHp%。
+        /// <summary>给玩家加盾的唯一入口(spec v7 §5.2.2):护盾 ≤ 最大生命 × ShieldPercentOfMaxHp%(单桶,2026-10-13 取消留存桶)。
         /// 返回实际入账量(可为 0)。跨场携带走构造函数直接赋值,不经这里(上一场已在上限内,
         /// 带入的只是其中一部分)。</summary>
-        private int AddPlayerShield(int amount, bool persist)
+        private int AddPlayerShield(int amount)
         {
             int cap = _config.PlayerMaxHp * CombatCaps.ShieldPercentOfMaxHp / 100;
-            int granted = Math.Max(0, Math.Min(amount, cap - (_shieldNormal + _shieldPersist)));
-            if (persist) _shieldPersist += granted;
-            else _shieldNormal += granted;
+            int granted = Math.Max(0, Math.Min(amount, cap - _shieldNormal));
+            _shieldNormal += granted;
             if (_inApplyEffects) _cast.ShieldGranted += granted;   // 反震的挂载条件(D1 Task 9)
             return granted;
         }
@@ -5991,7 +5974,7 @@ namespace Brushblade.Core
             return _random.Next(100) < hitRate;
         }
 
-        /// <summary>对玩家造成伤害:护盾先吸收(普通桶先扣,豁免桶垫后)。
+        /// <summary>对玩家造成伤害:护盾先吸收。
         /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。
         ///
         /// 返回值(2026-08-08):这次攻击有没有「落到身上」——只有 AttackHits 判定打空才是
@@ -6070,11 +6053,8 @@ namespace Brushblade.Core
             int guardSlot = allowReflect ? GuardSlot() : -1;
             int landed = guardSlot >= 0 ? damage - TransferToGuard(enemyIndex, guardSlot, damage) : damage;
 
-            int fromNormal = Math.Min(_shieldNormal, landed);
-            _shieldNormal -= fromNormal;
-            int fromPersist = Math.Min(_shieldPersist, landed - fromNormal);
-            _shieldPersist -= fromPersist;
-            int absorbed = fromNormal + fromPersist;
+            int absorbed = Math.Min(_shieldNormal, landed);
+            _shieldNormal -= absorbed;
             PlayerHp = Math.Max(0, PlayerHp - (landed - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, landed, -1, absorbed));
 
@@ -6129,8 +6109,8 @@ namespace Brushblade.Core
                 // 碎玉(D2-土 G4,Q6):同一份 60% 预算,排在镜 → 格挡 → 反震之后;没挂时一次判断即返回
                 ShatterShieldBack(enemyIndex, absorbed, allowReflect,
                     damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt - recoilDealt);
-                EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空两桶 → 冻结攻击者(反应)
-                DropShieldRecoilIfEmpty();   // 这一下把两桶盾打空:反震 / 冰晶随之移除
+                EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空护盾 → 冻结攻击者(反应)
+                DropShieldRecoilIfEmpty();   // 这一下把护盾打空:反震 / 冰晶随之移除
             }
             TriggerHurtHeal(landed, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回(守护:按玩家实际承受)
             TriggerHurtShield(landed, allowReflect);   // 堡垒(D2-土 G3):同上
@@ -6404,11 +6384,10 @@ namespace Brushblade.Core
                 case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉
                 {
                     DamagePlayerDirect(index, Cut(enemy.Attack * 2));
-                    int broken = _shieldNormal + _shieldPersist;
+                    int broken = _shieldNormal;
                     if (broken > 0)
                     {
                         _shieldNormal = 0;
-                        _shieldPersist = 0;
                         DropShieldRecoilIfEmpty();   // 倾覆清盾:反震失去载体(D1 Task 9)
                         _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
                     }

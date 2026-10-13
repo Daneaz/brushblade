@@ -71,13 +71,13 @@ namespace Brushblade.Core.Tests
             for (int t = 0; t < turns && b.Phase == BattlePhase.PlayerTurn; t++)
             {
                 eachTurn(b, t, sb);
-                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+{b.ShieldPersist}");
+                sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
                 foreach (var e in b.LastEvents)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
-                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+{b.ShieldPersist}[");
+                sb.Append($"|P{b.PlayerHp}/S{b.ShieldNormal}+0[");
                 foreach (var s in b.PlayerStatuses.All) sb.Append($"{s.Kind}:{s.Magnitude}:{s.TurnsLeft} ");
                 sb.Append(']');
                 AppendSummons(sb, b.Summons);

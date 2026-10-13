@@ -120,7 +120,7 @@ namespace Brushblade.Presentation
             StatusKind.DamageCut or StatusKind.Endure
                 or StatusKind.HitCap   // 铜墙铁壁(D2-土 G2):与减伤同组(Q20)
                 or StatusKind.HurtShield or StatusKind.HurtHeal   // 堡垒 / 栉风沐雨(StatusChipsWaterEarth 稿 k-heal 翠玉)
-                or StatusKind.DebuffWard or StatusKind.TurnPulse or StatusKind.ShieldCarry   // 免疫减益 / 每回合效果 / 护盾回流(同稿 k-heal)
+                or StatusKind.DebuffWard or StatusKind.TurnPulse   // 免疫减益 / 每回合效果(同稿 k-heal)
                 or StatusKind.SummonThorns   // 荆棘光环(StatusChipsWood 稿 k-heal 翠玉:临时的荆棘)
                 or StatusKind.Retaliate => Guard,   // 回敬(StatusChipsFire 稿 k-heal 翠玉)
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff

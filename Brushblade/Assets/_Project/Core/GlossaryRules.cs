@@ -17,7 +17,6 @@ namespace Brushblade.Core
         Wellspring,    // 泉
         Heft,          // 厚
         Shield,        // 护盾
-        KeptShield,    // 留存护盾
         Armor,         // 护甲
         ArmorBreak,    // 破甲
         Hot,           // 润泽

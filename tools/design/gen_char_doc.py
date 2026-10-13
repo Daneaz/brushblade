@@ -363,7 +363,6 @@ def desc(e):
     cond = {'Burning': "对灼烧目标双倍", 'Bleeding': "对流血目标双倍",
             'Controlled': "对冻结/减速目标双倍", 'ArmorBroken': "对破甲目标双倍"}.get(e.get('doubleVs'))
     if cond: mods.append(cond)
-    if e.get('persistOnce'): mods.append("免一次清盾")
     # mods 会被外层括号整体包住,这里不能再带括号,否则嵌套成「(穿透 10(…))」
     if e.get('pierce'): mods.append(f"穿透 {e['pierce']}")
     if e.get('hitCount', 1) > 1: mods.append(f"{e['hitCount']} 段独立结算")
@@ -506,7 +505,6 @@ def traits(c):
         # 免一次清盾(㙓):挂在护盾上的修饰字段,不是独立 kind,所以 TRAITS 那张
         # 按 kind 索引的表接不到它 —— 此前只在「功能」列露过面,特性技能列一直漏
         # (2026-09-07 P2 Task 4c 全表逐行核对时查出)。
-        if e.get('persistOnce'): add("免一次清盾")
         if e.get('summonShield'): add(f"全场加盾 {e['summonShield']}")
     return out
 

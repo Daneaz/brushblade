@@ -77,7 +77,7 @@ namespace Brushblade.CoreTests
         private static BattleEngine Battle(BattleConfig config, EnemyDef[] enemies,
             IReadOnlyList<StatusEffect> startingStatuses, params string[] library) =>
             new(Graph(), config, library, Array.Empty<string>(), enemies, seed: 1,
-                startingHp: null, cardLevels: null, startingNormalShield: 0, startingPersistShield: 0,
+                startingHp: null, cardLevels: null, startingNormalShield: 0,
                 startingSummons: null, startingStatuses: startingStatuses);
 
         // ---- 恒等性硬线:T2 的验收判据 ----
