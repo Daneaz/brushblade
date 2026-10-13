@@ -178,7 +178,10 @@ namespace Brushblade.Presentation
 
         // 出手前血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血,2026-07-25)。
         private int _animPlayerHp;
-        private int _animShield;    // 出手前护盾:与血条同理,敌方一记打来时按吸收量逐记降(2026-07-25)
+        // 出手前护盾:动画期间按事件**逐笔记账**(EnemyAttack.Absorbed / Shield / ShieldBroken),不钳终值。
+        // 2026-10-13 护盾跨回合保留后,同一批里「先吸后补」(堡垒受击补盾等)钳终值会让中途读数偏高;
+        // Core 每笔护盾增减都发事件且 Amount 即实际入账 / 扣除量,逐笔记账落幕时恰好等于终值,落幕重绘再兜底。
+        private int _animShield;
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
 
         /// <summary>开场回放期间**允许画出来**的敌人数;−1 = 不设限(回放之外恒为 −1)。
@@ -451,7 +454,7 @@ namespace Brushblade.Presentation
             _juice.SummonCellAt = slot => _summonCellByCore.TryGetValue(slot, out var cell) ? cell : null;
             _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
             _juice.ChipCue = (on, index, icon) => _chipCues.Add(new ChipCueEntry(on, index, icon));
-            _juice.PlayerCell = _bottomRow;   // 水土提示(E3 Task 5):玩家的免疫 / 护盾回流 chip 与护盾角标都在底栏里
+            _juice.PlayerCell = _bottomRow;   // 水土提示(E3 Task 5):玩家的免疫 chip 与护盾角标都在底栏里
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
@@ -584,6 +587,21 @@ namespace Brushblade.Presentation
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
         }
 
+        /// <summary>开场前的玩家护盾:终值倒推开场各拍里的玩家护盾事件(与 OnImpact 的逐笔记账互逆)。</summary>
+        private static int OpeningPreShield(System.Collections.Generic.IEnumerable<OpeningStep> steps, int finalShield)
+        {
+            int shield = finalShield;
+            foreach (var step in steps)
+                foreach (var e in step.Events)
+                    switch (e.Kind)
+                    {
+                        case BattleEventKind.EnemyAttack: shield += e.Absorbed; break;
+                        case BattleEventKind.ShieldBroken: shield += e.Amount; break;
+                        case BattleEventKind.Shield when e.TargetIndex < 0: shield -= e.Amount; break;
+                    }
+            return System.Math.Max(0, shield);
+        }
+
         /// <summary>一记命中触达:把对应血条从出手前值推向终值,钳到终值(治护盾双扣/回弹)。</summary>
         private void OnImpact(BattleEvent e)
         {
@@ -623,11 +641,11 @@ namespace Brushblade.Presentation
                 // Missed 分支没调 onImpact,这条走不到,但显式空 case 比漏判更稳(与 ImmunityBlocked 同构)
                 case BattleEventKind.Missed:
                     break;
-                // Amount 分账:Absorbed 记到盾上、余量才掉血,各自钳到终值。
+                // Amount 分账:Absorbed 记到盾上(逐笔扣,见 _animShield 注释)、余量才掉血(钳终值)。
                 // 盾条 2026-09-05 移除后这一步只是**记账** —— _animShield 仍被下一次重绘的
                 // 头行读到(shownShield),所以不能因为「没有条要推」就省掉。
                 case BattleEventKind.EnemyAttack:
-                    _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
+                    _animShield = System.Math.Max(0, _animShield - e.Absorbed);
                     if (_playerHpBar.fill == null) break;
                     int hitBefore = _animPlayerHp;
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - (e.Amount - e.Absorbed));
@@ -641,7 +659,7 @@ namespace Brushblade.Presentation
                     // 召唤格的盾只有立绘角标一个落点,而角标画的是终值(summon.Shield),
                     // 重绘时自然读到。玩家侧要记:头行的「盾 N」在动画期间读 _animShield。
                     if (e.TargetIndex >= 0) break;
-                    _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
+                    _animShield += e.Amount;   // Amount = 实际入账量(上限已在 Core 钳过)
                     break;
                 case BattleEventKind.Heal: // 水系治疗:与群攻同一记里触达,血条即时上推(此前只在末次重绘才涨)
                     // SecondIndex ≥0 = 治疗落在召唤物身上,推那只召唤物的血条(镜像 SummonHit,只是方向向上)
@@ -671,10 +689,8 @@ namespace Brushblade.Presentation
                         _enemyMobs[e.TargetIndex].SetStateAmount(Mathf.Clamp01(e.SecondIndex / 3f)); // 状态层跟着补全长
                     break;
                 case BattleEventKind.ShieldBroken:
-                    // 倾覆清空 / 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 Task 5)都按 Amount 扣,钳到终值 —— 与 EnemyAttack 同写法。
-                    // 不能钳到 0:同一批里先到的 Shield 已经把记账钳到终值(土生金先加盾后扣),再减 Amount 会重复扣;
-                    // 倾覆的终值就是 0,行为与原「归零」等价
-                    _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Amount);
+                    // 倾覆清空 / 特性扣盾(塔倾 / 地裂 / 土生金,D2-土 Task 5)都按 Amount(实际扣除量)逐笔扣 —— 与 EnemyAttack 同写法
+                    _animShield = System.Math.Max(0, _animShield - e.Amount);
                     break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;
@@ -3028,20 +3044,23 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>每回合效果 / 护盾回流(StatusChipsWaterEarth):翠玉,数字 = 还会再发生几次 = TurnsLeft(E3 附录 §1.3);
-        /// 多条(大雨滂沱 + 重土 + 一叶知秋)取 max(E3 Q4:取和会把同一回合的两次算成两回合)。没有这条状态返回 null。</summary>
+        /// <summary>每回合效果(StatusChipsWaterEarth):翠玉,数字 = 还会再发生几次 = TurnsLeft(E3 附录 §1.3);
+        /// 多条(大雨滂沱 + 重土 + 一叶知秋)取 max(E3 Q4:取和会把同一回合的两次算成两回合)。
+        /// 任一条本场持续(TurnsLeft &lt; 0,厚德载物)就不印数字 —— 取 max 会让它被别的限次脉冲盖成一个会归零的倒数。没有这条状态返回 null。</summary>
         private static Ui.ChipSpec? CountdownChip(StatusBag bag, StatusKind kind, string icon)
         {
             bool any = false;
             int left = 0;
+            bool endless = false;
             foreach (var s in bag.All)
                 if (s.Kind == kind)
                 {
                     any = true;
+                    if (s.TurnsLeft < 0) endless = true;
                     if (s.TurnsLeft > left) left = s.TurnsLeft;
                 }
             if (!any) return null;
-            return new Ui.ChipSpec(left > 0 ? $"{left}" : "", BattleChipColor(kind), Color.white, icon);
+            return new Ui.ChipSpec(left > 0 && !endless ? $"{left}" : "", BattleChipColor(kind), Color.white, icon);
         }
 
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
@@ -3144,7 +3163,7 @@ namespace Brushblade.Presentation
             Flag(StatusKind.PierceBuff, "pierce"); // 锐:用户点名要看见的那一条
             if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
                 chips.Add(new("", BattleChipColor(StatusKind.SpeedModifier, 1), Color.white, "speed"));
-            // 润泽(HOT)垫底:StatusChips 稿「嘲讽·留存护盾·格挡·战意·厚·泉·润泽」,溢出从尾部丢
+            // 润泽(HOT)垫底:StatusChips 稿的顺序「嘲讽·格挡·战意·厚·泉·润泽」,溢出从尾部丢
             Decaying(StatusKind.HealOverTime, "heal"); // HOT:每回合回多少
         }
 
@@ -7692,8 +7711,8 @@ namespace Brushblade.Presentation
         /// 取到的终值(2026-09-15 修):构造函数已经把开场跑完,Enemies[i].Hp 是开场**后**的值,
         /// 拿它当起点会被 OnImpact 从终值再往下推一段(PushEnemyHp 刻意不钳终值)——
         /// 携带满格召唤物开局就演成「怪还活着、血条已空」,直到收尾的 Refresh 才兜回去。
-        /// 玩家/召唤物侧的 OnImpact 钳的是终值下限、不会画错,仍画在终值上(开场里挨的那记
-        /// 不重演),故不跟着改。
+        /// 玩家/召唤物的血条 OnImpact 钳的是终值下限、不会画错,仍画在终值上(开场里挨的那记
+        /// 不重演),故不跟着改。玩家护盾是逐笔记账、不钳终值,起点同样倒推回开场前(OpeningPreShield)。
         ///
         /// ⚠ 当前配速下(全部字怪 Speed = 100)本方法还有两条限制没处理,一旦给敌人配速就要
         /// 一起补(详见 Core.EnemyDef.Speed 的文档):没接 AppendBossSkillMessage(Boss 蓄力
@@ -7734,6 +7753,8 @@ namespace Brushblade.Presentation
             var openingPreHp = Battle.OpeningPreEnemyHp;
             for (int i = 0; i < _animEnemyHp.Count && i < openingPreHp.Count; i++)
                 _animEnemyHp[i] = openingPreHp[i];
+            // 护盾同理:逐笔记账要从开场**前**的值起演,由开场各拍的护盾事件倒推回去
+            _animShield = OpeningPreShield(steps, Battle.PlayerShield);
             Refresh();
             // Draw* 建条时读的是开场**结束后**的计量器,按回全 0 只是近似起点——携带满格
             // 召唤物时不准(它当前值就是 Threshold),但该拍会在下面播放前单独按满,见下。
