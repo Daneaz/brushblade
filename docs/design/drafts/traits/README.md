@@ -1,4 +1,4 @@
-# 字卡五特性 · 两面制(2026-10-03 出稿;10-04 按 v6.1、v6.2、v7 修订;CardSheet / CardSheetBattle / UpgradePreview / StatusChips / StatusChipsWood / StatusChipsWaterEarth / WaterEarthCues / PartsAndGraft / WoodCues / SummonInfoNature `已实现 · 验收跳过`(E2、D2、E3);**HandFlip 预估签、WaterEarthCues 本场已用、PartsAndGraft 山描环 / 印记签、TriggerFx、StatusChips 保命、Glossary、CarryOver 10-13 Plan E4 `已实现 · 验收跳过`**;StatusChipsFire 火系三枚 `已拍板 · 待实现`)
+# 字卡五特性 · 两面制(2026-10-03 出稿;10-04 按 v6.1、v6.2、v7 修订;CardSheet / CardSheetBattle / UpgradePreview / StatusChips / StatusChipsWood / StatusChipsWaterEarth / WaterEarthCues / PartsAndGraft / WoodCues / SummonInfoNature `已实现 · 验收跳过`(E2、D2、E3);**HandFlip 预估签、WaterEarthCues 本场已用、PartsAndGraft 山描环 / 印记签、TriggerFx、StatusChips 保命、Glossary、CarryOver 10-13 Plan E4 `已实现 · 验收跳过`**;StatusChipsFire 火系三枚 10-09 `已实现 · 验收跳过`)
 
 依据 `docs/superpowers/specs/2026-10-03-字卡五特性体系-design.md`(v7,main `4960e26b`)§1 等级阶梯、§2 两面、§3 词条表、§7 稀有度、§8 词条池、§9 全卡表、§12 UI 清单。
 九块画板覆盖 §12 的七项(10-08 起另有第十块 `StatusChipsFire`,火系专属的三枚状态,10-09 已拍板;10-11 再加六块,D2-水 / 土 / 木与 D2-0 遗留,同日拍板)。本地直接打开 `*.dc.html` 即可交互(`support.js` 软链到 `../dc-runtime.js`),
@@ -36,7 +36,7 @@ Lv1 / Lv3 / Lv4 两面通用,Lv6 写明作用面。一张字共 6 个特性槽,�
 | `UpgradePreview` | 升级预览 | 现行 `UpgradeDialog` 骨架不动,右栏有新特性时换成「新解锁」:**Lv5 / Lv8 一次两张小卡**(攻击一张、五行面一张,各带面印与「攻击 / 五行面」),同在一圈墨晕里;Lv3 / Lv4 / Lv6 只一张。没有时预告下一级解锁的全部条目。左栏数值差逐面列,前缀面印。 |
 | `StatusChips` | 新状态 chip | 十四枚全落在现有单位格档与四类底色里(10-04 补到十七枚,后三枚 10-11 拍板,见文末回填记录)。数字只给攒得起来的量(层数 / 次数 / 留存量),战意写「3/5」。冰滞用水字形色实底 + 行动条结霜;致命在血条 30% 处刻墨线。 |
 | `CarryOver` | 跨场效果(E4 已实现) | 开局三拍:卷轴(压在手牌区,敌我都露着)列出效果与剩余场数 → 逐条落印、场数减一 → 收进顶栏「跨场 N」,点开可查。同类只算一份,被盖住的那条灰显、照样计场数。 |
-| `StatusChipsFire` | 新状态 chip(D2-火) | 10-08 补,10-09 已拍板:埋雷、干涸、回敬三枚 + 炽焰门槛未到时减攻不出 chip;附 `Ui.ChipFlow` 逐行移植的两档宽验算。见文末回填记录。 |
+| `StatusChipsFire` | 新状态 chip(D2-火) | 10-08 补,10-09 已拍板并实现(`95b3c75b`):埋雷、干涸、回敬三枚 + 炽焰门槛未到时减攻不出 chip;附 `Ui.ChipFlow` 逐行移植的两档宽验算。见文末回填记录。 |
 | `StatusChipsWaterEarth` | 新状态 chip(D2-水 / 土) | 10-11 补并拍板:禁增益、免疫减益 / 免疫灼烧、受击回复 / 受击得盾、每回合效果、护盾回流、大招削弱八枚 + 封字代价态(描边);顺序与两档宽验算,Boss 格放到 3 行。 |
 | `WaterEarthCues` | 触发反馈(D2-水 / 土) | 10-11:杜塞、拦截反馈(删除线飘字)、本场已用、封字两态、浮屠、碎玉。 |
 | `StatusChipsWood` | 新状态 chip(D2-木) | 10-11:攻击 / 荆棘光环、暴击、减伤、受伤上限、荆刺、被缠、守护;本命 chip 优先级。 |
@@ -150,7 +150,7 @@ Lv1 / Lv3 / Lv4 两面通用,Lv6 写明作用面。一张字共 6 个特性槽,�
 ### 2026-10-09 · StatusChipsFire 已实现,待设计验收
 
 合并于 main(feat/fire-status-chips)。与稿的偏差:埋雷排在「灼 · 不灭」之后(稿未列不灭);回敬剩余次数在玩家回合读到恒为上限(烈焰护身不限次,当前无影响);触发反馈(chip 闪 + 名字飘出)归 TriggerFx 稿 / Plan E;字卡详情里的特性 chip 归 CardSheet 稿。
-收藏页 `collection.trait.heal_block.name` 仍叫「禁疗」,与状态名「干涸」不一,待用户定。
+收藏页 `collection.trait.heal_block.name` 仍叫「禁疗」,与状态名「干涸」不一,待用户定。(10-13 核:该 key 已随 E2 删除 CollectionStats 一并移除,此条关闭。)
 
 **Unity 验收清单**(每项两档:基准机 19.5:9 与 Game 视图 1600×900):
 
