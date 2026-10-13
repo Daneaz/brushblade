@@ -4140,8 +4140,9 @@ namespace Brushblade.Presentation
                         summonSlots: Battle.PlanSummonSlots(hit.Index, Battle.SummonCountOf(def, attackMode)));
                     return;
                 case FaceMarkKind.Graft:
-                    // F6:生面落活木灵 = 嫁接,不进选位、不弹顶替(Core 保证召唤位满也能嫁接)
-                    ExecuteCast(def.Id, -1, attackMode: false, libraryIndex: libraryIndex, allySlot: hit.Index);
+                    // F6:生面落活木灵 = 嫁接或替换该格(2026-10-13 spec §3):两者都行弹二选一,只一个就直接出;
+                    // 不进选位、不弹召唤位满的顶替确认(Core 保证召唤位满也能嫁接 / 替换)
+                    DropOntoLiveSummon(def.Id, -1, libraryIndex, hit.Index);
                     return;
             }
             CancelSelection();
@@ -4274,9 +4275,9 @@ namespace Brushblade.Presentation
 
         /// <summary>预估签的试算(Core 影子出字)。起拖回调里抛异常会让这一拖只建了一半标记,所以兜住:记日志、不出签。</summary>
         private CastEstimate EstimateSafe(string charId, int targetIndex, bool attackMode, int libraryIndex,
-            int allySlot = Targeting.PlayerTarget)
+            int allySlot = Targeting.PlayerTarget, SummonDropMode dropMode = SummonDropMode.Auto)
         {
-            try { return Battle.EstimateCast(charId, targetIndex, attackMode, libraryIndex, allySlot); }
+            try { return Battle.EstimateCast(charId, targetIndex, attackMode, libraryIndex, allySlot, dropMode); }
             catch (System.Exception ex)
             {
                 Debug.LogException(ex);
@@ -4326,8 +4327,13 @@ namespace Brushblade.Presentation
         private void MarkSummonForFaceDrag(GameObject cell, int slot)
         {
             var rect = (RectTransform)cell.transform;
-            if ((_faceDragLanding & FaceLanding.Graft) != 0)
-                AddFaceMark(cell.transform, rect, FaceMarkKind.Graft, slot, Strings.T("battle.landing.graft"));
+            // 生面落活木灵:可嫁接或可替换都点亮(2026-10-13),签按可选项写;判据与松手 DropOntoLiveSummon 同源
+            bool graft = _faceDragFace == CardFace.Feature && Battle.CanGraftAt(_faceDragDef.Id, false, slot);
+            bool replace = _faceDragFace == CardFace.Feature && Battle.CanReplaceAt(_faceDragDef.Id, false, slot);
+            if (graft || replace)
+                AddFaceMark(cell.transform, rect, FaceMarkKind.Graft, slot,
+                    graft && replace ? Strings.T("battle.landing.graft_or_replace")
+                    : graft ? Strings.T("battle.landing.graft") : Strings.T("battle.landing.replace"));
             else if ((_faceDragLanding & FaceLanding.Summons) != 0 && Battle.CanHealSlot(slot))
             {
                 // 结果签不改(A-Q11),本面有本场用尽的限次特性时追加压浅的「X已用」段;与松手 Summon 分支同参试算
@@ -6869,15 +6875,15 @@ namespace Brushblade.Presentation
         private void OnSlotPicked(int slot)
         {
             if (!_slotPicking || !Battle.IsSlotOpen(slot)) return;
-            // 生面点「出」进的落位态(Plan E1 F4/F6):点活着的木灵 = 嫁接(allySlot = 这一格),
-            // 不顶替、不弹顶替确认;点空位照旧召唤。
+            // 生面点「出」进的落位态(Plan E1 F4/F6):点活着的木灵 = 嫁接或替换该格(2026-10-13,与拖拽松手同一入口),
+            // 不弹召唤位满的顶替确认;点空位照旧召唤。
             if (PendingSlotPickGrafts && Battle.Summons[slot] is { Alive: true })
             {
                 string graftChar = _pendingSummonChar;
                 int graftTarget = _pendingSummonTarget;
                 int graftLibraryIndex = _pendingSummonLibraryIndex;
                 ResetSlotPicking();
-                ExecuteCast(graftChar, graftTarget, attackMode: false, libraryIndex: graftLibraryIndex, allySlot: slot);
+                DropOntoLiveSummon(graftChar, graftTarget, graftLibraryIndex, slot);
                 return;
             }
             var slots = Battle.PlanSummonSlots(slot, _pendingSummonCount);
@@ -6948,15 +6954,84 @@ namespace Brushblade.Presentation
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
+        // ---- 木灵:嫁接或替换二选一(2026-10-13 spec §3.1)----
+        private const float SummonChoiceHalfWidth = 380f;   // 卡宽 760:1951 / 1600(无刘海机净 1354)两档都放得下
+        private const float SummonChoiceHalfHeight = 150f;  // 同 Ui.Modal 缺省
+        private const float SummonChoiceGap = 14f;          // 同 Ui.Modal 按钮行距
+        private const int SummonChoiceNoteFontSize = 16;
+
+        /// <summary>生面落到活木灵 <paramref name="slot"/>(拖拽松手 / 点击落位共用)。
+        /// 嫁接、替换都可用 → 弹二选一;只一个可用 → 直接按它出(spec:不弹窗);AP 不够 → 交引擎当场报错,不弹选择。
+        /// 判据走 Core 的 CanGraftAt / CanReplaceAt,与落点标记同源。</summary>
+        private void DropOntoLiveSummon(string charId, int target, int libraryIndex, int slot)
+        {
+            bool graft = Battle.CanGraftAt(charId, false, slot);
+            bool replace = Battle.CanReplaceAt(charId, false, slot);
+            if (graft && replace && Battle.Ap >= _graph.Get(charId).ApCost)
+            {
+                ShowSummonChoice(charId, target, libraryIndex, slot);
+                return;
+            }
+            var mode = graft ? SummonDropMode.Graft : replace ? SummonDropMode.Replace : SummonDropMode.Auto;
+            ExecuteCast(charId, target, attackMode: false, libraryIndex: libraryIndex, allySlot: slot, dropMode: mode);
+        }
+
+        /// <summary>二选一弹窗:复用 Ui.ModalShell + PillButton(召唤位满顶替确认的同一套外壳与钮),两钮各附一行说明。
+        /// 弹出前就把选中态整个撤掉(同顶替确认):点弹窗外 = 只关弹窗,没调 Cast,AP 与字库一滴未动。</summary>
+        private void ShowSummonChoice(string charId, int target, int libraryIndex, int slot)
+        {
+            var summon = Battle.Summons[slot];
+            string oldName = IsSproutling(summon)
+                ? Strings.T("battle.summon.sprout_name", ("char", summon.SourceChar))
+                : summon.SourceChar;   // 与召唤格头行同名
+
+            // 嫁接说明 = 预估签对木灵的结果文案(EstimateCast 显式 Graft,与出字同源)
+            string sep = Strings.T("battle.estimate.sep");
+            string graftNote = Strings.T("battle.landing.graft");
+            if (EstimateText.ForAlly(EstimateSafe(charId, target, false, libraryIndex, slot, SummonDropMode.Graft)) is { } est)
+            {
+                if (est.Main != null) graftNote += sep + est.Main;
+                if (est.Dim != null) graftNote += (est.Main == null ? sep : "") + est.Dim;
+            }
+            string replaceNote = Strings.T("battle.summon.choice.replace_note", ("name", charId));
+
+            _message = Strings.T("battle.hint.initial");
+            CancelSelection();   // 字回手上、选中态与落位态复位(重画带走拖拽标记)
+
+            if (_modal != null) Object.Destroy(_modal);
+            var overlay = Ui.ModalShell(transform, Strings.T("battle.summon.choice.title", ("name", oldName)),
+                new Vector2(SummonChoiceHalfWidth, SummonChoiceHalfHeight), dismissable: true, out var stack);
+            float column = (SummonChoiceHalfWidth * 2f - Ui.SheetBorder * 2f - Ui.SheetPad * 2f - SummonChoiceGap) / 2f;
+            var row = Ui.Row(stack, "Buttons", SummonChoiceGap);
+            AddChoice(Strings.T("battle.landing.graft"), graftNote, SummonDropMode.Graft, Theme.Cta, Color.white);
+            AddChoice(Strings.T("battle.summon.choice.replace", ("name", charId)), replaceNote,
+                SummonDropMode.Replace, Theme.LockedBg, Theme.TextMain);
+            _modal = overlay;
+
+            void AddChoice(string label, string note, SummonDropMode mode, Color bg, Color fg)
+            {
+                var col = Ui.VStack(row.transform, "Choice", 8f);
+                Ui.Sized(col, width: column);
+                Ui.PillButton(col.transform, label, () =>
+                {
+                    Object.Destroy(overlay);
+                    ExecuteCast(charId, target, attackMode: false, libraryIndex: libraryIndex, allySlot: slot, dropMode: mode);
+                }, bg, fg, 18, new Vector2(150, 52));
+                Ui.ThemedLabel(col.transform, Ui.Truncate(note, SummonChoiceNoteFontSize, column),
+                    SummonChoiceNoteFontSize, Theme.TextDim);
+            }
+        }
+
         private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
-            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
+            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget,
+            SummonDropMode dropMode = SummonDropMode.Auto)
         {
             bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
             var aurasBefore = AuraKeys();   // 光环挂上(W1):出字前后比对,新挂上的那几条重绘后闪
             var statusesBefore = AnnounceSnapshot();   // 状态挂上飘名(B-Qa2):同一套前后比对
             var castTraits = CastTraitCues(charId, attackMode);   // 主动特性出字飘名(B-Qa1):「本场未用尽」须在出字前判
-            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot);
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot, dropMode);
             if (error == BattleError.SummonCapFull) // 顶替强阻断:AP/字都没动,确认了才重出
             {
                 var def = _graph.Get(charId);
@@ -6964,7 +7039,7 @@ namespace Brushblade.Presentation
                 ShowModal(Strings.T("battle.dialog.slot_occupied.title"),
                     ReplaceSummonBody(def, attackMode, summonSlots),
                     (Strings.T("battle.btn.confirm_replace_summon", ("count", replaceCount)),
-                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot, dropMode),
                         Theme.Cta, Color.white),
                     (Strings.T("battle.btn.cancel"), null, Theme.LockedBg, Theme.TextMain));
                 _message = Strings.T("battle.msg.slot_occupied_pending");
