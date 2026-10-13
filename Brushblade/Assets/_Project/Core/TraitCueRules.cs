@@ -30,7 +30,7 @@ namespace Brushblade.Core
                 _ => TraitSealKind.Both,
             };
         }
-            /// <summary>出字时飘名的主动特性(Plan E4 B-Qa1,TriggerFx A):本面已解锁的主动特性里,只取 Lv5 / Lv6 / Lv8、
+        /// <summary>出字时飘名的主动特性(Plan E4 B-Qa1,TriggerFx A):本面已解锁的主动特性里,只取 Lv5 / Lv6 / Lv8、
         /// 出字时触发(OnKill / OnCrit 这类要等条件成立,不在出字那一刻飘)、本场未用尽(<paramref name="spent"/>,
         /// 通常接 <c>BattleEngine.TraitSpentThisBattle</c>,null = 都没用)、且不是「只登记开局效果」的那几条(跨场效果本场不落地)。
         /// Lv1 / Lv3 / Lv4 每张字每次出字都有,飘出来是噪音。按槽位升序。</summary>

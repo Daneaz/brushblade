@@ -151,6 +151,7 @@ Lv1 / Lv3 / Lv4 两面通用,Lv6 写明作用面。一张字共 6 个特性槽,�
 
 合并于 main(feat/fire-status-chips)。与稿的偏差:埋雷排在「灼 · 不灭」之后(稿未列不灭);回敬剩余次数在玩家回合读到恒为上限(烈焰护身不限次,当前无影响);触发反馈(chip 闪 + 名字飘出)归 TriggerFx 稿 / Plan E;字卡详情里的特性 chip 归 CardSheet 稿。
 收藏页 `collection.trait.heal_block.name` 仍叫「禁疗」,与状态名「干涸」不一,待用户定。(10-13 核:该 key 已随 E2 删除 CollectionStats 一并移除,此条关闭。)
+(10-11 起设计验收改为体验时反馈,状态记为 `已实现 · 验收跳过`。)
 
 **Unity 验收清单**(每项两档:基准机 19.5:9 与 Game 视图 1600×900):
 

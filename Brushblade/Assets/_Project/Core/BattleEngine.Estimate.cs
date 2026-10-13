@@ -43,12 +43,10 @@ namespace Brushblade.Core
         /// <summary>吃到相克 ×1.5 / 被克 ×0.5(按 ApparentElement 判)。</summary>
         public bool Ke { get; }
         public bool Countered { get; }
-        /// <summary>被斩杀(直杀 / 致命)。</summary>
-        public bool Executed { get; }
         /// <summary>这一下打死。</summary>
         public bool Killed { get; }
 
-        public TargetHit(int index, int damage, int hits, int burn, bool ke, bool countered, bool executed, bool killed)
+        public TargetHit(int index, int damage, int hits, int burn, bool ke, bool countered, bool killed)
         {
             Index = index;
             Damage = damage;
@@ -56,7 +54,6 @@ namespace Brushblade.Core
             Burn = burn;
             Ke = ke;
             Countered = countered;
-            Executed = executed;
             Killed = killed;
         }
     }
@@ -128,8 +125,6 @@ namespace Brushblade.Core
             shadow._estimateApparent = new Dictionary<EnemyState, Element?>();
             foreach (var e in shadow._enemies) shadow._estimateApparent[e] = e.ApparentElement;
             shadow.Ap = Math.Max(shadow.Ap, def.ApCost);
-            var executions = new ExecutionLog();
-            shadow.AddHookListener(executions);
             int moraleBefore = shadow._playerStatuses.TotalMagnitude(StatusKind.Morale);
 
             var error = shadow.CastCore(charId, targetIndex, replaceSummon: true, attackMode, libraryIndex, null, allySlot);
@@ -173,7 +168,7 @@ namespace Brushblade.Core
                     }
                 }
                 if (touched)
-                    hits.Add(new TargetHit(i, damage, count, burn, ke, countered, executions.Executed.Contains(i), killed));
+                    hits.Add(new TargetHit(i, damage, count, burn, ke, countered, killed));
             }
             result.Enemies = hits;
             foreach (var e in events)
@@ -184,18 +179,6 @@ namespace Brushblade.Core
             }
             result.MoraleGain = Math.Max(0, shadow._playerStatuses.TotalMagnitude(StatusKind.Morale) - moraleBefore);
             return result;
-        }
-
-        /// <summary>影子上记斩杀(EnemyKilled 钩子 Source = Execute):直杀与致命都走 ResolveDefeat(Execute)。</summary>
-        private sealed class ExecutionLog : IBattleHookListener
-        {
-            public readonly HashSet<int> Executed = new HashSet<int>();
-
-            public void OnHook(BattleEngine battle, in HookArgs args)
-            {
-                if (args.Kind == HookKind.EnemyKilled && args.Source == EffectSource.Execute && args.Subject.Index >= 0)
-                    Executed.Add(args.Subject.Index);
-            }
         }
     }
 }

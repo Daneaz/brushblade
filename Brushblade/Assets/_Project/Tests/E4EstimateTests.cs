@@ -149,8 +149,8 @@ namespace Brushblade.Core.Tests
             Assert.That(est.AllEnemies, Is.False);
             Assert.That(est.Enemies.Count, Is.EqualTo(1));
             var h = est.Enemies[0];
-            Assert.That((h.Index, h.Damage, h.Hits, h.Ke, h.Countered, h.Burn, h.Executed, h.Killed),
-                Is.EqualTo((1, 75, 1, true, false, 0, false, false)), "50 × 1.5,相克破甲");
+            Assert.That((h.Index, h.Damage, h.Hits, h.Ke, h.Countered, h.Burn, h.Killed),
+                Is.EqualTo((1, 75, 1, true, false, 0, false)), "50 × 1.5,相克破甲");
             var est2 = b.EstimateCast("劈", 4, attackMode: false);   // 金打火 Boss:被克 0.5,护甲 30
             Assert.That((est2.Enemies[0].Ke, est2.Enemies[0].Countered), Is.EqualTo((false, true)));
             Assert.That(est2.Enemies[0].Damage, Is.EqualTo(25 * 100 / 130));
@@ -361,18 +361,6 @@ namespace Brushblade.Core.Tests
                 "只算这一下;击杀时的溅射不进签");
             b.Cast("刃", 0);
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Damage && e.TargetIndex == 1), Is.True, "夹具前提:实际有溅射");
-        }
-
-        [Test]
-        public void Estimate_Execute_Flagged()
-        {
-            var reaper = new CharDef("镰", Element.Heart, effects: new[]
-                { new EffectDef(EffectKind.DamageSingle, 10, executeBelowPercent: 50, executeKills: true) });
-            var b = new BattleEngine(RebalanceFixture.Graph(reaper), Config(), new[] { "镰", "镰" }, Array.Empty<string>(),
-                new[] { new EnemyDef("残", Element.Heart, 1000, 0) }, seed: 1, startingHp: null);
-            b.Enemies[0].Hp = 300;
-            var h = b.EstimateCast("镰", 0, false).Enemies.Single();
-            Assert.That((h.Executed, h.Killed), Is.EqualTo((true, true)));
         }
 
         // ================= fix round 1:表象属性冻结 / Countering / 引爆 =================

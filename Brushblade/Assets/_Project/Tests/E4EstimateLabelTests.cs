@@ -17,7 +17,7 @@ namespace Brushblade.Core.Tests
                 new[] { E(EffectKind.DamageCut, 60) }, maxPerBattle: 1);
 
         private static TargetHit Hit(int index, int damage, int hits = 1, int burn = 0, bool ke = false, bool countered = false) =>
-            new(index, damage, hits, burn, ke, countered, false, false);
+            new(index, damage, hits, burn, ke, countered, false);
 
         private static CastEstimate Est(IReadOnlyList<EffectDef> effects, params TargetHit[] hits) =>
             new() { Effects = effects, Enemies = hits };
@@ -144,7 +144,7 @@ namespace Brushblade.Core.Tests
         public void Enemy_Killed_NoStatusSegment()
         {
             var est = Est(new[] { E(EffectKind.DamageSingle, 30), E(EffectKind.Slow, 2), E(EffectKind.BurnSingle, 2) },
-                new TargetHit(0, 500, 1, 2, false, false, false, killed: true));
+                new TargetHit(0, 500, 1, 2, false, false, killed: true));
             var label = EstimateLabelRules.ForEnemy(est, 0);
             Assert.That(label.Main.Value.Kind, Is.EqualTo(EstimateSegKind.Damage));
             Assert.That(label.Status, Is.Null, "目标这一下就死了,不会再挂状态");
