@@ -623,6 +623,16 @@ namespace Brushblade.Core
         /// 缺省 100 不做乘除;≤0 兜回 100。</summary>
         public int SummonPercent { get; }
 
+        // ---- 护盾回合保留 Task 2(spec 2026-10-13 §2)。全缺省 = 原行为 ----
+
+        /// <summary>按护盾计层(七级浮屠 `perShieldTenth`):只给 DefenseBuff —— 推迟到本次出字结算完后施加,
+        /// 层数 = ⌊玩家当前护盾 × 10 / 最大生命⌋ 钳 0..<see cref="ScaleCap"/>(0 = 不设上限),护甲量 = 缩放后的 Value × 层数;0 层不挂。</summary>
+        public bool PerShieldTenth { get; }
+
+        /// <summary>按玩家当前护盾(厚德载物 `ofPlayerShield`):只给 ShieldSummons —— 每只存活木灵 + 结算那一刻的玩家护盾 × Value%;
+        /// 百分比不吃卡等级、不额外攒厚(同 <see cref="OfShield"/>)。回合脉冲载荷随 <see cref="OpeningEffect.OfPlayerShield"/> 带过去。</summary>
+        public bool OfPlayerShield { get; }
+
         internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
@@ -660,7 +670,8 @@ namespace Brushblade.Core
             bool ofShield = false, int minArmor = 0,
             int summonAtkStrikePercent = 0, int hostAtkStrikePercent = 0, int hostArmorStrikePercent = 0,
             bool fromBody = false, bool sprout = false, bool ownSummons = false, bool byArmor = false,
-            int reviveHpPercent = 0, int summonPercent = 100)
+            int reviveHpPercent = 0, int summonPercent = 100,
+            bool perShieldTenth = false, bool ofPlayerShield = false)
         {
             Kind = kind;
             Value = value;
@@ -740,6 +751,8 @@ namespace Brushblade.Core
             ByArmor = byArmor;
             ReviveHpPercent = reviveHpPercent;
             SummonPercent = summonPercent <= 0 ? 100 : summonPercent;
+            PerShieldTenth = perShieldTenth;
+            OfPlayerShield = ofPlayerShield;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -784,7 +797,8 @@ namespace Brushblade.Core
                 OfShield, MinArmor,
                 summonAtkStrikePercent ?? SummonAtkStrikePercent, hostAtkStrikePercent ?? HostAtkStrikePercent,
                 hostArmorStrikePercent ?? HostArmorStrikePercent,
-                FromBody, Sprout, OwnSummons, ByArmor, ReviveHpPercent, summonPercent ?? SummonPercent)
+                FromBody, Sprout, OwnSummons, ByArmor, ReviveHpPercent, summonPercent ?? SummonPercent,
+                PerShieldTenth, OfPlayerShield)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

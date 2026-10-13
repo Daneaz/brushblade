@@ -140,6 +140,9 @@ namespace Brushblade.Data
             public bool ByArmor { get; set; }               // SummonStrike:基数取护甲(柘弓,须配 ownSummons)
             public int ReviveHpPercent { get; set; }        // Revive:生命 = ⌈MaxHp × N%⌉(万木回春)
             public int SummonPercent { get; set; } = 100;   // Summon / Reshape:召出木灵血 / 攻 × N%(林立)
+            // 护盾回合保留 Task 2(spec 2026-10-13 §2)
+            public bool PerShieldTenth { get; set; }        // DefenseBuff:层数 = ⌊玩家护盾 × 10 / 最大生命⌋ 钳 scaleCap(七级浮屠)
+            public bool OfPlayerShield { get; set; }        // ShieldSummons:每只 + 玩家当前护盾 × Value%(厚德载物)
         }
 
         private sealed class CampaignFileDto
@@ -941,7 +944,8 @@ namespace Brushblade.Data
                     summonAtkStrikePercent: effect.SummonAtkStrikePercent, hostAtkStrikePercent: effect.HostAtkStrikePercent,
                     hostArmorStrikePercent: effect.HostArmorStrikePercent, fromBody: effect.FromBody, sprout: effect.Sprout,
                     ownSummons: effect.OwnSummons, byArmor: effect.ByArmor, reviveHpPercent: effect.ReviveHpPercent,
-                    summonPercent: effect.SummonPercent));
+                    summonPercent: effect.SummonPercent,
+                    perShieldTenth: effect.PerShieldTenth, ofPlayerShield: effect.OfPlayerShield));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -1003,12 +1007,13 @@ namespace Brushblade.Data
                         // 其余修饰写了也会被静默丢掉 —— 一律拒绝
                         && !child.Extend && !child.Fill && !child.WhileSlowed && !child.OfHeal
                         && string.IsNullOrEmpty(child.ScaleBy) && string.IsNullOrEmpty(child.WardOf) && child.WardCount == 0
+                        && !child.OfShield   // ofShield 读本次出字的名义护盾,脉冲兑现时没有出字;ofPlayerShield 随 OpeningEffect 带过去
                         && !BattleEngine.EffectNeedsTarget(new EffectDef(childKind, child.Value, turns: child.Turns,
                             targetAll: child.TargetAll,
                             pick: ParseEnum(child.Pick, EffectPick.Primary, id, "目标选择器")));
                     if (!ok)
                         throw new ConfigException($"字「{id}」的回合脉冲里只能是 减速 / 冻结 / 减攻 / 致盲(须选全体)/ 回复 / 护盾 / 加泉,"
-                            + $"不能带条件门 / 附着 / 本体百分比 / 嵌套 / extend / fill / whileSlowed / ofHeal / scaleBy / wardOf / wardCount:{child.Kind}");
+                            + $"不能带条件门 / 附着 / 本体百分比 / 嵌套 / extend / fill / whileSlowed / ofHeal / scaleBy / wardOf / wardCount / ofShield:{child.Kind}");
                 }
             }
             else if (e.PerHit != null)
@@ -1046,9 +1051,11 @@ namespace Brushblade.Data
             if (kind == EffectKind.BurnScale && e.Value < 100)
                 throw new ConfigException($"字「{id}」的 BurnScale 百分比须 ≥ 100(只升不降):{e.Value}");
             // D2-土 E36:地裂的击数上限也写 scaleCap(配 scaleBy Shield 的 DamageSingle / Reshape)
+            // 七级浮屠(spec 2026-10-13 §2):层数上限同写 scaleCap(配 perShieldTenth 的 DefenseBuff)
             bool shieldHits = damageLike && e.ScaleBy == nameof(ScaleBasis.Shield);
-            if (e.ScaleCap != 0 && ((kind != EffectKind.Amplify && !shieldHits) || string.IsNullOrEmpty(e.ScaleBy) || e.ScaleCap < 0))
-                throw new ConfigException($"字「{id}」的 scaleCap 只给带 scaleBy 的 Amplify / 带 scaleBy Shield 的伤害,且须 > 0");
+            bool shieldTenths = kind == EffectKind.DefenseBuff && e.PerShieldTenth;
+            if (e.ScaleCap != 0 && (((kind != EffectKind.Amplify || string.IsNullOrEmpty(e.ScaleBy)) && !shieldHits && !shieldTenths) || e.ScaleCap < 0))
+                throw new ConfigException($"字「{id}」的 scaleCap 只给带 scaleBy 的 Amplify / 带 scaleBy Shield 的伤害 / 带 perShieldTenth 的 DefenseBuff,且须 > 0");
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢,拦下
             if (e.OpeningBattles != 0 && (e.PerHit != null || e.ShotPercent != 100 || e.RetainPercent != 0
                     || e.PortionPercent != 100 || !string.IsNullOrEmpty(e.ScaleBy)))
@@ -1136,8 +1143,9 @@ namespace Brushblade.Data
             if (e.OpeningBattles != 0 && kind == EffectKind.DebuffWard && (!string.IsNullOrEmpty(e.WardOf) || e.WardCount != 0))
                 throw new ConfigException($"字「{id}」的 DebuffWard 开局效果不能带 wardOf / wardCount(登记时会丢)");
             // D2-水 Task 4(W5 / W6 / W7):受击回复 / 回合脉冲必须写回合;百分比 / 冻结回合 ≥ 1
-            if ((kind == EffectKind.HurtHeal || kind == EffectKind.TurnPulse) && e.Turns < 1)
-                throw new ConfigException($"字「{id}」的 {kind} 须写回合数(turns ≥ 1),当前:{e.Turns}");
+            // 回合脉冲另收 turns −1 = 本场持续(厚德载物,spec 2026-10-13 §2)
+            if ((kind == EffectKind.HurtHeal || kind == EffectKind.TurnPulse) && e.Turns < 1 && !(kind == EffectKind.TurnPulse && e.Turns == -1))
+                throw new ConfigException($"字「{id}」的 {kind} 须写回合数(turns ≥ 1{(kind == EffectKind.TurnPulse ? ",或 -1 = 本场" : "")}),当前:{e.Turns}");
             if ((kind == EffectKind.HurtHeal || kind == EffectKind.ShieldFrost) && e.Value < 1)
                 throw new ConfigException($"字「{id}」的 {kind} 须写 N ≥ 1,当前:{e.Value}");
             // D2-土 Task 2(G1 / G8 / G9):扣盾 / 盾转战意 / 回合初留盾的百分比须在 1..100;留盾必须写回合
@@ -1174,6 +1182,11 @@ namespace Brushblade.Data
                 throw new ConfigException($"字「{id}」的 {kind} 效果 scaleBy Shield 须配 scaleDivisor > 0(反之 scaleDivisor 只配 scaleBy Shield)");
             if (e.OfShield && (kind != EffectKind.ShieldSummons || e.Value < 1))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofShield(只给 ShieldSummons,且百分比须 ≥ 1)");
+            // 护盾回合保留 Task 2(spec 2026-10-13 §2):七级浮屠 / 厚德载物的取值方式
+            if (e.PerShieldTenth && (kind != EffectKind.DefenseBuff || !string.IsNullOrEmpty(e.ScaleBy) || e.OpeningBattles != 0))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 perShieldTenth(只给 DefenseBuff,且不带 scaleBy / 开局登记)");
+            if (e.OfPlayerShield && (kind != EffectKind.ShieldSummons || e.Value < 1 || e.OfShield))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 ofPlayerShield(只给 ShieldSummons,百分比须 ≥ 1,且不与 ofShield 同用)");
             if (e.MinArmor != 0 && (kind != EffectKind.Retaliate || e.MinArmor < 0))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 minArmor(只给 Retaliate,且须 > 0)");
             if (e.OpeningBattles != 0 && (e.PersistOnce && kind == EffectKind.Reshape || e.ArmorShieldPercent != 0 || e.ArmorStrikeEach

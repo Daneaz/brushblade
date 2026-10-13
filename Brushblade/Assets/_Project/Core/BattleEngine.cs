@@ -3369,7 +3369,9 @@ namespace Brushblade.Core
                 // 结算完才齐 —— 推迟到循环末尾。没有这类效果时整句不进分支,恒等。
                 // ⚠ 代价(Q4 已接受):推迟后它们排到本面**所有**效果之后,同面排在其后的伤害吃不到它挂的标记
                 // (如冰缚 Vulnerable 之后若还有一条伤害)。现数据里冰缚都是攻面最后一条;Task 6 落数据时要核这一点。
-                if (IsRosterPick(castEffect)) (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((castEffect, null));
+                // 七级浮屠(spec 2026-10-13 §2,perShieldTenth):层数读本次出字结算完后的护盾,同队推迟;没有这类效果时恒等
+                if (IsRosterPick(castEffect) || castEffect.PerShieldTenth)
+                    (deferred ??= new List<(EffectDef, StatusEffect)>()).Add((castEffect, null));
                 else ResolveEffect(castEffect, targetIndex);
             }
             // 双金合璧(Ruling 11 / Q21):按战意计次的格挡等效果循环结束后再施加,次数取出字后的战意 ——
@@ -3846,7 +3848,9 @@ namespace Brushblade.Core
                         // SummonShield 同口径(玩家出字换来的护盾,发给召唤物也算「堆了防御」)。
                         bool anyShielded = false;
                         // 碉楼 / 载物(D2-土 E28,ofShield):每只 = 本次名义护盾 × Value%(百分比不吃等级),不额外攒厚
-                        int perSummon = effect.OfShield ? _cast.ShieldNominal * effect.Value / 100 : value;
+                        // 厚德载物(spec 2026-10-13 §2,ofPlayerShield):每只 = 结算那一刻的玩家护盾 × Value%,同上
+                        int perSummon = effect.OfShield ? _cast.ShieldNominal * effect.Value / 100
+                            : effect.OfPlayerShield ? PlayerShield * effect.Value / 100 : value;
                         for (int slot = 0; slot < _summons.Length; slot++)
                         {
                             if (_summons[slot] == null || !_summons[slot].Alive) continue;
@@ -3854,7 +3858,7 @@ namespace Brushblade.Core
                             _events.Add(new BattleEvent(BattleEventKind.Shield, slot, granted));
                             if (granted > 0) anyShielded = true;
                         }
-                        if (anyShielded && !effect.OfShield) GainHeft(value);   // 一份都没发出去(没有召唤物 / 全顶满)就不攒厚
+                        if (anyShielded && !effect.OfShield && !effect.OfPlayerShield) GainHeft(value);   // 一份都没发出去(没有召唤物 / 全顶满)就不攒厚
                         break;
                     }
                     case EffectKind.SummonStrike:
@@ -4266,6 +4270,14 @@ namespace Brushblade.Core
                         // SourceId 铸唯一序号 → **同字也可叠加**(2026-09-16,与 ArmorBreak 同款):
                         // 护甲改百分比减伤(DR = 甲/(甲+100))之后 DR 永远到不了 100%,「同字不叠」
                         // 这条约束当初只是为了防止点数减法叠满即无敌,理由随之消失。
+                        // 七级浮屠(spec 2026-10-13 §2):已推迟到出字结算完后;护甲 = value × ⌊护盾 × 10 / 最大生命⌋(钳 cap),0 层不挂
+                        if (effect.PerShieldTenth)
+                        {
+                            int layers = PlayerShield * 10 / _config.PlayerMaxHp;
+                            if (effect.ScaleCap > 0) layers = Math.Min(layers, effect.ScaleCap);
+                            if (layers <= 0) break;
+                            value *= layers;
+                        }
                         ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,

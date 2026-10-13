@@ -46,6 +46,9 @@ namespace Brushblade.Core.Tests
             ["StallPushPercent"] = "Fold 产物(Augment field StallPush),字表里恒 0;卡面由 AugmentText 印「冰滞后退+N%」",
             ["BonusTurns"] = "Fold 产物(带 if 的 Augment field Turns),字表里恒 0;卡面由 AugmentText + 条件后缀印",
             ["BonusIf"] = "同 BonusTurns",
+            // ⚠ 临时豁免(护盾回合保留 plan Task 2):卡面文案归同 plan Task 5(CharInfo 新取值方式拼句),Task 5 落地时删这两行
+            ["PerShieldTenth"] = "临时:七级浮屠卡面文案待 Task 5",
+            ["OfPlayerShield"] = "临时:厚德载物卡面文案待 Task 5",
         };
 
         /// <summary>SummonPassive 侧的豁免。与 EffectDef 侧**分开两张表**(2026-08-29):

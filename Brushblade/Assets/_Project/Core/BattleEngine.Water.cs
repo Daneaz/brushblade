@@ -230,7 +230,8 @@ namespace Brushblade.Core
         {
             EffectKind.Slow or EffectKind.Freeze or EffectKind.Weaken or EffectKind.Blind
                 or EffectKind.HealSelf or EffectKind.Shield or EffectKind.AddWellspring
-                or EffectKind.Vulnerable => true,   // D2-木 E50(一叶知秋)
+                or EffectKind.Vulnerable   // D2-木 E50(一叶知秋)
+                or EffectKind.ShieldSummons => true,   // 厚德载物(spec 2026-10-13 §2,ofPlayerShield)
             _ => false,
         };
 
@@ -259,14 +260,15 @@ namespace Brushblade.Core
             });
         }
 
-        /// <summary>大雨滂沱(W7)挂载:OnHit 记**未缩放**的载荷(触发时按来源字等级结算,同受击回敬)。</summary>
+        /// <summary>大雨滂沱(W7)挂载:OnHit 记**未缩放**的载荷(触发时按来源字等级结算,同受击回敬)。
+        /// Turns −1 = 本场持续(厚德载物,spec 2026-10-13 §2);其余缺省兜 1。</summary>
         private void ArmTurnPulse(EffectDef effect, string sourceId, Element element)
         {
             if (effect.PerHit.Count == 0) return;
             ApplyStatus(_playerStatuses, new StatusEffect
             {
                 Kind = StatusKind.TurnPulse, Polarity = StatusPolarity.Buff,
-                TurnsLeft = Math.Max(1, effect.Turns), SourceId = sourceId, TraitKey = effect.TraitKey,
+                TurnsLeft = effect.Turns < 0 ? -1 : Math.Max(1, effect.Turns), SourceId = sourceId, TraitKey = effect.TraitKey,
                 OnHit = effect.PerHit.Select(e => OpeningEffect.Of(e, sourceId, element)).ToList(),
             }, UnitRef.Player, UnitRef.Player);
         }
