@@ -58,6 +58,16 @@ namespace Brushblade.Core
         Alive,   // 存活召唤物占着
     }
 
+    /// <summary>召唤面落到活木灵格时做什么(2026-10-13 spec §3)。Auto = 旧行为:可嫁接则嫁接;
+    /// Graft = 只嫁接(不可嫁接 = InvalidTarget);Replace = 移除该格木灵、在同一格召唤本字的木灵
+    /// (走满员顶替的同一条移除路径:不算阵亡,不吃「召唤位满」校验)。</summary>
+    public enum SummonDropMode
+    {
+        Auto,
+        Graft,
+        Replace,
+    }
+
     /// <summary>战斗规则参数(基准值来自第 10 章 10.1)。</summary>
     public sealed class BattleConfig
     {
@@ -1652,18 +1662,21 @@ namespace Brushblade.Core
         /// null = 未指定,按 NextEmptySlot() 依次填(测试与自动路径走这条)。
         /// 指定到存活槽 = 顶替,与「六槽全满」同口径,需要 replaceSummon 确认。
         /// allySlot:单体治疗(2026-08-22)治谁——默认玩家(Targeting.PlayerTarget),
-        /// 或指定某个召唤物槽位。</summary>
+        /// 或指定某个召唤物槽位。
+        /// dropMode:召唤面落到 allySlot 那只活木灵上时嫁接还是替换(2026-10-13),见 <see cref="SummonDropMode"/>;
+        /// 缺省 Auto = 旧行为。</summary>
         public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
             bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null,
-            int allySlot = Targeting.PlayerTarget)
+            int allySlot = Targeting.PlayerTarget, SummonDropMode dropMode = SummonDropMode.Auto)
         {
-            var result = CastCore(charId, targetIndex, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot);
+            var result = CastCore(charId, targetIndex, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot, dropMode);
             if (result == BattleError.None) CastsThisTurn++;   // 成功才计;结算期间读到的是「本字之前」的数
             return result;
         }
 
         private BattleError CastCore(string charId, int targetIndex, bool replaceSummon,
-            bool attackMode, int libraryIndex, IReadOnlyList<int> summonSlots, int allySlot)
+            bool attackMode, int libraryIndex, IReadOnlyList<int> summonSlots, int allySlot,
+            SummonDropMode dropMode = SummonDropMode.Auto)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -1698,6 +1711,19 @@ namespace Brushblade.Core
                     if (sole < 0) return BattleError.InvalidTarget;
                     targetIndex = sole;
                 }
+            }
+
+            // 嫁接 / 替换显式指定(2026-10-13):Graft 不可嫁接即拒;Replace 改写成「指定这一格的确认顶替召唤」——
+            // summonSlots = [该格]、replaceSummon = true,落位与移除全走下面 Summon 分支的满员顶替路径
+            // (ClearSproutParent / ClearSlotAuras / ClearSlotBinds 后覆盖该格,不发阵亡、不兑现阵亡触发);
+            // allySlot 归玩家,与普通召唤同口径(spec §3.2「与普通召唤一致」)。Auto 一次比较即过,旧路径逐位不变。
+            if (dropMode == SummonDropMode.Graft && !IsGraft(def, attackMode, allySlot)) return BattleError.InvalidTarget;
+            if (dropMode == SummonDropMode.Replace)
+            {
+                if (!CanReplaceAt(def, attackMode, allySlot)) return BattleError.InvalidTarget;
+                summonSlots = new[] { allySlot };
+                replaceSummon = true;
+                allySlot = Targeting.PlayerTarget;
             }
 
             // 友方目标合法性(2026-08-22,spec §8.1)。免选口径与「单敌免选」同型:
@@ -2172,6 +2198,20 @@ namespace Brushblade.Core
         private bool IsGraft(CharDef def, bool attackMode, int allySlot) =>
             allySlot >= 0 && allySlot < SummonCap && _summons[allySlot] != null && _summons[allySlot].Alive
             && HasSummonFace(def, attackMode);
+
+        /// <summary>这一面落到 <paramref name="slot"/> 能不能嫁接(2026-10-13,供 UI 判定是否弹二选一)。
+        /// 判据即 Cast 的嫁接判据:木的生面、该格是活木灵。未知字 / 越界 = false。</summary>
+        public bool CanGraftAt(string charId, bool attackMode, int slot) =>
+            charId != null && _graph.TryGet(charId, out var def) && IsGraft(def, attackMode, slot);
+
+        /// <summary>这一面落到 <paramref name="slot"/> 能不能替换(2026-10-13):本面有召唤本体(幼苗不算,
+        /// 与满员替换确认同口径)且该格是活着的召唤物。未知字 / 越界 = false。</summary>
+        public bool CanReplaceAt(string charId, bool attackMode, int slot) =>
+            charId != null && _graph.TryGet(charId, out var def) && CanReplaceAt(def, attackMode, slot);
+
+        private bool CanReplaceAt(CharDef def, bool attackMode, int slot) =>
+            slot >= 0 && slot < SummonCap && _summons[slot] != null && _summons[slot].Alive
+            && ReplaceableSummonCountOf(def, attackMode) > 0;
 
         /// <summary>spec §2.2:五行面落到活着的木灵上时的附加规则(D2-0 Task 4,Ruling E2)。
         /// 水 = 本场改水属性(复原点见 RunEngine.CaptureAliveSummons,E3);土 = 本场嘲讽;

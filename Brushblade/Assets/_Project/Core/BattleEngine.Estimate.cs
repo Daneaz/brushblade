@@ -104,7 +104,7 @@ namespace Brushblade.Core
         /// (附录 §A 3.3)。本体一个字节都不动:不摇它的随机流、不写它的字段、不覆盖 LastEvents。
         /// AP 不够照样预估(影子补 AP);顶替召唤按已确认处理。</summary>
         public CastEstimate EstimateCast(string charId, int targetIndex, bool attackMode, int libraryIndex = -1,
-            int allySlot = Targeting.PlayerTarget)
+            int allySlot = Targeting.PlayerTarget, SummonDropMode dropMode = SummonDropMode.Auto)
         {
             if (Phase != BattlePhase.PlayerTurn) return new CastEstimate { Error = BattleError.BattleOver };
             if (charId == null || !_graph.TryGet(charId, out var def)) return new CastEstimate { Error = BattleError.NotCastable };
@@ -127,7 +127,7 @@ namespace Brushblade.Core
             shadow.Ap = Math.Max(shadow.Ap, def.ApCost);
             int moraleBefore = shadow._playerStatuses.TotalMagnitude(StatusKind.Morale);
 
-            var error = shadow.CastCore(charId, targetIndex, replaceSummon: true, attackMode, libraryIndex, null, allySlot);
+            var error = shadow.CastCore(charId, targetIndex, replaceSummon: true, attackMode, libraryIndex, null, allySlot, dropMode);
             var result = new CastEstimate { Error = error, AllEnemies = all, Effects = effects, SpentTraits = spent };
             if (error != BattleError.None) return result;
 
