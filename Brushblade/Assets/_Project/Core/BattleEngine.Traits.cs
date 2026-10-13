@@ -238,7 +238,7 @@ namespace Brushblade.Core
                     bag.RemoveEntry(s);
         }
 
-        /// <summary>护盾空了:反震(D9)、冰晶(D2-水 W6)与碎玉(D2-土 G4)失去载体,移除。单桶(2026-10-13 取消留存桶)。</summary>
+        /// <summary>护盾空了:反震(D9)、冰晶(D2-水 W6)与碎玉(D2-土 G4)失去载体,移除。</summary>
         private void DropShieldRecoilIfEmpty()
         {
             if (_shieldNormal > 0) return;

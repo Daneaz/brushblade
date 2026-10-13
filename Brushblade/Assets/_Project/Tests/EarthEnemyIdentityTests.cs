@@ -29,7 +29,7 @@ namespace Brushblade.Core.Tests
             });
         // 单体重击
         private static readonly CharDef Smash = RebalanceFixture.Char("斩", new EffectDef(EffectKind.DamageSingle, 90));
-        // 木灵 + 留存盾 + 护甲(大招的四种落点都有对象)
+        // 木灵 + 护盾 + 护甲(大招的四种落点都有对象)
         private static readonly CharDef Grove = RebalanceFixture.Char("林",
             new EffectDef(EffectKind.Summon, 300, summonCount: 2, summonAttack: 10, summonChar: "木"));
         private static readonly CharDef Keep = RebalanceFixture.Char("留",

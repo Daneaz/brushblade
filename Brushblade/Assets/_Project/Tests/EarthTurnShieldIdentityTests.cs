@@ -22,7 +22,7 @@ namespace Brushblade.Core.Tests
         // 普通盾 + 反震
         private static readonly CharDef Guard = RebalanceFixture.Char("护",
             new EffectDef(EffectKind.Shield, 300), new EffectDef(EffectKind.ShieldRecoil, 30));
-        // 留存盾
+        // 第二张普通盾(字名「留」沿用,不动指纹)
         private static readonly CharDef Keep = RebalanceFixture.Char("留",
             new EffectDef(EffectKind.Shield, 200));
         // 冰晶(治疗转盾后挂)

@@ -156,6 +156,13 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.vulnerable", ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 护甲/破甲 2026-09-08 起限时,回合数要印在卡面上 —— 玩家看不到时限
                     // 就会当成本场持久去规划出牌顺序(这两条以前确实是持久的)
+                    // 七级浮屠(spec 2026-10-13 §2,perShieldTenth):层数按出字结算后的玩家护盾计,cap 写在 ScaleCap(0 = 不设上限)。
+                    // 不印「减伤 N%」:那是单层护甲的折算,叠层后会骗人
+                    EffectKind.DefenseBuff when e.PerShieldTenth => e.ScaleCap > 0
+                        ? Strings.T("char.effect.defensebuff.pershieldtenth",
+                            ("value", shown), ("cap", e.ScaleCap), ("turns", Math.Max(1, e.Turns)))
+                        : Strings.T("char.effect.defensebuff.pershieldtenth.nocap",
+                            ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
                         ("value", shown), ("percent", StatusText.DefenseToReductionPercent(v)),
                         ("turns", Math.Max(1, e.Turns))),
@@ -260,8 +267,12 @@ namespace Brushblade.Presentation
                     // 我方受击 / 回合挂点(D2-水 W5 / W6 / W7):百分比 / 冻结回合 / 回合都离散;回合脉冲的载荷逐条印
                     EffectKind.HurtHeal => Strings.T("char.effect.hurtheal", ("turns", Math.Max(1, e.Turns)), ("value", e.Value)),
                     EffectKind.ShieldFrost => Strings.T("char.effect.shieldfrost", ("value", e.Value)),
-                    EffectKind.TurnPulse => Strings.T("char.effect.turnpulse", ("turns", Math.Max(1, e.Turns)),
-                        ("list", string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel))))),
+                    // turns −1 = 本场持续(厚德载物,spec 2026-10-13 §2):不能落进 Max(1, …) 印成「之后 1 回合」
+                    EffectKind.TurnPulse => e.Turns < 0
+                        ? Strings.T("char.effect.turnpulse.battle",
+                            ("list", string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel)))))
+                        : Strings.T("char.effect.turnpulse", ("turns", Math.Max(1, e.Turns)),
+                            ("list", string.Join("/", e.PerHit.Select(p => OneSideEffectsText(new[] { p }, def, cardLevel))))),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
@@ -321,6 +332,8 @@ namespace Brushblade.Presentation
                         ? Strings.T("char.effect.healsummons.pct", ("value", shown))
                         : Strings.T("char.effect.healsummons", ("value", shown)),
                     // 碉楼 / 载物(D2-土 E28):按本次护盾量的百分比,不吃等级(读 e.Value)
+                    // 厚德载物(spec 2026-10-13 §2,ofPlayerShield):按兑现时的玩家当前护盾,不吃等级(读 e.Value)
+                    EffectKind.ShieldSummons when e.OfPlayerShield => Strings.T("char.effect.shieldsummons.ofplayershield", ("value", e.Value)),
                     EffectKind.ShieldSummons when e.OfShield => Strings.T("char.effect.shieldsummons.ofshield", ("value", e.Value)),
                     EffectKind.ShieldSummons => Strings.T("char.effect.shieldsummons", ("value", shown)),
                     // 柘弓(E46):只让本字最强的一只出手;byArmor = 按护甲(CL 要求 byArmor 必配 own)
@@ -345,7 +358,6 @@ namespace Brushblade.Presentation
                     // 土生金(G8):每 ResourceThresholdValue 点护盾折 1 层战意(向上取整)
                     EffectKind.ShieldToMorale => Strings.T("char.effect.shieldtomorale",
                         ("value", e.Value), ("per", BattleEngine.ResourceThresholdValue)),
-                    // 浮屠(G9):「上回合末剩余护盾」= 回合开始被清掉的普通护盾
                     // 铜墙铁壁(G2):单次伤害上限,本回合
                     EffectKind.HitCap => Strings.T("char.effect.hitcap", ("value", e.Value)),
                     // 堡垒(G3):每次受击后加护盾(出字时定死,同 Shield)

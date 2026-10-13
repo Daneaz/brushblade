@@ -35,7 +35,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
             new CharDef("盾", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
-            // 第二张护盾字(原留存护盾版;2026-10-13 取消留存桶后与「盾」同口径,保留只为不动测试牌序)
+            // 第二张护盾字(与「盾」同口径,保留只为不动测试牌序)
             new CharDef("壁", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
             // 护甲 2 点(测试本地值,真实字表是 12):这里的 Boss 攻击力只有 5,

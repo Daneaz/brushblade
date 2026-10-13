@@ -9,7 +9,7 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>Plan E3 Task 1 第一步:改热路径之前先钉住「没有新状态时逐位恒等」。
     /// 要守的改动:ApplyStatus 拦截段加 DebuffWarded / BuffBlocked 事件、CastBossSkill 给杜塞打 Source 标签、
-    /// 浮屠 Shield 打 Source 标签、CastCore 的 needsTarget 改调 CastEffectsNow、Dismantle / Compose 进门清事件 + 发 GlyphTrait。
+    /// CastCore 的 needsTarget 改调 CastEffectsNow、Dismantle / Compose 进门清事件 + 发 GlyphTrait。
     ///
     /// 场景:标点小妖 / 焦痕 / 灯花 / 倾覆 Boss 四种 ApplyStatus 来源;炎(双焰印记)/ 灿(火山印记)Lv4 拆字后从池里出火 / 山
     /// (CastCore 带印记与不带印记两支);林(无特性)拆了再合。拆合之后**不读** LastEvents(那正是本次要改的行为),

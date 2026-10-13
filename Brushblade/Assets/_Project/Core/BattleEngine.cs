@@ -1210,7 +1210,7 @@ namespace Brushblade.Core
             AssignSlots();
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
-            // 带入/起始护盾 ≤ 最大生命(spec v7 §5.2;单桶,2026-10-13 取消留存桶)。
+            // 带入/起始护盾 ≤ 最大生命(spec v7 §5.2)。
             // 快照恢复(FromSnapshot)直接还原、不钳:快照来自引擎自己的出口,本就守着上限。
             _shieldNormal = Math.Min(startingNormalShield, config.PlayerMaxHp);
             _slotMask = ClampSlotMask(config);
@@ -5353,7 +5353,7 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>给玩家加盾的唯一入口(spec v7 §5.2.2):护盾 ≤ 最大生命 × ShieldPercentOfMaxHp%(单桶,2026-10-13 取消留存桶)。
+        /// <summary>给玩家加盾的唯一入口(spec v7 §5.2.2):护盾 ≤ 最大生命 × ShieldPercentOfMaxHp%。
         /// 返回实际入账量(可为 0)。跨场携带走构造函数直接赋值,不经这里(上一场已在上限内,
         /// 带入的只是其中一部分)。</summary>
         private int AddPlayerShield(int amount)

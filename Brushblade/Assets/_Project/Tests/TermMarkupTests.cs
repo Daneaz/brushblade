@@ -35,7 +35,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Scan_LongestMatch_NoOverlap()
         {
-            // 2026-10-13:「留存护盾」词条随留存桶取消,最长匹配只剩「灼烧 / 灼」这一对来守
+            // 2026-10-13:删去一条词条后,最长匹配只剩「灼烧 / 灼」这一对来守
             Assert.That(Spans("获得护盾,并灼烧"), Is.EqualTo(new[]
                 { ("护盾", GlossaryTerm.Shield), ("灼烧", GlossaryTerm.Burn) }), "灼烧先于灼");
             Assert.That(Spans("本字灼 3"), Is.EqualTo(new[] { ("灼", GlossaryTerm.Burn) }));
@@ -165,7 +165,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void GlossaryTerm_41_InSpecOrder_Groups()
         {
-            // 2026-10-13:「留存护盾」词条随留存桶取消,关键词 32 → 31
+            // 2026-10-13:删去一条词条,关键词 32 → 31
             var all = Enum.GetValues(typeof(GlossaryTerm)).Cast<GlossaryTerm>().ToList();
             Assert.That(all.Count, Is.EqualTo(41));
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(31), "关键词");

@@ -255,7 +255,7 @@ namespace Brushblade.Core.Tests
         public void HurtShield_ShieldAtCap_NoZeroShieldEvent()
         {
             // 两桶已在上限之上(读档后上限变小的越界态;正常挥击每次吸收都会腾出空间,granted 至少 = min(量, 吸收量)):
-            // 这一击吸收 10 后仍顶着上限 → 实际入账 0 —— 不发 Shield 事件(同浮屠),攒厚照旧按请求量(Q7)
+            // 这一击吸收 10 后仍顶着上限 → 实际入账 0 —— 不发 Shield 事件,攒厚照旧按请求量(Q7)
             var fort = Fort(n: 100);
             var b = Battle(new[] { fort }, new[] { Mob(10) });
             b.Cast("堡", -1);
@@ -412,7 +412,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Enums_AppendedAtTail()
         {
-            // 2026-10-13:前面的 ShieldCarry(浮屠)随回合清盾退役删除,这三条紧跟 ShieldToMorale / TurnPulse
+            // 这三条紧跟 ShieldToMorale / TurnPulse(2026-10-13 删去前面一项)
             Assert.That((int)EffectKind.HitCap, Is.EqualTo((int)EffectKind.ShieldToMorale + 1));
             Assert.That((int)EffectKind.HurtShield, Is.EqualTo((int)EffectKind.ShieldToMorale + 2));
             Assert.That((int)EffectKind.ShieldShatter, Is.EqualTo((int)EffectKind.ShieldToMorale + 3));

@@ -3,7 +3,7 @@ using System;
 namespace Brushblade.Core
 {
     /// <summary>土系专属机制(Plan D2-土)。Task 2 = 护盾操作族:G1 ShieldSpend(塔倾 / 地裂)、G8 ShieldToMorale(土生金),
-    /// ApplyEffects 的 switch 只留一行调用,实现放这里(G9 浮屠已于 2026-10-13 随回合清盾退役)。
+    /// ApplyEffects 的 switch 只留一行调用,实现放这里。
     ///
     /// 恒等:G1 / G8 只在新 EffectKind 出现时才走到。
     /// Task 3 = 受击挂点族:G2 HitCap(铜墙铁壁)、G3 HurtShield(堡垒)、G4 ShieldShatter(碎玉),挂在 DamagePlayerDirect /
@@ -13,7 +13,7 @@ namespace Brushblade.Core
     /// 一律不摇随机数。</summary>
     public sealed partial class BattleEngine
     {
-        /// <summary>扣盾(G1,Q5 / Q10):护盾 × percent% 向下取整(单桶,2026-10-13 取消留存桶)。
+        /// <summary>扣盾(G1,Q5 / Q10):护盾 × percent% 向下取整(单桶)。
         /// 不算受击 —— 不触发冰晶 / 反震(碎玉同理),只判空移除载体;扣到了才发 ShieldBroken(−1, 扣除量,Source = ShieldSpend)。返回扣除量。</summary>
         private int SpendPlayerShield(int percent)
         {
@@ -89,7 +89,7 @@ namespace Brushblade.Core
             {
                 int granted = AddPlayerShield(amount);
                 GainHeft(amount);
-                if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));   // 同浮屠:入账 0 不飘「+0」
+                if (granted > 0) _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));   // 入账 0 不飘「+0」
             }
             finally { ExitTrigger(); }
         }

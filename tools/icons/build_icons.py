@@ -220,11 +220,6 @@ ICONS = {
         f'<path {STROKE} d="M32 6l26 26-26 26L6 32z"/>'
         f'<circle cx="32" cy="32" r="7" {FILL}/>'
     ),
-    # 留存护盾(D1 Task 10,2026-10-05):盾形描边 + 实心书签。路径逐字取自 traits-data.js 的 keepshield
-    "keepshield": (
-        f'<path {STROKE} d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
-        f'<path {FILL} d="M25 19h14v23l-7-6-7 6z"/>'
-    ),
     # 嘲讽(D2-0 Task 2,2026-10-06):扩音喇叭 + 一道声波。路径逐字取自 traits-data.js 的 taunt
     "taunt": (
         f'<path {STROKE} d="M8 25h12l24-13v40L20 39H8z"/>'
@@ -267,7 +262,7 @@ ICONS = {
         f'<path {STROKE} d="M32 6v52"/>'
         f'<path {STROKE5} d="M20 14c16 4 16 10 0 14M44 28c-16 4-16 10 0 14M20 42c16 4 16 10 0 14"/>'
     ),
-    # 守护(柘灵本命):实心盾挡在一个人前面。盾形同 keepshield / block 那条盾路径,缩放 .62 平移到左下
+    # 守护(柘灵本命):实心盾挡在一个人前面。盾形同 block 那条盾路径,缩放 .62 平移到左下
     "guard": (
         f'<circle cx="44" cy="20" r="8" {FILL}/>'
         f'<path {FILL} d="M30 50a14 14 0 0 1 28 0v6H30z"/>'
@@ -319,12 +314,6 @@ ICONS = {
         f'<path {STROKE} d="M54 32A22 22 0 1 1 47.6 16.4"/>'
         f'<path {STROKE} d="M37.6 16.4h10v-10"/>'
         f'<circle cx="32" cy="32" r="7" {FILL}/>'
-    ),
-    # 护盾回流:同回环 + 实心盾
-    "shieldcarry": (
-        f'<path {STROKE} d="M54 32A22 22 0 1 1 47.6 16.4"/>'
-        f'<path {STROKE} d="M37.6 16.4h10v-10"/>'
-        f'<path {FILL} transform="translate(19.8 17.4) scale(.38)" d="M32 7l22 8v18c0 13-11 24-22 28-11-4-22-15-22-28V15z"/>'
     ),
     # 大招削弱:圆 + 实心半圆
     "skillcut": (

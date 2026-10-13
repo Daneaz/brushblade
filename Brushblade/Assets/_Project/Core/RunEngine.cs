@@ -643,7 +643,7 @@ namespace Brushblade.Core
             // 就永久留在身上,战斗不会输也打不死怪(中层刮痧)。整数除、向下取整。
             // ⚠ 只衰减护盾,不动 _carriedShieldAccum / _carriedHealAccum:
             // 那两个是厚/泉的攒层余数,不是护盾。
-            _carriedNormalShield = Battle.PlayerShield * _battleConfig.ShieldCarryPercent / 100;   // 单桶(2026-10-13 取消留存桶)
+            _carriedNormalShield = Battle.PlayerShield * _battleConfig.ShieldCarryPercent / 100;
             _carriedShieldAccum = Battle.ShieldAccum;
             _carriedHealAccum = Battle.HealAccum;
             _carriedSummons = CaptureAliveSummons();

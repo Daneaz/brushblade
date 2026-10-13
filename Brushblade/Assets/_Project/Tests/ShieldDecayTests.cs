@@ -33,7 +33,7 @@ namespace Brushblade.Core.Tests
         public void CarriedShield_HalvesAfterBattle()
         {
             var snap = WinAndCapture(normal: 301);
-            Assert.That(snap.CarriedNormalShield, Is.EqualTo(150), "301 / 2 = 150(整数除,向下取整;单桶,2026-10-13 取消留存桶)");
+            Assert.That(snap.CarriedNormalShield, Is.EqualTo(150), "301 / 2 = 150(整数除,向下取整)");
         }
 
         [Test]

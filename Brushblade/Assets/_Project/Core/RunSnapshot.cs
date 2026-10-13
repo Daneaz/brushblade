@@ -14,7 +14,7 @@ namespace Brushblade.Core
         public int Ap { get; set; }
         public int Turn { get; set; }
         public BattlePhase Phase { get; set; }
-        public int ShieldNormal { get; set; }   // 玩家护盾(单桶;2026-10-13 起取消留存桶)
+        public int ShieldNormal { get; set; }   // 玩家护盾
         public int BurnPerStack { get; set; }   // BurnPotency 可抬高,本场累计
         public uint RandomState { get; set; }
 

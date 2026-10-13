@@ -46,7 +46,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void LoadGraph_ParsesEffectFlags() // 灼的条件标志(堡的留存护盾标志已于 2026-10-13 随留存桶取消)
+        public void LoadGraph_ParsesEffectFlags() // 灼的条件标志
         {
             var graph = ConfigLoader.LoadGraph(@"{
                 ""chars"": [

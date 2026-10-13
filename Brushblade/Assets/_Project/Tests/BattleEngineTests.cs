@@ -97,7 +97,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Constructor_CarriedShield_ClampedToMaxHp()
         {
-            // Config().PlayerMaxHp 下带入的护盾超上限:钳到最大生命(单桶,2026-10-13 取消留存桶)。
+            // Config().PlayerMaxHp 下带入的护盾超上限:钳到最大生命。
             var cfg = Config();
             int max = cfg.PlayerMaxHp;
             var engine = new BattleEngine(Graph(), cfg,

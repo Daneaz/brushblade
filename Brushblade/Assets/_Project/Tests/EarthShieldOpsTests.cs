@@ -8,7 +8,6 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>Plan D2-土 Task 2:护盾操作族 —— 附录 G1 ShieldSpend(塔倾 / 地裂,Q5 / Q10)、G8 ShieldToMorale(土生金,Q18)。
-    /// (G9 ShieldCarry 浮屠与留存桶已于 2026-10-13 删除,spec 2026-10-13 §1;护盾单桶。)
     ///
     /// 夹具:Element.Heart、PlayerAttack = 100、PlayerMaxHp 5000(护盾上限 5000)、暴击率缺省 0(不摇号)、敌人 10 万血。
     /// 敌人攻击力缺省 0:回合推进时不挨打,护盾只受被测效果影响(2026-10-13 起护盾不随回合清空)。</summary>

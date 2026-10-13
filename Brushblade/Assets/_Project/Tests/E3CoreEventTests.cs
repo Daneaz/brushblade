@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>Plan E3 Task 1:拍板 chip 落地缺的 Core 信息 —— 拦截事件(DebuffWarded / BuffBlocked)、
-    /// 来源标签(BossSkillCast 的 SkillCut;浮屠 Shield 的 ShieldCarry 已于 2026-10-13 随浮屠退役删除)、Graft.Amount = 回复量。
+    /// 来源标签(BossSkillCast 的 SkillCut)、Graft.Amount = 回复量。
     /// 字形特性事件、印记读口、CastEffectsNow 在 <see cref="GlyphTraitTests"/>,Badges 在 <see cref="PartMarkRulesTests"/>。
     /// 夹具:Element.Heart、PlayerAttack = 100、10 万血靶子。</summary>
     public class E3CoreEventTests

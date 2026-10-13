@@ -22,7 +22,7 @@ namespace Brushblade.Presentation
     /// 名签一律 TriggerFx 纸底 + 面印(JuiceTriggerFx,Plan E4);嫁接不是特性(落点关键词),印与名按 PartsAndGraft 稿单独给(生 + 嫁接)。</summary>
     public sealed partial class Juice
     {
-        /// <summary>玩家底栏(状态 chip 与立绘护盾角标都在里面):拦截 / 浮屠的 chip 闪、碎玉的角标闪找这里。
+        /// <summary>玩家底栏(状态 chip 与立绘护盾角标都在里面):拦截的 chip 闪、碎玉的角标闪找这里。
         /// BattleView 传常驻的 _bottomRow。</summary>
         public Transform PlayerCell { get; set; }
 

@@ -68,7 +68,7 @@ namespace Brushblade.Core.Tests
             [nameof(StatusKind.ThawSlow)] = "隐藏载体(D2-水 V5,冰水):冻结结束后挂上的减速有自己的 chip",
             // D2-水 Task 4(V5):冰晶是隐藏载体;受击回复 / 回合脉冲是可见状态(E3 起战场 chip 已接),不在这里
             [nameof(StatusKind.ShieldFrost)] = "隐藏载体(D2-水 V5,冰晶):护盾被打破时攻击者被冻结本身就是反馈,触发反馈归 Plan E",
-            // 浮屠(护盾回流)/ 杜塞(大招削弱)E3 起出 chip(StatusChipsWaterEarth 2026-10-11 拍板),已移出豁免。
+            // 杜塞(大招削弱)E3 起出 chip(StatusChipsWaterEarth 2026-10-11 拍板),已移出豁免。
             // 碎玉是永久豁免:稿明写「不出 chip」—— 它附在这次护盾上、护盾空了就移除(同反震),只走触发反馈
             [nameof(StatusKind.ShieldShatter)] = "隐藏载体(D2-土 Q21,碎玉):StatusChipsWaterEarth 稿明写不出 chip —— " +
                 "附在护盾上、护盾空了就没了,只走触发反馈(护盾角标闪、「碎玉」飘出、反伤数字)",

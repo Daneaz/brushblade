@@ -249,7 +249,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void GoldAura_ShieldAddsOntoKeptShield()
+        public void GoldAura_ShieldAddsOntoRemainingShield()
         {
             // 先在上一轮攒盾,再进新回合:旧盾保留(2026-10-13 取消 U1),金气那一份叠在上面
             var shielder = new CharDef("盾", Element.Heart, effects: new[] { new EffectDef(EffectKind.Shield, 90) });

@@ -44,7 +44,7 @@ namespace Brushblade.Core.Tests
         public void E4EnumValues_AppendedAtEnd()
         {
             Assert.That((int)BattleEventKind.EndureSaved, Is.EqualTo((int)BattleEventKind.GlyphTrait + 1));
-            // 2026-10-13:中间的 ShieldCarry(浮屠回流标签)随浮屠退役删除,BurnGrow 紧跟 SkillCut
+            // BurnGrow 紧跟 SkillCut(2026-10-13 删去中间一项)
             Assert.That((int)EffectSource.BurnGrow, Is.EqualTo((int)EffectSource.SkillCut + 1));
         }
 

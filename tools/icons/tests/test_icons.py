@@ -45,8 +45,6 @@ EXPECTED = {
     "block", "frostguard", "chill",
     # 字卡特性 D1 Task 6(2026-10-05):种 / 标记,取自 traits 稿 StatusChips 的 NEW 两枚。
     "seed", "mark",
-    # 字卡特性 D1 Task 10(2026-10-05):留存护盾,取自 traits 稿 StatusChips 的 NEW 一枚。
-    "keepshield",
     # 字卡特性 D2-0 Task 2(2026-10-06):嘲讽,取自 traits 稿 StatusChips 的 NEW 一枚。
     "taunt",
     # 字卡特性 D2-火 状态 chip(2026-10-09 拍板):埋雷 / 干涸 / 回敬,取自 traits 稿 StatusChipsFire 的 NEW 三枚。
@@ -59,7 +57,7 @@ EXPECTED = {
     # 字卡特性 E2(2026-10-11):字卡详情「Lv N 解锁」的锁,取自 CardSheet 稿内联 svg。
     "lock",
     # 字卡特性 E3(2026-10-1x 拍板):StatusChipsWaterEarth 八枚 + StatusChips 10-04 的 riposte / lastlife。
-    "buffblock", "ward", "wardburn", "hurtheal", "hurtshield", "turnpulse", "shieldcarry", "skillcut",
+    "buffblock", "ward", "wardburn", "hurtheal", "hurtshield", "turnpulse", "skillcut",
     "riposte", "lastlife",
 }
 
