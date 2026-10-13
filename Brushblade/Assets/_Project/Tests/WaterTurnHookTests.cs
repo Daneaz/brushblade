@@ -249,15 +249,16 @@ namespace Brushblade.Core.Tests
             Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.False, "没加上盾就不挂");
         }
 
-        /// <summary>挨打没打穿 → 不冻;回合初清盾把两桶清空 → 冰晶只移除,不触发冻结。</summary>
+        /// <summary>挨打没打穿 → 不冻;护盾不随回合清空(2026-10-13 取消 U1)→ 冰晶载体跨回合仍在。</summary>
         [Test]
-        public void ShieldFrost_TurnClear_OnlyRemoves()
+        public void ShieldFrost_NotBroken_KeptAcrossTurns()
         {
             var b = Battle(Crystal, Mob(1));
             Cast(b, "冰");
             b.EndTurn();
-            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.False, "回合初清盾 → 只移除");
-            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "没打穿、清盾都不冻");
+            Assert.That(b.ShieldNormal, Is.GreaterThan(0), "前置:护盾没被打穿");
+            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldFrost), Is.True, "护盾还在 → 冰晶载体不失去");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "没打穿不冻");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.False);
         }
 

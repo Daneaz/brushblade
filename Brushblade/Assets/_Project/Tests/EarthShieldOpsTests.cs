@@ -11,7 +11,7 @@ namespace Brushblade.Core.Tests
     /// (G9 ShieldCarry 浮屠与留存桶已于 2026-10-13 删除,spec 2026-10-13 §1;护盾单桶。)
     ///
     /// 夹具:Element.Heart、PlayerAttack = 100、PlayerMaxHp 5000(护盾上限 5000)、暴击率缺省 0(不摇号)、敌人 10 万血。
-    /// 敌人攻击力缺省 0:回合推进时不挨打,护盾只受被测效果与回合初清盾影响。</summary>
+    /// 敌人攻击力缺省 0:回合推进时不挨打,护盾只受被测效果影响(2026-10-13 起护盾不随回合清空)。</summary>
     public class EarthShieldOpsTests
     {
         private static BattleConfig Config => new BattleConfig

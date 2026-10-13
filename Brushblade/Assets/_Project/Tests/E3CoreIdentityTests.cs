@@ -187,6 +187,7 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(Expected), fp + "\n" + raw);
         }
 
-        private const string Expected = "9f05f8a305403059 20753";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "9f05f8a305403059 20753")。
+        private const string Expected = "fc9f5d75dc38a392 20757";
     }
 }

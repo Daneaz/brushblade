@@ -16,7 +16,7 @@ namespace Brushblade.Core.Tests
     /// 每只存活木灵获得「兑现时玩家当前护盾 × Value%」;<c>turns -1</c> = 本场持续。</item>
     /// </list>
     /// 夹具:Element.Heart、PlayerAttack = 100(攻击力缩放恒等)、PlayerMaxHp 5000(护盾上限 5000)、暴击率 0、敌人攻击 0。
-    /// 断言只看「回合开始时发了哪些护盾事件 / 挂了什么状态」,不依赖回合初是否清盾(Task 4 会删清盾)。</summary>
+    /// 断言主要看「回合开始时发了哪些护盾事件 / 挂了什么状态」;Task 4 删回合清盾后另有一条跨回合用例(HouDe_PlayerShieldKeptAcrossTurns_*)。</summary>
     public class EarthNewTraitsTests
     {
         private const int MaxHp = 5000;
@@ -211,6 +211,21 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             Assert.That(SummonShieldEvents(b), Is.Empty);
             Assert.That(PlayerShieldEvents(b), Is.EqualTo(new[] { 400 }));
+        }
+
+        /// <summary>Task 4 删回合清盾后:玩家护盾跨回合保留,每次脉冲都按兑现时的护盾(600)给每只木灵 10%,木灵盾逐回合累加。</summary>
+        [Test]
+        public void HouDe_PlayerShieldKeptAcrossTurns_EveryPulseReadsIt()
+        {
+            var b = Battle(new[] { Virtue }, shield: 600, summons: new[] { Spirit(0) });
+            Cast(b, "㙓");
+            for (int round = 1; round <= 2; round++)
+            {
+                b.EndTurn();
+                Assert.That(b.PlayerShield, Is.EqualTo(600), $"第 {round} 个回合开始玩家护盾不清");
+                Assert.That(SummonShieldEvents(b), Is.EqualTo(new[] { (0, 60) }), $"第 {round} 次脉冲:600 × 10%");
+                Assert.That(b.Summons[0].Shield, Is.EqualTo(60 * round), "木灵盾同样跨回合保留并累加");
+            }
         }
 
         // ================= ConfigLoader =================

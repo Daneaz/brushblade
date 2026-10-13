@@ -406,9 +406,9 @@ namespace Brushblade.CoreTests
             engine.Cast("丁");
             int before = engine.PlayerHp;
             engine.EndTurn();
-            // 2026-10-04 U1:剩下的 1 点在回到玩家回合时清空,改看敌方段的吸收量
             Assert.That(engine.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed),
                 Is.EqualTo(9), "护盾 10 只被吃掉 9");
+            Assert.That(engine.PlayerShield, Is.EqualTo(1), "剩下的 1 点跨回合保留(2026-10-13 取消 U1)");
             Assert.That(engine.PlayerHp, Is.EqualTo(before), "血没掉");
         }
 

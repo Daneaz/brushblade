@@ -642,8 +642,7 @@ namespace Brushblade.Core
         /// <summary>我方(玩家/召唤物)身上的灼烧每层伤害:恒为基础值(2026-10-02 用户拍板)——
         /// 局内灼烧加成与添薪都是「玩家点的火」的增威,敌人给我方上的灼烧不享有。</summary>
         private int OurSideBurnPerStack => _config?.BurnPerStack ?? BattleConfig.BaseBurnPerStack;
-        private int _shieldNormal;          // 普通护盾:玩家下一回合开始清空(U1,2026-10-04);战后按 ShieldCarryPercent 带到下一场(2026-07-26 起关间延续)
-        private int _playerTurnsStarted;    // 已开始的玩家回合数(BeginPlayerTurn 计);0 = 本场第一个玩家回合还没开,此时不清盾
+        private int _shieldNormal;          // 玩家护盾:战斗内不随回合清空(2026-10-13 取消 U1);战后按 ShieldCarryPercent 带到下一场(2026-07-26 起关间延续)
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
         private int _healAccum;             // 泉的余数:不足一层的治疗名义值
 
@@ -1298,7 +1297,6 @@ namespace Brushblade.Core
                 Turn = Turn,
                 Phase = Phase,
                 ShieldNormal = _shieldNormal,
-                PlayerTurnsStarted = _playerTurnsStarted,
                 BurnPerStack = _burnPerStack,
                 RandomState = _random.State,
                 TargetRandomState = _targetRandom.State,
@@ -1347,7 +1345,6 @@ namespace Brushblade.Core
                 Turn = snapshot.Turn,
                 Phase = snapshot.Phase,
                 _shieldNormal = snapshot.ShieldNormal,
-                _playerTurnsStarted = snapshot.PlayerTurnsStarted,
                 _burnPerStack = snapshot.BurnPerStack,
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
@@ -2904,20 +2901,10 @@ namespace Brushblade.Core
         /// 玩家未被灼烧烧死时才跑——死人不用治。</summary>
         private void BeginPlayerTurn()
         {
-            // 护盾回合末清空(spec v7 §3.1,用户拍板 U1):「回合结束」= 一整轮结束,即玩家下一回合开始。
-            // 清玩家护盾与全部召唤物护盾。排在 TurnStarted 之前:
-            // 本回合开始时的特性反应看到的是清空后的盾。本场第一个玩家回合(_playerTurnsStarted == 0)不清:
-            // 跨场带入 / 开局效果给的护盾写在构造函数里,第一回合开始就清的话它们一拍都挡不到。
-            if (_playerTurnsStarted > 0)
-            {
-                _shieldNormal = 0;
-                foreach (var summon in _summons)
-                    if (summon != null) summon.Shield = 0;
-                DropShieldRecoilIfEmpty();   // 护盾空 → 反震失去载体(D1 Task 9)
-            }
-            ApplyMoraleShield();   // 金气(D2-金 J8b):清盾之后、TurnStarted 之前;没挂时一次判断即返回
+            // 护盾战斗内不随回合清空(spec 2026-10-13 §1,取消 2026-10-04 的 U1):玩家与召唤物护盾一直留到
+            // 被打掉 / 被消耗 / 被倾覆清空,反震等载体随之在那一刻移除(DropShieldRecoilIfEmpty)。
+            ApplyMoraleShield();   // 金气(D2-金 J8b):TurnStarted 之前;没挂时一次判断即返回
             EnqueueTurnPulses();   // 大雨滂沱(D2-水 W7):同一时点入队,TurnStarted 之后的安全点兑现;没挂时一次判断即返回
-            _playerTurnsStarted++;
             Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             DrainReactions();   // 安全点:「回合开始时」类反应排在玩家灼烧结算之前
             SettlePlayerBurn();
@@ -4592,8 +4579,8 @@ namespace Brushblade.Core
                             }
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
-                        // 它是额外血条 —— 吸完即无、不刷新;U1(2026-10-04)起剩余部分在玩家下一
-                        // 回合开始时清空(召唤物本身就是消耗品)。盾是「资源」,跟血/攻一样吃卡等级
+                        // 它是额外血条 —— 吸完即无、不刷新;战斗内不随回合清空(2026-10-13 取消 U1)。
+                        // 盾是「资源」,跟血/攻一样吃卡等级
                         if (effect.SummonShield > 0)
                         {
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);

@@ -311,7 +311,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Topple_ClearsAllShieldAndCutsNextTurnAp()
         {
-            // 第 1 回合立护盾 20 吃普攻,蓄力回合过去,第 3 回合再叠护盾 20 再交回合(倾覆那一拍护盾 20)
+            // 第 1 回合立护盾 20 吃普攻(剩 15,2026-10-13 起跨回合保留),蓄力回合过去,第 3 回合再叠护盾 20 再交回合(倾覆那一拍护盾 35)
             var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
                 new string[0], new[] { "壁", "盾", "壁", "盾", "火", "林" },
                 new[] { SkillBoss(BossSkill.Topple) }, seed: 1);
@@ -321,10 +321,10 @@ namespace Brushblade.Core.Tests
 
             EndTurns(engine, 2); // 普攻(吃 5 点)+ 蓄力
             Assert.That(engine.Cast("盾"), Is.EqualTo(BattleError.None), "第 3 回合叠护盾 20");
-            Assert.That(engine.ShieldNormal, Is.EqualTo(20));
+            Assert.That(engine.ShieldNormal, Is.EqualTo(35), "15 + 20");
             engine.EndTurn(); // 倾覆(伤害 Attack×2=10)
 
-            // 结算顺序探针:倾覆先吸伤再清盾——伤害 10 应被盾吸收(20→10),HP 不掉;
+            // 结算顺序探针:倾覆先吸伤再清盾——伤害 10 应被盾吸收(35→25),HP 不掉;
             // 若实现被写反(先清盾再结算伤害),这 10 点伤害直接打进 HP,PlayerHp 会少 10。
             Assert.That(engine.PlayerHp, Is.EqualTo(full), "倾覆伤害应被吸盾挡下,验证先吸伤再清盾的结算顺序");
             Assert.That(engine.PlayerShield, Is.EqualTo(0), "倾覆清空护盾");

@@ -211,7 +211,7 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             Assert.That(b.PlayerShield, Is.EqualTo(40), "战意满:下回合开始获得护盾");
             b.EndTurn();
-            Assert.That(b.PlayerShield, Is.EqualTo(40), "护盾回合末清空后重新发,不累积");
+            Assert.That(b.PlayerShield, Is.EqualTo(80), "护盾不随回合清空(2026-10-13 取消 U1):每回合再发一份,累加");
         }
 
         [Test]
@@ -234,7 +234,7 @@ namespace Brushblade.Core.Tests
             Assert.That(b.PlayerShield, Is.EqualTo(40));
             SetMorale(b, 0);
             b.EndTurn();
-            Assert.That(b.PlayerShield, Is.EqualTo(0), "战意被清空 → 金气停发");
+            Assert.That(b.PlayerShield, Is.EqualTo(40), "战意被清空 → 金气停发(不再加);已发的盾跨回合保留");
         }
 
         [Test]
@@ -249,16 +249,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void GoldAura_ShieldComesAfterClear()
+        public void GoldAura_ShieldAddsOntoKeptShield()
         {
-            // 先在上一轮攒盾,再进新回合:旧盾被清,新盾 = 金气那一份(不是 旧盾 + 金气)
+            // 先在上一轮攒盾,再进新回合:旧盾保留(2026-10-13 取消 U1),金气那一份叠在上面
             var shielder = new CharDef("盾", Element.Heart, effects: new[] { new EffectDef(EffectKind.Shield, 90) });
             var b = Battle(new[] { GoldAura(), shielder });
             b.Cast("气", -1); b.Cast("盾", -1);
             SetMorale(b, Config.MoraleCap);
             Assert.That(b.PlayerShield, Is.EqualTo(90));
             b.EndTurn();
-            Assert.That(b.PlayerShield, Is.EqualTo(40), "先清盾,再发金气");
+            Assert.That(b.PlayerShield, Is.EqualTo(130), "旧盾 90 + 金气 40");
         }
 
         // ---------------- 状态属性:本场 / 存档 ----------------

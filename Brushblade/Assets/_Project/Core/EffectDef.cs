@@ -203,8 +203,8 @@ namespace Brushblade.Core
         HurtHeal,       // 栉风沐雨:给玩家挂 StatusKind.HurtHeal,Turns 回合(必填)内玩家被敌人挥击命中(damage > 0)时回复
                         // 这次伤害(减伤后、含护盾吸收)× Value%。每回合 1 次;不吃泉放大、不攒泉;判负之后不触发(Q12)。离散。非敌对。
         ShieldFrost,    // 冰晶:本次出字给玩家实际加了盾(ShieldGranted > 0)才挂 StatusKind.ShieldFrost;敌人挥击把护盾打到 0 时
-                        // 冻结攻击者 Value 回合(反应,安全点兑现;Boss → 冰滞)并移除。回合初 / 倾覆清盾只移除(Q15)。离散。非敌对。
-        TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(清盾之后、TurnStarted 之前)
+                        // 冻结攻击者 Value 回合(反应,安全点兑现;Boss → 冰滞)并移除。被消耗 / 倾覆清盾只移除(Q15)。离散。非敌对。
+        TurnPulse,      // 大雨滂沱:给玩家挂 StatusKind.TurnPulse,Turns 回合(必填);之后每个玩家回合开始(TurnStarted 之前)
                         // 把 PerHit 里的效果入队一条反应(目标 −1:敌方效果按其 pick,我方效果落玩家),触发时按来源字等级缩放(Q17)。
                         // PerHit 白名单见 BattleEngine.TurnPulseAllows(不收伤害)。Value 不用。非敌对。
         // ---- D2-土 Task 2:护盾操作族(附录 G1 / G8 / G9)。⚠ 只在末尾追加 ----

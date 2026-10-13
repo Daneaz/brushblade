@@ -98,7 +98,7 @@ namespace Brushblade.Core
         /// DamageSummon 与表现层(木灵详情 / 战场护甲 chip)共用,显示的数与受击结算同源。</summary>
         public int SummonDefense(SummonState summon) => summon.EffectiveDefense + MoraleArmorBonus;
 
-        /// <summary>金气(J8b):玩家回合开始、清盾之后、TurnStarted 之前,战意 ≥ 上限就加盾(只给玩家)。没挂金气时一次判断即返回。</summary>
+        /// <summary>金气(J8b):玩家回合开始、TurnStarted 之前,战意 ≥ 上限就加盾(只给玩家)。没挂金气时一次判断即返回。</summary>
         private void ApplyMoraleShield()
         {
             var aura = _playerStatuses.Find(StatusKind.MoraleShield);

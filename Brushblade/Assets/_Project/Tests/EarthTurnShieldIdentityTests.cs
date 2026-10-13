@@ -6,12 +6,12 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>Plan D2-土 Task 2 第一步(附录 G9 前置):BeginPlayerTurn 清盾段在**没有 ShieldCarry**时逐位恒等的对照。
-    /// G9 浮屠要在「清普通桶 → 判空移除载体」之间插一段加回;trace 杂食画像从不出土的固面(Shield 事件 0 条),
-    /// 普通桶 / 留存桶 / 反震 / 冰晶 / 金气 / 回合脉冲这一段 trace 守不住,只能靠这条对照。
+    /// <summary>Plan D2-土 Task 2 第一步(附录 G9 前置):BeginPlayerTurn 回合开始段(护盾 / 反震 / 冰晶 / 金气 / 回合脉冲)逐位恒等的对照。
+    /// trace 杂食画像从不出土的固面(Shield 事件 0 条),这一段 trace 守不住,只能靠这条对照。
+    /// 2026-10-13(护盾回合保留 Task 4):回合清盾(U1)删除,护盾与载体跨回合保留;两条指纹按新口径重取。
     ///
-    /// 场景:普通盾 + 反震、留存盾、冰晶、金气(战意满)、回合脉冲、木灵群体护盾,三只敌人每轮挥击;
-    /// 第一条留存桶兜住载体(木灵在场、敌人打木灵),第二条只有普通盾、回合初两桶全空让载体随清盾移除。
+    /// 场景:普通盾 + 反震、第二份护盾、冰晶、金气(战意满)、回合脉冲、木灵群体护盾,三只敌人每轮挥击;
+    /// 第二条只有护盾 + 载体,钉住「护盾没被打空时载体跨回合仍在」。
     ///
     /// 指纹 = 每拍事件(种类 / 下标 / 量 / 副下标 / 吸收 / 来源)+ 钩子序列 + 两桶护盾 + 玩家状态袋(种类 / 量 / 剩余回合)
     /// + 木灵护盾 / 血量 + 敌我血量 + 三条随机流。期望值是 G9 改动前(HEAD d8af3773)跑出来的。</summary>
@@ -31,7 +31,7 @@ namespace Brushblade.Core.Tests
             new EffectDef(EffectKind.HealSelf, 100), new EffectDef(EffectKind.ShieldFromHeal, 100),
             new EffectDef(EffectKind.ShieldFrost, 1),
         });
-        // 金气 + 战意补满:每个回合开始清盾之后加盾
+        // 金气 + 战意补满:每个回合开始加盾
         private static readonly CharDef Aura = RebalanceFixture.Char("气",
             new EffectDef(EffectKind.Morale, 5), new EffectDef(EffectKind.MoraleShield, 40));
         // 回合脉冲:回合开始加盾
@@ -98,7 +98,7 @@ namespace Brushblade.Core.Tests
             return h.ToString("x16") + " " + raw.Length;
         }
 
-        /// <summary>普通盾 + 留存盾 + 全部载体:回合初清普通桶、留存桶兜住反震 / 冰晶;金气与回合脉冲在清盾后加盾。</summary>
+        /// <summary>护盾 + 全部载体:护盾跨回合累加,金气与回合脉冲在回合开始加盾。</summary>
         [Test]
         public void BothBuckets_WithCarriers_Identical()
         {
@@ -115,42 +115,43 @@ namespace Brushblade.Core.Tests
                 Do(x, "击", t % 3, sb);
                 if (x.ShieldNormal > 0) sawNormalAtEnd = true;
             }, 7);
-            Assert.That(sawNormalAtEnd, Is.True, "场景确实带着普通盾进回合初清盾(否则对照空转)");
+            Assert.That(sawNormalAtEnd, Is.True, "场景确实带着护盾进下一回合(否则对照空转)");
             Assert.That(fp, Is.EqualTo(BothExpected), fp);
         }
 
-        /// <summary>只有普通盾:回合初清空后两桶全空,反震 / 冰晶随清盾移除(无金气 / 脉冲补盾)。</summary>
+        /// <summary>只有护盾 + 载体(无金气 / 脉冲补盾):护盾没被打空时,反震 / 冰晶跨回合保留(2026-10-13 取消 U1)。</summary>
         [Test]
-        public void NormalOnly_CarriersDropped_Identical()
+        public void NormalOnly_CarriersKept_Identical()
         {
             var log = new HookLog();
             var b = Battle(log);
-            // 防空转:上回合末带着载体与普通盾进敌方段,敌方挥击没把盾打空(否则载体在受击路径就被移除了),
-            // 而本回合初两桶全空、载体已不在 —— 这只能是 BeginPlayerTurn 清盾段那一支移除的。
+            // 防空转:上回合末带着载体与护盾进敌方段,敌方挥击没把盾打空,
+            // 本回合开始护盾仍在、载体也仍在 —— 回合开始不再清盾。
             bool prevCarriers = false;
             int prevNormal = 0;
-            bool sawTurnStartDrop = false;
+            bool sawCarriersKept = false;
             string fp = Fingerprint(b, log, (x, t, sb) =>
             {
                 if (t > 0 && prevCarriers)
                 {
                     int absorbed = x.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed);
-                    if (prevNormal - absorbed > 0 && x.PlayerShield == 0
-                        && !x.PlayerStatuses.Has(StatusKind.ShieldRecoil) && !x.PlayerStatuses.Has(StatusKind.ShieldFrost))
-                        sawTurnStartDrop = true;
+                    if (prevNormal - absorbed > 0 && x.PlayerShield == prevNormal - absorbed
+                        && x.PlayerStatuses.Has(StatusKind.ShieldRecoil) && x.PlayerStatuses.Has(StatusKind.ShieldFrost))
+                        sawCarriersKept = true;
                 }
                 if (t % 2 == 0) { Do(x, "护", -1, sb); Do(x, "冰", -1, sb); }
                 Do(x, "击", t % 3, sb);
                 prevCarriers = x.PlayerStatuses.Has(StatusKind.ShieldRecoil) || x.PlayerStatuses.Has(StatusKind.ShieldFrost);
                 prevNormal = x.ShieldNormal;
             }, 6);
-            Assert.That(sawTurnStartDrop, Is.True, "场景确实走到「回合初两桶全空、载体随清盾移除」那一支(否则对照空转)");
+            Assert.That(sawCarriersKept, Is.True, "场景确实走到「护盾没打空、载体跨回合保留」(否则对照空转)");
             Assert.That(fp, Is.EqualTo(NormalOnlyExpected), fp);
         }
 
         // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
         // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
-        private const string BothExpected = "4ba60d0779680e47 6831";
-        private const string NormalOnlyExpected = "481d5617cbb1cc49 4270";
+        // 2026-10-13(同 plan Task 4):删回合清盾,两条指纹重取。
+        private const string BothExpected = "987867169f66d64b 7102";
+        private const string NormalOnlyExpected = "699d659d29a59d42 4673";
     }
 }

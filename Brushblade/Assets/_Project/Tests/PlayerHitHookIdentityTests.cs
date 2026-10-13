@@ -11,7 +11,7 @@ namespace Brushblade.Core.Tests
     /// 是 trace 每局必经。W5 受击回复、W6 冰晶、W7 回合脉冲都要挂在这两处,袋里没有对应状态时必须逐位恒等。
     ///
     /// 场景覆盖:普通挥击打护盾(两桶,含打空)、致盲摇号打空、镜反弹、减伤、反震(打空即移除)、受击回敬入队、
-    /// 铁画反噬(allowReflect = false)、灯花上灼、Boss 倾覆清盾、回合初清盾 + 金气加盾。
+    /// 铁画反噬(allowReflect = false)、灯花上灼、Boss 倾覆清盾、回合开始金气加盾(2026-10-13 起回合初不再清盾)。
     /// 指纹 = 每拍事件 + 出字结果 + 钩子(PlayerHit / StatusApplied)+ 玩家 / 敌人状态袋 + 血量 / 两桶护盾 + 三条随机流。
     /// 期望值是 W5–W7 改动前(HEAD 81b708c4)跑出来的。
     ///
@@ -68,7 +68,7 @@ namespace Brushblade.Core.Tests
                 OnHit = new List<OpeningEffect>
                     { new OpeningEffect { SourceCharId = "护", Element = Element.Earth, Kind = EffectKind.Weaken, Value = 10, Turns = 1 } },
             });
-            // 金气:战意 ≥ 上限 → 每回合清盾之后加盾
+            // 金气:战意 ≥ 上限 → 每回合开始加盾
             p.Apply(new StatusEffect { Kind = StatusKind.Morale, Polarity = StatusPolarity.Buff, Magnitude = 99, TurnsLeft = -1 });
             p.Apply(new StatusEffect { Kind = StatusKind.MoraleShield, Polarity = StatusPolarity.Buff, Magnitude = 30, TurnsLeft = -1 });
             // 致盲让命中判定摇号(打空那一支)
@@ -142,7 +142,9 @@ namespace Brushblade.Core.Tests
 
         // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
         // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
-        private const string ExpectedNoRetaliate = "06361cecbb95ed93 9639";
-        private const string ExpectedWithRetaliate = "c48060232ad2d874 10931";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "06361cecbb95ed93 9639")。
+        private const string ExpectedNoRetaliate = "7baf6c8b2ca2675c 9788";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "c48060232ad2d874 10931")。
+        private const string ExpectedWithRetaliate = "c7c7b8fc738c977b 11080";
     }
 }

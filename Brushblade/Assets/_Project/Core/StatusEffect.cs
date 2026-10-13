@@ -107,7 +107,7 @@ namespace Brushblade.Core
         // ---- D2-金 Task 4(附录 J8) ----
         MoraleArmor,      // 富甲(玩家,隐藏载体):EffectivePlayerDefense 与木灵护甲各 +战意层数 × Magnitude(随战意即时变化,不快照);
                           // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
-        MoraleShield,     // 金气(仅玩家,隐藏载体):每个玩家回合开始(清盾之后、TurnStarted 之前),战意 ≥ MoraleCap 则加盾 Magnitude;
+        MoraleShield,     // 金气(仅玩家,隐藏载体):每个玩家回合开始(TurnStarted 之前),战意 ≥ MoraleCap 则加盾 Magnitude;
                           // TurnsLeft = -1,本场持续(IsBattleScoped),同类取最强。
         // ---- D2-水 Task 2:冻结附着族(附录 W1,仅敌人,隐藏载体,不画 chip;全部挂在冻结上,SourceId = 字 ID、
         // TraitKey = 特性键,TurnsLeft = -1;冻结结束 / 被解冻时 OnFreezeEnd 结算后随 DropRiders 移除) ----

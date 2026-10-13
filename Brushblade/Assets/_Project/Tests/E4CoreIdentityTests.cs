@@ -197,6 +197,7 @@ namespace Brushblade.Core.Tests
             Assert.That(Hash(sb.ToString()), Is.EqualTo(CastHotPathExpected), sb.ToString());
         }
 
-        private const string CastHotPathExpected = "fecc792f7c174146 7006";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "fecc792f7c174146 7006")。
+        private const string CastHotPathExpected = "3236e9fbe28965b2 7011";
     }
 }

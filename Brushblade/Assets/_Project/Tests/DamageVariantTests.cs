@@ -263,9 +263,10 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
                 "免疫层数一点没掉");
-            // 2026-10-04 U1:回到玩家回合时普通护盾已被清空,不能再比 PlayerShield;改看敌方段里没有任何吸收
+            // 两头都断:敌方段零吸收;护盾跨回合保留(2026-10-13 取消 U1),回到玩家回合仍原封不动
             Assert.That(engine.LastEvents.Where(e => e.Kind == BattleEventKind.EnemyAttack).Sum(e => e.Absorbed),
                 Is.EqualTo(0), "护盾一点没掉");
+            Assert.That(engine.PlayerShield, Is.EqualTo(shieldBefore));
 
             // 修复 3(Minor,2026-08-08):顺带确认打玩家那条路径(不经召唤物)的 Missed
             // 事件 SecondIndex 是 -1,与打召唤物那条(BlindPlusDodge_SummonTakesNothing)

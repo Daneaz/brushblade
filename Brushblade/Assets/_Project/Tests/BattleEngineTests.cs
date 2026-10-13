@@ -108,10 +108,9 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Shield_AbsorbsEnemyTurn() // 带入的护盾先于生命吃掉敌方攻击
+        public void Shield_AbsorbsEnemyTurn() // 带入的护盾先于生命吃掉敌方攻击,剩余跨回合保留
         {
-            // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收。
-            // 2026-10-13:留存桶取消,吸收后剩余的护盾在 U1 回合清盾下会被清掉(Task 4 删清盾后改回断言剩 2),这里只看吸收本身
+            // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收(2026-10-13 起护盾不随回合清空)
             var engine = new BattleEngine(Graph(), Config(),
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { WoodMinion(hp: 100) }, seed: 42, startingHp: 50, cardLevels: null,
@@ -119,6 +118,7 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();                 // 敌方攻击 3,护盾吸收
             Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack).Absorbed, Is.EqualTo(3));
             Assert.That(engine.PlayerHp, Is.EqualTo(50));    // 护盾垫住,血未掉
+            Assert.That(engine.PlayerShield, Is.EqualTo(2)); // 5 − 3,剩余留到下一回合
         }
 
         // ---- 护甲增益(土系,2026-08-03 起为减伤%;2026-08-12 E-b4 T3 改点数):
@@ -492,13 +492,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_NormalShieldClearedNextTurn() // 先吸伤;普通护盾下一玩家回合开始清空(U1)
+        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_RemainderKept() // 先吸伤;剩余护盾跨回合保留(2026-10-13 取消 U1)
         {
             var engine = Engine(library: new[] { "锢" }, enemies: new[] { MetalBoss() }); // 攻 5
             engine.Cast("锢"); // 护盾 8(相生 ×3 已取消)
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 8 盾吸收攻 5,不掉血
-            Assert.That(engine.PlayerShield, Is.EqualTo(0)); // 2026-10-04 U1:剩余 3 点在下一玩家回合开始被清空(原断言 3)
+            Assert.That(engine.PlayerShield, Is.EqualTo(3)); // 8 − 5,剩余 3 点留到下一回合
             Assert.That(engine.Turn, Is.EqualTo(2));
             Assert.That(engine.Ap, Is.EqualTo(3)); // AP 不跨回合保留,重置为 3
         }
@@ -658,15 +658,17 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Bao_ShieldAbsorbsEnemyTurn() // 堡:护盾挡下敌方这一拍
+        public void Bao_ShieldPersistsThroughTurns() // 堡:护盾战斗内持久,多轮保留(2026-10-13 取消 U1)
         {
-            // 2026-10-13:堡的留存护盾随留存桶取消;多轮保留归 Task 4(删回合清盾)后再断言
             var engine = Engine(library: new[] { "堡" }, enemies: new[] { WoodMinion(hp: 200) }); // 攻 3
             engine.Cast("堡");   // 护盾 10(呆中性+土,无相生)
             Assert.That(engine.PlayerShield, Is.EqualTo(10));
-            engine.EndTurn();    // 吸收 3
+            engine.EndTurn();    // 吸收 3 → 7
             Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack).Absorbed, Is.EqualTo(3));
-            Assert.That(engine.PlayerHp, Is.EqualTo(50));
+            Assert.That(engine.PlayerShield, Is.EqualTo(7));
+            engine.EndTurn();    // 吸收 3 → 4
+            Assert.That(engine.PlayerShield, Is.EqualTo(4));
+            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 两轮攻击全被盾挡
         }
 
         // ---- 胜负(3.8.4) ----

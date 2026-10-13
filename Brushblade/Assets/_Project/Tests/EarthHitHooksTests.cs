@@ -297,12 +297,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ShieldShatter_NotBroken_NoReflect_StaysUntilBroken()
         {
-            // 30 没打穿不反伤;同一敌方段里第二只 300 打穿剩下的 70 才反伤
-            // (2026-10-13 起留存桶取消:跨回合的「没打穿就留着」归 Task 4 删回合清盾后再断言)
+            // 30 没打穿不反伤,护盾与碎玉跨回合保留(2026-10-13 取消回合清盾);同一敌方段里第二只 300 打穿剩下的 70 才反伤
             var b = Battle(new[] { Jade(100) }, new[] { Mob(30) });
             b.Cast("碎", -1);
-            b.EndTurn();
-            Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(0));
+            for (int round = 1; round <= 2; round++)
+            {
+                b.EndTurn();
+                Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(0));
+                Assert.That(b.PlayerShield, Is.EqualTo(100 - 30 * round), $"第 {round} 回合:盾没打穿,剩余保留");
+                Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldShatter), Is.True, $"第 {round} 回合:没打穿时碎玉仍挂着");
+            }
 
             var b2 = Battle(new[] { Jade(100) }, new[] { Mob(30), Mob(300) });
             b2.Cast("碎", -1);

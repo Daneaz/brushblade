@@ -339,8 +339,10 @@ namespace Brushblade.Core.Tests
         // Plan E3 Task 1(Q14):Graft 事件的 Amount 由恒 0 改为回复量 —— 指纹只因这一个字段变化(原值 "40191a65b2438a21 9264";
         // 把 Amount 临时写回 0 时本测试原样通过,已核验)。
         private const string GraftExpected = "6b74b2e958eb187a 9266";
-        private const string SummonFamilyExpected = "e524cbf0cff04a05 18948";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "e524cbf0cff04a05 18948")。
+        private const string SummonFamilyExpected = "96f77c3695d381ea 18976";
         private const string ThornsExpected = "5a776f5f6463ca6d 7005";
-        private const string CarryExpected = "2944619ae0101fd6 403";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "2944619ae0101fd6 403")。
+        private const string CarryExpected = "92e2ba139f7c4649 405";
     }
 }

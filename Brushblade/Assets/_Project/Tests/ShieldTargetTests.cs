@@ -153,8 +153,7 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
 
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(hpBefore), "30 伤全被 50 盾吃掉");
-            // 2026-10-04 U1:剩下的 20 点在回到玩家回合时清空(原断言 20)
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(20), "50 − 30,剩余跨回合保留");
         }
 
         [Test]

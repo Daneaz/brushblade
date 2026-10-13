@@ -278,10 +278,13 @@ namespace Brushblade.Core.Tests
                 cardLevels: new Dictionary<string, int> { ["㙓"] = 8 },
                 startingSummons: new[]
                 {
-                    new SummonSnapshot { Slot = 0, Char = "木", SourceChar = "林", Element = Element.Wood, Hp = 300, MaxHp = 300,
+                    // MaxHp 给足 3000:木灵盾跨回合累加(2026-10-13 取消 U1),300 的上限会在出字(载物)时就钳满
+                    new SummonSnapshot { Slot = 0, Char = "木", SourceChar = "林", Element = Element.Wood, Hp = 3000, MaxHp = 3000,
                         Attack = 10, Speed = 100, Statuses = new List<StatusEffect>() },
                 });
             Cast(b, "㙓", -1, attack: false);
+            int playerShield = b.PlayerShield;
+            Assert.That(playerShield, Is.GreaterThan(0), "前置:出字给了玩家护盾");
             var pulse = b.PlayerStatuses.Find(StatusKind.TurnPulse);
             Assert.That(pulse?.TurnsLeft, Is.EqualTo(-1), "本场持续");
             Assert.That((pulse.OnHit[0].Kind, pulse.OnHit[0].Value, pulse.OnHit[0].OfPlayerShield),
@@ -290,7 +293,8 @@ namespace Brushblade.Core.Tests
             {
                 b.EndTurn();
                 var spirit = b.LastEvents.Where(e => e.Kind == BattleEventKind.Shield && e.TargetIndex == 0).Select(e => e.Amount).ToList();
-                Assert.That(spirit, Is.EqualTo(new[] { b.PlayerShield / 10 }), $"第 {t} 个回合开始:木灵得玩家当前护盾 10%");
+                Assert.That(b.PlayerShield, Is.EqualTo(playerShield), $"第 {t} 个回合开始:玩家护盾跨回合保留");
+                Assert.That(spirit, Is.EqualTo(new[] { playerShield / 10 }), $"第 {t} 个回合开始:木灵得玩家当前护盾 10%");
             }
             Assert.That(b.PlayerStatuses.Find(StatusKind.TurnPulse)?.TurnsLeft, Is.EqualTo(-1));
         }

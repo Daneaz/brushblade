@@ -705,8 +705,7 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(6));
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "血量不动");
-            // 2026-10-04 U1:盾从 6 扣到 2 后,剩下的 2 点在回到玩家回合时清空(原断言 2)
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "6 盾吃一击后余 2,下一玩家回合开始清空");
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(2), "6 盾吃一击后余 2,跨回合保留");
         }
 
         [Test]

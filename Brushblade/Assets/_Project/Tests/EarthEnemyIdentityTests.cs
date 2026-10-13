@@ -178,6 +178,7 @@ namespace Brushblade.Core.Tests
         private const string KillExpected = "d9d7f014f6dc5655 6469";
         // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
         // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
-        private const string BossExpected = "d4aa3156089da689 20729";
+        // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "d4aa3156089da689 20729")。
+        private const string BossExpected = "bce33c438e5110c1 20746";
     }
 }
