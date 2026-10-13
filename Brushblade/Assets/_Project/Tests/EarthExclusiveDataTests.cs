@@ -8,7 +8,7 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>Plan D2-土 Task 6:土系 35 格专属特性的数据落表 —— 读真实 chars.json。
     /// 先用一张表钉死「每条特性落在正确的 (槽, 面, 形态),效果按书写顺序、关键字段逐条对得上特性表那一行」,
-    /// 再按机制类别各取一条做集成测试(地裂 5 击上限、塔倾减半、浮屠三次、堡垒逐击、碎玉进预算、粉身碎骨平分、
+    /// 再按机制类别各取一条做集成测试(地裂 5 击上限、塔倾减半、积土成山三次、七级浮屠计层、厚德载物本场、堡垒逐击、碎玉进预算、粉身碎骨平分、
     /// 杜塞 Boss 半伤、杜门不出每场一次、圭臬战后不携带、对峙开局护甲 5 场、山岳门槛)。
     /// 机制本身的单元级测试在 Earth* 系列;这里只证明「那一行写出来的配置在真字上接上了」。
     ///
@@ -78,6 +78,8 @@ namespace Brushblade.Core.Tests
             if (e.ArmorStrikeEach) p.Add("armorStrikeEach");
             if (e.PersistOnce) p.Add("persist");
             if (e.OfShield) p.Add("ofShield");
+            if (e.PerShieldTenth) p.Add("perShieldTenth");
+            if (e.OfPlayerShield) p.Add("ofPlayerShield");
             if (e.MinArmor != 0) p.Add($"minArmor {e.MinArmor}");
             if (e.WardCount != 0) p.Add($"wardCount {e.WardCount}");
             if (e.PerHit.Count > 0) p.Add("perHit[" + string.Join(";", e.PerHit.Select(Sig)) + "]");
@@ -94,7 +96,7 @@ namespace Brushblade.Core.Tests
         private static readonly (string Ch, TraitSlot Slot, TraitFace Face, string Name, string Sigs)[] Table =
         {
             ("碉", L8, Ftr, "碉楼", "ShieldSummons 50 ofShield"),
-            ("垒", L8, Ftr, "垒砌", "Reshape 0 persist"),
+            ("垒", L8, Ftr, "积土成山", "Amplify 30 scope Shield|TurnPulse 0 turns 3 perHit[Shield 16]"),
             ("壁", L8, Ftr, "铜墙铁壁", "HitCap 10"),
             ("堡", L5, Atk, "据守反击", "Reshape 0 shieldStrike 30"),
             ("堡", L8, Ftr, "堡垒", "HurtShield 44 turns 2"),
@@ -106,7 +108,7 @@ namespace Brushblade.Core.Tests
             ("塔", L4, Ftr, "塔基", "Reshape 0 armorShield 300"),
             ("塔", L5, Atk, "塔倾", "Reshape 0 shieldStrike 50|ShieldSpend 50"),
             ("塔", L8, Atk, "镇塔", "Reshape 0 armorStrike 500|Weaken 30 turns 2"),
-            ("塔", L8, Ftr, "浮屠", "ShieldCarry 50 turns 3"),
+            ("塔", L8, Ftr, "七级浮屠", "DefenseBuff 8 turns 4 cap 7 perShieldTenth"),
             ("杜", L4, Both, "杜绝", "DebuffWard 0 turns 1 wardCount 1"),
             ("杜", L5, Atk, "杜塞", "Silence 0 turns 2 if NotBoss|SkillCut 50 if IsBoss"),
             ("杜", L6, Ftr, "闭门", "Shield 63 battles 1"),
@@ -129,7 +131,7 @@ namespace Brushblade.Core.Tests
             ("㙓", L5, Ftr, "厚土", "Amplify 50 scope Shield|AddHeft 2"),
             ("㙓", L6, Ftr, "载物", "ShieldSummons 50 ofShield"),
             ("㙓", L8, Atk, "地动", "Reshape 0 shape All shieldStrike 30|ArmorBreak 45 turns 2 pick All"),
-            ("㙓", L8, Ftr, "厚德载物", "Amplify 100 scope Shield|Reshape 0 persist"),
+            ("㙓", L8, Ftr, "厚德载物", "Amplify 100 scope Shield|TurnPulse 0 turns -1 perHit[ShieldSummons 10 ofPlayerShield]"),
         };
 
         [Test]
@@ -177,10 +179,14 @@ namespace Brushblade.Core.Tests
             Assert.That((lie.ScaleBy, lie.ScaleDivisor, lie.ScaleCap, lie.Shape), Is.EqualTo((ScaleBasis.Shield, 100, 4, TargetArea.All)));
             // 塔 Lv4 固:本体护盾 + 护甲 × 300%(E30)
             Assert.That(Folded("塔", CardFace.Feature, 4, EffectKind.Shield).ArmorShieldPercent, Is.EqualTo(300));
-            // 垒 Lv8 / 㙓 Lv8 固:本次护盾为留存(E29)
-            Assert.That(Folded("垒", CardFace.Feature, 8, EffectKind.Shield).PersistOnce, Is.True);
-            Assert.That(Folded("㙓", CardFace.Feature, 8, EffectKind.Shield).PersistOnce, Is.True);
-            Assert.That(Folded("㙓", CardFace.Feature, 7, EffectKind.Shield).PersistOnce, Is.False, "对照:Lv7 没有厚德载物");
+            // 垒 Lv8 / 㙓 Lv8 固:回合脉冲落进出字效果(积土成山 3 回合 / 厚德载物本场);Lv7 没有
+            Assert.That(Folded("垒", CardFace.Feature, 8, EffectKind.TurnPulse).Turns, Is.EqualTo(3));
+            Assert.That(Folded("㙓", CardFace.Feature, 8, EffectKind.TurnPulse).Turns, Is.EqualTo(-1));
+            Assert.That(TraitRules.CastEffects(Graph.Get("㙓"), CardFace.Feature, 7).Any(e => e.Kind == EffectKind.TurnPulse), Is.False,
+                "对照:Lv7 没有厚德载物");
+            // 塔 Lv8 固:七级浮屠的按护盾计层护甲跟在本体护甲之后
+            Assert.That(TraitRules.CastEffects(Graph.Get("塔"), CardFace.Feature, 8).Count(e => e.Kind == EffectKind.DefenseBuff && e.PerShieldTenth),
+                Is.EqualTo(1));
             // 圭 Lv6 固:第一条护甲本场持续(E34);㙓 Lv4 固:护甲 4 + 4 = 8 回合
             Assert.That(Folded("圭", CardFace.Feature, 6, EffectKind.DefenseBuff).Turns, Is.EqualTo(-1));
             Assert.That(Folded("㙓", CardFace.Feature, 4, EffectKind.DefenseBuff).Turns, Is.EqualTo(8));
@@ -223,20 +229,72 @@ namespace Brushblade.Core.Tests
             Assert.That(bare, Is.EqualTo(132), "钉值:本体 106 按 Lv5");
         }
 
-        // ================= 浮屠:之后 3 个回合开始,加回被清掉普通桶的 50%(Q4) =================
+        // ================= 积土成山:之后 3 个玩家回合开始各得护盾 16(按来源字等级缩放) =================
 
         [Test]
-        public void FuTu_AddsBackHalfOfClearedNormal_ThreeTurnStarts()
+        public void JiTu_PulseShieldThreeTurnStarts_ScaledByLevel()
         {
-            var b = Battle("塔", 8, Mob());
+            var b = Battle("垒", 8, Mob());
+            Cast(b, "垒", -1, attack: false);
+            Assert.That(b.PlayerStatuses.Find(StatusKind.TurnPulse)?.TurnsLeft, Is.EqualTo(3));
+            for (int t = 1; t <= 3; t++)
+            {
+                b.EndTurn();
+                Assert.That(PlayerShieldEvents(b), Is.EqualTo(new[] { MetaRules.ScaleEffectValue(EffectKind.Shield, 16, 8) }), $"第 {t} 个回合开始");
+            }
+            b.EndTurn();
+            Assert.That(PlayerShieldEvents(b), Is.Empty, "三次之后到期");
+        }
+
+        // ================= 七级浮屠:出字结算完后,护盾每 10% 最大生命护甲 +8,最多 7 层,4 回合 =================
+
+        [Test]
+        public void QiJi_LayersFromShieldAfterCast()
+        {
+            int perLayer = MetaRules.ScaleEffectValue(EffectKind.DefenseBuff, 8, 8);
+            List<int> Armors(BattleEngine x) =>
+                x.PlayerStatuses.All.Where(s => s.Kind == StatusKind.DefenseBuff).Select(s => s.Magnitude).ToList();
+            var bare = Battle("塔", 8, Mob());
+            Cast(bare, "塔", -1, attack: false);
+            Assert.That(bare.PlayerShield, Is.EqualTo(151), "钉值:塔 Lv8 固面护盾 106 按 Lv8(出字时护甲 0,塔基不加)");
+            var body = Armors(bare);
+            Assert.That(body.Count, Is.EqualTo(1), "151 < 500:0 层不挂,只剩本体(破甲·强化)那条护甲");
+
+            var b = Battle("塔", 8, 2000, 0, Mob());
             Cast(b, "塔", -1, attack: false);
-            Assert.That(b.PlayerStatuses.Find(StatusKind.ShieldCarry)?.TurnsLeft, Is.EqualTo(3));
-            int start = b.ShieldNormal;
-            Assert.That(start, Is.EqualTo(151), "钉值:塔 Lv8 固面护盾 106 按 Lv8(出字时护甲 0,塔基不加)");
-            var normals = new List<int>();
-            for (int t = 0; t < 4; t++) { b.EndTurn(); normals.Add(b.ShieldNormal); }
-            Assert.That(normals, Is.EqualTo(new[] { start / 2, start / 2 / 2, start / 2 / 2 / 2, 0 }), "三次之后到期");
-            Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldCarry), Is.False);
+            Assert.That(b.PlayerShield, Is.EqualTo(2151));
+            Assert.That(Armors(b), Is.EqualTo(new[] { body[0], perLayer * 4 }), "2151 × 10 / 5000 = 4 层,排在本体护甲之后");
+            Assert.That(b.PlayerStatuses.All.Last(s => s.Kind == StatusKind.DefenseBuff).TurnsLeft, Is.EqualTo(4));
+
+            var full = Battle("塔", 8, MaxHp, 0, Mob());
+            Cast(full, "塔", -1, attack: false);
+            Assert.That(Armors(full), Is.EqualTo(new[] { body[0], perLayer * 7 }), "护盾顶满(10 层)钳 7");
+        }
+
+        // ================= 厚德载物:本场每个玩家回合开始,存活木灵各得玩家当前护盾 10% =================
+
+        [Test]
+        public void HouDe_PulseLastsBattle_SpiritsGetTenthOfPlayerShield()
+        {
+            var b = new BattleEngine(Graph, Config, Enumerable.Repeat("㙓", 6).ToArray(), Array.Empty<string>(), new[] { Mob() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["㙓"] = 8 },
+                startingSummons: new[]
+                {
+                    new SummonSnapshot { Slot = 0, Char = "木", SourceChar = "林", Element = Element.Wood, Hp = 300, MaxHp = 300,
+                        Attack = 10, Speed = 100, Statuses = new List<StatusEffect>() },
+                });
+            Cast(b, "㙓", -1, attack: false);
+            var pulse = b.PlayerStatuses.Find(StatusKind.TurnPulse);
+            Assert.That(pulse?.TurnsLeft, Is.EqualTo(-1), "本场持续");
+            Assert.That((pulse.OnHit[0].Kind, pulse.OnHit[0].Value, pulse.OnHit[0].OfPlayerShield),
+                Is.EqualTo((EffectKind.ShieldSummons, 10, true)));
+            for (int t = 1; t <= 4; t++)
+            {
+                b.EndTurn();
+                var spirit = b.LastEvents.Where(e => e.Kind == BattleEventKind.Shield && e.TargetIndex == 0).Select(e => e.Amount).ToList();
+                Assert.That(spirit, Is.EqualTo(new[] { b.PlayerShield / 10 }), $"第 {t} 个回合开始:木灵得玩家当前护盾 10%");
+            }
+            Assert.That(b.PlayerStatuses.Find(StatusKind.TurnPulse)?.TurnsLeft, Is.EqualTo(-1));
         }
 
         // ================= 堡垒:之后 2 回合,每次受击后获得护盾(定死于出字时,Q7) =================

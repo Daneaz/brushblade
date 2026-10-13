@@ -129,7 +129,8 @@ VALUELESS_EFFECTS = {
     # 栉风沐雨 `HurtHeal N`、冰晶 `ShieldFrost N` 带数值,走通用正则。
     "TurnPulse": {"kind": "TurnPulse", "value": 0},
     # D2-土 Task 2(附录 G1):地裂 `ShieldSpend` 不带数值 = 清两桶(100%);塔倾 `ShieldSpend 50` 带数值走通用正则。
-    # 整串带反引号匹配,`ShieldSpend` 不吞 `ShieldSpend 50`。土生金 `ShieldToMorale N`、浮屠 `ShieldCarry N` 带数值走通用正则。
+    # 整串带反引号匹配,`ShieldSpend` 不吞 `ShieldSpend 50`。土生金 `ShieldToMorale N` 带数值走通用正则。
+    # (浮屠 `ShieldCarry N` 已随回合清盾退役,spec 2026-10-13 §1;通用循环里大声拦下。)
     "ShieldSpend": {"kind": "ShieldSpend", "value": 100},
     # D2-木 Task 1 预留(Ruling 17;结算归 Task 2 / 4):箭灵 `SummonRanged`、绿潮 `SummonMerge`、四木成林 `SummonAct`,不带数值
     "SummonRanged": {"kind": "SummonRanged", "value": 0},
@@ -175,7 +176,6 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
                   "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
                   "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
-                  "ShieldCarry",               # D2-土 Task 2:回合初留盾(浮屠),同上
                   "HurtShield",                # D2-土 Task 3:受击得盾(堡垒),同上
                   "SummonEmpower", "SummonThorns", "ThornMark"}   # D2-木 Task 1 预留:木灵光环 / 荆刺,同上
 
@@ -379,13 +379,15 @@ RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vu
 # 敌方效果必须写 `pick All` 之类不选主目标的选择器;不能带条件门 / 附着 / 本体百分比。
 ON_TURN_TOKEN = "onTurn"
 TURN_PULSE_ALLOWED = {"Slow", "Freeze", "Weaken", "Blind", "HealSelf", "Shield", "AddWellspring",
-                      "Vulnerable"}   # D2-木 E50(一叶知秋)
+                      "Vulnerable",       # D2-木 E50(一叶知秋)
+                      "ShieldSummons"}    # 厚德载物(spec 2026-10-13 §2,配 `ofPlayerShield`)
 TURN_PULSE_ENEMY_KINDS = {"Slow", "Freeze", "Weaken", "Blind", "Vulnerable"}
 # 回合脉冲载荷的条件门只收与目标无关的 OwnSummonAlive(D2-木 E50,与 ConfigLoader 同口径)
 TURN_PULSE_CONDITIONS = {"OwnSummonAlive"}
 # 载荷存成 OpeningEffect,只带 kind / value / turns / targetAll / pick / shape / shapePercent;以下字段写了会被静默丢掉,一律拒绝
 # (与 ConfigLoader 回合脉冲校验同一张名单)
-TURN_PULSE_DROPPED_FIELDS = {"extend", "fill", "whileSlowed", "ofHeal", "scaleBy", "wardOf", "wardCount"}
+# `ofShield` 读本次出字的名义护盾,脉冲兑现时没有出字 —— 同样拒绝(`ofPlayerShield` 随 OpeningEffect 带过去,放行)
+TURN_PULSE_DROPPED_FIELDS = {"extend", "fill", "whileSlowed", "ofHeal", "scaleBy", "wardOf", "wardCount", "ofShield"}
 
 # ---- D2-金 Task 1(附录 E10 / E12 / E13)----
 # `hitsPerMorale`(大卸八块):本格 Reshape(没有则唯一的 DamageSingle)的击数 + 战意 → scaleBy Morale。
@@ -421,19 +423,23 @@ WARD_COUNT_TOKEN = "wardCount"
 WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak",
             "Vulnerable", "Charm", "HealBlock", "Doom"}
 
-# ---- D2-土 Task 1(附录 E29 / E30 / E31 / E36)----
-# `persist`(垒砌 / 厚德载物):本格 Reshape 的 persistOnce —— Fold 时把无伤害面的第一条护盾改为留存。
+# ---- D2-土 Task 1(附录 E30 / E31 / E36)----
+# (E29 `persist` 留存护盾已于 spec 2026-10-13 §1 随单桶化取消:不再消费,写了落进未消费 token 报错。)
 # `armorShield N`(塔基固面):本格 Reshape 的 armorShieldPercent —— 盾量 + 当前护甲 × N%。
 # `armorStrikeEach`(三山):本格 Reshape(没有则唯一的 DamageSingle)的逐发镇压,须配 `armorStrike N`。
 # `hitsPerShield N`(地裂):本格 Reshape(没有则唯一的 DamageSingle)击数 + ⌊出字前护盾 / N⌋ → scaleBy Shield + scaleDivisor N,
 # 可配 `cap N`(最多多打几击)。带数值的两个进通用循环的跳过名单,否则落成独立效果。
-PERSIST_TOKEN = "persist"
 ARMOR_SHIELD_TOKEN = "armorShield"
 ARMOR_STRIKE_EACH_TOKEN = "armorStrikeEach"
 HITS_PER_SHIELD_TOKEN = "hitsPerShield"
 # `ofShield`(碉楼 / 载物,E28):本格唯一 ShieldSummons 的量 = 本次名义护盾 × N%;`minArmor N`(山岳,E32):本格唯一 Retaliate 的护甲门槛。
 OF_SHIELD_TOKEN = "ofShield"
 MIN_ARMOR_TOKEN = "minArmor"
+# ---- 护盾回合保留 Task 2(spec 2026-10-13 §2)----
+# `perShieldTenth` [+ `cap N`](七级浮屠):本格唯一 DefenseBuff 的层数 = ⌊玩家护盾 × 10 / 最大生命⌋,cap → scaleCap。
+# `ofPlayerShield`(厚德载物):本格唯一 ShieldSummons 的量 = 玩家当前护盾 × N%(可写在 `onTurn` 段里)。
+PER_SHIELD_TENTH_TOKEN = "perShieldTenth"
+OF_PLAYER_SHIELD_TOKEN = "ofPlayerShield"
 
 # ---- D2-木 Task 1(附录 E41 / E43 / E46 / E47)----
 # `fromBody`(双木):本格唯一 SummonSapling 没有召出时取本字生面本体;`sprout`(丛藻):新幼苗记母体槽位;
@@ -538,7 +544,8 @@ def _attach_fire_ops(config, char, effects, consumed):
                              f"且只挂本格唯一的一条对应宿主 {SCALE_HOSTS}")
         hosts[0]["scaleBy"] = per[0]
     cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
-    if cap and f"`{HITS_PER_SHIELD_TOKEN} " not in config:   # 地裂的 cap 归 _attach_earth_ops
+    # 地裂 / 七级浮屠的 cap 归 _attach_earth_ops
+    if cap and f"`{HITS_PER_SHIELD_TOKEN} " not in config and f"`{PER_SHIELD_TENTH_TOKEN}`" not in config:
         consumed.add(CAP_TOKEN)
         hosts = [e for e in effects if e["kind"] == "Amplify" and "scaleBy" in e]
         if len(cap) > 1 or len(hosts) != 1 or int(cap[0]) < 1:
@@ -627,7 +634,8 @@ def _attach_metal_ops(config, char, effects, consumed):
 
 
 def _attach_earth_ops(config, char, effects, consumed):
-    """D2-土 Task 1:`ofShield` / `minArmor N` / `persist` / `armorShield N` / `armorStrikeEach` / `hitsPerShield N` [+ `cap N`]。
+    """D2-土 Task 1:`ofShield` / `minArmor N` / `armorShield N` / `armorStrikeEach` / `hitsPerShield N` [+ `cap N`];
+    护盾回合保留 Task 2:`perShieldTenth` [+ `cap N`] / `ofPlayerShield`。
     宿主不唯一或不存在一律报错。"""
     reshapes = [e for e in effects if e["kind"] == "Reshape"]
 
@@ -659,9 +667,22 @@ def _attach_earth_ops(config, char, effects, consumed):
         if len(min_armor) > 1 or int(min_armor[0]) < 1:
             raise ValueError(f"{char}:配置格「{config}」的 `{MIN_ARMOR_TOKEN}` 只能写一个,且须 ≥ 1")
         only("Retaliate", MIN_ARMOR_TOKEN)["minArmor"] = int(min_armor[0])
-    if f"`{PERSIST_TOKEN}`" in config:
-        consumed.add(PERSIST_TOKEN)
-        reshape_host(PERSIST_TOKEN)["persistOnce"] = True
+    if f"`{OF_PLAYER_SHIELD_TOKEN}`" in config:
+        consumed.add(OF_PLAYER_SHIELD_TOKEN)
+        host = only("ShieldSummons", OF_PLAYER_SHIELD_TOKEN)
+        if host.get("ofShield"):
+            raise ValueError(f"{char}:配置格「{config}」的 `{OF_PLAYER_SHIELD_TOKEN}` 不能与 `{OF_SHIELD_TOKEN}` 同用")
+        host["ofPlayerShield"] = True
+    if f"`{PER_SHIELD_TENTH_TOKEN}`" in config:
+        consumed.add(PER_SHIELD_TENTH_TOKEN)
+        host = only("DefenseBuff", PER_SHIELD_TENTH_TOKEN)
+        host["perShieldTenth"] = True
+        cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
+        if cap:
+            consumed.add(CAP_TOKEN)
+            if len(cap) > 1 or int(cap[0]) < 1:
+                raise ValueError(f"{char}:配置格「{config}」的 `cap` 只能写一个,且须 ≥ 1")
+            host["scaleCap"] = int(cap[0])
     armor_shield = re.findall(rf"`{ARMOR_SHIELD_TOKEN} (\d+)`", config)
     if armor_shield:
         consumed.add(ARMOR_SHIELD_TOKEN)
@@ -1227,6 +1248,10 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             continue  # D2-木 Task 1:`pct N` = Revive 的复活血量百分比,下面由 _attach_wood_ops 挂
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
+        # 浮屠(回合初留盾,D2-土 G9)随回合清盾一起退役(spec 2026-10-13 §1),引擎里没有这个 kind 了
+        if kind == "ShieldCarry":
+            raise ValueError(f"{char}:`ShieldCarry {value}`(浮屠)已退役(spec 2026-10-13 §1):护盾不再按回合清空,"
+                             "塔 Lv8 固面改为七级浮屠 `DefenseBuff N` `perShieldTenth`。")
         if kind == "DamageAll":
             raise ValueError(
                 f"{char}:`DamageAll {value}` 已退役(spec v7 §11.6),"
@@ -1281,11 +1306,6 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
                 effect.setdefault("shape", "Scatter")
                 effect["shots"] = int(shots.group(1))
                 consumed.add(SHOTS_TOKEN)
-        # 群体护盾(2026-09-05)也认这个修饰:引擎侧 ShieldAll 与 Shield 走同一个豁免桶判断,
-        # 只认单体会让「将来配一张带 PersistOnce 的群盾字」在管线这一层静默丢掉那个标志
-        if kind in ("Shield", "ShieldAll") and "PersistOnce" in config:
-            effect["persistOnce"] = True
-            consumed.add("PersistOnce")
         effects.append(effect)
         position[id(effect)] = m.start()
 
@@ -1373,7 +1393,12 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
     _attach_wood_ops(config, char, effects, consumed)
     _attach_ally_tokens(config, char, effects, consumed)
 
-    turns = re.search(r"turns (\d+)", config)
+    # `turns -1`(本场持续)只给回合脉冲(厚德载物,spec 2026-10-13 §2);通用正则 `(\w+) (\d+)` 不认负数,在这里记账
+    turns = re.search(r"turns (-?\d+)", config)
+    if turns and int(turns.group(1)) < 0:
+        consumed.add("turns")
+        if int(turns.group(1)) != -1 or any(e["kind"] in TURN_TAKING_KINDS and e["kind"] != "TurnPulse" for e in effects):
+            raise ValueError(f"{char}:配置格「{config}」的 `turns {turns.group(1)}`:负回合只认 -1(本场持续),且只给 TurnPulse")
     for effect in effects:
         if effect["kind"] in TURN_TAKING_KINDS:
             if turns:
@@ -1425,7 +1450,7 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             raise ValueError(f"{char}:配置格「{config}」的 `TurnPulse` 须用 `{ON_TURN_TOKEN}` 段写每回合开始的效果")
         if e["kind"] in ("HurtHeal", "ShieldFrost") and e["value"] < 1:
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 须写 N ≥ 1")
-        if e["kind"] in ("ShieldSpend", "ShieldToMorale", "ShieldCarry") and not 1 <= e["value"] <= 100:
+        if e["kind"] in ("ShieldSpend", "ShieldToMorale") and not 1 <= e["value"] <= 100:
             raise ValueError(f"{char}:配置格「{config}」的 `{e['kind']}` 百分比须在 1..100(与 ConfigLoader 同口径)")
         # D2-土 Task 3(G2 / G3 / G4):单次受伤上限 / 碎玉反伤是百分比;堡垒是护盾量(turns 必填由 DURATION_KINDS 管)
         if e["kind"] in ("HitCap", "ShieldShatter") and not 1 <= e["value"] <= 100:

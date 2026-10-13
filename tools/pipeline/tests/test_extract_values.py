@@ -1303,18 +1303,17 @@ def test_d2water_turn_hook_errors(config, needle):
     ("`DamageSingle 10` + `ShieldSpend 50`", [{"kind": "DamageSingle", "value": 10}, {"kind": "ShieldSpend", "value": 50}]),
     # 土生金
     ("`ShieldToMorale 30`", [{"kind": "ShieldToMorale", "value": 30}]),
-    # 浮屠
-    ("`ShieldCarry 50` `turns 3`", [{"kind": "ShieldCarry", "value": 50, "turns": 3}]),
 ])
 def test_d2earth_shield_ops(config, expected):
     assert _parse_effects(config, "塔") == expected
 
 
 @pytest.mark.parametrize("config, needle", [
-    ("`ShieldCarry 50`", "turns"),              # 回合初留盾必写回合
     ("`ShieldSpend 150`", "ShieldSpend"),       # 百分比 1..100
     ("`ShieldToMorale 0`", "ShieldToMorale"),
-    ("`ShieldCarry 101` `turns 3`", "ShieldCarry"),
+    # 浮屠(回合初留盾)随回合清盾一起退役(spec 2026-10-13 §1):大声拦下,不落成未知 kind
+    ("`ShieldCarry 50` `turns 3`", "ShieldCarry"),
+    ("`ShieldCarry 50`", "ShieldCarry"),
 ])
 def test_d2earth_shield_op_errors(config, needle):
     with pytest.raises(ValueError) as err:
@@ -1415,8 +1414,6 @@ def test_battles_stays_on_its_own_effect_when_valueless_token_shares_the_kind():
 # ---- D2-土 Task 1:共用小扩展(附录 E29 / E30 / E31 / E34 / E36)—— 附录 §2 的拟写行 ----
 
 @pytest.mark.parametrize("config, expected", [
-    # 垒砌(E29):本次护盾为留存护盾
-    ("`Reshape` `persist`", [{"kind": "Reshape", "value": 0, "persistOnce": True}]),
     # 塔基固面(E30):护盾 + 当前护甲 × 300%
     ("`Reshape` `armorShield 300`", [{"kind": "Reshape", "value": 0, "armorShieldPercent": 300}]),
     # 三山(E31):散射 3 发,每发各结算镇压
@@ -1434,7 +1431,10 @@ def test_d2earth_shared_modifiers(config, expected):
 
 
 @pytest.mark.parametrize("config, needle", [
-    ("`Shield 60` `persist`", "persist"),                              # 没有 Reshape 可挂
+    # 留存护盾随单桶化取消(spec 2026-10-13 §1):`persist` / `PersistOnce` 不再有人认,落进未消费 token 报错
+    ("`Shield 60` `persist`", "persist"),
+    ("`Reshape` `persist`", "persist"),
+    ("`Shield 60` `PersistOnce`", "PersistOnce"),
     ("`DamageSingle 60` `armorShield 300`", "armorShield"),            # armorShield 只挂 Reshape
     ("`Reshape` `armorStrikeEach`", "armorStrike"),                    # 须配 armorStrike
     ("`Shield 60` `hitsPerShield 100`", "hitsPerShield"),              # 没有伤害可挂
@@ -1560,3 +1560,40 @@ def test_d2wood_critbuff_pick_self():
         {"kind": "CritBuff", "value": 30, "turns": 1, "pick": "Self"}]
     with pytest.raises(ValueError):
         _parse_effects("`CritBuff 30` `turns 1` `pick AllSummons`", "桂")
+
+
+# ---- 护盾回合保留 Task 2(spec 2026-10-13 §2):积土成山 / 七级浮屠 / 厚德载物 ----
+
+@pytest.mark.parametrize("config, expected", [
+    # 积土成山:本次护盾 +30%;之后 3 个玩家回合开始各得护盾
+    ("`Amplify 30` `scope Shield` + `TurnPulse` `turns 3` `onTurn` `Shield 16`",
+     [{"kind": "Amplify", "value": 30, "scope": "Shield"},
+      {"kind": "TurnPulse", "value": 0, "turns": 3, "perHit": [{"kind": "Shield", "value": 16}]}]),
+    # 七级浮屠:护盾每 10% 最大生命一层护甲,最多 7 层
+    ("`DefenseBuff 8` `turns 4` `perShieldTenth` `cap 7`",
+     [{"kind": "DefenseBuff", "value": 8, "turns": 4, "perShieldTenth": True, "scaleCap": 7}]),
+    # 厚德载物:本场每个玩家回合开始,木灵各得玩家当前护盾 10%(turns -1 = 本场)
+    ("`Amplify 100` `scope Shield` + `TurnPulse` `turns -1` `onTurn` `ShieldSummons 10` `ofPlayerShield`",
+     [{"kind": "Amplify", "value": 100, "scope": "Shield"},
+      {"kind": "TurnPulse", "value": 0, "turns": -1,
+       "perHit": [{"kind": "ShieldSummons", "value": 10, "ofPlayerShield": True}]}]),
+    # ofPlayerShield 也能直接写在出字效果上
+    ("`ShieldSummons 10` `ofPlayerShield`", [{"kind": "ShieldSummons", "value": 10, "ofPlayerShield": True}]),
+])
+def test_earth_new_traits(config, expected):
+    assert _parse_effects(config, "土") == expected
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Shield 60` `perShieldTenth`", "perShieldTenth"),                          # 只挂 DefenseBuff
+    ("`DefenseBuff 8` `turns 4` `cap 7`", "cap"),                                # cap 没有 perShieldTenth 无主
+    ("`Shield 60` `ofPlayerShield`", "ofPlayerShield"),                          # 只挂 ShieldSummons
+    ("`ShieldSummons 10` `ofShield` `ofPlayerShield`", "ofPlayerShield"),        # 与 ofShield 二选一
+    ("`DefenseBuff 8` `turns -1`", "turns -1"),                                  # 负回合只给回合脉冲
+    ("`TurnPulse` `turns -2` `onTurn` `Shield 16`", "turns -2"),                 # 只认 -1
+    ("`TurnPulse` `turns 3` `onTurn` `ShieldSummons 10` `ofShield`", "onTurn"),  # 脉冲兑现时没有本次出字的护盾
+])
+def test_earth_new_trait_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

@@ -149,12 +149,12 @@ namespace Brushblade.Core.Tests
             // D2-土 Task 6:土系 35 格。V4:塔基(攻面镇压 / 固面护盾 + 护甲 × 3,Q11)、深厚(攻面无护甲 → 红档精进)
             // 拆成两条单面,两条同名,所以 37 条、35 格。叠土 / 三土是字形特性,粉身碎骨是击杀时
             "碉 Lv8 Feature 碉楼",
-            "垒 Lv8 Feature 垒砌",
+            "垒 Lv8 Feature 积土成山",
             "壁 Lv8 Feature 铜墙铁壁",
             "堡 Lv5 Attack 据守反击", "堡 Lv8 Feature 堡垒",
             "崩 Lv5 Feature 落石", "崩 Lv8 Attack 地裂",
             "碎 Lv5 Feature 碎玉", "碎 Lv8 Attack 粉身碎骨",
-            "塔 Lv4 Attack 塔基", "塔 Lv4 Feature 塔基", "塔 Lv5 Attack 塔倾", "塔 Lv8 Attack 镇塔", "塔 Lv8 Feature 浮屠",
+            "塔 Lv4 Attack 塔基", "塔 Lv4 Feature 塔基", "塔 Lv5 Attack 塔倾", "塔 Lv8 Attack 镇塔", "塔 Lv8 Feature 七级浮屠",
             "杜 Lv4 Both 杜绝", "杜 Lv5 Attack 杜塞", "杜 Lv6 Feature 闭门", "杜 Lv8 Attack 堵截", "杜 Lv8 Feature 杜门不出",
             "圭 Lv4 Both 叠土", "圭 Lv5 Attack 重土", "圭 Lv6 Feature 圭臬", "圭 Lv8 Attack 圭角", "圭 Lv8 Feature 土生金",
             "垚 Lv4 Both 三土", "垚 Lv5 Attack 移山", "垚 Lv5 Feature 叠嶂", "垚 Lv6 Feature 山岳", "垚 Lv8 Attack 三山",

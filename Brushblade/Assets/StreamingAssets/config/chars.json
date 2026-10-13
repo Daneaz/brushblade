@@ -7223,9 +7223,16 @@
               "scope": "Shield"
             },
             {
-              "kind": "Reshape",
+              "kind": "TurnPulse",
               "value": 0,
-              "persistOnce": true
+              "turns": -1,
+              "perHit": [
+                {
+                  "kind": "ShieldSummons",
+                  "value": 10,
+                  "ofPlayerShield": true
+                }
+              ]
             }
           ]
         }
@@ -7691,12 +7698,14 @@
         {
           "slot": "Lv8",
           "face": "Feature",
-          "name": "浮屠",
+          "name": "七级浮屠",
           "effects": [
             {
-              "kind": "ShieldCarry",
-              "value": 50,
-              "turns": 3
+              "kind": "DefenseBuff",
+              "value": 8,
+              "perShieldTenth": true,
+              "scaleCap": 7,
+              "turns": 4
             }
           ]
         }
@@ -7979,12 +7988,23 @@
         {
           "slot": "Lv8",
           "face": "Feature",
-          "name": "垒砌",
+          "name": "积土成山",
           "effects": [
             {
-              "kind": "Reshape",
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "Shield"
+            },
+            {
+              "kind": "TurnPulse",
               "value": 0,
-              "persistOnce": true
+              "turns": 3,
+              "perHit": [
+                {
+                  "kind": "Shield",
+                  "value": 16
+                }
+              ]
             }
           ]
         }
