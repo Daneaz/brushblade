@@ -86,6 +86,8 @@ namespace Brushblade.Core.Tests
             // D2-木 Task 1 预留:光环 / 荆刺 / 攀附是百分比,远程 / 并入 / 立即行动不用 Value,折桂是张数
             EffectKind.SummonEmpower, EffectKind.SummonThorns, EffectKind.ThornMark, EffectKind.Bind,
             EffectKind.SummonRanged, EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar,
+            // spec A D8:吸血 / 溢疗转盾是对已缩放量(直接伤害 / 治疗溢出)取百分比
+            EffectKind.Lifesteal, EffectKind.OverhealShield,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()

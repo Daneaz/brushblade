@@ -239,6 +239,9 @@ namespace Brushblade.Core
         SummonMerge,    // M8 绿潮:小藻并入本次召出的藻灵。Task 4
         SummonAct,      // M9 四木成林:每只存活木灵立即出手一次。Task 4
         GrantChar,      // M10 折桂:击杀时本场字库 +Value 张(_traitRandom)。Task 4
+        // ---- spec A(2026-10-15):Lv6 专属新机制。⚠ 只在末尾追加 ----
+        Lifesteal,      // 沐霖:本次出字直接伤害(CastContext.DirectDamage,掉血 + 敌盾吸收,不含溢出)× Value% 回复玩家;不吃泉放大、不攒泉。离散。非敌对。
+        OverhealShield, // 冰肌:本次出字到此为止的治疗溢出量 × Value% 转为玩家护盾(走 AddPlayerShield);不攒厚。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

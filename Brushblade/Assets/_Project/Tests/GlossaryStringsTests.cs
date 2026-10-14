@@ -115,7 +115,7 @@ namespace Brushblade.Core.Tests
             "char.effect.debuffward.count", "char.effect.debuffward.of", "char.effect.dispel.single.count", "char.effect.dispel.single.full",
             "char.effect.empower", "char.effect.execute.double", "char.effect.extrastrike", "char.effect.grantchar",
             "char.effect.haste", "char.effect.healself", "char.effect.healself.victim", "char.effect.hitcap", "char.effect.hitcount",
-            "char.effect.hitpercent", "char.effect.hurtheal", "char.effect.immunity", "char.effect.mine", "char.effect.mine.body",
+            "char.effect.hitpercent", "char.effect.hurtheal", "char.effect.immunity", "char.effect.lifesteal", "char.effect.mine", "char.effect.mine.body",
             "char.effect.onlyif.countering", "char.effect.onlyif.firstcastthisturn", "char.effect.onlyif.isboss",
             "char.effect.onlyif.notboss", "char.effect.onlyif.playerhpabove70", "char.effect.onlyif.playerhpbelow50",
             "char.effect.onlyif.targethpabove70", "char.effect.onlyif.targethpbelow30", "char.effect.overkillsplash",

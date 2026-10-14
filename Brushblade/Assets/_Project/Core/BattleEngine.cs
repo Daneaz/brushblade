@@ -3891,6 +3891,22 @@ namespace Brushblade.Core
                         _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
                         break;
                     }
+                    case EffectKind.Lifesteal:
+                    {
+                        // 沐霖(spec A D8):本次出字直接伤害 × Value% 回复玩家。不吃泉放大、不攒泉(不经 HealSelf 那条路)。
+                        int drained = _cast.DirectDamage * value / 100;
+                        if (drained > 0) HealAlly(Targeting.PlayerTarget, drained);
+                        break;
+                    }
+                    case EffectKind.OverhealShield:
+                    {
+                        // 冰肌(spec A D8):本次出字到此为止的治疗溢出 × Value% 转为玩家护盾;同治疗转盾,不攒厚。
+                        int converted = _cast.Overheal * value / 100;
+                        if (converted <= 0) break;
+                        int granted = AddPlayerShield(converted);
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+                        break;
+                    }
                     case EffectKind.AddWellspring:
                         // 直接加泉(D1 Task 7,附录 M18,蓄泉):不经治疗折算,只受上限
                         // 补满(D2-水 E21,泽及四方):加到上限
@@ -5327,6 +5343,7 @@ namespace Brushblade.Core
             int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
             PlayerHp += healed;
             if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+            if (_inApplyEffects) _cast.Overheal += amount - healed;   // 冰肌(spec A D8):溢出另记
             int playerEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
             if (overflowToDamage && SettleOverheal(amount - healed, Targeting.PlayerTarget))
@@ -5339,6 +5356,7 @@ namespace Brushblade.Core
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
                 if (_inApplyEffects) CountCastHealOnSummon(summon, given);
+                if (_inApplyEffects) _cast.Overheal += amount - given;   // 冰肌(spec A D8)
                 // 每只被治疗的召唤物各发一条治疗事件,**插在自己那发溢流伤害之前**。
                 //
                 // 2026-09-18 只补了「溢流」那一支(满血召唤物 given=0,不发事件的话伤害凭空冒出来),
@@ -5408,6 +5426,7 @@ namespace Brushblade.Core
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
                 if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+                if (_inApplyEffects) _cast.Overheal += amount - healed;   // 冰肌(spec A D8):溢出另记
                 int playerEvent = _events.Count;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, originSlot, healed, Targeting.PlayerTarget,
                     source: source));
@@ -5420,6 +5439,7 @@ namespace Brushblade.Core
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
             if (_inApplyEffects) CountCastHealOnSummon(summon, given);
+            if (_inApplyEffects) _cast.Overheal += amount - given;   // 冰肌(spec A D8)
             int summonEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
             if (overflowToDamage && SettleOverheal(amount - given, slot))
