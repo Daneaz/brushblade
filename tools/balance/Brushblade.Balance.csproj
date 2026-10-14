@@ -9,6 +9,8 @@
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- 服务器 GC:搜索每节点大量分配(快照 / 局面键),工作站 GC 下 8 核只吃满 2–3 核;实测单画像墙钟 13.6s → 7.1s,读数逐位不变 -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

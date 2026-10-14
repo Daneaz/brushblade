@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Brushblade.Balance.Bot;
 using Brushblade.Core;
 using Brushblade.Data;
@@ -331,12 +333,15 @@ namespace Brushblade.Balance
         {
             public Profile Profile;
             public int Level;
+            public ClimbSetup Setup;
             public ClimbResult[] Results;
-            public double Seconds;
+            /// <summary>每颗种子单局的墙钟秒数;行的「种子·秒」= 合计(各行并发,行墙钟无意义)。</summary>
+            public double[] SeedSeconds;
             public double AvgDepth => Results.Average(r => r.DeathDepth);
         }
 
-        private static Row RunRow(RecipeGraph graph, CampaignConfig campaign, Profile profile, int level,
+        /// <summary>建一行(画像 × 卡等级 × 档位)的爬塔配置;各行的种子由 <see cref="RunRows"/> 摊平后一起并发。</summary>
+        private static Row NewRow(RecipeGraph graph, CampaignConfig campaign, Profile profile, int level,
             int seeds, SearchOptions opt, CardAppraiser appraiser, bool noBoardCarry = false)
         {
             var setup = new ClimbSetup
@@ -347,10 +352,21 @@ namespace Brushblade.Balance
                 Search = opt, Appraiser = appraiser, DepthCap = DepthCap, StallTurns = StallTurns,
                 CarryBoard = !noBoardCarry,
             };
-            var watch = Stopwatch.StartNew();
-            var results = BotRunner.ClimbMany(setup, Enumerable.Range(0, seeds).ToList(),
-                seed => StartingHand(graph, profile, seed), parallel: true);
-            return new Row { Profile = profile, Level = level, Results = results, Seconds = watch.Elapsed.TotalSeconds };
+            return new Row { Profile = profile, Level = level, Setup = setup, Results = new ClimbResult[seeds], SeedSeconds = new double[seeds] };
+        }
+
+        /// <summary>把所有行的(行, 种子)摊平进一个负载均衡的 Parallel.ForEach:逐行串行时每行要等最慢的那颗种子,
+        /// 8 核只用上 2–3 核。每局的结果写回自己行的种子下标,与调度无关(确定性同 <see cref="BotRunner.ClimbMany"/>)。</summary>
+        private static void RunRows(RecipeGraph graph, IReadOnlyList<Row> rows)
+        {
+            var jobs = rows.SelectMany(r => Enumerable.Range(0, r.Results.Length).Select(i => (row: r, seed: i))).ToList();
+            Parallel.ForEach(Partitioner.Create(jobs, loadBalance: true), job =>
+            {
+                var watch = Stopwatch.StartNew();
+                var (library, pool) = StartingHand(graph, job.row.Profile, job.seed);
+                job.row.Results[job.seed] = BotRunner.Climb(job.row.Setup, job.seed, library, pool);
+                job.row.SeedSeconds[job.seed] = watch.Elapsed.TotalSeconds;
+            });
         }
 
         private static void RunSearchBot(RecipeGraph graph, CampaignConfig campaign, EndlessConfig endless,
@@ -372,24 +388,20 @@ namespace Brushblade.Balance
             var rows = new List<Row>();
             foreach (var profile in profiles)
                 foreach (int level in levels)
-                    rows.Add(RunRow(graph, campaign, profile, level, seeds, opt, appraiser, noBoardCarry));
-            double mainSeconds = total.Elapsed.TotalSeconds;
+                    rows.Add(NewRow(graph, campaign, profile, level, seeds, opt, appraiser, noBoardCarry));
 
-            // 慢档差列:同画像、同种子的快档 Lv5(spec §5;2026-10-14 拍板只比 Lv5)
+            // 慢档差列:同画像、同种子的快档 Lv5(spec §5;2026-10-14 拍板只比 Lv5)。估值与档位无关,共用同一个估值器
             Dictionary<string, Row> fastLv5 = null;
-            double fastSeconds = 0;
             if (slow && levels.Contains(5))
-            {
-                var watch = Stopwatch.StartNew();
-                var fastAppraiser = new CardAppraiser(graph, endless, () => NewBattleConfig(campaign, any));
                 fastLv5 = profiles.ToDictionary(p => p.Name,
-                    p => RunRow(graph, campaign, p, 5, seeds, SearchOptions.Fast, fastAppraiser, noBoardCarry));
-                fastSeconds = watch.Elapsed.TotalSeconds;
-            }
+                    p => NewRow(graph, campaign, p, 5, seeds, SearchOptions.Fast, appraiser, noBoardCarry));
+            RunRows(graph, fastLv5 == null ? rows : rows.Concat(fastLv5.Values).ToList());
+            double mainSeconds = rows.Sum(r => r.SeedSeconds.Sum());
+            double fastSeconds = fastLv5?.Values.Sum(r => r.SeedSeconds.Sum()) ?? 0;
 
             // 末两组列是机器人自检:重搜 / 本体拒(应恒 0)。拆 / 合 / 嫁接 / 替换按每局计。
             Console.WriteLine($"| 画像 | 卡Lv | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/{seeds} | 反击总伤/局 | 反击被削% "
-                + "| 拆/局 | 合/局 | 嫁接/局 | 替换/局 | 有拆合局% | 有嫁接或替换局% | 两面字 攻:五行 | 回合/局 | 重搜/回合 | 本体拒 | 耗时s |");
+                + "| 拆/局 | 合/局 | 嫁接/局 | 替换/局 | 有拆合局% | 有嫁接或替换局% | 两面字 攻:五行 | 回合/局 | 重搜/回合 | 本体拒 | 种子·秒 |");
             Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var row in rows) PrintRow(row, seeds);
 
@@ -423,8 +435,8 @@ namespace Brushblade.Balance
                 Console.WriteLine($"- {row.Profile.Name} Lv{row.Level}:Top {Fmt(top)} · Bottom {Fmt(bottom)}");
             }
 
-            Console.WriteLine($"\n耗时:{(slow ? "慢档" : "快档")} {mainSeconds:F1}s" +
-                (fastLv5 != null ? $" · 快档对照(Lv5){fastSeconds:F1}s" : "") + $" · 合计 {total.Elapsed.TotalSeconds:F1}s");
+            Console.WriteLine($"\n耗时:墙钟 {total.Elapsed.TotalSeconds:F1}s(各行种子摊平并发)· {(slow ? "慢档" : "快档")} {mainSeconds:F0} 种子·秒" +
+                (fastLv5 != null ? $" · 快档对照(Lv5){fastSeconds:F0} 种子·秒" : ""));
         }
 
         private static void PrintRow(Row row, int seeds)
@@ -457,7 +469,7 @@ namespace Brushblade.Balance
                               $"| {turns / (double)seeds:F1} " +
                               $"| {(turns == 0 ? 0 : results.Sum(r => r.Stats.Replans) / (double)turns):F2} " +
                               $"| {results.Sum(r => r.Stats.BodyRejected)} " +
-                              $"| {row.Seconds:F1} |");
+                              $"| {row.SeedSeconds.Sum():F0} |");
         }
 
         // ---- 贪心机器人(与关卡制版同策略) ----
