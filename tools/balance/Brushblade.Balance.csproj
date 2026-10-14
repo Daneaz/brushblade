@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="Bot/**/*.cs" />
     <Compile Include="../../Brushblade/Assets/_Project/Core/**/*.cs" />
     <Compile Include="../../Brushblade/Assets/_Project/Data/**/*.cs" />
   </ItemGroup>

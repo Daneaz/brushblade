@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 仿真机器人(tools/balance/Bot)的单元测试(Plan F1):链接 Core/Data 与 Bot 源码,不进 Unity 程序集。
+       用法:tools/balance.tests$ dotnet test(dotnet 用 Unity 自带 SDK,见 CLAUDE.md)。 -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Core/**/*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Data/**/*.cs" />
+    <Compile Include="../balance/Bot/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
