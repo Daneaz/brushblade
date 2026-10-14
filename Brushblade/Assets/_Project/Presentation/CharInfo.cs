@@ -843,7 +843,9 @@ namespace Brushblade.Presentation
                 // D2-金 E10:伤害的击数 + 战意 / 战意 × 多命中的敌人数。格挡次数 = 战意由 Block / BlockMod 分支自己印在句首
                 ScaleBasis.Morale => e.Kind == EffectKind.Block || e.Kind == EffectKind.BlockMod
                     ? ""
-                    : Strings.T("char.effect.per.morale.hits"),
+                    : e.Kind == EffectKind.Amplify
+                        ? Strings.T("char.effect.per.morale")
+                        : Strings.T("char.effect.per.morale.hits"),
                 ScaleBasis.ExtraHitTarget => Strings.T("char.effect.per.extrahittarget"),
                 // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),

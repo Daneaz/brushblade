@@ -460,7 +460,6 @@ namespace Brushblade.Core.Tests
         [TestCase(@"{""kind"":""Block"",""value"":1,""scaleMin"":2}")]
         [TestCase(@"{""kind"":""Block"",""value"":1,""scaleBy"":""Morale"",""scaleMin"":2}")]   // 修复轮 1:按战意只写在 BlockMod 上
         [TestCase(@"{""kind"":""BlockMod"",""scaleBy"":""Morale""}")]
-        [TestCase(@"{""kind"":""Amplify"",""value"":5,""scaleBy"":""Morale""}")]
         [TestCase(@"{""kind"":""Morale"",""value"":1,""scaleBy"":""BurnStack""}")]
         [TestCase(@"{""kind"":""HealSelf"",""value"":5,""scaleBy"":""ExtraHitTarget""}")]
         [TestCase(@"{""kind"":""Shield"",""value"":5,""scaleBy"":""Morale""}")]
