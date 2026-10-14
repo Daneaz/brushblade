@@ -391,15 +391,17 @@ namespace Brushblade.Balance
                 Console.WriteLine(line + " |");
             }
 
-            Console.WriteLine("\n出字 Top 10 / Bottom 10(每局次数,只计卡池里的字):\n");
+            // 卡池小于 20 张的画像(单系)取 min(10, 池/2),Top 与 Bottom 不重叠
+            Console.WriteLine("\n出字 Top / Bottom 各 min(10, 卡池/2) 张(每局次数,只计卡池里的字):\n");
             foreach (var row in rows)
             {
                 var perGame = row.Profile.OwnedCards.Distinct()
                     .Select(id => (id, n: row.Results.Sum(r => r.CastsByChar.TryGetValue(id, out int c) ? c : 0) / (double)seeds))
                     .ToList();
                 string Fmt(IEnumerable<(string id, double n)> xs) => string.Join(" ", xs.Select(x => $"{x.id}{x.n:F1}"));
-                var top = perGame.OrderByDescending(x => x.n).ThenBy(x => x.id, StringComparer.Ordinal).Take(10);
-                var bottom = perGame.OrderBy(x => x.n).ThenBy(x => x.id, StringComparer.Ordinal).Take(10);
+                int take = Math.Min(10, perGame.Count / 2);
+                var top = perGame.OrderByDescending(x => x.n).ThenBy(x => x.id, StringComparer.Ordinal).Take(take);
+                var bottom = perGame.OrderBy(x => x.n).ThenBy(x => x.id, StringComparer.Ordinal).Take(take);
                 Console.WriteLine($"- {row.Profile.Name} Lv{row.Level}:Top {Fmt(top)} · Bottom {Fmt(bottom)}");
             }
 

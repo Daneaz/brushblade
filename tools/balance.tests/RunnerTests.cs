@@ -38,12 +38,27 @@ namespace Brushblade.Balance.Tests
             PlayerDefense = MetaRules.DefenseFor(10), PlayerDodge = MetaRules.DodgeFor(10),
         };
 
+        /// <summary>前排一只木灵(林召出的「木」),血量给足,不会在夹具里被打掉。</summary>
+        public static SummonSnapshot WoodSpirit(int slot = 0) => new SummonSnapshot
+        {
+            Slot = slot, Char = "木", SourceChar = "林", Element = Element.Wood, Hp = 500, MaxHp = 500,
+            Attack = 10, Speed = 100, Statuses = new List<StatusEffect>(),
+        };
+
+        /// <summary>厚 <paramref name="stacks"/> 层(层数类,TurnsLeft = −1,跨战斗携带)。</summary>
+        public static StatusEffect Heft(int stacks) => new StatusEffect
+        {
+            Kind = StatusKind.Heft, Magnitude = stacks, Polarity = StatusPolarity.Buff, TurnsLeft = -1, SourceId = "test",
+        };
+
         public static readonly EnemyDef Weak = new EnemyDef("弱", Element.Heart, 1, 0);
 
         /// <summary>一场只有 1 血字怪的连战:出炎打赢 → AdvanceAfterBattle → 停在战利品页。</summary>
         public static RunEngine WonRunInReward(string[] library, string[] rewardPool, int capacity,
             int battles = 1, int? startingHp = null, int maxHpBonus = 0, int victoryHeal = 0,
-            bool libraryExpanded = false, IReadOnlyList<OpeningEffect> openings = null)
+            bool libraryExpanded = false, IReadOnlyList<OpeningEffect> openings = null,
+            int startingNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
+            IReadOnlyList<StatusEffect> startingStatuses = null)
         {
             var rc = new RunConfig
             {
@@ -56,7 +71,8 @@ namespace Brushblade.Balance.Tests
                 VictoryHealPercent = victoryHeal,
             };
             var run = new RunEngine(Fixture.Graph, rc, cfg, library.Append("炎").ToList(), Array.Empty<string>(), seed: 3,
-                startingHp: startingHp, maxHpBonus: maxHpBonus, libraryExpanded: libraryExpanded, startingOpenings: openings);
+                startingHp: startingHp, maxHpBonus: maxHpBonus, libraryExpanded: libraryExpanded, startingOpenings: openings,
+                startingNormalShield: startingNormalShield, startingSummons: startingSummons, startingStatuses: startingStatuses);
             // 夹具多塞一张炎当武器,打出去就消耗掉(出字即消耗),库回到 library
             Assert.That(run.Battle.Cast("炎", 0, attackMode: true), Is.EqualTo(BattleError.None), "夹具:出炎");
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won),
@@ -101,7 +117,9 @@ namespace Brushblade.Balance.Tests
                 new OpeningEffect { SourceCharId = "炎", Element = Element.Fire, Kind = EffectKind.DamageSingle, Value = 7, BattlesLeft = 3 },
             };
             var run = RunFixture.WonRunInReward(new[] { "林" }, rewardPool: new[] { "冰" }, capacity: 6,
-                startingHp: 300, maxHpBonus: 120, victoryHeal: 20, libraryExpanded: true, openings: openings);
+                startingHp: 300, maxHpBonus: 120, victoryHeal: 20, libraryExpanded: true, openings: openings,
+                startingNormalShield: 80, startingSummons: new[] { RunFixture.WoodSpirit() },
+                startingStatuses: new[] { RunFixture.Heft(3) });
             BotRunner.PickRewards(run, id => 1);   // 战利品并入携带态(读 Battle.Library 会把它丢掉)
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon), "夹具:段末");
 
@@ -115,7 +133,12 @@ namespace Brushblade.Balance.Tests
             Assert.That(carry.Library.Contains("冰"), Is.True, "战利品在携带字库里");
             Assert.That(carry.Pool, Is.EqualTo(run.CarriedPool.ToList()));
             Assert.That(JsonConvert.SerializeObject(carry.Openings), Is.EqualTo(JsonConvert.SerializeObject(run.CarriedOpenings)));
+            Assert.That(run.CarriedNormalShield, Is.GreaterThan(0), "前提:段末有护盾可带");
+            Assert.That(run.CarriedSummons.Count, Is.EqualTo(1), "前提:段末有一只活木灵");
+            Assert.That(run.CarriedStatuses.Any(st => st.Kind == StatusKind.Heft && st.Magnitude > 0), Is.True, "前提:段末身上有厚");
             Assert.That(carry.NormalShield, Is.EqualTo(run.CarriedNormalShield), "护盾按生产口径(段末 ShieldCarryPercent 保留)");
+            Assert.That(carry.Summons.Count, Is.EqualTo(1));
+            Assert.That(carry.Summons[0].Char, Is.EqualTo("木"));
             Assert.That(JsonConvert.SerializeObject(carry.Summons), Is.EqualTo(JsonConvert.SerializeObject(run.CarriedSummons)));
             Assert.That(JsonConvert.SerializeObject(carry.Statuses), Is.EqualTo(JsonConvert.SerializeObject(run.CarriedStatuses)));
             Assert.That(carry.Revived, Is.EqualTo(run.Revived));
@@ -129,6 +152,9 @@ namespace Brushblade.Balance.Tests
             {
                 Library = new List<string> { "炎", "林" }, Pool = new List<string> { "木" },
                 Hp = 345, MaxHpBonus = 77, LibraryExpanded = true, PoolExpanded = true,
+                NormalShield = 60,
+                Summons = new List<SummonSnapshot> { RunFixture.WoodSpirit(slot: 0) },
+                Statuses = new List<StatusEffect> { RunFixture.Heft(2) },
                 Openings = new List<OpeningEffect>
                 {
                     new OpeningEffect { SourceCharId = "炎", Element = Element.Fire, Kind = EffectKind.DamageSingle, Value = 7, BattlesLeft = 2 },
@@ -143,6 +169,9 @@ namespace Brushblade.Balance.Tests
             Assert.That(run.CurrentDepth, Is.EqualTo(6));
             Assert.That(run.Battle.Turn, Is.GreaterThanOrEqualTo(1));
             Assert.That(run.CarriedHp, Is.EqualTo(345), "起始血量 = 携带血量");
+            Assert.That(run.Battle.PlayerShield, Is.GreaterThanOrEqualTo(60), "携带护盾进了第一场");
+            Assert.That(run.Battle.Summons.Count(x => x != null && x.Alive && x.Char == "木"), Is.EqualTo(1), "携带木灵进了第一场");
+            Assert.That(run.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Heft), Is.GreaterThanOrEqualTo(2), "携带厚进了第一场");
 
             // 搜索副本用的配置与本体这场一致(上限加成、扩容、按层解锁的召唤槽)
             var cfg = BotRunner.BattleConfigFor(run, segmentConfig);
@@ -187,6 +216,23 @@ namespace Brushblade.Balance.Tests
             var serial = BotRunner.ClimbMany(Setup(depthCap: 3), seeds, Start, parallel: false);
             var parallel = BotRunner.ClimbMany(Setup(depthCap: 3), seeds, Start, parallel: true);
             Assert.That(parallel.Select(r => r.Seed).ToList(), Is.EqualTo(seeds), "结果按种子顺序排列");
+            Assert.That(parallel.Select(r => r.DeathDepth).ToList(), Is.EqualTo(serial.Select(r => r.DeathDepth).ToList()));
+            Assert.That(parallel.Select(r => r.Stats.Steps).ToList(), Is.EqualTo(serial.Select(r => r.Stats.Steps).ToList()));
+            Assert.That(parallel.Select(r => r.Stats.Replans).ToList(), Is.EqualTo(serial.Select(r => r.Stats.Replans).ToList()));
+            Assert.That(parallel.Select(r => JsonConvert.SerializeObject(r.CastsByChar.OrderBy(kv => kv.Key, StringComparer.Ordinal))).ToList(),
+                Is.EqualTo(serial.Select(r => JsonConvert.SerializeObject(r.CastsByChar.OrderBy(kv => kv.Key, StringComparer.Ordinal))).ToList()));
+        }
+
+        /// <summary>跨段版:深度上限放到三段,确定性要覆盖 CarryFrom → StartSegment 这条路径(携带的木灵 / 护盾 / 状态)。</summary>
+        [Test]
+        public void SameSeed_SerialAndParallel_IdenticalAcrossSegments()
+        {
+            int bossEvery = RunFixture.Campaign.Endless.BossEvery;
+            var seeds = Enumerable.Range(0, 4).ToList();
+            var serial = BotRunner.ClimbMany(Setup(depthCap: bossEvery * 3), seeds, Start, parallel: false);
+            var parallel = BotRunner.ClimbMany(Setup(depthCap: bossEvery * 3), seeds, Start, parallel: true);
+            Assert.That(serial.Count(r => r.DeathDepth > bossEvery), Is.GreaterThan(0),
+                $"前提:至少一个种子跨段(卒层 {string.Join(",", serial.Select(r => r.DeathDepth))},BossEvery {bossEvery})");
             Assert.That(parallel.Select(r => r.DeathDepth).ToList(), Is.EqualTo(serial.Select(r => r.DeathDepth).ToList()));
             Assert.That(parallel.Select(r => r.Stats.Steps).ToList(), Is.EqualTo(serial.Select(r => r.Stats.Steps).ToList()));
             Assert.That(parallel.Select(r => r.Stats.Replans).ToList(), Is.EqualTo(serial.Select(r => r.Stats.Replans).ToList()));
