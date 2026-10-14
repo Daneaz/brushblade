@@ -173,6 +173,10 @@ namespace Brushblade.Core
             /// <summary>出字前的存活木灵数(含幼苗;D2-木 E39,众木 / 林深 ScaleBasis.SummonCount 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
             public int? PreCastSummons;
 
+            /// <summary>spec A §7:本次出字 DamageSingle 各击(含形状扩展 / 多段 / 同击镇压加码)实际落到敌人身上的量之和 ——
+            /// 掉血 + 被敌盾吸收,不含击杀溢出。顶层出字结束时按它给水 / 土攻击面攒泉 / 厚;Lifesteal(沐霖)也读它。</summary>
+            public int DirectDamage;
+
             /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
             public int ShieldNominal;
 
