@@ -22,6 +22,9 @@ namespace Brushblade.Balance.Bot
         public int DepthCap = 300;
         /// <summary>单场玩家回合数上限,超出按僵局判死(卒于当前层),同旧工装。</summary>
         public int StallTurns = 60;
+        /// <summary>跨段携带护盾 / 木灵 / 状态(生产口径,缺省 true)。false 只供诊断(<c>--no-board-carry</c>):
+        /// 拆分「搜索更聪明」与「携带对齐生产」各自的涨幅,读数不代表游戏。</summary>
+        public bool CarryBoard = true;
     }
 
     /// <summary>新一段 <see cref="RunEngine"/> 的构造参数 = 上一段的携带态(spec §4.3)。
@@ -127,6 +130,12 @@ namespace Brushblade.Balance.Bot
                     return result;
                 }
                 carry = CarryFrom(run);
+                if (!s.CarryBoard)
+                {
+                    carry.NormalShield = 0;
+                    carry.Summons.Clear();
+                    carry.Statuses.Clear();
+                }
                 fromDepth += endless.BossEvery;
             }
             result.DeathDepth = s.DepthCap;

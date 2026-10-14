@@ -15,7 +15,8 @@ namespace Brushblade.Balance
     /// 缺省跑 Plan F1 的搜索机器人(<c>Bot/</c>):快档 30 种子 × {五系随机 + 单系五个} × 卡 Lv5;
     /// <c>--slow</c> 慢档 300 种子 × 全部 10 画像 × Lv1/5/8(K=12 / 叶子 4096),另跑同画像快档 Lv5 出差列。
     /// <c>--legacy-bot</c> 走旧的价目表贪心机器人,缺省参数下输出与 F1 之前逐字节相同(只作新旧对照,F1 合并后删)。
-    /// 命令行:<c>dotnet run -c Release -- [--slow] [--legacy-bot] [--profile 名] [--seeds N] [--card-level N]</c>。</summary>
+    /// 命令行:<c>dotnet run -c Release -- [--slow] [--legacy-bot] [--profile 名] [--seeds N] [--card-level N] [--no-board-carry]</c>
+    /// (<c>--no-board-carry</c> 仅供诊断,见 <c>--help</c>)。</summary>
     public static class Program
     {
         private const int LegacySeeds = 300;
@@ -50,9 +51,21 @@ namespace Brushblade.Balance
             graph.All.Where(d => d.Effects.Count > 0 && !d.IsComponent && d.Element is { } el && elements.Contains(el))
                 .Select(d => d.Id).ToList();
 
+        private const string Usage =
+            "用法:dotnet run -c Release -- [选项]\n" +
+            "  (缺省)            快档:30 种子 × {五系随机 + 单系五个} × 卡 Lv5,K=4 / 叶子 256\n" +
+            "  --slow            慢档:300 种子 × 10 画像 × 卡 Lv1/5/8,K=12 / 叶子 4096,另出快档 Lv5 差列\n" +
+            "  --legacy-bot      旧价目表贪心机器人(只作新旧对照,F1 合并后删)\n" +
+            "  --profile 名      只跑匹配的画像(先精确,再子串)\n" +
+            "  --seeds N         覆盖种子数\n" +
+            "  --card-level N    覆盖卡等级\n" +
+            "  --no-board-carry  【仅供诊断】跨段不带护盾 / 木灵 / 厚泉等状态(生产会带);\n" +
+            "                    只用于拆分「搜索更聪明」与「携带对齐生产」各自的涨幅,读数不代表游戏\n" +
+            "  --help            打印本说明";
+
         public static void Main(string[] args)
         {
-            bool legacy = false, slow = false;
+            bool legacy = false, slow = false, noBoardCarry = false;
             int? seedsArg = null, levelArg = null;
             string profileArg = null;
             for (int i = 0; i < args.Length; i++)
@@ -65,10 +78,13 @@ namespace Brushblade.Balance
                     { profileArg = args[i + 1]; i++; }
                 else if (args[i] == "--slow") slow = true;
                 else if (args[i] == "--legacy-bot") legacy = true;
+                else if (args[i] == "--no-board-carry") noBoardCarry = true;
+                else if (args[i] == "--help" || args[i] == "-h") { Console.WriteLine(Usage); return; }
                 else
-                    throw new ArgumentException($"未知参数:{args[i]}(认 --slow / --legacy-bot / --profile 名 / --seeds N / --card-level N)");
+                    throw new ArgumentException($"未知参数:{args[i]}\n{Usage}");
             }
             if (legacy && slow) throw new ArgumentException("--legacy-bot 与 --slow 不能同用");
+            if (legacy && noBoardCarry) throw new ArgumentException("--no-board-carry 只作用于搜索机器人,不能与 --legacy-bot 同用");
             string configDir = Path.Combine(AppContext.BaseDirectory,
                 "../../../../../Brushblade/Assets/StreamingAssets/config");
             var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
@@ -99,7 +115,7 @@ namespace Brushblade.Balance
 
             if (!legacy)
             {
-                RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null);
+                RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null, noBoardCarry);
                 return;
             }
 
@@ -321,7 +337,7 @@ namespace Brushblade.Balance
         }
 
         private static Row RunRow(RecipeGraph graph, CampaignConfig campaign, Profile profile, int level,
-            int seeds, SearchOptions opt, CardAppraiser appraiser)
+            int seeds, SearchOptions opt, CardAppraiser appraiser, bool noBoardCarry = false)
         {
             var setup = new ClimbSetup
             {
@@ -329,6 +345,7 @@ namespace Brushblade.Balance
                 CardLevels = profile.OwnedCards.ToDictionary(c => c, _ => level),
                 NewBattleConfig = () => NewBattleConfig(campaign, profile),
                 Search = opt, Appraiser = appraiser, DepthCap = DepthCap, StallTurns = StallTurns,
+                CarryBoard = !noBoardCarry,
             };
             var watch = Stopwatch.StartNew();
             var results = BotRunner.ClimbMany(setup, Enumerable.Range(0, seeds).ToList(),
@@ -337,7 +354,7 @@ namespace Brushblade.Balance
         }
 
         private static void RunSearchBot(RecipeGraph graph, CampaignConfig campaign, EndlessConfig endless,
-            List<Profile> profiles, bool slow, int? seedsArg, int? levelArg, bool profileChosen)
+            List<Profile> profiles, bool slow, int? seedsArg, int? levelArg, bool profileChosen, bool noBoardCarry)
         {
             int seeds = seedsArg ?? (slow ? 300 : 30);
             var levels = levelArg.HasValue ? new[] { levelArg.Value } : slow ? new[] { 1, 5, 8 } : new[] { 5 };
@@ -346,6 +363,7 @@ namespace Brushblade.Balance
             var any = profiles[0];
             var appraiser = new CardAppraiser(graph, endless, () => NewBattleConfig(campaign, any)); // 各画像角色属性相同
 
+            if (noBoardCarry) Console.WriteLine("⚠ 诊断模式 --no-board-carry:跨段不带护盾 / 木灵 / 状态,读数不代表游戏\n");
             Console.WriteLine($"搜索机器人 · {(slow ? "慢档" : "快档")} K={opt.K} 叶子≤{opt.LeafCap} · {seeds} 种子 · 并发 {Environment.ProcessorCount} 核"
                 + $" · 卡 Lv{string.Join("/", levels)} · 角色 {CharacterLevel} 级 · 起手 6 张随机"
                 + $" · scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus}\n");
@@ -354,7 +372,7 @@ namespace Brushblade.Balance
             var rows = new List<Row>();
             foreach (var profile in profiles)
                 foreach (int level in levels)
-                    rows.Add(RunRow(graph, campaign, profile, level, seeds, opt, appraiser));
+                    rows.Add(RunRow(graph, campaign, profile, level, seeds, opt, appraiser, noBoardCarry));
             double mainSeconds = total.Elapsed.TotalSeconds;
 
             // 慢档差列:同画像、同种子的快档 Lv5(spec §5;2026-10-14 拍板只比 Lv5)
@@ -365,7 +383,7 @@ namespace Brushblade.Balance
                 var watch = Stopwatch.StartNew();
                 var fastAppraiser = new CardAppraiser(graph, endless, () => NewBattleConfig(campaign, any));
                 fastLv5 = profiles.ToDictionary(p => p.Name,
-                    p => RunRow(graph, campaign, p, 5, seeds, SearchOptions.Fast, fastAppraiser));
+                    p => RunRow(graph, campaign, p, 5, seeds, SearchOptions.Fast, fastAppraiser, noBoardCarry));
                 fastSeconds = watch.Elapsed.TotalSeconds;
             }
 
