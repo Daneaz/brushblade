@@ -356,7 +356,8 @@ CAP_TOKEN = "cap"
 SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify", "HealSelf"},
                "ExtraHitTarget": {"Morale"},
                "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"},   # D2-水 E22:洪峰 / 濯身
-               "SummonCount": {"Amplify"}}                             # D2-木 E39:众木 / 林深
+               "SummonCount": {"Amplify"},                             # D2-木 E39:众木 / 林深
+               "Morale": {"Amplify"}}                              # spec A:鍂 每层战意 +N% 伤害
 SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
 # 段必须写在格子末尾,段内每个 `+` 分段恰好一条效果、按书写顺序落表(_parse_segment,终审 5),
@@ -582,7 +583,7 @@ def _attach_metal_ops(config, char, effects, consumed):
     counter = re.findall(rf"`{COUNTER_TOKEN} (\d+)`", config)
     if counter:
         consumed.add(COUNTER_TOKEN)
-        host = only({"BlockMod"}, COUNTER_TOKEN)
+        host = only({"BlockMod", "Block"}, COUNTER_TOKEN)  # spec A:Block 本体也自带反击 %
         if len(counter) > 1 or int(counter[0]) < 1:
             raise ValueError(f"{char}:配置格「{config}」的 `counter` 只能写一个,且须 ≥ 1")
         host["counterPercent"] = int(counter[0])
