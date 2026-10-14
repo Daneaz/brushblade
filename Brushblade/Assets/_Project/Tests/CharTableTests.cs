@@ -140,7 +140,8 @@ namespace Brushblade.Core.Tests
             Assert.That(RealGraph().Get("焚").Rarity, Is.EqualTo(CardRarity.Orange));
             var aoe = RealGraph().Get("焚").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All);
             // 2026-09-11(档位统一 G=1.468,T3):橙档全体锚点 240 → 204,预算与 DOT 当量 D99 都没动,108 → 77。
-            Assert.That(aoe.Value, Is.EqualTo(77), "相生取消后,配置值必须等于实战值");
+            // 2026-10-15(spec A §2):橙档全体 143(锚点 409 × 7 × 5% 取整),焚 同值。
+            Assert.That(aoe.Value, Is.EqualTo(143), "相生取消后,配置值必须等于实战值");
         }
 
         [Test]
@@ -185,8 +186,9 @@ namespace Brushblade.Core.Tests
             // 原有值照用(垒 / 堡 / 杜 / 垚 / 㙓),其余按档(白 10 / 绿 15 / 蓝 20 / 紫 25 / 金 30)。
             Assert.That(carriers, Is.EquivalentTo(new Dictionary<string, int>
             {
-                ["碉"] = 10, ["垒"] = 20, ["壁"] = 15, ["堡"] = 28, ["崩"] = 20, ["碎"] = 20,
-                ["塔"] = 25, ["圭"] = 30, ["杜"] = 55, ["垚"] = 75, ["㙓"] = 100,
+                // 2026-10-15(spec A §4.4):护甲点按档位统一 白 10 / 绿 15 / 蓝 20 / 紫 25 / 金 35 / 橙 50 / 红 70。
+                ["碉"] = 10, ["垒"] = 15, ["壁"] = 15, ["堡"] = 20, ["崩"] = 20, ["碎"] = 20,
+                ["塔"] = 25, ["圭"] = 35, ["杜"] = 35, ["垚"] = 50, ["㙓"] = 70,
             }), "DefenseBuff 的全集就是土系 11 张字的固面;新增载体时把它加进来一起钉");
         }
 
@@ -204,17 +206,17 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_MuIsHealPlusSingleTargetTwoTurnHoT()
+        public void RealConfig_MuIsReviveThenHeal()
         {
             // 2026-10-05(D1 Task 12,原 RealConfig_MuIsHealOverTimeSingleTargetThreeTurns):
             // 润 = 治疗 + 润泽 2 回合(spec v7 §4)。沐 原先只有持续治疗 43 × 3 回合,
             // 现在 H = 43 × 2 = 86,润泽 = round(86 × 20%) = 17,turns 2、单体(不含召唤物)。
             var mu = RealGraph().Get("沐").Effects;
-            Assert.That(mu.First(e => e.Kind == EffectKind.HealSelf).Value, Is.EqualTo(86));
-            var effect = mu.First(e => e.Kind == EffectKind.HealOverTime);
-            Assert.That(effect.Value, Is.EqualTo(17));
-            Assert.That(effect.Turns, Is.EqualTo(2));
-            Assert.That(effect.TargetAll, Is.False);
+            // 2026-10-15(spec A §6):沐 本体 = 复活 1 只木灵(50% 生命)+ 治疗 98(金档单体 195 的一半),润泽已去掉。
+            Assert.That(mu.Select(e => e.Kind), Is.EqualTo(new[] { EffectKind.Revive, EffectKind.HealSelf }));
+            Assert.That(mu[0].Value, Is.EqualTo(1));
+            Assert.That(mu[0].ReviveHpPercent, Is.EqualTo(50));
+            Assert.That(mu[1].Value, Is.EqualTo(98));
         }
 
         [Test]
@@ -307,7 +309,7 @@ namespace Brushblade.Core.Tests
             // 2026-09-11(档位统一 G=1.468,T3):紫档召唤锚点 220/70 → 241/86。荆 是 r=100% 的攻血转换字,
             // 血量 =(召血锚点 + 召攻锚点 × 3)×(1 − 预算),不是只把旧血量等比放大:
             // (241 + 86×3) × 1.00 = 499(纯肉盾被动免计价)。
-            Assert.That(jingSummon.Value, Is.EqualTo(499), "血量随全表召唤重新标定");
+            Assert.That(jingSummon.Value, Is.EqualTo(399), "血量随全表召唤重新标定"); // 2026-10-15(spec A):399
         }
 
         [Test]
@@ -452,10 +454,10 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()))
                 .Any(e => e.ExecuteBelowPercent > 0), Is.False, "本体斩杀当前应无载体");
-            // 伤害值沿用原基础值(spec v7 §4 口径,Plan F 定标):剿 112、铡 122
+            // 2026-10-15(spec A §2 数值归一):蓝单体 90、紫单体 133
             Assert.That(graph.Get("剿").Rarity, Is.EqualTo(CardRarity.Blue));
-            Assert.That(graph.Get("剿").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value, Is.EqualTo(112));
-            Assert.That(graph.Get("铡").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value, Is.EqualTo(122));
+            Assert.That(graph.Get("剿").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value, Is.EqualTo(90));
+            Assert.That(graph.Get("铡").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value, Is.EqualTo(133));
         }
 
         [Test]
@@ -497,7 +499,11 @@ namespace Brushblade.Core.Tests
             var bodies = graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())).ToList();
             Assert.That(bodies.Any(e => e.Kind == EffectKind.Immunity), Is.False, "免疫当前应无载体");
-            Assert.That(bodies.Any(e => e.Kind == EffectKind.Revive), Is.False, "复活当前应无载体");
+            // 2026-10-15(spec A):复活回来了,载体是 沐(木灵复活)与 㵘(苏);免疫仍无载体。
+            var reviveCarriers = graph.All.Where(c => (c.Effects ?? Array.Empty<EffectDef>())
+                .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()).Any(e => e.Kind == EffectKind.Revive))
+                .Select(c => c.Id).OrderBy(x => x).ToList();
+            Assert.That(reviveCarriers, Is.EqualTo(new[] { "沐", "㵘" }.OrderBy(x => x).ToList()), "复活载体 = 沐、㵘");
         }
 
         [Test]
@@ -573,9 +579,10 @@ namespace Brushblade.Core.Tests
             // 首次相等。攻击面同批补对偶「镇压」(spec §5,ArmorStrikePercent 30,对偶护盾面的
             // 反弹 30%),但价目「反伤30+镇压30」合并计价 0.32,与旧价 0.22 不同,数值随之重算:
             // 88×(1−0.32)=59.84→60。
-            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(60));
+            // 2026-10-15(spec A):绿单体 62。
+            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(62));
             var biAttack = bi.AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(biAttack.Value, Is.EqualTo(60), "同一条预算算式算出来的攻击面,不是另外「不动」");
+            Assert.That(biAttack.Value, Is.EqualTo(62), "同一条预算算式算出来的攻击面,不是另外「不动」");
             Assert.That(biAttack.ArmorStrikePercent, Is.EqualTo(0), "镇压随附加效果作废");
             // 2026-09-07 圭、2026-09-16 塔 曾先后挂上反弹(载体 1 → 3);2026-10-05 全部去掉。
             Assert.That(RealGraph().All.Any(c => (c.Effects ?? Array.Empty<EffectDef>())
@@ -632,7 +639,7 @@ namespace Brushblade.Core.Tests
             // 与 tools/design/rebalance_2026_09_05.py 的 PRICE/K 算式对得上)。
             // 2026-09-11(档位统一 G=1.468,T3):紫档单攻锚点 200 → 190,预算 0.36 不变:190×0.64 = 121.6 → 122,
             // 两段平摊 → 每段 61。
-            Assert.That(duo.Value, Is.EqualTo(61), "2026-09-11 每段 64 → 61;2026-10-05 单段沿用 61");
+            Assert.That(duo.Value, Is.EqualTo(133), "2026-10-15(spec A):紫单体 133");
         }
 
         [Test]
@@ -684,7 +691,7 @@ namespace Brushblade.Core.Tests
                 EffectKind.DamageSingle, EffectKind.BurnSingle,
             }), "攻 = 伤害 + 灼");
             // 2026-09-11(档位统一 G=1.468,T3):紫档单攻锚点 200 → 190,预算 0.24 与 DOT 当量 D32 不变:190×0.76 − 32 = 112.4 → 112。
-            Assert.That(effects[0].Value, Is.EqualTo(112));  // 单攻
+            Assert.That(effects[0].Value, Is.EqualTo(133));  // 单攻(2026-10-15 spec A:紫单体 133)
             Assert.That(effects[1].Value, Is.EqualTo(2));    // 灼烧层数,不吃 ×10
         }
 
@@ -706,7 +713,7 @@ namespace Brushblade.Core.Tests
             }), "多一条效果就是超模——数组顺序即结算顺序");
             Assert.That(effects[0].Shape, Is.EqualTo(TargetArea.All), "全体 = DamageSingle + All(spec v7 §11.6)");
             // 2026-09-11(档位统一 G=1.468,T3):蓝档全体锚点 70 → 65,预算 0.36 不变:65×0.64 = 41.6 → 42。
-            Assert.That(effects[0].Value, Is.EqualTo(42));
+            Assert.That(effects[0].Value, Is.EqualTo(45));   // 2026-10-15(spec A):蓝全体 45
             Assert.That(effects[1].Value, Is.EqualTo(1), "蓝档灼 N = 1");
             Assert.That(BattleEngine.NeedsTarget(RealGraph().Get("炸"), attackMode: true), Is.False, "全体字不进选目标态");
             // 2026-09-07 引爆梯队曾是 炸/燥/燚 三张;2026-10-05 本体引爆全部作废。

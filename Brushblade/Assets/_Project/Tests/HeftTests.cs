@@ -257,13 +257,14 @@ namespace Brushblade.Core.Tests
             // 三发 483 = 100×4 + 83 → 4 层 + 余 83。
             var battle = NewBattleWithChar("圭", maxHp: 500);
             battle.Cast("圭", -1);
-            Assert.That(battle.HeftStacks, Is.EqualTo(1), "圭 的盾 161 ≥ 阈值 100,单发攒一层");
-            Assert.That(battle.ShieldAccum, Is.EqualTo(61), "161 − 100 = 61 留成余数,下一发接着攒");
+            // 2026-10-15(spec A §2):圭 的盾 161 → 195(金单体),单发 1 层 + 余 95。
+            Assert.That(battle.HeftStacks, Is.EqualTo(1), "圭 的盾 195 ≥ 阈值 100,单发攒一层");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(95), "195 − 100 = 95 留成余数,下一发接着攒");
             // 出字即耗字,同一张字没法连出第二次,用测试钩子补上后两发的同等盾量。
-            battle.GainHeftForTest(161);
-            battle.GainHeftForTest(161);
-            Assert.That(battle.HeftStacks, Is.EqualTo(4), "三发 圭 483 = 100×4 + 83 → 4 层");
-            Assert.That(battle.ShieldAccum, Is.EqualTo(83), "483 − 100×4 = 83,余数继续留着");
+            battle.GainHeftForTest(195);
+            battle.GainHeftForTest(195);
+            Assert.That(battle.HeftStacks, Is.EqualTo(5), "三发 圭 585 = 100×5 + 85 → 5 层");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(85), "585 − 100×5 = 85,余数继续留着");
         }
 
         [Test]
@@ -302,13 +303,14 @@ namespace Brushblade.Core.Tests
             // 三发 636 = 100×6 + 36 → 6 层 + 余 36。
             var battle = NewBattleWithChar("冰", maxHp: 500);
             battle.Cast("冰", 0);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(2), "冰 的治疗 152 + 润泽 60 = 212,单发攒两层");
-            Assert.That(battle.HealAccum, Is.EqualTo(12), "212 − 200 = 12 留成余数");
+            // 2026-10-15(spec A §2/§6):冰 润面 = 单体治疗 195,润泽已去掉(无 HoT):单发 1 层 + 余 95。
+            Assert.That(battle.WellspringStacks, Is.EqualTo(1), "冰 的治疗 195,单发攒一层");
+            Assert.That(battle.HealAccum, Is.EqualTo(95), "195 − 100 = 95 留成余数");
             // 三发的累计(出字即耗字,用测试钩子补后两发的同等治疗量)
-            battle.GainWellspringForTest(212);
-            battle.GainWellspringForTest(212);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(6), "三发 冰 636 = 100×6 + 36 → 6 层");
-            Assert.That(battle.HealAccum, Is.EqualTo(36), "636 − 100×6 = 36");
+            battle.GainWellspringForTest(195);
+            battle.GainWellspringForTest(195);
+            Assert.That(battle.WellspringStacks, Is.EqualTo(5), "三发 冰 585 = 100×5 + 85 → 5 层");
+            Assert.That(battle.HealAccum, Is.EqualTo(85), "585 − 100×5 = 85");
         }
 
         // ---- 护盾/治疗接上角色攻击成长(2026-09-02,Task 5)----
@@ -324,7 +326,8 @@ namespace Brushblade.Core.Tests
             // 补对偶「镇压」);161 × 150 / 100 = 241.5 → 241。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 150);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(241));
+            // 2026-10-15(spec A):195 × 150 / 100 = 292.5 → 292。
+            Assert.That(battle.PlayerShield, Is.EqualTo(292));
         }
 
         [Test]
@@ -336,7 +339,7 @@ namespace Brushblade.Core.Tests
             // 2026-09-16(土水系机制重做,Task 12):83 → 161。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(161));
+            Assert.That(battle.PlayerShield, Is.EqualTo(195));   // 2026-10-15(spec A):金单体 195
         }
 
         [Test]
@@ -368,7 +371,7 @@ namespace Brushblade.Core.Tests
             // 圭 加盾前已有的厚带来的盾不算:这里断言的是这一次施放的增量
             // (2026-09-07 字表重做 P2:圭 护盾按公式重新标定,170 → 119;
             // 2026-09-16 土水系机制重做:119 的后继值 83 → 161)
-            Assert.That(battle.PlayerShield, Is.EqualTo(161),
+            Assert.That(battle.PlayerShield, Is.EqualTo(195),
                 "护盾只认 config.PlayerAttack,不吃厚也不吃战意");
         }
 
@@ -405,7 +408,8 @@ namespace Brushblade.Core.Tests
             // 定标 + 补对偶「急速」);152 × 150 / 100 = 228。
             // 2026-10-05(D1 Task 12):润面多了润泽 30(出手即跳第一跳,同样吃泉放大):
             // 228 + 30 × 150 / 100 = 228 + 45 = 273。
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(273));
+            // 2026-10-15(spec A §2/§6):冰 治疗 195、润泽去掉:195 × 150 / 100 = 292.5 → 292。
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(292));
         }
 
         [Test]
@@ -448,8 +452,10 @@ namespace Brushblade.Core.Tests
             // 2026-09-27(阈值 200 → 100):152 跨一层,余 52(放大值 174 会余 74)。
             // 2026-10-05(D1 Task 12):润面多了润泽 30 × 2(攒泉按未放大的 每跳 × 回合 = 60):
             // 未放大 152 + 60 = 212 → 余 12;若误用放大值(174 + 36 × 2 = 246)会余 46。
-            Assert.That(battleB.HealAccum, Is.EqualTo(12),
-                "攒进去的是未放大的 152 + 60(余 12),不是泉放大后的值");
+            // 2026-10-15(spec A):冰 治疗 195、无润泽:未放大 195 → 余 95;
+            // 若误用放大值(195 × 115 / 100 = 224)会余 24。
+            Assert.That(battleB.HealAccum, Is.EqualTo(95),
+                "攒进去的是未放大的 195(余 95),不是泉放大后的值");
         }
 
         [Test]
@@ -523,18 +529,20 @@ namespace Brushblade.Core.Tests
             //   治疗 152 用旧层数 3 → 174,攒 152 → 4 层 + 余 52;
             //   润泽首跳 30 用此刻的层数 4 → 36,攒 30 × 2 = 60 → 5 层 + 余 12。
             // 合计回血 174 + 36 = 210。若治疗反转顺序(先攒到 4 层再放大)会是 182 + 37 = 219。
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(210),
+            // 2026-10-15(spec A §2/§6):冰 治疗 195、无润泽。旧层数 3 → 195 × 115 / 100 = 224;
+            // 攒 195 → 4 层 + 余 95。若反转顺序(先攒到 4 层再放大)会是 195 × 120 / 100 = 234。
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(224),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWellspring 攒完之后的新层数");
-            Assert.That(battle.WellspringStacks, Is.EqualTo(5),
+            Assert.That(battle.WellspringStacks, Is.EqualTo(4),
                 "夹具有效性:这一发确实跨过了层数,两种顺序才会读到不同的层数");
 
             // 反转顺序对照:同样的起点,先攒(层数 3 → 4)再放大,得 182 ≠ 174。
             // 这三行是**防夹具退化的哨兵** —— 若哪天数值再变到两种顺序同值,它会先红。
             var reversed = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
             reversed.GainWellspringForTest(100 * 3);
-            reversed.GainWellspringForTest(152);          // 先攒:0 + 152 跨线 → 4 层
-            Assert.That(reversed.AmplifyByWellspringForTest(152), Is.EqualTo(182),
-                "反转顺序会算出 182;与上面的 174 不同,夹具区分得开两种顺序");
+            reversed.GainWellspringForTest(195);          // 先攒:0 + 195 跨线 → 4 层
+            Assert.That(reversed.AmplifyByWellspringForTest(195), Is.EqualTo(234),
+                "反转顺序会算出 234;与上面的 224 不同,夹具区分得开两种顺序");
         }
 
         // ---- 快照往返(2026-09-02,Task 3)----

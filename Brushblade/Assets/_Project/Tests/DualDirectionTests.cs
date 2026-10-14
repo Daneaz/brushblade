@@ -246,14 +246,11 @@ namespace Brushblade.Core.Tests
             var graph = LoadRealGraph();
             // 2026-09-16(土水系机制重做):冰/湮/㵘 的守面各补了对偶的急速/解封,与攻面的
             // 冻结/封禁不再分开计价,改用合并键(见上方 TraitPrice 大注释)。
-            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(ExpectedHeal(CardRarity.Gold, "冻结1+急速", "对控制")),
-                "金档:治疗锚点278 × HEAL_F × (1 − (冻结1+急速+对控制)×K金)");
-            // 㵘 2026-09-08 起是群疗(带终极技的字一律群体形态),多乘一道 GROUP_F
-            Assert.That(HealValueOf(graph, "㵘"),
-                Is.EqualTo(ExpectedGroupHeal(CardRarity.Red, "终极技", "冻结2+急速", "对控制")),
-                "红档:治疗锚点600 × HEAL_F × GROUP_F × (1 − (冻结2+急速+对控制)×K红);终极技不计价");
-            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(ExpectedHeal(CardRarity.Purple, "封禁+解封", "对控制")),
-                "紫档:治疗锚点190 × HEAL_F × (1 − (封禁+解封+对控制)×K紫)");
+            // 2026-10-15(spec A §2):治疗口径也归一 —— 冰(金单体)195、湮(紫单体)133、
+            // 㵘(红全体 HealAll)210。
+            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(195), "金档单体");
+            Assert.That(HealValueOf(graph, "㵘"), Is.EqualTo(210), "红档全体");
+            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(133), "紫档单体");
         }
 
         /// <summary>攻击面必须真的能打人 —— 全是伤害类效果(单体/全体),不是挂个状态就算数。
@@ -366,19 +363,15 @@ namespace Brushblade.Core.Tests
             var graph = LoadRealGraph();
             // 2026-09-16(土水系机制重做):圭/杜 的攻面各补了对偶的镇压/碾,与守面的
             // 反伤/免疫不再分开计价,改用合并键(见上方 TraitPrice 大注释)。
-            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50+镇压50", "对破甲")),
-                "金档:护盾锚点278 × SHIELD_F × (1 − (反伤50+镇压50+对破甲)×K金)");
-            // 㙓 2026-09-08 起是群盾 + 群攻(与 崩 对称:红档的厚积薄发载体也该打全场)。
-            // 2026-10-05(D1 Task 12,用户拍板 U2):固面改单体 Shield、攻击改单体,数值沿用原值。
-            // 旧价目公式已作废(spec §4 价目作废,Ruling 16),这里直接钉住本体现值;Plan F 定标时改这两个数。
-            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(235), "㙓 固面单体护盾本体值(Plan F 定标前)");
+            // 2026-10-15(spec A §2 数值归一):价目扣减公式作废,每档固定一个数 ——
+            // 金单体 195、红单体 420(锚点 × 7 × 系数% 四舍五入),守面与攻面同值。
+            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(195), "金档单体");
+            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(420), "红档单体");
             Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(235), "㙓 攻面单体伤害本体值(Plan F 定标前)");
-            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1+碾", "护甲")),
-                "金档:护盾锚点278 × SHIELD_F × (1 − (免疫1+碾+护甲)×K金)");
+                Is.EqualTo(420), "㙓 攻面单体伤害 = 红档单体");
+            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(195), "金档单体");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(ExpectedSingleAttack(CardRarity.Gold, "反伤50+镇压50", "对破甲")),
-                "攻击面与护盾面用同一个特性预算 ratio,只是套的是单攻锚点不是护盾锚点");
+                Is.EqualTo(195), "攻击面与护盾面同值");
         }
 
         /// <summary>引爆每系两张载体(中档 + 红档):只挂红档五系四叠字的话,
@@ -423,7 +416,8 @@ namespace Brushblade.Core.Tests
             // 2026-09-11(T3):金档护盾锚点 300 → 209,119 → 83。
             // 2026-09-16(土水系机制重做):SHIELD_F 0.65 → 1.00、护盾锚点改按单攻列 1:1
             // 定标(209 → 278),攻面补镇压后合并计价 0.4225,83 → 161。
-            Assert.That(battle.PlayerShield, Is.EqualTo(161));
+            // 2026-10-15(spec A §2):金档单体 195(锚点 278 × 7 × 10% 取整),不再按特性预算扣减。
+            Assert.That(battle.PlayerShield, Is.EqualTo(195));
         }
 
         /// <summary>修档位倒挂:燚(红) 的 AOE 曾低于 焱(橙)。
@@ -448,18 +442,17 @@ namespace Brushblade.Core.Tests
             // 2026-10-05(D1 Task 12):火字拆两面,伤害与灼在攻击面。焱 的攻击按用户拍板 U2 改单体
             // (spec §9 本体列只写「燃:全体」),伤害值沿用;灼层数改按 spec v7 §4 的档位表:
             // 橙 3、红 4(燚 5 → 4、焚 4 → 3,焱 仍 3)。
-            int yan = yanDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value;
+            // 2026-10-15(spec A §2/§5):焱 攻击面改全体(橙全体 143),焱 / 焚 同档同值,
+            // 红档 燚 全体 210;灼层数 橙 3、橙 3、红 4。
+            int yan = yanDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
             int yi = yiDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
             int fen = fenDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
-            int yanBurn = yanDef.AttackEffects.First(e => e.Kind == EffectKind.BurnSingle).Value;
+            int yanBurn = yanDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int yiBurn = yiDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int fenBurn = fenDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            // 2026-09-11(T3):橙档全体锚点 240 → 204(焱 126 → 99、焚 108 → 77);
-            // 红档全体锚点 300 不变,燚 的 86 原样。
-            Assert.That(yan, Is.EqualTo(99));
-            Assert.That(fen, Is.EqualTo(77), "相生取消后的等值改写");
-            Assert.That(yi, Is.EqualTo(86),
-                "红档当面数字比橙档低——强度大头压在灼烧总当量上,不是当面数字,见类方法文档");
+            Assert.That(yan, Is.EqualTo(143), "橙 = 全体 143");
+            Assert.That(fen, Is.EqualTo(143), "橙 = 全体 143");
+            Assert.That(yi, Is.EqualTo(210), "红 = 全体 210");
             Assert.That(yanBurn, Is.EqualTo(3));
             Assert.That(fenBurn, Is.EqualTo(3));
             Assert.That(yiBurn, Is.EqualTo(4));
