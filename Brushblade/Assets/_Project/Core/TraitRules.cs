@@ -475,6 +475,21 @@ namespace Brushblade.Core
                 killRefundAp: m.KillRefundAp > 0 ? m.KillRefundAp : (int?)null);
         }
 
+        /// <summary>一面效果里第一条 Block 的反击百分比;没写 counter 或没有 Block 取 <see cref="BattleConfig.BlockCounterPercent"/>(D12 兜底)。
+        /// 金汇新挂格挡(spec A D7)与 BlockMod 卡面的「原为 N%」共用。</summary>
+        public static int FaceBlockCounterPercent(IReadOnlyList<EffectDef> face)
+        {
+            if (face != null)
+                foreach (var e in face)
+                    if (e.Kind == EffectKind.Block)
+                        return e.CounterPercent > 0 ? e.CounterPercent : BattleConfig.BlockCounterPercent;
+            return BattleConfig.BlockCounterPercent;
+        }
+
+        /// <summary>BlockMod 改后的反击百分比(D10 只抬不降,同 <see cref="ApplyBlockMod"/>);不改反击的 BlockMod 原样返回。</summary>
+        public static int BlockModCounterPercent(int facePercent, EffectDef mod) =>
+            mod.CounterPercent > 0 ? Math.Max(mod.CounterPercent, facePercent) : facePercent;
+
         public static bool InScope(AmpScope scope, EffectKind kind)
         {
             bool damage = kind == EffectKind.DamageSingle;

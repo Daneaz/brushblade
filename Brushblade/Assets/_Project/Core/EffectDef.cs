@@ -242,6 +242,8 @@ namespace Brushblade.Core
         // ---- spec A(2026-10-15):Lv6 专属新机制。⚠ 只在末尾追加 ----
         Lifesteal,      // 沐霖:本次出字直接伤害(CastContext.DirectDamage,掉血 + 敌盾吸收,不含溢出)× Value% 回复玩家;不吃泉放大、不攒泉。离散。非敌对。
         OverhealShield, // 冰肌:本次出字到此为止的治疗溢出量 × Value% 转为玩家护盾(走 AddPlayerShield);不攒厚。离散。非敌对。
+        BlockGain,      // 金汇:玩家已有格挡 → 次数 + Value(反击不变);没有 → 新挂 Value 次,反击 = 攻面本体(吃等级)× 本字五行面 Block 的反击 %(没有则 BattleConfig.BlockCounterPercent)。离散。非敌对。
+        ReviveShield,   // 泽润:本次出字复活的每只木灵 + 护盾(其最大生命 × Value%,走 AddSummonShield);不攒厚。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>

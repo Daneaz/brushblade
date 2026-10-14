@@ -62,8 +62,9 @@ namespace Brushblade.Presentation
 
         /// <param name="healReshape">治疗改形(D2-水 E20):这些效果所在那一面没有伤害、有 HealSelf ——
         /// Reshape 的 shape All 改的是治疗,不是伤害。只有 <see cref="TraitEffectsText"/> 拿得到面的上下文。</param>
+        /// <param name="faceBody">这些效果所在那一面的本体(BlockMod 印「原为 N%」用);拿不到面上下文时 null,按缺省 30% 印。</param>
         private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel,
-            bool healReshape = false)
+            bool healReshape = false, IReadOnlyList<EffectDef> faceBody = null)
         {
             if (effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
@@ -315,7 +316,7 @@ namespace Brushblade.Presentation
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
                     // 格挡修饰器(D2-金 E12):按战意的次数 / 反击百分比覆盖 / 格挡附带都在 BlockModText 里印
-                    EffectKind.BlockMod => BlockModText(e, cardLevel),
+                    EffectKind.BlockMod => BlockModText(e, cardLevel, TraitRules.FaceBlockCounterPercent(faceBody)),
                     // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
                     EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
                     EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
@@ -389,6 +390,8 @@ namespace Brushblade.Presentation
                     // spec A D8:沐霖 / 冰肌,Value 是百分比(不随卡等级缩放)
                     EffectKind.Lifesteal => Strings.T("char.effect.lifesteal", ("value", e.Value)),
                     EffectKind.OverhealShield => Strings.T("char.effect.overhealshield", ("value", e.Value)),
+                    EffectKind.BlockGain => Strings.T("char.effect.blockgain", ("value", e.Value)),
+                    EffectKind.ReviveShield => Strings.T("char.effect.reviveshield", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -424,7 +427,8 @@ namespace Brushblade.Presentation
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
             TriggerText(trait.Trigger)
-            + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel))
+            + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel),
+                def == null ? null : trait.Face == TraitFace.Attack ? def.AttackEffects : def.Effects)
             + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "")
             + (trait.MaxPerBattle > 0 ? Strings.T("char.trait.battlelimit", ("count", trait.MaxPerBattle)) : "");   // D2-土 E35
 
@@ -816,15 +820,19 @@ namespace Brushblade.Presentation
                     + ShapeSuffix(e) + HitCountText(e) + ExecuteText(e) + ArmorStrikeText(e) + MarkerText(e);
 
         /// <summary>BlockMod(D2-金 E12):改的是本面的格挡。按战意 →「格挡次数 = 战意(至少 N)」,否则「格挡」;
-        /// 反击百分比覆盖带上原值(缺省 <see cref="BattleConfig.BlockCounterPercent"/>),玩家看得出是「改写」;再接格挡附带。</summary>
-        private static string BlockModText(EffectDef e, int cardLevel) =>
-            (e.ScaleBy == ScaleBasis.Morale
-                ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
-                : Strings.T("char.effect.blockmod"))
-            + (e.CounterPercent > 0
-                ? Strings.T("char.effect.blockmod.counter", ("percent", e.CounterPercent), ("base", BattleConfig.BlockCounterPercent))
-                : "")
-            + BlockRidersText(e, cardLevel);
+        /// 反击百分比覆盖带上原值(该面本体 Block 的反击 %,没写取 <see cref="BattleConfig.BlockCounterPercent"/>),玩家看得出是「改写」;
+        /// D10 只抬不降:改后不高于原值时这句不印。再接格挡附带。</summary>
+        private static string BlockModText(EffectDef e, int cardLevel, int basePercent)
+        {
+            int raised = TraitRules.BlockModCounterPercent(basePercent, e);
+            return (e.ScaleBy == ScaleBasis.Morale
+                    ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
+                    : Strings.T("char.effect.blockmod"))
+                + (raised > basePercent
+                    ? Strings.T("char.effect.blockmod.counter", ("percent", raised), ("base", basePercent))
+                    : "")
+                + BlockRidersText(e, cardLevel);
+        }
 
         /// <summary>格挡附带(D2-金 J1):BlockMod 与折叠后的 Block 共用。流血量出字时 = 基础 × 卡等级 × 攻击力(定死),
         /// 卡面印等级缩放后的值并注明随攻击力;回合固定 <see cref="BattleEngine.BleedDefaultTurns"/>。</summary>

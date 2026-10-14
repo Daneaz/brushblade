@@ -3908,6 +3908,28 @@ namespace Brushblade.Core
                         _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
                         break;
                     }
+                    case EffectKind.BlockGain:
+                    {
+                        // 金汇(spec A D7):已有格挡只加次数、反击不变;没有则新挂,反击 = 攻面本体(吃等级)× 本字五行面 Block 的反击 %
+                        var held = _playerStatuses.Find(StatusKind.Block);
+                        if (held != null) { held.Magnitude += value; break; }
+                        int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel) * FeatureBlockCounterPercent(def) / 100;
+                        ApplyStatus(_playerStatuses, new StatusEffect
+                        {
+                            Kind = StatusKind.Block, Polarity = StatusPolarity.Buff, Magnitude = value, CounterDamage = counter, TurnsLeft = -1,
+                        }, UnitRef.Player, UnitRef.Player);
+                        break;
+                    }
+                    case EffectKind.ReviveShield:
+                        // 泽润(spec A D8):只给本次出字复活的木灵,护盾 = 其最大生命 × Value%;不攒厚
+                        foreach (int slot in _cast.RevivedSlots)
+                        {
+                            var s = _summons[slot];
+                            if (s == null || !s.Alive) continue;
+                            int granted = AddSummonShield(slot, s.MaxHp * value / 100);
+                            _events.Add(new BattleEvent(BattleEventKind.Shield, slot, granted));
+                        }
+                        break;
                     case EffectKind.AddWellspring:
                         // 直接加泉(D1 Task 7,附录 M18,蓄泉):不经治疗折算,只受上限
                         // 补满(D2-水 E21,泽及四方):加到上限
@@ -5534,6 +5556,7 @@ namespace Brushblade.Core
         /// 自动救最前一具与玩家点名救某一具共用)。调用方负责判「是尸体、未满员」。</summary>
         private void ReviveAt(int slot, int hpPercent = 0)
         {
+            if (_inApplyEffects) _cast.RevivedSlots.Add(slot);   // 泽润(spec A D8)
             var revived = _summons[slot];
             // 半血,向上取整;hpPercent > 0(D2-木 E43 万木回春)= ⌈MaxHp × N%⌉
             revived.Hp = hpPercent > 0 ? (revived.MaxHp * hpPercent + 99) / 100 : (revived.MaxHp + 1) / 2;

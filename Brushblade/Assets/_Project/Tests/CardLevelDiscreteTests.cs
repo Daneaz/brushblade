@@ -88,6 +88,7 @@ namespace Brushblade.Core.Tests
             EffectKind.SummonRanged, EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar,
             // spec A D8:吸血 / 溢疗转盾是对已缩放量(直接伤害 / 治疗溢出)取百分比
             EffectKind.Lifesteal, EffectKind.OverhealShield,
+            EffectKind.BlockGain, EffectKind.ReviveShield,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
