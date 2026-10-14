@@ -462,7 +462,8 @@ namespace Brushblade.Core
             int at = effects.FindIndex(e => e.Kind == EffectKind.Block);
             if (at < 0) return;
             effects[at] = effects[at].With(
-                counterPercent: m.CounterPercent > 0 ? m.CounterPercent : (int?)null,
+                // D10:只抬不降 —— 本字 Block 自带反击 %,BlockMod 较低时不能把它拉下来
+                counterPercent: m.CounterPercent > 0 ? Math.Max(m.CounterPercent, effects[at].CounterPercent) : (int?)null,
                 scaleBy: m.ScaleBy != ScaleBasis.None ? m.ScaleBy : (ScaleBasis?)null,
                 scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null,
                 // D2-金 Task 2(J1):格挡附带的运行时字段,同样非缺省覆盖
