@@ -987,6 +987,12 @@ namespace Brushblade.Core
             Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff)
                 + SummonCritAura(), 0, 100);   // 蟾宫(D2-木 M2,Q23):存活木灵本命 CritAura 取最大,没有 = 0
 
+        /// <summary>规划副本开关(Plan F1 仿真机器人,2026-10-14):true 时玩家侧暴击判定(<see cref="RollCrit"/>)
+        /// 不摇号、按不暴击算,必暴(ForceCrit)照常 —— 与 <see cref="EstimateCast"/> 的暴击口径一致,
+        /// 但**不**带影子引擎的其它副作用(反应链照常兑现、生克照真身)。召唤物暴击不受影响。
+        /// 不进快照:<see cref="Restore"/> 出来恒为 false,副本要显式置位。默认 false = 逐字节恒等。</summary>
+        public bool SuppressCritRolls { get; set; }
+
         /// <summary>一次暴击判定。**两端都短路,一次随机都不摇**。
         ///
         /// 下端(≤0)是 E-b2 的恒等性硬线:_random 的既有消费方只有回合掉字、
@@ -1008,6 +1014,12 @@ namespace Brushblade.Core
         {
             // 预估试算(Plan E4 A-Q1):影子不摇号,按不暴击算;必暴是确定量,照常兑现锋芒(后续段吃到同一份战意)。本体恒 false
             if (_estimate)
+            {
+                if (force) GrantMoraleFromCrit();
+                return force;
+            }
+            // 规划副本(Plan F1):同预估口径,不摇号、按不暴击算,必暴照常;不带 _estimate 的其它副作用。默认 false 时原样
+            if (SuppressCritRolls)
             {
                 if (force) GrantMoraleFromCrit();
                 return force;

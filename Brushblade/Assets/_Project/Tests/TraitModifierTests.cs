@@ -235,6 +235,52 @@ namespace Brushblade.Core.Tests
             Assert.That(rolled.Capture().RandomState, Is.Not.EqualTo(before2), "对照:50% 暴击会摇一次");
         }
 
+        // ---------------- 规划副本开关(Plan F1)----------------
+
+        [Test]
+        public void SuppressCritRolls_FullCritChance_DoesNotCrit_NorRoll()
+        {
+            var config = new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, PlayerCritChance = 100 };
+            var b = Battle(Dmg(), 1, config);
+            b.SuppressCritRolls = true;
+            uint before = b.Capture().RandomState;
+            b.Cast("试", 0);
+            Assert.That(Hp - b.Enemies[0].Hp, Is.EqualTo(100), "暴击率 100% 也按不暴击算");
+            Assert.That(b.Capture().RandomState, Is.EqualTo(before), "不摇号");
+
+            var partial = Battle(Dmg(), 1, new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, PlayerCritChance = 50 });
+            partial.SuppressCritRolls = true;
+            uint before2 = partial.Capture().RandomState;
+            partial.Cast("试", 0);
+            Assert.That(partial.Capture().RandomState, Is.EqualTo(before2), "50% 也不摇号");
+            Assert.That(Hp - partial.Enemies[0].Hp, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void SuppressCritRolls_ForceCrit_StillCrits()
+        {
+            var b = Battle(new CharDef("试", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, forceCrit: true) }), 1);
+            b.SuppressCritRolls = true;
+            b.Cast("试", 0);
+            Assert.That(Hp - b.Enemies[0].Hp, Is.EqualTo(150), "必暴照常 ×150%");
+        }
+
+        [Test]
+        public void SuppressCritRolls_DefaultFalse_Unchanged_AndNotRestored()
+        {
+            var config = new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, PlayerCritChance = 100 };
+            var b = Battle(Dmg(), 1, config);
+            Assert.That(b.SuppressCritRolls, Is.False, "默认关");
+            b.Cast("试", 0);
+            Assert.That(Hp - b.Enemies[0].Hp, Is.EqualTo(150), "默认:暴击率 100% 照暴");
+
+            b.SuppressCritRolls = true;
+            var restored = BattleEngine.Restore(b.Capture(), RebalanceFixture.Graph(Dmg()), config,
+                new Dictionary<string, int> { ["试"] = 1 }, new Dictionary<string, EnemyDef> { [b.Enemies[0].Def.Id] = b.Enemies[0].Def });
+            Assert.That(restored.SuppressCritRolls, Is.False, "不进快照:复原出来恒关");
+        }
+
         [Test]
         public void ArmorIgnore50_HalvesEffectiveArmor()
         {
