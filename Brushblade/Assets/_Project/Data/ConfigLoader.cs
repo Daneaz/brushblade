@@ -1071,7 +1071,7 @@ namespace Brushblade.Data
                 {
                     nameof(ScaleBasis.BurnStack) or nameof(ScaleBasis.BurningEnemy) => kind == EffectKind.Amplify || kind == EffectKind.HealSelf,
                     // 格挡次数按战意只写在 BlockMod 上(与管线 countPerMorale 一致;Block 上的 ScaleBy 只由 Fold 写入)
-                    nameof(ScaleBasis.Morale) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape || kind == EffectKind.BlockMod,
+                    nameof(ScaleBasis.Morale) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape || kind == EffectKind.BlockMod || kind == EffectKind.Amplify,
                     nameof(ScaleBasis.ExtraHitTarget) => kind == EffectKind.Morale,
                     nameof(ScaleBasis.Wellspring) => kind == EffectKind.Amplify,   // D2-水 E22a 洪峰
                     nameof(ScaleBasis.Cleansed) => kind == EffectKind.HealSelf,    // D2-水 E22b 濯身
@@ -1080,7 +1080,7 @@ namespace Brushblade.Data
                 };
                 if (!ok)
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
-                        + "Morale 给 DamageSingle / Reshape / BlockMod;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf;"
+                        + "Morale 给 DamageSingle / Reshape / BlockMod / Amplify;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf;"
                         + "Shield 给 DamageSingle / Reshape)");
             }
             // 补满:战意(D2-金 E9)与泉(D2-水 E21,WellspringFill)
