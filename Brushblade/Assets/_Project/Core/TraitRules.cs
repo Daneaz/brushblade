@@ -486,6 +486,15 @@ namespace Brushblade.Core
             return BattleConfig.BlockCounterPercent;
         }
 
+        /// <summary>特性 <paramref name="trait"/> 所在那一面、在它解锁时的格挡反击 %(BlockMod 卡面「原为 N%」用):
+        /// 按 max(卡等级, 特性解锁等级) 折叠该面,但不含这条特性自己 —— 否则它的抬升已算进去,比不出「改没改」。</summary>
+        public static int FaceBlockCounterPercent(CharDef def, TraitDef trait, int cardLevel)
+        {
+            var face = trait.Face == TraitFace.Attack ? CardFace.Attack : CardFace.Feature;
+            return FaceBlockCounterPercent(Fold(BattleEngine.EffectsOf(def, face == CardFace.Attack), def, face,
+                Math.Max(cardLevel, trait.UnlockLevel), skip: t => ReferenceEquals(t, trait)));
+        }
+
         /// <summary>BlockMod 改后的反击百分比(D10 只抬不降,同 <see cref="ApplyBlockMod"/>);不改反击的 BlockMod 原样返回。</summary>
         public static int BlockModCounterPercent(int facePercent, EffectDef mod) =>
             mod.CounterPercent > 0 ? Math.Max(mod.CounterPercent, facePercent) : facePercent;

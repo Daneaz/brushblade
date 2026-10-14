@@ -3912,10 +3912,12 @@ namespace Brushblade.Core
                     }
                     case EffectKind.BlockGain:
                     {
-                        // 金汇(spec A D7):已有格挡只加次数、反击不变;没有则新挂,反击 = 攻面本体(吃等级)× 本字五行面 Block 的反击 %
+                        // 金汇(spec A D7):已有格挡只加次数、反击不变;没有则新挂,反击 = 攻面本体(吃等级)× 本字五行面
+                        // (按卡等级折叠后)Block 的反击 %。金汇是击杀时反应,这里的 def 是合成的 —— 回图谱取真身(同 BodySummonStats)
                         var held = _playerStatuses.Find(StatusKind.Block);
                         if (held != null) { held.Magnitude += value; break; }
-                        int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel) * FeatureBlockCounterPercent(def) / 100;
+                        if (!_graph.TryGet(def.Id, out var real)) real = def;
+                        int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(real), cardLevel) * FeatureBlockCounterPercent(real, cardLevel) / 100;
                         ApplyStatus(_playerStatuses, new StatusEffect
                         {
                             Kind = StatusKind.Block, Polarity = StatusPolarity.Buff, Magnitude = value, CounterDamage = counter, TurnsLeft = -1,

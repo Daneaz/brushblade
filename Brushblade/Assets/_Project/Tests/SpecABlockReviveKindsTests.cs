@@ -118,5 +118,45 @@ namespace Brushblade.Core.Tests
             Assert.That(TraitRules.BlockModCounterPercent(30, new EffectDef(EffectKind.BlockMod, 0, blockBleed: 50)),
                 Is.EqualTo(30), "不改反击的 BlockMod 原样");
         }
+        // ---- C7(review I1 / I2):反击基准读按卡等级折叠后的五行面,不是 Lv1 本体 ----
+
+        /// <summary>鑫式夹具:五行面本体 Block 反击 60,Lv3 强化替换为 70;Lv5 五行面 BlockMod(counter 由参数给);
+        /// Lv6 攻面击杀时金汇。</summary>
+        private static CharDef Folded(int modPercent) => new("汇", Element.Heart,
+            effects: new[] { new EffectDef(EffectKind.Block, 2, counterPercent: 60) },
+            attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
+            traits: new[]
+            {
+                new TraitDef(TraitSlot.Lv3, TraitFace.Feature, TraitForm.Active, TraitSlot.Lv1, "格挡·强化",
+                    new[] { new EffectDef(EffectKind.Block, 2, counterPercent: 70) }),
+                new TraitDef(TraitSlot.Lv5, TraitFace.Feature, TraitForm.Passive, null, "剑意",
+                    new[] { new EffectDef(EffectKind.BlockMod, 0, counterPercent: modPercent) }),
+                new TraitDef(TraitSlot.Lv6, TraitFace.Attack, TraitForm.Passive, null, "金汇",
+                    new[] { new EffectDef(EffectKind.BlockGain, 1) }, TraitTrigger.OnKill),
+            },
+            isComponent: false);
+
+        [Test]
+        public void BlockGain_AtLv6_NewBlockUsesFoldedFaceCounter()
+        {
+            var b = Battle(new[] { Folded(50) }, 6, RebalanceFixture.Mob(hp: 50), RebalanceFixture.Mob());
+            b.Cast("汇", 0, attackMode: true);
+            var block = b.PlayerStatuses.Find(StatusKind.Block);
+            Assert.That(block.CounterDamage, Is.EqualTo(MetaRules.ScaleByCardLevel(100, 6) * 70 / 100),
+                "Lv3 已把五行面格挡反击抬到 70,不是本体 60");
+        }
+
+        [Test]
+        public void TraitFaceBlockCounterPercent_IsFoldedFaceAtUnlock_ExcludingThisTrait()
+        {
+            var def = Folded(50);
+            var mod = def.Traits[1];
+            Assert.That(TraitRules.FaceBlockCounterPercent(def, mod, 1), Is.EqualTo(70),
+                "卡 Lv1 时也按特性解锁等级(Lv5)折叠:Lv3 的 70");
+            Assert.That(TraitRules.FaceBlockCounterPercent(def, Folded(90).Traits[1], 8), Is.EqualTo(70),
+                "不含本条 BlockMod 自己");
+            Assert.That(TraitRules.BlockModCounterPercent(TraitRules.FaceBlockCounterPercent(def, mod, 5), mod.Effects[0]),
+                Is.EqualTo(70), "剑意 50 不高于折叠后 70:卡面不印「改为」");
+        }
     }
 }
