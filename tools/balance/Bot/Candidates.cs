@@ -117,9 +117,10 @@ namespace Brushblade.Balance.Bot
             if (!graph.TryGet(id, out var def) || def.ApCost > battle.Ap) return;
             foreach (bool attackMode in FacesOf(def))
             {
-                var enemyTargets = EnemyTargets(battle, id, attackMode);
+                var face = new FaceInfo(battle, def, attackMode, fromLibrary: libraryIndex >= 0);
+                var enemyTargets = EnemyTargets(battle, face);
                 if (enemyTargets.Count == 0) continue;
-                foreach (var ally in AllyOptions(battle, def, attackMode))
+                foreach (var ally in AllyOptions(battle, face))
                     foreach (int target in enemyTargets)
                         result.Add(new BotAction
                         {
@@ -140,9 +141,9 @@ namespace Brushblade.Balance.Bot
 
         /// <summary>敌方落点:要选目标 → 每只活敌一条;不选目标(全体 / 无敌对)→ 一条 −1。
         /// 判据 = NeedsTargetNow(与 CastCore 同源,含池中部件的拆字印记)。</summary>
-        private static List<int> EnemyTargets(BattleEngine battle, string id, bool attackMode)
+        private static List<int> EnemyTargets(BattleEngine battle, FaceInfo face)
         {
-            if (!battle.NeedsTargetNow(id, attackMode)) return new List<int> { -1 };
+            if (!face.NeedsTarget) return new List<int> { -1 };
             var targets = new List<int>();
             for (int i = 0; i < battle.Enemies.Count; i++)
                 if (battle.Enemies[i].Alive) targets.Add(i);
@@ -168,10 +169,12 @@ namespace Brushblade.Balance.Bot
         ///          每只活木灵按 CanGraftAt / CanReplaceAt 各一条嫁接 / 替换;
         /// 选友方的面 → 玩家 + 每只活召唤物;带复活的面 → 另加每具可复活的尸体;
         /// 其余 → 玩家(自身 / 无友方落点)。</summary>
-        private static List<AllyOption> AllyOptions(BattleEngine battle, CharDef def, bool attackMode)
+        private static List<AllyOption> AllyOptions(BattleEngine battle, FaceInfo face)
         {
+            var def = face.Def;
+            bool attackMode = face.AttackMode;
             var options = new List<AllyOption>();
-            int summonCount = battle.SummonCountOf(def, attackMode);
+            int summonCount = face.SummonCount;
             if (summonCount > 0)
             {
                 // Core 缺省落位(summonSlots = null)的首格 = NextEmptySlot:先空槽、后尸体槽。这一格用缺省落位
@@ -183,13 +186,13 @@ namespace Brushblade.Balance.Bot
                     if (!battle.IsSlotOpen(slot) || battle.SlotOccupancy(slot) == SlotState.Alive) continue;
                     var plan = slot == defaultSlot ? null : battle.PlanSummonSlots(slot, summonCount);
                     options.Add(new AllyOption(Targeting.PlayerTarget, plan,
-                        replaceSummon: battle.SummonReplaceCountOf(def, attackMode, plan) > 0));
+                        replaceSummon: face.SummonReplaceCount(plan) > 0));
                 }
                 for (int slot = 0; slot < BattleEngine.MaxSummonSlots; slot++)
                 {
-                    if (battle.CanGraftAt(def.Id, attackMode, slot))
+                    if (face.CanGraftAt(slot))
                         options.Add(new AllyOption(slot, dropMode: SummonDropMode.Graft));
-                    if (battle.CanReplaceAt(def.Id, attackMode, slot))
+                    if (face.CanReplaceAt(slot))
                         options.Add(new AllyOption(slot, dropMode: SummonDropMode.Replace));
                 }
                 return options;
@@ -199,7 +202,7 @@ namespace Brushblade.Balance.Bot
             // 本体选友方(CastCore 校验口径),或已解锁特性折进来的效果选友方(Core 不校验、但按 allySlot 结算,
             // 如 杜 Lv5+ 攻击面的特性;暴力 oracle 抓到过)
             bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode)
-                || battle.CastEffectsNow(def.Id, attackMode).Any(BattleEngine.EffectNeedsAllyTarget);
+                || face.Effects.Any(BattleEngine.EffectNeedsAllyTarget);
             bool revive = BattleEngine.HasRevive(def, attackMode);
             for (int slot = 0; slot < BattleEngine.MaxSummonSlots; slot++)
             {
@@ -210,6 +213,78 @@ namespace Brushblade.Balance.Bot
                     options.Add(new AllyOption(slot));
             }
             return options;
+        }
+
+        /// <summary>一张字一面的派生量,一次 <see cref="BattleEngine.CastEffectsNow"/> 算完(性能:Core 每个读口各折叠一遍效果表,
+        /// 每次约 4µs,一个面原先要折叠 3 + 8 + 2×活木灵 次)。
+        ///
+        /// 判据与 Core 的读口逐条同源(Task 1 的暴力 oracle 守着):
+        /// - 字库里的字:<c>CastEffectsNow</c> 不并印记(PoolMarkEffectsOf 只认「池中、不在字库」的部件),
+        ///   恰等于 <c>SummonCountOf</c> / <c>ReplaceableSummonCountOf</c> / 嫁接判据读的静态 <c>CastEffectsOf</c>,
+        ///   于是只数、可顶人只数、嫁接 / 替换都从同一张表派生;
+        /// - 池中部件:印记可能并进效果,与静态表不同 → 只数 / 嫁接 / 替换仍调 Core 读口,不复刻。</summary>
+        private sealed class FaceInfo
+        {
+            public readonly CharDef Def;
+            public readonly bool AttackMode;
+            public readonly IReadOnlyList<EffectDef> Effects;
+            public readonly bool NeedsTarget;
+            public readonly int SummonCount;
+            private readonly BattleEngine _battle;
+            private readonly bool _derived;
+            private readonly int _replaceable;
+            private readonly bool _summonFace;
+            private readonly int _capacity;
+
+            public FaceInfo(BattleEngine battle, CharDef def, bool attackMode, bool fromLibrary)
+            {
+                _battle = battle;
+                Def = def;
+                AttackMode = attackMode;
+                Effects = battle.CastEffectsNow(def.Id, attackMode);
+                bool needsTarget = false;
+                foreach (var e in Effects) if (BattleEngine.EffectNeedsTarget(e)) { needsTarget = true; break; }
+                NeedsTarget = needsTarget;
+                // 「字库里」与 PoolMarkEffectsOf 的判据对齐:同字既在字库又在池里也算字库
+                _derived = fromLibrary || battle.Library.Contains(def.Id) || !def.IsComponent;
+                if (_derived)
+                {
+                    _capacity = battle.SummonCapacity;
+                    int all = 0, body = 0;
+                    foreach (var e in Effects)
+                    {
+                        if (e.Kind == EffectKind.Summon) { all += e.SummonCount; body += e.SummonCount; }
+                        else if (e.Kind == EffectKind.SummonSapling) all += e.SummonCount;
+                    }
+                    SummonCount = Math.Min(all, _capacity);
+                    _replaceable = Math.Min(body, _capacity);
+                    // HasSummonFace:五行面、木、本面有 Summon
+                    _summonFace = !attackMode && def.Element == Element.Wood && body > 0;
+                }
+                else SummonCount = battle.SummonCountOf(def, attackMode);
+            }
+
+            private bool Alive(int slot) => _battle.SlotOccupancy(slot) == SlotState.Alive;
+
+            /// <summary>同 <see cref="BattleEngine.SummonReplaceCountOf"/>。</summary>
+            public int SummonReplaceCount(IReadOnlyList<int> plan)
+            {
+                if (!_derived) return _battle.SummonReplaceCountOf(Def, AttackMode, plan);
+                if (_replaceable <= 0) return 0;
+                if (plan == null) return Math.Max(0, _battle.AliveSummonCount + _replaceable - _capacity);
+                int replaced = 0;
+                for (int n = 0; n < _replaceable && n < plan.Count; n++)
+                    if (Alive(plan[n])) replaced++;
+                return replaced;
+            }
+
+            /// <summary>同 <see cref="BattleEngine.CanGraftAt"/>。</summary>
+            public bool CanGraftAt(int slot) =>
+                _derived ? _summonFace && Alive(slot) : _battle.CanGraftAt(Def.Id, AttackMode, slot);
+
+            /// <summary>同 <see cref="BattleEngine.CanReplaceAt"/>。</summary>
+            public bool CanReplaceAt(int slot) =>
+                _derived ? _replaceable > 0 && Alive(slot) : _battle.CanReplaceAt(Def.Id, AttackMode, slot);
         }
 
         /// <summary>与 BattleEngine.NextEmptySlot(私有)同判据:开放格里先找空槽,再找尸体槽;没有 −1。</summary>

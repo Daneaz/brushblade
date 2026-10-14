@@ -46,11 +46,13 @@ namespace Brushblade.Balance.Bot
         /// <summary>完整打分(spec §3.1):在换了固定种子的副本上「结束回合 → 敌人回合 → 停在下一个玩家回合开始」
         /// 再 <see cref="Quick"/>。副本 RNG 只由 <paramref name="leafSeed"/> 派生,与本体 RNG 无关(spec §2.4)。
         /// 下一回合开头若因满库挂起掉字(DropChoice),副本里一律 <see cref="BattleEngine.SkipDrop"/>:
-        /// 字库不进打分,跳过不改分数,只为让相位回到玩家回合。</summary>
+        /// 字库不进打分,跳过不改分数,只为让相位回到玩家回合。
+        /// 副本置 <see cref="BattleEngine.SuppressCritRolls"/>:玩家侧暴击按不暴击算(与搜索副本同口径)。</summary>
         public static double Full(BattleEngine b, RecipeGraph g, BattleConfig cfg,
             IReadOnlyDictionary<string, int> cardLevels, ulong leafSeed)
         {
             var copy = CloneWithSeed(b, g, cfg, cardLevels, leafSeed);
+            copy.SuppressCritRolls = true; // spec §2.3:副本暴击按不暴击算(必暴照算);不进快照,克隆后显式置位
             if (copy.Phase == BattlePhase.DropChoice) copy.SkipDrop();
             if (copy.Phase == BattlePhase.PlayerTurn) copy.EndTurn(); // 内部推进到下一个玩家回合开始或分出胜负
             if (copy.Phase == BattlePhase.DropChoice) copy.SkipDrop();

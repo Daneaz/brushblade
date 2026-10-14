@@ -76,7 +76,7 @@ namespace Brushblade.Balance.Bot
         internal sealed class Step
         {
             public BotAction Action;
-            public string ExpectedKey;
+            public ulong ExpectedKey;
         }
 
         private sealed class Ctx
@@ -87,7 +87,7 @@ namespace Brushblade.Balance.Bot
             public SearchOptions Opt;
             public ulong LeafSeed;
             public SearchStats Stats;
-            public HashSet<string> Visited = new HashSet<string>(StringComparer.Ordinal);
+            public HashSet<ulong> Visited = new HashSet<ulong>();
             public List<Step> Path = new List<Step>();
             public List<Step> Best = new List<Step>();
         }
@@ -108,51 +108,80 @@ namespace Brushblade.Balance.Bot
                 LeafSeed = Mix(turnSeed ^ LeafSalt),
             };
             var root = Evaluator.CloneWithSeed(b, g, cfg, cardLevels, Mix(turnSeed ^ RootSalt));
-            Visit(root, StateKey(root), ctx);
+            root.SuppressCritRolls = true; // §2.3:副本暴击按不暴击算(必暴照算)
+            Visit(root, StateKey(root), ctx, depth: 0, stopLeafDone: false);
             stats.UniqueStates = ctx.Visited.Count;
             return ctx.Best;
         }
 
         private static bool CapReached(Ctx c) => c.Stats.Leaves >= c.Opt.LeafCap;
 
-        private static void Visit(BattleEngine node, string key, Ctx c)
+        private static void Visit(BattleEngine node, ulong key, Ctx c, int depth, bool stopLeafDone)
         {
             if (CapReached(c)) return;
-            if (c.Opt.Transposition) c.Visited.Add(key);
+            if (c.Opt.Transposition && !c.Visited.Add(key)) { c.Stats.TranspositionHits++; return; }
             c.Stats.Nodes++;
 
-            // 「到此结束回合」本身是一片叶子
-            Leaf(node, endTurn: true, c);
-            if (node.Ap <= 0) return; // AP 用完即止(拆字免 AP,但余下的拆不影响本回合结算)
+            // 「到此结束回合」本身是一片叶子(根的子节点已在深入前统一打过,见下)
+            if (!stopLeafDone) Leaf(node, endTurn: true, c);
 
+            var picked = Pick(node, c);
+            // 叶子上限下防 DFS 偏斜:先给每个根子节点打一片「到此结束」叶子,再逐个深入
+            if (depth == 0)
+                foreach (var ch in picked)
+                {
+                    if (ch.engine.Phase != BattlePhase.PlayerTurn) continue;
+                    c.Path.Add(new Step { Action = ch.action, ExpectedKey = ch.key });
+                    Leaf(ch.engine, endTurn: true, c);
+                    c.Path.RemoveAt(c.Path.Count - 1);
+                }
+
+            foreach (var ch in picked)
+            {
+                if (CapReached(c)) break;
+                c.Path.Add(new Step { Action = ch.action, ExpectedKey = ch.key });
+                if (ch.engine.Phase == BattlePhase.PlayerTurn) Visit(ch.engine, ch.key, c, depth + 1, stopLeafDone: depth == 0);
+                else if (!c.Opt.Transposition || c.Visited.Add(ch.key))
+                    Leaf(ch.engine, endTurn: false, c); // 分出胜负(或挂起掉字):不再接结束回合
+                c.Path.RemoveAt(c.Path.Count - 1);
+            }
+        }
+
+        /// <summary>在副本上试执行全部候选(被 Core 拒的剪掉),按快速分降序取前 K 个未展开过的子局面。
+        /// AP 用完时只剩免 AP 的拆字:只留**当场有结算**的(Lv4 字形特性等,LastEvents 非空)——
+        /// 没有即时效果的拆在 AP 0 时改变不了本回合(部件出不了、印记回合末作废),展开它只会让叶子数爆炸。</summary>
+        private static List<(BotAction action, BattleEngine engine, ulong key)> Pick(BattleEngine node, Ctx c)
+        {
+            bool apSpent = node.Ap <= 0;
             var children = new List<(BotAction action, BattleEngine engine, double quick, int order)>();
+            var snap = node.Capture(); // 每节点只 Capture 一次:Restore 对快照全是深拷贝(列表 / 状态 / 本命逐个 Clone)
             var defs = Evaluator.EnemyDefsOf(node);
             foreach (var action in Candidates.Generate(node, c.Graph))
             {
                 if (action.Kind == ActionKind.EndTurn) continue;
+                if (apSpent && action.Kind != ActionKind.Dismantle) continue;
                 c.Stats.Generated++;
-                var child = BattleEngine.Restore(node.Capture(), c.Graph, c.Config, c.CardLevels, defs);
+                var child = BattleEngine.Restore(snap, c.Graph, c.Config, c.CardLevels, defs);
+                child.SuppressCritRolls = true;
                 if (action.ApplyTo(child) != BattleError.None) { c.Stats.Rejected++; continue; }
+                if (apSpent && child.LastEvents.Count == 0) continue;
                 children.Add((action, child, Evaluator.Quick(child), children.Count));
             }
 
-            int taken = 0;
+            var picked = new List<(BotAction, BattleEngine, ulong)>();
+            var local = new HashSet<ulong>();
             foreach (var ch in children.OrderByDescending(x => x.quick).ThenBy(x => x.order))
             {
-                if (taken >= c.Opt.K || CapReached(c)) break;
-                string childKey = StateKey(ch.engine);
-                if (c.Opt.Transposition && c.Visited.Contains(childKey)) { c.Stats.TranspositionHits++; continue; }
-                taken++;
-
-                c.Path.Add(new Step { Action = ch.action, ExpectedKey = childKey });
-                if (ch.engine.Phase == BattlePhase.PlayerTurn) Visit(ch.engine, childKey, c);
-                else
+                if (picked.Count >= c.Opt.K) break;
+                ulong childKey = StateKey(ch.engine);
+                if (c.Opt.Transposition && (c.Visited.Contains(childKey) || !local.Add(childKey)))
                 {
-                    if (c.Opt.Transposition) c.Visited.Add(childKey);
-                    Leaf(ch.engine, endTurn: false, c); // 分出胜负(或挂起掉字):不再接结束回合
+                    c.Stats.TranspositionHits++;
+                    continue;
                 }
-                c.Path.RemoveAt(c.Path.Count - 1);
+                picked.Add((ch.action, ch.engine, childKey));
             }
+            return picked;
         }
 
         private static void Leaf(BattleEngine state, bool endTurn, Ctx c)
@@ -227,31 +256,23 @@ namespace Brushblade.Balance.Bot
 
         // ---- 局面键 ----
 
-        /// <summary>转置表 / 偏离判定用的局面键:快照去掉随机流状态与状态序号(SourceId / StatusSerial)后序列化。
-        /// 随机流不进键 —— 同一对局状态经不同路径到达时随机流不同,但对搜索而言是同一局面;
-        /// 本体与根副本的随机流本来就不同(§2.4),进键就永远比不上。</summary>
-        internal static string StateKey(BattleEngine b) => JsonConvert.SerializeObject(b.Capture(), KeySettings);
+        /// <summary>转置表 / 偏离判定用的局面键(<see cref="StateHash"/>)。</summary>
+        internal static ulong StateKey(BattleEngine b) => StateHash.Of(b);
+
+        /// <summary>键的 JSON 对照(去掉与 <see cref="StateHash.Ignored"/> 相同的字段),只给冲突测试用。</summary>
+        internal static string StateKeyJson(BattleEngine b) => JsonConvert.SerializeObject(b.Capture(), KeySettings);
 
         private static readonly JsonSerializerSettings KeySettings = new JsonSerializerSettings
         {
             ContractResolver = new KeyResolver(),
-            NullValueHandling = NullValueHandling.Ignore,
-            DefaultValueHandling = DefaultValueHandling.Ignore,
         };
 
         private sealed class KeyResolver : DefaultContractResolver
         {
-            private static readonly HashSet<string> Ignored = new HashSet<string>(StringComparer.Ordinal)
-            {
-                nameof(BattleSnapshot.RandomState), nameof(BattleSnapshot.TargetRandomState),
-                nameof(BattleSnapshot.TraitRandomState), nameof(BattleSnapshot.StatusSerial),
-                nameof(StatusEffect.SourceId),
-            };
-
             protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
             {
                 var p = base.CreateProperty(member, memberSerialization);
-                if (Ignored.Contains(member.Name)) p.ShouldSerialize = _ => false;
+                if (StateHash.Ignored.Contains(member.Name)) p.ShouldSerialize = _ => false;
                 return p;
             }
         }

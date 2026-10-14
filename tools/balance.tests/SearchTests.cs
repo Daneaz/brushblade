@@ -251,6 +251,7 @@ namespace Brushblade.Balance.Tests
                 Assert.That(stats.BodyRejected, Is.EqualTo(0), "重搜后不会落到死掉的目标上被拒:" + Show(executed));
                 Assert.That(executed.Count(a => a.Kind == ActionKind.Cast), Is.EqualTo(3), "AP 用满:" + Show(executed));
                 Assert.That(executed.Last().Kind, Is.EqualTo(ActionKind.EndTurn));
+                Assert.That(stats.Replans, Is.LessThanOrEqualTo(stats.Steps), "每步至多重搜一次");
                 if (stats.Replans > 0)
                 {
                     replanned++;
@@ -258,6 +259,126 @@ namespace Brushblade.Balance.Tests
                 }
             }
             Assert.That(replanned, Is.GreaterThan(0), "前提:至少一个种子下暴击结果与副本不同、触发重搜");
+        }
+
+        [Test]
+        public void Copies_IgnoreCritChance_SameSearchAsNoCrit()
+        {
+            // 副本暴击按不暴击算(spec §2.3):暴击率 100% 与 0% 搜出同一序列、同一分
+            var zero = new SearchStats();
+            var full = new SearchStats();
+            string a = Show(CritKill(0).Best(SearchOptions.Fast, zero));
+            string b = Show(CritKill(100).Best(SearchOptions.Fast, full));
+            Assert.That(b, Is.EqualTo(a));
+            Assert.That(full.BestScore, Is.EqualTo(zero.BestScore));
+        }
+
+        [Test]
+        public void PlayTurn_BodyAlwaysCrits_CopyExpectsNoCrit_Replans()
+        {
+            var s = CritKill(100);
+            var stats = new BotStats();
+            var executed = Search.PlayTurn(s.Battle, Fixture.Graph, s.Config, s.CardLevels, SearchOptions.Fast, TurnSeed, stats);
+            Assert.That(stats.Replans, Is.GreaterThan(0), "本体必暴、副本按不暴:第一下打到人就偏离:" + Show(executed));
+            Assert.That(stats.BodyRejected, Is.EqualTo(0));
+            Assert.That(stats.Replans, Is.LessThanOrEqualTo(stats.Steps));
+        }
+
+        // ── AP 0 的拆字(字形特性即时结算)──────────────────────
+
+        [Test]
+        public void ApZero_DismantleWithGlyphTrait_IsChosen()
+        {
+            // 圭 Lv4「叠土」:拆即得 126 盾;碉没有拆字特性,AP 0 时拆它毫无作用
+            var s = new Scene(new[] { "圭", "碉" }, new[] { new EnemyDef("凶", Element.Heart, 100000, 300) }, ap: 0, cardLevel: 4);
+            var stats = new SearchStats();
+            var plan = s.Best(SearchOptions.Fast, stats);
+            Assert.That(plan.Count, Is.EqualTo(2), Show(plan));
+            Assert.That(plan[0].Kind, Is.EqualTo(ActionKind.Dismantle), Show(plan));
+            Assert.That(plan[0].CharId, Is.EqualTo("圭"), Show(plan));
+            Assert.That(plan[1].Kind, Is.EqualTo(ActionKind.EndTurn));
+            Assert.That(plan.Any(a => a.CharId == "碉"), Is.False, "无即时效果的拆不展开:" + Show(plan));
+
+            var copy = Evaluator.CloneWithSeed(s.Battle, Fixture.Graph, s.Config, s.CardLevels, null);
+            plan[0].ApplyTo(copy);
+            Assert.That(copy.PlayerShield, Is.GreaterThanOrEqualTo(126), "前提:叠土当场给盾(基础 126,Lv4 按卡等级放大)");
+        }
+
+        // ── 根子节点先打「到此结束」叶子 ─────────────────────────
+
+        [Test]
+        public void LeafCap_RootChildrenScoredBeforeDiving()
+        {
+            var s = Midgame();
+            var stats = new SearchStats();
+            var plan = s.Best(new SearchOptions { K = 4, LeafCap = 5 }, stats);
+            Assert.That(stats.Leaves, Is.EqualTo(5), "根 1 片 + 根的 4 个子节点各 1 片");
+            Assert.That(plan.Count, Is.LessThanOrEqualTo(2), "叶子全在第一层:至多一步 + 结束回合:" + Show(plan));
+        }
+
+        // ── 局面键与快照复用 ─────────────────────────────────────
+
+        /// <summary>中期局面两层展开的全部子局面(含被拒的跳过)。</summary>
+        private static List<BattleEngine> TwoPlyStates(Scene s)
+        {
+            var states = new List<BattleEngine> { s.Battle };
+            var frontier = new List<BattleEngine> { s.Battle };
+            for (int ply = 0; ply < 2; ply++)
+            {
+                var next = new List<BattleEngine>();
+                foreach (var node in frontier.Take(12))
+                    foreach (var a in Candidates.Generate(node, Fixture.Graph))
+                    {
+                        var child = Evaluator.CloneWithSeed(node, Fixture.Graph, s.Config, s.CardLevels, null);
+                        if (a.ApplyTo(child) != BattleError.None) continue;
+                        next.Add(child);
+                    }
+                states.AddRange(next);
+                frontier = next;
+            }
+            return states;
+        }
+
+        [Test]
+        public void StateKey_EqualIffJsonEqual()
+        {
+            var states = TwoPlyStates(Midgame());
+            var keys = states.Select(Search.StateKey).ToList();
+            var jsons = states.Select(Search.StateKeyJson).ToList();
+            Assert.That(states.Count, Is.GreaterThan(200), "前提:样本足够多");
+            Assert.That(jsons.Distinct().Count(), Is.LessThan(states.Count), "前提:样本里有重复局面(⇐ 方向不空转)");
+            for (int i = 0; i < states.Count; i++)
+                for (int j = i + 1; j < states.Count; j++)
+                    Assert.That(keys[i] == keys[j], Is.EqualTo(jsons[i] == jsons[j]), $"#{i} vs #{j}");
+        }
+
+        [Test]
+        public void StateKey_IgnoresRngAndSerials()
+        {
+            var s = Midgame();
+            var other = s.With(x => { x.RandomState ^= 0x1234u; x.TargetRandomState ^= 0x55u; x.TraitRandomState ^= 0x77u; x.StatusSerial += 9; });
+            Assert.That(Search.StateKey(other), Is.EqualTo(Search.StateKey(s.Battle)));
+            var hurt = s.With(x => x.PlayerHp -= 1);
+            Assert.That(Search.StateKey(hurt), Is.Not.EqualTo(Search.StateKey(s.Battle)));
+        }
+
+        [Test]
+        public void Restore_SameSnapshotTwice_NoSharedMutableState()
+        {
+            var s = Midgame();
+            var snap = s.Battle.Capture();
+            string snapJson = JsonConvert.SerializeObject(snap);
+            var defs = Evaluator.EnemyDefsOf(s.Battle);
+            var first = BattleEngine.Restore(snap, Fixture.Graph, s.Config, s.CardLevels, defs);
+            foreach (var a in Candidates.Generate(first, Fixture.Graph).Where(a => a.Kind != ActionKind.EndTurn).Take(40))
+            {
+                var mutated = BattleEngine.Restore(snap, Fixture.Graph, s.Config, s.CardLevels, defs);
+                a.ApplyTo(mutated);
+                if (mutated.Phase == BattlePhase.PlayerTurn) mutated.EndTurn(); // 连敌人回合一起跑,尽量多改状态
+            }
+            Assert.That(JsonConvert.SerializeObject(snap), Is.EqualTo(snapJson), "快照没被复原出的引擎改写");
+            var second = BattleEngine.Restore(snap, Fixture.Graph, s.Config, s.CardLevels, defs);
+            Assert.That(Json(second), Is.EqualTo(Json(first)));
         }
 
         // ── 耗时(报告用,不进常规跑)───────────────────────────
