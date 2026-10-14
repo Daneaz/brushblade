@@ -2159,7 +2159,9 @@ namespace Brushblade.Core
                     // 护甲/反弹(铠/壁)要先在召唤物侧建结算链路 —— 在那之前放进来,
                     // 玩家能把铠加给召唤物、状态挂上去却没人读,比不让加更糟。
                     // D1 Task 7:Pick.Self 的净化落到玩家自身,不选友方(攻击面「我方清 1 个减益」)
-                    || (effect.Kind == EffectKind.Cleanse && effect.Pick != EffectPick.Self)
+                    // spec A D8:AllAllies(玩家 + 全部木灵)同样免选 —— 否则全体五行面挂不上它
+                    || (effect.Kind == EffectKind.Cleanse && effect.Pick != EffectPick.Self
+                        && effect.Pick != EffectPick.AllAllies)
                     || effect.Kind == EffectKind.Immunity
                     // 第二批(2026-08-28):攻击/暴击/穿透。召唤物侧的结算链路同批建好 ——
                     // SummonState.EffectiveAttack / RollCritForSummon / EffectiveEnemyDefense 的

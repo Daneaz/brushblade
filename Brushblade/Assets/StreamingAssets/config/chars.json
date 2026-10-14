@@ -3284,7 +3284,7 @@
           "effects": [
             {
               "kind": "Slow",
-              "value": 1
+              "value": 2
             }
           ]
         },
@@ -4172,7 +4172,8 @@
             },
             {
               "kind": "Cleanse",
-              "value": 1
+              "value": 1,
+              "pick": "AllAllies"
             }
           ]
         },
@@ -4893,7 +4894,8 @@
             },
             {
               "kind": "Cleanse",
-              "value": 1
+              "value": 1,
+              "pick": "AllAllies"
             }
           ]
         }
@@ -5540,10 +5542,9 @@
           "name": "淋透",
           "effects": [
             {
-              "kind": "Seed",
+              "kind": "HealOverTime",
               "value": 29,
-              "pick": "SlowedByThisCast",
-              "whileSlowed": true
+              "turns": 2
             }
           ]
         },
