@@ -1,17 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Brushblade.Balance.Bot;
 using Brushblade.Core;
 using Brushblade.Data;
 
 namespace Brushblade.Balance
 {
-    /// <summary>无尽难度仿真(20.4 校准):贪心机器人永不撤退一路深入,量「卒于第几层」分布。
-    /// 机器人弱于人类,数据当难度地板读;关卡制已废止(v0.7),旧关卡口径删除。</summary>
+    /// <summary>无尽难度仿真(20.4 校准):机器人永不撤退一路深入,量「卒于第几层」分布。
+    /// 机器人弱于人类,数据当难度地板读;关卡制已废止(v0.7),旧关卡口径删除。
+    ///
+    /// 缺省跑 Plan F1 的搜索机器人(<c>Bot/</c>):快档 30 种子 × {五系随机 + 单系五个} × 卡 Lv5;
+    /// <c>--slow</c> 慢档 300 种子 × 全部 10 画像 × Lv1/5/8(K=12 / 叶子 4096),另跑同画像快档 Lv5 出差列。
+    /// <c>--legacy-bot</c> 走旧的价目表贪心机器人,缺省参数下输出与 F1 之前逐字节相同(只作新旧对照,F1 合并后删)。
+    /// 命令行:<c>dotnet run -c Release -- [--slow] [--legacy-bot] [--profile 名] [--seeds N] [--card-level N]</c>。</summary>
     public static class Program
     {
-        private const int Seeds = 300;
+        private const int LegacySeeds = 300;
+        private static int Seeds = LegacySeeds;
         private const int StallTurns = 60;
         private const int DepthCap = 300;
 
@@ -44,13 +52,23 @@ namespace Brushblade.Balance
 
         public static void Main(string[] args)
         {
+            bool legacy = false, slow = false;
+            int? seedsArg = null, levelArg = null;
+            string profileArg = null;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--card-level" && i + 1 < args.Length && int.TryParse(args[i + 1], out var lv) && lv >= 1)
-                    { CardLevel = lv; i++; }
+                    { levelArg = lv; i++; }
+                else if (args[i] == "--seeds" && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n >= 1)
+                    { seedsArg = n; i++; }
+                else if (args[i] == "--profile" && i + 1 < args.Length)
+                    { profileArg = args[i + 1]; i++; }
+                else if (args[i] == "--slow") slow = true;
+                else if (args[i] == "--legacy-bot") legacy = true;
                 else
-                    throw new ArgumentException($"未知参数:{args[i]}(只认 --card-level N,N >= 1)");
+                    throw new ArgumentException($"未知参数:{args[i]}(认 --slow / --legacy-bot / --profile 名 / --seeds N / --card-level N)");
             }
+            if (legacy && slow) throw new ArgumentException("--legacy-bot 与 --slow 不能同用");
             string configDir = Path.Combine(AppContext.BaseDirectory,
                 "../../../../../Brushblade/Assets/StreamingAssets/config");
             var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
@@ -72,12 +90,31 @@ namespace Brushblade.Balance
                     new[] { new[] { Element.Wood }, new[] { e }, new[] { Element.Wood }, new[] { e },
                             new[] { Element.Wood, e } }));
             profiles.Add(new Profile("五系随机(核心)", CardsOf(graph, Elements), slots: null));
+            if (profileArg != null)
+            {
+                var exact = profiles.Where(p => p.Name == profileArg).ToList();
+                profiles = exact.Count > 0 ? exact : profiles.Where(p => p.Name.Contains(profileArg)).ToList();
+                if (profiles.Count == 0) throw new ArgumentException($"没有画像匹配「{profileArg}」");
+            }
 
+            if (!legacy)
+            {
+                RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null);
+                return;
+            }
+
+            // ---- 旧机器人(--legacy-bot):缺省参数下输出与 F1 之前逐字节相同 ----
+            if (levelArg.HasValue)
+            {
+                CardLevel = levelArg.Value;
+                foreach (var p in profiles) p.SetCardLevel(CardLevel);
+            }
+            if (seedsArg.HasValue) Seeds = seedsArg.Value;
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子"
                 + $" · 卡 {CardLevel} 级 · 角色 {CharacterLevel} 级 · 起手 6 张随机\n");
             // 末两列是**机器人自检**,不是平衡指标(见 BotProbe):攻面出字恒 0 = 双方向字
             // 的攻面又断了;僵局判死高企 = 机器人打不死人、靠 60 回合上限判死收场。
-            Console.WriteLine("| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/300 | 反击总伤/局 | 反击被削% |");
+            Console.WriteLine($"| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/{Seeds} | 反击总伤/局 | 反击被削% |");
             Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var profile in profiles)
                 SimulateProfile(graph, campaign, endless, profile);
@@ -106,6 +143,8 @@ namespace Brushblade.Balance
                 Defense = MetaRules.DefenseFor(CharacterLevel);
                 Dodge = MetaRules.DodgeFor(CharacterLevel);
             }
+
+            public void SetCardLevel(int level) => CardLevels = OwnedCards.ToDictionary(c => c, _ => level);
         }
 
         /// <summary>起手 6 张(2026-09-17)。五系混合调游戏本体的 <c>MetaRules.StartingLibrary</c>;
@@ -249,6 +288,152 @@ namespace Brushblade.Balance
                 fromDepth += endless.BossEvery;
             }
             return DepthCap;
+        }
+
+        // ---- F1 搜索机器人(Bot/) ----
+
+        /// <summary>同旧工装的角色属性口径(UnlockedChars 由 BotRunner 按卡池填)。</summary>
+        private static BattleConfig NewBattleConfig(CampaignConfig campaign, Profile profile) => new BattleConfig
+        {
+            DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
+            PlayerAttack = profile.Attack, PlayerDefense = profile.Defense, PlayerDodge = profile.Dodge,
+        };
+
+        /// <summary>起手字库与部件池:与旧工装同一颗种子、同一套抽法,新旧两版同种子起手一致。</summary>
+        private static (IReadOnlyList<string>, IReadOnlyList<string>) StartingHand(RecipeGraph graph, Profile profile, int seed)
+        {
+            var deckRandom = new GameRandom(unchecked(seed * 104729 + 3));
+            var library = DrawStartingLibrary(graph, profile, deckRandom);
+            var pool = MetaRules.RollStartingPool(library, graph, deckRandom);
+            return (library, pool);
+        }
+
+        /// <summary>快档画像:五系随机(核心)+ 单系五个(2026-10-14 用户拍板)。</summary>
+        private static bool InFastSet(Profile p) => p.Name == "五系随机(核心)" || p.Name.StartsWith("单系·");
+
+        private sealed class Row
+        {
+            public Profile Profile;
+            public int Level;
+            public ClimbResult[] Results;
+            public double Seconds;
+            public double AvgDepth => Results.Average(r => r.DeathDepth);
+        }
+
+        private static Row RunRow(RecipeGraph graph, CampaignConfig campaign, Profile profile, int level,
+            int seeds, SearchOptions opt, CardAppraiser appraiser)
+        {
+            var setup = new ClimbSetup
+            {
+                Graph = graph, Campaign = campaign, OwnedCards = profile.OwnedCards,
+                CardLevels = profile.OwnedCards.ToDictionary(c => c, _ => level),
+                NewBattleConfig = () => NewBattleConfig(campaign, profile),
+                Search = opt, Appraiser = appraiser, DepthCap = DepthCap, StallTurns = StallTurns,
+            };
+            var watch = Stopwatch.StartNew();
+            var results = BotRunner.ClimbMany(setup, Enumerable.Range(0, seeds).ToList(),
+                seed => StartingHand(graph, profile, seed), parallel: true);
+            return new Row { Profile = profile, Level = level, Results = results, Seconds = watch.Elapsed.TotalSeconds };
+        }
+
+        private static void RunSearchBot(RecipeGraph graph, CampaignConfig campaign, EndlessConfig endless,
+            List<Profile> profiles, bool slow, int? seedsArg, int? levelArg, bool profileChosen)
+        {
+            int seeds = seedsArg ?? (slow ? 300 : 30);
+            var levels = levelArg.HasValue ? new[] { levelArg.Value } : slow ? new[] { 1, 5, 8 } : new[] { 5 };
+            if (!slow && !profileChosen) profiles = profiles.Where(InFastSet).ToList();
+            var opt = slow ? SearchOptions.Slow : SearchOptions.Fast;
+            var any = profiles[0];
+            var appraiser = new CardAppraiser(graph, endless, () => NewBattleConfig(campaign, any)); // 各画像角色属性相同
+
+            Console.WriteLine($"搜索机器人 · {(slow ? "慢档" : "快档")} K={opt.K} 叶子≤{opt.LeafCap} · {seeds} 种子 · 并发 {Environment.ProcessorCount} 核"
+                + $" · 卡 Lv{string.Join("/", levels)} · 角色 {CharacterLevel} 级 · 起手 6 张随机"
+                + $" · scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus}\n");
+
+            var total = Stopwatch.StartNew();
+            var rows = new List<Row>();
+            foreach (var profile in profiles)
+                foreach (int level in levels)
+                    rows.Add(RunRow(graph, campaign, profile, level, seeds, opt, appraiser));
+            double mainSeconds = total.Elapsed.TotalSeconds;
+
+            // 慢档差列:同画像、同种子的快档 Lv5(spec §5;2026-10-14 拍板只比 Lv5)
+            Dictionary<string, Row> fastLv5 = null;
+            double fastSeconds = 0;
+            if (slow && levels.Contains(5))
+            {
+                var watch = Stopwatch.StartNew();
+                var fastAppraiser = new CardAppraiser(graph, endless, () => NewBattleConfig(campaign, any));
+                fastLv5 = profiles.ToDictionary(p => p.Name,
+                    p => RunRow(graph, campaign, p, 5, seeds, SearchOptions.Fast, fastAppraiser));
+                fastSeconds = watch.Elapsed.TotalSeconds;
+            }
+
+            // 末两组列是机器人自检:重搜 / 本体拒(应恒 0)。拆 / 合 / 嫁接 / 替换按每局计。
+            Console.WriteLine($"| 画像 | 卡Lv | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/{seeds} | 反击总伤/局 | 反击被削% "
+                + "| 拆/局 | 合/局 | 嫁接/局 | 替换/局 | 两面字 攻:五行 | 回合/局 | 重搜/回合 | 本体拒 | 耗时s |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+            foreach (var row in rows) PrintRow(row, seeds);
+
+            Console.WriteLine();
+            Console.WriteLine("| 画像 | " + string.Join(" | ", levels.Select(l => $"均卒层 Lv{l}")) + (fastLv5 != null ? " | 快档 Lv5 | 慢−快(Lv5) |" : " |"));
+            Console.WriteLine("|---|" + string.Concat(levels.Select(_ => "---|")) + (fastLv5 != null ? "---|---|" : ""));
+            foreach (var profile in profiles)
+            {
+                var line = $"| {profile.Name} | " + string.Join(" | ",
+                    levels.Select(l => rows.First(r => r.Profile == profile && r.Level == l).AvgDepth.ToString("F1")));
+                if (fastLv5 != null)
+                {
+                    double slowLv5 = rows.First(r => r.Profile == profile && r.Level == 5).AvgDepth;
+                    double fast = fastLv5[profile.Name].AvgDepth;
+                    line += $" | {fast:F1} | {slowLv5 - fast:+0.0;-0.0;0.0}";
+                }
+                Console.WriteLine(line + " |");
+            }
+
+            Console.WriteLine("\n出字 Top 10 / Bottom 10(每局次数,只计卡池里的字):\n");
+            foreach (var row in rows)
+            {
+                var perGame = row.Profile.OwnedCards.Distinct()
+                    .Select(id => (id, n: row.Results.Sum(r => r.CastsByChar.TryGetValue(id, out int c) ? c : 0) / (double)seeds))
+                    .ToList();
+                string Fmt(IEnumerable<(string id, double n)> xs) => string.Join(" ", xs.Select(x => $"{x.id}{x.n:F1}"));
+                var top = perGame.OrderByDescending(x => x.n).ThenBy(x => x.id, StringComparer.Ordinal).Take(10);
+                var bottom = perGame.OrderBy(x => x.n).ThenBy(x => x.id, StringComparer.Ordinal).Take(10);
+                Console.WriteLine($"- {row.Profile.Name} Lv{row.Level}:Top {Fmt(top)} · Bottom {Fmt(bottom)}");
+            }
+
+            Console.WriteLine($"\n耗时:{(slow ? "慢档" : "快档")} {mainSeconds:F1}s" +
+                (fastLv5 != null ? $" · 快档对照(Lv5){fastSeconds:F1}s" : "") + $" · 合计 {total.Elapsed.TotalSeconds:F1}s");
+        }
+
+        private static void PrintRow(Row row, int seeds)
+        {
+            var results = row.Results;
+            var deaths = results.Select(r => r.DeathDepth).OrderBy(d => d).ToList();
+            double avg = deaths.Average();
+            int p50 = deaths[deaths.Count / 2];
+            int p90 = deaths[(int)(deaths.Count * 0.9)];
+            string Reach(int band) => $"{deaths.Count(d => d >= band) * 100 / deaths.Count}%";
+            double PerGame(Func<ClimbResult, double> f) => results.Sum(f) / seeds;
+            int Count(ClimbResult r, string kind) => r.Stats.ActionCounts.TryGetValue(kind, out int n) ? n : 0;
+            long dealt = results.Sum(r => r.CounterDealt), clipped = results.Sum(r => r.CounterClipped);
+            int dualAttack = results.Sum(r => r.DualAttackCasts), dualFeature = results.Sum(r => r.DualFeatureCasts);
+            int dual = dualAttack + dualFeature;
+            int turns = results.Sum(r => r.Stats.Turns);
+            Console.WriteLine($"| {row.Profile.Name} | {row.Level} | {row.Profile.OwnedCards.Count} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
+                              $"| {Reach(11)} | {Reach(31)} | {Reach(51)} " +
+                              $"| {PerGame(r => r.AttackFaceCasts):F1} | {PerGame(r => r.SummonCasts):F1} " +
+                              $"| {results.Count(r => r.Stalled)} " +
+                              $"| {dealt / (double)seeds:F0} " +
+                              $"| {(dealt + clipped == 0 ? 0 : clipped * 100.0 / (dealt + clipped)):F0}% " +
+                              $"| {PerGame(r => Count(r, "Dismantle")):F1} | {PerGame(r => Count(r, "Compose")):F1} " +
+                              $"| {PerGame(r => Count(r, "Graft")):F1} | {PerGame(r => Count(r, "Replace")):F1} " +
+                              $"| {(dual == 0 ? "—" : $"{dualAttack * 100 / dual}:{100 - dualAttack * 100 / dual}")} " +
+                              $"| {turns / (double)seeds:F1} " +
+                              $"| {(turns == 0 ? 0 : results.Sum(r => r.Stats.Replans) / (double)turns):F2} " +
+                              $"| {results.Sum(r => r.Stats.BodyRejected)} " +
+                              $"| {row.Seconds:F1} |");
         }
 
         // ---- 贪心机器人(与关卡制版同策略) ----

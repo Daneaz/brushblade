@@ -17,6 +17,10 @@ namespace Brushblade.Balance.Bot
         public int LeafCap;
         /// <summary>转置表(同一局面只展开一次)。只为测试对照留开关,生产恒开。</summary>
         public bool Transposition = true;
+        /// <summary>复合合字(弃 + 合)只许弃哪一张(spec §4.2:弃估值最低的)。入参是当前字库,返回要弃的字;
+        /// null = 不限(每张可弃的字各一条候选,交打分定)。打分不计字库,不限时同分会按候选顺序弃,
+        /// 所以爬塔驱动必须给它挂上局外估值。</summary>
+        public Func<IReadOnlyList<string>, string> DiscardPick;
 
         public static SearchOptions Fast => new SearchOptions { K = 4, LeafCap = 256 };
         public static SearchOptions Slow => new SearchOptions { K = 12, LeafCap = 4096 };
@@ -160,6 +164,8 @@ namespace Brushblade.Balance.Bot
             {
                 if (action.Kind == ActionKind.EndTurn) continue;
                 if (apSpent && action.Kind != ActionKind.Dismantle) continue;
+                if (action.DiscardForCompose != null && c.Opt.DiscardPick != null
+                    && action.DiscardForCompose != c.Opt.DiscardPick(node.Library)) continue;
                 c.Stats.Generated++;
                 var child = BattleEngine.Restore(snap, c.Graph, c.Config, c.CardLevels, defs);
                 child.SuppressCritRolls = true;

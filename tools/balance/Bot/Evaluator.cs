@@ -21,7 +21,13 @@ namespace Brushblade.Balance.Bot
         {
             if (b.Phase == BattlePhase.Won) return WinScore - b.Turn;
             if (b.Phase == BattlePhase.Lost) return LossScore;
+            return Terms(b);
+        }
 
+        /// <summary><see cref="Quick"/> 去掉胜负两档后的「进攻 + 生存 + 蓄能」本身。局外估值用它:
+        /// 参考局面里一张字清场时,按打掉的血与击杀记分,而不是记成 1e6 的「已赢」。</summary>
+        public static double Terms(BattleEngine b)
+        {
             double offense = 0;
             foreach (var e in b.Enemies)
             {
