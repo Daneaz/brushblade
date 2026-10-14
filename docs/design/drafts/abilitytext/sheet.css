@@ -1,0 +1,121 @@
+/* 字卡详情 · 技能说明区改版 —— 两块画板共用。尺寸单位 = 稿面 pt(× 2.093 = Unity 逻辑单位)。
+   ⚠ 运行时会把 {{ }} 插值包成 span:这里不写任何「后代 span」选择器,全部用类名。 */
+
+/* ---------- 正文三色(按方案由 .sheet 的 style 注入 --body / --term / --num) ---------- */
+.tx { margin-top: 2px; font-size: 9.5px; line-height: 1.45; color: var(--body); }
+.tx .term { font-weight: 700; color: var(--term); }
+.tx .n { font-weight: 700; color: var(--num); font-variant-numeric: tabular-nums; }
+
+/* ---------- 两面网格:两面 = 同一张网格的两列,同一级并排、行高取两面较高者 ---------- */
+.pair { display: grid; grid-template-columns: 1fr 1fr; column-gap: 9px; align-content: start; }
+.fbg { border-radius: 9px; z-index: 0; }
+.fbg.front { background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
+.fbg.back  { background: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glyph) 22%, transparent); }
+.fbg.up    { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.pair > .gc, .pair > .tr, .pair > .void, .pair > .lockln, .pair > .end { position: relative; z-index: 1; min-width: 0; }
+.end { height: 8px; }
+
+.fh { display: flex; align-items: center; gap: 7px; height: 24px; margin: 8px 10px 0; }
+.role { flex: none; white-space: nowrap; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--text-main); letter-spacing: 1px; }
+.tgs { font-size: 9px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.uptag { height: 14px; padding: 0 6px; border-radius: 7px; background: var(--ink); color: #fff; font-size: 8px;
+  display: inline-flex; align-items: center; flex: none; }
+
+.stats { display: flex; gap: 6px; margin: 5px 10px 0; }
+.sb { flex: 1; min-width: 0; height: 31px; box-sizing: border-box; border-radius: 7px; padding: 3px 7px;
+  background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); }
+.sb.bk { background: var(--card-face); }
+.sb.t { cursor: pointer; }
+.sb.open { box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
+.sb .k { font-size: 8px; color: var(--text-dim); letter-spacing: .5px; white-space: nowrap; }
+.sb.t .k { font-weight: 700; color: var(--term); }
+.sb .v { margin-top: 1px; white-space: nowrap; display: flex; align-items: baseline; gap: 2px; }
+.sb .vb { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.sb .vu { font-size: 8.5px; color: var(--text-dim); }
+
+/* ---------- 特性行(component/TraitRow 改):头 = Lv 标 + 图标 chip + 名 + 类别;下 = 一句效果 ---------- */
+.tr { box-sizing: border-box; margin: 4px 10px 0; border-radius: 7px; padding: 4px 8px 5px; cursor: pointer;
+  background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); }
+.tr.bk, .tr.sh { background: var(--card-face); }
+.tr.open { box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
+/* 本命行:左缘 2pt 朱砂 = 召唤物详情里「战场上那枚」本命卡的同一记号 */
+.tr.nat { box-shadow: inset 2px 0 0 var(--cinnabar), inset 0 0 0 1px var(--panel-border); }
+.tr.nat.open { box-shadow: inset 2px 0 0 var(--cinnabar), inset 0 0 0 1.5px var(--ink-soft); }
+.th { display: flex; align-items: center; gap: 5px; height: 14px; }
+.lvt { height: 12px; padding: 0 4px; border-radius: 6px; background: var(--ink); color: #fff; font-size: 7.5px;
+  display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; flex: none; }
+.tn { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; letter-spacing: .5px; white-space: nowrap; color: var(--text-main); }
+.tk { font-size: 8px; color: var(--text-dim); white-space: nowrap; }
+
+/* 图标 chip:= 战场上那枚状态 chip 的方形缩小版,底色沿用战场四类(不新造色)。图标纯白。 */
+.ic { flex: none; width: 13px; height: 13px; border-radius: 3.5px; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
+.ic svg { width: 9.5px; height: 9.5px; }
+.ic.k-dot  { background: var(--cinnabar); }
+.ic.k-ctrl { background: var(--ink-soft); }
+.ic.k-heal { background: var(--jade); }
+.ic.k-gold { background: var(--gold); color: var(--gold-text); }
+
+.lock { display: inline-flex; align-items: center; gap: 2px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
+.lock svg { width: 8px; height: 8px; }
+.used { height: 12px; padding: 0 5px; border-radius: 6px; background: var(--ink-bar); color: var(--text-warm); font-size: 7.5px;
+  display: inline-flex; align-items: center; white-space: nowrap; }
+
+/* off(未解锁):去底、描边 80%、字压 text-faint(背面 text-dim 78%);术语与数字只留加粗、不换色;图标 40% */
+.tr.off, .tr.spent { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--panel-border) 80%, transparent); }
+.tr.nat.off, .tr.nat.spent { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--cinnabar) 40%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--panel-border) 80%, transparent); }
+.tr.off .lvt { background: transparent; color: var(--text-faint); box-shadow: inset 0 0 0 1px var(--text-faint); }
+.tr.off .tn, .tr.off .tk, .tr.off .tx, .tr.off .term, .tr.off .n { color: var(--text-faint); }
+.tr.bk.off .tn, .tr.bk.off .tx, .tr.bk.off .term, .tr.bk.off .n { color: color-mix(in srgb, var(--text-dim) 78%, transparent); }
+.tr.off .ic { opacity: .4; }
+/* spent(本场已用):去底,但字只降到 text-dim —— 用过的效果仍要读得清 */
+.tr.spent .lvt { background: var(--text-dim); }
+.tr.spent .tn, .tr.spent .tx, .tr.spent .term, .tr.spent .n { color: var(--text-dim); }
+.tr.spent .ic { opacity: .6; }
+
+/* 空槽:这一面没有这一级(过渡期;机制改版后每级两面都有) */
+.void { margin: 4px 10px 0; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--panel-border); background-image:
+  repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--panel-border) 45%, transparent) 5px 6px);
+  display: flex; align-items: center; padding: 0 8px; font-size: 8.5px; color: var(--text-mute); min-height: 22px; }
+
+.lockln { margin: 6px 10px 0; display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lockln.bk { color: var(--text-dim); }
+.lockln svg { width: 8px; height: 8px; flex: none; }
+
+/* ---------- 两面条(只剩两面通用的那几级,如 Lv4 双木 / 双焰) ---------- */
+.shared { flex: none; display: flex; gap: 8px; align-items: stretch; margin-top: 7px; }
+.shl { flex: none; width: 34px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: var(--panel-inset); }
+.shl b { font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; color: var(--text-dim); writing-mode: vertical-rl; letter-spacing: 2px; }
+.shared .tr { flex: 1; min-width: 0; margin: 0; }
+
+/* ---------- 词条气泡(GlossaryBubble 改):每行 = 图标 chip + 词条名(别名)+ 说明 ---------- */
+.bubble { position: absolute; z-index: 70; box-sizing: border-box; width: 262px; padding: 8px 10px 9px;
+  background: var(--panel-paper); border: 1px solid var(--panel-border); border-radius: 9px;
+  box-shadow: 0 6px 18px rgba(22,27,34,.22); display: flex; flex-direction: column; gap: 6px; }
+.bubble::before { content: ""; position: absolute; top: -5px; left: var(--ax, 24px); width: 8px; height: 8px;
+  background: var(--panel-paper); border-left: 1px solid var(--panel-border); border-top: 1px solid var(--panel-border); transform: rotate(45deg); }
+.bubble.up::before { top: auto; bottom: -5px; transform: rotate(225deg); }
+.bk2 { font-size: 8px; color: var(--text-faint); letter-spacing: 1px; }
+.bt { display: flex; align-items: flex-start; gap: 6px; }
+.bt .ic { margin-top: 1.5px; }
+.bt .icblank { flex: none; width: 13px; height: 13px; }
+.bt .bn { flex: none; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--elFg); white-space: nowrap; line-height: 16px; }
+.bt .ba { font-family: "Noto Sans SC", sans-serif; font-size: 8px; font-weight: 400; color: var(--text-faint); }
+.bt .bd { font-size: 9.5px; line-height: 1.55; color: var(--text-quiet); }
+
+/* ---------- 评审控件(不是游戏 UI) ---------- */
+.ctl { position: absolute; left: 0; right: 0; top: 430px; height: 46px; box-sizing: border-box; padding: 0 12px;
+  display: flex; align-items: center; gap: 5px; background: #E9E3D6; border-top: 1px dashed #C9BFAC;
+  font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+.ctl .lb { margin-right: 2px; letter-spacing: 1px; }
+.ctl .sp { width: 6px; }
+.ctl button { height: 24px; min-width: 22px; padding: 0 6px; border-radius: 5px; border: 1px solid #C9BFAC; background: var(--panel-paper);
+  font-size: 10.5px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.ctl button.on { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+.ctl .g { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; }
+.wlabel { position: absolute; top: 2px; right: 8px; z-index: 92; font-size: 9px; color: #fff; background: rgba(22,27,34,.55);
+  padding: 1px 6px; border-radius: 4px; }
+
+/* <i>/<b> 只当无语义的行内容器用(避开「后代 span」坑),去掉默认斜体 / 粗细 */
+i { font-style: normal; }
+.tx .p { font-weight: 400; }

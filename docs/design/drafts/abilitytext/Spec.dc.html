@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./icons.js"></script>
+  <script src="./sheet-data.js"></script>
+  <script src="./sheet-view.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./base.css">
+  <link rel="stylesheet" href="./sheet.css">
+  <style>
+    .board { width: 1320px; height: 980px; }
+    h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+    .lead { font-size: 10.5px; color: var(--text-warm); margin-bottom: 14px; line-height: 1.6; }
+    .cols { display: grid; grid-template-columns: 420px 400px 400px; gap: 22px; }
+    .blk { margin-bottom: 16px; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 700; color: var(--text-quiet); display: flex; gap: 6px; align-items: center; }
+    h3 .no { width: 16px; height: 16px; border-radius: 3px; background: var(--ink); color: #fff; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+    .note { font-size: 9.5px; line-height: 1.6; color: var(--text-quiet); }
+    .note.dim { color: var(--text-warm); }
+    .em { font-weight: 700; color: var(--text-main); }
+    table { border-collapse: collapse; width: 100%; font-size: 9.5px; }
+    td, th { border-bottom: 1px solid var(--panel-border); padding: 4px 5px; text-align: left; vertical-align: top; white-space: nowrap; }
+    th { font-weight: 500; color: var(--text-dim); font-size: 9px; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+    .ok { color: var(--jade); font-weight: 700; }
+    .mut { color: var(--text-faint); }
+    .demo { position: relative; border-radius: 9px; padding: 2px 0 8px; margin-bottom: 8px; }
+    .demo.front { background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .demo.back { background: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glyph) 22%, transparent); }
+    .demo .tr { cursor: default; }
+    .cap { font-size: 8.5px; color: var(--text-faint); margin: 6px 10px 0; letter-spacing: .5px; }
+    .tri { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .tri .h { font-size: 9px; color: var(--text-dim); text-align: center; margin-bottom: 2px; }
+    .tri .demo { padding-bottom: 6px; }
+    .tri .tr { margin: 4px 6px 0; padding: 3px 6px 4px; }
+    .tri .tx { font-size: 9px; }
+    .anat { position: relative; }
+    .callout { font-size: 8.5px; color: var(--cinnabar-dark); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 9.5px; color: var(--text-quiet); }
+    .chips .it { display: inline-flex; align-items: center; gap: 4px; }
+    .bubdemo { position: relative; width: 262px; }
+    .bubdemo .bubble { position: relative; }
+    .q { font-size: 9.5px; line-height: 1.6; color: var(--text-quiet); padding: 6px 8px; border-radius: 7px; background: var(--gold-soft); margin-bottom: 6px; }
+    .q b { color: var(--gold-deep); }
+  </style>
+</helmet>
+
+<div class="board e-Wood">
+  <h2>字卡详情 · 技能说明区改版 —— 规格</h2>
+  <div class="lead">需求方 session <b>card-ability-system-redesign</b>(2026-10-15)。两块可交互画板:SheetTall(卡组 / 开箱 / 商城)、SheetBattle(战斗长按)。本板汇总取色、行结构、图标、宽度验算与待确认项。稿内数值取 2026-10-15 的 chars.json,只作示意。</div>
+
+  <div class="cols">
+    <!-- ======== 第一列:颜色 ======== -->
+    <div>
+      <div class="blk">
+        <h3><i class="no">1</i>正文与词条取色(方案 A · 推荐)</h3>
+        <table>
+          <tr><th>态</th><th>名</th><th>正文</th><th>词条</th><th>数字</th></tr>
+          <tr><td>on</td><td>text-main</td><td><i class="sw" style="background:var(--text-quiet)"></i>text-quiet <span class="ok">12.0</span></td><td><i class="sw" style="background:var(--wood-fg)"></i>&lt;el&gt;-fg 粗 <span class="ok">≥7.0</span></td><td>text-main 粗 <span class="ok">16.3</span></td></tr>
+          <tr><td>spent</td><td>text-dim</td><td>text-dim <span class="ok">5.3</span></td><td>text-dim 粗</td><td>text-dim 粗</td></tr>
+          <tr><td>off 正面</td><td colspan="4">text-faint 全行(词条、数字只留加粗) <span class="mut">非激活态,4.5–5.0</span></td></tr>
+          <tr><td>off 背面</td><td colspan="4">text-dim 78%(同现状) <span class="mut">非激活态,3.6</span></td></tr>
+        </table>
+        <div class="note" style="margin-top:6px">
+          对比度按最浅的行底算(正面 panel-paper、背面 card-face、数值格在本系淡底上取 <span class="em">--tint</span>);五系 <span class="em">-fg</span> 最低是 metal-fg 7.03。<br>
+          <span class="em">不新增 token。</span>text-quiet、&lt;el&gt;-fg 都是现有值:前者原给次要钮字与小节标题,这里扩用到「正文」;后者原给淡底上的名字,这里扩用到「词条」—— 需要在 tokens.json 两条的 usage 里补一句。<br>
+          为什么换:现状正文 text-dim(5.9)读起来是「说明小字」,而这是这一屏的主内容;词条的 ink-soft 是 Info 蓝灰,压在绿 / 红 / 黄的五行卡上像是借来的颜色。改成<span class="em">词条 = 这张字的本系深色</span>,一张卡只有墨与本系两种字色。
+        </div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">2</i>三案对照(同一行,五系)</h3>
+        <div class="tri">
+          <sc-for list="{{ trio }}" as="col">
+            <div>
+              <div class="h">{{ col.h }}</div>
+              <sc-for list="{{ col.rows }}" as="r">
+                <div class="{{ r.cls }}" style="{{ r.st }}">
+                  <div class="tr bk"><div class="tx"><sc-for list="{{ r.segs }}" as="s"><b class="{{ s.cls }}">{{ s.t }}</b></sc-for></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div class="note dim" style="margin-top:4px">B 把词条压成「只加粗」,最安静,但术语与数字长得一样,玩家不知道哪个能点;火系的 A 是深红(fire-fg),属身份色、不是朱砂危险色,若嫌像警告可单独给火系退回 B。</div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">3</i>四态</h3>
+        <div class="demo back e-Wood">
+          <sc-for list="{{ states }}" as="t">
+            <div class="{{ t.cls }}">
+              <div class="th"><i class="lvt">Lv{{ t.lv }}</i><sc-for list="{{ t.chip }}" as="c"><i class="{{ c.cls }}"><svg viewBox="0 0 64 64"><use href="{{ c.ic }}"></use></svg></i></sc-for><b class="tn">{{ t.name }}</b><i class="tk">{{ t.kind }}</i><div class="grow"></div>
+                <sc-for list="{{ t.lock }}" as="x"><i class="lock"><svg viewBox="0 0 64 64"><use href="#ic-lockmini"></use></svg>{{ x.t }}</i></sc-for><sc-for list="{{ t.used }}" as="x"><i class="used">{{ x.t }}</i></sc-for></div>
+              <div class="tx"><sc-for list="{{ t.segs }}" as="s"><b class="{{ s.cls }}">{{ s.t }}</b></sc-for></div>
+            </div>
+          </sc-for>
+          <div class="void">这一面没有 Lv6</div>
+        </div>
+        <div class="note dim">on · 本命(左缘朱砂)· spent(本场已用:去底、字降 text-dim,仍读得清)· off(未解锁)· 空槽(这一面没有这一级,斜纹 + text-mute;机制改版后应消失)。</div>
+      </div>
+    </div>
+
+    <!-- ======== 第二列:结构 ======== -->
+    <div>
+      <div class="blk">
+        <h3><i class="no">4</i>两面 = 一张网格的两列</h3>
+        <div class="note">
+          每一级占一行,<span class="em">两面同级并排、行高取较高者</span>:Lv1 / Lv3 / Lv4 / Lv5 / Lv6 / Lv8 至多 6 行,两面结构完全对称。<br>
+          · <span class="em">Lv1 也进面里</span>:攻击面写本体效果(「种」),五行面写本体效果 —— 木系就是<span class="em">本命</span>(需求 2、3)。原来五行面数值格里那枚只有图标的「本命」格删掉,数值格只留数字。<br>
+          · 只有两面完全相同的那一级(如林 / 炎的 Lv4「双木」「双焰」)才进底部「两面」条;没有就不画这条。<br>
+          · 一面缺某级 → 画空槽占位,保持同级对齐。<br>
+          · 战斗版只列已解锁的级;未解锁的每面收成一行贴底(同现状)。<br>
+          Unity 侧:FaceHeight 已是「先算后画」,改成<span class="em">按槽先算两面各自行高、取大</span>,再逐槽画两格(两面的 VerticalLayout 换成按槽的行)。
+        </div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">5</i>特性行解剖</h3>
+        <div class="demo back e-Wood anat">
+          <div class="tr bk nat">
+            <div class="th"><i class="lvt">Lv1</i><i class="ic k-dot"><svg viewBox="0 0 64 64"><use href="#ic-thorns"></use></svg></i><b class="tn">荆棘</b><i class="tk">本命 · 被动</i></div>
+            <div class="tx"><b class="term">木灵</b><b class="p">被攻击时举盾，反弹所受伤害的 </b><b class="n">50%</b><b class="p">，不走生克、无视护甲</b></div>
+          </div>
+          <div class="cap">Lv 标 12pt · 图标 chip 13pt(5pt 间距)· 名 宋体 11.5 粗 · 类别 8pt text-dim · 正文 9.5pt 行高 1.45</div>
+        </div>
+        <div class="note">
+          <span class="em">名 + 图标同现</span>(需求 2):行头在 Lv 标与名之间放一枚图标 chip = 战场上那枚状态 / 本命 chip 的方形缩小版,<span class="em">同图标、同底色</span>(玩家在战场上认的就是它)。<br>
+          · 图标取「这一行的主词条」:本命行取本命 chip(<code>SummonInfo.NatureChipIcon</code>),其余取正文里第一个有图标的词条;没有就不画,名字左移。<br>
+          · 本命行左缘 2pt 朱砂 —— 与召唤物详情里「战场上那枚」本命卡同一记号。<br>
+          · 本命名直接用特性名(荆棘、成林),类别写「本命 · 被动」;正文按<span class="em">当前等级</span>的值写(Lv3 后荆棘就是 80%),Lv3 行仍写「50% → 80%」。<br>
+          · 点击粒度不变:点整行 / 整格开 GlossaryBubble;本命行的气泡固定带上「本命」。
+        </div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">6</i>图标 chip 底色(不新造,沿用战场四类)</h3>
+        <div class="chips">
+          <span class="it"><i class="ic k-dot"><svg viewBox="0 0 64 64"><use href="#ic-thorns"></use></svg></i>本命 / 荆棘 / 灼 / 流血 · cinnabar</span>
+          <span class="it"><i class="ic k-ctrl"><svg viewBox="0 0 64 64"><use href="#ic-thornmark"></use></svg></i>荆刺 / 减攻 · ink-soft</span>
+          <span class="it"><i class="ic k-heal"><svg viewBox="0 0 64 64"><use href="#ic-seed"></use></svg></i>种 / 保命 / 减伤 · jade</span>
+          <span class="it"><i class="ic k-gold"><svg viewBox="0 0 64 64"><use href="#ic-attack"></use></svg></i>攻击光环 · gold + gold-text</span>
+        </div>
+        <div class="note dim" style="margin-top:6px">实现取色走战场 chip 的同一张表(状态 kind → chip 色),不在详情里另写一份。本命一律朱砂(同 SummonInfo 本命卡)。</div>
+      </div>
+    </div>
+
+    <!-- ======== 第三列:气泡 · 宽度 · 待确认 ======== -->
+    <div>
+      <div class="blk">
+        <h3><i class="no">7</i>词条气泡加图标</h3>
+        <div class="bubdemo e-Wood">
+          <div class="bubble">
+            <div class="bk2">荆棘 · 词条</div>
+            <sc-for list="{{ bub }}" as="b">
+              <div class="bt">
+                <sc-for list="{{ b.chip }}" as="c"><i class="{{ c.cls }}"><svg viewBox="0 0 64 64"><use href="{{ c.ic }}"></use></svg></i></sc-for>
+                <sc-for list="{{ b.blank }}" as="z"><i class="icblank"></i></sc-for>
+                <b class="bn">{{ b.k }}<i class="ba">{{ b.alias }}</i></b>
+                <i class="bd">{{ b.v }}</i>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="note" style="margin-top:6px">每条 = 图标 chip(无图标留 13pt 空位,名字对齐)+ 词条名(本系深色,与正文里的词条同色)+ 别名(8pt text-faint)+ 说明(text-quiet,同正文)。宽 248 → 262pt 给图标让位。<br>
+          <span class="em">文案改动(需求 4):</span><code>term.spirit.desc</code> =「木系召唤的单位」;所有召唤物在详情里统一叫「木灵」(数值格「木灵生命」「木灵攻击」)。改字符串表后重跑字体子集。</div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">8</i>两档宽验算(pt;× 2.093 = 逻辑单位)</h3>
+        <table>
+          <tr><th></th><th>基准机 19.5:9</th><th>16:9 无刘海</th></tr>
+          <tr><td>卡宽</td><td>760(1591)</td><td>647(1354)</td></tr>
+          <tr><td>两面区</td><td>574.6</td><td>461.5</td></tr>
+          <tr><td>一面</td><td>282.8</td><td>226.2</td></tr>
+          <tr><td>行内字宽</td><td>246.8</td><td>190.2</td></tr>
+          <tr><td>最长行头 *</td><td>≈177 <span class="ok">✓</span></td><td>≈177 <span class="ok">✓</span></td></tr>
+          <tr><td>数值格(3 格)</td><td>≈84 / 格</td><td>≈65 / 格 <span class="ok">✓</span></td></tr>
+        </table>
+        <div class="note dim" style="margin-top:4px">* 「Lv8 ⬛ 荆天棘地 主动 · 招牌 + 本场已用」。行头单行不折;放不下时沿用 FitHead:先丢类别、再截名。正文按实际宽折行(已有 LineHeight),16:9 下本命句折成 2 行,验算已含。<br>
+          纵向:铺满版两面区约 250pt,荆 Lv6 全 6 行约 330pt —— 两面区本来就在 ScrollList 里,超出滚动;战斗版只列已解锁行,Lv5 时也需滚一屏内的少量。</div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">9</i>待确认</h3>
+        <div class="q"><b>Q1 Lv4 进面还是进「两面」条?</b>需求写「Lv3 / Lv5 / Lv6 / Lv8 各一行」。稿的规则是:两面效果不同就进面(荆的「披荆」),相同才进条(林「双木」、炎「双焰」)。若机制改版后 Lv4 也每面一条,两面条整条消失。</div>
+        <div class="q"><b>Q2 Lv1 进面。</b>为了让木系本命写进五行面(需求 3)且两面对称,攻击面也给 Lv1 一行写本体效果。代价是与数值格有些重复(「种 18」);若不要,攻击面 Lv1 画空槽也成立。</div>
+        <div class="q"><b>Q3 多本命。</b>林的本命有「成林」与速度两条;稿把它们写进同一行(「…；行动快 50%」),图标取本命名对应的那条(成林 → 攻击)。而战场 chip 按优先级会取速度 —— 两边图标不一致,需要定以哪个为准。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 980}}'>
+var AT = window.AT;
+var SAMPLE = [
+  ['Wood', '全部[木灵]获得[荆棘]（反伤 {30%}），{3} 回合'],
+  ['Fire', '目标[灼]中时，再[灼] {2} 层'],
+  ['Metal', '下一次[格挡]后[反击] {120%}'],
+  ['Water', '目标[冻结] {1} 回合，并[减速] {50%}'],
+  ['Earth', '获得[护盾] {180}，其中 {30%} 为[留存护盾]']
+];
+class Component extends DCLogic {
+  renderVals() {
+    var trio = ['A', 'B', 'now'].map(function (k) {
+      return { h: AT.SCHEMES[k].name, rows: SAMPLE.map(function (x) {
+        return { cls: 'demo back e-' + x[0], st: AT.schemeStyle(k), segs: AT.segs(x[1]) }; }) };
+    });
+    var c = AT.CHARS['荆'];
+    function row(s, extra, state) {
+      var chip = AT.chipOf(s.icon);
+      return { lv: s.lv, name: s.name, kind: s.kind, cls: 'tr bk' + (s.nature ? ' nat' : '') + (state ? ' ' + state : ''),
+        chip: chip ? [{ cls: chip.cls, ic: '#ic-' + chip.icon }] : [],
+        lock: state === 'off' ? [{ t: 'Lv' + s.lv + ' 解锁' }] : [], used: state === 'spent' ? [{ t: '本场已用' }] : [],
+        segs: AT.segs(AT.textOf(s, 6)) };
+    }
+    var sl = c.slots.filter(function (s) { return s.fi === 1; });
+    return {
+      trio: trio,
+      states: [row(sl[1]), row(sl[0]), row(sl[3], null, 'spent'), row(sl[5], null, 'off')],
+      bub: AT.bubbleItems(['荆棘', '木灵', '本命', '流血'])
+    };
+  }
+}
+</script>
+</body>
+</html>

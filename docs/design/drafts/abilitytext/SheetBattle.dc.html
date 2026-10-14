@@ -1,0 +1,265 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./icons.js"></script>
+  <script src="./sheet-data.js"></script>
+  <script src="./sheet-view.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./base.css">
+  <link rel="stylesheet" href="./sheet.css">
+  <style>
+    /* 字卡详情 · 战斗长按版。外壳同现状 CharPreview 战斗版:760 × 320pt,上抬 43pt 露出被按的那张手牌;
+       16:9 无刘海机收到 647pt。只列已解锁的级,未解锁的每面收成一行;朝上那面墨色描环 +「朝上」签。 */
+    .wrap { position: relative; width: 932px; height: 476px; background: var(--paper); }
+    .bg { position: absolute; inset: 0 0 46px; background:
+      repeating-linear-gradient(90deg, transparent 0 62px, rgba(22,27,34,.04) 62px 71px), var(--paper); }
+    .sheet { position: absolute; top: 12px; height: 320px; box-sizing: border-box; z-index: 51;
+      background: var(--panel-paper); border: 1px solid var(--panel-border); border-radius: 11px;
+      padding: 10px 14px 9px; box-shadow: 0 12px 38px rgba(22,27,34,.42); display: flex; flex-direction: column; gap: 7px; }
+    /* 战斗版缩档(同现状 Sizes.BattleSheet) */
+    .sheet .tr { margin: 4px 10px 0; padding: 3px 7px 4px; border-radius: 6px; }
+    .sheet .th { height: 12px; }
+    .sheet .tn { font-size: 10.5px; }
+    .sheet .tx { font-size: 9px; line-height: 1.4; margin-top: 1px; }
+    .sheet .fh { height: 20px; margin-top: 7px; }
+    .sheet .sb { height: 28px; padding: 2px 6px; }
+    .sheet .sb .vb { font-size: 13.5px; }
+    .sheet .shared { margin-top: 6px; }
+    .hand { position: absolute; left: 59px; right: 59px; bottom: 21px; height: 64px; display: flex; gap: 6px; align-items: flex-end; z-index: 52; }
+    .htile2 { width: 46px; height: 56px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid var(--rar); background: var(--card-face);
+      display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; color: var(--glyph); }
+    .htile2.press { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); transform: translateY(-6px); }
+    .htile2.press.back { background: var(--elSoft); }
+
+    .hdr { flex: none; display: flex; gap: 10px; height: 60px; }
+    .btile { position: relative; flex: none; width: 48px; height: 60px; box-sizing: border-box; border-radius: 6px;
+      border: 2px solid var(--rar); background: var(--card-face); box-shadow: var(--shadow-card);
+      display: flex; flex-direction: column; align-items: center; }
+    .btile .gl { margin-top: 8px; font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .btile .seal { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); }
+    .hi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .nmrow { display: flex; align-items: center; gap: 7px; }
+    .nm { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    .pyx { font-size: 10.5px; color: var(--text-dim); letter-spacing: .5px; }
+    .flav { font-size: 10px; color: var(--text-warm); line-height: 1.4; }
+    .lvrow { margin-top: auto; display: flex; align-items: flex-end; gap: 10px; }
+    .lvbig { font-family: "Noto Serif SC", serif; font-weight: 600; line-height: 1; white-space: nowrap; font-size: 14px; }
+    .lvmax { font-size: 10px; color: var(--text-faint); margin-left: 2px; }
+    .ladder { display: flex; gap: 3px; }
+    .pip { width: 19px; height: 5px; border-radius: 2.5px; background: var(--paper-dim); }
+    .pip.done { background: var(--ink-soft); }
+
+    .body { flex: 1; min-height: 0; display: flex; gap: 10px; }
+    .faces { flex: 1; min-width: 0; overflow-y: auto; scrollbar-width: thin; }
+    .side { flex: none; width: 146px; display: flex; flex-direction: column; gap: 6px; }
+    .recipe { display: flex; align-items: center; gap: 5px; }
+    .part { width: 26px; height: 26px; flex: none; border-radius: 6px; background: var(--elSoft); color: var(--elFg);
+      display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; }
+    .part.out { box-shadow: inset 0 0 0 2px var(--el); }
+    .op { font-size: 10px; color: var(--text-warm); }
+    .wxr { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 7px; border-radius: 6px; background: var(--panel-inset); }
+    .wxr.up { background: var(--danger-bg, #FBE3E2); }
+    .tag { font-size: 8.5px; font-weight: 700; width: 22px; text-align: right; }
+    .wxr.up .tag { color: var(--cinnabar-dark); }
+    .dot { width: 15px; height: 15px; flex: none; border-radius: 4px; background: var(--glyph); color: #fff;
+      font-family: "Noto Serif SC", serif; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+    .who { flex: 1; font-size: 9px; color: var(--text-quiet); white-space: nowrap; }
+    .mul { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; color: var(--text-dim); }
+    .wxr.up .mul { color: var(--cinnabar-dark); }
+    .wxnote { font-size: 8.5px; color: var(--text-warm); line-height: 1.55; }
+
+    .foot { flex: none; height: 13px; display: flex; align-items: center; gap: 10px; }
+    .hint { flex: 1; font-size: 9px; color: var(--text-faint); white-space: nowrap; }
+    .hintb { font-weight: 500; color: var(--text-dim); }
+  </style>
+</helmet>
+
+<div class="wrap">
+<div class="dev" onClick="{{ closeBub }}">
+  <div class="bg"></div>
+  <div class="scrim"></div>
+  <span class="wlabel">{{ wLabel }}</span>
+
+  <div class="{{ sheetCls }}" style="{{ sheetStyle }}">
+    <div class="hdr">
+      <div class="btile"><span class="gl">{{ id }}</span><span class="seal m main atk">攻</span></div>
+      <div class="hi">
+        <div class="nmrow">
+          <span class="nm">{{ id }}</span><span class="pyx">{{ py }}</span>
+          <span class="chip rar">{{ rarName }}</span><span class="chip elm">{{ elName }}系</span><span class="chip ap">AP 1</span>
+          <div class="grow"></div>
+          <button class="xbtn" aria-label="关闭">×</button>
+        </div>
+        <div class="flav">{{ gloss }}</div>
+        <div class="lvrow">
+          <div class="lvbig">Lv.{{ L }}<span class="lvmax">/ 10</span></div>
+          <div class="ladder"><sc-for list="{{ pips }}" as="p"><i class="{{ p }}"></i></sc-for></div><span class="pyx">本场等级</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="faces">
+        <div class="pair">
+          <sc-for list="{{ m.bgs }}" as="b"><div class="{{ b.cls }}" style="{{ b.pos }}"></div></sc-for>
+          <sc-for list="{{ m.heads }}" as="h">
+            <div class="gc" style="{{ h.pos }}"><div class="fh">
+              <span class="{{ h.sealCls }}">{{ h.s }}</span><span class="role">{{ h.role }}</span><span class="tgs">{{ h.landing }}</span><div class="grow"></div><sc-for list="{{ h.upTag }}" as="u"><i class="uptag">{{ u.t }}</i></sc-for>
+            </div></div>
+          </sc-for>
+          <sc-for list="{{ m.stats }}" as="g">
+            <div class="gc" style="{{ g.pos }}"><div class="stats">
+              <sc-for list="{{ g.cells }}" as="st">
+                <div class="{{ st.cls }}" onClick="{{ st.pick }}">
+                  <div class="k">{{ st.k }}</div>
+                  <div class="v"><b class="vb">{{ st.v }}</b><i class="vu">{{ st.u }}</i></div>
+                </div>
+              </sc-for>
+            </div></div>
+          </sc-for>
+          <sc-for list="{{ m.rows }}" as="t">
+            <div class="{{ t.cls }}" style="{{ t.pos }}" onClick="{{ t.pick }}">
+              <div class="th">
+                <i class="lvt">Lv{{ t.lv }}</i>
+                <sc-for list="{{ t.chip }}" as="c"><i class="{{ c.cls }}"><svg viewBox="0 0 64 64"><use href="{{ c.ic }}"></use></svg></i></sc-for>
+                <b class="tn">{{ t.name }}</b><i class="tk">{{ t.kind }}</i>
+                <div class="grow"></div>
+                <sc-for list="{{ t.lock }}" as="x"><i class="lock"><svg viewBox="0 0 64 64"><use href="#ic-lockmini"></use></svg>{{ x.t }}</i></sc-for>
+                <sc-for list="{{ t.used }}" as="x"><i class="used">{{ x.t }}</i></sc-for>
+              </div>
+              <div class="tx"><sc-for list="{{ t.segs }}" as="s"><b class="{{ s.cls }}">{{ s.t }}</b></sc-for></div>
+            </div>
+          </sc-for>
+          <sc-for list="{{ m.voids }}" as="v"><div class="{{ v.cls }}" style="{{ v.pos }}">{{ v.t }}</div></sc-for>
+          <sc-for list="{{ m.locks }}" as="k"><div class="{{ k.cls }}" style="{{ k.pos }}"><svg viewBox="0 0 64 64"><use href="#ic-lockmini"></use></svg>{{ k.t }}</div></sc-for>
+          <sc-for list="{{ m.ends }}" as="e"><div class="end" style="{{ e.pos }}"></div></sc-for>
+        </div>
+        <sc-if value="{{ hasShared }}" hint-placeholder-val="{{ false }}">
+          <div class="shared">
+            <div class="shl"><b>两面</b></div>
+            <sc-for list="{{ m.shared }}" as="t">
+              <div class="{{ t.cls }}" onClick="{{ t.pick }}">
+                <div class="th">
+                  <i class="lvt">Lv{{ t.lv }}</i>
+                  <sc-for list="{{ t.chip }}" as="c"><i class="{{ c.cls }}"><svg viewBox="0 0 64 64"><use href="{{ c.ic }}"></use></svg></i></sc-for>
+                  <b class="tn">{{ t.name }}</b><i class="tk">{{ t.kind }}</i>
+                  <div class="grow"></div>
+                  <sc-for list="{{ t.lock }}" as="x"><i class="lock"><svg viewBox="0 0 64 64"><use href="#ic-lockmini"></use></svg>{{ x.t }}</i></sc-for>
+                </div>
+                <div class="tx"><sc-for list="{{ t.segs }}" as="s"><b class="{{ s.cls }}">{{ s.t }}</b></sc-for></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <div class="side">
+        <div class="ttl"><b>此刻的场面</b><i class="rule"></i></div>
+        <sc-for list="{{ foes }}" as="f"><div class="{{ f.cls }}"><span class="dot">{{ f.e }}</span><span class="who">{{ f.n }}</span><span class="mul">{{ f.mul }}</span><span class="tag">{{ f.tag }}</span></div></sc-for>
+        <div class="wxnote">{{ fieldNote }}</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span class="hint"><b class="hintb">长按看详情，不耗 AP</b> · 点已选中的牌翻面，拖出时用朝上的那一面 · 点一行看词条</span>
+    </div>
+  </div>
+
+  <sc-if value="{{ bubOn }}" hint-placeholder-val="{{ false }}">
+    <div class="{{ bubCls }}" style="{{ bubStyle }}">
+      <div class="bk2">{{ bubTitle }}</div>
+      <sc-for list="{{ bubItems }}" as="b">
+        <div class="bt">
+          <sc-for list="{{ b.chip }}" as="c"><i class="{{ c.cls }}"><svg viewBox="0 0 64 64"><use href="{{ c.ic }}"></use></svg></i></sc-for>
+          <sc-for list="{{ b.blank }}" as="z"><i class="icblank"></i></sc-for>
+          <b class="bn">{{ b.k }}<i class="ba">{{ b.alias }}</i></b>
+          <i class="bd">{{ b.v }}</i>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+  <div class="hand"><sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}">{{ h.g }}</div></sc-for></div>
+  <div class="homebar"><span></span></div>
+</div>
+
+<div class="ctl">
+  <span class="lb">字</span>
+  <sc-for list="{{ charBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}"><b class="g">{{ c.id }}</b></button></sc-for>
+  <span class="sp"></span><span class="lb">等级</span>
+  <sc-for list="{{ lvBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  <span class="sp"></span><span class="lb">屏宽</span>
+  <sc-for list="{{ wBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  <span class="sp"></span><span class="lb">朝上</span>
+  <sc-for list="{{ upBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  <span class="sp"></span><span class="lb">Lv5 已用</span>
+  <sc-for list="{{ spBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  <span class="sp"></span><span class="lb">配色</span>
+  <sc-for list="{{ schBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 476}}'>
+var AT = window.AT;
+var FOES = [['墨蛟', 'Water'], ['石魈', 'Earth'], ['铜铃', 'Metal']];
+var WIDTHS = { base: { w: 760, n: '基准', label: '基准机 19.5:9 · 卡宽 760pt(1591)' },
+               narrow: { w: 647, n: '16:9', label: '16:9 无刘海 · 卡宽 647pt(1354)' } };
+
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { id: '荆', L: 5, w: 'base', sch: 'A', bub: null, up: 1, sp: false }; }
+
+  openBub(e, key, title, terms) {
+    e.stopPropagation();
+    if (!terms.length) { this.setState({ bub: null }); return; }
+    var dev = e.currentTarget.closest('.dev').getBoundingClientRect();
+    var r = e.currentTarget.getBoundingClientRect();
+    var x = Math.max(20, Math.min(r.left - dev.left, 932 - 20 - 262));
+    var below = r.bottom - dev.top + 8;
+    var up = below + 30 + terms.length * 36 > 360;
+    var y = up ? (r.top - dev.top - 8) : below;
+    this.setState({ bub: { key: key, terms: terms, title: title, x: x, y: y, ax: Math.max(12, Math.min(r.left - dev.left + 24 - x, 236)), up: up } });
+  }
+
+  renderVals() {
+    var self = this, s = this.state, id = s.id, L = s.L, c = AT.CHARS[id], W = WIDTHS[s.w];
+    var spent = {}; if (s.sp) { spent['lv5-0'] = true; spent['lv5-1'] = true; }
+    var m = AT.model(id, { L: L, battle: true, up: s.up, spent: spent, bubKey: s.bub && s.bub.key,
+      pick: function (e, key, title, terms) { self.openBub(e, key, title + ' · 词条', terms); } });
+    var pips = []; for (var i = 1; i <= 10; i++) pips.push('pip' + (i <= L ? ' done' : ''));
+    var bub = s.bub;
+    return {
+      sheetCls: 'sheet e-' + c.el + ' r-' + c.rar,
+      sheetStyle: 'left:' + ((932 - W.w) / 2) + 'px;width:' + W.w + 'px;' + AT.schemeStyle(s.sch),
+      wLabel: W.label + ' · 配色 ' + AT.SCHEMES[s.sch].name,
+      id: id, py: c.py, gloss: c.gloss, L: L, pips: pips,
+      rarName: AT.RAR[c.rar], elName: AT.EL[c.el],
+      m: m, hasShared: m.shared.length > 0,
+      rec0: c.rec[0], rec1: c.rec[1],
+      keName: AT.EL[AT.KE[c.el]], byName: AT.EL[AT.KE_BY[c.el]],
+      keCls: 'wxr up e-' + AT.KE[c.el], byCls: 'wxr e-' + AT.KE_BY[c.el],
+      foes: FOES.map(function (f) { var k = AT.KE[c.el] === f[1], b = AT.KE_BY[c.el] === f[1];
+        return { cls: 'wxr' + (k ? ' up' : '') + ' e-' + f[1], e: AT.EL[f[1]], n: f[0], mul: k ? '×1.5' : b ? '×0.5' : '×1.0', tag: k ? '克' : b ? '被克' : '平' }; }),
+      fieldNote: s.up === 0 ? '朝上的是攻击：伤害都按上表倍率结算。' : (c.faces[1].landing.indexOf('召唤') >= 0 ? '朝上的「' + c.faces[1].s + '」作用于我方：护盾、治疗、召唤不吃生克倍率。' : '朝上的「' + c.faces[1].s + '」打敌人：伤害都按上表倍率结算。'),
+      hand: ['冷', id, '剑', '爆', '垒'].map(function (g, i) { return { g: g, cls: 'htile2 e-' + (i === 1 ? c.el : ['Water','','Metal','Fire','Earth'][i]) + ' r-' + (i === 1 ? c.rar : 'Green') + (i === 1 ? ' press' + (s.up === 1 ? ' back' : '') : '') }; }),
+      upBtns: [['攻击', 0], ['五行面', 1]].map(function (u) { return { n: u[0], cls: s.up === u[1] ? 'on' : '', pick: function () { self.setState({ up: u[1], bub: null }); } }; }),
+      spBtns: [['否', false], ['是', true]].map(function (u) { return { n: u[0], cls: s.sp === u[1] ? 'on' : '', pick: function () { self.setState({ sp: u[1], bub: null }); } }; }),
+      bubOn: !!bub, bubCls: 'bubble e-' + c.el + (bub && bub.up ? ' up' : ''),
+      bubStyle: bub ? ('left:' + bub.x + 'px;' + (bub.up ? 'bottom:' + (430 - bub.y) + 'px;' : 'top:' + bub.y + 'px;') + '--ax:' + bub.ax + 'px') : '',
+      bubTitle: bub ? bub.title : '', bubItems: bub ? AT.bubbleItems(bub.terms) : [],
+      closeBub: function () { if (self.state.bub) self.setState({ bub: null }); },
+      charBtns: AT.ORDER.map(function (k) { return { id: k, cls: k === id ? 'on' : '', pick: function () { self.setState({ id: k, bub: null }); } }; }),
+      lvBtns: [1,2,3,4,5,6,7,8,9,10].map(function (n) { return { n: n, cls: n === L ? 'on' : '', pick: function () { self.setState({ L: n, bub: null }); } }; }),
+      wBtns: Object.keys(WIDTHS).map(function (k) { return { n: WIDTHS[k].n, cls: k === s.w ? 'on' : '', pick: function () { self.setState({ w: k, bub: null }); } }; }),
+      schBtns: Object.keys(AT.SCHEMES).map(function (k) { return { n: k === 'now' ? '现状' : k, cls: k === s.sch ? 'on' : '', pick: function () { self.setState({ sch: k, bub: null }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>
