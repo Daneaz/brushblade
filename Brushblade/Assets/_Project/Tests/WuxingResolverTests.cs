@@ -91,12 +91,14 @@ namespace Brushblade.Core.Tests
             // 2026-09-30:偷袭取消,刲 的 0.25 × K 预算回流数值,单段 131→159(共 318)。
             // 2026-10-05(D1 Task 12):三张字拆两面,伤害搬进攻击面(AttackEffects),数值不变;
             // 刲 的分 2 段 / 斩杀随附加效果作废,159 是单段的攻击伤害。
+            // 2026-10-15(spec A §2 数值归一):只改了依赖字表的数值,不变量不变 ——
+            // 焚 橙全体 143、蒸 紫单体 133、刲 橙单体 286。
             Assert.That(graph.Get("焚").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value,
-                Is.EqualTo(77));
+                Is.EqualTo(143));
             Assert.That(graph.Get("蒸").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(112));
+                Is.EqualTo(133));
             Assert.That(graph.Get("刲").AttackEffects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(159), "刲 攻击伤害沿用 159");
+                Is.EqualTo(286), "刲 橙档单体 286");
         }
 
         // ---- 克/被克 的查表入口(2026-09-03,卡组页详情印「克 X ×1.5 / 被 Y 克 ×0.5」) ----
