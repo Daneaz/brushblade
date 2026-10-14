@@ -188,6 +188,18 @@ namespace Brushblade.Balance.Tests
         }
 
         [Test]
+        public void BestTurn_ReusedStats_StillReturnsNonEmptyPlan()
+        {
+            var s = Midgame();
+            var stats = new SearchStats();
+            var first = s.Best(SearchOptions.Fast, stats);
+            Assert.That(first, Is.Not.Empty);
+            var second = s.Best(SearchOptions.Fast, stats);
+            Assert.That(second, Is.Not.Empty, "复用 stats 不应让上一轮的 Leaves 把预算判满");
+            Assert.That(Show(second), Is.EqualTo(Show(first)));
+        }
+
+        [Test]
         public void BestTurn_Deterministic()
         {
             var s = Midgame();

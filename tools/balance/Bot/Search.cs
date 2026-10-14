@@ -106,6 +106,9 @@ namespace Brushblade.Balance.Bot
             IReadOnlyDictionary<string, int> cardLevels, SearchOptions opt, ulong turnSeed, SearchStats stats)
         {
             if (b.Phase != BattlePhase.PlayerTurn) return new List<Step>();
+            // 复用传入的 stats 时,旧的 Leaves 会让 CapReached 直接判满、BestScore 会让旧分压住新叶:计划开始处重置这两项
+            stats.Leaves = 0;
+            stats.BestScore = double.NegativeInfinity;
             var ctx = new Ctx
             {
                 Graph = g, Config = cfg, CardLevels = cardLevels, Opt = opt, Stats = stats,
@@ -153,7 +156,8 @@ namespace Brushblade.Balance.Bot
 
         /// <summary>在副本上试执行全部候选(被 Core 拒的剪掉),按快速分降序取前 K 个未展开过的子局面。
         /// AP 用完时只剩免 AP 的拆字:只留**当场有结算**的(Lv4 字形特性等,LastEvents 非空)——
-        /// 没有即时效果的拆在 AP 0 时改变不了本回合(部件出不了、印记回合末作废),展开它只会让叶子数爆炸。</summary>
+        /// 没有即时效果的拆在 AP 0 时改变不了本回合(部件出不了、印记回合末作废),展开它只会让叶子数爆炸。
+        /// 注意判据是「LastEvents 非空」而非「无印记」:双焰 / 火山等印记类拆字当场有结算事件,AP 0 时仍会被展开。</summary>
         private static List<(BotAction action, BattleEngine engine, ulong key)> Pick(BattleEngine node, Ctx c)
         {
             bool apSpent = node.Ap <= 0;
