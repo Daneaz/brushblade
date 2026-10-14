@@ -3894,8 +3894,9 @@ namespace Brushblade.Core
                     case EffectKind.Lifesteal:
                     {
                         // 沐霖(spec A D8):本次出字直接伤害 × Value% 回复玩家。不吃泉放大、不攒泉(不经 HealSelf 那条路)。
+                        // 裁定(C5 顾虑 1):独立回复,不串进治疗链 —— 不触发溢流、不计入 HealTotal / Overheal。
                         int drained = _cast.DirectDamage * value / 100;
-                        if (drained > 0) HealAlly(Targeting.PlayerTarget, drained);
+                        if (drained > 0) HealAlly(Targeting.PlayerTarget, drained, overflowToDamage: false, countInCast: false);
                         break;
                     }
                     case EffectKind.OverhealShield:
@@ -5418,15 +5419,16 @@ namespace Brushblade.Core
         /// <param name="overflowToDamage">见 <see cref="HealPlayerAndSummons"/> 的同名参数。</param>
         /// <param name="source">这份治疗来自哪条附加机制(2026-09-18,目前只有归根);只作用于玩家那一支。</param>
         /// <param name="originSlot">治疗从哪来(归根 = 阵亡召唤物槽位),进事件的 TargetIndex;缺省 −1 与改前相同。</param>
+        /// <param name="countInCast">计不计入本次出字的治疗链(HealTotal / Overheal);只有吸血传 false(spec A D8 裁定:独立回复)。</param>
         private void HealAlly(int slot, int amount, bool overflowToDamage = true,
-            EffectSource source = EffectSource.None, int originSlot = -1)
+            EffectSource source = EffectSource.None, int originSlot = -1, bool countInCast = true)
         {
             if (slot == Targeting.PlayerTarget)
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
-                if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
-                if (_inApplyEffects) _cast.Overheal += amount - healed;   // 冰肌(spec A D8):溢出另记
+                if (_inApplyEffects && countInCast) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+                if (_inApplyEffects && countInCast) _cast.Overheal += amount - healed;   // 冰肌(spec A D8):溢出另记
                 int playerEvent = _events.Count;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, originSlot, healed, Targeting.PlayerTarget,
                     source: source));

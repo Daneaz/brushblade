@@ -52,6 +52,39 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Lifesteal_DoesNotTriggerOverflowDamage()
+        {
+            // 裁定(controller,C5 顾虑 1):吸血是独立回复,不串进治疗链 —— 溢流开着也不把吸血溢出折成伤害
+            var def = Leech(100);
+            var b = new BattleEngine(RebalanceFixture.Graph(def),
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, OverhealDamagePercent = 100 },
+                new[] { def.Id, def.Id, def.Id }, Array.Empty<string>(), new[] { RebalanceFixture.Mob() }, seed: 1);
+            b.DamagePlayerForTest(50);
+            b.Cast("霖", 0, attackMode: true);
+            Assert.That(b.PlayerHp, Is.EqualTo(RebalanceFixture.BaseMaxHp));
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(100000 - 100), "只有本体 100,吸血溢出 50 不折伤害");
+        }
+
+        [Test]
+        public void Lifesteal_NotCountedByShieldFromHeal()
+        {
+            // 裁定(controller,C5 顾虑 1):吸血不计入 HealTotal,同字的治疗转盾不再转它
+            var def = new CharDef("霖", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Cleanse, 0) },
+                attackEffects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 100), new EffectDef(EffectKind.Lifesteal, 20),
+                    new EffectDef(EffectKind.ShieldFromHeal, 100),
+                },
+                isComponent: false);
+            var b = Battle(def);
+            b.DamagePlayerForTest(200);
+            b.Cast("霖", 0, attackMode: true);
+            Assert.That(b.PlayerHp, Is.EqualTo(RebalanceFixture.BaseMaxHp - 200 + 20));
+            Assert.That(b.PlayerShield, Is.EqualTo(0));
+        }
+
+        [Test]
         public void OverhealShield_ConvertsOverflowToShield()
         {
             var b = Battle(Ice(100));
