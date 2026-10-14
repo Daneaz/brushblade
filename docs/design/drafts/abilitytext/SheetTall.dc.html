@@ -122,23 +122,7 @@
           <sc-for list="{{ m.voids }}" as="v"><div class="{{ v.cls }}" style="{{ v.pos }}">{{ v.t }}</div></sc-for>
           <sc-for list="{{ m.ends }}" as="e"><div class="end" style="{{ e.pos }}"></div></sc-for>
         </div>
-        <sc-if value="{{ hasShared }}" hint-placeholder-val="{{ false }}">
-          <div class="shared">
-            <div class="shl"><b>两面</b></div>
-            <sc-for list="{{ m.shared }}" as="t">
-              <div class="{{ t.cls }}" onClick="{{ t.pick }}">
-                <div class="th">
-                  <i class="lvt">Lv{{ t.lv }}</i>
-                  <sc-for list="{{ t.chip }}" as="c"><i class="{{ c.cls }}"><svg viewBox="0 0 64 64"><use href="{{ c.ic }}"></use></svg></i></sc-for>
-                  <b class="tn">{{ t.name }}</b><i class="tk">{{ t.kind }}</i>
-                  <div class="grow"></div>
-                  <sc-for list="{{ t.lock }}" as="x"><i class="lock"><svg viewBox="0 0 64 64"><use href="#ic-lockmini"></use></svg>{{ x.t }}</i></sc-for>
-                </div>
-                <div class="tx"><sc-for list="{{ t.segs }}" as="s"><b class="{{ s.cls }}">{{ s.t }}</b></sc-for></div>
-              </div>
-            </sc-for>
-          </div>
-        </sc-if>
+
       </div>
 
       <div class="side">
@@ -180,6 +164,8 @@
   <sc-for list="{{ lvBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
   <span class="sp"></span><span class="lb">屏宽</span>
   <sc-for list="{{ wBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  <span class="sp"></span><span class="lb">水·治疗</span>
+  <sc-for list="{{ modeBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
   <span class="sp"></span><span class="lb">配色</span>
   <sc-for list="{{ schBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
 </div>
@@ -192,7 +178,7 @@ var WIDTHS = { base: { w: 760, n: '基准', label: '基准机 19.5:9 · 卡宽 7
                narrow: { w: 647, n: '16:9', label: '16:9 无刘海 · 卡宽 647pt(1354)' } };
 
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { id: '荆', L: 6, w: 'base', sch: 'A', bub: null }; }
+  constructor(props) { super(props); this.state = { id: '荆', mode: 'burst', L: 6, w: 'base', sch: 'A', bub: null }; }
 
   openBub(e, key, title, terms) {
     e.stopPropagation();
@@ -208,7 +194,7 @@ class Component extends DCLogic {
 
   renderVals() {
     var self = this, s = this.state, id = s.id, L = s.L, c = AT.CHARS[id], W = WIDTHS[s.w];
-    var m = AT.model(id, { L: L, battle: false, up: null, bubKey: s.bub && s.bub.key,
+    var m = AT.model(id, { L: L, mode: s.mode, battle: false, up: null, bubKey: s.bub && s.bub.key,
       pick: function (e, key, title, terms) { self.openBub(e, key, title + ' · 词条', terms); } });
     var pips = []; for (var i = 1; i <= 10; i++) pips.push('pip' + (i <= L ? ' done' : ''));
     var bub = s.bub;
@@ -218,7 +204,7 @@ class Component extends DCLogic {
       wLabel: W.label + ' · 配色 ' + AT.SCHEMES[s.sch].name,
       id: id, py: c.py, gloss: c.gloss, L: L, pips: pips,
       rarName: AT.RAR[c.rar], elName: AT.EL[c.el],
-      m: m, hasShared: m.shared.length > 0,
+      m: m,
       rec0: c.rec[0], rec1: c.rec[1],
       keName: AT.EL[AT.KE[c.el]], byName: AT.EL[AT.KE_BY[c.el]],
       keCls: 'wxr up e-' + AT.KE[c.el], byCls: 'wxr e-' + AT.KE_BY[c.el],
@@ -226,6 +212,7 @@ class Component extends DCLogic {
       bubStyle: bub ? ('left:' + bub.x + 'px;' + (bub.up ? 'bottom:' + (430 - bub.y) + 'px;' : 'top:' + bub.y + 'px;') + '--ax:' + bub.ax + 'px') : '',
       bubTitle: bub ? bub.title : '', bubItems: bub ? AT.bubbleItems(bub.terms) : [],
       closeBub: function () { if (self.state.bub) self.setState({ bub: null }); },
+      modeBtns: Object.keys(AT.WATER_MODES).map(function (k) { return { n: AT.WATER_MODES[k].n, cls: (k === s.mode ? 'on' : '') + (id === '冰' ? '' : ' dim'), pick: function () { self.setState({ id: '冰', mode: k, bub: null }); } }; }),
       charBtns: AT.ORDER.map(function (k) { return { id: k, cls: k === id ? 'on' : '', pick: function () { self.setState({ id: k, bub: null }); } }; }),
       lvBtns: [1,2,3,4,5,6,7,8,9,10].map(function (n) { return { n: n, cls: n === L ? 'on' : '', pick: function () { self.setState({ L: n, bub: null }); } }; }),
       wBtns: Object.keys(WIDTHS).map(function (k) { return { n: WIDTHS[k].n, cls: k === s.w ? 'on' : '', pick: function () { self.setState({ w: k, bub: null }); } }; }),

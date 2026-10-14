@@ -7,27 +7,26 @@
 
   function cellPos(row, col) { return 'grid-row:' + row + ';grid-column:' + col + ';'; }
 
-  // opts: { L, battle, up (0/1/null), spent: {key:true}, bubKey, pick(e,key,title,terms) }
+  // opts: { L, mode(水系治疗模式), battle, up (0/1/null), spent: {key:true}, bubKey, pick(e,key,title,terms) }
+  // r2:没有「两面」条 —— 每一级两面各一行,两面相同也各写一遍。
   AT.model = function (id, opts) {
-    var c = AT.CHARS[id], L = opts.L;
-    var faceSlots = [[], []], shared = [];
-    c.slots.forEach(function (s) {
-      if (s.fi < 0) shared.push(s); else faceSlots[s.fi].push(s);
-    });
+    var c = AT.CHARS[id], L = opts.L, mode = opts.mode;
+    var faceSlots = [[], []];
+    c.slots.forEach(function (s) { faceSlots[s.fi].push(s); });
 
     function rowOf(s, fi) {
       var key = 'lv' + s.lv + '-' + fi, on = L >= s.lv, spent = on && opts.spent && opts.spent[key];
-      var text = AT.textOf(s, L);
-      var chip = AT.chipOf(s.icon);
-      var cls = 'tr' + (fi === 1 ? ' bk' : fi === 0 ? ' fr' : ' sh') + (s.nature ? ' nat' : '')
+      var text = AT.textOf(s, L, mode), name = AT.sub(s.name, mode);
+      var chip = AT.chipOf(s.icon, mode);
+      var cls = 'tr' + (fi === 1 ? ' bk' : ' fr') + (s.nature ? ' nat' : '')
         + (!on ? ' off' : spent ? ' spent' : '') + (opts.bubKey === key ? ' open' : '');
       return {
-        key: key, lv: s.lv, name: s.name, kind: s.kind, cls: cls,
+        key: key, lv: s.lv, name: name, kind: s.kind, cls: cls,
         chip: chip ? [{ cls: chip.cls, ic: '#ic-' + chip.icon }] : [],
         lock: on ? [] : [{ t: 'Lv' + s.lv + ' 解锁' }],
         used: spent ? [{ t: '本场已用' }] : [],
         segs: AT.segs(text),
-        pick: function (e) { opts.pick(e, key, s.name, AT.terms(text, s.extra)); }
+        pick: function (e) { opts.pick(e, key, name, AT.terms(text, s.extra)); }
       };
     }
 
@@ -40,14 +39,14 @@
       if (!a && !b) return;
       // 战斗版:未解锁的槽不占行,收进每面底部的一行
       if (opts.battle && L < lv) {
-        if (a) lockedNames[0].push('Lv' + lv + ' ' + a.name);
-        if (b) lockedNames[1].push('Lv' + lv + ' ' + b.name);
+        if (a) lockedNames[0].push('Lv' + lv + ' ' + AT.sub(a.name, mode));
+        if (b) lockedNames[1].push('Lv' + lv + ' ' + AT.sub(b.name, mode));
         return;
       }
       [a, b].forEach(function (s, fi) {
         var pos = cellPos(gridRow, fi + 1);
         if (s) { var r = rowOf(s, fi); r.pos = pos; rows.push(r); }
-        else voids.push({ pos: pos, t: '这一面没有 Lv' + lv, cls: 'void' + (L < lv ? ' off' : '') });
+        else voids.push({ pos: pos, t: 'Lv' + lv + ' · 这一面待补(机制改版后两面都有)', cls: 'void' + (L < lv ? ' off' : '') });
       });
       gridRow++;
     });
@@ -64,17 +63,14 @@
       bgs.push({ cls: 'fbg ' + (fi ? 'back' : 'front') + (up ? ' up' : ''), pos: 'grid-row:1 / ' + (gridRow + 1) + ';grid-column:' + (fi + 1) + ';' });
       heads.push({ pos: cellPos(1, fi + 1), s: f.s, sealCls: 'seal l main' + (f.s === '攻' ? ' atk' : ''), role: f.role, landing: f.landing,
         upTag: up ? [{ t: '朝上' }] : [] });
-      stats.push({ pos: cellPos(2, fi + 1), cells: f.stats(L).map(function (st, i) {
+      stats.push({ pos: cellPos(2, fi + 1), cells: f.stats(L, mode).map(function (st, i) {
         var key = 'st' + fi + i;
         return { k: st.k, v: st.v, u: st.u || '', cls: 'sb' + (fi ? ' bk' : '') + (st.t ? ' t' : '') + (opts.bubKey === key ? ' open' : ''),
           pick: function (e) { if (st.t) opts.pick(e, key, st.k, [st.t]); } };
       }) });
     });
     var ends = [{ pos: cellPos(gridRow, 1) }, { pos: cellPos(gridRow, 2) }];
-
-    var sharedRows = shared.map(function (s) { return rowOf(s, -1); });
-    if (opts.battle) sharedRows = sharedRows.filter(function (r) { return r.lock.length === 0; });
-    return { bgs: bgs, heads: heads, stats: stats, rows: rows, voids: voids, locks: locks, ends: ends, shared: sharedRows };
+    return { bgs: bgs, heads: heads, stats: stats, rows: rows, voids: voids, locks: locks, ends: ends };
   };
 
   // 气泡:每个词条一行 = 图标 chip(与战场同色)+ 词条名(+ 别名)+ 说明

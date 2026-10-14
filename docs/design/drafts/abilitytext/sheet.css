@@ -119,3 +119,6 @@
 /* <i>/<b> 只当无语义的行内容器用(避开「后代 span」坑),去掉默认斜体 / 粗细 */
 i { font-style: normal; }
 .tx .p { font-weight: 400; }
+.ctl button.dim { opacity: .55; }
+.ctl { gap: 3px; padding: 0 8px; font-size: 9.5px; }
+.ctl button { padding: 0 4px; font-size: 10px; }
