@@ -3376,6 +3376,13 @@ namespace Brushblade.Core
                     ApplyStatus(AllyStatuses(allySlot), status, AllyRef(allySlot), UnitRef.Player);
                 }
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
+            // spec A §7:水 / 土字攻击面按本次直接伤害攒泉 / 厚(1:1);攻面带释放泉 / 厚的字(溃 / 㵘 / 崩 / 㙓)不攒
+            if (topLevelCast && castFace == CardFace.Attack && !def.IsComponent && _cast.DirectDamage > 0
+                && !castEffects.Any(e => e.Kind == EffectKind.SpendWellspring || e.Kind == EffectKind.SpendHeft))
+            {
+                if (def.Element == Element.Water) GainWellspring(_cast.DirectDamage);
+                else if (def.Element == Element.Earth) GainHeft(_cast.DirectDamage);
+            }
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
             // 每场次数记账(E35):本次进了 Fold 的限次特性各记一次(出字已结算完,不会再被拒)
             foreach (var t in battleLimited)
@@ -3431,7 +3438,7 @@ namespace Brushblade.Core
                             if (armorStrikeBonus > 0)
                                 // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
                                 // 的调用)同口径——折返/加码都不是挥击。
-                                DamageEnemy(at, armorStrikeBonus, Element.Heart,
+                                _cast.DirectDamage += DamageEnemy(at, armorStrikeBonus, Element.Heart,
                                     bypassDefense: true, // 镇压不吃目标护甲
                                     source: EffectSource.ArmorStrike,
                                     attackerRef: UnitRef.Player);
@@ -3498,7 +3505,7 @@ namespace Brushblade.Core
                                     damage += SummonStrikeBonus(effect, def.Id);
                                 // 摇点位置不变(原先就在 DamageEnemy 的实参里、伤害算完之后):提成局部量只为暴击时入队
                                 bool crit = RollCrit(effect.ForceCrit);
-                                DamageEnemy(tgt, damage, attacker,
+                                _cast.DirectDamage += DamageEnemy(tgt, damage, attacker,
                                     crit: crit,
                                     pierce: primary ? effect.Pierce : 0, // 多段:每段各减一次护甲(裁定 4)
                                     // 碾(2026-09-16,土):跳过整条 DR,与穿透是两档 —— 对这一效果
@@ -5666,7 +5673,7 @@ namespace Brushblade.Core
         // 不该连带把反噬也关掉。
         /// <param name="sameSwing">这一记与上一记落在同一目标上的伤害是同一次挥击
         /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。</param>
-        private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
+        private int DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
             EffectSource source = EffectSource.None, int sourceSlot = -1, UnitRef attackerRef = default,
@@ -5754,6 +5761,8 @@ namespace Brushblade.Core
             enemy.Shield -= absorbed;
             int hpBefore = enemy.Hp;
             enemy.Hp = Math.Max(0, enemy.Hp - (damage - absorbed));
+            // spec A §7:这一记实际落到敌人身上的量 = 掉血 + 敌盾吸收,不含击杀溢出(DirectDamage 读它)
+            int landed = absorbed + (hpBefore - enemy.Hp);
             if (_config.Tally != null && damage > _config.Tally.MaxHit) _config.Tally.MaxHit = damage;
             // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
             // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
@@ -5780,11 +5789,11 @@ namespace Brushblade.Core
                 // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
                 // 的情形——同归于尽时玩家阵亡优先,既有口径不变。
                 CheckWin();
-                return;
+                return landed;
             }
             FlushCritMorale(enemyIndex);
             // 致命(D2-金 J5):掉血后低于 30% 直接斩杀 —— 已经死了,下面的受击存活类反应(现形 / 焦痕 / 铁画 / 分裂)一律不走
-            if (AfterEnemyHpLoss(enemyIndex)) return;
+            if (AfterEnemyHpLoss(enemyIndex)) return landed;
 
             // 生僻字:受击两次后被「读懂」(8.3);打死了就无所谓读不读得懂
             if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
@@ -5846,6 +5855,7 @@ namespace Brushblade.Core
                     AfterEnemyHpLoss(enemyIndex);   // 致命(D2-金 J5):分裂掉的那一半也是掉血(克隆不带状态)
                 }
             }
+            return landed;
         }
 
         /// <summary>优先返回 preferred 排(**剩余宽度**放得下 span 时),否则另一排。
