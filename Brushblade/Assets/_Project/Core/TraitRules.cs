@@ -405,6 +405,12 @@ namespace Brushblade.Core
                 {
                     int heal = effects.FindIndex(e => e.Kind == EffectKind.HealSelf);
                     if (heal >= 0) effects[heal] = effects[heal].With(shape: TargetArea.All, shapePercent: r.ShapePercent);
+                    else
+                    {
+                        // spec A §4.3「涓」只有持续治疗(D14,淋·细雨):改为全体,每回合量 × ShapePercent%
+                        int hot = effects.FindIndex(e => e.Kind == EffectKind.HealOverTime && !e.TargetAll);
+                        if (hot >= 0) effects[hot] = effects[hot].With(targetAll: true, value: effects[hot].Value * r.ShapePercent / 100);
+                    }
                     return;
                 }
                 // 重选目标(D2-火 E3,烈风「燃改为横扫」):本面没有伤害时,把落在主目标上的敌方效果换成 Reshape 的选择器

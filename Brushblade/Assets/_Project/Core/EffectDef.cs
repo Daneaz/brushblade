@@ -771,9 +771,9 @@ namespace Brushblade.Core
             int? armorShieldPercent = null, bool? armorStrikeEach = null,
             int? scaleDivisor = null, int? scaleCap = null,
             int? summonAtkStrikePercent = null, int? hostAtkStrikePercent = null, int? hostArmorStrikePercent = null,
-            int? summonCount = null, int? summonPercent = null) =>
+            int? summonCount = null, int? summonPercent = null, bool? targetAll = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, summonCount ?? SummonCount, SummonAttack, SummonChar,
-                turns ?? Turns, TargetAll, passive ?? Passive, SummonShield, SummonDefense,
+                turns ?? Turns, targetAll ?? TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
                 hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
                 TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
