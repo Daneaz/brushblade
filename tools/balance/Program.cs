@@ -389,8 +389,8 @@ namespace Brushblade.Balance
 
             // 末两组列是机器人自检:重搜 / 本体拒(应恒 0)。拆 / 合 / 嫁接 / 替换按每局计。
             Console.WriteLine($"| 画像 | 卡Lv | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/{seeds} | 反击总伤/局 | 反击被削% "
-                + "| 拆/局 | 合/局 | 嫁接/局 | 替换/局 | 两面字 攻:五行 | 回合/局 | 重搜/回合 | 本体拒 | 耗时s |");
-            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+                + "| 拆/局 | 合/局 | 嫁接/局 | 替换/局 | 有拆合局% | 有嫁接或替换局% | 两面字 攻:五行 | 回合/局 | 重搜/回合 | 本体拒 | 耗时s |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var row in rows) PrintRow(row, seeds);
 
             Console.WriteLine();
@@ -437,6 +437,7 @@ namespace Brushblade.Balance
             string Reach(int band) => $"{deaths.Count(d => d >= band) * 100 / deaths.Count}%";
             double PerGame(Func<ClimbResult, double> f) => results.Sum(f) / seeds;
             int Count(ClimbResult r, string kind) => r.Stats.ActionCounts.TryGetValue(kind, out int n) ? n : 0;
+            int Share(Func<ClimbResult, bool> f) => results.Count(f) * 100 / results.Length;
             long dealt = results.Sum(r => r.CounterDealt), clipped = results.Sum(r => r.CounterClipped);
             int dualAttack = results.Sum(r => r.DualAttackCasts), dualFeature = results.Sum(r => r.DualFeatureCasts);
             int dual = dualAttack + dualFeature;
@@ -449,6 +450,9 @@ namespace Brushblade.Balance
                               $"| {(dealt + clipped == 0 ? 0 : clipped * 100.0 / (dealt + clipped)):F0}% " +
                               $"| {PerGame(r => Count(r, "Dismantle")):F1} | {PerGame(r => Count(r, "Compose")):F1} " +
                               $"| {PerGame(r => Count(r, "Graft")):F1} | {PerGame(r => Count(r, "Replace")):F1} " +
+                              // spec §7-3「每局有」:至少一次的局占比(拆或合 / 嫁接或替换)
+                              $"| {Share(r => Count(r, "Dismantle") + Count(r, "Compose") > 0)}% " +
+                              $"| {Share(r => Count(r, "Graft") + Count(r, "Replace") > 0)}% " +
                               $"| {(dual == 0 ? "—" : $"{dualAttack * 100 / dual}:{100 - dualAttack * 100 / dual}")} " +
                               $"| {turns / (double)seeds:F1} " +
                               $"| {(turns == 0 ? 0 : results.Sum(r => r.Stats.Replans) / (double)turns):F2} " +
