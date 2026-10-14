@@ -725,7 +725,10 @@ namespace Brushblade.Core.Tests
             Assert.That(new[] { EffectKind.SummonEmpower, EffectKind.SummonThorns, EffectKind.SummonRanged, EffectKind.Bind,
                 EffectKind.ThornMark, EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar }.Select(k => (int)k),
                 Is.EqualTo(Enumerable.Range((int)EffectKind.ApCost + 1, 8)));
-            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.GrantChar));
+            // spec A D8 在其后追加 Lifesteal / OverhealShield(仍只在末尾追加)
+            Assert.That(((int)EffectKind.Lifesteal, (int)EffectKind.OverhealShield),
+                Is.EqualTo(((int)EffectKind.GrantChar + 1, (int)EffectKind.GrantChar + 2)));
+            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.OverhealShield));
             Assert.That(new[] { StatusKind.SummonEmpower, StatusKind.SummonThorns, StatusKind.SummonRanged, StatusKind.Bind,
                 StatusKind.ThornMark }.Select(k => (int)k), Is.EqualTo(Enumerable.Range((int)StatusKind.SkillCut + 1, 5)));
             Assert.That(Enum.GetValues(typeof(StatusKind)).Cast<int>().Max(), Is.EqualTo((int)StatusKind.ThornMark));

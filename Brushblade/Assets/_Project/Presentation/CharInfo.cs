@@ -386,6 +386,9 @@ namespace Brushblade.Presentation
                     EffectKind.SummonAct => Strings.T("char.effect.summonact"),
                     // 折桂(M10):触发前缀「击杀时:」由 TriggerText 印,每场次数由 battleLimit 印
                     EffectKind.GrantChar => Strings.T("char.effect.grantchar", ("value", e.Value)),
+                    // spec A D8:沐霖 / 冰肌,Value 是百分比(不随卡等级缩放)
+                    EffectKind.Lifesteal => Strings.T("char.effect.lifesteal", ("value", e.Value)),
+                    EffectKind.OverhealShield => Strings.T("char.effect.overhealshield", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
