@@ -139,16 +139,40 @@ namespace Brushblade.Balance.Tests
 
             var summon = feature.Where(a => a.DropMode == SummonDropMode.Auto).ToList();
             Assert.That(summon.Count, Is.GreaterThan(0), "空格:召唤");
+            var landed = new List<int>();
             foreach (var a in summon)
             {
                 Assert.That(a.AllySlot, Is.EqualTo(Targeting.PlayerTarget));
-                Assert.That(a.SummonSlots, Is.Not.Null);
-                Assert.That(t.Battle.SlotOccupancy(a.SummonSlots[0]), Is.Not.EqualTo(SlotState.Alive), "召唤首格落在空格");
-                Assert.That(t.Battle.IsSlotOpen(a.SummonSlots[0]), Is.True);
+                landed.Add(LandedSlot(t, a));
             }
-            int openNonAlive = Enumerable.Range(0, BattleEngine.MaxSummonSlots)
-                .Count(s => t.Battle.IsSlotOpen(s) && t.Battle.SlotOccupancy(s) != SlotState.Alive);
-            Assert.That(summon.Select(a => a.SummonSlots[0]).Distinct().Count(), Is.EqualTo(openNonAlive), "每个可落空格一条");
+            var openNonAlive = Enumerable.Range(0, BattleEngine.MaxSummonSlots)
+                .Where(s => t.Battle.IsSlotOpen(s) && t.Battle.SlotOccupancy(s) != SlotState.Alive).ToList();
+            Assert.That(landed.OrderBy(i => i).ToList(), Is.EqualTo(openNonAlive), "每个可落空格一条,且真的落在那一格");
+
+            // 嫁接:不召新木灵,该格木灵状态变了;替换:该格换成本字新召的木灵(满血满值,不是原来那只)
+            var g = t.Clone();
+            string before = SummonJson(g, 0);
+            Assert.That(graft[0].ApplyTo(g), Is.EqualTo(BattleError.None));
+            Assert.That(g.AliveSummonCount, Is.EqualTo(t.Battle.AliveSummonCount), "嫁接不加木灵");
+            Assert.That(SummonJson(g, 0), Is.Not.EqualTo(before), "嫁接改了该格木灵");
+            var r = t.Clone();
+            Assert.That(replace[0].ApplyTo(r), Is.EqualTo(BattleError.None));
+            Assert.That(r.AliveSummonCount, Is.EqualTo(t.Battle.AliveSummonCount), "替换不加木灵");
+            Assert.That(r.Summons[0].MaxHp, Is.Not.EqualTo(t.Battle.Summons[0].MaxHp), "替换后是新召的木灵");
+        }
+
+        private static string SummonJson(BattleEngine b, int slot) =>
+            Newtonsoft.Json.JsonConvert.SerializeObject(b.Capture().Summons.Single(x => x.Slot == slot));
+
+        /// <summary>在副本上执行召唤候选,返回新长出存活木灵的那一格(恰好一格)。</summary>
+        private static int LandedSlot(TestBattle t, BotAction a)
+        {
+            var copy = t.Clone();
+            Assert.That(a.ApplyTo(copy), Is.EqualTo(BattleError.None), a.ToString());
+            var fresh = Enumerable.Range(0, BattleEngine.MaxSummonSlots)
+                .Where(s => t.Battle.SlotOccupancy(s) != SlotState.Alive && copy.SlotOccupancy(s) == SlotState.Alive).ToList();
+            Assert.That(fresh.Count, Is.EqualTo(1), a.ToString());
+            return fresh[0];
         }
 
         [Test]
@@ -187,6 +211,60 @@ namespace Brushblade.Balance.Tests
                 Is.EqualTo(new[] { "焚", "炎" }.OrderBy(s => s, StringComparer.Ordinal).ToList()));
         }
 
+        private static List<string> Sorted(IEnumerable<string> xs) => xs.OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+        [Test]
+        public void DismantleAndCompose_ActuallyMoveLibraryAndPool()
+        {
+            var t = new TestBattle(new[] { "林", "炎" }, pool: new[] { "火", "木" }, enemies: 1);
+            var all = t.Generate();
+
+            var d = t.Clone();
+            Assert.That(all.Single(a => a.Kind == ActionKind.Dismantle && a.CharId == "林").ApplyTo(d), Is.EqualTo(BattleError.None));
+            Assert.That(Sorted(d.Library), Is.EqualTo(Sorted(new[] { "炎" })), "林 离库");
+            Assert.That(Sorted(d.Pool), Is.EqualTo(Sorted(new[] { "火", "木", "木", "木" })), "木 + 木 回池");
+            Assert.That(d.Ap, Is.EqualTo(t.Battle.Ap), "拆免 AP");
+
+            var c = t.Clone();
+            Assert.That(all.Single(a => a.Kind == ActionKind.Compose && a.CharId == "焚").ApplyTo(c), Is.EqualTo(BattleError.None));
+            Assert.That(Sorted(c.Library), Is.EqualTo(Sorted(new[] { "炎", "焚" })), "林 + 火 → 焚");
+            Assert.That(Sorted(c.Pool), Is.EqualTo(Sorted(new[] { "木" })));
+            Assert.That(c.Ap, Is.EqualTo(t.Battle.Ap - 1), "合扣 1 AP");
+        }
+
+        [Test]
+        public void CompoundCompose_DiscardsThenComposes()
+        {
+            var t = new TestBattle(new[] { "炎", "焚" }, pool: new[] { "木", "木" }, enemies: 1, libraryCapacity: 2);
+            var a = t.Generate().Single(x => x.Kind == ActionKind.Compose && x.CharId == "林" && x.DiscardForCompose == "炎");
+            var c = t.Clone();
+            Assert.That(a.ApplyTo(c), Is.EqualTo(BattleError.None));
+            Assert.That(Sorted(c.Library), Is.EqualTo(Sorted(new[] { "焚", "林" })));
+            Assert.That(c.Pool.Count, Is.EqualTo(0));
+            Assert.That(c.Ap, Is.EqualTo(t.Battle.Ap - 1));
+        }
+
+        [Test]
+        public void CompoundCompose_PrecheckFails_TouchesNothing()
+        {
+            // 池里只有一个 木,林 合不成:旧实现会先把 炎 弃掉再合失败,白丢一张字
+            var t = new TestBattle(new[] { "炎", "焚" }, pool: new[] { "木" }, enemies: 1, libraryCapacity: 2);
+            var a = new BotAction { Kind = ActionKind.Compose, CharId = "林", DiscardForCompose = "炎", Graph = Fixture.Graph };
+            var c = t.Clone();
+            Assert.That(a.ApplyTo(c), Is.EqualTo(BattleError.ForgeFailed));
+            Assert.That(c.Library, Is.EqualTo(new[] { "炎", "焚" }), "字库不变");
+            Assert.That(c.Pool, Is.EqualTo(new[] { "木" }), "池不变");
+            Assert.That(c.Ap, Is.EqualTo(t.Battle.Ap), "AP 不变");
+        }
+
+        [Test]
+        public void CompoundCompose_WithoutGraph_Throws()
+        {
+            var t = new TestBattle(new[] { "炎", "焚" }, pool: new[] { "木", "木" }, enemies: 1, libraryCapacity: 2);
+            var a = new BotAction { Kind = ActionKind.Compose, CharId = "林", DiscardForCompose = "炎" };
+            Assert.Throws<InvalidOperationException>(() => a.ApplyTo(t.Clone()));
+        }
+
         [Test]
         public void NotEnoughAp_NoCastNoCompose_DismantleAndEndTurnRemain()
         {
@@ -212,7 +290,7 @@ namespace Brushblade.Balance.Tests
                 summons: new[] { Fixture.WoodSummon(0), Fixture.WoodSummon(1, hp: 0) });
             Assert.That(t.Battle.SlotOccupancy(1), Is.EqualTo(SlotState.Corpse), "前提:槽 1 是尸体");
             var firstSlots = Casts(t.Generate(), "林", false).Where(a => a.DropMode == SummonDropMode.Auto)
-                .Select(a => a.SummonSlots[0]).ToList();
+                .Select(a => LandedSlot(t, a)).ToList();
             Assert.That(firstSlots.Contains(1), Is.True, "尸体格可召唤覆盖");
         }
 
@@ -260,7 +338,7 @@ namespace Brushblade.Balance.Tests
             }
         }
 
-        private static IEnumerable<TestBattle> Scenes()
+        internal static IEnumerable<TestBattle> Scenes()
         {
             yield return new TestBattle(new[] { "冰", "炎", "焚" }, enemies: 3);
             yield return new TestBattle(new[] { "林", "冰" }, enemies: 2, summons: new[] { Fixture.WoodSummon(0) });
@@ -275,7 +353,7 @@ namespace Brushblade.Balance.Tests
             yield return new TestBattle(new[] { "林", "冰" }, enemies: 1,
                 summons: new[] { Fixture.WoodSummon(0), Fixture.WoodSummon(1, hp: 0) });
             // 全部可出牌字各一张(字库容量放开),兜住各类面与落点;Lv1 / Lv5 / Lv8 三档(特性会改形状、加召唤、加复活)
-            var cards = Fixture.Graph.All.Where(d => !d.IsComponent && d.Effects.Count > 0).Select(d => d.Id).ToArray();
+            var cards = Fixture.Graph.All.Where(d => !d.IsComponent && (d.Effects.Count > 0 || d.AttackEffects.Count > 0)).Select(d => d.Id).ToArray();
             foreach (int level in new[] { 1, 5, 8 })
                 yield return new TestBattle(cards, enemies: 3, libraryCapacity: cards.Length + 2, cardLevel: level,
                     summons: new[] { Fixture.WoodSummon(0), Fixture.WoodSummon(3), Fixture.WoodSummon(4, hp: 0) });

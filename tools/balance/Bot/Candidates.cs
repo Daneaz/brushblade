@@ -21,8 +21,15 @@ namespace Brushblade.Balance.Bot
         public bool ReplaceSummon;
         /// <summary>合字需腾位时先弃的字(复合动作:弃 + 合)。null = 不弃。</summary>
         public string DiscardForCompose;
+        /// <summary>复合合字原子预检用的字表(<see cref="BattleEngine"/> 不公开它)。<see cref="Candidates.Generate"/>
+        /// 给复合动作填好;手搭复合动作而不填会在 <see cref="ApplyTo"/> 抛异常(响亮失败,不静默退化成非原子)。</summary>
+        public RecipeGraph Graph;
 
-        /// <summary>在给定引擎上执行。复合合字先弃后合;弃字失败直接返回,不再合。</summary>
+        /// <summary>在给定引擎上执行。
+        /// 复合合字(<see cref="DiscardForCompose"/> 非 null)是**原子**的:先用 <see cref="ForgeEngine.TryCompose"/>
+        /// 对「弃后的字库 / 池」预检(相位、AP、可合成集、原料、容量与 <see cref="BattleEngine.Compose"/> 同判据),
+        /// 预检不过则不弃、不合、不动任何状态,直接返回失败(<see cref="BattleError.ForgeFailed"/> 等);
+        /// 预检通过才真弃再真合。</summary>
         public BattleError ApplyTo(BattleEngine battle)
         {
             switch (Kind)
@@ -35,6 +42,8 @@ namespace Brushblade.Balance.Bot
                 case ActionKind.Compose:
                     if (DiscardForCompose != null)
                     {
+                        var precheck = PrecheckCompound(battle);
+                        if (precheck != BattleError.None) return precheck;
                         var discard = battle.Discard(DiscardForCompose);
                         if (discard != BattleError.None) return discard;
                     }
@@ -46,6 +55,20 @@ namespace Brushblade.Balance.Bot
                 default:
                     throw new ArgumentOutOfRangeException(nameof(Kind), Kind, null);
             }
+        }
+
+        /// <summary>复合合字的无副作用预检:模拟 Discard 的取舍(字库优先、再池),再按 Compose 的判据试合。</summary>
+        private BattleError PrecheckCompound(BattleEngine battle)
+        {
+            if (battle.Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
+            if (battle.Ap < 1) return BattleError.NotEnoughAp;
+            var library = new List<string>(battle.Library);
+            var pool = new List<string>(battle.Pool);
+            if (Graph == null) throw new InvalidOperationException("复合合字缺 Graph,无法原子预检");
+            if (!library.Remove(DiscardForCompose) && !pool.Remove(DiscardForCompose)) return BattleError.NotCastable;
+            var result = ForgeEngine.TryCompose(CharId, Graph, new ForgeState(library, pool), battle.LibraryCapacity,
+                battle.ComposableChars, battle.PoolCapacity);
+            return result.Success ? BattleError.None : BattleError.ForgeFailed;
         }
 
         public override string ToString() => Kind switch
@@ -151,10 +174,14 @@ namespace Brushblade.Balance.Bot
             int summonCount = battle.SummonCountOf(def, attackMode);
             if (summonCount > 0)
             {
+                // Core 缺省落位(summonSlots = null)的首格 = NextEmptySlot:先空槽、后尸体槽。这一格用缺省落位
+                // (不传槽位),其余格各传 PlanSummonSlots —— 两者在多只 / 入场幼苗时落位不同,缺省那条不能被
+                // 「从该格起 PlanSummonSlots」替代(暴力 oracle 在 Lv5/8 森、藻上抓到过)。
+                int defaultSlot = DefaultSummonSlot(battle);
                 for (int slot = 0; slot < BattleEngine.MaxSummonSlots; slot++)
                 {
                     if (!battle.IsSlotOpen(slot) || battle.SlotOccupancy(slot) == SlotState.Alive) continue;
-                    var plan = battle.PlanSummonSlots(slot, summonCount);
+                    var plan = slot == defaultSlot ? null : battle.PlanSummonSlots(slot, summonCount);
                     options.Add(new AllyOption(Targeting.PlayerTarget, plan,
                         replaceSummon: battle.SummonReplaceCountOf(def, attackMode, plan) > 0));
                 }
@@ -169,7 +196,10 @@ namespace Brushblade.Balance.Bot
             }
 
             options.Add(new AllyOption(Targeting.PlayerTarget));
-            bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode);
+            // 本体选友方(CastCore 校验口径),或已解锁特性折进来的效果选友方(Core 不校验、但按 allySlot 结算,
+            // 如 杜 Lv5+ 攻击面的特性;暴力 oracle 抓到过)
+            bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode)
+                || battle.CastEffectsNow(def.Id, attackMode).Any(BattleEngine.EffectNeedsAllyTarget);
             bool revive = BattleEngine.HasRevive(def, attackMode);
             for (int slot = 0; slot < BattleEngine.MaxSummonSlots; slot++)
             {
@@ -180,6 +210,16 @@ namespace Brushblade.Balance.Bot
                     options.Add(new AllyOption(slot));
             }
             return options;
+        }
+
+        /// <summary>与 BattleEngine.NextEmptySlot(私有)同判据:开放格里先找空槽,再找尸体槽;没有 −1。</summary>
+        private static int DefaultSummonSlot(BattleEngine battle)
+        {
+            for (int s = 0; s < BattleEngine.MaxSummonSlots; s++)
+                if (battle.IsSlotOpen(s) && battle.SlotOccupancy(s) == SlotState.Empty) return s;
+            for (int s = 0; s < BattleEngine.MaxSummonSlots; s++)
+                if (battle.IsSlotOpen(s) && battle.SlotOccupancy(s) == SlotState.Corpse) return s;
+            return -1;
         }
 
         // ---- 拆 / 合 ----
@@ -217,7 +257,7 @@ namespace Brushblade.Balance.Bot
                     var after = ForgeEngine.TryCompose(id, graph, new ForgeState(library, battle.Pool),
                         battle.LibraryCapacity, composable, battle.PoolCapacity);
                     if (after.Success)
-                        result.Add(new BotAction { Kind = ActionKind.Compose, CharId = id, DiscardForCompose = discard });
+                        result.Add(new BotAction { Kind = ActionKind.Compose, CharId = id, DiscardForCompose = discard, Graph = graph });
                 }
             }
         }
