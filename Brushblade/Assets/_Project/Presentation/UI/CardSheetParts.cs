@@ -189,6 +189,8 @@ namespace Brushblade.Presentation
             FaceStatKind.Nature => Strings.T("charsheet.stat.nature"),
             FaceStatKind.SpendWellspring => Strings.T("charsheet.stat.spend_wellspring"),
             FaceStatKind.SpendHeft => Strings.T("charsheet.stat.spend_heft"),
+            FaceStatKind.CounterPercent => Strings.T("charsheet.stat.counter"),
+            FaceStatKind.ReviveHp => Strings.T("charsheet.stat.revive"),
             _ => kind.ToString(),
         };
 

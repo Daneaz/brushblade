@@ -478,5 +478,17 @@ namespace Brushblade.Core.Tests
             foreach (var t in du.Traits.Where(t => t.MaxPerBattle == 0))
                 Assert.That(b.TraitSpentThisBattle(du, t), Is.False, t.Name);
         }
+
+        /// <summary>spec A §6 合并后:每张字 Lv1/3/4/5/6/8 六级、每级两面都有(待补占位不再出现)。</summary>
+        [Test]
+        public void LevelRows_AfterSpecA_SixLevels_BothFaces()
+        {
+            foreach (var d in Playable())
+            {
+                var rows = CardSheetRules.LevelRows(d, 1);
+                Assert.That(rows.Select(r => (int)r.Slot), Is.EqualTo(new[] { 1, 3, 4, 5, 6, 8 }), d.Id);
+                Assert.That(rows.All(r => r.Attack != null && r.Feature != null), Is.True, d.Id + ":每级两面都有");
+            }
+        }
     }
 }

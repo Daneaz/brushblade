@@ -262,10 +262,23 @@ namespace Brushblade.Core.Tests
                 [FaceStatKind.Nature] = GlossaryTerm.Nature,
                 [FaceStatKind.SpendWellspring] = GlossaryTerm.Wellspring,
                 [FaceStatKind.SpendHeft] = GlossaryTerm.Heft,
+                [FaceStatKind.CounterPercent] = null,
+                [FaceStatKind.ReviveHp] = GlossaryTerm.Revive,
             };
             Assert.That(expected.Count, Is.EqualTo(Enum.GetValues(typeof(FaceStatKind)).Length), "每个 FaceStatKind 都列到");
             foreach (var kv in expected)
                 Assert.That(GlossaryRules.TermOf(kv.Key), Is.EqualTo(kv.Value), kv.Key.ToString());
+        }
+
+        [Test]
+        public void TermOf_FaceStat_HealBySource()
+        {
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Heal, 30, EffectKind.HealOverTime)), Is.EqualTo(GlossaryTerm.Trickle));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Heal, 90, EffectKind.HealSelf)), Is.EqualTo(GlossaryTerm.Surge));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Heal, 45, EffectKind.HealAll)), Is.EqualTo(GlossaryTerm.Surge));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.ReviveHp, 50, EffectKind.Revive)), Is.EqualTo(GlossaryTerm.Revive));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.CounterPercent, 40, EffectKind.Block)), Is.Null);
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Burn, 1, EffectKind.BurnSingle)), Is.EqualTo(GlossaryTerm.Burn), "其余同 TermOf(kind)");
         }
     }
 }

@@ -91,7 +91,16 @@ namespace Brushblade.Core
             FaceStatKind.Nature => GlossaryTerm.Nature,
             FaceStatKind.SpendWellspring => GlossaryTerm.Wellspring,
             FaceStatKind.SpendHeft => GlossaryTerm.Heft,
+            FaceStatKind.ReviveHp => GlossaryTerm.Revive,
             _ => null,
+        };
+
+        /// <summary>按格取术语(spec B §1.3):治疗格按来源分涓(持续)/ 涌(立即),其余同 <see cref="TermOf(FaceStatKind)"/>。</summary>
+        public static GlossaryTerm? TermOf(FaceStat stat) => stat.Kind switch
+        {
+            FaceStatKind.Heal when stat.Source == EffectKind.HealOverTime => GlossaryTerm.Trickle,
+            FaceStatKind.Heal when stat.Source == EffectKind.HealSelf || stat.Source == EffectKind.HealAll => GlossaryTerm.Surge,
+            _ => TermOf(stat.Kind),
         };
 
         /// <summary>词条的图标 chip(spec B §1.5 / §3):= 战场上那枚状态 chip 的图标与底色分组;没有图标 = null(行头 / 气泡不画 chip)。

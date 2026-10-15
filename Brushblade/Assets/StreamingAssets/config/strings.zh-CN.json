@@ -1250,6 +1250,7 @@
   "charsheet.stat.morale": "战意",
   "charsheet.stat.block": "格挡",
   "charsheet.stat.counter": "反击",
+  "charsheet.stat.revive": "复活生命",
   "charsheet.stat.weaken": "慑",
   "charsheet.stat.weaken_short": "慑",
   "charsheet.stat.armor": "护甲",
