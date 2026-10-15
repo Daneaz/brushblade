@@ -43,7 +43,8 @@ namespace Brushblade.Core.Tests
             int allySlot = Targeting.PlayerTarget, bool replace = false)
         {
             sb.Append($"#{id}{target}/{allySlot}{(attack ? "A" : "")}={b.Cast(id, target, replaceSummon: replace, attackMode: attack, allySlot: allySlot)};");
-            foreach (var e in b.LastEvents)   // 出字事件逐张记(LastEvents 只留最后一次 Cast)
+            // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
+            foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))   // 出字事件逐张记(LastEvents 只留最后一次 Cast)
                 sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
         }
 
@@ -73,7 +74,8 @@ namespace Brushblade.Core.Tests
                 eachTurn(b, t, sb);
                 sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
-                foreach (var e in b.LastEvents)
+                // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();

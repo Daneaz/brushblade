@@ -40,7 +40,8 @@ namespace Brushblade.Core.Tests
             {
                 eachTurn(b);
                 b.EndTurn();
-                foreach (var e in b.LastEvents)
+                // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append($"|P{b.PlayerHp}");
                 foreach (var en in b.Enemies) sb.Append($",E{en.Hp}");

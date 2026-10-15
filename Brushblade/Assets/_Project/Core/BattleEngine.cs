@@ -385,6 +385,10 @@ namespace Brushblade.Core
         // ---- Plan E4 Task 1(⚠ 只在末尾追加)----
         EndureSaved,   // 保命挡下致命一击(TargetIndex = 木灵槽位;Amount = 被挡掉的伤害 = 这一下 − (挡前血 − 1);SecondIndex = −1)。
                        // 紧跟在那一下的事件之后(SummonHit / SummonBurnTick / GuardTransfer);只在保命真的触发时发。
+        // ---- 格挡反击动效(drafts/counterfx,2026-10-15;⚠ 只在末尾追加)----
+        BlockUsed,     // 格挡挡下一记敌人挥击、扣掉一次(TargetIndex = 攻击者敌人下标;SecondIndex = 格挡所在木灵槽位,玩家 −1;
+                       // Amount = 扣完后的剩余次数,0 = 用完已移除)。玩家侧紧跟 EnemyAttack,木灵侧紧跟 SummonHit(及其 EndureSaved),
+                       // 都在反击伤害(Source BlockCounter)之前。反击被预算削到 0 / 攻击者已死时照发 —— 表现层据此只演「挡 / 扣」两拍。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -6115,6 +6119,8 @@ namespace Brushblade.Core
             _shieldNormal -= absorbed;
             PlayerHp = Math.Max(0, PlayerHp - (landed - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, landed, -1, absorbed));
+            // 格挡反击动效(drafts/counterfx):紧跟 EnemyAttack,反击为 0 / 攻击者已死也照发
+            if (blocking) _events.Add(new BattleEvent(BattleEventKind.BlockUsed, enemyIndex, block.Magnitude, -1));
 
             // 立即判负(Task 12,spec §4.3.1):归零即当场收口,不推迟到下一次 BeginPlayerTurn ——
             // 逐格驱动下,推迟意味着已经死了还要陪剩下的怪把动画读完才弹结算。
@@ -6274,6 +6280,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
             if (saved) _events.Add(EndureSavedEvent(summonIndex, taken - absorbed, hpBefore));
+            if (blocking) _events.Add(new BattleEvent(BattleEventKind.BlockUsed, enemyIndex, block.Magnitude, summonIndex));   // 同玩家侧,见 BlockUsed
             Raise(HookKind.SummonHit, UnitRef.Summon(summonIndex), UnitRef.Enemy(enemyIndex), taken, absorbed: absorbed);
             CheckThreshold(UnitRef.Summon(summonIndex), hpBefore, summon.Hp, summon.MaxHp);
             // ⚠ 挨打死亡的 OnSummonDeath(归根)挪到本方法末尾(2026-09-30 用户报):荆棘/镜/反震

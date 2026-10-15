@@ -126,6 +126,7 @@ namespace Brushblade.Presentation
         {
             bool holding = Input.GetMouseButton(0) || Input.touchCount > 0;
             _rate = SpeedRules.RateFor(GameSettings.Current, holding, GameSettings.Subscribed);
+            _pacedClock += Dt;   // 格挡反击各拍按它对齐(JuiceCounter)
         }
 
         /// <summary>结算节拍的等待。不用 WaitForSecondsRealtime —— 那个一旦 yield 出去时长就锁死了,
@@ -216,6 +217,7 @@ namespace Brushblade.Presentation
             // 一整段结算之间必然隔着重绘,所以整表清掉即可,不用逐个判空
             _popupSlots.Clear();
             _tagSlots.Clear();   // 名签的叠层表同理(JuiceTriggerFx)
+            _chipShrink.Clear(); // 缩没的格挡 chip(JuiceCounter)同理:一段结算之间必有重绘
             // 召唤格原位/令牌:只清已被重绘销毁的格 —— 两段 Play 之间不一定隔着重绘,
             // 整表清掉会让上一段还在归位的格子把半路位置记成原位
             PruneDestroyed(_summonHome);
@@ -269,6 +271,17 @@ namespace Brushblade.Presentation
             // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
             var deferred = new List<BattleEvent>();
             bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
+            // 格挡反击(counterfx,JuiceCounter):这次格挡的 ③ 拍上下文;反击为 0 / 攻击者已死时为 null(只演 ①②)。
+            // 带反击的这一步不加时长:下一步起点 = max(StepGap, 末次反击命中 + CounterTail),从格挡那一刻起算
+            CounterRun counter = null;
+            float counterStepStart = -1f, counterLastHit = 0f;
+            float StepWait()
+            {
+                if (counterStepStart < 0f) return StepGap;
+                float wait = Mathf.Max(StepGap - (_pacedClock - counterStepStart), CounterTail - (_pacedClock - counterLastHit), 0f);
+                counterStepStart = -1f;
+                return wait;
+            }
             int lastDamageTarget = int.MinValue; // 上一记 Damage 的目标:跨过分裂/加攻/现形这些伴随事件,
                                                   // 不能只看 events[idx-1] 是否紧邻(2026-08-08 评审修复)
             for (int idx = 0; idx < events.Count; idx++)
@@ -286,6 +299,18 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
+                        // 格挡反击 ③(counterfx):等到格挡后 0.28(多段每段 +0.08)命中 —— 反击线已由 BlockUsed 那一条按时发射
+                        if (e.Source == EffectSource.BlockCounter && counter != null)
+                        {
+                            float due = counter.HitDue(counter.Shown) - _pacedClock;
+                            if (due > 0f) yield return Beat(due);
+                            PlayCounterHit(e, enemyAnchor(e.TargetIndex), counter, kills);
+                            counterLastHit = _pacedClock;
+                            onImpact?.Invoke(e);
+                            lastDamageTarget = e.TargetIndex;
+                            anyParallel = true;
+                            break;
+                        }
                         // 碎玉(E3,WaterEarthCues):护盾角标闪 →「碎玉」飘出 → 再往下照常飘反伤数字
                         if (e.Source == EffectSource.ShieldShatter) yield return PlayShieldBadgeTrait(EffectKind.ShieldShatter);
                         // 反震(TriggerFx C,Plan E4):同一套 —— 护盾角标闪、「反震」从角标飘出,停一拍再飘反伤数字
@@ -535,7 +560,7 @@ namespace Brushblade.Presentation
                         ScreenFlash(0.16f, Color.white);     // 致命全屏微闪
                         break;
                     case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者(TargetIndex)下扑 + 飘伤害在承伤召唤(SecondIndex)身上
-                        if (serialPending) yield return Beat(StepGap);
+                        if (serialPending) yield return Beat(StepWait());
                         var tank = summonAnchor?.Invoke(e.SecondIndex); // 承伤者(坦克死后前移到下一个)
                         var tankState = summonInfo?.Invoke(e.SecondIndex);
                         // 防守型三拍的前两拍:嘲讽 / 举盾(盾反)→ 挨打(盾面迎击),JuiceSummons
@@ -557,19 +582,30 @@ namespace Brushblade.Presentation
                         // 敌人占便宜(e.Ke)镶金边 + 金环炸开,敌人打软(e.Countered)褪色缩字 + 环往里收
                         var foeElement = Theme.GlyphColor(enemyElement?.Invoke(e.TargetIndex));
                         if (e.Countered) foeElement = Color.Lerp(foeElement, Theme.Paper, CounteredFade);
-                        Popup(SummonHitText(e), foeElement, tank,
-                            sizeScale: e.Ke ? 1.18f : e.Countered ? 0.78f : 1f,
-                            outline: e.Ke ? Theme.GoldBorder : null);
+                        // 格挡反击 ①(counterfx):这一下被木灵的格挡挡了 —— 伤害数缩 0.78 挪到头顶偏右、后坐 0.45 不白闪、
+                        // 顿帧 / 声音换被挡那一档,木灵不震屏;盾印与半弧由紧随的 BlockUsed 画
+                        bool summonBlocked = BlockedNext(events, idx);
+                        if (summonBlocked)
+                            BlockedPopup(SummonHitText(e), foeElement, tank, scale: e.Ke ? 1.18f : e.Countered ? 0.78f : 1f,
+                                outline: e.Ke ? Theme.GoldBorder : null);
+                        else
+                            Popup(SummonHitText(e), foeElement, tank,
+                                sizeScale: e.Ke ? 1.18f : e.Countered ? 0.78f : 1f,
+                                outline: e.Ke ? Theme.GoldBorder : null);
                         if (e.Ke) Ring(tank, Theme.GoldBorder);
                         else if (e.Countered) Ring(tank, Theme.InkSoft, inward: true);
-                        HitReact(tank, e.Countered ? 0.45f : 1f);
                         SummonViewOf(tank)?.PlayHit(); // 立绘整丛一抖、叶子乱颤
-                        PlayClip(e.Countered ? _hitClip : _thudClip, e.Countered ? 0.55f : 0.7f,
-                            e.Countered ? CounteredPitch : 1f);
-                        HitStop(e.Countered ? HitStopCountered : e.Ke ? HitStopBig : HitStopLight);
-                        // 方向取反:这一记是敌人从上面撞下来,震屏该往我方那侧走
-                        StartCoroutine(Shake(7f * (e.Countered ? 0.45f : e.Ke ? 1.6f : 1f),
-                            -AttackDir(enemyAnchor(e.TargetIndex))));
+                        if (summonBlocked) BlockedHitFx(tank, enemyAnchor(e.TargetIndex), shake: false);
+                        else
+                        {
+                            HitReact(tank, e.Countered ? 0.45f : 1f);
+                            PlayClip(e.Countered ? _hitClip : _thudClip, e.Countered ? 0.55f : 0.7f,
+                                e.Countered ? CounteredPitch : 1f);
+                            HitStop(e.Countered ? HitStopCountered : e.Ke ? HitStopBig : HitStopLight);
+                            // 方向取反:这一记是敌人从上面撞下来,震屏该往我方那侧走
+                            StartCoroutine(Shake(7f * (e.Countered ? 0.45f : e.Ke ? 1.6f : 1f),
+                                -AttackDir(enemyAnchor(e.TargetIndex))));
+                        }
                         onImpact?.Invoke(e); // 触达才扣召唤血
                         // 藻荇(D2-木 W9):这一下打死的是记着母体的小藻、母体那一格的本命带藻荇 → 特性名从阵亡那一格飘出,
                         // 攻击者的减速 chip 重绘后闪(减速在这一拍收尾才挂上,Core 推迟到拍尾)
@@ -592,14 +628,24 @@ namespace Brushblade.Presentation
                         PlayClip(_hitClip, 0.5f);
                         break;
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
-                        if (serialPending) yield return Beat(StepGap);
+                        if (serialPending) yield return Beat(StepWait());
                         yield return Swing(e.TargetIndex, null, slash: true);
                         // 飘字分账(2026-07-25):护盾吃掉多少、血实掉多少分开写,与两条同步
                         int hpLoss = e.Amount - e.Absorbed;
                         // 掉血那一路按攻击者属性上色;被盾吃掉的那一路仍是盾的语义色(SplitBlue)——
                         // 「盾挡下了多少」说的是盾,不是打过来的是什么属性
                         var foeColor = Theme.GlyphColor(enemyElement?.Invoke(e.TargetIndex));
-                        if (e.Absorbed <= 0) Popup($"-{e.Amount}", foeColor, null);
+                        // 格挡反击 ①(counterfx):这一下被玩家的格挡挡了 —— 伤害数缩 0.78 落在头像头顶偏右(让开盾印),
+                        // 不闪屏缘、震屏 ×0.45、顿帧 / 声音换被挡那一档;盾印与半弧由紧随的 BlockUsed 画
+                        bool playerBlocked = BlockedNext(events, idx);
+                        var me = playerBlocked ? PlayerPortraitAt?.Invoke() : null;
+                        if (playerBlocked)
+                        {
+                            if (e.Absorbed <= 0) BlockedPopup($"-{e.Amount}", foeColor, me);
+                            else if (hpLoss <= 0) BlockedPopup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, me);
+                            else BlockedPopup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), foeColor, me, small: true);
+                        }
+                        else if (e.Absorbed <= 0) Popup($"-{e.Amount}", foeColor, null);
                         else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, null);
                         else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), foeColor, null, small: true);
                         // 守护(W5):柘灵那一份与玩家这一下同时飘(GuardTransfer 先于 EnemyAttack 到,扣在这里一起演)
@@ -609,10 +655,14 @@ namespace Brushblade.Presentation
                             pendingGuard = null;
                             if (pendingEndure is { } endureAfterGuard) { PlayEndure(endureAfterGuard, summonAnchor); pendingEndure = null; }
                         }
-                        PlayClip(_thudClip, 0.8f);
-                        HitStop(hpLoss > 0 ? HitStopHeavy : HitStopLight); // 盾全吃下就轻一档
-                        StartCoroutine(Shake(10f, -AttackDir(enemyAnchor(e.TargetIndex))));
-                        ScreenFlash(0.14f, foeColor); // 屏缘那一闪也跟着来袭属性走
+                        if (playerBlocked) BlockedHitFx(me, enemyAnchor(e.TargetIndex), shake: true);
+                        else
+                        {
+                            PlayClip(_thudClip, 0.8f);
+                            HitStop(hpLoss > 0 ? HitStopHeavy : HitStopLight); // 盾全吃下就轻一档
+                            StartCoroutine(Shake(10f, -AttackDir(enemyAnchor(e.TargetIndex))));
+                            ScreenFlash(0.14f, foeColor); // 屏缘那一闪也跟着来袭属性走
+                        }
                         onImpact?.Invoke(e); // 触达才扣玩家血
                         serialPending = true;
                         break;
@@ -777,6 +827,11 @@ namespace Brushblade.Presentation
                         break;
                     // 保命(Plan E4,B-Qb1):紧跟 SummonHit / SummonBurnTick / GuardTransfer。守护转伤是延后演的(pendingGuard),
                     // 保命的是那只柘灵时也跟着延后,守护演完再播 —— 否则「扎根」先于那一下伤害飘出来
+                    // 格挡反击(counterfx,JuiceCounter):① 盾印 + 半弧、② chip 闪 / 跳格、③ 反击线按时发射;命中在后面的 BlockCounter 伤害
+                    case BattleEventKind.BlockUsed:
+                        counter = PlayBlockUsed(events, idx, enemyAnchor, summonAnchor);
+                        if (counter != null) counterStepStart = counter.Start;
+                        break;
                     case BattleEventKind.EndureSaved:
                         if (pendingGuard is { } guarding && guarding.SecondIndex == e.TargetIndex) pendingEndure = e;
                         else PlayEndure(e, summonAnchor);
@@ -813,7 +868,7 @@ namespace Brushblade.Presentation
                 PlayGuard(lastGuard, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(lastGuard.TargetIndex)), onImpact);
             if (pendingEndure is { } lastEndure) PlayEndure(lastEndure, summonAnchor);
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
-                yield return Beat(StepGap);
+                yield return Beat(StepWait());   // 带格挡反击的一步:反击已在步内演过,只补到 StepGap(至少末次命中 + 0.10)
             foreach (var d in deferred)
                 yield return PlayDeferredProc(d, enemyAnchor);
         }
@@ -934,13 +989,15 @@ namespace Brushblade.Presentation
         /// <summary>受击反应:更狠的缩放冲击 + 头像白闪一下(比 Punch 更强,专供敌人挨打)。</summary>
         /// <param name="strength">冲击与白闪的强度倍率(2026-08-31):被克那一记传 0.45,
         /// 目标「扛住了」,身上的反应就不该跟挨实一样狠。</param>
-        private void HitReact(RectTransform target, float strength = 1f)
+        /// <param name="whiten">false = 只后坐不白闪(格挡反击:受击者挡住了、攻击者挨的是回敬,稿 .recoil 不带 whiteflash)。</param>
+        /// <param name="paced">true = 时长走 <see cref="Dt"/>(吃按住加速);缺省沿用原来的真实时间。</param>
+        private void HitReact(RectTransform target, float strength = 1f, bool whiten = true, bool paced = false)
         {
             if (target == null || !_flashing.Add(target)) return;
-            StartCoroutine(HitReactRoutine(target, strength));
+            StartCoroutine(HitReactRoutine(target, strength, whiten, paced));
         }
 
-        private IEnumerator HitReactRoutine(RectTransform target, float strength)
+        private IEnumerator HitReactRoutine(RectTransform target, float strength, bool whiten, bool paced)
         {
             // ⚠ 取整棵子树,不是 target.GetComponent<Image>()(2026-08-30 修):
             // 分层字怪(MobView)的锚点物件身上**根本没有 Image** —— 各层 Image 都在子节点上,
@@ -954,17 +1011,19 @@ namespace Brushblade.Presentation
             const float duration = 0.16f;
             while (t < duration && target != null)
             {
-                t += UnityEngine.Time.unscaledDeltaTime;
-                float k = t / duration;
+                t += paced ? Dt : UnityEngine.Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / duration);
                 float s = 1f + 0.28f * strength * Mathf.Sin((1f - k) * Mathf.PI); // 更狠冲击
                 target.localScale = new Vector3(s, s, 1f);
-                for (int i = 0; i < images.Length; i++)                 // 白闪 → 复原
-                    if (images[i] != null) images[i].color = FlashOf(original[i], k, strength);
+                if (whiten)
+                    for (int i = 0; i < images.Length; i++)             // 白闪 → 复原
+                        if (images[i] != null) images[i].color = FlashOf(original[i], k, strength);
                 yield return null;
             }
             if (target != null) target.localScale = Vector3.one;
-            for (int i = 0; i < images.Length; i++)
-                if (images[i] != null) images[i].color = original[i];
+            if (whiten)
+                for (int i = 0; i < images.Length; i++)
+                    if (images[i] != null) images[i].color = original[i];
             _flashing.Remove(target);
         }
 
@@ -2242,8 +2301,9 @@ namespace Brushblade.Presentation
 
         /// <param name="outline">描边色。相克专用(2026-08-30):飘字本身已经交给五行属性色了,
         /// 「这记打对了属性」得靠别的通道说 —— 一圈金边既不抢属性色,又是全场独一份的信号。</param>
+        /// <param name="nudge">相对锚点的固定偏移,替掉随机横抖与缺省的上抬 30(格挡反击:被挡的伤害数落在头顶偏右)。叠层照旧往上让。</param>
         private Text Popup(string text, Color color, RectTransform anchor, bool small = false,
-            float sizeScale = 1f, Color? outline = null)
+            float sizeScale = 1f, Color? outline = null, Vector2? nudge = null)
         {
             var go = new GameObject("Popup", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
@@ -2255,8 +2315,9 @@ namespace Brushblade.Presentation
                 // 第 0 条留一点水平抖动(同一只怪连挨几记时不至于呆板),排到第 1 条起横向收窄 ——
                 // 叠起来的几条要读成一列,左右乱跳反而更难认
                 float jitter = slot == 0 ? 24f : 8f;
-                rect.anchoredPosition += new Vector2(UnityEngine.Random.Range(-jitter, jitter),
-                    30f + slot * PopupStackStep);
+                rect.anchoredPosition += nudge.HasValue
+                    ? nudge.Value + new Vector2(0f, slot * PopupStackStep)
+                    : new Vector2(UnityEngine.Random.Range(-jitter, jitter), 30f + slot * PopupStackStep);
             }
             else // 玩家侧:屏幕中下
             {

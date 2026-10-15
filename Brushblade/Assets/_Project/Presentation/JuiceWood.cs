@@ -43,7 +43,7 @@ namespace Brushblade.Presentation
 
         /// <summary>某个根节点下、图标为 <paramref name="iconKey"/> 的 chip 闪一下(TriggerFx 载体闪,<see cref="FlashCarrier"/>)。
         /// 按图标 Sprite 找;PNG 缺失走兜底字的 chip 找不到,安静跳过。返回首个命中的 chip(飘字锚点用),没有返回 null。</summary>
-        public RectTransform FlashIcon(Transform root, string iconKey)
+        public RectTransform FlashIcon(Transform root, string iconKey, Color? glow = null)
         {
             if (root == null) return null;
             var sprite = Icons.Get(iconKey);
@@ -53,7 +53,7 @@ namespace Brushblade.Presentation
                 if (image.sprite == sprite && image.transform.parent is RectTransform chip)
                 {
                     first ??= chip;
-                    FlashCarrier(chip);
+                    FlashCarrier(chip, glow);
                 }
             return first;
         }
