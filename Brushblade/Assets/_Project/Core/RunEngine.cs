@@ -923,12 +923,6 @@ namespace Brushblade.Core
                 // D2-木 E44(Ruling 16):限时(TurnsLeft > 0)的条目不跨场,与玩家侧同口径;入场护甲 / 灼(−1)照常携带
                 snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)
                     && !IsBattleLongCastArmor(st) && st.TurnsLeft <= 0).ToList();
-                // §2.2 本场改的属性在这里复原(E3);解封已清掉记号的,Element 即最终属性
-                if (summon.BaseElement.HasValue) snapshot.Element = summon.BaseElement.Value;
-                snapshot.BaseElement = null;
-                // 嫁接换的本命只管本场(E5):复原到嫁接之前
-                if (summon.BasePassive != null) snapshot.Passive = summon.BasePassive.Clone();
-                snapshot.BasePassive = null;
                 snapshot.Shield = snapshot.Shield * _battleConfig.ShieldCarryPercent / 100;   // 战后护盾保留对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }

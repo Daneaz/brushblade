@@ -325,8 +325,8 @@ namespace Brushblade.Core.Tests
             Assert.That(run.CarriedSummons.Count, Is.GreaterThan(0), "夹具前提:有木灵跨场");
             foreach (var s in run.CarriedSummons)
             {
-                sb.Append($"#S{s.Slot}:{s.Char}:{s.SourceChar}:{s.Element}:{s.BaseElement}:{s.Hp}/{s.MaxHp}/{s.Attack}/{s.ActionMeter}"
-                    + $"/{s.Speed}/{s.Shield}/{s.SproutParentSlot}/{PassiveOf(s.Passive)}/{PassiveOf(s.BasePassive)}[");
+                sb.Append($"#S{s.Slot}:{s.Char}:{s.SourceChar}:{s.Element}:{s.Hp}/{s.MaxHp}/{s.Attack}/{s.ActionMeter}"
+                    + $"/{s.Speed}/{s.Shield}/{s.SproutParentSlot}/{PassiveOf(s.Passive)}[");
                 foreach (var st in s.Statuses) sb.Append($"{st.Kind}:{st.Magnitude}:{st.TurnsLeft}:{st.SourceId}:{st.Potency} ");
                 sb.Append(']');
             }
@@ -345,6 +345,8 @@ namespace Brushblade.Core.Tests
         private const string SummonFamilyExpected = "96f77c3695d381ea 18976";
         private const string ThornsExpected = "5a776f5f6463ca6d 7005";
         // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "2944619ae0101fd6 403")。
-        private const string CarryExpected = "92e2ba139f7c4649 405";
+        // spec C:删战后复原用的「原属性 / 原本命」两个快照字段,指纹只因格式变化(原值 "92e2ba139f7c4649 405";
+        // 把这两段临时写回为战后恒有的 null 值时本测试原样通过,已核验)。
+        private const string CarryExpected = "db65210af876dd47 402";
     }
 }

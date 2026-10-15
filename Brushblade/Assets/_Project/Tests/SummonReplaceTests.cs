@@ -51,7 +51,7 @@ namespace Brushblade.Core.Tests
             sb.Append($"AP{b.Ap}/L{b.Library.Count};");
             foreach (var e in b.LastEvents) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex};");
             foreach (var s in b.Summons)
-                sb.Append(s == null ? "_," : $"{s.Char}:{s.Hp}/{s.MaxHp}/{s.Attack}/{s.Passive?.OnHitFreezeChance}/{s.Passive?.Thorns}/{s.BasePassive?.Thorns},");
+                sb.Append(s == null ? "_," : $"{s.Char}:{s.Hp}/{s.MaxHp}/{s.Attack}/{s.Passive?.OnHitFreezeChance}/{s.Passive?.Thorns},");
             var snap = b.Capture();
             sb.Append($"R{snap.RandomState}/{snap.TargetRandomState}/{snap.TraitRandomState}");
             return sb.ToString();
@@ -80,7 +80,6 @@ namespace Brushblade.Core.Tests
             Assert.That(fresh.Hp, Is.EqualTo(fresh.MaxHp));
             Assert.That(fresh.Passive.OnHitFreezeChance, Is.EqualTo(20), "新木灵本命生效");
             Assert.That(fresh.Passive.Thorns, Is.EqualTo(0));
-            Assert.That(fresh.BasePassive, Is.Null, "替换不是嫁接,不留原本命");
             Assert.That(ReferenceEquals(b.Summons[0], front), Is.True, "别的木灵原样");
             Assert.That(front.Hp, Is.EqualTo(60));
             Assert.That(front.AuraAttackBonus, Is.EqualTo(0), "被替换者的光环消失");
@@ -261,6 +260,8 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(AutoExpected), fp + "\n" + raw);
         }
 
-        private const string AutoExpected = "18147eeefa50350b 14858";
+        // spec C:删战后复原用的「原属性 / 原本命」两个快照字段,指纹只因格式变化(原值 "18147eeefa50350b 14858";
+        // 在 HEAD 4cf2b63f 干净树上只删指纹里的原本命段,跑出的正是新值,已核验)。
+        private const string AutoExpected = "26fb873860f8c4c2 14795";
     }
 }

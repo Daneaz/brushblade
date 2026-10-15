@@ -111,8 +111,6 @@ namespace Brushblade.Core
 
         public Element Element { get; set; }
 
-        /// <summary>§2.2 本场改属性前的属性(D2-0);null = 没改过。老存档没有 → null。</summary>
-        public Element? BaseElement { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public int Attack { get; set; }
@@ -123,9 +121,6 @@ namespace Brushblade.Core
         public int Speed { get; set; }
         public int Shield { get; set; }
         public SummonPassive Passive { get; set; }
-
-        /// <summary>嫁接前的本命(D2-0 Task 5);null = 没嫁接过。老存档没有 → null。</summary>
-        public SummonPassive BasePassive { get; set; }
 
         /// <summary>丛生小藻的母体槽位(D2-0 Task 6);-1 = 不是小藻。缺省 -1:老存档没有该字段时不会被误读成「母体在槽 0」。</summary>
         public int SproutParentSlot { get; set; } = -1;

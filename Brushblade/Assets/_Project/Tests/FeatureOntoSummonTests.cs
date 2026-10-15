@@ -6,8 +6,8 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>润 / 固落木灵(D2-0 Task 4,Ruling E2/E3/E4,spec §2.2):水的五行面落到活着的木灵 = 本场改水属性,
-    /// 土的五行面落到活着的木灵 = 本场嘲讽;攻击面、落点是玩家都不触发;战后复原 / 剥离。</summary>
+    /// <summary>润 / 固落木灵(D2-0 Task 4,Ruling E2,spec §2.2):土的五行面落到活着的木灵 = 本场嘲讽;
+    /// 攻击面、落点是玩家都不触发;战后剥离。水字改水已删除(spec C §4),换属性改由 Attune 承担(见 AttuneTests)。</summary>
     public class FeatureOntoSummonTests
     {
         private static CharDef Wet() => new("润", Element.Water,
@@ -36,27 +36,14 @@ namespace Brushblade.Core.Tests
             Array.FindIndex(b.Summons.ToArray(), s => s != null && s.Alive);
 
         [Test]
-        public void Wet_OnSummon_ChangesElementToWater_RecordsBase_EmitsUnsealEvent()
+        public void Wet_OnSummon_KeepsElement_NoEvent()
         {
             var b = Battle();
             b.Cast("垛");
             int slot = SlotOfFirstSummon(b);
             Assert.That(b.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
-            Assert.That(b.Summons[slot].Element, Is.EqualTo(Element.Water));
-            Assert.That(b.Summons[slot].BaseElement, Is.EqualTo(Element.Wood));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal && e.TargetIndex == slot
-                && e.Amount == (int)Element.Water), Is.True);
-        }
-
-        [Test]
-        public void Wet_Twice_KeepsOriginalBase()
-        {
-            var b = Battle();
-            b.Cast("垛");
-            int slot = SlotOfFirstSummon(b);
-            b.Cast("润", -1, attackMode: false, allySlot: slot);
-            b.Cast("润", -1, attackMode: false, allySlot: slot);
-            Assert.That(b.Summons[slot].BaseElement, Is.EqualTo(Element.Wood), "??= 不覆盖第一次的本来属性");
+            Assert.That(b.Summons[slot].Element, Is.EqualTo(Element.Wood));
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal), Is.False);
         }
 
         [Test]
@@ -68,7 +55,6 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("润", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.Cast("润", -1, attackMode: false, allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
             Assert.That(b.Summons[slot].Element, Is.EqualTo(Element.Wood));
-            Assert.That(b.Summons[slot].BaseElement, Is.Null);
         }
 
         [Test]
@@ -96,34 +82,6 @@ namespace Brushblade.Core.Tests
             b.Cast("固", -1, attackMode: false, allySlot: Targeting.PlayerTarget);
             Assert.That(b.Summons[slot].Statuses.Has(StatusKind.Taunt), Is.False);
             Assert.That(b.PlayerStatuses.Has(StatusKind.Taunt), Is.False);
-        }
-
-        [Test]
-        public void Wet_Then_Unseal_UnsealWins_BaseCleared()
-        {
-            var b = Battle();
-            b.Cast("垛");
-            int slot = SlotOfFirstSummon(b);
-            b.Cast("润", -1, attackMode: false, allySlot: slot);
-            Assert.That(b.Summons[slot].BaseElement, Is.Not.Null);
-            b.Cast("解", -1, attackMode: false, allySlot: slot);
-            Assert.That(b.Summons[slot].BaseElement, Is.Null, "解封清掉战后复原记号(E4)");
-        }
-
-        [Test]
-        public void Unseal_Then_Wet_RecordsRerolledElementAsBase()
-        {
-            for (int seed = 0; seed < 40; seed++)
-            {
-                var b = Battle(seed);
-                b.Cast("垛");
-                int slot = SlotOfFirstSummon(b);
-                b.Cast("解", -1, attackMode: false, allySlot: slot);
-                var rerolled = b.Summons[slot].Element;
-                b.Cast("润", -1, attackMode: false, allySlot: slot);
-                Assert.That(b.Summons[slot].Element, Is.EqualTo(Element.Water));
-                Assert.That(b.Summons[slot].BaseElement, Is.EqualTo(rerolled), $"seed {seed}");
-            }
         }
 
         // ---- 跨场(RunEngine)----
@@ -155,7 +113,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Run_Carry_RestoresElement_StripsTaunt()
+        public void Run_Carry_WetKeepsWood_StripsTaunt()
         {
             var run = NewRun();
             Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
@@ -165,7 +123,6 @@ namespace Brushblade.Core.Tests
             Win(run);
             var carried = run.CarriedSummons.Single();
             Assert.That(carried.Element, Is.EqualTo(Element.Wood));
-            Assert.That(carried.BaseElement, Is.Null);
             Assert.That(carried.Statuses.Any(s => s.Kind == StatusKind.Taunt), Is.False);
         }
 
@@ -183,7 +140,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Run_Unseal_ThenWet_RestoresToUnsealedElement()
+        public void Run_Unseal_ThenWet_KeepsUnsealedElement()
         {
             var run = NewRun();
             Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
@@ -193,33 +150,6 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             Win(run);
             Assert.That(run.CarriedSummons.Single().Element, Is.EqualTo(unsealed));
-        }
-
-        [Test]
-        public void Snapshot_BaseElement_RoundTripsThroughSaveSerializer_AndStillRestoresAfterBattle()
-        {
-            var run = NewRun();
-            Assert.That(run.Battle.Cast("垛"), Is.EqualTo(BattleError.None));
-            int slot = SlotOfFirstSummon(run.Battle);
-            Assert.That(run.Battle.Cast("润", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
-
-            var meta = new MetaState
-            {
-                EndlessV2 = new EndlessSaveState
-                {
-                    Depth = 31, Seed = 7,
-                    InProgress = new InProgressRun { FromDepth = 31, Run = run.Capture() },
-                },
-            };
-            var reloaded = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
-            var snap = reloaded.EndlessV2.InProgress.Run;
-            Assert.That(snap.Battle.Summons.Single().BaseElement, Is.EqualTo(Element.Wood));
-
-            var resumed = RunEngine.Restore(snap, RunGraph(), RunCfg(), BattleCfg(), null);
-            Assert.That(resumed.Battle.Summons[slot].Element, Is.EqualTo(Element.Water));
-            Assert.That(resumed.Battle.Summons[slot].BaseElement, Is.EqualTo(Element.Wood));
-            Win(resumed);
-            Assert.That(resumed.CarriedSummons.Single().Element, Is.EqualTo(Element.Wood));
         }
     }
 }
