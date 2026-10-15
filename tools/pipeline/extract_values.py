@@ -46,6 +46,7 @@ SUMMON_PASSIVE = {
     # 攻击光环(2026-09-05,𣛧,P2 Task 2):给场上全部召唤物 +N 攻,含自己
     # (SummonPassive.AuraAttack,EnemyDef.cs:44)。字段名对齐引擎,不另起名字。
     "AuraAttack": "auraAttack",
+    "SelfCut": "selfCut",                      # 坚心(spec C §2):本木灵受伤 −N%
     # 本命新字段(D2-0 Task 6,spec §9 木;字段名对齐 SummonPassive,Newtonsoft 大小写不敏感读入)
     "BackRowBonus": "backRowBonusPercent",    # 远射·强化:打后排 +N%
     "PerAllyAttack": "perAllyAttackPercent",  # 成林:每有 1 只其他存活木灵 +N% 攻
@@ -78,6 +79,7 @@ SUMMON_PASSIVE = {
 # 本批(BurnNoDecay/BurnSettleNow/Detonate)每行最多命中一个,不受影响。
 VALUELESS_EFFECTS = {
     "Cleanse": {"kind": "Cleanse", "value": 0},
+    "Attune": {"kind": "Attune", "value": 0},   # spec C §4:点金 / 化水 / 引火 / 培土
     "DispelAll": {"kind": "Dispel", "value": -1},
     "BurnNoDecay": {"kind": "BurnNoDecay", "value": 0},
     "BurnSettleNow": {"kind": "BurnSettleNow", "value": 0},
@@ -177,7 +179,8 @@ DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empow
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
                   "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
                   "HurtShield",                # D2-土 Task 3:受击得盾(堡垒),同上
-                  "SummonEmpower", "SummonThorns", "ThornMark"}   # D2-木 Task 1 预留:木灵光环 / 荆刺,同上
+                  "SummonEmpower", "SummonThorns", "ThornMark",   # D2-木 Task 1 预留:木灵光环 / 荆刺,同上
+                  "Kindle"}                    # spec C 燃意:漏写 turns 加载器会拒
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 # 标记(D1 Task 6,Vulnerable)吃 turns 但**不强制**:冰缚写法(`Vulnerable 20` + `pick FrozenByThisCast`)
@@ -265,7 +268,8 @@ DAMAGE_MARKER_VALUE_TOKENS = {
     "summonPercent": "summonPercent",
 }
 # 与 Core 的 AmpScope / DamageCondition / TargetArea 枚举名一致;写错直接报错,不静默落成缺省
-AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All", "Burn"}   # Burn:灼的火力(D2-火 G3)
+AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All", "Burn",
+              "Spend"}   # Burn:灼的火力(D2-火 G3);Spend:spec C §6 释放伤害,不进 All
 CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Frozen",
               "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
               "FirstCastThisTurn", "Countering",
@@ -311,7 +315,7 @@ RESHAPE_PICK_KINDS = {"Reshape"}
 # D2-木 Task 2(M1):木灵攻击光环 `SummonEmpower N` 必须写 pick AllSummons(林立)/ OtherSummons(擎天)/ StrongestSummon(桂冠)。
 # D2-木 Task 6(月桂,Q23):`CritBuff N` `pick Self` = 攻面「本回合我方暴击」免选、直接落玩家(缺省写法仍选友方)。
 ALLY_PICKS = {"Self": {"Cleanse", "Taunt", "CritBuff"}, "SummonedThisCast": {"Endure", "Taunt"},
-              "AllSummons": {"Taunt", "SummonEmpower"}, "AllAllies": {"Cleanse"},
+              "AllSummons": {"Taunt", "SummonEmpower"}, "AllAllies": {"Cleanse", "Kindle"},
               "OtherSummons": {"SummonEmpower"}, "StrongestSummon": {"SummonEmpower"}}
 ALLY_PICK_KINDS = set().union(*ALLY_PICKS.values())
 # 必须写 pick 的我方侧效果(Primary 写法没有落点,ConfigLoader 会拒):合法 pick 一律由 ALLY_PICKS 推导,不另抄一份
@@ -357,6 +361,7 @@ SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify",
                "ExtraHitTarget": {"Morale"},
                "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"},   # D2-水 E22:洪峰 / 濯身
                "SummonCount": {"Amplify"},                             # D2-木 E39:众木 / 林深
+               "Spent": {"ArmorBreak"},   # spec C §6:崩裂 / 厚壤(每释放 1 层)
                "Morale": {"Amplify"}}                              # spec A:鍂 每层战意 +N% 伤害
 SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
@@ -405,7 +410,10 @@ OF_VICTIM_MAX_HP_TOKEN = "ofVictimMaxHp"
 # `counterShape Column`(锥立)→ counterColumn;`counterHits N`(剁截)、`counterExecute N`(立威)、`blockBleed N`(刀山 / 匿锋)、
 # `blockMorale N`(坚营)、`killRefund N`(得利)→ 同名 JSON 字段(counterExecute → counterExecuteBelow、killRefund → killRefundAp)。
 # 带数值的四个进通用循环的跳过名单,否则落成独立效果。
-COUNTER_SHAPE_TOKEN = "counterShape"
+COUNTER_SHAPE_TOKEN = "counterShape"   # `counterShape Row`(扫锋)→ counterRow
+# spec C §6:释放门槛 `minSpent N` —— 按位置挂到它前面最近的 Freeze / Slow / Amplify(浩荡 / 决堤 / 滔天 / 山崩)
+MIN_SPENT_TOKEN = "minSpent"
+MIN_SPENT_HOSTS = {"Freeze", "Slow", "Amplify"}
 # ---- D2-水 Task 1(附录 E17b / E18 / E19 / E25)----
 # `if X` 也可挂在 Augment 上(冰冻三尺「若目标已被减速,再 +1」),只支持 `of Freeze` `field Turns`;
 # `extend`(倾盆):前一条 Slow 只续已有减速、不新挂;`executeIf X`(湮灭无踪):斩杀条件门,挂斩杀的宿主;
@@ -602,9 +610,12 @@ def _attach_metal_ops(config, char, effects, consumed):
     if shape:
         consumed.add(COUNTER_SHAPE_TOKEN)
         host = only({"BlockMod"}, COUNTER_SHAPE_TOKEN)
-        if shape != ["Column"]:
-            raise ValueError(f"{char}:配置格「{config}」的 `counterShape` 只认一个 `Column`(贯穿)")
-        host["counterColumn"] = True
+        if not set(shape) <= {"Column", "Row"} or len(shape) != len(set(shape)):
+            raise ValueError(f"{char}:配置格「{config}」的 `counterShape` 只认 `Column`(贯穿)/ `Row`(横扫),各至多一个")
+        if "Column" in shape:
+            host["counterColumn"] = True
+        if "Row" in shape:
+            host["counterRow"] = True
     for token, field in BLOCK_RIDER_TOKENS.items():
         found = re.findall(rf"`{token} (\d+)`", config)
         if not found:
@@ -616,7 +627,7 @@ def _attach_metal_ops(config, char, effects, consumed):
         if token == "counterExecute" and int(found[0]) >= 100:
             raise ValueError(f"{char}:配置格「{config}」的 `counterExecute` 须 < 100")
         host[field] = int(found[0])
-    riders = {"counterColumn"} | set(BLOCK_RIDER_TOKENS.values())
+    riders = {"counterColumn", "counterRow"} | set(BLOCK_RIDER_TOKENS.values())
     for e in effects:
         if e["kind"] == "BlockMod":
             if e.get("scaleBy") == "Morale" and e.get("scaleMin", 0) < 1:
@@ -764,6 +775,12 @@ def _attach_positional(config, char, effects, consumed, position, token, field, 
             raise ValueError(f"{char}:配置格「{config}」里同一条 {host['kind']} 写了多个 `{token}`,只能有一个")
         seen.add(id(host))
         host[field] = parse(m.group(1))
+
+
+def _positive_int(raw, char, token):
+    if raw is None or not raw.isdigit() or int(raw) < 1:
+        raise ValueError(f"{char}:`{token}` 须写 ≥ 1 的整数")
+    return int(raw)
 
 
 def _attach_battles(config, char, effects, consumed, position):
@@ -1215,6 +1232,8 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
             consumed.add(kind)
             continue
         consumed.add(kind)
+        if kind == MIN_SPENT_TOKEN:
+            continue  # spec C §6:释放门槛,下面按位置挂
         if kind in EXECUTE_TOKENS or kind == EXECUTE_SPLASH_TOKEN:
             continue  # 斩杀(含溅射)是修饰而非效果,下面统一挂到伤害上
         if kind == HIT_COUNT_TOKEN:
@@ -1387,6 +1406,9 @@ def _parse_effects(config, char, on_hit_host=False, on_turn_host=False):
         hosts[0]["perBurningHit"] = True
 
     _attach_battles(config, char, effects, consumed, position)
+    _attach_positional(config, char, effects, consumed, position, MIN_SPENT_TOKEN, "minSpent",
+                       lambda raw: _positive_int(raw, char, MIN_SPENT_TOKEN), allowed_kinds=MIN_SPENT_HOSTS,
+                       host_kinds=MIN_SPENT_HOSTS)
     _attach_modifier_tokens(config, char, effects, consumed, position)
     _attach_fire_ops(config, char, effects, consumed)
     _attach_metal_ops(config, char, effects, consumed)
