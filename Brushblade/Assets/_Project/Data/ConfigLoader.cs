@@ -1128,6 +1128,9 @@ namespace Brushblade.Data
             bool spendAmp = kind == EffectKind.Amplify && e.Scope == nameof(AmpScope.Spend);
             if (e.MinSpent != 0 && (e.MinSpent < 1 || !(kind == EffectKind.Freeze || kind == EffectKind.Slow || spendAmp)))
                 throw new ConfigException($"字「{id}」的 {kind} 效果不能写 minSpent(只给 Freeze / Slow / scope Spend 的 Amplify,且须 ≥ 1):{e.MinSpent}");
+            // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):minSpent 登记时会丢,开局那次变成无门槛(终审修复 4)
+            if (e.OpeningBattles != 0 && e.MinSpent != 0)
+                throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 minSpent(登记时会丢)");
             if (kind == EffectKind.Kindle && (e.Value < 1 || e.Turns < 1))
                 throw new ConfigException($"字「{id}」的燃意(Kindle)须写正的攻击 % 与回合:{e.Value} / {e.Turns}");
             if ((kind == EffectKind.SpendHeal || kind == EffectKind.SpendShield) && (e.Value < 1 || e.Value > 100))

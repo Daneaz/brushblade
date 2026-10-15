@@ -98,6 +98,7 @@ namespace Brushblade.Core.Tests
         [TestCase(@"{""kind"":""Shield"",""value"":5,""minSpent"":3}")]                                   // minSpent 只给 Freeze / Slow / scope Spend 的 Amplify
         [TestCase(@"{""kind"":""Amplify"",""value"":30,""scope"":""All"",""minSpent"":3}")]
         [TestCase(@"{""kind"":""Freeze"",""value"":1,""pick"":""All"",""minSpent"":-1}")]
+        [TestCase(@"{""kind"":""Freeze"",""value"":1,""pick"":""All"",""minSpent"":6,""openingBattles"":2}")]   // 开局登记丢 minSpent(终审修复 4)
         [TestCase(@"{""kind"":""Shield"",""value"":5,""scaleBy"":""Spent""}")]                            // per Spent 只给 ArmorBreak
         [TestCase(@"{""kind"":""Kindle"",""value"":20}")]                                                // 燃意必须写回合
         [TestCase(@"{""kind"":""SpendHeal"",""value"":0}")]                                              // 1–100
