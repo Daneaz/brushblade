@@ -117,7 +117,7 @@ namespace Brushblade.Core.Tests
         {
             ("花", L8, Atk, "移花接木", "Charm 100 turns 1"),   // spec A D15:花攻面不再有魅惑,魅惑挪到 Lv8 招牌
             ("藤", L8, Ftr, "攀附", "Bind 100 pick HighestHp"),
-            ("箭", L5, Ftr, "箭灵", "SummonRanged 0"),
+            ("箭", L5, Ftr, "木箭", "SummonRanged 0"),
             ("箭", L8, Atk, "万箭齐发", "Reshape 0 shape Scatter shots 5 shotPct 40|SummonStrike 50"),
             ("楸", L4, Atk, "秋实", "Amplify 18 scope All"),
             ("楸", L4, Ftr, "秋实", "Summon 0 count 1 passive{DeathPart=True}"),
