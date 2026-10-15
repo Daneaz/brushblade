@@ -8,7 +8,7 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>Plan D2-金 Task 6:金系 39 格专属特性的数据落表 —— 读真实 chars.json。
     /// 先用一张表钉死「每条特性能加载、落在正确的 (槽, 面)、效果种类对得上特性表那一行」,
-    /// 再按机制类别各取至少一条做集成测试(剁截 3 击预算、立威斩杀 + 铁则、割喉致命、双金合璧开局登记、
+    /// 再按机制类别各取至少一条做集成测试(剁截下架后的单击反击、扫锋同排横扫、立威斩杀 + 铁则、割喉致命、双金合璧开局登记、
     /// 聚金溢出、大卸八块 × 断金)。机制本身的单元级测试在 Metal* 系列;这里只证明「那一行写出来的配置在真字上接上了」。
     ///
     /// 夹具:敌人一律心属性(生克 1.0×)、0 甲;玩家攻击 100、暴击率 0。期望值尽量写成前后差,数值归 Plan F 定标。</summary>
@@ -53,13 +53,14 @@ namespace Brushblade.Core.Tests
             ("锋", TraitSlot.Lv8, TraitFace.Attack, "锋锐", "Reshape"),
             ("剑", TraitSlot.Lv5, TraitFace.Feature, "剑意", "Morale,BlockMod"),
             ("剑", TraitSlot.Lv8, TraitFace.Attack, "横扫千军", "Morale,Reshape"),
+            ("剑", TraitSlot.Lv8, TraitFace.Feature, "扫锋", "BlockMod"),   // spec C:反戈在剑上改测扫锋(counterShape Row)
             ("锥", TraitSlot.Lv5, TraitFace.Feature, "锥立", "Augment,BlockMod"),
             ("锥", TraitSlot.Lv8, TraitFace.Attack, "锥心", "Reshape"),
             ("剿", TraitSlot.Lv5, TraitFace.Feature, "坚营", "Augment,BlockMod"),
             ("剿", TraitSlot.Lv8, TraitFace.Attack, "直捣巢穴", "Reshape"),
             ("剁", TraitSlot.Lv4, TraitFace.Attack, "剁骨", "Reshape"),
-            ("剁", TraitSlot.Lv4, TraitFace.Feature, "剁骨", "Amplify"),
-            ("剁", TraitSlot.Lv5, TraitFace.Feature, "剁截", "BlockMod"),
+            ("剁", TraitSlot.Lv4, TraitFace.Feature, "精进", "Amplify"),   // spec C:铠面 剁骨 改名精进(同档数值)
+            ("剁", TraitSlot.Lv5, TraitFace.Feature, "点金", "Attune"),   // spec C:剁截下架,Lv5 铠换池·点金
             ("剁", TraitSlot.Lv8, TraitFace.Attack, "大卸八块", "Reshape"),
             ("剁", TraitSlot.Lv8, TraitFace.Feature, "刀山", "Augment,BlockMod"),
             ("铡", TraitSlot.Lv4, TraitFace.Both, "铁则", "Morale"),
@@ -73,7 +74,7 @@ namespace Brushblade.Core.Tests
             ("鍂", TraitSlot.Lv8, TraitFace.Attack, "双锋", "Reshape"),
             ("鍂", TraitSlot.Lv8, TraitFace.Feature, "双金合璧", "Morale,BlockMod"),
             ("刲", TraitSlot.Lv4, TraitFace.Attack, "放血", "Bleed"),
-            ("刲", TraitSlot.Lv4, TraitFace.Feature, "放血", "Amplify"),
+            ("刲", TraitSlot.Lv4, TraitFace.Feature, "先声", "Amplify"),   // spec C:铠面 放血 改名先声
             ("刲", TraitSlot.Lv5, TraitFace.Attack, "刲刺", "Amplify"),
             ("刲", TraitSlot.Lv5, TraitFace.Feature, "匿锋", "Morale,BlockMod"),
             ("刲", TraitSlot.Lv6, TraitFace.Attack, "割取", "HealSelf"),
@@ -99,7 +100,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(45), "39 格,放血 / 剁骨拆成攻击面 + 铠面两行(Q20);spec A 新增 Lv6 专属 4 行(刲刃 / 金鸣 / 金汇 / 镇军)");
+            Assert.That(Table.Length, Is.EqualTo(46), "39 格,放血 / 剁骨拆成攻击面 + 铠面两行(Q20);spec A 新增 Lv6 专属 4 行(刲刃 / 金鸣 / 金汇 / 镇军);spec C 增 剑 扫锋 1 行");
             foreach (var (ch, slot, face, name, kinds) in Table)
             {
                 var def = Graph.Get(ch);
@@ -111,32 +112,30 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        // ================= 剁截:反击 3 击,共用 60% 预算 =================
+        // ================= 剁截下架(spec C):剁 Lv5 铠换成池·点金,反击回到单击 =================
 
         [Test]
-        public void DuoJie_ThreeCounterHits_ShareBudget()
+        public void DuoJie_Retired_Lv5FeatureIsPoolAttune_CounterIsSingleHit()
         {
-            // 剁 Lv5·铠 剁截:`BlockMod` `counterHits 3` `counter 40`
+            var traits = Graph.Get("剁").Traits;
+            Assert.That(traits.Any(x => x.Name == "剁截"), Is.False, "剁截已下架");
+            var diangJin = traits.Single(x => x.Slot == TraitSlot.Lv5 && x.Face == TraitFace.Feature);
+            Assert.That(diangJin.Name, Is.EqualTo("点金"));
+            Assert.That(diangJin.Effects.Select(e => e.Kind).ToArray(), Is.EqualTo(new[] { EffectKind.Attune }));
+
+            // 反击不再是 3 击:Lv5 铠面只有 Lv3 强化后的普通格挡,一次格挡 = 一击反击
             var rich = Battle("剁", 5, Mob(attack: 100000), Mob());
             Assert.That(rich.Cast("剁", -1, attackMode: false), Is.EqualTo(BattleError.None));
             rich.EndTurn();
-            Assert.That(CounterEvents(rich), Is.EqualTo(3), "预算充足:3 击");
-
-            // 攻击 10 → 预算 ≤ 10 × 60% = 6:三击打不满,总量不得超预算(Q1:格挡减伤后为基数,只会更少)
-            var poor = Battle("剁", 5, Mob(attack: 10), Mob());
-            Assert.That(poor.Cast("剁", -1, attackMode: false), Is.EqualTo(BattleError.None));
-            poor.EndTurn();
-            int lost = poor.Enemies[0].MaxHp - poor.Enemies[0].Hp;
-            Assert.That(lost, Is.LessThanOrEqualTo(6), "反伤预算 ≤ 敌人攻击的 60%");
-            Assert.That(CounterEvents(poor), Is.LessThan(3), "预算撑不到 3 击");
+            Assert.That(CounterEvents(rich), Is.EqualTo(1), "只剩单击反击");
         }
 
-        // ================= 立威斩杀 + 铁则 =================
+        // ================= 立威斩杀(格挡反击)与铁则(击杀时 +1 战意,spec C) =================
 
         [Test]
-        public void LiWei_ExecutesBelowThreshold_AndIronRuleGivesMorale()
+        public void LiWei_ExecutesBelowThreshold_ButCounterKillNoLongerTriggersIronRule()
         {
-            // 铡 Lv5·铠 立威(`counterExecuteBelow 20`)+ Lv4 铁则(斩杀时战意 +2)
+            // 铡 Lv5·铠 立威(`counterExecuteBelow 20`);铁则改成「击杀时战意 +1」后,格挡反击的斩杀不再触发它(Q16)
             var control = Battle("铡", 5, Mob(hp: 1000, attack: 1), Mob());
             control.Cast("铡", -1, attackMode: false);
             control.EndTurn();
@@ -147,7 +146,34 @@ namespace Brushblade.Core.Tests
             b.Cast("铡", -1, attackMode: false);
             b.EndTurn();
             Assert.That(b.Enemies[0].Alive, Is.False, "格挡反击命中 20% 以下的敌人 → 直接斩杀");
-            Assert.That(Morale(b) - Morale(control), Is.EqualTo(2), "铁则:立威斩杀也算本字斩杀,战意 +2");
+            Assert.That(Morale(b) - Morale(control), Is.EqualTo(0), "Q16:立威斩杀不是本字击杀,铁则不触发");
+        }
+
+        [Test]
+        public void TieZe_AttackKill_GivesOneMorale_NoKillNoGain()
+        {
+            int MoraleAfter(int victimHp)
+            {
+                var b = Battle("铡", 4, Mob(hp: victimHp), Mob());
+                Assert.That(b.Cast("铡", 0, attackMode: true), Is.EqualTo(BattleError.None));
+                return Morale(b);
+            }
+            Assert.That(MoraleAfter(1) - MoraleAfter(100000), Is.EqualTo(1), "铁则:击杀时战意 +1");
+        }
+
+        // ================= 扫锋(spec C 真实数据冒烟):剑 Lv8 铠面,反击横扫同排 =================
+
+        [Test]
+        public void SaoFeng_Jian_Lv8_CounterSweepsSameRowAtSeventyPercent()
+        {
+            // 剑 Lv8·铠 扫锋:`BlockMod` `counterShape Row`。前排三敌只有 #0 出手:攻击者吃反击,同排另两只吃反击 × 70%
+            var b = Battle("剑", 8, Mob(attack: 1000), Mob(), Mob());
+            Assert.That(b.Cast("剑", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            b.EndTurn();
+            int Lost(int i) => b.Enemies[i].MaxHp - b.Enemies[i].Hp;
+            Assert.That(Lost(0), Is.GreaterThan(0), "攻击者吃到反击");
+            Assert.That(Lost(1), Is.EqualTo(Lost(0) * 70 / 100).Within(1), "同排 #1 = 反击 × 70%");
+            Assert.That(Lost(2), Is.EqualTo(Lost(0) * 70 / 100).Within(1), "同排 #2 = 反击 × 70%");
         }
 
         // ================= 割喉:致命 =================
@@ -198,9 +224,10 @@ namespace Brushblade.Core.Tests
 
         // ================= 双金合璧:格挡次数 = 出字后战意(Q21 / Ruling 11) =================
 
-        /// <summary>鍂 Lv8·铠折叠后 = [Morale 1(spec A 新本体), Block(countPerMorale, min 2), Morale 1(池·蓄势 Lv5), MoraleShield, Morale 2(登记)]。
+        /// <summary>鍂 Lv8·铠折叠后 = [Morale 1(spec A 新本体), Block(countPerMorale, spec C min 3), Morale 1(池·蓄势 Lv5), MoraleShield, Morale 2(登记)]。
         /// 蓄势排在 Block 之后,所以格挡次数必须等效果循环结束后再读战意(终审 I1)。
-        /// spec A:铠面本体战意 3 → 1(Lv3 战意加成只落在攻击面),出字后战意 = 起手 + 2。</summary>
+        /// spec A:铠面本体战意 3 → 1(Lv3 战意加成只落在攻击面),出字后战意 = 起手 + 2。
+        /// spec C:格挡次数下限 2 → 3,次数 = max(出字后战意, 3)。</summary>
         [TestCase(0, 2)]
         [TestCase(1, 3)]
         [TestCase(2, 4)]
@@ -211,8 +238,8 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("鍂", -1, attackMode: false), Is.EqualTo(BattleError.None));
             int count = b.PlayerStatuses.Find(StatusKind.Block).Magnitude;
             Assert.That(Morale(b), Is.EqualTo(expected), "出字后战意(spec A:本体 +1、蓄势 +1,钳到上限)");
-            Assert.That(count, Is.EqualTo(Morale(b)), "格挡次数 = 出字后战意");
-            Assert.That(count, Is.GreaterThanOrEqualTo(2), "min 2");
+            Assert.That(count, Is.EqualTo(Math.Max(Morale(b), 3)), "格挡次数 = 出字后战意,下限 3");
+            Assert.That(count, Is.GreaterThanOrEqualTo(3), "min 3(spec C)");
         }
 
         [Test]

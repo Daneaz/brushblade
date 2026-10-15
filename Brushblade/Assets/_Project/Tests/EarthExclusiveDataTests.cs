@@ -8,7 +8,7 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>Plan D2-土 Task 6:土系 35 格专属特性的数据落表 —— 读真实 chars.json。
     /// 先用一张表钉死「每条特性落在正确的 (槽, 面, 形态),效果按书写顺序、关键字段逐条对得上特性表那一行」,
-    /// 再按机制类别各取一条做集成测试(地裂 5 击上限、塔倾减半、积土成山三次、七级浮屠计层、厚德载物本场、堡垒逐击、碎玉进预算、粉身碎骨平分、
+    /// 再按机制类别各取一条做集成测试(崩裂按层破甲、塔倾减半、积土成山三次、七级浮屠计层、厚德载物本场、堡垒逐击、碎玉进预算、粉身碎骨平分、
     /// 杜塞 Boss 半伤、杜门不出每场一次、圭臬战后不携带、对峙开局护甲 5 场、山岳门槛)。
     /// 机制本身的单元级测试在 Earth* 系列;这里只证明「那一行写出来的配置在真字上接上了」。
     ///
@@ -61,6 +61,7 @@ namespace Brushblade.Core.Tests
             if (e.Pick != EffectPick.Primary) p.Add($"pick {e.Pick}");
             if (e.OnlyIf != DamageCondition.None) p.Add($"if {e.OnlyIf}");
             if (e.Kind == EffectKind.Amplify) p.Add($"scope {e.Scope}");
+            if (e.MinSpent != 0) p.Add($"minSpent {e.MinSpent}");
             if (e.Shape != TargetArea.Single) p.Add($"shape {e.Shape}");
             if (e.ShapePercent != 100) p.Add($"shapePct {e.ShapePercent}");
             if (e.Shots != 0) p.Add($"shots {e.Shots}");
@@ -100,7 +101,9 @@ namespace Brushblade.Core.Tests
             ("堡", L5, Atk, "据守反击", "Reshape 0 shieldStrike 30"),
             ("堡", L8, Ftr, "堡垒", "HurtShield 44 turns 2"),
             ("崩", L5, Ftr, "落石", "Weaken 20 turns 1 pick All"),
-            ("崩", L8, Atk, "地裂", "Reshape 0 per Shield div 100 cap 4|ShieldSpend 100"),
+            ("崩", L5, Atk, "聚土", "AddHeft 3"),   // spec C §6:释放前先 +3 层
+            ("崩", L6, Atk, "崩裂", "ArmorBreak 2 turns 2 pick All per Spent"),
+            ("崩", L8, Atk, "山崩", "Amplify 100 scope Spend minSpent 8"),   // spec C §6:≥8 层翻倍
             ("碎", L5, Ftr, "碎玉", "ShieldShatter 50"),
             ("碎", L8, Atk, "粉身碎骨", "OverkillSplash 100"),
             ("塔", L4, Atk, "塔基", "Reshape 0 armorStrike 300"),
@@ -127,21 +130,21 @@ namespace Brushblade.Core.Tests
             ("垚", L6, Ftr, "山岳", "Retaliate 1 turns 4 minArmor 50 perHit[ArmorBreak 38 turns 2]"),
             ("垚", L8, Atk, "三山", "Reshape 0 shape Scatter shots 3 armorStrike 300 armorStrikeEach"),
             ("垚", L8, Ftr, "对峙", "Taunt 1 pick Self|DefenseBuff 38 turns 4 battles 5"),
-            ("㙓", L4, Atk, "深厚", "Amplify 30 scope All"),
+            ("㙓", L4, Atk, "深厚", "Amplify 30 scope Spend"),   // spec C:攻击面 深厚 = 厚积薄发伤害 +30%
             ("㙓", L4, Ftr, "深厚", "Augment 4 of DefenseBuff.Turns"),
-            ("㙓", L5, Atk, "山压", "Reshape 0 shieldStrike 50"),
+            ("㙓", L5, Atk, "山积", "AddHeft 4"),
             ("㙓", L5, Ftr, "厚土", "Amplify 50 scope Shield|AddHeft 2"),
-            ("㙓", L6, Atk, "厚壤", "Augment 1 of ArmorBreak.Turns|ArmorBreak 20 turns 3"),   // spec A D1 改名自「厚土」
+            ("㙓", L6, Atk, "厚壤", "ArmorBreak 3 turns 3 pick All per Spent"),   // spec A D1 改名自「厚土」;spec C 改按释放层数破甲
             ("㙓", L6, Ftr, "载物", "ShieldSummons 50 ofShield"),
-            ("㙓", L8, Atk, "地动", "Reshape 0 shape All shieldStrike 30|ArmorBreak 45 turns 2 pick All"),
+            ("㙓", L8, Atk, "地动", "SpendShield 50"),   // spec C:释放后全体护盾(地动不攒厚)
             ("㙓", L8, Ftr, "厚德载物", "Amplify 100 scope Shield|TurnPulse 0 turns -1 perHit[ShieldSummons 10 ofPlayerShield]"),
         };
 
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(41), "35 格,塔基 / 深厚拆成两行(V4);spec A 增 Lv6 攻面专属 4 行");
-            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(39));
+            Assert.That(Table.Length, Is.EqualTo(43), "35 格,塔基 / 深厚拆成两行(V4);spec A 增 Lv6 攻面专属 4 行;spec C 增 崩 聚土 / 崩裂(地裂 → 山崩 同格)");
+            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(41));
             foreach (var (ch, slot, face, name, sigs) in Table)
             {
                 var t = Graph.Get(ch).Traits.SingleOrDefault(x => x.Slot == slot && x.Face == face && x.Name == name);
@@ -170,16 +173,18 @@ namespace Brushblade.Core.Tests
         {
             // 塔 Lv8 攻:塔基 armorStrike 300 + 镇塔 500 = 800(E27,改前会被覆盖成 500)
             Assert.That(Folded("塔", CardFace.Attack, 8, EffectKind.DamageSingle).ArmorStrikePercent, Is.EqualTo(800));
-            // 㙓 Lv8 攻:山压 50 + 地动 30 = 80,全体
+            // 㙓 Lv8 攻(spec C):山压 / 地动 的镇压与全体改形都下架,伤害回到本体单体;地动改成释放后全体护盾
             var dong = Folded("㙓", CardFace.Attack, 8, EffectKind.DamageSingle);
-            Assert.That((dong.ShieldStrikePercent, dong.Shape), Is.EqualTo((80, TargetArea.All)));
+            Assert.That((dong.ShieldStrikePercent, dong.Shape), Is.EqualTo((0, TargetArea.Single)));
+            Assert.That(Folded("㙓", CardFace.Attack, 8, EffectKind.SpendShield).Value, Is.EqualTo(50));
             // 垚 Lv8 攻:三山散射 3 发、逐发镇压 300 + spec A Lv6 垚峙 200 = 500;移山的 shieldStrike 30 留着(Q13)
             var shan = Folded("垚", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((shan.Shape, shan.Shots, shan.ArmorStrikePercent, shan.ArmorStrikeEach, shan.ShieldStrikePercent),
                 Is.EqualTo((TargetArea.Scatter, 3, 500, true, 30)));
-            // 崩 Lv8 攻:击数按出字前护盾,每 100 点 +1、最多 +4
+            // 崩 Lv8 攻(spec C):地裂下架,伤害回到本体(形状同 Lv1),不再按护盾加击数
             var lie = Folded("崩", CardFace.Attack, 8, EffectKind.DamageSingle);
-            Assert.That((lie.ScaleBy, lie.ScaleDivisor, lie.ScaleCap, lie.Shape), Is.EqualTo((ScaleBasis.Shield, 100, 4, TargetArea.All)));
+            Assert.That((lie.ScaleBy, lie.ScaleDivisor, lie.ScaleCap), Is.EqualTo((ScaleBasis.None, 0, 0)));
+            Assert.That(lie.Shape, Is.EqualTo(Folded("崩", CardFace.Attack, 1, EffectKind.DamageSingle).Shape), "形状与 Lv1 本体一致");
             // 塔 Lv4 固:本体护盾 + 护甲 × 300%(E30)
             Assert.That(Folded("塔", CardFace.Feature, 4, EffectKind.Shield).ArmorShieldPercent, Is.EqualTo(300));
             // 垒 Lv8 / 㙓 Lv8 固:回合脉冲落进出字效果(积土成山 3 回合 / 厚德载物本场);Lv7 没有
@@ -195,23 +200,24 @@ namespace Brushblade.Core.Tests
             Assert.That(Folded("㙓", CardFace.Feature, 4, EffectKind.DefenseBuff).Turns, Is.EqualTo(8));
         }
 
-        // ================= 地裂:出字前护盾每 100 点 +1 击、总击数 ≤ 5,打完清空护盾(Q5) =================
+        // ================= 崩裂(spec C §6,真实数据冒烟):Lv6 攻面按释放层数破甲 =================
 
-        [TestCase(0, 1)]
-        [TestCase(99, 1)]
-        [TestCase(250, 3)]
-        [TestCase(400, 5)]
-        [TestCase(2000, 5)]
-        public void DiLie_ExtraHitsFromPreCastShield_CappedAtFiveTotal(int shield, int hits)
+        /// <summary>崩 Lv6 攻面 = 厚积薄发(SpendHeft)+ 聚土(释放前 +3 层,折叠时排到 Spend 之前)+ 崩裂(每层破甲 2,随卡等级)。
+        /// 起手厚 2 + 聚土 3 = 释放 5 层 → 每个敌人破甲 = ScaleEffectValue(ArmorBreak, 2, 6) × 5;释放后厚清空。</summary>
+        [Test]
+        public void BengLie_Lv6_ArmorBreakPerSpentLayer_OnEveryEnemy()
         {
-            var b = Battle("崩", 8, shield, Mob(), Mob());
-            Assert.That(b.PlayerShield, Is.EqualTo(shield), "前提:开局护盾如夹具所设");
+            var b = new BattleEngine(Graph, Config, Enumerable.Repeat("崩", 6).ToArray(), Array.Empty<string>(), new[] { Mob(), Mob() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["崩"] = 6 },
+                startingStatuses: new[] { new StatusEffect { Kind = StatusKind.Heft, Polarity = StatusPolarity.Buff, Magnitude = 2, TurnsLeft = -1 } });
             Cast(b, "崩", 0, attack: true);
+            int perLayer = MetaRules.ScaleEffectValue(EffectKind.ArmorBreak, 2, 6);
             for (int i = 0; i < 2; i++)
-                Assert.That(Damage(b, EffectSource.None).Count(e => e.TargetIndex == i), Is.EqualTo(hits),
-                    $"护盾 {shield}:#{i} 吃 {hits} 击(全体每一击都打到每个人)");
-            Assert.That(b.PlayerShield, Is.EqualTo(0), "伤害之后清空护盾");
+                Assert.That(b.Enemies[i].Statuses.TotalMagnitude(StatusKind.ArmorBreak), Is.EqualTo(perLayer * 5), $"敌 #{i}:每层 {perLayer} × 5 层");
+            Assert.That(b.HeftStacks, Is.EqualTo(0), "释放清空厚");
         }
+
+        // ================= 对照:0 层释放不破甲(真实数据) =================
 
         // ================= 塔倾:伤害 + 当前护盾 50%(扣盾前),之后护盾减半(Q10) =================
 
