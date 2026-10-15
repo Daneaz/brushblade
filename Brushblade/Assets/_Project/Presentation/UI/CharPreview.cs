@@ -287,7 +287,7 @@ namespace Brushblade.Presentation
             // 词条气泡挂在 overlay 上(两面区在 ScrollList 里,挂在行下会被 Mask 裁掉);两版都挂(C-Q1),只开气泡、不出字
             var host = (RectTransform)overlay.transform;
             CardSheetParts.TermsTap onTerms = (target, radius, title, terms) =>
-                GlossaryBubble.Show(host, target, radius, title, terms);
+                GlossaryBubble.Show(host, target, radius, title, terms, def.Element);
             BuildFaces(faces, def, level, traitLevel, battle, facesW, z, onTerms);
 
             var side = Ui.ScrollList(body.transform, "Side", tall ? 12.6f : 8.4f, out var sideContent);
