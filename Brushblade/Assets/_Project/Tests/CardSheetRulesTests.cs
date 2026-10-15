@@ -116,7 +116,7 @@ namespace Brushblade.Core.Tests
                 }
                 Assert.That(row.Unlocked, Is.True, d.Id);
             }
-            Assert.That(split, Is.EqualTo(23), "Lv4 分面的字数(spec A:炸五行面改全体不选敌,克敌按 U6 拆成两条)");
+            Assert.That(split, Is.EqualTo(27), "Lv4 分面的字数(spec A 的 23 + spec C 新拆 柘 / 湮 / 燚 / 燥 四字)");
         }
 
         [Test]
@@ -134,7 +134,7 @@ namespace Brushblade.Core.Tests
             // spec A §1:Lv1 / Lv3 按面分开命名,55 张字 Lv3 两面名全都不同
             Assert.That(differ, Is.EqualTo(55), "Lv3 两面不同名的字数");
             Assert.That(CardSheetRules.SharedTraits(Graph.Get("林"), 3)[0].Names, Is.EqualTo(new[] { "种·强化", "成林·强化" }));
-            Assert.That(CardSheetRules.SharedTraits(Graph.Get("炎"), 3)[0].Names, Is.EqualTo(new[] { "灼·强化", "慑·强化" }));
+            Assert.That(CardSheetRules.SharedTraits(Graph.Get("炎"), 3)[0].Names, Is.EqualTo(new[] { "灼·强化", "燃意·强化" }));
         }
 
         /// <summary>Final review Minor 2:两面条的类别按每条 Def 自己的 Form 取,不能只看 Defs[0]。
@@ -324,7 +324,7 @@ namespace Brushblade.Core.Tests
             Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("冷"), 1), Is.EqualTo(new[] { AmpItem.Heal }));
             Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("崩"), 1), Is.EqualTo(new[] { AmpItem.Shield }));
             Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("箭"), 1), Is.EqualTo(new[] { AmpItem.Summon }));
-            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("热"), 1), Is.EqualTo(new[] { AmpItem.Burn }));
+            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("热"), 1), Is.EqualTo(new[] { AmpItem.Kindle }), "spec C:火面本体 = 燃意,「本字效果 +X%」放大的是燃意 %");
             foreach (var d in Playable())
                 Assert.That(CardSheetRules.FeatureAmpItems(d, 1), Is.Not.Empty, $"{d.Id}:五行面至少有一项吃「本字效果」加成");
         }
@@ -341,7 +341,7 @@ namespace Brushblade.Core.Tests
                     // spec A §3:溃 / 㵘 五行面改全体(HealAll,不选友方)→ 只作用于自身一方
                     var expected = d.Element switch
                     {
-                        Element.Fire => FaceTarget.Enemy,
+                        Element.Fire => FaceTarget.Ally,   // spec C §5:燃意挂我方,火面落点改 Ally(玩家 / 木灵)
                         Element.Wood => FaceTarget.Summon,
                         // 溃 Lv5 溃围(Slow pick All)解锁后面上有了敌对效果、又不选友方 → 落点 Enemy(CardFaceRules.Landing E26 只在选友方时压掉)
                         _ when d.Id == "溃" && lv >= 5 => FaceTarget.Enemy,
