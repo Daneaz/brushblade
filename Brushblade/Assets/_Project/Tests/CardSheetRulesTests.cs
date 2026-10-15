@@ -316,6 +316,19 @@ namespace Brushblade.Core.Tests
             Assert.That(li.IndexOf(EffectKind.Block), Is.LessThan(li.IndexOf(EffectKind.Morale)), "利 是白档样本,必须两条都有");
         }
 
+        [Test]
+        public void FeatureAmpItems_NamesWhatAllScopeActuallyRaises()
+        {
+            // 2026-10-15 用户:五行面的「本字效果 +X%」要写成具体放大的项 —— 金反击、水治疗、土护盾、木木灵、火灼火力
+            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("剑"), 1), Is.EqualTo(new[] { AmpItem.Counter }));
+            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("冷"), 1), Is.EqualTo(new[] { AmpItem.Heal }));
+            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("崩"), 1), Is.EqualTo(new[] { AmpItem.Shield }));
+            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("箭"), 1), Is.EqualTo(new[] { AmpItem.Summon }));
+            Assert.That(CardSheetRules.FeatureAmpItems(Graph.Get("热"), 1), Is.EqualTo(new[] { AmpItem.Burn }));
+            foreach (var d in Playable())
+                Assert.That(CardSheetRules.FeatureAmpItems(d, 1), Is.Not.Empty, $"{d.Id}:五行面至少有一项吃「本字效果」加成");
+        }
+
         // ---------------- TargetOf / AreaOf ----------------
 
         [Test]

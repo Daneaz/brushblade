@@ -1030,7 +1030,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "克敌",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -2648,7 +2648,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "破敌",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -5318,7 +5318,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "克敌",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -7113,7 +7113,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "克敌",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -7294,7 +7294,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "补刀",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -9061,7 +9061,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "克敌",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -9580,7 +9580,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "破敌",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -9761,7 +9761,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "补刀",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
