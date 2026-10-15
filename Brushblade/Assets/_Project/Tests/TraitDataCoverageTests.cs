@@ -92,14 +92,14 @@ namespace Brushblade.Core.Tests
         {
             "热 Lv4 Both 先声", "热 Lv5 Attack 引燃", "热 Lv5 Feature 续火", "热 Lv6 Feature 烟熏", "热 Lv8 Feature 火雨",
             "爆 Lv4 Both 精进", "爆 Lv5 Attack 爆燃", "爆 Lv5 Feature 续火", "爆 Lv6 Attack 炽烈", "爆 Lv8 Feature 焦热",
-            "炸 Lv4 Attack 克敌", "炸 Lv4 Feature 克敌", "炸 Lv5 Attack 引燃","炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
+            "炸 Lv4 Attack 克敌", "炸 Lv4 Feature 精进", "炸 Lv5 Attack 引燃","炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
             "烈 Lv6 Attack 炽烈", "燥 Lv5 Feature 续火", "燥 Lv6 Feature 烟熏", "蒸 Lv5 Feature 烟障", "蒸 Lv6 Attack 炽烈",
             "炎 Lv5 Feature 续火", "灿 Lv5 Attack 引燃", "利 Lv4 Both 先声", "利 Lv5 Attack 破甲", "利 Lv5 Feature 砥砺",
             "利 Lv6 Feature 回锋", "利 Lv8 Attack 重斩", "锋 Lv4 Both 精进", "锋 Lv5 Attack 连斩", "锋 Lv5 Feature 砥砺",
-            "锋 Lv6 Attack 迎刃", "锋 Lv8 Feature 金钟", "剑 Lv4 Attack 克敌", "剑 Lv4 Feature 克敌", "剑 Lv5 Attack 破甲", "剑 Lv6 Attack 迎刃",
-            "剑 Lv8 Feature 反戈", "锥 Lv4 Attack 补刀", "锥 Lv4 Feature 补刀", "锥 Lv5 Attack 连斩", "锥 Lv6 Feature 回锋", "锥 Lv8 Feature 金钟",
+            "锋 Lv6 Attack 迎刃", "锋 Lv8 Feature 金钟", "剑 Lv4 Attack 克敌", "剑 Lv4 Feature 精进", "剑 Lv5 Attack 破甲", "剑 Lv6 Attack 迎刃",
+            "剑 Lv8 Feature 反戈", "锥 Lv4 Attack 补刀", "锥 Lv4 Feature 精进", "锥 Lv5 Attack 连斩", "锥 Lv6 Feature 回锋", "锥 Lv8 Feature 金钟",
             "剿 Lv4 Both 化险", "剿 Lv5 Attack 破甲", "剿 Lv6 Attack 迎刃", "剿 Lv8 Feature 反戈", "剁 Lv5 Attack 连斩",
-            "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 破甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Attack 克敌", "冷 Lv4 Feature 克敌",
+            "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 破甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Attack 克敌", "冷 Lv4 Feature 精进",
             "冷 Lv5 Attack 凝冰", "冷 Lv5 Feature 涓流", "冷 Lv6 Feature 护持", "冷 Lv8 Feature 甘露", "冻 Lv4 Both 精进",
             "冻 Lv5 Attack 激流", "冻 Lv5 Feature 寒泉", "冻 Lv6 Attack 冰缚", "冻 Lv8 Feature 蓄泉", "海 Lv4 Both 化险",
             "海 Lv5 Feature 涓流", "海 Lv6 Feature 护持", "海 Lv8 Attack 怒涛", "溃 Lv4 Both 先声", "溃 Lv5 Attack 凝冰",
@@ -107,12 +107,12 @@ namespace Brushblade.Core.Tests
             "澡 Lv6 Feature 护持", "冰 Lv5 Attack 凝冰", "沐 Lv5 Feature 涓流", "碉 Lv4 Both 先声", "碉 Lv5 Attack 碎石",
             "碉 Lv5 Feature 加固", "碉 Lv6 Feature 反震", "碉 Lv8 Attack 崩岩", "垒 Lv4 Both 化险", "垒 Lv5 Attack 震地",
             "垒 Lv5 Feature 垒土", "垒 Lv6 Feature 反震", "垒 Lv8 Attack 劈山", "壁 Lv4 Both 精进", "壁 Lv5 Attack 碎石",
-            "壁 Lv5 Feature 加固", "壁 Lv6 Attack 余震", "壁 Lv8 Attack 崩岩", "堡 Lv4 Attack 克敌", "堡 Lv4 Feature 克敌", "堡 Lv5 Feature 垒土",
-            "堡 Lv6 Feature 反震", "堡 Lv8 Attack 劈山", "崩 Lv4 Attack 破敌", "崩 Lv4 Feature 破敌", "崩 Lv5 Attack 震地", "崩 Lv6 Attack 余震",
-            "崩 Lv8 Feature 金汤", "碎 Lv4 Attack 补刀", "碎 Lv4 Feature 补刀", "碎 Lv5 Attack 碎石", "碎 Lv6 Attack 余震", "碎 Lv8 Feature 坚壁",
+            "壁 Lv5 Feature 加固", "壁 Lv6 Attack 余震", "壁 Lv8 Attack 崩岩", "堡 Lv4 Attack 克敌", "堡 Lv4 Feature 精进", "堡 Lv5 Feature 垒土",
+            "堡 Lv6 Feature 反震", "堡 Lv8 Attack 劈山", "崩 Lv4 Attack 破敌", "崩 Lv4 Feature 精进", "崩 Lv5 Attack 震地", "崩 Lv6 Attack 余震",
+            "崩 Lv8 Feature 金汤", "碎 Lv4 Attack 补刀", "碎 Lv4 Feature 精进", "碎 Lv5 Attack 碎石", "碎 Lv6 Attack 余震", "碎 Lv8 Feature 坚壁",
             "塔 Lv5 Feature 加固", "塔 Lv6 Feature 反震", "杜 Lv5 Feature 垒土", "圭 Lv5 Feature 加固", "花 Lv4 Both 先声",
             "花 Lv5 Attack 寄生", "花 Lv5 Feature 新芽", "花 Lv6 Feature 扎根", "花 Lv8 Feature 繁生", "藤 Lv4 Both 精进",
-            "藤 Lv5 Attack 寄生", "藤 Lv5 Feature 沃土", "藤 Lv6 Attack 汲取", "藤 Lv8 Attack 缠缚", "箭 Lv4 Attack 破敌", "箭 Lv4 Feature 破敌",
+            "藤 Lv5 Attack 寄生", "藤 Lv5 Feature 沃土", "藤 Lv6 Attack 汲取", "藤 Lv8 Attack 缠缚", "箭 Lv4 Attack 破敌", "箭 Lv4 Feature 精进",
             "箭 Lv5 Attack 蔓刺", "箭 Lv6 Feature 扎根", "箭 Lv8 Feature 灵荫", "楸 Lv5 Feature 新芽", "楸 Lv6 Feature 扎根",
             "荆 Lv5 Feature 沃土", "荆 Lv6 Feature 扎根", "柘 Lv5 Feature 沃土",
             // spec A(2026-10-15):林 Lv5 池·新芽 被林风(专属)替换;烈 Lv5 燃 烈风 → 池·烟障(D14);
@@ -474,10 +474,17 @@ namespace Brushblade.Core.Tests
                 {
                     if (t.Slot == TraitSlot.Lv4)
                     {
-                        // U6:克敌 / 破敌 / 补刀在不选敌的五行面上拆成两条单面(攻击面原条目 + 五行面精进)
+                        // U6:克敌 / 破敌 / 补刀在不选敌的五行面上拆成两条单面(攻击面原条目 + 五行面精进,
+                        // 2026-10-15 起五行面那条也叫「精进」)
                         bool split = t.Name == "克敌" || t.Name == "破敌" || t.Name == "补刀";
                         if (split && t.Face != TraitFace.Both)
-                            Assert.That(d.Traits.Count(x => x.Slot == TraitSlot.Lv4 && x.Name == t.Name), Is.EqualTo(2), $"{d.Id} {t.Name} 拆成两条");
+                        {
+                            Assert.That(t.Face, Is.EqualTo(TraitFace.Attack), $"{d.Id} {t.Name} 只留攻击面");
+                            Assert.That(d.Traits.Any(x => x.Slot == TraitSlot.Lv4 && x.Face == TraitFace.Feature && x.Name == "精进"),
+                                Is.True, $"{d.Id} {t.Name} 的五行面那条叫精进");
+                        }
+                        else if (t.Name == "精进" && t.Face == TraitFace.Feature)
+                            Assert.That(d.Traits.Any(x => x.Slot == TraitSlot.Lv4 && x.Face == TraitFace.Attack), Is.True, $"{d.Id} 单面精进必有攻击面那条");
                         else
                             Assert.That(t.Face, Is.EqualTo(TraitFace.Both), $"{d.Id} {t.Name}");
                         Assert.That(t.Form, Is.EqualTo(TraitForm.Passive), $"{d.Id} {t.Name}");

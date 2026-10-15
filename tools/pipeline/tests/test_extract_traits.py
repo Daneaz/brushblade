@@ -263,11 +263,13 @@ _JIAN = {"剑": {"rarity": "Blue", "effects": [{"kind": "Shield", "value": 10}],
 
 
 def test_target_conditional_general_splits_on_non_targeting_wuxing_face():
-    """剑(金,蓝):铠面不选敌 → 克敌拆成攻击面原条目 + 五行面按蓝档精进(10×1.45→15)。"""
+    """剑(金,蓝):铠面不选敌 → 克敌拆成攻击面原条目 + 五行面按蓝档精进(10×1.45→15)。
+    五行面那条名字也叫「精进」(2026-10-15 用户):叫「克敌」却无条件生效,玩家读不懂。"""
     md = _H + "| 剑 | Lv4 | 两面 | — | — | 通·克敌 | — | ✅ |\n"
     traits = extract_traits(md, "金", _general_pool(), _JIAN)["剑"]
     assert [t["face"] for t in traits] == ["Attack", "Feature"]
-    assert all(t["name"] == "克敌" and t["form"] == "Passive" for t in traits)
+    assert [t["name"] for t in traits] == ["克敌", "精进"]
+    assert all(t["form"] == "Passive" for t in traits)
     assert traits[0]["effects"] == _general_pool_effects("克敌", "Blue")
     assert traits[1]["effects"] == _general_pool_effects("精进", "Blue")
     assert traits[1]["effects"][0]["value"] == 15

@@ -257,7 +257,7 @@ namespace Brushblade.Presentation
             trait.Face == TraitFace.Feature ? CardFace.Feature : CardFace.Attack;
 
         /// <summary>一条面特性行(Lv5 / Lv6 / Lv8)。正文按 max(卡等级, 解锁级) 印(Q17)。</summary>
-        public static RowModel FaceRow(CharDef def, SheetTrait row, int level, RowState state)
+        public static RowModel FaceRow(CharDef def, SheetTrait row, int level, RowState state, CardFace? face = null)
         {
             var trait = row.Defs[0];
             var model = new RowModel
@@ -267,7 +267,7 @@ namespace Brushblade.Presentation
                 Kind = KindText(trait, row.IsSignature),
                 State = state,
             };
-            model.Lines.Add((null, CharInfo.TraitEffectsText(trait, def, Math.Max(level, trait.UnlockLevel))));
+            model.Lines.Add((null, CharInfo.TraitEffectsText(trait, def, Math.Max(level, trait.UnlockLevel), face)));
             return WithTerms(model);
         }
 
@@ -302,7 +302,7 @@ namespace Brushblade.Presentation
             }
             var parts = row.Defs.Select(t => (Face: FaceOfTrait(t),
                 Text: row.Slot == TraitSlot.Lv3 ? Lv3Text(def, FaceOfTrait(t), t, level)
-                                                : CharInfo.TraitEffectsText(t, def, textLevel))).ToList();
+                                                : CharInfo.TraitEffectsText(t, def, textLevel, FaceOfTrait(t)))).ToList();
             if (parts.All(p => p.Text == parts[0].Text))
                 model.Lines.Add((null, parts[0].Text));
             else
@@ -319,7 +319,7 @@ namespace Brushblade.Presentation
             {
                 TraitSlot.Lv1 => Lv1Row(def, face, cell, level, state),
                 TraitSlot.Lv3 => Lv3Row(def, face, cell, level, state),
-                _ => FaceRow(def, cell, level, state),
+                _ => FaceRow(def, cell, level, state, face),
             };
             model.HeadSeal ??= GlyphTrait(cell);
             PickIcon(model);

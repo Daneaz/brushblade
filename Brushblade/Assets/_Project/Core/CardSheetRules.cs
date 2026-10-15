@@ -65,6 +65,9 @@ namespace Brushblade.Core
         public SheetTrait Of(CardFace face) => face == CardFace.Attack ? Attack : Feature;
     }
 
+    /// <summary>「本字效果 +X%」在一面上实际放大的项(<see cref="CardSheetRules.FeatureAmpItems"/>),声明顺序即印的顺序。</summary>
+    public enum AmpItem { Damage, Heal, Shield, Counter, Seed, Burn, Summon }
+
     /// <summary>字卡详情 / 升级预览「显示哪几行」的规则(Plan E2)。纯函数,只读字表,不看场面。
     /// 字卡详情(spec B)已全平铺:每面逐级一行(Lv1 起,两面同级成对);「两面」条(<see cref="SharedTraits"/> 等)现只服务升级预览,
     /// 其归属:Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 两面各一条,进各自那一面。</summary>
@@ -128,6 +131,26 @@ namespace Brushblade.Core
                     LevelCell(def, slot, CardFace.Feature, cardLevel),
                     cardLevel >= (int)slot))
                 .ToList();
+
+        /// <summary>五行面上 <c>Amplify scope All</c>(「本字效果 +X%」)实际放大的项(2026-10-15 用户:五行面要写具体项)。
+        /// 读按卡等级折叠后的五行面,判据与 <see cref="TraitRules.InScope"/> 的 All 同口径;格挡次数 / 护甲 / 慑这类离散或非乘区量不在其中。
+        /// 顺序固定(伤害、治疗、护盾、反击、种、灼、木灵),去重。</summary>
+        public static IReadOnlyList<AmpItem> FeatureAmpItems(CharDef def, int cardLevel) =>
+            TraitRules.CastEffects(def, CardFace.Feature, Math.Max(1, cardLevel))
+                .Select(e => AmpItemOf(e.Kind)).Where(i => i != null).Select(i => i.Value)
+                .Distinct().OrderBy(i => i).ToList();
+
+        private static AmpItem? AmpItemOf(EffectKind kind) => kind switch
+        {
+            EffectKind.DamageSingle => AmpItem.Damage,
+            EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime or EffectKind.HealSummons => AmpItem.Heal,
+            EffectKind.Shield or EffectKind.ShieldAll or EffectKind.ShieldSummons => AmpItem.Shield,
+            EffectKind.Block => AmpItem.Counter,
+            EffectKind.Seed => AmpItem.Seed,
+            EffectKind.BurnSingle or EffectKind.BurnAll => AmpItem.Burn,
+            EffectKind.Summon => AmpItem.Summon,
+            _ => null,
+        };
 
         /// <summary>Lv1 行的正文效果(spec B §1.4):该面折叠后本体(Lv1 + Lv3 替换,不含 Lv4+),去掉伤害(伤害在数值格)。
         /// 木系五行面里是带本命的召唤效果,Presentation 取它的被动印本命句。未拥有(&lt; 1)按 1 级。

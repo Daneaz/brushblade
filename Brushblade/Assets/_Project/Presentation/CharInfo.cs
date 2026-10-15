@@ -64,8 +64,10 @@ namespace Brushblade.Presentation
         /// Reshape 的 shape All 改的是治疗,不是伤害。只有 <see cref="TraitEffectsText"/> 拿得到面的上下文。</param>
         /// <param name="blockBasePercent">BlockMod 印「原为 N%」的原值:该特性解锁时本面折叠后的格挡反击 %
         /// (<see cref="TraitRules.FaceBlockCounterPercent(CharDef, TraitDef, int)"/>);拿不到面上下文时按缺省 30% 印。</param>
+        /// <param name="ampAllItems">五行面上「本字效果」实际放大的项(已拼好,如「反击」);null = 攻击面 / 无面上下文,照印「本字效果」。</param>
         private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel,
-            ReshapeFace reshapeFace = ReshapeFace.Damage, int blockBasePercent = BattleConfig.BlockCounterPercent)
+            ReshapeFace reshapeFace = ReshapeFace.Damage, int blockBasePercent = BattleConfig.BlockCounterPercent,
+            string ampAllItems = null)
         {
             if (effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
@@ -228,8 +230,9 @@ namespace Brushblade.Presentation
                             ? Strings.T("char.effect.detonate.portion", ("percent", e.PortionPercent))
                             : Strings.T("char.effect.detonate"),
                     // 灼操作族(D2-火 Task 2):百分比 / 层数是离散量,读 e.Value
+                    // 上限(CombatCaps.BurnStacks)不印:「灼」词条已写「最多 10 层」
                     EffectKind.BurnScale => Strings.T("char.effect.burnscale",
-                        ("mult", (e.Value / 100f).ToString("0.##")), ("cap", CombatCaps.BurnStacks)),
+                        ("mult", (e.Value / 100f).ToString("0.##"))),
                     EffectKind.BurnEqualize => Strings.T("char.effect.burnequalize"),
                     // 灼附着族(D2-火 Task 3):都挂在本字的灼上,灼消失时一并消失。上炎的层数 / 回合是离散量(e.Value / e.Turns)
                     EffectKind.HealBlock => Strings.T("char.effect.healblock"),
@@ -237,8 +240,8 @@ namespace Brushblade.Presentation
                     EffectKind.BurnHold => Strings.T("char.effect.burnhold"),
                     EffectKind.BurnBurst => Strings.T("char.effect.burnburst"),
                     EffectKind.BurnBacklash => Strings.T("char.effect.burnbacklash"),
-                    // 致命(D2-金 J5,割喉):Value = 回合数,不吃等级;斩杀线读 Core 常量
-                    EffectKind.Doom => Strings.T("char.effect.doom", ("turns", e.Value), ("percent", BattleEngine.DoomExecutePercent)),
+                    // 致命(D2-金 J5,割喉):Value = 回合数,不吃等级。斩杀线(常量 30%)与 Boss 分支由「致命」词条解释
+                    EffectKind.Doom => Strings.T("char.effect.doom", ("turns", e.Value)),
                     // 战意族(D2-金 Task 4):量吃卡等级(shown)。富甲含木灵(Q15),金气只给玩家
                     EffectKind.MoraleOverflowShield => Strings.T("char.effect.moraleoverflowshield", ("value", shown)),
                     EffectKind.MoraleArmor => Strings.T("char.effect.morale_armor", ("value", shown)),
@@ -288,11 +291,9 @@ namespace Brushblade.Presentation
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
                     EffectKind.ApBoost => Strings.T("char.effect.apboost", ("value", e.Value)),
-                    // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
+                    // 暴击倍率不印:「暴击」词条已写「伤害 ×1.5」(改 CritMultiplierPercent 时同步改 term.crit.desc)
                     EffectKind.CritBuff => Strings.T("char.effect.critbuff",
-                        ("value", shown),
-                        ("mult", (BattleConfig.CritMultiplierPercent / 100f).ToString("0.##")),
-                        ("turns", e.Turns)),
+                        ("value", shown), ("turns", e.Turns)),
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
                     EffectKind.PierceBuff => Strings.T("char.effect.piercebuff", ("value", shown)),
@@ -315,7 +316,7 @@ namespace Brushblade.Presentation
                     // 解封(2026-09-16,水):6 类纯随机重掷,永久,Value 不用(与 Cleanse 同口径)。
                     EffectKind.Unseal => Strings.T("char.effect.unseal"),
                     // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
-                    EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
+                    EffectKind.Amplify => AmplifyText(e, ampAllItems) + OnlyIfText(e.OnlyIf),
                     EffectKind.Reshape => ReshapeText(e, reshapeFace == ReshapeFace.Heal),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
@@ -323,7 +324,8 @@ namespace Brushblade.Presentation
                     EffectKind.BlockMod => BlockModText(e, cardLevel, blockBasePercent),
                     // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
                     EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
-                    EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
+                    // 倍数不印:「反击加倍」词条已写「×2,本回合有效」(数据里 value 都是 100)
+                    EffectKind.CounterBoost => Strings.T("char.effect.counterboost"),
                     EffectKind.Endure => e.Pick == EffectPick.SummonedThisCast
                         ? Strings.T("char.effect.endure.summoned") : Strings.T("char.effect.endure"),
                     // 双木(E41 fromBody)/ 丛藻(E47 sprout)
@@ -429,13 +431,39 @@ namespace Brushblade.Presentation
 
         /// <summary>一条特性的整句效果文案(D2-火 N13):效果逐条印,带 <see cref="TraitDef.MaxPerCast"/>(limit)时补「每次出字最多触发 N 次」。
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
-        public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
+        /// <param name="face">两面通用(Both)的特性印在哪一面;五行面上「本字效果」改印具体项(2026-10-15 用户)。null = 按特性自己的面。</param>
+        public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel, CardFace? face = null) =>
             TriggerText(trait.Trigger)
             + OneSideEffectsText(trait.Effects, def, cardLevel, ReshapeFaceOf(trait, def, cardLevel),
                 def != null && trait.Effects.Any(e => e.Kind == EffectKind.BlockMod)
-                    ? TraitRules.FaceBlockCounterPercent(def, trait, cardLevel) : BattleConfig.BlockCounterPercent)
+                    ? TraitRules.FaceBlockCounterPercent(def, trait, cardLevel) : BattleConfig.BlockCounterPercent,
+                FeatureAmpItemsText(trait, def, cardLevel, face))
             + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "")
             + (trait.MaxPerBattle > 0 ? Strings.T("char.trait.battlelimit", ("count", trait.MaxPerBattle)) : "");   // D2-土 E35
+
+        /// <summary>五行面上的 Amplify All 印成具体项(「反击」「治疗」「木灵生命与攻击」…,<see cref="CardSheetRules.FeatureAmpItems"/>);
+        /// 攻击面、无 Amplify All、取不到项时 null(照印「本字效果」)。</summary>
+        private static string FeatureAmpItemsText(TraitDef trait, CharDef def, int cardLevel, CardFace? face)
+        {
+            bool feature = trait.Face == TraitFace.Feature || (trait.Face == TraitFace.Both && face == CardFace.Feature);
+            if (def == null || !feature || !trait.Effects.Any(e => e.Kind == EffectKind.Amplify && e.Scope == AmpScope.All))
+                return null;
+            var items = CardSheetRules.FeatureAmpItems(def, cardLevel);
+            return items.Count == 0 ? null
+                : string.Join(Strings.T("char.effect.amplify.item_sep"), items.Select(AmpItemText));
+        }
+
+        private static string AmpItemText(AmpItem item) => item switch
+        {
+            AmpItem.Damage => Strings.T("char.amp_item.damage"),
+            AmpItem.Heal => Strings.T("char.amp_item.heal"),
+            AmpItem.Shield => Strings.T("char.amp_item.shield"),
+            AmpItem.Counter => Strings.T("char.amp_item.counter"),
+            AmpItem.Seed => Strings.T("char.amp_item.seed"),
+            AmpItem.Burn => Strings.T("char.amp_item.burn"),
+            AmpItem.Summon => Strings.T("char.amp_item.summon"),
+            _ => item.ToString(),
+        };
 
         private enum ReshapeFace { Damage, Heal, Noop }
 
@@ -518,8 +546,6 @@ namespace Brushblade.Presentation
             return e.Value > 0 ? Strings.T("char.effect.taunt.turns", ("who", who), ("turns", e.Value))
                 : Strings.T("char.effect.taunt.battle", ("who", who));
         }
-
-        internal static string BoostMult(int percent) => ((100 + percent) / 100f).ToString("0.##");
 
         /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了
         /// (`1514207 feat(core)`,范围只写了 core),而 CharInfo 从没跟进,玩家看铡的卡面只见
@@ -722,8 +748,9 @@ namespace Brushblade.Presentation
         };
 
         /// <summary>Amplify 的作用范围 + 百分点(D1 Task 3)。每个范围一条完整句子的 key。</summary>
-        private static string AmplifyText(EffectDef e) => e.Scope switch
+        private static string AmplifyText(EffectDef e, string ampAllItems) => e.Scope switch
         {
+            AmpScope.All when ampAllItems != null => Strings.T("char.effect.amplify.items", ("items", ampAllItems), ("value", e.Value)),
             AmpScope.Heal => Strings.T("char.effect.amplify.heal", ("value", e.Value)),
             AmpScope.Shield => Strings.T("char.effect.amplify.shield", ("value", e.Value)),
             AmpScope.Seed => Strings.T("char.effect.amplify.seed", ("value", e.Value)),

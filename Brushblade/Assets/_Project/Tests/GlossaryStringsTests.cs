@@ -86,7 +86,6 @@ namespace Brushblade.Core.Tests
                 ("char.effect.opening.band", GlossaryTerm.Band),
                 ("char.effect.damagecut", GlossaryTerm.DamageCut),
                 ("char.effect.counterboost", GlossaryTerm.CounterBoost),
-                ("char.effect.counterboost", GlossaryTerm.Block),
                 ("char.shape.volley", GlossaryTerm.AreaScatter),
                 ("char.effect.healovertime.single", GlossaryTerm.Hot),
                 ("char.effect.defensebuff", GlossaryTerm.Armor),
@@ -105,7 +104,7 @@ namespace Brushblade.Core.Tests
         /// 确认后更新快照;若是用了新写法(又一个「召唤物」),先给词条加别名。</summary>
         private static readonly string[] NoTermTemplates =
         {
-            "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.heal", "char.effect.apcost",
+            "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.item_sep", "char.effect.amplify.items", "char.effect.amplify.heal", "char.effect.apcost",
             "char.effect.armorstrike.each", "char.effect.augment", "char.effect.augment.field.count", "char.effect.augment.field.shots",
             "char.effect.augment.field.turns", "char.effect.augment.target.damage", "char.effect.augment.target.healself",
             "char.effect.blind.single", "char.effect.blockmod.counter",

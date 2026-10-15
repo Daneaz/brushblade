@@ -300,7 +300,8 @@ def extract_traits(markdown, element=None, pool=None, chars=None):
         trait["effects"] = effects
         result.setdefault(char, []).append(trait)
         if wuxing_effects is not None:
-            result[char].append(dict(trait, face="Feature", effects=wuxing_effects))
+            # 五行面那条名字随效果改叫「精进」(2026-10-15 用户):叫「克敌」却无条件生效,玩家读不懂
+            result[char].append(dict(trait, face="Feature", name=FALLBACK_POOL_NAME, effects=wuxing_effects))
     return result
 
 
