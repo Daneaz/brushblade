@@ -183,17 +183,25 @@ namespace Brushblade.Core
 
         /// <summary>面头范围,按这一级**折叠后**的效果取(剑 Lv8 横扫千军会改成 Row):
         /// 召唤面 → null;有伤害 → 第一条 DamageSingle 的 Shape;没有伤害 → 有全体类效果(*All、pick All、TargetAll、
-        /// 改形成全体的治疗)算 All,否则 Single。</summary>
+        /// 改形成全体的治疗)算 All,否则 Single。
+        /// 落点不是敌人(燃意 / 治疗 / 护盾这类我方面)时只认我方侧的全体(终审修复 1):烟熏、上炎、流光、火雨这些
+        /// 敌方 pick All / BurnAll 附带项不让单体燃意面印成「我方全体」。</summary>
         public static TargetArea? AreaOf(CharDef def, CardFace face, int cardLevel)
         {
-            if (TargetOf(def, face, cardLevel) == FaceTarget.Summon) return null;
+            var target = TargetOf(def, face, cardLevel);
+            if (target == FaceTarget.Summon) return null;
             var effects = TraitRules.CastEffects(def, BattleEngine.FaceOf(def, face == CardFace.Attack), cardLevel);
             foreach (var e in effects)
                 if (e.Kind == EffectKind.DamageSingle) return e.Shape;
             foreach (var e in effects)
-                if (IsAllTargeted(e)) return TargetArea.All;
+                if (target == FaceTarget.Enemy ? IsAllTargeted(e) : IsAllyAllTargeted(e)) return TargetArea.All;
             return TargetArea.Single;
         }
+
+        private static bool IsAllyAllTargeted(EffectDef e) =>
+            e.Kind == EffectKind.HealAll || e.Kind == EffectKind.ShieldAll
+            || ((e.Kind == EffectKind.Kindle || e.Kind == EffectKind.Cleanse) && e.Pick == EffectPick.AllAllies)
+            || ((e.Kind == EffectKind.HealSelf || e.Kind == EffectKind.HealOverTime) && (e.TargetAll || e.Shape == TargetArea.All));
 
         private static bool IsAllTargeted(EffectDef e) =>
             e.Kind == EffectKind.BurnAll || e.Kind == EffectKind.HealAll || e.Kind == EffectKind.ShieldAll
