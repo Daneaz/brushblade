@@ -301,6 +301,21 @@ namespace Brushblade.Core.Tests
             Assert.That(jing.Any(e => e.Kind == EffectKind.Summon && e.Passive != null), Is.True, "木五行面 Lv1 = 本命:召唤带被动");
         }
 
+        [Test]
+        public void Lv1Effects_MetalFeature_BlockBeforeMorale()
+        {
+            // 2026-10-15 用户:金系五行面 Lv1 先写「格挡」本身,再写附带的「战意」(字表里 Morale 在前)
+            foreach (var d in Playable().Where(d => d.Element == Element.Metal))
+            {
+                var kinds = CardSheetRules.Lv1Effects(d, CardFace.Feature, 1).Select(e => e.Kind).ToList();
+                int block = kinds.IndexOf(EffectKind.Block), morale = kinds.IndexOf(EffectKind.Morale);
+                if (block < 0 || morale < 0) continue;
+                Assert.That(block, Is.LessThan(morale), $"{d.Id}:格挡在战意之前");
+            }
+            var li = CardSheetRules.Lv1Effects(Graph.Get("利"), CardFace.Feature, 1).Select(e => e.Kind).ToList();
+            Assert.That(li.IndexOf(EffectKind.Block), Is.LessThan(li.IndexOf(EffectKind.Morale)), "利 是白档样本,必须两条都有");
+        }
+
         // ---------------- TargetOf / AreaOf ----------------
 
         [Test]

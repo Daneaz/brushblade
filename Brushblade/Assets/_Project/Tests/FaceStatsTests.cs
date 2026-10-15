@@ -51,9 +51,9 @@ namespace Brushblade.Core.Tests
         {
             // 剑(蓝):格挡 2 次、反击 40%;Lv3 格挡·强化 3 次、反击 50%;五行面战意恒 1(spec A §4.2)
             Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Attack, 1)), Is.EqualTo("Damage:90,Morale:1"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 1)), Is.EqualTo($"Morale:1,Block:2,Counter:{90 * 40 / 100}"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 1)), Is.EqualTo("Morale:1,Block:2,CounterPercent:40"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 10)),
-                Is.EqualTo($"Morale:1,Block:3,Counter:{Scale(90, 10) * 50 / 100}"), "反击 = 攻面本体(吃等级)× 本字反击 %");
+                Is.EqualTo("Morale:1,Block:3,CounterPercent:50"), "反击统一按 %(2026-10-15 用户):不随卡等级变");
             // 木灵 血 = 单体 × 1.5、攻 = 单体 × 0.35;荆肉盾 血 = 单体 × 3、攻 0(spec A §4.5)
             Assert.That(Cells(FaceStats.Body(Graph.Get("林"), CardFace.Attack, 1)), Is.EqualTo("Damage:195,Seed:2"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("林"), CardFace.Feature, 1)), Is.EqualTo("SummonHp:293,SummonAttack:68,Nature:0"));
@@ -228,7 +228,7 @@ namespace Brushblade.Core.Tests
         public void Lv3Change_OtherElements()
         {
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("剑"), CardFace.Feature)),
-                Is.EqualTo($"Feature.Block:2->3,Feature.Counter:{Scale(90, 3) * 40 / 100}->{Scale(90, 3) * 50 / 100}"), "格挡·强化:+1 次、反击 +10%");
+                Is.EqualTo("Feature.Block:2->3,Feature.CounterPercent:40->50"), "格挡·强化:+1 次、反击 40%→50%(统一按 %)");
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("㙓"), CardFace.Attack)), Is.EqualTo("Attack.ArmorBreak:2->4"));
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("林"), CardFace.Attack)), Is.EqualTo("Attack.Seed:2->3"));
             Assert.That(FaceStats.Lv3Change(Graph.Get("林"), CardFace.Feature), Is.Empty, "本命强化只改被动,没有数值差");

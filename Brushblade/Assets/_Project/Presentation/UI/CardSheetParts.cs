@@ -176,7 +176,6 @@ namespace Brushblade.Presentation
             FaceStatKind.Burn => Strings.T("charsheet.stat.burn"),
             FaceStatKind.Morale => Strings.T("charsheet.stat.morale"),
             FaceStatKind.Block => Strings.T("charsheet.stat.block"),
-            FaceStatKind.Counter => Strings.T("charsheet.stat.counter"),
             FaceStatKind.Weaken => Strings.T("charsheet.stat.weaken"),
             FaceStatKind.Armor => Strings.T("charsheet.stat.armor"),
             FaceStatKind.Duration => Strings.T("charsheet.stat.duration"),

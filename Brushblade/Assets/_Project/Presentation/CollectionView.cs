@@ -1067,7 +1067,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(row.transform, CardSheetParts.StatValue(d.Kind, d.From), 25, Theme.LockGray, Theme.TitleFont);
             Ui.ThemedLabel(row.transform, Strings.T("collection.side.recipe_to"), 18, Theme.LockGray);
             Ui.ThemedLabel(row.transform, CardSheetParts.StatValue(d.Kind, d.To), 29, Theme.UpgradeText, Theme.TitleFont);
-            if (d.Kind != FaceStatKind.Weaken && d.To > d.From)
+            if (d.Kind != FaceStatKind.Weaken && d.Kind != FaceStatKind.CounterPercent && d.To > d.From)
                 Ui.ThemedLabel(row.transform, Strings.T("collection.modal.delta", ("delta", d.To - d.From)),
                     19, Theme.UpgradeText);
         }

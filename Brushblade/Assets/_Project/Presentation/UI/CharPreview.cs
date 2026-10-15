@@ -102,6 +102,7 @@ namespace Brushblade.Presentation
             var overlay = Ui.Sheet(root, "CharSheet", sheetW, tall ? TallSheetH : SheetH,
                 dismissable: true, replaceSameName: true, Theme.Scrim,
                 tall ? TallSheetLift : SheetLift, out var content);
+            PixelSnap(overlay);
             var layout = content.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childForceExpandWidth = true;
@@ -240,6 +241,19 @@ namespace Brushblade.Presentation
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(label.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(text, 21, inner));
+        }
+
+        /// <summary>字卡详情整块按像素对齐(2026-10-15 用户反馈「技能描述、面头都发虚」)。
+        /// 卡宽取 <see cref="SafeArea.FrameWidth"/>,基准机画布宽 ≈1951.x,居中后整张卡落在半像素上;
+        /// 平铺后面宽(两面区 − 19)/ 2 与行高也是小数,legacy Text 落在非整像素会被双线性采样糊掉。
+        /// 只在这张浮层上开嵌套 Canvas 的 pixelPerfect,不动根画布(战斗 Juice 的补间要亚像素平滑)。
+        /// 嵌套 Canvas 不 overrideSorting,层级照旧按兄弟顺序;要自带 GraphicRaycaster,否则点词条、滚动、点遮罩关闭全失灵。</summary>
+        private static void PixelSnap(GameObject overlay)
+        {
+            var canvas = overlay.AddComponent<Canvas>();
+            canvas.overridePixelPerfect = true;
+            canvas.pixelPerfect = true;
+            overlay.AddComponent<GraphicRaycaster>();
         }
 
         // ================= 字卡(Plan E2 改版,稿 CardSheet / CardSheetBattle) =================

@@ -249,7 +249,6 @@ namespace Brushblade.Core.Tests
                 [FaceStatKind.Burn] = GlossaryTerm.Burn,
                 [FaceStatKind.Morale] = GlossaryTerm.Morale,
                 [FaceStatKind.Block] = GlossaryTerm.Block,
-                [FaceStatKind.Counter] = null,
                 [FaceStatKind.Weaken] = GlossaryTerm.Weaken,
                 [FaceStatKind.Armor] = GlossaryTerm.Armor,
                 [FaceStatKind.Duration] = null,

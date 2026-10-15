@@ -108,7 +108,7 @@ namespace Brushblade.Core.Tests
             "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.heal", "char.effect.apcost",
             "char.effect.armorstrike.each", "char.effect.augment", "char.effect.augment.field.count", "char.effect.augment.field.shots",
             "char.effect.augment.field.turns", "char.effect.augment.target.damage", "char.effect.augment.target.healself",
-            "char.effect.blind.single", "char.effect.block.counter", "char.effect.blockmod.counter",
+            "char.effect.blind.single", "char.effect.blockmod.counter",
             "char.effect.blockmod.hits", "char.effect.blockmod.refund", "char.effect.chargedelay", "char.effect.cleanse",
             "char.effect.cleanse.allies", "char.effect.cleanse.allies.count", "char.effect.cleanse.count", "char.effect.cleanse.self",
             "char.effect.cleanse.self.count", "char.effect.damagesingle", "char.effect.damagesingle.body", "char.effect.debuffward",
