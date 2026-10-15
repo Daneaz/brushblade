@@ -51,8 +51,9 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(new[] { BattleEventKind.DebuffWarded, BattleEventKind.BuffBlocked, BattleEventKind.GlyphTrait }.Select(k => (int)k),
                 Is.EqualTo(Enumerable.Range((int)BattleEventKind.CharGranted + 1, 3)));
-            // E4 Task 1 在其后追加 EndureSaved(E4CoreTests.E4EnumValues_AppendedAtEnd 守它的位置)
-            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.EndureSaved));
+            // E4 Task 1 在其后追加 EndureSaved(E4CoreTests.E4EnumValues_AppendedAtEnd 守它的位置);
+            // 格挡反击动效再追加 BlockUsed(BlockUsedEventTests.BlockUsed_AppendedAtEnd 守它的位置)
+            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.BlockUsed));
             Assert.That((int)EffectSource.SkillCut, Is.EqualTo((int)EffectSource.ReturnFire + 1));
             // E4 Task 1 在其后追加 BurnGrow
             Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.BurnGrow));

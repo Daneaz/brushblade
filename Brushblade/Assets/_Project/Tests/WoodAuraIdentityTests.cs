@@ -42,7 +42,8 @@ namespace Brushblade.Core.Tests
             int allySlot = Targeting.PlayerTarget, bool replace = false)
         {
             sb.Append($"#{id}{target}/{allySlot}{(attack ? "A" : "")}={b.Cast(id, target, replaceSummon: replace, attackMode: attack, allySlot: allySlot)};");
-            foreach (var e in b.LastEvents)
+            // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
+            foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
                 sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source}:{e.Crit};");
         }
 
@@ -81,7 +82,8 @@ namespace Brushblade.Core.Tests
                 eachTurn(b, t, sb);
                 sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
-                foreach (var e in b.LastEvents)
+                // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source}:{e.Crit};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
@@ -188,7 +190,8 @@ namespace Brushblade.Core.Tests
             for (int t = 0; t < 5 && b.Phase == BattlePhase.PlayerTurn; t++)
             {
                 b.EndTurn();
-                foreach (var e in b.LastEvents)
+                // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
                     all.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Crit};");
                 AppendState(all, b);
                 Assert.That(b.Capture().RandomState, Is.EqualTo(before), $"第 {t} 拍木灵出手摇了 _random");
