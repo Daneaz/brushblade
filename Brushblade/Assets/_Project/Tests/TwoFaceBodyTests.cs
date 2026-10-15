@@ -8,7 +8,9 @@ namespace Brushblade.Core.Tests
     /// <summary>出货字表的两面本体(spec v7 §2.1 / §4 的 Lv1 写法,D1 Task 12)。
     /// 21 张原单面字(火 11、金 9、花)拆成攻击 + 五行面;55 字两面本体按 §4 重写;
     /// 字卡原有的附加效果作废(只改数据、不删枚举,D6);形状按用户拍板 U2 —— §9「本体」列写「—」的一律单体。
-    /// 读真实 chars.json(仓库根用 TestContext.CurrentContext.TestDirectory 定位,见 CharTableTests.RealGraph)。</summary>
+    /// 读真实 chars.json(仓库根用 TestContext.CurrentContext.TestDirectory 定位,见 CharTableTests.RealGraph)。
+    /// spec A(2026-10-15)起:攻击面全体 ⇒ 五行面也全体(§3);五行面附带灼 / 战意恒 1、主手段按档梯度(§4);
+    /// 水改涓 / 涌 / 苏三模式(§4.3);起始数值按锚点 × 70% × 范围系数(§2,逐字断言在 SpecAAlignmentTests)。</summary>
     public class TwoFaceBodyTests
     {
         private const string Ju = "";   // 𨰻 的 PUA 代理码位
@@ -42,6 +44,15 @@ namespace Brushblade.Core.Tests
             CardRarity.Purple or CardRarity.Gold => 2,
             _ => 3,
         };
+
+        private static readonly CardRarity[] Tiers =
+            { CardRarity.White, CardRarity.Green, CardRarity.Blue, CardRarity.Purple, CardRarity.Gold, CardRarity.Orange, CardRarity.Red };
+        private static int Tier(CardRarity r) => System.Array.IndexOf(Tiers, r);
+
+        // spec A §4.1 / §4.2 / §4.4 五行面梯度(白 → 红)
+        private static readonly (int Pct, int Turns)[] WeakenByTier = { (15, 2), (15, 2), (20, 2), (20, 3), (25, 3), (30, 3), (35, 3) };
+        private static readonly (int Count, int Counter)[] BlockByTier = { (1, 30), (1, 35), (2, 40), (2, 45), (2, 50), (3, 60), (3, 70) };
+        private static readonly (int Points, int Turns)[] ArmorByTier = { (10, 2), (15, 2), (20, 2), (25, 2), (35, 3), (50, 3), (70, 3) };
 
         private static EffectDef Only(IReadOnlyList<EffectDef> face, EffectKind kind, string who)
         {
@@ -78,14 +89,19 @@ namespace Brushblade.Core.Tests
                 Assert.That(d.AttackEffects.Select(e => e.Kind).ToList(),
                     Is.EqualTo(new[] { EffectKind.DamageSingle, burnA[0].Kind }), $"{d.Id} 攻 = 伤害 + 灼");
 
-                Assert.That(d.Effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False, $"{d.Id} 燃面不该有伤害");
+                // spec A §4.1:五行面 = 慑(按档梯度)+ 灼 1(固定);攻击面全体 ⇒ 五行面全体(§3)
+                bool all = d.AttackEffects[0].Shape == TargetArea.All;
+                Assert.That(d.Effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False, $"{d.Id} 五行面不该有伤害");
                 var burnF = d.Effects.Where(e => IsBurn(e.Kind)).ToList();
-                Assert.That(burnF.Count, Is.EqualTo(1), $"{d.Id} 燃:灼");
-                Assert.That(burnF[0].Value, Is.EqualTo(n), $"{d.Id} 燃:灼层数按档");
+                Assert.That(burnF.Count, Is.EqualTo(1), $"{d.Id} 五行面:灼");
+                Assert.That(burnF[0].Value, Is.EqualTo(1), $"{d.Id} 五行面:灼恒 1");
+                Assert.That(burnF[0].Kind, Is.EqualTo(all ? EffectKind.BurnAll : EffectKind.BurnSingle), $"{d.Id} 五行面灼范围随攻击面");
                 var weaken = Only(d.Effects, EffectKind.Weaken, d.Id);
-                Assert.That(weaken.Value, Is.EqualTo(15), $"{d.Id} 燃:攻击 −15%");
-                Assert.That(weaken.Turns, Is.EqualTo(2), $"{d.Id} 燃:2 回合");
-                Assert.That(d.Effects.Count, Is.EqualTo(2), $"{d.Id} 燃 = 灼 + 减攻");
+                var (pct, turns) = WeakenByTier[Tier(d.Rarity)];
+                Assert.That(weaken.Value, Is.EqualTo(pct), $"{d.Id} 慑 %");
+                Assert.That(weaken.Turns, Is.EqualTo(turns), $"{d.Id} 慑回合");
+                Assert.That(weaken.Pick == EffectPick.All, Is.EqualTo(all), $"{d.Id} 慑范围随攻击面");
+                Assert.That(d.Effects.Count, Is.EqualTo(2), $"{d.Id} 五行面 = 灼 + 慑");
             }
         }
 
@@ -100,29 +116,26 @@ namespace Brushblade.Core.Tests
                 Assert.That(Only(d.AttackEffects, EffectKind.Morale, d.Id).Value, Is.EqualTo(n), $"{d.Id} 攻:战意按档");
                 Assert.That(d.Effects.Select(e => e.Kind).ToList(),
                     Is.EqualTo(new[] { EffectKind.Morale, EffectKind.Block }), $"{d.Id} 铠 = 战意 + 格挡");
-                Assert.That(Only(d.Effects, EffectKind.Morale, d.Id).Value, Is.EqualTo(n), $"{d.Id} 铠:战意按档");
-                Assert.That(Only(d.Effects, EffectKind.Block, d.Id).Value, Is.EqualTo(1), $"{d.Id} 铠:格挡 1 次");
+                // spec A §4.2:五行面战意恒 1;格挡次数 + 反击 % 按档
+                Assert.That(Only(d.Effects, EffectKind.Morale, d.Id).Value, Is.EqualTo(1), $"{d.Id} 格挡面:战意恒 1");
+                var block = Only(d.Effects, EffectKind.Block, d.Id);
+                var (count, counter) = BlockByTier[Tier(d.Rarity)];
+                Assert.That(block.Value, Is.EqualTo(count), $"{d.Id} 格挡次数");
+                Assert.That(block.CounterPercent, Is.EqualTo(counter), $"{d.Id} 反击 %");
             }
         }
 
         [Test]
-        public void Water_AttackHasControl_FeatureIsHealSelfPlusHoT()
+        public void Water_AttackHasControl()
         {
+            // 五行面「治疗 + 润泽」混合已由 spec A §4.3 改为涓 / 涌 / 苏单一模式,
+            // 逐字断言见 SpecAAlignmentTests.Water_OneModePerChar_NamedByMode;这里只留攻击面控制。
             var freeze = new HashSet<string> { "冻", "湮", "冰", "淼", "㵘" };
             foreach (var d in OfElement(Element.Water))
             {
                 var control = freeze.Contains(d.Id) ? EffectKind.Freeze : EffectKind.Slow;
                 Assert.That(Only(d.AttackEffects, control, d.Id).Value, Is.EqualTo(1), $"{d.Id} 攻:{control} 1 回合");
-                Assert.That(d.Effects.Select(e => e.Kind).ToList(),
-                    Is.EqualTo(new[] { EffectKind.HealSelf, EffectKind.HealOverTime }), $"{d.Id} 润 = 治疗 + 润泽");
-                var heal = Only(d.Effects, EffectKind.HealSelf, d.Id);
-                var hot = Only(d.Effects, EffectKind.HealOverTime, d.Id);
-                Assert.That(hot.Turns, Is.EqualTo(2), $"{d.Id} 润泽 2 回合");
-                Assert.That(hot.Value, Is.EqualTo((int)System.Math.Round(heal.Value * 0.2, System.MidpointRounding.AwayFromZero)),
-                    $"{d.Id} 润泽 = 治疗 × 20%");
-                Assert.That(heal.Shape, Is.EqualTo(TargetArea.Single), $"{d.Id} 润:单体(U2)");
             }
-            Assert.That(Only(Char("沐").Effects, EffectKind.HealSelf, "沐").Value, Is.EqualTo(86), "沐:H = 原持续治疗 43 × 2");
         }
 
         [Test]
@@ -131,9 +144,12 @@ namespace Brushblade.Core.Tests
             foreach (var d in OfElement(Element.Earth))
             {
                 Assert.That(Only(d.AttackEffects, EffectKind.ArmorBreak, d.Id).Turns, Is.EqualTo(2), $"{d.Id} 攻:破甲 2 回合");
+                // spec A §3:崩攻击面全体 ⇒ 五行面 ShieldAll;§4.4 护甲回合按档
+                var shield = d.Id == "崩" ? EffectKind.ShieldAll : EffectKind.Shield;
                 Assert.That(d.Effects.Select(e => e.Kind).ToList(),
-                    Is.EqualTo(new[] { EffectKind.Shield, EffectKind.DefenseBuff }), $"{d.Id} 固 = 护盾 + 护甲");
-                Assert.That(Only(d.Effects, EffectKind.DefenseBuff, d.Id).Turns, Is.EqualTo(2), $"{d.Id} 固:护甲 2 回合");
+                    Is.EqualTo(new[] { shield, EffectKind.DefenseBuff }), $"{d.Id} 五行面 = 护盾 + 护甲");
+                Assert.That(Only(d.Effects, EffectKind.DefenseBuff, d.Id).Turns, Is.EqualTo(ArmorByTier[Tier(d.Rarity)].Turns),
+                    $"{d.Id} 护甲回合按档");
             }
         }
 
@@ -143,17 +159,17 @@ namespace Brushblade.Core.Tests
             foreach (var d in OfElement(Element.Wood))
             {
                 Assert.That(Only(d.Effects, EffectKind.Summon, d.Id).SummonCount, Is.EqualTo(1), $"{d.Id} 生:召唤 1 只");
-                if (d.Id == "花") continue;
                 Assert.That(Only(d.AttackEffects, EffectKind.Seed, d.Id).Turns, Is.EqualTo(2), $"{d.Id} 攻:种 2 回合");
             }
+            // spec A §5:花攻击面魅惑 → 种 9(白档);§4.5 木灵 血 = 单体 42 × 1.5、攻 = 42 × 0.35
             var hua = Char("花");
             Assert.That(hua.AttackEffects.Select(e => e.Kind).ToList(),
-                Is.EqualTo(new[] { EffectKind.DamageSingle, EffectKind.Charm }), "花 攻 = 伤害 + 魅惑");
-            Assert.That(Only(hua.AttackEffects, EffectKind.DamageSingle, "花").Value, Is.EqualTo(36));
-            Assert.That(Only(hua.AttackEffects, EffectKind.Charm, "花").Turns, Is.EqualTo(1), "花 魅惑 1 回合");
+                Is.EqualTo(new[] { EffectKind.DamageSingle, EffectKind.Seed }), "花 攻 = 伤害 + 种");
+            Assert.That(Only(hua.AttackEffects, EffectKind.DamageSingle, "花").Value, Is.EqualTo(42));
+            Assert.That(Only(hua.AttackEffects, EffectKind.Seed, "花").Value, Is.EqualTo(9), "花 种 9");
             var flowerSpirit = Only(hua.Effects, EffectKind.Summon, "花");
-            Assert.That(flowerSpirit.Value, Is.EqualTo(72), "花灵 血 = 攻击伤害 × 2");
-            Assert.That(flowerSpirit.SummonAttack, Is.EqualTo(18), "花灵 攻 = 攻击伤害 × 50%");
+            Assert.That(flowerSpirit.Value, Is.EqualTo(63), "花灵 血 = 42 × 1.5");
+            Assert.That(flowerSpirit.SummonAttack, Is.EqualTo(15), "花灵 攻 = 42 × 0.35");
             Assert.That(flowerSpirit.Passive.OnHitCharmChance, Is.EqualTo(20), "花灵本命迷香(D2-0 E7,取代 D8 的「无本命」)");
         }
 
@@ -163,9 +179,10 @@ namespace Brushblade.Core.Tests
             var voided = new[]
             {
                 EffectKind.Quench, EffectKind.BurnPotency, EffectKind.Detonate, EffectKind.Haste,
-                EffectKind.Unseal, EffectKind.Revive, EffectKind.Silence, EffectKind.Dispel,
+                EffectKind.Unseal, EffectKind.Silence, EffectKind.Dispel,
                 EffectKind.Reflect, EffectKind.Immunity, EffectKind.Empower, EffectKind.CritBuff,
-                EffectKind.Bleed, EffectKind.HealAll, EffectKind.ShieldAll,
+                EffectKind.Bleed,
+                // spec A 起 Revive(苏)、HealAll(溃 / 㵘)、ShieldAll(崩)重新入本体,移出作废名单
             };
             foreach (var d in Playable())
                 foreach (var e in d.Effects.Concat(d.AttackEffects))
@@ -186,16 +203,21 @@ namespace Brushblade.Core.Tests
         {
             TargetArea AttackShape(string id) => Only(Char(id).AttackEffects, EffectKind.DamageSingle, id).Shape;
 
-            foreach (var id in new[] { "灿", "剑", "锥", "鑫", "焱", "淋", "海", "㙓" })
+            foreach (var id in new[] { "灿", "剑", "锥", "鑫", "淋", "海", "㙓" })
                 Assert.That(AttackShape(id), Is.EqualTo(TargetArea.Single), $"{id} 攻击单体(U2)");
-            foreach (var id in new[] { "爆", "炸", "烈", "焚", "燚", "溃", "㵘", "崩" })
+            foreach (var id in new[] { "爆", "炸", "烈", "焚", "焱", "燚", "溃", "㵘", "崩" })
                 Assert.That(AttackShape(id), Is.EqualTo(TargetArea.All), $"{id} 攻击全体(本体列)");
 
-            // 焱:燃面全体
+            // 焱(spec A §3 用户拍板):攻击面改全体 + BurnAll 3;五行面全体,灼恒 1
             var yan3 = Char("焱");
-            Assert.That(Only(yan3.Effects, EffectKind.BurnAll, "焱").Value, Is.EqualTo(3));
-            Assert.That(Only(yan3.Effects, EffectKind.Weaken, "焱").Pick, Is.EqualTo(EffectPick.All), "焱 燃:减攻全体");
-            Assert.That(Only(yan3.AttackEffects, EffectKind.BurnSingle, "焱").Value, Is.EqualTo(3), "焱 攻:单体灼");
+            Assert.That(Only(yan3.Effects, EffectKind.BurnAll, "焱").Value, Is.EqualTo(1));
+            Assert.That(Only(yan3.Effects, EffectKind.Weaken, "焱").Pick, Is.EqualTo(EffectPick.All), "焱 慑:全体");
+            Assert.That(Only(yan3.AttackEffects, EffectKind.BurnAll, "焱").Value, Is.EqualTo(3), "焱 攻:全体灼");
+
+            // 两面范围对齐(spec A §3)
+            Assert.That(Only(Char("溃").Effects, EffectKind.HealAll, "溃").Value, Is.EqualTo(45));
+            Assert.That(Only(Char("㵘").Effects, EffectKind.HealAll, "㵘").Value, Is.EqualTo(210));
+            Assert.That(Only(Char("崩").Effects, EffectKind.ShieldAll, "崩").Value, Is.EqualTo(45));
 
             // 全体控制 / 全体破甲 + 释放
             Assert.That(Only(Char("溃").AttackEffects, EffectKind.Slow, "溃").Pick, Is.EqualTo(EffectPick.All));
@@ -210,27 +232,15 @@ namespace Brushblade.Core.Tests
             Assert.That(Only(Char("海").Effects, EffectKind.HealSelf, "海").Shape, Is.EqualTo(TargetArea.Single));
         }
 
-        [Test]
-        public void SplitChars_KeepTheirOldDamageValue()
-        {
-            var expected = new Dictionary<string, int>
-            {
-                ["热"] = 45, ["爆"] = 4, ["炸"] = 42, ["烈"] = 44, ["燥"] = 112, ["蒸"] = 112,
-                ["炎"] = 168, ["灿"] = 216, ["焚"] = 77, ["焱"] = 99, ["燚"] = 86,
-                ["剑"] = 94, ["锥"] = 106, ["剿"] = 112, ["铡"] = 122, ["剁"] = 61,
-                ["鍂"] = 98, ["鑫"] = 297, ["刲"] = 159, [Ju] = 384,
-            };
-            foreach (var kv in expected)
-                Assert.That(Only(Char(kv.Key).AttackEffects, EffectKind.DamageSingle, kv.Key).Value,
-                    Is.EqualTo(kv.Value), $"{kv.Key} 攻击伤害沿用原值");
-        }
+        // SplitChars_KeepTheirOldDamageValue 已删:spec A §2 起攻击伤害一律 = 锚点 × 70% × 范围系数,
+        // 逐字断言由 SpecAAlignmentTests.AttackDamage_IsAnchorTimesSeventy_ByArea 取代。
 
         [Test]
         public void Seed_StacksByTier()
         {
             var expected = new Dictionary<string, int>
             {
-                ["藤"] = 12, ["箭"] = 15, ["楸"] = 18, ["荆"] = 18, ["林"] = 21, ["柘"] = 21,
+                ["花"] = 9, ["藤"] = 12, ["箭"] = 15, ["楸"] = 18, ["荆"] = 18, ["林"] = 21, ["柘"] = 21,
                 ["桂"] = 25, ["藻"] = 25, ["森"] = 25, [Ju4] = 30,
             };
             foreach (var kv in expected)
@@ -240,7 +250,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Earth_ArmorValues_ExistingOrByTier()
         {
-            // 现有值照用(堡 / 碎 / 垚 的破甲,垒 / 堡 / 杜 / 垚 / 㙓 的护甲),没有的按档:白 10 … 红 40
+            // 破甲(攻击面附带)维持现状;护甲点按 spec A §4.4 梯度表(逐字列出,并与 ArmorByTier 对账)
             var armorBreak = new Dictionary<string, int>
             {
                 ["碉"] = 10, ["垒"] = 15, ["壁"] = 15, ["堡"] = 20, ["崩"] = 20, ["碎"] = 20,
@@ -248,9 +258,11 @@ namespace Brushblade.Core.Tests
             };
             var defense = new Dictionary<string, int>
             {
-                ["碉"] = 10, ["垒"] = 20, ["壁"] = 15, ["堡"] = 28, ["崩"] = 20, ["碎"] = 20,
-                ["塔"] = 25, ["圭"] = 30, ["杜"] = 55, ["垚"] = 75, ["㙓"] = 100,
+                ["碉"] = 10, ["垒"] = 15, ["壁"] = 15, ["堡"] = 20, ["崩"] = 20, ["碎"] = 20,
+                ["塔"] = 25, ["圭"] = 35, ["杜"] = 35, ["垚"] = 50, ["㙓"] = 70,
             };
+            foreach (var kv in defense)
+                Assert.That(kv.Value, Is.EqualTo(ArmorByTier[Tier(Char(kv.Key).Rarity)].Points), $"{kv.Key} 护甲表与梯度对账");
             foreach (var kv in armorBreak)
                 Assert.That(Only(Char(kv.Key).AttackEffects, EffectKind.ArmorBreak, kv.Key).Value, Is.EqualTo(kv.Value), $"{kv.Key} 破甲");
             foreach (var kv in defense)
@@ -260,14 +272,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Targeting_OnSplitData()
         {
-            // Review Focus 2:火字攻击面选敌、燃面(单体上灼)也选敌,焱 燃面全体不选;金铠面不选
+            // 火字攻击面单体才选敌;五行面随攻击面范围(spec A §3),只有单体的燥 / 蒸 / 炎 / 灿 / 热选敌;金格挡面不选
             foreach (var d in OfElement(Element.Fire))
             {
                 Assert.That(BattleEngine.FaceOf(d, attackMode: true), Is.EqualTo(CardFace.Attack), d.Id);
                 Assert.That(BattleEngine.FaceOf(d, attackMode: false), Is.EqualTo(CardFace.Feature), d.Id);
                 bool attackAll = d.AttackEffects[0].Shape == TargetArea.All;
                 Assert.That(BattleEngine.NeedsTarget(d, attackMode: true), Is.EqualTo(!attackAll), $"{d.Id} 攻");
-                Assert.That(BattleEngine.NeedsTarget(d, attackMode: false), Is.EqualTo(d.Id != "焱"), $"{d.Id} 燃");
+                Assert.That(BattleEngine.NeedsTarget(d, attackMode: false), Is.EqualTo(!attackAll), $"{d.Id} 五行面");
             }
             foreach (var d in OfElement(Element.Metal))
             {
@@ -277,6 +289,10 @@ namespace Brushblade.Core.Tests
             }
             Assert.That(BattleEngine.FaceOf(Char("花"), attackMode: true), Is.EqualTo(CardFace.Attack));
             Assert.That(BattleEngine.NeedsTarget(Char("花"), attackMode: false), Is.False, "花 生:召唤不选敌");
+            var fireFeatureTargets = OfElement(Element.Fire).Where(d => BattleEngine.NeedsTarget(d, attackMode: false))
+                .Select(d => d.Id).OrderBy(x => x, System.StringComparer.Ordinal).ToList();
+            Assert.That(fireFeatureTargets,
+                Is.EqualTo(new[] { "灿", "炎", "热", "燥", "蒸" }.OrderBy(x => x, System.StringComparer.Ordinal).ToList()));
         }
     }
 }
