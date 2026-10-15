@@ -57,6 +57,7 @@ namespace Brushblade.Presentation
             GlossaryTerm.Speed => Strings.T("term.speed.name"),
             GlossaryTerm.SpendHeft => Strings.T("term.spend_heft.name"),
             GlossaryTerm.SpendWellspring => Strings.T("term.spend_wellspring.name"),
+            GlossaryTerm.Kindle => Strings.T("term.kindle.name"),   // spec C §5.3
             GlossaryTerm.AreaSingle => Strings.T("term.area_single.name"),
             GlossaryTerm.AreaAdjacent => Strings.T("term.area_adjacent.name"),
             GlossaryTerm.AreaRow => Strings.T("term.area_row.name"),
@@ -109,6 +110,7 @@ namespace Brushblade.Presentation
             GlossaryTerm.Speed => Strings.T("term.speed.desc"),
             GlossaryTerm.SpendHeft => Strings.T("term.spend_heft.desc"),
             GlossaryTerm.SpendWellspring => Strings.T("term.spend_wellspring.desc"),
+            GlossaryTerm.Kindle => Strings.T("term.kindle.desc"),
             GlossaryTerm.AreaSingle => Strings.T("term.area_single.desc"),
             GlossaryTerm.AreaAdjacent => Strings.T("term.area_adjacent.desc"),
             GlossaryTerm.AreaRow => Strings.T("term.area_row.desc"),
