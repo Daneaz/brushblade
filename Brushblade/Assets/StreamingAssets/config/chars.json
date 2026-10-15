@@ -2671,7 +2671,7 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "箭灵",
+          "name": "木箭",
           "effects": [
             {
               "kind": "SummonRanged",

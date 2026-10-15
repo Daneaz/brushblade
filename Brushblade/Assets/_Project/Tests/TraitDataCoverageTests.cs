@@ -215,7 +215,7 @@ namespace Brushblade.Core.Tests
             // + 攻面同档精进,两条同名,所以 51 条、46 格。坚心保留原文、空效果行(同湮灭);双木 / 三木是字形特性;折桂是击杀时
             "花 Lv8 Attack 移花接木",
             "藤 Lv8 Feature 攀附",
-            "箭 Lv5 Feature 箭灵", "箭 Lv8 Attack 万箭齐发",
+            "箭 Lv5 Feature 木箭", "箭 Lv8 Attack 万箭齐发",
             "楸 Lv4 Attack 秋实", "楸 Lv4 Feature 秋实", "楸 Lv5 Attack 落叶", "楸 Lv8 Attack 秋风扫叶", "楸 Lv8 Feature 一叶知秋",
             "荆 Lv4 Attack 披荆", "荆 Lv4 Feature 披荆", "荆 Lv5 Attack 荆刺", "荆 Lv8 Attack 荆鞭", "荆 Lv8 Feature 荆天棘地",
             "林 Lv4 Both 双木", "林 Lv5 Attack 众木", "林 Lv5 Feature 林风", "林 Lv6 Feature 林荫", "林 Lv8 Attack 林海", "林 Lv8 Feature 林立",
