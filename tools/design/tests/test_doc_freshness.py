@@ -72,7 +72,8 @@ def test_doc_is_fresh():
 # 加新修饰字段时请在这里登记 —— 漏登记不会报错,但那正是这张网的边界,
 # 字段本身是否有卡面渲染由 CardFaceCoverageTests 守。
 PAIRED_CONCEPTS = {
-    "executeKills": ("char.effect.execute.kill", {"Boss", "双倍", "斩杀"}),
+    # 「Boss 改吃双倍」只留在文档:卡面上由「斩杀」词条解释(2026-10-15 词条去重),效果句只印斩杀线
+    "executeKills": ("char.effect.execute.kill", {"斩杀"}),
     "hitCount": ("char.effect.hitcount", {"段"}),
     "summonShield": ("char.effect.summonshield", {"盾"}),
     # pierce 只要「穿透」:文档紧凑表格写「穿透 15」,卡面弹窗写「无视 15 点护甲」——

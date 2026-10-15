@@ -86,7 +86,6 @@ namespace Brushblade.Core.Tests
                 ("char.effect.opening.band", GlossaryTerm.Band),
                 ("char.effect.damagecut", GlossaryTerm.DamageCut),
                 ("char.effect.counterboost", GlossaryTerm.CounterBoost),
-                ("char.effect.counterboost", GlossaryTerm.Block),
                 ("char.shape.volley", GlossaryTerm.AreaScatter),
                 ("char.effect.healovertime.single", GlossaryTerm.Hot),
                 ("char.effect.defensebuff", GlossaryTerm.Armor),

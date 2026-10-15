@@ -228,8 +228,9 @@ namespace Brushblade.Presentation
                             ? Strings.T("char.effect.detonate.portion", ("percent", e.PortionPercent))
                             : Strings.T("char.effect.detonate"),
                     // 灼操作族(D2-火 Task 2):百分比 / 层数是离散量,读 e.Value
+                    // 上限(CombatCaps.BurnStacks)不印:「灼」词条已写「最多 10 层」
                     EffectKind.BurnScale => Strings.T("char.effect.burnscale",
-                        ("mult", (e.Value / 100f).ToString("0.##")), ("cap", CombatCaps.BurnStacks)),
+                        ("mult", (e.Value / 100f).ToString("0.##"))),
                     EffectKind.BurnEqualize => Strings.T("char.effect.burnequalize"),
                     // 灼附着族(D2-火 Task 3):都挂在本字的灼上,灼消失时一并消失。上炎的层数 / 回合是离散量(e.Value / e.Turns)
                     EffectKind.HealBlock => Strings.T("char.effect.healblock"),
@@ -237,8 +238,8 @@ namespace Brushblade.Presentation
                     EffectKind.BurnHold => Strings.T("char.effect.burnhold"),
                     EffectKind.BurnBurst => Strings.T("char.effect.burnburst"),
                     EffectKind.BurnBacklash => Strings.T("char.effect.burnbacklash"),
-                    // 致命(D2-金 J5,割喉):Value = 回合数,不吃等级;斩杀线读 Core 常量
-                    EffectKind.Doom => Strings.T("char.effect.doom", ("turns", e.Value), ("percent", BattleEngine.DoomExecutePercent)),
+                    // 致命(D2-金 J5,割喉):Value = 回合数,不吃等级。斩杀线(常量 30%)与 Boss 分支由「致命」词条解释
+                    EffectKind.Doom => Strings.T("char.effect.doom", ("turns", e.Value)),
                     // 战意族(D2-金 Task 4):量吃卡等级(shown)。富甲含木灵(Q15),金气只给玩家
                     EffectKind.MoraleOverflowShield => Strings.T("char.effect.moraleoverflowshield", ("value", shown)),
                     EffectKind.MoraleArmor => Strings.T("char.effect.morale_armor", ("value", shown)),
@@ -288,11 +289,9 @@ namespace Brushblade.Presentation
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
                     EffectKind.ApBoost => Strings.T("char.effect.apboost", ("value", e.Value)),
-                    // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
+                    // 暴击倍率不印:「暴击」词条已写「伤害 ×1.5」(改 CritMultiplierPercent 时同步改 term.crit.desc)
                     EffectKind.CritBuff => Strings.T("char.effect.critbuff",
-                        ("value", shown),
-                        ("mult", (BattleConfig.CritMultiplierPercent / 100f).ToString("0.##")),
-                        ("turns", e.Turns)),
+                        ("value", shown), ("turns", e.Turns)),
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
                     EffectKind.PierceBuff => Strings.T("char.effect.piercebuff", ("value", shown)),
@@ -323,7 +322,8 @@ namespace Brushblade.Presentation
                     EffectKind.BlockMod => BlockModText(e, cardLevel, blockBasePercent),
                     // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
                     EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
-                    EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
+                    // 倍数不印:「反击加倍」词条已写「×2,本回合有效」(数据里 value 都是 100)
+                    EffectKind.CounterBoost => Strings.T("char.effect.counterboost"),
                     EffectKind.Endure => e.Pick == EffectPick.SummonedThisCast
                         ? Strings.T("char.effect.endure.summoned") : Strings.T("char.effect.endure"),
                     // 双木(E41 fromBody)/ 丛藻(E47 sprout)
@@ -518,8 +518,6 @@ namespace Brushblade.Presentation
             return e.Value > 0 ? Strings.T("char.effect.taunt.turns", ("who", who), ("turns", e.Value))
                 : Strings.T("char.effect.taunt.battle", ("who", who));
         }
-
-        internal static string BoostMult(int percent) => ((100 + percent) / 100f).ToString("0.##");
 
         /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了
         /// (`1514207 feat(core)`,范围只写了 core),而 CharInfo 从没跟进,玩家看铡的卡面只见
