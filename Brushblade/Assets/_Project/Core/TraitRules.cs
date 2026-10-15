@@ -456,7 +456,9 @@ namespace Brushblade.Core
                 hostAtkStrikePercent: r.HostAtkStrikePercent > 0 ? effects[at].HostAtkStrikePercent + r.HostAtkStrikePercent : (int?)null,
                 hostArmorStrikePercent: r.HostArmorStrikePercent > 0 ? effects[at].HostArmorStrikePercent + r.HostArmorStrikePercent : (int?)null,
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
-                perHit: r.PerHit.Count > 0 ? r.PerHit : null,
+                // 每击附带同面多条 Reshape 拼接(spec C §2,金石 + 双锋),低槽在前;只有一条时与原覆盖逐位相同
+                // 改散射(Ruling 14)时前一条的每击附带随多段一并重置,不拼接(淋·暴雨不带倾盆的 extend)
+                perHit: r.PerHit.Count > 0 ? (toScatter ? r.PerHit : effects[at].PerHit.Concat(r.PerHit).ToList()) : null,
                 perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : toScatter ? 1 : (int?)null,
                 shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null,
                 // 斩杀(D2-金 E7,铡刀落)与击数按战意(E10,大卸八块)
