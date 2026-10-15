@@ -82,6 +82,7 @@ namespace Brushblade.Core
             [EffectKind.Vulnerable] = false,
             [EffectKind.Bleed] = false,   // D2-金 E8:流血读 turns(缺省 3)
             [EffectKind.Charm] = false,   // D2-木 Q27:花的池·寄生(种 +1 回合)落到魅惑,见 ApplyAugment
+            [EffectKind.Kindle] = false,   // spec C:燃意读 turns
         };
 
         public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);
@@ -315,6 +316,7 @@ namespace Brushblade.Core
             if (over.ReturnFire != 0) m.ReturnFire = over.ReturnFire;
             if (over.DeathBlast != 0) m.DeathBlast = over.DeathBlast;
             if (over.SproutDeathSlow != 0) m.SproutDeathSlow = over.SproutDeathSlow;
+            if (over.SelfCut != 0) m.SelfCut = over.SelfCut;
             if (over.DeathPart) m.DeathPart = true;
             return m;
         }
@@ -373,8 +375,8 @@ namespace Brushblade.Core
             {
                 var e = effects[i];
                 if (!InScope(amp.Scope, e.Kind) || e.OpeningBattles > 0) continue;
-                var terms = new List<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)>(e.AmpTerms)
-                    { (amp.Value, amp.OnlyIf, amp.ScaleBy, amp.ScaleCap) };
+                var terms = new List<(int Percent, DamageCondition If, ScaleBasis Per, int Cap, int MinSpent)>(e.AmpTerms)
+                    { (amp.Value, amp.OnlyIf, amp.ScaleBy, amp.ScaleCap, amp.MinSpent) };
                 effects[i] = e.With(ampTerms: terms);
             }
         }
@@ -480,6 +482,7 @@ namespace Brushblade.Core
                 scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null,
                 // D2-金 Task 2(J1):格挡附带的运行时字段,同样非缺省覆盖
                 counterColumn: m.CounterColumn ? true : (bool?)null,
+                counterRow: m.CounterRow ? true : (bool?)null,
                 counterHits: m.CounterHits > 0 ? m.CounterHits : (int?)null,
                 counterExecuteBelow: m.CounterExecuteBelow > 0 ? m.CounterExecuteBelow : (int?)null,
                 blockBleed: m.BlockBleed > 0 ? m.BlockBleed : (int?)null,
@@ -521,6 +524,8 @@ namespace Brushblade.Core
             bool burn = kind == EffectKind.BurnSingle || kind == EffectKind.BurnAll;   // 作用于火力(D2-火 G3)
             // 生面(D2-木 E38,Q5):召唤的血与攻、群疗、群盾只进 All(不动 Heal / Shield 档);幼苗百分比、嘲讽、保命不进
             bool summon = kind == EffectKind.Summon || kind == EffectKind.HealSummons || kind == EffectKind.ShieldSummons;
+            bool kindle = kind == EffectKind.Kindle;   // spec C 燃意:攻击 %
+            bool spend = kind == EffectKind.SpendHeft || kind == EffectKind.SpendWellspring;   // spec C §6:只进 Spend,不进 All
             return scope switch
             {
                 AmpScope.Damage => damage,
@@ -529,7 +534,8 @@ namespace Brushblade.Core
                 AmpScope.Counter => counter,
                 AmpScope.Seed => seed,
                 AmpScope.Burn => burn,
-                AmpScope.All => damage || heal || shield || counter || seed || burn || summon,
+                AmpScope.Spend => spend,
+                AmpScope.All => damage || heal || shield || counter || seed || burn || summon || kindle,
                 _ => false,
             };
         }

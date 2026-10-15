@@ -139,6 +139,9 @@ namespace Brushblade.Core
         /// <summary>贯穿反击打同列其余目标的百分比(锥立「其余目标 70%」)。</summary>
         public const int CounterColumnPercent = 70;
 
+        /// <summary>反击横扫打同排其余目标的百分比(扫锋「其余 70%」)。</summary>
+        public const int CounterRowPercent = 70;
+
         /// <summary>出字时把 Block 条目上的格挡附带搬进状态(J1)。流血量此刻按卡等级与攻击力定死(Q12);
         /// 立威记下施加者字 ID(Task 3 铁则回查)。全缺省时什么都不写 —— 状态与原格挡逐位相同。</summary>
         private void CarryBlockRiders(StatusEffect block, EffectDef effect, string charId, int cardLevel)

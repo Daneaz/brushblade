@@ -723,10 +723,13 @@ namespace Brushblade.Core
         private int AmpPercent(EffectDef effect, int enemyIndex)
         {
             int sum = 0;
-            foreach (var (percent, onlyIf, per, cap) in effect.AmpTerms)
+            foreach (var (percent, onlyIf, per, cap, minSpent) in effect.AmpTerms)
+            {
+                if (minSpent > 0 && _cast.Spent < minSpent) continue;   // spec C §6:释放门槛;不设门槛时恒等
                 if (onlyIf == DamageCondition.None || PreCastConditionMet(onlyIf, enemyIndex))
                     // 计数缩放(D2-火 N4,燥裂):百分点 × 出字前计数,钳到 cap;不缩放的项原样相加
                     sum += per == ScaleBasis.None ? percent : ScaledAmpPercent(percent, per, cap, enemyIndex);
+            }
             return sum;
         }
 

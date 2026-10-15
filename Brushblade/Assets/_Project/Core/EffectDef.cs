@@ -244,6 +244,12 @@ namespace Brushblade.Core
         OverhealShield, // 冰肌:本次出字到此为止的治疗溢出量 × Value% 转为玩家护盾(走 AddPlayerShield);不攒厚。离散。非敌对。
         BlockGain,      // 金汇:玩家已有格挡 → 次数 + Value(反击不变);没有 → 新挂 Value 次,反击 = 攻面本体(吃等级)× 本字五行面 Block 的反击 %(没有则 BattleConfig.BlockCounterPercent)。离散。非敌对。
         ReviveShield,   // 泽润:本次出字复活的每只木灵 + 护盾(其最大生命 × Value%,走 AddSummonShield);不攒厚。离散。非敌对。
+        // ---- spec C(2026-10-15):木灵属性 / 燃意 / 释放层数族。⚠ 只在末尾追加 ----
+        Kindle,      // 燃意:落点(玩家 / 木灵;pick AllAllies = 玩家 + 全部存活木灵)挂 StatusKind.Kindle,Magnitude = 攻击 +Value%(吃卡等级),
+                     // Turns 回合;期间该单位每段 DamageSingle / 木灵出手命中给被命中的敌人 +KindleBurnPerHit 层灼。同一单位取较高 % 与较长回合。非敌对。
+        Attune,      // 点金 / 化水 / 引火 / 培土:五行面落到活木灵时把它的属性改为本字所属系(永久、跨场);落玩家空转。Value 不用。非敌对。
+        SpendHeal,   // 回澜:本次释放泉 / 厚的实际伤害合计(CastContext.SpentDamage)× Value% 治疗玩家与全部存活木灵;不吃泉放大、不攒泉。离散。非敌对。
+        SpendShield, // 地动:玩家与全部存活木灵各得护盾 = 本次释放的每目标伤害(CastContext.SpentPerTarget)× Value%;不攒厚。离散。非敌对。
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -263,6 +269,8 @@ namespace Brushblade.Core
         Shield,         // DamageSingle / Reshape:击数 = HitCount + min(ScaleCap, ⌊出字前护盾 / ScaleDivisor⌋)(地裂;R3)
         // ---- D2-木 Task 1(附录 E39)。⚠ 只在末尾追加 ----
         SummonCount,    // Amplify:出字前的存活木灵数(含幼苗;R3,同 PreCastConditions 一并取)。众木 / 林深
+        // ---- spec C(2026-10-15)§6。⚠ 只在末尾追加 ----
+        Spent,          // 本次出字释放的泉 / 厚层数(CastContext.Spent,清空前);只给 ArmorBreak(崩裂 / 厚壤):Magnitude = Value × 层数
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>
@@ -287,6 +295,7 @@ namespace Brushblade.Core
         Counter,  // 格挡反击量(Block 写 CounterDamage 时乘)
         All,      // 以上全部(D2-火 起含 Burn)
         Burn,     // 本字 BurnSingle / BurnAll 施加的灼的**火力**(Potency × (100+Σ)/100),不改层数(D2-火 G3)
+        Spend,    // 释放泉 / 厚的伤害(SpendHeft / SpendWellspring,spec C §6);不进 All
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -633,13 +642,21 @@ namespace Brushblade.Core
         /// 百分比不吃卡等级、不额外攒厚(同 <see cref="OfShield"/>)。回合脉冲载荷随 <see cref="OpeningEffect.OfPlayerShield"/> 带过去。</summary>
         public bool OfPlayerShield { get; }
 
-        internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> AmpTerms { get; private set; } = NoAmpTerms;
+        /// <summary>反击横扫(扫锋,token `counterShape Row`):反击打完攻击者后,再打同排其余存活敌人(每击本体反击的 70%),
+        /// 共用 60% 预算;与贯穿同时有时同一敌人只吃一次。只写在 BlockMod 上,Fold 搬到 Block。</summary>
+        public bool CounterRow { get; }
+
+        /// <summary>释放门槛(spec C §6):本次出字释放的泉 / 厚层数 ≥ N 才生效;0 = 不设。
+        /// Freeze / Slow 写在效果上(ResolveEffect 入口判);Amplify 折进 AmpTerms 的第 5 项(AmpPercent 判)。</summary>
+        public int MinSpent { get; }
+
+        internal IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap, int MinSpent)> AmpTerms { get; private set; } = NoAmpTerms;
 
         /// <summary>是否被 Fold 挂上了 Amplify 加成。AmpTerms 是 internal,Data 层(ConfigLoader)只能经由这里判断 ——
         /// Data 是独立程序集,看不到 Core 的 internal(工装把两层编在一起,发现不了)。</summary>
         public bool HasAmpTerms() => AmpTerms.Count > 0;
 
-        private static readonly (int, DamageCondition, ScaleBasis, int)[] NoAmpTerms = new (int, DamageCondition, ScaleBasis, int)[0];
+        private static readonly (int, DamageCondition, ScaleBasis, int, int)[] NoAmpTerms = new (int, DamageCondition, ScaleBasis, int, int)[0];
         private static readonly EffectDef[] NoPerHit = new EffectDef[0];
 
         public EffectDef(EffectKind kind, int value,
@@ -671,7 +688,7 @@ namespace Brushblade.Core
             int summonAtkStrikePercent = 0, int hostAtkStrikePercent = 0, int hostArmorStrikePercent = 0,
             bool fromBody = false, bool sprout = false, bool ownSummons = false, bool byArmor = false,
             int reviveHpPercent = 0, int summonPercent = 100,
-            bool perShieldTenth = false, bool ofPlayerShield = false)
+            bool perShieldTenth = false, bool ofPlayerShield = false, bool counterRow = false, int minSpent = 0)
         {
             Kind = kind;
             Value = value;
@@ -752,6 +769,8 @@ namespace Brushblade.Core
             SummonPercent = summonPercent <= 0 ? 100 : summonPercent;
             PerShieldTenth = perShieldTenth;
             OfPlayerShield = ofPlayerShield;
+            CounterRow = counterRow;
+            MinSpent = minSpent;
         }
 
         /// <summary>焚城的结算效果(D2-火 N6,只由 ResolveDefeat 入队):对全体存活敌人按灼烧公式结算 <paramref name="stacks"/> 层一次。</summary>
@@ -763,7 +782,7 @@ namespace Brushblade.Core
         internal EffectDef With(TargetArea? shape = null, int? shapePercent = null, int? shots = null,
             int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
             int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
-            IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)> ampTerms = null,
+            IReadOnlyList<(int Percent, DamageCondition If, ScaleBasis Per, int Cap, int MinSpent)> ampTerms = null,
             int? value = null, int? turns = null, string traitKey = null, SummonPassive passive = null,
             EffectPick? pick = null, IReadOnlyList<EffectDef> perHit = null, int? perHitFrom = null, int? shotPercent = null,
             int? executeBelowPercent = null, bool? executeKills = null, ScaleBasis? scaleBy = null, int? scaleMin = null,
@@ -776,7 +795,8 @@ namespace Brushblade.Core
             int? armorShieldPercent = null, bool? armorStrikeEach = null,
             int? scaleDivisor = null, int? scaleCap = null,
             int? summonAtkStrikePercent = null, int? hostAtkStrikePercent = null, int? hostArmorStrikePercent = null,
-            int? summonCount = null, int? summonPercent = null, bool? targetAll = null) =>
+            int? summonCount = null, int? summonPercent = null, bool? targetAll = null,
+            bool? counterRow = null, int? minSpent = null) =>
             new EffectDef(Kind, value ?? Value, DoubleVs, summonCount ?? SummonCount, SummonAttack, SummonChar,
                 turns ?? Turns, targetAll ?? TargetAll, passive ?? Passive, SummonShield, SummonDefense,
                 executeBelowPercent ?? ExecuteBelowPercent, executeKills ?? ExecuteKills,
@@ -797,7 +817,7 @@ namespace Brushblade.Core
                 summonAtkStrikePercent ?? SummonAtkStrikePercent, hostAtkStrikePercent ?? HostAtkStrikePercent,
                 hostArmorStrikePercent ?? HostArmorStrikePercent,
                 FromBody, Sprout, OwnSummons, ByArmor, ReviveHpPercent, summonPercent ?? SummonPercent,
-                PerShieldTenth, OfPlayerShield)
+                PerShieldTenth, OfPlayerShield, counterRow ?? CounterRow, minSpent ?? MinSpent)
             {
                 AmpTerms = ampTerms ?? AmpTerms,
                 TraitKey = traitKey ?? TraitKey,

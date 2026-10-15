@@ -108,6 +108,7 @@ namespace Brushblade.Data
             public bool OfVictimMaxHp { get; set; }         // HealSelf:回复量 = 被杀者 MaxHp × Value%
             // D2-金 Task 2(附录 J1):格挡附带,只给 BlockMod
             public bool CounterColumn { get; set; }         // 贯穿反击(同列其余 70%)
+            public bool CounterRow { get; set; }            // 反击横扫(同排其余 70%)
             public int CounterHits { get; set; }            // 反击击数
             public int CounterExecuteBelow { get; set; }    // 立威:攻击者生命 < N% 斩杀(Boss 反击 ×2)
             public int BlockBleed { get; set; }             // 格挡时给攻击者挂流血(量吃卡等级与攻击力)
@@ -142,6 +143,7 @@ namespace Brushblade.Data
             // 护盾回合保留 Task 2(spec 2026-10-13 §2)
             public bool PerShieldTenth { get; set; }        // DefenseBuff:层数 = ⌊玩家护盾 × 10 / 最大生命⌋ 钳 scaleCap(七级浮屠)
             public bool OfPlayerShield { get; set; }        // ShieldSummons:每只 + 玩家当前护盾 × Value%(厚德载物)
+            public int MinSpent { get; set; }               // spec C §6:释放门槛
         }
 
         private sealed class CampaignFileDto
@@ -872,6 +874,7 @@ namespace Brushblade.Data
                 ValidateWaterOps(dto.Id, kind, effect);
                 ValidateEarthOps(dto.Id, kind, effect);
                 ValidateWoodOps(dto.Id, kind, effect);
+                ValidateSpecC(dto.Id, kind, effect);
                 // D2-火 Task 5:追加一击 / 自损的百分比;perBurningHit 只给追加一击(写在别处静默无效)
                 if (effect.PerBurningHit && kind != EffectKind.ExtraStrike)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 perBurningHit(只给 ExtraStrike)");
@@ -944,7 +947,8 @@ namespace Brushblade.Data
                     hostArmorStrikePercent: effect.HostArmorStrikePercent, fromBody: effect.FromBody, sprout: effect.Sprout,
                     ownSummons: effect.OwnSummons, byArmor: effect.ByArmor, reviveHpPercent: effect.ReviveHpPercent,
                     summonPercent: effect.SummonPercent,
-                    perShieldTenth: effect.PerShieldTenth, ofPlayerShield: effect.OfPlayerShield));
+                    perShieldTenth: effect.PerShieldTenth, ofPlayerShield: effect.OfPlayerShield,
+                    counterRow: effect.CounterRow, minSpent: effect.MinSpent));
                 // 开局登记(D2-火 N12 / 修复轮 1):校验的是「转 OpeningEffect 再 ToEffect」之后的效果 —— 与运行时
                 // RegisterOpening 判的、开局时执行的同一个对象。开局时没有主目标;条件门不随登记保留,一律拦下。
                 if (effect.OpeningBattles != 0)
@@ -1076,12 +1080,13 @@ namespace Brushblade.Data
                     nameof(ScaleBasis.Wellspring) => kind == EffectKind.Amplify,   // D2-水 E22a 洪峰
                     nameof(ScaleBasis.Cleansed) => kind == EffectKind.HealSelf,    // D2-水 E22b 濯身
                     nameof(ScaleBasis.Shield) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape,   // D2-土 E36 地裂
+                    nameof(ScaleBasis.Spent) => kind == EffectKind.ArmorBreak,   // spec C §6 崩裂 / 厚壤
                     _ => true,
                 };
                 if (!ok)
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
                         + "Morale 给 DamageSingle / Reshape / BlockMod / Amplify;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf;"
-                        + "Shield 给 DamageSingle / Reshape)");
+                        + "Shield 给 DamageSingle / Reshape;Spent 给 ArmorBreak)");
             }
             // 补满:战意(D2-金 E9)与泉(D2-水 E21,WellspringFill)
             if (e.Fill && ((kind != EffectKind.Morale && kind != EffectKind.AddWellspring) || !string.IsNullOrEmpty(e.ScaleBy)))
@@ -1095,10 +1100,10 @@ namespace Brushblade.Data
             if (perMorale && e.ScaleMin < 1)
                 throw new ConfigException($"字「{id}」的格挡次数按战意(scaleBy Morale)须写下限 scaleMin ≥ 1:{e.ScaleMin}");
             // D2-金 Task 2(J1):格挡附带只写在 BlockMod 上(Fold 搬到 Block);负数 / 越界一律拦
-            bool riders = e.CounterColumn || e.CounterHits != 0 || e.CounterExecuteBelow != 0
+            bool riders = e.CounterColumn || e.CounterRow || e.CounterHits != 0 || e.CounterExecuteBelow != 0
                 || e.BlockBleed != 0 || e.BlockMorale != 0 || e.KillRefundAp != 0;
             if (riders && kind != EffectKind.BlockMod)
-                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 counterColumn / counterHits / counterExecuteBelow / "
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 counterColumn / counterRow / counterHits / counterExecuteBelow / "
                     + "blockBleed / blockMorale / killRefundAp(只给 BlockMod)");
             if (e.CounterHits < 0 || e.BlockBleed < 0 || e.BlockMorale < 0 || e.KillRefundAp < 0
                 || e.CounterExecuteBelow < 0 || e.CounterExecuteBelow >= 100)
@@ -1114,7 +1119,19 @@ namespace Brushblade.Data
             // 开局登记只保留 Kind / Value / Turns / 选择器 / 形状(OpeningEffect.Of):这些字段登记时会丢
             if (e.OpeningBattles != 0 && (e.Fill || e.CounterPercent != 0 || e.ScaleMin != 0 || e.OfVictimMaxHp || riders))
                 throw new ConfigException($"字「{id}」的 {kind} 开局效果不能带 fill / counterPercent / scaleMin / ofVictimMaxHp / "
-                    + "格挡附带 counterColumn / counterHits / counterExecuteBelow / blockBleed / blockMorale / killRefundAp(登记时会丢)");
+                    + "格挡附带 counterColumn / counterRow / counterHits / counterExecuteBelow / blockBleed / blockMorale / killRefundAp(登记时会丢)");
+        }
+
+        /// <summary>spec C 的字段:写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>
+        private static void ValidateSpecC(string id, EffectKind kind, EffectDto e)
+        {
+            bool spendAmp = kind == EffectKind.Amplify && e.Scope == nameof(AmpScope.Spend);
+            if (e.MinSpent != 0 && (e.MinSpent < 1 || !(kind == EffectKind.Freeze || kind == EffectKind.Slow || spendAmp)))
+                throw new ConfigException($"字「{id}」的 {kind} 效果不能写 minSpent(只给 Freeze / Slow / scope Spend 的 Amplify,且须 ≥ 1):{e.MinSpent}");
+            if (kind == EffectKind.Kindle && (e.Value < 1 || e.Turns < 1))
+                throw new ConfigException($"字「{id}」的燃意(Kindle)须写正的攻击 % 与回合:{e.Value} / {e.Turns}");
+            if ((kind == EffectKind.SpendHeal || kind == EffectKind.SpendShield) && (e.Value < 1 || e.Value > 100))
+                throw new ConfigException($"字「{id}」的 {kind} 百分比须在 1–100:{e.Value}");
         }
 
         /// <summary>D2-水 Task 1 的字段(附录 E18 / E19 / E24 / E25):写在不读它的效果上引擎会静默忽略 —— 一律拦下。</summary>

@@ -12,6 +12,9 @@ namespace Brushblade.Core
     /// 恒等:这些分支只在新 EffectKind / 新字段非缺省时才走到;一律不摇随机数。</summary>
     public sealed partial class BattleEngine
     {
+        /// <summary>燃意:每次攻击命中给敌人加的灼层数(spec C §5.1,各档恒 1)。</summary>
+        public const int KindleBurnPerHit = 1;
+
         /// <summary>BurnScale(N1,焦土 / 炎炎 / 灿然):目标灼层数 × percent%(向下取整),钳到上限;只升不降,0 层空转。</summary>
         private void ScaleBurnOn(int enemyIndex, int percent, int potency)
         {

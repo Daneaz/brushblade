@@ -139,6 +139,7 @@ namespace Brushblade.Core.Tests
             EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar,
             EffectKind.Lifesteal, EffectKind.OverhealShield,   // spec A D8:回复玩家 / 给玩家护盾
             EffectKind.BlockGain, EffectKind.ReviveShield,     // spec A D7 / D8:给玩家格挡 / 给复活木灵护盾
+            EffectKind.Kindle, EffectKind.Attune, EffectKind.SpendHeal, EffectKind.SpendShield,   // spec C:作用于我方 / 木灵属性
         };
 
         [Test]

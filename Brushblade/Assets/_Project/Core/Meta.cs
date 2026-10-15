@@ -826,6 +826,8 @@ namespace Brushblade.Core
             // spec A D8:吸血 / 溢疗转盾的 Value 是百分比,作用于已按等级缩放的量(直接伤害 / 治疗溢出)
             EffectKind.Lifesteal or EffectKind.OverhealShield => false,
             EffectKind.BlockGain or EffectKind.ReviveShield => false,
+            // spec C:Attune 不用 Value;回澜 / 地动是对已缩放量取百分比。燃意的攻击 % 同慑,走缺省 true(随等级)
+            EffectKind.Attune or EffectKind.SpendHeal or EffectKind.SpendShield => false,
             // D2-0 Task 2:嘲讽的 Value 是回合数(0 = 本场),离散
             EffectKind.Taunt => false,
             // D2-火 Task 2:灼层翻倍的 Value 是百分比(作用于离散的层数)、拉平不用 Value

@@ -74,7 +74,7 @@ namespace Brushblade.Core
             EffectPick.SummonedThisCast => kind == EffectKind.Endure || kind == EffectKind.Taunt,
             EffectPick.AllSummons => kind == EffectKind.Taunt || kind == EffectKind.SummonEmpower,
             EffectPick.OtherSummons or EffectPick.StrongestSummon => kind == EffectKind.SummonEmpower,
-            EffectPick.AllAllies => kind == EffectKind.Cleanse,   // D2-水 E15(水大无际)
+            EffectPick.AllAllies => kind == EffectKind.Cleanse || kind == EffectKind.Kindle,   // D2-水 E15(水大无际);spec C 燃意我方全体
             // Reshape 带敌方侧选择器 = 重选目标(D2-火 E3):本面没有伤害时把主目标效果换成该选择器
             _ => Supports(kind) || kind == EffectKind.Reshape,
         };
