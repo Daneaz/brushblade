@@ -1,4 +1,4 @@
-# 字卡五特性 · 两面制(2026-10-03 出稿;10-04 按 v6.1、v6.2、v7 修订;CardSheet / CardSheetBattle / UpgradePreview / StatusChips / StatusChipsWood / StatusChipsWaterEarth / WaterEarthCues / PartsAndGraft / WoodCues / SummonInfoNature `已实现 · 验收跳过`(E2、D2、E3);**HandFlip 预估签、WaterEarthCues 本场已用、PartsAndGraft 山描环 / 印记签、TriggerFx、StatusChips 保命、Glossary、CarryOver 10-13 Plan E4 `已实现 · 验收跳过`**;StatusChipsFire 火系三枚 10-09 `已实现 · 验收跳过`)
+# 字卡五特性 · 两面制(2026-10-03 出稿;10-04 按 v6.1、v6.2、v7 修订;CardSheet(`已取代`) / CardSheetBattle(`已取代`) / UpgradePreview / StatusChips / StatusChipsWood / StatusChipsWaterEarth / WaterEarthCues / PartsAndGraft / WoodCues / SummonInfoNature `已实现 · 验收跳过`(E2、D2、E3);**HandFlip 预估签、WaterEarthCues 本场已用、PartsAndGraft 山描环 / 印记签、TriggerFx、StatusChips 保命、Glossary(`已取代`)、CarryOver 10-13 Plan E4 `已实现 · 验收跳过`**;StatusChipsFire 火系三枚 10-09 `已实现 · 验收跳过`)
 
 依据 `docs/superpowers/specs/2026-10-03-字卡五特性体系-design.md`(v7,main `4960e26b`)§1 等级阶梯、§2 两面、§3 词条表、§7 稀有度、§8 词条池、§9 全卡表、§12 UI 清单。
 九块画板覆盖 §12 的七项(10-08 起另有第十块 `StatusChipsFire`,火系专属的三枚状态,10-09 已拍板;10-11 再加六块,D2-水 / 土 / 木与 D2-0 遗留,同日拍板)。本地直接打开 `*.dc.html` 即可交互(`support.js` 软链到 `../dc-runtime.js`),
@@ -471,3 +471,7 @@ Plan E4(分支 `claude/plan-e-remaining-items-87f4b7`,提交 `0f46fb65`..`b31b96
 
 **留到下一批**:回锋、回敬的名签;`TermMarkup.NumberPattern` 把「1-2」切成「1」「−2」;其余 minor 见执行记录「遗留」。
 **体验时注意**:见执行记录末尾「体验对照清单」。
+
+### 2026-10-15 · CardSheet / CardSheetBattle / Glossary 已取代
+技能说明区被 `../abilitytext/`(spec B,全平铺 + 取色 A 案 + 图标 chip)取代;外壳(头、等级条、右栏、脚)仍按本目录稿。
+三块画板暂留原处,用户确认后移入 `../deprecated/`。
