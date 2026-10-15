@@ -34,6 +34,7 @@ namespace Brushblade.Core
         // ---- 字卡详情五行面按系定格(spec B §1.3,不缩放)----
         CounterPercent,  // 金:反击 %(每字携带,spec A §4.2;Lv3 折叠后;缺省 BattleConfig.BlockCounterPercent)
         ReviveHp,        // 水·苏:复活生命 %(Revive 的 ReviveHpPercent;0 = 半血 50)
+        Kindle,          // 火·燃意:攻击 %(缩放);回合在紧跟的 Duration 格,灼层另起一格(spec C §5.3)
     }
 
     /// <summary>一格数值。</summary>
@@ -96,7 +97,8 @@ namespace Brushblade.Core
             FaceStatKind.Damage or FaceStatKind.Heal or FaceStatKind.Shield
                 or FaceStatKind.SummonHp or FaceStatKind.SummonAttack
                 or FaceStatKind.Weaken or FaceStatKind.Armor
-                or FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft => true,
+                or FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft
+                or FaceStatKind.Kindle => true,
             _ => false,
         };
 
@@ -128,7 +130,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>字卡详情的数值格(spec B §1.3):攻击面只列「攻击」;五行面按系定格 ——
-        /// 金 反击% · 格挡 · 战意|水 涌 治疗 / 涓 每回合治疗 + 持续 / 苏 治疗 + 复活生命%|火 慑 · 持续 · 灼|
+        /// 金 反击% · 格挡 · 战意|水 涌 治疗 / 涓 每回合治疗 + 持续 / 苏 治疗 + 复活生命%|火 燃意 · 持续 · 灼|
         /// 木 木灵生命 · 木灵攻击(0 也出)|土 护盾 · 护甲 · 持续。不出本命格。口径同 <see cref="Body"/>(Lv1 + Lv3,不并入 Lv4+)。
         /// 按系取不到任何格(防御)退回 Body 去掉本命格。升级预览仍走 <see cref="Body"/> / <see cref="Deltas"/>。</summary>
         public static IReadOnlyList<FaceStat> Sheet(CharDef def, CardFace face, int cardLevel)
@@ -190,14 +192,12 @@ namespace Brushblade.Core
 
         private static void FireCells(List<EffectDef> effects, int level, List<FaceStat> cells)
         {
-            var weaken = First(effects, EffectKind.Weaken);
-            if (weaken != null)
-            {
-                cells.Add(new FaceStat(FaceStatKind.Weaken, Scaled(weaken, level), weaken.Kind));
-                cells.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(weaken), weaken.Kind, durationOf: FaceStatKind.Weaken));
-            }
-            var burn = First(effects, EffectKind.BurnSingle, EffectKind.BurnAll);
-            if (burn != null) cells.Add(new FaceStat(FaceStatKind.Burn, burn.Value, burn.Kind));
+            // spec C §5.3:燃意 · 回合 · 灼(每次命中加的层数,恒 KindleBurnPerHit)
+            var kindle = First(effects, EffectKind.Kindle);
+            if (kindle == null) return;
+            cells.Add(new FaceStat(FaceStatKind.Kindle, Scaled(kindle, level), kindle.Kind));
+            cells.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(kindle), kindle.Kind, durationOf: FaceStatKind.Kindle));
+            cells.Add(new FaceStat(FaceStatKind.Burn, BattleEngine.KindleBurnPerHit, kindle.Kind));
         }
 
         private static void WoodCells(List<EffectDef> effects, int level, List<FaceStat> cells)
@@ -288,6 +288,10 @@ namespace Brushblade.Core
                         primary.Add(new FaceStat(FaceStatKind.SummonAttack, MetaRules.ScaleByCardLevel(e.SummonAttack, level), e.Kind));
                     if (e.Passive != null)
                         rest.Add(new FaceStat(FaceStatKind.Nature, 0, e.Kind, e.Passive));
+                    break;
+                case EffectKind.Kindle:
+                    rest.Add(new FaceStat(FaceStatKind.Kindle, Scaled(e, level), e.Kind));
+                    rest.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(e), e.Kind, durationOf: FaceStatKind.Kindle));
                     break;
                 case EffectKind.BurnSingle:
                 case EffectKind.BurnAll:

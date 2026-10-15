@@ -66,7 +66,7 @@ namespace Brushblade.Core
     }
 
     /// <summary>「本字效果 +X%」在一面上实际放大的项(<see cref="CardSheetRules.FeatureAmpItems"/>),声明顺序即印的顺序。</summary>
-    public enum AmpItem { Damage, Heal, Shield, Counter, Seed, Burn, Summon }
+    public enum AmpItem { Damage, Heal, Shield, Counter, Seed, Burn, Summon, Kindle }
 
     /// <summary>字卡详情 / 升级预览「显示哪几行」的规则(Plan E2)。纯函数,只读字表,不看场面。
     /// 字卡详情(spec B)已全平铺:每面逐级一行(Lv1 起,两面同级成对);「两面」条(<see cref="SharedTraits"/> 等)现只服务升级预览,
@@ -149,6 +149,7 @@ namespace Brushblade.Core
             EffectKind.Seed => AmpItem.Seed,
             EffectKind.BurnSingle or EffectKind.BurnAll => AmpItem.Burn,
             EffectKind.Summon => AmpItem.Summon,
+            EffectKind.Kindle => AmpItem.Kindle,
             _ => null,
         };
 
@@ -197,6 +198,7 @@ namespace Brushblade.Core
         private static bool IsAllTargeted(EffectDef e) =>
             e.Kind == EffectKind.BurnAll || e.Kind == EffectKind.HealAll || e.Kind == EffectKind.ShieldAll
             || e.TargetAll || e.Shape == TargetArea.All
+            || (e.Kind == EffectKind.Kindle && e.Pick == EffectPick.AllAllies)
             || (EffectPickRules.Supports(e.Kind) && EffectPickRules.Effective(e) == EffectPick.All);
 
         // ---- 内部 ----
