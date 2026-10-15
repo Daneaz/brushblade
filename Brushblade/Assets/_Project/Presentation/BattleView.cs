@@ -294,6 +294,7 @@ namespace Brushblade.Presentation
         private Transform _summonFrontRow;
         private Transform _summonBackRow;
         private Transform _topLeft, _topRight, _bottomRow;
+        private RectTransform _playerPortrait;   // 底栏「我」立绘块,每次重绘重建
         private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
         private Transform _endTurnRow;   // 结束回合钮:2026-08-20 起在右侧拆合台竖栏的底部
         private Transform _libraryRow;
@@ -455,6 +456,9 @@ namespace Brushblade.Presentation
             _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
             _juice.ChipCue = (on, index, icon) => _chipCues.Add(new ChipCueEntry(on, index, icon));
             _juice.PlayerCell = _bottomRow;   // 水土提示(E3 Task 5):玩家的免疫 chip 与护盾角标都在底栏里
+            // 格挡反击(counterfx):盾印压在玩家立绘块上;加倍按玩家身上的 CounterBoost(木灵的格挡也吃它)
+            _juice.PlayerPortraitAt = () => _playerPortrait;
+            _juice.CounterBoostPct = () => Battle.PlayerStatuses.MaxMagnitude(StatusKind.CounterBoost);
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
@@ -2158,6 +2162,7 @@ namespace Brushblade.Presentation
             float blkInfoGap = _bottomRow.GetComponent<HorizontalLayoutGroup>().spacing;
             Ui.UnitBlock(_bottomRow, "Unit", PlayerBlkSize, -1f, blkInfoGap,
                 out var portrait, out var info);
+            _playerPortrait = (RectTransform)portrait;   // 格挡反击的盾印落点(Juice.PlayerPortraitAt)
             var blkImage = portrait.gameObject.AddComponent<Image>();
             blkImage.sprite = Theme.Rounded(15);
             blkImage.type = Image.Type.Sliced;

@@ -250,25 +250,26 @@ namespace Brushblade.Presentation
         /// <summary>载体闪(稿 .flash,0.45s):25% 处 scale 1.4、往白推(≈ brightness 1.55)、白描环 3 + 赭金发光,再收回。
         /// 只改 localScale,描环与发光 ignoreLayout,不挤动同排 chip。同一载体在闪时不重入(<see cref="_flashing"/>)。
         /// 返回载体本身(飘名锚点用),null 原样返回。</summary>
-        public RectTransform FlashCarrier(RectTransform carrier)
+        /// <param name="glow">外发光色;缺省赭金。格挡反击的格挡 chip 用铜绿(counterfx 稿 .flash)。</param>
+        public RectTransform FlashCarrier(RectTransform carrier, Color? glow = null)
         {
-            if (carrier != null && _flashing.Add(carrier)) StartCoroutine(CarrierFlashRoutine(carrier, true));
+            if (carrier != null && _flashing.Add(carrier)) StartCoroutine(CarrierFlashRoutine(carrier, true, glow ?? FlashGlow));
             return carrier;
         }
 
         /// <summary>立绘版载体闪(稿 .pt.flash):不缩放,只加亮(≈ brightness 1.5)+ 赭金外发光,0.45s。</summary>
         public void FlashPortrait(RectTransform portrait)
         {
-            if (portrait != null && _flashing.Add(portrait)) StartCoroutine(CarrierFlashRoutine(portrait, false));
+            if (portrait != null && _flashing.Add(portrait)) StartCoroutine(CarrierFlashRoutine(portrait, false, FlashGlow));
         }
 
-        private IEnumerator CarrierFlashRoutine(RectTransform carrier, bool chip)
+        private IEnumerator CarrierFlashRoutine(RectTransform carrier, bool chip, Color glowColor)
         {
             var images = carrier.GetComponentsInChildren<Image>(true);
             var original = new Color[images.Length];
             for (int i = 0; i < images.Length; i++) original[i] = images[i].color;
             float size = Mathf.Min(carrier.rect.width, carrier.rect.height);
-            var glow = FlashRing(carrier, "FlashGlow", FlashGlow, chip ? 6f : 8f, 6, size);
+            var glow = FlashRing(carrier, "FlashGlow", glowColor, chip ? 6f : 8f, 6, size);
             var ring = chip ? FlashRing(carrier, "FlashRing", Color.white, 1.5f, 3, size) : null;
             float push = chip ? 0.35f : 0.33f;
 
@@ -280,7 +281,7 @@ namespace Brushblade.Presentation
                 float w = k < 0.25f ? k / 0.25f : 1f - (k - 0.25f) / 0.75f;
                 if (chip)
                 {
-                    float s = 1f + 0.4f * w;
+                    float s = (1f + 0.4f * w) * ShrinkOf(carrier);   // 格挡 chip 扣到 0 时同时在缩没(JuiceCounter)
                     carrier.localScale = new Vector3(s, s, 1f);
                 }
                 for (int i = 0; i < images.Length; i++)
@@ -290,17 +291,19 @@ namespace Brushblade.Presentation
                         c.a = original[i].a;
                         images[i].color = c;
                     }
-                if (glow != null) glow.color = new Color(FlashGlow.r, FlashGlow.g, FlashGlow.b, FlashGlow.a * w);
+                if (glow != null) glow.color = new Color(glowColor.r, glowColor.g, glowColor.b, glowColor.a * w);
                 if (ring != null) ring.color = new Color(1f, 1f, 1f, w);
                 yield return null;
             }
-            if (carrier != null && chip) carrier.localScale = Vector3.one;
+            if (carrier != null && chip) { float m = ShrinkOf(carrier); carrier.localScale = new Vector3(m, m, 1f); }
             for (int i = 0; i < images.Length; i++)
                 if (images[i] != null) images[i].color = original[i];
             if (glow != null) Destroy(glow.gameObject);
             if (ring != null) Destroy(ring.gameObject);
             _flashing.Remove(carrier);
         }
+
+        private float ShrinkOf(RectTransform carrier) => _chipShrink.TryGetValue(carrier, out var mul) ? mul : 1f;
 
         // ---- 主动特性出字飘名(B-Qa1,TriggerFx A)----
 
