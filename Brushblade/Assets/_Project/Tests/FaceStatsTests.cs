@@ -362,7 +362,7 @@ namespace Brushblade.Core.Tests
                         case Element.Water:
                             if (cells.Count == 2 && cells[1].Kind == FaceStatKind.ReviveHp)
                             {
-                                Assert.That(cells[0].Source == EffectKind.HealSelf || cells[0].Source == EffectKind.HealAll, Is.True, why + ":苏");
+                                Assert.That(cells[0].Source, Is.EqualTo(EffectKind.Revive), why + ":苏的治疗格 Source 记 Revive(终审 I1,词条不判涌)");
                                 Assert.That(cells[1].Source, Is.EqualTo(EffectKind.Revive), why);
                             }
                             else if (cells.Count == 2)
@@ -388,6 +388,26 @@ namespace Brushblade.Core.Tests
                 }
             Assert.That(FaceStats.Sheet(Graph.Get("荆"), CardFace.Feature, 1).Single(c => c.Kind == FaceStatKind.SummonAttack).Value,
                 Is.EqualTo(0), "荆 木灵攻击 0 也出格(稿;Review Focus 2)");
+        }
+
+        [Test]
+        public void Sheet_Water_HealTermFollowsMode()
+        {
+            // 苏(沐/㵘)面本体含 Revive:治疗格不挂涌;海=涌、冷=涓(终审 I1)
+            foreach (var ch in new[] { "沐", "㵘" })
+            {
+                var heal = FaceStats.Sheet(Graph.Get(ch), CardFace.Attack, 1).Concat(FaceStats.Sheet(Graph.Get(ch), CardFace.Feature, 1))
+                    .Where(c => c.Kind == FaceStatKind.Heal).ToList();
+                Assert.That(heal.Count, Is.GreaterThan(0), ch);
+                foreach (var c in heal)
+                    Assert.That(GlossaryRules.TermOf(c) == GlossaryTerm.Surge, Is.False, ch + " 治疗格不应是涌");
+            }
+            var all = new System.Func<string, CardFace, FaceStat[]>((n, f) => FaceStats.Sheet(Graph.Get(n), f, 1).Where(c => c.Kind == FaceStatKind.Heal).ToArray());
+            foreach (var f in new[] { CardFace.Attack, CardFace.Feature })
+            {
+                foreach (var c in all("海", f)) Assert.That(GlossaryRules.TermOf(c), Is.EqualTo(GlossaryTerm.Surge), "海");
+                foreach (var c in all("冷", f)) Assert.That(GlossaryRules.TermOf(c), Is.EqualTo(GlossaryTerm.Trickle), "冷");
+            }
         }
 
         [Test]

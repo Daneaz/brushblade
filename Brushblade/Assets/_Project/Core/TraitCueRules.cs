@@ -15,7 +15,7 @@ namespace Brushblade.Core
         Compose,
     }
 
-    /// <summary>特性触发反馈的纯规则(飘字名签、升级预览、字卡详情两面条共用)。</summary>
+    /// <summary>特性触发反馈的纯规则(飘字名签、升级预览、升级预览共用)。</summary>
     public static class TraitCueRules
     {
         /// <summary>判定顺序:拆字时 → Dismantle;成字时 → Compose;否则按 <see cref="TraitDef.Face"/>。</summary>

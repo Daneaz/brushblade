@@ -13,7 +13,7 @@ namespace Brushblade.Core
         Heal,           // HealSelf / HealAll 的治疗量
         Shield,         // Shield / ShieldAll 的护盾量
         SummonHp,       // Summon 的木灵生命
-        SummonAttack,   // Summon 的木灵攻击(为 0 不出格)
+        SummonAttack,   // Summon 的木灵攻击(Body 为 0 不出;Sheet 恒出)
         // ---- 关键状态 ----
         Burn,           // 灼:层(BurnSingle / BurnAll)
         Morale,         // 战意:层
@@ -176,15 +176,16 @@ namespace Brushblade.Core
         {
             var burst = First(effects, EffectKind.HealSelf, EffectKind.HealAll);
             var hot = First(effects, EffectKind.HealOverTime);
+            var revive = First(effects, EffectKind.Revive);
             if (burst != null)
-                cells.Add(new FaceStat(FaceStatKind.Heal, Scaled(burst, level), burst.Kind));
+                // 苏(面含 Revive)的治疗格归「苏」模式,Source 记 Revive,词条不判涌(终审 I1)
+                cells.Add(new FaceStat(FaceStatKind.Heal, Scaled(burst, level), revive != null ? revive.Kind : burst.Kind));
             else if (hot != null)
             {
                 // 涓:治疗格印每回合量(spec A 终审遗留),回合另列
                 cells.Add(new FaceStat(FaceStatKind.Heal, Scaled(hot, level), hot.Kind));
                 cells.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(hot), hot.Kind, durationOf: FaceStatKind.Heal));
             }
-            var revive = First(effects, EffectKind.Revive);
             if (revive != null) cells.Add(ReviveCell(revive));
         }
 
@@ -241,9 +242,6 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>全部格(未截断),主量在前、其余按本体顺序。internal 只为测试钉住「真实字表每面不超过
-        /// <see cref="MaxCells"/> 格」(Body 截断与 Deltas 不截断才是同一口径)。<paramref name="unlockLevel"/> 决定哪些特性已解锁,
-        /// <paramref name="skipFrom"/> 及以上的槽位整条跳过;<paramref name="scaleLevel"/> 决定缩放。</summary>
         /// <summary>该面折叠后的本体效果:Lv1 本体 + 已解锁特性折叠,<paramref name="skipFrom"/> 及以上的槽位整条跳过。
         /// <see cref="AllCells"/>、<see cref="CardSheetRules.Lv1Effects"/> 共用这一份口径。</summary>
         internal static List<EffectDef> FoldedBody(CharDef def, CardFace face, int unlockLevel, TraitSlot skipFrom)
@@ -254,6 +252,9 @@ namespace Brushblade.Core
                 skip: t => t.Slot >= skipFrom);
         }
 
+        /// <summary>全部格(未截断),主量在前、其余按本体顺序。internal 只为测试钉住「真实字表每面不超过
+        /// <see cref="MaxCells"/> 格」(Body 截断与 Deltas 不截断才是同一口径)。<paramref name="unlockLevel"/> 决定哪些特性已解锁,
+        /// <paramref name="skipFrom"/> 及以上的槽位整条跳过;<paramref name="scaleLevel"/> 决定缩放。</summary>
         internal static List<FaceStat> AllCells(CharDef def, CardFace face, int unlockLevel, int scaleLevel, TraitSlot skipFrom)
         {
             var effects = FoldedBody(def, face, unlockLevel, skipFrom);

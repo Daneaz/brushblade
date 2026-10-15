@@ -238,7 +238,7 @@ namespace Brushblade.Presentation
         private static string DeltaText(StatDelta d)
         {
             string label = DeltaLabel(d);
-            if (d.Kind == FaceStatKind.Weaken)
+            if (d.Kind == FaceStatKind.Weaken || d.Kind == FaceStatKind.CounterPercent || d.Kind == FaceStatKind.ReviveHp)
                 return Strings.T("charsheet.lv3.delta_pct", ("label", label), ("from", d.From), ("to", d.To));
             string unit = StatUnit(d.Kind);
             return unit.Length == 0

@@ -66,10 +66,11 @@ namespace Brushblade.Core
     }
 
     /// <summary>字卡详情 / 升级预览「显示哪几行」的规则(Plan E2)。纯函数,只读字表,不看场面。
-    /// 槽位归属:Lv1 不成行(效果恒空);Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 两面各一条,进各自那一面。</summary>
+    /// 字卡详情(spec B)已全平铺:每面逐级一行(Lv1 起,两面同级成对);「两面」条(<see cref="SharedTraits"/> 等)现只服务升级预览,
+    /// 其归属:Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 两面各一条,进各自那一面。</summary>
     public static class CardSheetRules
     {
-        /// <summary>进「两面」条的槽位(spec §1 写的是「两面」;数据里 Lv3 恒分面、Lv4 有 22 张分面)。</summary>
+        /// <summary>进升级预览「两面」条的槽位(字卡详情已不用;数据里 Lv3 恒分面、Lv4 有 22 张分面)。</summary>
         private static bool IsShared(TraitSlot slot) => slot == TraitSlot.Lv3 || slot == TraitSlot.Lv4;
 
         private static readonly TraitFace[] BothMark = { TraitFace.Both };

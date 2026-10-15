@@ -828,7 +828,7 @@ namespace Brushblade.Presentation
             Ui.Sized(label.gameObject, 0, Ui.WrappedTextHeight(text, 18, UpgradeInnerW), flexWidth: 1);
         }
 
-        /// <summary>已解锁的特性名:两面条(Lv3 / Lv4)+ 两面各自的面特性行,按槽位升序(同级先攻后五行)。
+        /// <summary>已解锁的特性名:Lv3 / Lv4 的「两面」条 + 两面各自的面特性行,按槽位升序(同级先攻后五行)。
         /// 两面通用的面特性(Face = Both)两面各列一次,按 TraitDef 去重。</summary>
         private static List<string> KeptTraitNames(CharDef def, int level)
         {
@@ -1035,7 +1035,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>差行标签:同数值格标签;「持续」带上它跟的那一格的短标签(「减攻持续」「护甲持续」),
-        /// 与字卡详情两面条本体差同一口径(<see cref="StatDelta.DurationOf"/>)——一面若有两组「效果 + 持续」,
+        /// 与字卡详情 Lv3 行本体差同一口径(<see cref="StatDelta.DurationOf"/>)——一面若有两组「效果 + 持续」,
         /// 光写「持续」两行就分不清了。</summary>
         private static string DeltaRowLabel(StatDelta d) =>
             d.Kind == FaceStatKind.Duration && d.DurationOf is { } owner

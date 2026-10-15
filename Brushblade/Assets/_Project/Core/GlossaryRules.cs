@@ -1,6 +1,6 @@
 namespace Brushblade.Core
 {
-    /// <summary>词条表的术语(spec 2026-10-03 §3,45 条,2026-10-15 spec B 追加涓 / 涌 / 苏 / 速度,按 §3.1 关键词 32 → §3.2 范围 7 → §3.3 存续 3 的顺序)。
+    /// <summary>词条表的术语(spec 2026-10-03 §3,2026-10-15 spec B 追加涓 / 涌 / 苏 / 速度后共 45 条(关键词 35 / 范围 7 / 存续 3),按 §3.1 关键词 → §3.2 范围 → §3.3 存续的顺序)。
     /// 名称取字符串表 key 的 ASCII id(<c>term.&lt;id&gt;.name / .desc</c>)转 PascalCase;说明文案在字符串表,不在这里。
     /// ordinal 不进存档,但 <see cref="GlossaryRules.Group"/> 依赖三组连续排列 —— 新增时插在所属组的末尾。</summary>
     public enum GlossaryTerm
@@ -31,7 +31,7 @@ namespace Brushblade.Core
         Doom,          // 致命
         Charm,         // 魅惑
         Mark,          // 标记
-        Weaken,        // 减攻
+        Weaken,        // 慑(原「减攻」)
         DamageCut,     // 减伤
         CounterBoost,  // 反击加倍
         Endure,        // 保命
