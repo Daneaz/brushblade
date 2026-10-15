@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./base.css">
+  <style>
+    .board { width: 1320px; height: 940px; }
+    i { font-style: normal; }
+    h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+    .lead { font-size: 10.5px; color: var(--text-warm); margin-bottom: 12px; line-height: 1.6; }
+    .cols { display: grid; grid-template-columns: 640px 1fr; gap: 26px; }
+    .blk { margin-bottom: 14px; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 700; color: var(--text-quiet); display: flex; gap: 6px; align-items: center; }
+    h3 .no { width: 16px; height: 16px; border-radius: 3px; background: var(--ink); color: #fff; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+    .note { font-size: 9.5px; line-height: 1.6; color: var(--text-quiet); }
+    .note.dim { color: var(--text-warm); }
+    .em { font-weight: 700; color: var(--text-main); }
+    table { border-collapse: collapse; width: 100%; font-size: 9.5px; }
+    td, th { border-bottom: 1px solid var(--panel-border); padding: 4px 5px; text-align: left; vertical-align: top; }
+    th { font-weight: 500; color: var(--text-dim); font-size: 9px; white-space: nowrap; }
+    td.nw { white-space: nowrap; }
+    .ok { color: var(--jade); font-weight: 700; }
+    /* 时间轴 */
+    .tl { position: relative; height: 236px; border-radius: 8px; background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .tl .lane { position: absolute; left: 0; right: 0; height: 22px; display: flex; align-items: center; }
+    .tl .ln { width: 132px; flex: none; padding-left: 10px; font-size: 9px; color: var(--text-quiet); white-space: nowrap; }
+    .tl .bar { position: absolute; top: 9px; height: 10px; border-radius: 3px; }
+    .tl .bar.block { background: var(--jade); }
+    .tl .bar.dim { background: color-mix(in srgb, var(--jade) 35%, transparent); }
+    .tl .bar.metal { background: var(--metal-glyph); }
+    .tl .bar.gold { background: var(--gold); }
+    .tl .bar.ink { background: var(--ink-soft); }
+    .tl .bar.ghost { background: repeating-linear-gradient(90deg, var(--paper-dim) 0 4px, transparent 4px 7px); }
+    .tl .tick { position: absolute; top: 0; bottom: 18px; width: 1px; background: rgba(22,27,34,.08); }
+    .tl .tick.key { background: rgba(197,54,55,.45); }
+    .tl .tk { position: absolute; bottom: 3px; font-size: 8px; color: var(--text-faint); transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+    .tl .tk.key { color: var(--cinnabar-dark); font-weight: 700; }
+    .tl .bt { position: absolute; top: -1px; font-size: 7.5px; line-height: 10px; color: var(--text-dim); white-space: nowrap; }
+    /* 示意件 */
+    .demo-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+    .eg { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; font-size: 8.5px; color: var(--text-dim); }
+    .seal { width: 22px; height: 22px; border-radius: 11px; background: var(--jade); color: #fff; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 1.5px rgba(251,248,241,.95), 0 1px 4px rgba(22,27,34,.3); }
+    .seal svg { width: 14px; height: 14px; }
+    .streak { width: 70px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, rgba(107,100,73,0), var(--metal-glyph)); }
+    .streak.boost { height: 5px; background: linear-gradient(90deg, rgba(202,157,51,0), var(--gold)); box-shadow: 0 0 5px rgba(202,157,51,.55); }
+    .cnum { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--metal-glyph); }
+    .cnum .k { font-size: 9px; }
+    .cnum.boost { color: var(--gold-deep); font-size: 14px; }
+    .x2 { height: 12px; padding: 0 3px; border-radius: 3px; background: var(--gold); color: var(--gold-text); font-size: 8.5px; display: inline-flex; align-items: center; gap: 1px; }
+    .x2 svg { width: 8px; height: 8px; }
+    .scx { display: inline-flex; align-items: center; gap: 1px; height: 9.56px; padding: 0 2.4px; border-radius: 6.7px; color: #fff; font-size: 6.5px; font-weight: 700; }
+    .scx svg { width: 8px; height: 8px; } .scx.heal { background: var(--jade); } .scx.gold { background: var(--gold); color: var(--gold-text); }
+    .q { font-size: 9.5px; line-height: 1.6; color: var(--text-quiet); padding: 6px 8px; border-radius: 7px; background: var(--gold-soft); margin-bottom: 6px; }
+    .q b { color: var(--gold-deep); }
+  </style>
+</helmet>
+<div class="board">
+  <h2>格挡反击 · 动效规格</h2>
+  <div class="lead">需求方 session <b>card-ability-system-redesign</b>(2026-10-15,用户提出)。可播放画板见 CounterFx(四种情形 + 群攻 + 连续 + 反击为 0 + 普通受击对照,可切倍速与屏宽)。
+    全部时长为 1× 值,一律走 Juice 的 Beat / Dt(按住加速 ÷ 倍率)。⚠ 这里的反击是 <b>DamageSource.BlockCounter</b>,与 Juice 的 Countered(五行被克)无关,不复用它的褪色 / 内收环。</div>
+
+  <div class="cols">
+    <div>
+      <div class="blk">
+        <h3><i class="no">1</i>三拍时间轴(1×;以「敌人扑击命中」为 0)</h3>
+        <div class="tl">
+          <sc-for list="{{ ticks }}" as="t"><i class="{{ t.cls }}" style="{{ t.st }}"></i><i class="{{ t.lc }}" style="{{ t.st }}">{{ t.n }}</i></sc-for>
+          <sc-for list="{{ lanes }}" as="l">
+            <div class="lane" style="{{ l.st }}"><span class="ln">{{ l.n }}</span>
+              <sc-for list="{{ l.bars }}" as="b"><i class="{{ b.cls }}" style="{{ b.st }}"></i><i class="bt" style="{{ b.lst }}">{{ b.t }}</i></sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div class="note" style="margin-top:6px">红线 0.42 s = 现有敌方步距 StepGap。<span class="em">反击在 0.28 s 命中(加倍顿帧后 0.355 s),都落在步距之内 —— 格挡反击不给一轮结算加任何时长。</span>
+          下一只敌人的起点 = max(0.42, 末次反击命中 + 0.10);只有「多段反击」(J 系附带,每段 +0.08)才会超出。</div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">2</i>每拍的时长与缓动</h3>
+        <table>
+          <tr><th>拍</th><th>件</th><th>时刻 / 时长</th><th>缓动</th><th>样子</th></tr>
+          <tr><td rowspan="3" class="nw">① 挡</td><td>盾印</td><td class="nw">0 · 0.30</td><td class="nw">0→0.07 easeOutBack 到 1.15;→0.12 回 1.0;0.18→0.30 easeIn 淡出上浮 4pt</td><td>格挡 chip 的 block 图标放大成 22pt 铜绿(jade)圆印,1.5pt 纸色描边,压在受击者立绘 / 头像中心</td></tr>
+          <tr><td>朝敌半弧</td><td class="nw">0 · 0.18</td><td>easeOutCubic,0.7→1.35 同时淡出</td><td>34pt 铜绿 2pt 半环,开口背向攻击者(敌在上 → 弧朝上)</td></tr>
+          <tr><td>受击</td><td class="nw">0 · 0.16</td><td>同 HitReact</td><td>后坐 0.45 倍、<span class="em">不白闪</span>、震屏 ×0.45;伤害数 0.78 倍,落在头顶偏右(让开盾印);顿帧 HitStopCountered 0.018 + 金属声(_hitClip pitch 1.25)</td></tr>
+          <tr><td rowspan="2" class="nw">② 扣</td><td>chip 闪</td><td class="nw">0.06 · 0.45</td><td>同载体闪(TriggerFx)</td><td>受击者自己那枚格挡 chip:放大 1.4 + 铜绿外晕</td></tr>
+          <tr><td>次数跳格</td><td class="nw">0.06 · 0.16</td><td>easeOutCubic</td><td>新数字自下 5pt 滑入淡入;扣到 0 → 跳完后 chip 缩没 0.18 s easeIn 并移除</td></tr>
+          <tr><td rowspan="3" class="nw">③ 反</td><td>反击线</td><td class="nw">0.16 · 0.12 飞行 + 0.12 淡</td><td>easeInQuad(越飞越快,末端即命中)</td><td>从受击者中心到攻击者中心一划:3pt,尾虚头实,金字形色 metal-glyph(= 铠面的颜色,说明「是金面挂的格挡在打」)</td></tr>
+          <tr><td>命中</td><td class="nw">0.28 · 0.18</td><td>easeOutCubic</td><td>攻击者后坐 0.6 + 外扩环(metal-glyph 2pt,0.4→1.5);顿帧 HitStopLight 0.03</td></tr>
+          <tr><td>反击数</td><td class="nw">0.28 · 1.0</td><td>同 Popup</td><td>「反击 49」:小字「反击」9pt + 数 12pt 粗,metal-glyph,0.5pt 纸色描边;锚立绘中心上 14pt,升 18pt</td></tr>
+        </table>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">3</i>为什么一眼能认出(对照普通受击)</h3>
+        <table>
+          <tr><th></th><th>普通受击</th><th>格挡反击</th></tr>
+          <tr><td>受击者</td><td>白闪 · 全额后坐 · 震屏</td><td><span class="em">盾印 + 半弧</span> · 后坐 0.45 · 无白闪 · 震屏 ×0.45</td></tr>
+          <tr><td>伤害数</td><td>攻击者五行色,1×,立绘上</td><td>同色但 0.78×,挪到头顶偏右</td></tr>
+          <tr><td>状态行</td><td>—</td><td>格挡 chip 闪 + 次数跳格</td></tr>
+          <tr><td>回敬</td><td>—</td><td>金色一划射回 +「反击 N」</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="blk">
+        <h3><i class="no">4</i>四种情形</h3>
+        <div class="demo-row" style="margin-bottom:8px">
+          <span class="eg"><span class="seal"><svg viewBox="0 0 64 64"><use href="#ic-block"></use></svg></span>盾印</span>
+          <span class="eg"><span class="streak"></span>反击线</span>
+          <span class="eg"><span class="streak boost"></span>加倍</span>
+          <span class="eg"><span class="cnum"><i class="k">反击</i>49</span>反击数</span>
+          <span class="eg"><span class="cnum boost"><i class="k">反击</i>98<i class="x2"><svg viewBox="0 0 64 64"><use href="#ic-riposte"></use></svg>×2</i></span>加倍</span>
+          <span class="eg"><span class="scx heal"><svg viewBox="0 0 64 64"><use href="#ic-block"></use></svg>2</span>格挡 chip</span>
+          <span class="eg"><span class="scx gold"><svg viewBox="0 0 64 64"><use href="#ic-riposte"></use></svg></span>反击加倍 chip</span>
+        </div>
+        <table>
+          <tr><th></th><th>无反击加倍</th><th>有反击加倍</th></tr>
+          <tr><td class="nw">落点玩家</td><td>盾印压在头像;chip 在玩家状态行;线从头像射出</td><td rowspan="2">+ 0.12 s <span class="em">玩家身上</span>那枚反击加倍 chip 先闪(赭金外晕)<br>· 线换赭金 gold、5pt、带 5pt 赭金晕<br>· 命中环 gold 2.5pt<br>· 数字 gold-deep 14pt +「×2」角签(gold 底 gold-text 字 + riposte 图标)<br>· 顿帧升到 HitStopHeavy 0.075 + 小震屏 0.16 s</td></tr>
+          <tr><td class="nw">落点木灵</td><td>盾印压在木灵立绘;chip 在木灵自己的状态行;线从木灵射出;木灵不震屏(同现状)</td></tr>
+        </table>
+        <div class="note dim" style="margin-top:4px">CounterBoost 挂在玩家身上(木灵的格挡也吃它),所以木灵格挡 + 加倍时是「木灵挡、玩家的 chip 亮、木灵射线」两处同时亮 —— 玩家看得出加倍是哪来的。「×2」按 CounterBoost 的 Magnitude 写(100 → ×2;若有非 100 的来源写「+N%」)。</div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">5</i>群攻与连续</h3>
+        <div class="note">
+          · <span class="em">一击打到多个带格挡的目标</span>(敌人横扫 / 全体):① ② 两拍所有目标同帧;③ 反击线按目标顺序每条错开 <span class="em">0.05 s</span> 发射,数字在攻击者上方纵向错开 12pt。<span class="em">≥ 3 条合并</span>成一个「反击 ×3 · 147」(最后一条命中时出)。<br>
+          · <span class="em">连续多只敌人</span>:每只仍是一个步距,格挡反击在步内打完,不额外插停顿。<br>
+          · <span class="em">多段反击</span>(一次格挡打 hits 下):线每段间隔 0.08 s,数字逐段飘、同样错开 12pt;≥ 3 段合并。<br>
+          · <span class="em">反击被 60% 反伤预算削到 0 / 攻击者已死</span>:只演 ① ②,不射线、不飘「反击 0」。<br>
+          · <span class="em">按住加速</span>:上表全部时长 ÷ 倍率(Beat / Dt);顿帧也 ÷ 倍率 —— ×3 时 0.018 / 0.03 / 0.075 变成 6 / 10 / 25 ms,手感仍在但不拖。飘字寿命同样 ÷ 倍率。
+        </div>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">6</i>出画验算(稿面 pt;基准 932 宽 / 16:9 764 宽,左右安全区各 59)</h3>
+        <table>
+          <tr><th>件</th><th>最危险的位置</th><th>规则</th><th>基准</th><th>16:9</th></tr>
+          <tr><td>反击数</td><td>后排怪(立绘中心 y≈47)</td><td>锚立绘中心上 14 → 33,升 18 → 顶 15;夹 y ≥ 16;错开 12 也夹</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>反击数(横)</td><td>最右列怪</td><td>最宽「反击 ×3 · 147 ×2」≈ 76pt;中心夹在 [59+38, W−59−38]</td><td class="ok">✓ ≤ 835</td><td class="ok">✓ ≤ 667</td></tr>
+          <tr><td>盾印 / 半弧</td><td>玩家头像(x≈80)</td><td>半弧外径 34×1.35 = 46 → 左缘 57,压在安全线上 2pt 内,可接受</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>反击线</td><td>玩家 → 后排最右</td><td>两端都是场上实物的中心,线不会出画</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>被挡伤害数</td><td>玩家头像</td><td>头顶偏右 14,落在木灵行与玩家行之间,不压名字</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+        </table>
+      </div>
+
+      <div class="blk">
+        <h3><i class="no">7</i>实现需要</h3>
+        <div class="q"><b>Core 事件</b>:现在格挡只体现为「EnemyAttack 掉血少了」+ 之后若干条 Source = BlockCounter 的伤害;反击被削到 0 或攻击者已死时表现层根本不知道这次挡过。建议加一条 <code>BattleEventKind.BlockUsed</code>(TargetIndex = 攻击者,SecondIndex = 木灵格 / −1 玩家,Amount = 剩余次数),发在 EnemyAttack 之后、反击伤害之前;反击伤害的事件上带「是否吃了 CounterBoost」(或表现层读 CounterBoost 状态)。</div>
+        <div class="q"><b>文案(字符串表)</b>:<code>juice.popup.source.block_counter</code> =「反击 {amount}」;合并 =「反击 ×{n} · {amount}」;角签「×2」/「+{pct}%」。改后重跑字体子集。</div>
+        <div class="q"><b>图标</b>:不需要新图标 —— 盾印用 <code>block</code>,加倍角签用 <code>riposte</code>。半弧 / 反击线 / 外扩环是程序画的(Theme.RoundedRing 与拉伸的圆角条)。</div>
+        <div class="q"><b>与代码口径的差异</b>:代码里格挡是「减伤 40% + 反击」,不是整击抵掉;稿按代码演(伤害数照出,只是更小)。若机制要改成整击抵掉,① 拍的伤害数换成「挡」字即可,其余不变。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 940}}'>
+var X0 = 300, PX = 520;   // 0 s 在 x=300,1 s = 520px(只画 -0.2 ~ 0.6 s)
+function x(t) { return X0 + t * PX; }
+class Component extends DCLogic {
+  renderVals() {
+    var ticks = [];
+    [-0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6].forEach(function (t) { ticks.push({ cls: 'tick', lc: 'tk', st: 'left:' + x(t) + 'px', n: t.toFixed(1) }); });
+    ticks.push({ cls: 'tick key', lc: 'tk key', st: 'left:' + x(0.42) + 'px;bottom:auto;top:-1px', n: '0.42 步距' });
+    function bar(t0, t1, cls, label) { return { cls: 'bar ' + cls, st: 'left:' + x(t0) + 'px;width:' + Math.max(3, (t1 - t0) * PX) + 'px', lst: 'left:' + x(t0) + 'px', t: label || '' }; }
+    var L = [
+      ['敌人扑击(蓄 + 冲)', [bar(-0.2, 0, 'ghost', '0.08 + 0.12')]],
+      ['① 盾印', [bar(0, 0.07, 'block', 'easeOutBack'), bar(0.07, 0.18, 'block'), bar(0.18, 0.30, 'dim', '淡出')]],
+      ['① 半弧 · 受击 · 伤害数', [bar(0, 0.18, 'block', '0.18'), bar(0, 0.016, 'ink', '顿 0.018')]],
+      ['② chip 闪 + 跳格', [bar(0.06, 0.22, 'block', '跳格 0.16'), bar(0.22, 0.51, 'dim', '闪至 0.51')]],
+      ['(加倍)反击加倍 chip 闪', [bar(0.12, 0.57, 'gold', '0.45')]],
+      ['③ 反击线飞行', [bar(0.16, 0.28, 'metal', 'easeInQuad 0.12')]],
+      ['③ 命中环 · 反击数', [bar(0.28, 0.46, 'metal', '环 0.18 · 数 1.0 s 不阻塞'), bar(0.28, 0.31, 'ink', '')]],
+      ['(加倍)重顿帧', [bar(0.28, 0.355, 'gold', '0.075')]]
+    ];
+    return { ticks: ticks, lanes: L.map(function (l, i) { return { n: l[0], st: 'top:' + (8 + i * 25) + 'px', bars: l[1] }; }) };
+  }
+}
+</script>
+</body>
+</html>

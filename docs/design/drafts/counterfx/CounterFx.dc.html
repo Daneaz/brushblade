@@ -1,0 +1,357 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./base.css">
+  <style>
+    /* 格挡反击 · 三拍:挡(盾印)→ 扣(chip 跳数)→ 反(反击线 + 反击数)。
+       全部时长写的是 1× 的值;评审控件里切 ×2 / ×3 = Juice 按住加速(所有节拍 ÷ 倍率)。
+       ⚠ 这里的「反击」是格挡反击(DamageSource.BlockCounter),与 Juice 里的 Countered(五行被克)无关。 */
+    .wrap { position: relative; width: 932px; height: 556px; background: #E9E3D6; }
+    .dev.narrow { width: 764px; }
+    .dev.narrow .rail { width: 54px; }
+    .frame-note { position: absolute; bottom: 4px; right: 6px; z-index: 95; font-size: 8.5px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; }
+    i { font-style: normal; }
+    .cell .pt img { pointer-events: none; }
+
+    /* —— 攻击者扑击 / 受击后坐 —— */
+    .lunge { animation: lunge var(--d, .2s) cubic-bezier(.55,0,1,.45) forwards; }
+    @keyframes lunge { 0% { transform: translateY(0); } 40% { transform: translateY(-4px); } 100% { transform: translateY(14px); } }
+    .back2 { animation: back2 var(--d, .24s) ease-out forwards; }
+    @keyframes back2 { 0% { transform: translateY(14px); } 100% { transform: translateY(0); } }
+    .recoil { animation: recoil var(--d, .16s) ease-out; }
+    @keyframes recoil { 0% { transform: translate(0,0); } 30% { transform: translate(0, var(--amp, 3px)) scale(.97); } 100% { transform: translate(0,0); } }
+    .whiteflash { animation: wf .16s ease-out; }
+    @keyframes wf { 0% { filter: none; } 30% { filter: brightness(2.2) saturate(0); } 100% { filter: none; } }
+    .shake { animation: shake var(--d, .2s) linear; }
+    @keyframes shake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(calc(var(--s,3px) * -1), 1px); } 40% { transform: translate(var(--s,3px), -1px); } 60% { transform: translate(calc(var(--s,3px) * -.6), 0); } 80% { transform: translate(calc(var(--s,3px) * .4), 0); } }
+
+    /* —— ① 挡:盾印 = 格挡 chip 的图标放大成 22pt 铜绿圆印,压在受击者身上 —— */
+    .fx { position: absolute; z-index: 82; pointer-events: none; }
+    .fx-seal { width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 11px; background: var(--jade); color: #fff;
+      display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px rgba(251,248,241,.95), 0 1px 4px rgba(22,27,34,.3);
+      animation: seal var(--d, .3s) linear forwards; }
+    .fx-seal svg { width: 14px; height: 14px; }
+    @keyframes seal { 0% { transform: scale(.6); opacity: 0; } 23% { transform: scale(1.15); opacity: 1; } 40% { transform: scale(1); } 60% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.05) translateY(-4px); } }
+    /* 盾印下的半弧:朝向攻击者(上方),铜绿 2pt,一闪即收 */
+    .fx-arc { width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; box-sizing: border-box;
+      border: 2px solid var(--jade); border-bottom-color: transparent; border-left-color: transparent; transform: rotate(-45deg);
+      animation: arc var(--d, .18s) ease-out forwards; }
+    @keyframes arc { 0% { transform: rotate(-45deg) scale(.7); opacity: 1; } 100% { transform: rotate(-45deg) scale(1.35); opacity: 0; } }
+
+    /* —— ③ 反:反击线 = 金字形色(铠面)毛笔一划,从受击者射向攻击者;加倍 = 赭金加粗 —— */
+    .fx-streak { height: 3px; margin-top: -1.5px; transform-origin: 0 50%; border-radius: 2px;
+      background: linear-gradient(90deg, rgba(107,100,73,0) 0%, rgba(107,100,73,.55) 35%, var(--metal-glyph) 100%);
+      animation: streak var(--d, .12s) cubic-bezier(.55,0,1,.45) forwards, sfade .12s ease-out var(--d, .12s) forwards; }
+    .fx-streak.boost { height: 5px; margin-top: -2.5px; background: linear-gradient(90deg, rgba(202,157,51,0) 0%, rgba(202,157,51,.6) 35%, var(--gold) 100%);
+      box-shadow: 0 0 5px rgba(202,157,51,.55); }
+    @keyframes streak { 0% { transform: rotate(var(--ang)) scaleX(0); } 100% { transform: rotate(var(--ang)) scaleX(1); } }
+    @keyframes sfade { to { opacity: 0; } }
+    .fx-ring { width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--metal-glyph);
+      animation: ring var(--d, .18s) ease-out forwards; }
+    .fx-ring.boost { border-color: var(--gold); border-width: 2.5px; }
+    @keyframes ring { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+    /* —— 飘字 —— */
+    .lbl { position: absolute; z-index: 84; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap; animation: lb var(--d, 1s) ease-out forwards; }
+    @keyframes lb { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.7); } 14% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+      24% { transform: translate(-50%, -50%) scale(1); } 78% { opacity: 1; transform: translate(-50%, calc(-50% - var(--rise, 18px))); } 100% { opacity: 0; transform: translate(-50%, calc(-50% - var(--rise, 18px) - 6px)); } }
+    .lbl.num { font-size: 13px; font-weight: 700; -webkit-text-stroke: .5px rgba(251,248,241,.9); }
+    .lbl.num.small { font-size: 10.5px; }
+    .lbl.cnum { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--metal-glyph); -webkit-text-stroke: .5px rgba(251,248,241,.9); }
+    .lbl.cnum .k { font-size: 9px; }
+    .lbl.cnum.boost { color: var(--gold-deep); font-size: 14px; }
+    .lbl.cnum .x2 { height: 12px; padding: 0 3px; border-radius: 3px; background: var(--gold); color: var(--gold-text); -webkit-text-stroke: 0; font-size: 8.5px;
+      display: inline-flex; align-items: center; gap: 1px; }
+    .lbl.cnum .x2 svg { width: 8px; height: 8px; }
+
+    /* —— ② 扣:chip 闪 + 数字跳一格;扣到 0 时 chip 缩没 —— */
+    .flash { animation: fl var(--d, .45s) ease-out; position: relative; z-index: 5; }
+    @keyframes fl { 0% { transform: scale(1); filter: none; } 25% { transform: scale(1.4); filter: brightness(1.45); box-shadow: 0 0 0 1.5px #fff, 0 0 8px 2px rgba(52,134,75,.7); } 100% { transform: scale(1); filter: none; } }
+    .flash.gold { animation-name: flg; }
+    @keyframes flg { 0% { transform: scale(1); filter: none; } 25% { transform: scale(1.4); filter: brightness(1.3); box-shadow: 0 0 0 1.5px #fff, 0 0 8px 2px rgba(202,157,51,.8); } 100% { transform: scale(1); filter: none; } }
+    .dg { display: inline-block; }
+    .dg.r0 { animation: roll0 var(--d, .16s) cubic-bezier(.2,.8,.3,1); } .dg.r1 { animation: roll1 var(--d, .16s) cubic-bezier(.2,.8,.3,1); }
+    @keyframes roll0 { 0% { transform: translateY(5px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+    @keyframes roll1 { 0% { transform: translateY(5px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+    .sc.gone { animation: gone var(--d, .18s) ease-in forwards; }
+    @keyframes gone { to { transform: scale(0); opacity: 0; } }
+
+    .ctl { position: absolute; left: 0; right: 0; top: 430px; height: 84px; box-sizing: border-box; padding: 6px 12px; display: flex; flex-wrap: wrap; align-content: center; gap: 5px 5px;
+      background: #E9E3D6; border-top: 1px dashed #C9BFAC; font-size: 9.5px; color: var(--text-dim); }
+    .ctl .lb { margin: 0 2px 0 6px; letter-spacing: 1px; }
+    .ctl button { height: 24px; padding: 0 7px; border-radius: 5px; border: 1px solid #C9BFAC; background: var(--panel-paper); font-size: 10px; cursor: pointer; white-space: nowrap; }
+    .ctl button.on { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+    .ctl .br { flex-basis: 100%; height: 0; }
+    .cap { position: absolute; left: 0; right: 0; top: 514px; height: 42px; box-sizing: border-box; padding: 4px 14px; font-size: 9.5px; line-height: 1.5; color: var(--text-quiet); background: var(--panel-paper); border-top: 1px solid #D8CFBE; }
+    .guide2 { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(197,54,55,.25); z-index: 90; pointer-events: none; }
+  </style>
+</helmet>
+<div class="wrap">
+<div class="{{ devCls }}">
+  <span class="frame-note">{{ frameNote }}</span>
+  <div class="guide2" style="left:59px"></div><div class="guide2" style="{{ guideR }}"></div>
+  <div class="safe">
+    <div class="tbar"><span class="lvn">「金石」第 61~70 层</span><span>第 63 层</span><div class="grow"></div><span class="turn">敌方回合</span></div>
+    <div class="arena">
+      <div class="rail"></div>
+      <div class="mid">
+        <sc-for list="{{ erows }}" as="row">
+          <div class="erow">
+            <sc-for list="{{ row }}" as="e">
+              <div class="{{ e.cls }}">
+                <div class="{{ e.ptCls }}" style="{{ e.ptSt }}" data-a="{{ e.a }}"><img src="{{ e.img }}" alt=""></div>
+                <div class="inf">
+                  <div class="hd"><span class="nm">{{ e.n }}</span><i class="eb">{{ e.en }}</i></div>
+                  <div class="scs"><sc-for list="{{ e.chips }}" as="c"><i class="{{ c.cls }}"><svg><use href="{{ c.ic }}"></use></svg>{{ c.t }}</i></sc-for></div>
+                  <div class="hpb"><span style="{{ e.hp }}"></span></div>
+                  <div class="atb"><span style="{{ e.atb }}"></span></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div class="divider"></div>
+        <div class="srow">
+          <div class="cell ally sfront e-Wood"><div class="{{ sPtCls }}" style="{{ sPtSt }}" data-a="s0"><span class="gface">林</span></div>
+            <div class="inf"><div class="hd"><span class="nm">林灵</span><i class="eb">木</i></div>
+              <div class="scs"><sc-for list="{{ sChips }}" as="c"><i class="{{ c.cls }}" data-a="{{ c.a }}" style="{{ c.st }}"><svg><use href="{{ c.ic }}"></use></svg><i class="{{ c.dg }}" style="{{ c.dst }}">{{ c.t }}</i></i></sc-for></div>
+              <div class="hpb"><span style="{{ shpW }}"></span></div><div class="atb"><span style="width:40%"></span></div></div></div>
+          <div class="cell sfront" style="visibility:hidden"></div><div class="cell sfront" style="visibility:hidden"></div><div class="cell sfront" style="visibility:hidden"></div>
+        </div>
+        <div class="pl">
+          <div class="{{ pPtCls }}" style="{{ pPtSt }}" data-a="p">墨</div>
+          <div class="inf"><div class="who">执笔人<span>血 {{ php }}/920</span></div><div class="hpb"><span style="{{ phpW }}"></span></div><div class="atb"><span style="width:30%"></span></div></div>
+          <div class="ap">AP<i class="on"></i><i class="on"></i><i></i></div>
+          <div class="stt"><sc-for list="{{ pChips }}" as="c"><i class="{{ c.cls }}" data-a="{{ c.a }}" style="{{ c.st }}"><svg><use href="{{ c.ic }}"></use></svg><i class="{{ c.dg }}" style="{{ c.dst }}">{{ c.t }}</i></i></sc-for></div>
+        </div>
+        <div class="handrow"><span class="hl">字库 5/8</span>
+          <sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="{{ h.sealCls }}">{{ h.s }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  <sc-for list="{{ fx }}" as="f"><div class="{{ f.cls }}" style="{{ f.st }}"><sc-for list="{{ f.ic }}" as="k"><svg><use href="{{ k }}"></use></svg></sc-for></div></sc-for>
+  <sc-for list="{{ pops }}" as="p"><div class="{{ p.cls }}" style="{{ p.st }}"><i class="k">{{ p.k }}</i>{{ p.t }}<sc-for list="{{ p.x2 }}" as="x"><i class="x2"><svg><use href="#ic-riposte"></use></svg>×2</i></sc-for></div></sc-for>
+  <div class="homebar"><span></span></div>
+</div>
+<div class="ctl">
+  <span class="lb">播放</span>
+  <sc-for list="{{ demos }}" as="d"><button onClick="{{ d.go }}">{{ d.n }}</button></sc-for>
+  <button onClick="{{ reset }}">复位</button>
+  <i class="br"></i>
+  <span class="lb">倍速(按住加速)</span>
+  <sc-for list="{{ rates }}" as="d"><button class="{{ d.cls }}" onClick="{{ d.go }}">{{ d.n }}</button></sc-for>
+  <span class="lb">屏宽</span>
+  <sc-for list="{{ widths }}" as="d"><button class="{{ d.cls }}" onClick="{{ d.go }}">{{ d.n }}</button></sc-for>
+  <span class="lb">玩家身上反击加倍</span>
+  <sc-for list="{{ boosts }}" as="d"><button class="{{ d.cls }}" onClick="{{ d.go }}">{{ d.n }}</button></sc-for>
+</div>
+<div class="cap">{{ cap }}</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 556}}'>
+var Z = window.ZD;
+var IMG = function (k) { return '../scenes/mob_' + k + '.png'; };
+var T = { DRAW: .08, DASH: .12, SEAL: .30, ARC: .18, ROLL: .16, FLASH: .45, GONE: .18, LAUNCH: .16, FLIGHT: .12, RING: .18, POP: 1.0, RECOIL: .16, BACK: .24, STEP: .42, STAGGER: .05, MULTI: .08 };
+var CAPS = {
+  P: '落点玩家 · 普通:① 0 s 盾印(22pt 铜绿圆印 + 朝敌半弧)压在头像上,伤害数缩到 0.78 倍、不白闪、震屏减半;② 0.06 s 格挡 chip 闪 + 次数 2→1;③ 0.16 s 金字形色一划射回,0.28 s 命中:「反击 49」。整套落在原有 0.42 s 步距之内,不加时长。',
+  PB: '落点玩家 · 反击加倍:0.12 s 反击加倍 chip(赭金)先闪 —— 说明「这一下为什么更疼」;反击线换赭金加粗、命中环加粗,数字赭金深 +「×2」角签,顿帧升到重档 0.075 s。',
+  S: '落点木灵:盾印压在木灵立绘上,chip 闪在木灵自己的状态行;反击从木灵射出。木灵受击只有 0.45 后坐,不震屏(同木灵受击现状)。',
+  SB: '木灵 + 反击加倍:加倍 chip 挂在玩家身上(CounterBoost 在玩家),所以闪的是玩家那枚 chip,反击线仍从木灵射出 —— 两处同时亮,玩家看得出加倍从哪来。',
+  G: '群攻一击同时打到玩家与木灵:两枚盾印同帧;两条反击线错开 0.05 s 先后命中同一攻击者,数字纵向错开 12pt 不叠。3 条及以上合并成一个「反击 ×3 · 147」。',
+  C: '连续三只敌人各打一下(格挡 3 次):每只仍是 0.42 s 一步,反击在步内打完 —— 三次格挡反击总长与三次普通受击相同。第三只是后排「悬针」:反击数锚在立绘中心、不出屏顶。扣到 0 时 chip 缩没(0.18 s)。',
+  Z: '反击被预算削到 0 / 攻击者已死:只演 ① ② 两拍,不射线、不飘「反击 0」。需要 Core 发一条「格挡已用」事件(见规格板),否则表现层不知道这次挡过。',
+  N: '对照:普通受击(无格挡)—— 白闪 + 全额数字 + 震屏,没有盾印、没有反击线。'
+};
+
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = this.fresh({ rate: 1, w: 'base', boost: false }); this.seq = 0; this.timers = []; }
+  fresh(keep) {
+    return Object.assign({ blkP: 2, blkS: 2, goneP: false, goneS: false, rollP: 0, rollS: 0, php: 702, shp: 84, flash: {}, cls: {}, fx: [], pops: [], cap: '点上面的按钮播放。全部时长按 1× 标注,切倍速即 Juice 按住加速(节拍 ÷ 倍率)。' }, keep);
+  }
+  r(t) { return t / this.state.rate * 1000; }
+  dur(t) { return (t / this.state.rate).toFixed(3) + 's'; }
+  at(a, mode) {
+    var el = document.querySelector('[data-a="' + a + '"]'); if (!el) return { x: 0, y: 0 };
+    var dev = el.closest('.dev').getBoundingClientRect(), b = el.getBoundingClientRect();
+    return { x: b.left - dev.left + b.width / 2, y: mode === 'top' ? b.top - dev.top : b.top - dev.top + b.height / 2, w: dev.width };
+  }
+  later(t, fn) { this.timers.push(setTimeout(fn.bind(this), this.r(t))); }
+  add(list, o, life) {
+    var key = ++this.seq, self = this; o.key = key;
+    var s = {}; s[list] = this.state[list].concat([o]); this.setState(s);
+    this.timers.push(setTimeout(function () { var u = {}; u[list] = self.state[list].filter(function (q) { return q.key !== key; }); self.setState(u); }, this.r(life) + 60));
+  }
+  setCls(a, c, life) {
+    var self = this, m = Object.assign({}, this.state.cls); m[a] = ''; this.setState({ cls: m });
+    setTimeout(function () { var n = Object.assign({}, self.state.cls); n[a] = c; self.setState({ cls: n }); }, 16);
+    if (life) this.timers.push(setTimeout(function () { var n = Object.assign({}, self.state.cls); if (n[a] === c) n[a] = ''; self.setState({ cls: n }); }, this.r(life) + 30));
+  }
+  flash(a, gold) {
+    var self = this, m = Object.assign({}, this.state.flash); m[a] = ''; this.setState({ flash: m });
+    setTimeout(function () { var n = Object.assign({}, self.state.flash); n[a] = gold ? 'flash gold' : 'flash'; self.setState({ flash: n }); }, 16);
+    this.timers.push(setTimeout(function () { var n = Object.assign({}, self.state.flash); n[a] = ''; self.setState({ flash: n }); }, this.r(T.FLASH) + 40));
+  }
+  clampX(x, half, W) { return Math.max(59 + half, Math.min(W - 59 - half, x)); }
+  popNum(a, text, color, small, dyTop) {
+    var p = this.at(a, 'mid');
+    this.add('pops', { kind: 'num', x: this.clampX(p.x, 24, p.w), y: Math.max(14, p.y - (dyTop || 0)), t: text, color: color, small: small }, T.POP);
+  }
+  // 被格挡的伤害数:让开盾印(盾印占住立绘中心),落在受击者头顶偏右,缩到 0.78
+  popSide(a, text) {
+    var p = this.at(a, 'top');
+    this.add('pops', { kind: 'num', x: this.clampX(p.x + 14, 16, p.w), y: Math.max(14, p.y - 6), t: text, color: 'var(--metal-glyph)', small: true }, T.POP);
+  }
+  popCounter(a, amount, boost, stackIdx, merged) {
+    var p = this.at(a, 'mid');
+    // 反击数锚在攻击者立绘中心(不是格顶):后排怪离屏顶只有 ~25pt,从格顶再升 30pt 会出画
+    var y = Math.max(16, p.y - 14 - (stackIdx || 0) * 12);
+    this.add('pops', { kind: 'counter', x: this.clampX(p.x, 34, p.w), y: y, t: String(amount), boost: boost, merged: merged }, T.POP);
+  }
+  seal(a) {
+    var p = this.at(a, 'mid');
+    this.add('fx', { kind: 'arc', x: p.x, y: p.y }, T.ARC);
+    this.add('fx', { kind: 'seal', x: p.x, y: p.y }, T.SEAL);
+  }
+  streak(from, to, boost) {
+    var a = this.at(from, 'mid'), b = this.at(to, 'mid');
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    this.add('fx', { kind: 'streak', x: a.x, y: a.y, len: len, ang: ang, boost: boost }, T.FLIGHT + .12);
+  }
+  ringAt(a, boost) { var p = this.at(a, 'mid'); this.add('fx', { kind: 'ring', x: p.x, y: p.y, boost: boost }, T.RING); }
+
+  // 一只敌人打一下:attacker 敌人格 id;targets = [{ who: 'p' | 's0', block: bool }]
+  swing(t0, attacker, targets, opts) {
+    var self = this, boost = this.state.boost, o = opts || {};
+    // 扑击:蓄 0.08 + 冲 0.12,末端即命中(Juice BodyDraw / BodyDash)
+    this.later(t0, function () { self.setCls(attacker, 'lunge', T.DRAW + T.DASH); });
+    var hit = t0 + T.DRAW + T.DASH;
+    this.later(hit, function () { self.setCls(attacker, 'back2', T.BACK); });
+    var counters = [];
+    targets.forEach(function (tg, i) {
+      var pt = tg.who, chipA = tg.who === 'p' ? 'p-block' : 's-block';
+      if (!tg.block) {
+        self.later(hit, function () {
+          self.setCls(pt, 'recoil whiteflash', T.RECOIL);
+          self.popNum(pt, '−' + tg.dmg, 'var(--metal-glyph)', false, 6);
+          if (pt === 'p') { self.setState({ php: self.state.php - tg.dmg }); self.setCls('dev', 'shake', .2); }
+          else self.setState({ shp: Math.max(0, self.state.shp - 10) });
+        });
+        return;
+      }
+      // ① 挡
+      self.later(hit, function () {
+        self.seal(pt);
+        self.setCls(pt, 'recoil', T.RECOIL);
+        self.popSide(pt, '−' + Math.round(tg.dmg * .6));
+        if (pt === 'p') { self.setState({ php: self.state.php - Math.round(tg.dmg * .6) }); }
+        else self.setState({ shp: Math.max(0, self.state.shp - 6) });
+      });
+      // ② 扣
+      self.later(hit + .06, function () {
+        self.flash(chipA);
+        if (pt === 'p') { var n = self.state.blkP - 1; self.setState({ blkP: n, rollP: self.state.rollP + 1 }); if (n <= 0) self.later(T.ROLL, function () { self.setState({ goneP: true }); }); }
+        else { var m = self.state.blkS - 1; self.setState({ blkS: m, rollS: self.state.rollS + 1 }); if (m <= 0) self.later(T.ROLL, function () { self.setState({ goneS: true }); }); }
+      });
+      if (!o.noCounter) counters.push({ pt: pt, amt: tg.counter * (boost ? 2 : 1), i: i });
+    });
+    // ③ 反
+    if (boost && counters.length) this.later(hit + .12, function () { self.flash('p-rip', true); });
+    var merged = counters.length >= 3;
+    counters.forEach(function (c, k) {
+      var launch = hit + T.LAUNCH + k * T.STAGGER;
+      self.later(launch, function () { self.streak(c.pt, attacker, boost); });
+      self.later(launch + T.FLIGHT, function () {
+        self.ringAt(attacker, boost);
+        self.setCls(attacker, 'recoil', T.RECOIL);
+        if (boost && k === 0) self.setCls('dev', 'shake', .16);
+        if (!merged) self.popCounter(attacker, c.amt, boost, k);
+        else if (k === counters.length - 1) self.popCounter(attacker, counters.reduce(function (s, q) { return s + q.amt; }, 0), boost, 0, counters.length);
+      });
+    });
+    return hit;
+  }
+
+  run(name) {
+    this.timers.forEach(clearTimeout); this.timers = [];
+    var keep = { rate: this.state.rate, w: this.state.w, boost: name === 'PB' || name === 'SB' ? true : (name === 'P' || name === 'S' ? false : this.state.boost) };
+    this.setState(this.fresh(keep));
+    this.setState({ cap: CAPS[name] });
+    var self = this;
+    setTimeout(function () {
+      if (name === 'P' || name === 'PB') self.swing(.05, 'e1', [{ who: 'p', block: true, dmg: 90, counter: 49 }]);
+      if (name === 'S' || name === 'SB') self.swing(.05, 'e2', [{ who: 's0', block: true, dmg: 90, counter: 49 }]);
+      if (name === 'G') self.swing(.05, 'e1', [{ who: 'p', block: true, dmg: 90, counter: 49 }, { who: 's0', block: true, dmg: 90, counter: 49 }]);
+      if (name === 'C') {
+        self.setState({ blkP: 3 });
+        var h1 = self.swing(.05, 'e0', [{ who: 'p', block: true, dmg: 80, counter: 49 }]);
+        var h2 = self.swing(h1 + T.STEP, 'e1', [{ who: 'p', block: true, dmg: 90, counter: 49 }]);
+        self.swing(h2 + T.STEP, 'e3', [{ who: 'p', block: true, dmg: 135, counter: 49 }]);
+      }
+      if (name === 'Z') self.swing(.05, 'e1', [{ who: 'p', block: true, dmg: 90, counter: 49 }], { noCounter: true });
+      if (name === 'N') self.swing(.05, 'e1', [{ who: 'p', block: false, dmg: 90 }]);
+    }, 30);
+  }
+
+  renderVals() {
+    var self = this, s = this.state, fl = s.flash, cl = s.cls, W = s.w === 'base' ? 932 : 764;
+    function d(t) { return '--d:' + (t / s.rate).toFixed(3) + 's;'; }
+    function enemy(n, el, img, a, hp, atk, front) {
+      return { n: n, en: Z.EL[el], img: IMG(img), a: a, chips: [{ cls: 'sc k-atk', ic: '#ic-attack', t: atk }],
+        cls: 'cell ' + (front ? 'front' : 'rear') + ' e-' + el, ptCls: 'pt ' + (cl[a] || ''), ptSt: d(cl[a] === 'lunge' ? T.DRAW + T.DASH : cl[a] === 'back2' ? T.BACK : T.RECOIL) + '--amp:-3px;',
+        hp: 'width:' + hp + '%', atb: 'width:60%' };
+    }
+    var rear = [enemy('墨溅', 'Water', 'mojian', 'e4', 74, '90', false), enemy('悬针', 'Metal', 'xuanzhen', 'e3', 100, '135', false)];
+    var front = [enemy('焦痕', 'Fire', 'jiaohen', 'e0', 46, '80', true), enemy('窑变', 'Earth', 'yaobian', 'e1', 82, '90', true), enemy('灯花', 'Fire', 'denghua', 'e2', 80, '90', true)];
+    function blockChip(a, n, roll, gone) {
+      if (gone && n <= 0) return [];
+      return [{ a: a, cls: 'sc k-heal ' + (fl[a] || '') + (n <= 0 ? ' gone' : ''), st: d(n <= 0 ? T.GONE : T.FLASH), ic: '#ic-block', t: String(Math.max(0, n)), dg: 'dg ' + (roll ? 'r' + (roll % 2) : ''), dst: d(T.ROLL) }];
+    }
+    var pChips = blockChip('p-block', s.blkP, s.rollP, s.goneP)
+      .concat(s.boost ? [{ a: 'p-rip', cls: 'sc k-gold ' + (fl['p-rip'] || ''), st: d(T.FLASH), ic: '#ic-riposte', t: '', dg: 'dg', dst: '' }] : [])
+      .concat([{ a: '', cls: 'sc k-gold', st: '', ic: '#ic-morale', t: '3/5', dg: 'dg', dst: '' }]);
+    return {
+      devCls: 'dev' + (s.w === 'base' ? '' : ' narrow') + ' ' + (cl.dev || ''),
+      frameNote: s.w === 'base' ? '基准机 19.5:9 · 932 × 430pt(1951 × 900)' : '16:9 · 764 × 430pt(1600 × 900),安全区左右各 59pt',
+      guideR: 'left:' + (W - 59) + 'px',
+      erows: [rear, front],
+      sPtCls: 'pt ' + (cl.s0 || ''), sPtSt: d(T.RECOIL) + '--amp:2px;',
+      pPtCls: 'pt ' + (cl.p || ''), pPtSt: d(T.RECOIL) + '--amp:2px;',
+      sChips: blockChip('s-block', s.blkS, s.rollS, s.goneS),
+      pChips: pChips,
+      php: s.php, phpW: 'width:' + Math.round(s.php / 920 * 100) + '%', shpW: 'width:' + s.shp + '%',
+      hand: ['剑', '锋', '林', '冷', '㙓'].map(function (k) { var c = Z.CHARS[k] || Z.CHARS['剑']; return { g: k, s: c.faces[0].s, sealCls: Z.seal(c.faces[0].s, 'xs'), cls: 'htile e-' + c.el + ' r-' + c.rar }; }),
+      fx: s.fx.map(function (f) {
+        var base = 'left:' + f.x + 'px;top:' + f.y + 'px;';
+        if (f.kind === 'seal') return { cls: 'fx fx-seal', st: base + d(T.SEAL), ic: ['#ic-block'] };
+        if (f.kind === 'arc') return { cls: 'fx fx-arc', st: base + d(T.ARC), ic: [] };
+        if (f.kind === 'ring') return { cls: 'fx fx-ring' + (f.boost ? ' boost' : ''), st: base + d(T.RING), ic: [] };
+        return { cls: 'fx fx-streak' + (f.boost ? ' boost' : ''), st: base + 'width:' + f.len + 'px;--ang:' + f.ang + 'deg;' + d(T.FLIGHT), ic: [] };
+      }),
+      pops: s.pops.map(function (p) {
+        var base = 'left:' + p.x + 'px;top:' + p.y + 'px;' + d(T.POP);
+        if (p.kind === 'counter') return { cls: 'lbl cnum' + (p.boost ? ' boost' : ''), st: base, k: p.merged ? '反击 ×' + p.merged + ' ·' : '反击', t: p.t, x2: p.boost ? [1] : [] };
+        return { cls: 'lbl num' + (p.small ? ' small' : ''), st: base + 'color:' + p.color + ';--rise:' + (p.small ? 12 : 18) + 'px;', k: '', t: p.t, x2: [] };
+      }),
+      cap: s.cap,
+      demos: [['P', '玩家 · 普通'], ['PB', '玩家 · 加倍'], ['S', '木灵 · 普通'], ['SB', '木灵 · 加倍'], ['G', '群攻 · 两处同挡'], ['C', '连续三敌'], ['Z', '反击为 0'], ['N', '对照:普通受击']].map(function (x) {
+        return { n: x[1], go: function () { self.run(x[0]); } };
+      }),
+      rates: [1, 2, 3].map(function (r) { return { n: '×' + r, cls: s.rate === r ? 'on' : '', go: function () { self.setState({ rate: r }); } }; }),
+      widths: [['base', '基准'], ['narrow', '16:9']].map(function (x) { return { n: x[1], cls: s.w === x[0] ? 'on' : '', go: function () { self.setState({ w: x[0] }); } }; }),
+      boosts: [[false, '无'], [true, '有']].map(function (x) { return { n: x[1], cls: s.boost === x[0] ? 'on' : '', go: function () { self.setState({ boost: x[0] }); } }; }),
+      reset: function () { self.timers.forEach(clearTimeout); self.timers = []; self.setState(self.fresh({ rate: s.rate, w: s.w, boost: s.boost })); }
+    };
+  }
+}
+</script>
+</body>
+</html>

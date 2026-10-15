@@ -1,0 +1,12 @@
+{
+  "title": "格挡反击 · 动效",
+  "artboards": [
+    { "file": "CounterFx.dc.html", "x": 0, "y": 0, "w": 932, "h": 556, "title": "可播放:玩家 / 木灵 × 普通 / 反击加倍、群攻、连续三敌、反击为 0、普通受击对照;可切倍速与屏宽" },
+    { "file": "CounterSpec.dc.html", "x": 1012, "y": 0, "w": 1320, "h": 940, "title": "规格:三拍时间轴、时长缓动、四种情形、群攻节拍、出画验算、实现需要" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -150, "w": 560,
+      "text": "需求:session card-ability-system-redesign(2026-10-15,用户提出)。格挡反击三拍:① 挡 = block 图标放大的铜绿盾印 + 朝敌半弧;② 扣 = 格挡 chip 闪 + 次数跳格;③ 反 = 金字形色一划射回 +「反击 N」。反击加倍换赭金并先闪玩家身上的 riposte chip。全部落在现有 0.42 s 步距内。" }
+  ],
+  "launch": { "view": "canvas" }
+}
