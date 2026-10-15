@@ -163,18 +163,19 @@ namespace Brushblade.Core.Tests
         // ---------------- GlossaryTerm / GlossaryRules ----------------
 
         [Test]
-        public void GlossaryTerm_45_InSpecOrder_Groups()
+        public void GlossaryTerm_47_InSpecOrder_Groups()
         {
-            // 2026-10-13:删去一条词条,关键词 32 → 31;2026-10-15 spec B:追加 涓 / 涌 / 苏 / 速度,31 → 35
+            // 2026-10-13:删去一条词条,关键词 32 → 31;2026-10-15 spec B:追加 涓 / 涌 / 苏 / 速度,31 → 35;
+            // 同日用户:厚积薄发 / 涌泉相报单独成词条,35 → 37
             var all = Enum.GetValues(typeof(GlossaryTerm)).Cast<GlossaryTerm>().ToList();
-            Assert.That(all.Count, Is.EqualTo(45));
-            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(35), "关键词");
+            Assert.That(all.Count, Is.EqualTo(47));
+            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(37), "关键词");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 1), Is.EqualTo(7), "范围");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 2), Is.EqualTo(3), "存续");
             Assert.That(all.Select(GlossaryRules.Group), Is.Ordered, "组按 spec §3 顺序排");
-            Assert.That((all[0], all[30], all[31], all[34]), Is.EqualTo(
-                (GlossaryTerm.Burn, GlossaryTerm.Crit, GlossaryTerm.Trickle, GlossaryTerm.Speed)));
-            Assert.That((all[35], all[41], all[42], all[44]), Is.EqualTo(
+            Assert.That((all[0], all[30], all[31], all[36]), Is.EqualTo(
+                (GlossaryTerm.Burn, GlossaryTerm.Crit, GlossaryTerm.Trickle, GlossaryTerm.SpendWellspring)));
+            Assert.That((all[37], all[43], all[44], all[46]), Is.EqualTo(
                 (GlossaryTerm.AreaSingle, GlossaryTerm.AreaAll, GlossaryTerm.Battle, GlossaryTerm.Band)));
         }
 
@@ -220,6 +221,8 @@ namespace Brushblade.Core.Tests
                 [GlossaryTerm.Surge] = C("heal", ChipTone.Guard),
                 [GlossaryTerm.Revive] = C("lastlife", ChipTone.Guard),
                 [GlossaryTerm.Speed] = C("speed", ChipTone.Guard),
+                [GlossaryTerm.SpendHeft] = null,
+                [GlossaryTerm.SpendWellspring] = null,
                 [GlossaryTerm.AreaSingle] = null,
                 [GlossaryTerm.AreaAdjacent] = null,
                 [GlossaryTerm.AreaRow] = null,
@@ -259,8 +262,8 @@ namespace Brushblade.Core.Tests
                 [FaceStatKind.HealOverTime] = GlossaryTerm.Hot,
                 [FaceStatKind.ArmorBreak] = GlossaryTerm.ArmorBreak,
                 [FaceStatKind.Nature] = GlossaryTerm.Nature,
-                [FaceStatKind.SpendWellspring] = GlossaryTerm.Wellspring,
-                [FaceStatKind.SpendHeft] = GlossaryTerm.Heft,
+                [FaceStatKind.SpendWellspring] = GlossaryTerm.SpendWellspring,
+                [FaceStatKind.SpendHeft] = GlossaryTerm.SpendHeft,
                 [FaceStatKind.CounterPercent] = null,
                 [FaceStatKind.ReviveHp] = GlossaryTerm.Revive,
             };

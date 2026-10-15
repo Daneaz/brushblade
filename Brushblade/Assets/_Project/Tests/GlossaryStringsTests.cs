@@ -171,6 +171,22 @@ namespace Brushblade.Core.Tests
             Assert.That(Strings.Keys.Contains("term.sapling.alias"), Is.False, "「苗」别名随「幼苗」一起退役");
         }
 
+        [Test]
+        public void SpendTerms_AreTheirOwnEntries()
+        {
+            // 2026-10-15 用户:厚积薄发 / 涌泉相报是特殊词条,单独成条,不再挂在厚 / 泉下面
+            var lexicon = RealLexicon();
+            Assert.That(TermMarkup.Scan(Strings.T("char.effect.spendheft"), lexicon).Terms.First(),
+                Is.EqualTo(GlossaryTerm.SpendHeft), "厚积薄发整词先匹配,不拆成厚");
+            Assert.That(TermMarkup.Scan(Strings.T("char.effect.spendwellspring"), lexicon).Terms.First(),
+                Is.EqualTo(GlossaryTerm.SpendWellspring));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.SpendHeft, 9, EffectKind.SpendHeft)),
+                Is.EqualTo(GlossaryTerm.SpendHeft), "数值格「每层」点开是厚积薄发");
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.SpendWellspring, 9, EffectKind.SpendWellspring)),
+                Is.EqualTo(GlossaryTerm.SpendWellspring));
+            Assert.That(Strings.T("char.effect.spendheft").Contains("清空"), Is.False, "清空全部的说明进词条,效果句只留每层伤害");
+        }
+
         /// <summary>词条 chip 的图标必须有 PNG(管线产物,执行期决定 D1:不新增图标)。</summary>
         [Test]
         public void EveryTermChipIcon_HasPng()
