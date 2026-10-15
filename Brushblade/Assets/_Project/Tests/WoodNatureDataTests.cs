@@ -51,7 +51,7 @@ namespace Brushblade.Core.Tests
             return l;
         }
 
-        // 字 → (Lv1 被动, Lv3 本命强化后被动);底速 Speed=150 是属性,有的字原本就带
+        // 字 → (Lv1 被动, Lv3 本命强化后被动)。spec A:底速 Speed=150 移出本命,Lv5 起才再出现(见 WoodExclusiveDataTests)
         private static IEnumerable<TestCaseData> Cases()
         {
             yield return new TestCaseData("花", Exp("OnHitCharmChance=20"), Exp("OnHitCharmChance=40"));
@@ -60,16 +60,16 @@ namespace Brushblade.Core.Tests
             yield return new TestCaseData("箭", Exp("Ranged=True"), Exp("Ranged=True", "BackRowBonusPercent=50"));
             yield return new TestCaseData("楸", Exp("OnHitBurn=1"), Exp("OnHitBurn=2"));
             yield return new TestCaseData("荆", Exp("Thorns=50"), Exp("Thorns=80"));
-            yield return new TestCaseData("林", Exp("PerAllyAttackPercent=15", "Speed=150"),
-                Exp("PerAllyAttackPercent=25", "Speed=150"));
+            yield return new TestCaseData("林", Exp("PerAllyAttackPercent=15"),
+                Exp("PerAllyAttackPercent=25"));
             yield return new TestCaseData("柘", Exp("Armor=30", "Taunt=True"), Exp("Armor=60", "Taunt=True"));
             yield return new TestCaseData("桂", Exp("HealAlly=30"), Exp("HealAlly=30", "HealAllyTimes=2"));
-            yield return new TestCaseData("藻", Exp("SproutPercent=30", "SproutMax=2", "Speed=150"),
-                Exp("SproutPercent=30", "SproutMax=3", "Speed=150"));
-            yield return new TestCaseData("森", Exp("EntrySaplings=1", "Speed=150"),
-                Exp("EntrySaplings=2", "Speed=150"));
-            yield return new TestCaseData(Ten, Exp("Shape=Adjacent", "ShapePercent=50", "Speed=150"),
-                Exp("Shape=Row", "ShapePercent=50", "Speed=150"));
+            yield return new TestCaseData("藻", Exp("SproutPercent=30", "SproutMax=2"),
+                Exp("SproutPercent=30", "SproutMax=3"));
+            yield return new TestCaseData("森", Exp("EntrySaplings=1"),
+                Exp("EntrySaplings=2"));
+            yield return new TestCaseData(Ten, Exp("Shape=Adjacent", "ShapePercent=50"),
+                Exp("Shape=Row", "ShapePercent=50"));
         }
 
         [TestCaseSource(nameof(Cases))]

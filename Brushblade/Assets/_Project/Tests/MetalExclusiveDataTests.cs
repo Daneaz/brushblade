@@ -68,6 +68,7 @@ namespace Brushblade.Core.Tests
             ("铡", TraitSlot.Lv8, TraitFace.Feature, "铡关", "DamageCut,Retaliate"),
             ("鍂", TraitSlot.Lv4, TraitFace.Both, "双金", "Morale"),
             ("鍂", TraitSlot.Lv5, TraitFace.Attack, "金石", "Reshape"),
+            ("鍂", TraitSlot.Lv6, TraitFace.Attack, "金鸣", "Amplify"),   // spec A D9:每层战意 +5%
             ("鍂", TraitSlot.Lv6, TraitFace.Feature, "金气", "MoraleShield"),
             ("鍂", TraitSlot.Lv8, TraitFace.Attack, "双锋", "Reshape"),
             ("鍂", TraitSlot.Lv8, TraitFace.Feature, "双金合璧", "Morale,BlockMod"),
@@ -76,11 +77,13 @@ namespace Brushblade.Core.Tests
             ("刲", TraitSlot.Lv5, TraitFace.Attack, "刲刺", "Amplify"),
             ("刲", TraitSlot.Lv5, TraitFace.Feature, "匿锋", "Morale,BlockMod"),
             ("刲", TraitSlot.Lv6, TraitFace.Attack, "割取", "HealSelf"),
+            ("刲", TraitSlot.Lv6, TraitFace.Feature, "刲刃", "BlockMod"),   // spec A D3
             ("刲", TraitSlot.Lv8, TraitFace.Attack, "割喉", "Doom"),
             ("刲", TraitSlot.Lv8, TraitFace.Feature, "刀光", "Augment,Amplify"),
             ("鑫", TraitSlot.Lv4, TraitFace.Both, "聚金", "MoraleOverflowShield"),
             ("鑫", TraitSlot.Lv5, TraitFace.Attack, "三才", "Reshape"),
             ("鑫", TraitSlot.Lv5, TraitFace.Feature, "金身", "Augment,DefenseBuff"),
+            ("鑫", TraitSlot.Lv6, TraitFace.Attack, "金汇", "BlockGain"),   // spec A D1 / D7
             ("鑫", TraitSlot.Lv6, TraitFace.Feature, "富甲", "MoraleArmor"),
             ("鑫", TraitSlot.Lv8, TraitFace.Attack, "三金破", "Reshape,Amplify"),
             ("鑫", TraitSlot.Lv8, TraitFace.Feature, "金玉满堂", "Morale,Augment,Morale"),
@@ -88,6 +91,7 @@ namespace Brushblade.Core.Tests
             (Stack4, TraitSlot.Lv5, TraitFace.Attack, "四金", "Reshape"),
             (Stack4, TraitSlot.Lv5, TraitFace.Feature, "千锤", "Morale,BlockMod"),
             (Stack4, TraitSlot.Lv6, TraitFace.Attack, "破军", "Amplify"),
+            (Stack4, TraitSlot.Lv6, TraitFace.Feature, "镇军", "DamageCut"),   // spec A D4
             (Stack4, TraitSlot.Lv8, TraitFace.Attack, "千钧", "ArmorBreak,Reshape"),
             (Stack4, TraitSlot.Lv8, TraitFace.Feature, "金刚", "Augment,Morale,BlockMod"),
         };
@@ -95,7 +99,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(41), "39 格,放血 / 剁骨拆成攻击面 + 铠面两行(Q20)");
+            Assert.That(Table.Length, Is.EqualTo(45), "39 格,放血 / 剁骨拆成攻击面 + 铠面两行(Q20);spec A 新增 Lv6 专属 4 行(刲刃 / 金鸣 / 金汇 / 镇军)");
             foreach (var (ch, slot, face, name, kinds) in Table)
             {
                 var def = Graph.Get(ch);
@@ -194,18 +198,19 @@ namespace Brushblade.Core.Tests
 
         // ================= 双金合璧:格挡次数 = 出字后战意(Q21 / Ruling 11) =================
 
-        /// <summary>鍂 Lv8·铠折叠后 = [Morale 3, Block(countPerMorale, min 2), Morale 1(池·蓄势 Lv5), MoraleShield, Morale 2(登记)]。
-        /// 蓄势排在 Block 之后,所以格挡次数必须等效果循环结束后再读战意(终审 I1)。</summary>
-        [TestCase(0, 4)]
-        [TestCase(1, 5)]
-        [TestCase(2, 5)]
+        /// <summary>鍂 Lv8·铠折叠后 = [Morale 1(spec A 新本体), Block(countPerMorale, min 2), Morale 1(池·蓄势 Lv5), MoraleShield, Morale 2(登记)]。
+        /// 蓄势排在 Block 之后,所以格挡次数必须等效果循环结束后再读战意(终审 I1)。
+        /// spec A:铠面本体战意 3 → 1(Lv3 战意加成只落在攻击面),出字后战意 = 起手 + 2。</summary>
+        [TestCase(0, 2)]
+        [TestCase(1, 3)]
+        [TestCase(2, 4)]
         public void ShuangJinHeBi_BlockCount_EqualsPostCastMorale(int startMorale, int expected)
         {
             var b = Battle("鍂", 8, Mob());
             if (startMorale > 0) SetMorale(b, startMorale);
             Assert.That(b.Cast("鍂", -1, attackMode: false), Is.EqualTo(BattleError.None));
             int count = b.PlayerStatuses.Find(StatusKind.Block).Magnitude;
-            Assert.That(Morale(b), Is.EqualTo(expected), "出字后战意(Lv3 +3、蓄势 +1,钳到上限)");
+            Assert.That(Morale(b), Is.EqualTo(expected), "出字后战意(spec A:本体 +1、蓄势 +1,钳到上限)");
             Assert.That(count, Is.EqualTo(Morale(b)), "格挡次数 = 出字后战意");
             Assert.That(count, Is.GreaterThanOrEqualTo(2), "min 2");
         }
@@ -213,13 +218,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ShuangJinHeBi_Lv5_PlainBlockCount_Unchanged()
         {
-            // 对照:Lv5 没有双金合璧,铠面是普通 `Block 2`,与战意无关
+            // 对照:Lv5 没有双金合璧,铠面是 Lv3 替换后的普通 `Block 3`(spec A:Lv1 本体 Block 2、Lv3 强化为 3),与战意无关
             foreach (int start in new[] { 0, 2 })
             {
                 var b = Battle("鍂", 5, Mob());
                 if (start > 0) SetMorale(b, start);
                 Assert.That(b.Cast("鍂", -1, attackMode: false), Is.EqualTo(BattleError.None));
-                Assert.That(b.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(2), $"战意 {start} 起");
+                Assert.That(b.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(3), $"战意 {start} 起");
             }
         }
 
@@ -228,19 +233,20 @@ namespace Brushblade.Core.Tests
         [Test]
         public void JuJin_OverflowMorale_BecomesShield()
         {
-            // 鑫 Lv4·两面 聚金:`MoraleOverflowShield 30`。战意 3 + 铠面本体 4 层 → 溢出,每溢出 1 层给 30
+            // 鑫 Lv4·两面 聚金:`MoraleOverflowShield 30`。spec A:铠面本体战意只剩 1 层,凑不满溢出,
+            // 改用攻击面(Lv3 强化后 Morale 4)。战意 3 + 攻击面 4 层 → 溢出,每溢出 1 层给 30
             var b = Battle("鑫", 4, Mob());
             SetMorale(b, 3);
-            Assert.That(b.Cast("鑫", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(b.Cast("鑫", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(Morale(b), Is.EqualTo(Config.MoraleCap));
             Assert.That(b.PlayerShield, Is.GreaterThan(0), "溢出的战意层数 × 每层护盾(30 × 卡等级系数)");
 
             var none = Battle("鑫", 4, Mob());
-            Assert.That(none.Cast("鑫", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(none.Cast("鑫", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(none.PlayerShield, Is.EqualTo(0), "对照:从 0 起不溢出");
         }
 
-        /// <summary>聚金钉值(final fix 4):鑫 Lv4 铠面本体 Morale 4,上限 5 —— 起手 3 溢出 2 层、起手 4 溢出 3 层;
+        /// <summary>聚金钉值(final fix 4;spec A 改走攻击面):鑫 Lv4 攻击面(Lv3 强化)Morale 4,上限 5 —— 起手 3 溢出 2 层、起手 4 溢出 3 层;
         /// 每层 = 30 × Lv4 系数。两档护盾之比 2 : 3(实测 72 / 108)。</summary>
         [Test]
         public void JuJin_ShieldPerOverflowLayer_Exact()
@@ -249,7 +255,7 @@ namespace Brushblade.Core.Tests
             {
                 var b = Battle("鑫", 4, Mob());
                 SetMorale(b, start);
-                Assert.That(b.Cast("鑫", -1, attackMode: false), Is.EqualTo(BattleError.None));
+                Assert.That(b.Cast("鑫", 0, attackMode: true), Is.EqualTo(BattleError.None));
                 return b.PlayerShield;
             }
             int perLayer = MetaRules.ScaleByCardLevel(30, 4);
@@ -319,6 +325,23 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("刲", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[0].Alive, Is.False);
             Assert.That(b.PlayerHp - hpBefore, Is.EqualTo(victimMaxHp * 10 / 100));
+        }
+
+        /// <summary>金汇冒烟(spec A D7,Lv6 攻):鑫 Lv6 攻击面击杀 → 已有格挡次数 +1;没击杀则不加。
+        /// 先出铠面挂格挡,再用攻击面打。</summary>
+        [Test]
+        public void JinHui_KillAddsOneBlockCount_NoKillNoGain()
+        {
+            int BlockAfter(int victimHp)
+            {
+                var b = Battle("鑫", 6, Mob(hp: victimHp), Mob());
+                Assert.That(b.Cast("鑫", -1, attackMode: false), Is.EqualTo(BattleError.None));
+                int before = b.PlayerStatuses.Find(StatusKind.Block).Magnitude;
+                Assert.That(b.Cast("鑫", 0, attackMode: true), Is.EqualTo(BattleError.None));
+                return b.PlayerStatuses.Find(StatusKind.Block).Magnitude - before;
+            }
+            Assert.That(BlockAfter(1), Is.EqualTo(1), "击杀:格挡次数 +1");
+            Assert.That(BlockAfter(100000), Is.EqualTo(0), "对照:没击杀不加");
         }
     }
 }

@@ -85,6 +85,12 @@ namespace Brushblade.Core.Tests
         // 濯身的清除写在「每清 1 条回复」之前,顺序即语义。数值是 (F) 起值,改表必须同步这里
         private static readonly (string Ch, TraitSlot Slot, TraitFace Face, string Name, string Sigs)[] Table =
         {
+            // spec A D13:攻面只减速的字拿通用「精进」,按档放大(冷 10 / 海 15 / 溃 15 / 澡 18)
+            ("冷", L6, Atk, "精进", "Amplify 10 scope All"),
+            ("海", L6, Atk, "精进", "Amplify 15 scope All"),
+            ("溃", L6, Atk, "精进", "Amplify 15 scope All"),
+            ("澡", L6, Atk, "精进", "Amplify 18 scope All"),
+            ("溃", L8, Ftr, "甘露", "Amplify 60 scope Heal|Cleanse 1 pick AllAllies"),   // spec A D8 review 裁定
             ("冷", L8, Atk, "冷却", "ChargeDelay 1|Weaken 50 turns 1 if NotBoss"),
             ("冻", L8, Atk, "冰冻三尺", "Augment 1 of Freeze.Turns|Augment 1 if Slowed of Freeze.Turns"),
             ("海", L5, Atk, "百川", "Reshape 0 shape Chain shapePct 50 shots 3"),
@@ -102,12 +108,14 @@ namespace Brushblade.Core.Tests
             ("冰", L4, Atk, "冰封", "Vulnerable 30 pick FrozenByThisCast"),
             ("冰", L4, Ftr, "冰封", "Amplify 21 scope All"),
             ("冰", L5, Ftr, "冰甲", "ShieldFromHeal 50"),
+            ("冰", L6, Ftr, "冰肌", "OverhealShield 100"),   // spec A D8
             ("冰", L6, Atk, "寒彻", "ThawStrike 0 pick FrozenByThisCast rider Freeze body 50"),
             ("冰", L8, Atk, "坚冰", "Augment 50 of Freeze.StallPush|Freeze 2 pick AdjacentOne"),
             ("冰", L8, Ftr, "冰晶", "ShieldFromHeal 100|ShieldFrost 1"),
             ("沐", L4, Atk, "沐恩", "Amplify 21 scope All"),
             ("沐", L4, Ftr, "沐恩", "HealSummons 50 ofHeal"),
             ("沐", L5, Atk, "新沐", "Cleanse 1 pick Self"),
+            ("沐", L6, Atk, "沐霖", "Lifesteal 20"),   // spec A D8
             ("沐", L6, Ftr, "春雨", "HealOverTime 17 turns 2 battles 3"),
             ("沐", L8, Atk, "沐雨", "HealSummons 63"),
             ("沐", L8, Ftr, "栉风沐雨", "HurtHeal 50 turns 3"),
@@ -115,6 +123,7 @@ namespace Brushblade.Core.Tests
             ("淋", L4, Ftr, "淋漓", "Amplify 25 scope All"),
             ("淋", L5, Atk, "倾盆", "Reshape 0 hits 3 hitPct 40 perHit[Slow 1 extend]"),
             ("淋", L5, Ftr, "细雨", "Reshape 0 shape All shapePct 50"),
+            ("淋", L6, Atk, "淋透", "HealOverTime 29 turns 2"),   // spec A D1 改名自「淋漓」;review 裁定为持续治疗
             ("淋", L6, Ftr, "浇熄", "DebuffWard 50 turns 3 wardOf Burn"),
             ("淋", L8, Atk, "暴雨", "Reshape 0 shape Scatter shots 5 shotPct 30 perHit[Slow 1]"),
             ("淋", L8, Ftr, "大雨滂沱", "TurnPulse 0 turns 3 perHit[Slow 1 pick All;HealSelf 45]"),
@@ -122,14 +131,16 @@ namespace Brushblade.Core.Tests
             ("淼", L4, Ftr, "汪洋", "AddWellspring 1"),
             ("淼", L5, Atk, "同寒", "Freeze 2 pick Column"),
             ("淼", L5, Ftr, "涵养", "AddWellspring 2"),
+            ("淼", L6, Ftr, "淼茫", "Slow 1 pick All"),   // spec A
             ("淼", L6, Atk, "冰水", "ThawSlow 2 pick FrozenByThisCast rider Freeze"),
             ("淼", L8, Atk, "浩瀚", "Reshape 0 shape All shapePct 70|Freeze 1 pick HighestHp"),
             ("淼", L8, Ftr, "水大无际", "Reshape 0 shape All|Cleanse 0 pick AllAllies|HealOverTime 40 turns 2 battles 5"),
             ("㵘", L4, Atk, "怀山", "FrostBite 0 pick FrozenByThisCast rider Freeze body 20"),
             ("㵘", L4, Ftr, "怀山", "Amplify 30 scope All"),
             ("㵘", L5, Atk, "洪峰", "Amplify 10 scope Damage per Wellspring"),
-            ("㵘", L5, Ftr, "泽被", "Reshape 0 shape All|Cleanse 1"),
+            ("㵘", L5, Ftr, "泽被", "Reshape 0 shape All|Cleanse 1 pick AllAllies"),   // spec A D8:Cleanse 改 pick AllAllies
             ("㵘", L6, Atk, "浩荡", "Vulnerable 25 pick FrozenByThisCast"),
+            ("㵘", L6, Ftr, "泽润", "ReviveShield 30"),   // spec A D8
             ("㵘", L8, Atk, "滔天", "Amplify 100 if Frozen scope Damage"),
             ("㵘", L8, Ftr, "泽及四方", "Reshape 0 shape All|Amplify 50 scope Heal|AddWellspring 0 fill"),
         };
@@ -137,8 +148,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(47), "42 格,冰封 / 怀山 / 汪洋 / 沐恩 / 淋漓拆成两行(Q2)");
-            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(42));
+            Assert.That(Table.Length, Is.EqualTo(57), "42 格,冰封 / 怀山 / 汪洋 / 沐恩 / 淋漓拆成两行(Q2);spec A 增 Lv6 专属 / 精进 9 行 + 溃 甘露 1 行");
+            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(52), "spec A 前 42 格 + 新增 10 格");
             foreach (var (ch, slot, face, name, sigs) in Table)
             {
                 var t = Graph.Get(ch).Traits.SingleOrDefault(x => x.Slot == slot && x.Face == face && x.Name == name);
@@ -232,7 +243,7 @@ namespace Brushblade.Core.Tests
         {
             int body = Graph.Get("㵘").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value;
             int expected = MetaRules.ScaleEffectValue(EffectKind.FrostBite, body * 20 / 100, 4);
-            Assert.That(expected, Is.EqualTo(MetaRules.ScaleByCardLevel(34, 4)), "174 × 20% = 34");
+            Assert.That(expected, Is.EqualTo(MetaRules.ScaleByCardLevel(42, 4)), "spec A:㵘 攻面本体 210(红档全体)× 20% = 42");
             var b = Battle("㵘", 4, Mob(), Mob());
             Cast(b, "㵘", 0, attack: true);
             for (int i = 0; i < 2; i++)
@@ -330,9 +341,9 @@ namespace Brushblade.Core.Tests
             Assert.That(three.Last(), Is.EqualTo(3 * one.Last()).Within(2), "按清掉的条数线性回复");
             int perCleansed = MetaRules.ScaleEffectValue(EffectKind.HealSelf, 50, 8);
             Assert.That(perCleansed, Is.EqualTo(71), "50 按 Lv8 缩放");
-            // 濯身结算时泉 2 层(本体治疗攒的)→ 放大 110%:1 条 71 × 110% = 78;3 条 213 × 110% = 234
-            Assert.That(AmplifiedBy(one.Last(), perCleansed), Is.EqualTo(110));
-            Assert.That((one.Last(), three.Last()), Is.EqualTo((78, 234)), "钉值");
+            // spec A:澡 润面本体治疗改为档位值,攒到泉 3 层 → 濯身结算时放大 115%:1 条 71 × 115%;3 条 213 × 115%
+            Assert.That(AmplifiedBy(one.Last(), perCleansed), Is.EqualTo(115));
+            Assert.That((one.Last(), three.Last()), Is.EqualTo((81, 244)), "钉值");
         }
 
         private static int AmplifiedBy(int healed, int raw) => (int)Math.Round(healed * 100.0 / raw / 5) * 5;
@@ -434,22 +445,26 @@ namespace Brushblade.Core.Tests
             var b = Battle("淋", 8, Mob());
             Cast(b, "淋", 0, attack: true);
             var hits = b.LastEvents.Where(e => e.Kind == BattleEventKind.Damage && e.TargetIndex == 0).Select(e => e.Amount).ToList();
-            Assert.That(hits, Is.EqualTo(new[] { 38, 38, 38, 38, 38 }), "5 发各 38");
-            Assert.That(hits.Sum(), Is.EqualTo(190));
+            // spec A:淋(橙档)攻面本体 286 按 Lv8 缩放,暴雨每发 30%
+            int shot = MetaRules.ScaleEffectValue(EffectKind.DamageSingle,
+                Graph.Get("淋").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value, 8) * 30 / 100;
+            Assert.That(hits.Count, Is.EqualTo(5), "5 发");
+            Assert.That(hits.All(h => Math.Abs(h - shot) <= 1), Is.True, $"每发 ≈ 本体 × 30% = {shot};实际 {string.Join(",", hits)}");
         }
 
         /// <summary>守护:其余同面多条 Reshape 的金 / 土 / 水字 Lv8 攻面折叠结果与修订前逐字段一致(期望值取自修订前代码)。
-        /// Reshape 的叠加是 D2-金 / D2-土 的设计,只有「改散射」才重置多段。</summary>
-        [TestCase("海", "DamageSingle 88 shape All shapePct 60 shots 3")]
-        [TestCase("剁", "DamageSingle 61 hits 2 hitPct 35 per Morale perHit[Bleed 35 turns 3] perHitFrom 2")]
-        [TestCase("锥", "DamageSingle 106 shape Column shapePct 70 hits 2 hitPct 60 armorIgnore 100")]
+        /// Reshape 的叠加是 D2-金 / D2-土 的设计,只有「改散射」才重置多段。
+        /// spec A:DamageSingle 数值改为 §2 的档位单体 / 群体 / 全体锚点(海 90、剁 133、锥 90 …),形状字段不变。</summary>
+        [TestCase("海", "DamageSingle 90 shape All shapePct 60 shots 3")]
+        [TestCase("剁", "DamageSingle 133 hits 2 hitPct 35 per Morale perHit[Bleed 35 turns 3] perHitFrom 2")]
+        [TestCase("锥", "DamageSingle 90 shape Column shapePct 70 hits 2 hitPct 60 armorIgnore 100")]
         [TestCase("锋", "DamageSingle 62 hits 2 hitPct 60 crit")]
-        [TestCase("鑫", "DamageSingle 297 shape Adjacent hits 3 hitPct 50")]
-        [TestCase("\uE626", "DamageSingle 384 hits 4 hitPct 30 perHit[ArmorBreak 15 turns 3] armorIgnore 100")]
-        [TestCase("鍂", "DamageSingle 98 hits 2 hitPct 60 perHit[Morale 1]")]
-        [TestCase("碉", "DamageSingle 60 shape Row shapePct 50 shieldStrike 40")]
-        [TestCase("壁", "DamageSingle 60 shape Row shapePct 50 shieldStrike 40")]
-        [TestCase("垒", "DamageSingle 63 shape Row shapePct 50 armorStrike 300")]
+        [TestCase("鑫", "DamageSingle 286 shape Adjacent hits 3 hitPct 50")]
+        [TestCase("\uE626", "DamageSingle 420 hits 4 hitPct 30 perHit[ArmorBreak 15 turns 3] armorIgnore 100")]
+        [TestCase("鍂", "DamageSingle 195 hits 2 hitPct 60 perHit[Morale 1]")]
+        [TestCase("碉", "DamageSingle 42 shape Row shapePct 50 shieldStrike 40")]
+        [TestCase("壁", "DamageSingle 62 shape Row shapePct 50 shieldStrike 40")]
+        [TestCase("垒", "DamageSingle 62 shape Row shapePct 50 armorStrike 300")]
         public void StackedReshapes_OtherLv8AttackFaces_Unchanged(string ch, string expected)
         {
             Assert.That(FoldedDamageSig(ch), Is.EqualTo(expected), ch);
@@ -474,6 +489,40 @@ namespace Brushblade.Core.Tests
             Assert.That((curse?.Magnitude, curse?.TurnsLeft),
                 Is.EqualTo(((int?)MetaRules.ScaleEffectValue(EffectKind.Weaken, 50, 8), (int?)1)).And.EqualTo(((int?)71, (int?)1)),
                 "小怪攻击 −50%(Lv8 缩放),1 回合");
+        }
+
+        // ================= spec A:Lv6 新专属冒烟(真实 graph + cardLevels 6)=================
+
+        [Test]
+        public void MuLin_Lv6_AttackHealsTwentyPercentOfActualDamage()
+        {
+            // 沐 Lv6·攻 沐霖:`Lifesteal 20`(spec A D8)—— 攻击后回血 = 本次实伤 × 20%
+            var b = Battle("沐", 6, 100, Mob());
+            int hpBefore = b.PlayerHp;
+            Cast(b, "沐", 0, attack: true);
+            int dealt = b.LastEvents.Where(e => e.Kind == BattleEventKind.Damage && e.TargetIndex == 0).Sum(e => e.Amount);
+            Assert.That(dealt, Is.GreaterThan(0));
+            Assert.That(b.PlayerHp - hpBefore, Is.EqualTo(dealt * 20 / 100).Within(1), $"实伤 {dealt} × 20%");
+
+            var lv5 = Battle("沐", 5, 100, Mob());
+            Cast(lv5, "沐", 0, attack: true);
+            Assert.That(lv5.PlayerHp, Is.EqualTo(100), "对照:Lv5 没有沐霖,不回血");
+        }
+
+        [Test]
+        public void LinTou_Lv6_AttackLeavesTwoTurnHealOverTime()
+        {
+            // 淋 Lv6·攻 淋透(D1 改名自「淋漓」,review 裁定):`HealOverTime 29` `turns 2` —— 攻击后给玩家一条持续治疗
+            var b = Battle("淋", 6, 100, Mob());
+            Cast(b, "淋", 0, attack: true);
+            var hot = b.PlayerStatuses.All.Where(x => x.Kind == StatusKind.HealOverTime).ToList();
+            Assert.That(hot.Count, Is.GreaterThan(0), "攻击面出字后玩家带持续治疗");
+            // turns 2:出字当下先结算第 1 拍,剩 1 回合;每拍量 = 29 按 Lv6 缩放
+            Assert.That(hot.Any(x => x.TurnsLeft == 1 && x.Magnitude == MetaRules.ScaleEffectValue(EffectKind.HealOverTime, 29, 6)), Is.True,
+                "实际 " + string.Join(",", hot.Select(x => x.TurnsLeft + "/" + x.Magnitude)));
+            var lv5 = Battle("淋", 5, 100, Mob());
+            Cast(lv5, "淋", 0, attack: true);
+            Assert.That(lv5.PlayerStatuses.All.Any(x => x.Kind == StatusKind.HealOverTime), Is.False, "对照:Lv5 没有淋透");
         }
     }
 }
