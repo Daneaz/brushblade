@@ -708,6 +708,10 @@ namespace Brushblade.Core
             return (_cast.PreCastConditions[enemyIndex] & (1 << (int)condition)) != 0; // 同上:int 掩码,枚举 < 32 种
         }
 
+        /// <summary>读本次释放层数的效果(spec C §6,Q7):门槛 MinSpent、按层 ScaleBasis.Spent、回澜、地动。</summary>
+        private static bool ReadsSpent(EffectDef e) =>
+            e.MinSpent > 0 || e.ScaleBy == ScaleBasis.Spent || e.Kind == EffectKind.SpendHeal || e.Kind == EffectKind.SpendShield;
+
         private static bool IsTargetIndependent(DamageCondition c) =>
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
             || c == DamageCondition.FirstCastThisTurn
@@ -3409,6 +3413,8 @@ namespace Brushblade.Core
                     RegisterOpening(OpeningEffect.Of(effect, def.Id, attacker));
                     return;
                 }
+                // 按释放层数的效果(spec C §6,Q7):没释放 / 低于门槛时整条跳过、不摇号、不发事件;别的效果一次判断即过,恒等
+                if (ReadsSpent(effect) && _cast.Spent < Math.Max(1, effect.MinSpent)) return;
                 // 本字木灵在场(D2-木 E50,一叶知秋):与目标无关的条件门在选目标 / 摇号之前判,不满足整条空转(不多摇)
                 if (effect.OnlyIf == DamageCondition.OwnSummonAlive && !PreCastConditionMet(DamageCondition.OwnSummonAlive, -1)) return;
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
@@ -3421,7 +3427,8 @@ namespace Brushblade.Core
                 // 无加成项时整句跳过。
                 // 灼的加成作用于火力不作用于层数(G3,在 BurnSingle / BurnAll 分支里按目标乘)
                 if (effect.AmpTerms.Count > 0 && effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.Block
-                    && effect.Kind != EffectKind.BurnSingle && effect.Kind != EffectKind.BurnAll)
+                    && effect.Kind != EffectKind.BurnSingle && effect.Kind != EffectKind.BurnAll
+                    && effect.Kind != EffectKind.SpendHeft && effect.Kind != EffectKind.SpendWellspring)   // 释放伤害的加成在 SpendResource 里求(层数那时才已知)
                     value = Amplified(value, AmpPercent(effect, targetIndex), AmpAxisPercent(attacker, effect.Kind));
                 if (moraleRelease && effect.Kind == EffectKind.DamageSingle)
                     value = value * (100 + _config.MoraleReleasePercent) / 100;
@@ -3707,7 +3714,7 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.ArmorBreak,
                                 Polarity = StatusPolarity.Debuff,
-                                Magnitude = value,
+                                Magnitude = effect.ScaleBy == ScaleBasis.Spent ? value * _cast.Spent : value,   // 崩裂 / 厚壤(spec C §6)
                                 TurnsLeft = Math.Max(1, effect.Turns),
                                 SourceId = $"{def.Id}#{_statusSerial++}",
                             }, UnitRef.Enemy(ti), UnitRef.Player);
@@ -4263,11 +4270,26 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.SpendHeft:
-                        SpendResource(StatusKind.Heft, value, attacker);
+                        SpendResource(StatusKind.Heft, effect, value, attacker);
                         break;
                     case EffectKind.SpendWellspring:
-                        SpendResource(StatusKind.Wellspring, value, attacker);
+                        SpendResource(StatusKind.Wellspring, effect, value, attacker);
                         break;
+                    case EffectKind.SpendHeal:
+                        // 回澜(spec C §6):本次释放实际伤害 × N% 治疗我方全体;不吃泉放大、不攒泉
+                        HealPlayerAndSummons(_cast.SpentDamage * effect.Value / 100);
+                        break;
+                    case EffectKind.SpendShield:
+                    {
+                        // 地动(spec C §6):每目标释放伤害 × N% → 玩家与每只存活木灵各一份护盾;不攒厚
+                        int amount = _cast.SpentPerTarget * effect.Value / 100;
+                        int granted = AddPlayerShield(amount);
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+                        for (int s = 0; s < _summons.Length; s++)
+                            if (_summons[s] is { Alive: true })
+                                _events.Add(new BattleEvent(BattleEventKind.Shield, s, AddSummonShield(s, amount)));
+                        break;
+                    }
                     case EffectKind.Empower:
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
                         // SourceId 铸唯一序号(用法 2)才能叠 —— 传裸字 ID 会让第二张剡
@@ -4880,22 +4902,26 @@ namespace Brushblade.Core
         ///
         /// 走 DamageEnemy 而不是自己扣血:相克、护甲、暴击、反噬、分裂那一整套
         /// 都在那条链路上,绕过去就得抄一遍。</summary>
-        private void SpendResource(StatusKind kind, int perStack, Element attacker)
+        private void SpendResource(StatusKind kind, EffectDef effect, int perStack, Element attacker)
         {
             int stacks = _playerStatuses.TotalMagnitude(kind);
             if (stacks <= 0 || perStack <= 0) return;
 
             _playerStatuses.Remove(kind);
+            _cast.Spent = stacks;   // spec C §6:清空前的层数,本面其后读层数的效果用
 
             int spendPercent = _config == null ? 0
                 : kind == StatusKind.Heft ? _config.HeftSpendPercent : _config.WellspringSpendPercent;
             int damage = ScaleByAttack(stacks * perStack * (100 + spendPercent) / 100);
+            // 深厚 / 怀山 / 山崩 / 决堤 / 滔天(scope Spend,Q6):层数已知后求值,门槛项在 AmpPercent 里判;没有加成时整句跳过
+            if (effect.AmpTerms.Count > 0) damage = Amplified(damage, AmpPercent(effect, -1));
+            _cast.SpentPerTarget = damage;
             // 取 Count 快照:分裂(叠字怪)会在循环里往 _enemies 追加,
             // 新生成的克隆不该被同一发引爆再打一次(与全体伤害 All 同口径)。
             int count = _enemies.Count;
             for (int i = 0; i < count; i++)
                 if (_enemies[i].Alive)
-                    DamageEnemy(i, damage, attacker, crit: RollCrit(), attackerRef: UnitRef.Player);
+                    _cast.SpentDamage += DamageEnemy(i, damage, attacker, crit: RollCrit(), attackerRef: UnitRef.Player);
 
             // 积土/涌泉(2026-10-02):返还发生在清空与伤害之后 —— 返还的层数不参与本次伤害。
             // 走 AddPlayerCounter 直接加层(不经 GainHeft 的护盾折算,不触发「获盾攒厚」)。

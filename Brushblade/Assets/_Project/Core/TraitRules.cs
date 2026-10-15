@@ -183,7 +183,23 @@ namespace Brushblade.Core
                 }
             }
             ApplyModifiers(effects, modifiers);
+            HoistPreSpend(effects);
             return effects;
+        }
+
+        /// <summary>「释放前先 +N 层」(spec C §6,Q8):本面有释放泉 / 厚时,把排在第一条释放之后的同资源直接加层
+        /// (AddWellspring / AddHeft,非 fill、非开局登记)稳定地挪到它前面。没有释放的面原样返回 —— 恒等。</summary>
+        private static void HoistPreSpend(List<EffectDef> effects)
+        {
+            int spend = effects.FindIndex(e => e.Kind == EffectKind.SpendHeft || e.Kind == EffectKind.SpendWellspring);
+            if (spend < 0) return;
+            var add = effects[spend].Kind == EffectKind.SpendHeft ? EffectKind.AddHeft : EffectKind.AddWellspring;
+            var moved = new List<EffectDef>();
+            for (int i = spend + 1; i < effects.Count; i++)
+                if (effects[i].Kind == add && !effects[i].Fill && effects[i].OpeningBattles == 0) moved.Add(effects[i]);
+            if (moved.Count == 0) return;
+            foreach (var m in moved) effects.Remove(m);
+            effects.InsertRange(spend, moved);
         }
 
         /// <summary>一条特性效果进出字 / 反应前的解析(D2-火 E4 / E5):① bodyPercent → 具体 Value;
