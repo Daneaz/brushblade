@@ -34,10 +34,9 @@ namespace Brushblade.Core.Tests
             {
                 foreach (int lv in new[] { 1, 3, 4 })
                     Assert.That(CardSheetRules.LadderMarks(d, lv), Is.EqualTo(new[] { TraitFace.Both }), $"{d.Id} Lv{lv}");
-                foreach (int lv in new[] { 5, 8 })
+                // spec A §6:Lv6 两面各一条,与 Lv5 / Lv8 同样标两面;Lv1 按槽位恒标「两面」(两面各一条也是)
+                foreach (int lv in new[] { 5, 6, 8 })
                     Assert.That(CardSheetRules.LadderMarks(d, lv), Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }), $"{d.Id} Lv{lv}");
-                var lv6 = d.Traits.Single(t => t.Slot == TraitSlot.Lv6).Face;
-                Assert.That(CardSheetRules.LadderMarks(d, 6), Is.EqualTo(new[] { lv6 }), $"{d.Id} Lv6");
                 foreach (int lv in new[] { 2, 7, 9, 10 })
                     Assert.That(CardSheetRules.LadderMarks(d, lv), Is.Empty, $"{d.Id} Lv{lv}");
             }
@@ -49,9 +48,10 @@ namespace Brushblade.Core.Tests
         public void FaceTraits_Yan_Attack_L6()
         {
             var rows = CardSheetRules.FaceTraits(Graph.Get("炎"), CardFace.Attack, 6);
-            Assert.That(Names(rows), Is.EqualTo("Lv5:火上浇油:on,Lv8:炎刃:off"));
+            // spec A §6.1:炎攻面补专属 Lv6 赤炎
+            Assert.That(Names(rows), Is.EqualTo("Lv5:火上浇油:on,Lv6:赤炎:on,Lv8:炎刃:off"));
             Assert.That(rows.All(r => r.Face == TraitFace.Attack && r.Defs.Count == 1), Is.True);
-            Assert.That(rows.Select(r => r.IsSignature), Is.EqualTo(new[] { false, true }));
+            Assert.That(rows.Select(r => r.IsSignature), Is.EqualTo(new[] { false, false, true }));
         }
 
         [Test]
@@ -73,6 +73,7 @@ namespace Brushblade.Core.Tests
                         Is.False, $"{d.Id} {face}:Lv1/3/4 不进面");
                     Assert.That(rows.All(r => r.Defs.All(t => t.AppliesTo(face))), Is.True, $"{d.Id} {face}");
                     Assert.That(rows.Count(r => r.Slot == TraitSlot.Lv5), Is.EqualTo(1), $"{d.Id} {face} Lv5");
+                    Assert.That(rows.Count(r => r.Slot == TraitSlot.Lv6), Is.EqualTo(1), $"{d.Id} {face} Lv6(spec A 两面各一条)");
                     Assert.That(rows.Count(r => r.Slot == TraitSlot.Lv8), Is.EqualTo(1), $"{d.Id} {face} Lv8");
                     Assert.That(rows.All(r => !r.Unlocked), Is.True, $"{d.Id} {face}:Lv1 全未解锁");
                 }
@@ -115,7 +116,7 @@ namespace Brushblade.Core.Tests
                 }
                 Assert.That(row.Unlocked, Is.True, d.Id);
             }
-            Assert.That(split, Is.EqualTo(22), "Lv4 分面的字数");
+            Assert.That(split, Is.EqualTo(23), "Lv4 分面的字数(spec A:炸五行面改全体不选敌,克敌按 U6 拆成两条)");
         }
 
         [Test]
@@ -130,9 +131,10 @@ namespace Brushblade.Core.Tests
                 Assert.That(row.Names, Is.EqualTo(expected), d.Id);
                 if (expected.Count == 2) differ++;
             }
-            Assert.That(differ, Is.EqualTo(11), "Lv3 两面不同名的字数");
+            // spec A §1:Lv1 / Lv3 按面分开命名,55 张字 Lv3 两面名全都不同
+            Assert.That(differ, Is.EqualTo(55), "Lv3 两面不同名的字数");
             Assert.That(CardSheetRules.SharedTraits(Graph.Get("林"), 3)[0].Names, Is.EqualTo(new[] { "种·强化", "成林·强化" }));
-            Assert.That(CardSheetRules.SharedTraits(Graph.Get("炎"), 3)[0].Names, Is.EqualTo(new[] { "灼·强化" }), "同名只出一个名");
+            Assert.That(CardSheetRules.SharedTraits(Graph.Get("炎"), 3)[0].Names, Is.EqualTo(new[] { "灼·强化", "慑·强化" }));
         }
 
         /// <summary>Final review Minor 2:两面条的类别按每条 Def 自己的 Form 取,不能只看 Defs[0]。
@@ -170,12 +172,13 @@ namespace Brushblade.Core.Tests
                 Assert.That(CardSheetRules.UnlockedAt(d, 3).Count, Is.EqualTo(1), $"{d.Id} L3(两面合一行)");
                 Assert.That(CardSheetRules.UnlockedAt(d, 4).Count, Is.EqualTo(1), $"{d.Id} L4");
                 Assert.That(CardSheetRules.UnlockedAt(d, 5).Count, Is.EqualTo(2), $"{d.Id} L5");
-                Assert.That(CardSheetRules.UnlockedAt(d, 6).Count, Is.EqualTo(1), $"{d.Id} L6");
+                Assert.That(CardSheetRules.UnlockedAt(d, 6).Count, Is.EqualTo(2), $"{d.Id} L6(spec A 两面各一条)");
                 Assert.That(CardSheetRules.UnlockedAt(d, 8).Count, Is.EqualTo(2), $"{d.Id} L8");
                 foreach (int lv in new[] { 2, 7, 9, 10 })
                     Assert.That(CardSheetRules.UnlockedAt(d, lv), Is.Empty, $"{d.Id} L{lv}");
                 Assert.That(CardSheetRules.UnlockedAt(d, 5).All(r => r.Unlocked), Is.True);
                 Assert.That(CardSheetRules.UnlockedAt(d, 5).Select(r => r.Face), Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }));
+                Assert.That(CardSheetRules.UnlockedAt(d, 6).Select(r => r.Face), Is.EqualTo(new[] { TraitFace.Attack, TraitFace.Feature }), d.Id);
             }
         }
 
@@ -191,7 +194,7 @@ namespace Brushblade.Core.Tests
             Assert.That(Names(rows6), Is.EqualTo("Lv8:炎刃:off,Lv8:炎炎:off"));
             var (l5, rows5) = CardSheetRules.NextUnlock(yan, 5);
             Assert.That(l5, Is.EqualTo(6));
-            Assert.That(Names(rows5), Is.EqualTo("Lv6:上炎:off"));
+            Assert.That(Names(rows5), Is.EqualTo("Lv6:赤炎:off,Lv6:上炎:off"), "先攻后五行");
         }
 
         [Test]
@@ -215,13 +218,18 @@ namespace Brushblade.Core.Tests
                 foreach (int lv in new[] { 1, 10 })
                 {
                     Assert.That(CardSheetRules.TargetOf(d, CardFace.Attack, lv), Is.EqualTo(FaceTarget.Enemy), $"{d.Id} 攻面");
+                    // spec A §3:溃 / 㵘 五行面改全体(HealAll,不选友方)→ 只作用于自身一方
                     var expected = d.Element switch
                     {
                         Element.Fire => FaceTarget.Enemy,
                         Element.Wood => FaceTarget.Summon,
+                        // 溃 Lv5 溃围(Slow pick All)解锁后面上有了敌对效果、又不选友方 → 落点 Enemy(CardFaceRules.Landing E26 只在选友方时压掉)
+                        _ when d.Id == "溃" && lv >= 5 => FaceTarget.Enemy,
+                        // 崩 = ShieldAll + DefenseBuff:护甲仍要选友方(EffectNeedsAllyTarget),落点保持 Ally
+                        _ when d.Id == "溃" || d.Id == "㵘" => FaceTarget.SelfOnly,
                         _ => FaceTarget.Ally,
                     };
-                    Assert.That(CardSheetRules.TargetOf(d, CardFace.Feature, lv), Is.EqualTo(expected), $"{d.Id} 五行面");
+                    Assert.That(CardSheetRules.TargetOf(d, CardFace.Feature, lv), Is.EqualTo(expected), $"{d.Id} 五行面 Lv{lv}");
                 }
         }
 

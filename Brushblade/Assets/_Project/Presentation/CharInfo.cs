@@ -60,10 +60,12 @@ namespace Brushblade.Presentation
         public static string SideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel) =>
             OneSideEffectsText(effects, def, cardLevel);
 
-        /// <param name="healReshape">治疗改形(D2-水 E20):这些效果所在那一面没有伤害、有 HealSelf ——
+        /// <param name="reshapeFace">治疗改形(D2-水 E20):这些效果所在那一面没有伤害、有 HealSelf ——
         /// Reshape 的 shape All 改的是治疗,不是伤害。只有 <see cref="TraitEffectsText"/> 拿得到面的上下文。</param>
+        /// <param name="blockBasePercent">BlockMod 印「原为 N%」的原值:该特性解锁时本面折叠后的格挡反击 %
+        /// (<see cref="TraitRules.FaceBlockCounterPercent(CharDef, TraitDef, int)"/>);拿不到面上下文时按缺省 30% 印。</param>
         private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel,
-            bool healReshape = false)
+            ReshapeFace reshapeFace = ReshapeFace.Damage, int blockBasePercent = BattleConfig.BlockCounterPercent)
         {
             if (effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
@@ -77,8 +79,11 @@ namespace Brushblade.Presentation
                 // 分隔符与内容同为 U+002C 时,多效果字会被读成比实际更多的段。
                 // 分号的层级严格强于逗号(顿号反而更弱,当结构分隔符会把层级弄反),
                 // 所以各分支内部照常写逗号即可,不必再逐个改文案。
-                if (i > 0) parts.Append(';');
                 var e = effects[i];
+                // 空转的改形(治疗面本体已是全体)整句不印,连分号一起省
+                if (e.Kind == EffectKind.Reshape && reshapeFace == ReshapeFace.Noop && e.Pick == EffectPick.Primary
+                    && e.Shape == TargetArea.All && e.SummonPercent == 100 && e.ArmorShieldPercent <= 0) continue;
+                if (parts.Length > 0) parts.Append(';');
                 int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
                 // 本体百分比(D2-火 E5,连爆 / 埋雷):数值在出字时才按本面本体解析,没有具体数可印;
                 // 只有 DamageSingle / Mine 能写(ConfigLoader 拦其余),这两个分支各走自己的整句 key,
@@ -311,11 +316,11 @@ namespace Brushblade.Presentation
                     EffectKind.Unseal => Strings.T("char.effect.unseal"),
                     // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
                     EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
-                    EffectKind.Reshape => ReshapeText(e, healReshape),
+                    EffectKind.Reshape => ReshapeText(e, reshapeFace == ReshapeFace.Heal),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
                     // 格挡修饰器(D2-金 E12):按战意的次数 / 反击百分比覆盖 / 格挡附带都在 BlockModText 里印
-                    EffectKind.BlockMod => BlockModText(e, cardLevel),
+                    EffectKind.BlockMod => BlockModText(e, cardLevel, blockBasePercent),
                     // ---- D1 Task 7:我方侧。百分比 / 层数是离散量(shown == e.Value);群疗 / 群盾吃等级 ----
                     EffectKind.DamageCut => Strings.T("char.effect.damagecut", ("value", shown)),
                     EffectKind.CounterBoost => Strings.T("char.effect.counterboost", ("mult", BoostMult(v))),
@@ -386,6 +391,11 @@ namespace Brushblade.Presentation
                     EffectKind.SummonAct => Strings.T("char.effect.summonact"),
                     // 折桂(M10):触发前缀「击杀时:」由 TriggerText 印,每场次数由 battleLimit 印
                     EffectKind.GrantChar => Strings.T("char.effect.grantchar", ("value", e.Value)),
+                    // spec A D8:沐霖 / 冰肌,Value 是百分比(不随卡等级缩放)
+                    EffectKind.Lifesteal => Strings.T("char.effect.lifesteal", ("value", e.Value)),
+                    EffectKind.OverhealShield => Strings.T("char.effect.overhealshield", ("value", e.Value)),
+                    EffectKind.BlockGain => Strings.T("char.effect.blockgain", ("value", e.Value)),
+                    EffectKind.ReviveShield => Strings.T("char.effect.reviveshield", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -421,21 +431,27 @@ namespace Brushblade.Presentation
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
             TriggerText(trait.Trigger)
-            + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel))
+            + OneSideEffectsText(trait.Effects, def, cardLevel, ReshapeFaceOf(trait, def, cardLevel),
+                def != null && trait.Effects.Any(e => e.Kind == EffectKind.BlockMod)
+                    ? TraitRules.FaceBlockCounterPercent(def, trait, cardLevel) : BattleConfig.BlockCounterPercent)
             + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "")
             + (trait.MaxPerBattle > 0 ? Strings.T("char.trait.battlelimit", ("count", trait.MaxPerBattle)) : "");   // D2-土 E35
 
+        private enum ReshapeFace { Damage, Heal, Noop }
+
         /// <summary>这条特性所在那一面「没有伤害、有治疗」(D2-水 E20,海纳百川 / 细雨 / 泽被…):Reshape shape All 改的是第一条 HealSelf。
-        /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面**折叠后**的出字效果(<see cref="TraitRules.CastEffects"/>,
-        /// 等级取 max(卡等级, 本特性解锁等级) —— 未解锁的特性也要印得对)。两面通用(Both)的特性按润面判:
+        /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面折叠前的本体效果(折叠后已含本条 Reshape,HoT 会被改成全体而误判)。两面通用(Both)的特性按润面判:
         /// 双方向字的攻面恒有伤害,改的是伤害,印成「伤害改为」;单方向字只有一面,与润面同一份效果。</summary>
-        private static bool HealReshapeFace(TraitDef trait, CharDef def, int cardLevel)
+        private static ReshapeFace ReshapeFaceOf(TraitDef trait, CharDef def, int cardLevel)
         {
-            if (def == null || !trait.Effects.Any(e => e.Kind == EffectKind.Reshape)) return false;
-            if (trait.Face == TraitFace.Both && def.AttackEffects.Count > 0) return false;
-            var face = trait.Face == TraitFace.Attack ? CardFace.Attack : CardFace.Feature;
-            var cast = TraitRules.CastEffects(def, face, Math.Max(cardLevel, trait.UnlockLevel));
-            return !cast.Any(e => e.Kind == EffectKind.DamageSingle) && cast.Any(e => e.Kind == EffectKind.HealSelf);
+            if (def == null || !trait.Effects.Any(e => e.Kind == EffectKind.Reshape)) return ReshapeFace.Damage;
+            if (trait.Face == TraitFace.Both && def.AttackEffects.Count > 0) return ReshapeFace.Damage;
+            // 读折叠**前**的面本体:折叠已含本条 Reshape 时,HoT 早被改成全体,判据会误判成空转
+            var cast = trait.Face == TraitFace.Attack ? def.AttackEffects : def.Effects;
+            if (TraitRules.HealReshapeIndex(cast) >= 0) return ReshapeFace.Heal;
+            // 无伤害、已是 HealAll(㵘):改形空转,这句不印
+            return !cast.Any(e => e.Kind == EffectKind.DamageSingle) && cast.Any(e => e.Kind == EffectKind.HealAll)
+                ? ReshapeFace.Noop : ReshapeFace.Damage;
         }
 
         /// <summary>冻结附着族的句子自带主语(「被本字冻结的敌人…」「本字的冻结结束时…」),选择器后缀不再印。</summary>
@@ -813,15 +829,19 @@ namespace Brushblade.Presentation
                     + ShapeSuffix(e) + HitCountText(e) + ExecuteText(e) + ArmorStrikeText(e) + MarkerText(e);
 
         /// <summary>BlockMod(D2-金 E12):改的是本面的格挡。按战意 →「格挡次数 = 战意(至少 N)」,否则「格挡」;
-        /// 反击百分比覆盖带上原值(缺省 <see cref="BattleConfig.BlockCounterPercent"/>),玩家看得出是「改写」;再接格挡附带。</summary>
-        private static string BlockModText(EffectDef e, int cardLevel) =>
-            (e.ScaleBy == ScaleBasis.Morale
-                ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
-                : Strings.T("char.effect.blockmod"))
-            + (e.CounterPercent > 0
-                ? Strings.T("char.effect.blockmod.counter", ("percent", e.CounterPercent), ("base", BattleConfig.BlockCounterPercent))
-                : "")
-            + BlockRidersText(e, cardLevel);
+        /// 反击百分比覆盖带上原值(该特性解锁时本面折叠后 Block 的反击 %,不含本条;没写取 <see cref="BattleConfig.BlockCounterPercent"/>),玩家看得出是「改写」;
+        /// D10 只抬不降:改后不高于原值时这句不印。再接格挡附带。</summary>
+        private static string BlockModText(EffectDef e, int cardLevel, int basePercent)
+        {
+            int raised = TraitRules.BlockModCounterPercent(basePercent, e);
+            return (e.ScaleBy == ScaleBasis.Morale
+                    ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
+                    : Strings.T("char.effect.blockmod"))
+                + (raised > basePercent
+                    ? Strings.T("char.effect.blockmod.counter", ("percent", raised), ("base", basePercent))
+                    : "")
+                + BlockRidersText(e, cardLevel);
+        }
 
         /// <summary>格挡附带(D2-金 J1):BlockMod 与折叠后的 Block 共用。流血量出字时 = 基础 × 卡等级 × 攻击力(定死),
         /// 卡面印等级缩放后的值并注明随攻击力;回合固定 <see cref="BattleEngine.BleedDefaultTurns"/>。</summary>
@@ -843,7 +863,9 @@ namespace Brushblade.Presentation
                 // D2-金 E10:伤害的击数 + 战意 / 战意 × 多命中的敌人数。格挡次数 = 战意由 Block / BlockMod 分支自己印在句首
                 ScaleBasis.Morale => e.Kind == EffectKind.Block || e.Kind == EffectKind.BlockMod
                     ? ""
-                    : Strings.T("char.effect.per.morale.hits"),
+                    : e.Kind == EffectKind.Amplify
+                        ? Strings.T("char.effect.per.morale")
+                        : Strings.T("char.effect.per.morale.hits"),
                 ScaleBasis.ExtraHitTarget => Strings.T("char.effect.per.extrahittarget"),
                 // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),

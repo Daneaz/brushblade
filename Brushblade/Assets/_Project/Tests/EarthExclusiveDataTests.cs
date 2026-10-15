@@ -110,17 +110,20 @@ namespace Brushblade.Core.Tests
             ("塔", L8, Ftr, "七级浮屠", "DefenseBuff 8 turns 4 cap 7 perShieldTenth"),
             ("杜", L4, Both, "杜绝", "DebuffWard 0 turns 1 wardCount 1"),
             ("杜", L5, Atk, "杜塞", "Silence 0 turns 2 if NotBoss|SkillCut 50 if IsBoss"),
+            ("杜", L6, Atk, "杜渐", "BuffBlock 0 turns 2"),   // spec A D1 改名自「杜绝」、D2 改成 2 回合无法获得增益
             ("杜", L6, Ftr, "闭门", "Shield 63 battles 1"),
             ("杜", L8, Atk, "堵截", "Freeze 1"),
             ("杜", L8, Ftr, "杜门不出", "DamageCut 60|ApCost 1"),
             ("圭", L4, Both, "叠土", "Shield 126"),
             ("圭", L5, Atk, "重土", "TurnPulse 0 turns 1 perHit[Shield 63]"),
+            ("圭", L6, Atk, "圭棱", "Amplify 20 if ArmorBroken scope Damage"),   // spec A D1 改名自「圭角」
             ("圭", L6, Ftr, "圭臬", "Augment 0 of DefenseBuff.Battle"),
             ("圭", L8, Atk, "圭角", "Reshape 0 shieldStrike 40|ArmorBreak 32 turns 2"),
             ("圭", L8, Ftr, "土生金", "ShieldToMorale 30"),
             ("垚", L4, Both, "三土", "Shield 75"),
             ("垚", L5, Atk, "移山", "Reshape 0 shape Column shapePct 70 shieldStrike 30"),
             ("垚", L5, Ftr, "叠嶂", "DefenseBuff 38 turns 4"),
+            ("垚", L6, Atk, "垚峙", "Reshape 0 armorStrike 200"),   // spec A:伤害 + 护甲 × 2
             ("垚", L6, Ftr, "山岳", "Retaliate 1 turns 4 minArmor 50 perHit[ArmorBreak 38 turns 2]"),
             ("垚", L8, Atk, "三山", "Reshape 0 shape Scatter shots 3 armorStrike 300 armorStrikeEach"),
             ("垚", L8, Ftr, "对峙", "Taunt 1 pick Self|DefenseBuff 38 turns 4 battles 5"),
@@ -128,6 +131,7 @@ namespace Brushblade.Core.Tests
             ("㙓", L4, Ftr, "深厚", "Augment 4 of DefenseBuff.Turns"),
             ("㙓", L5, Atk, "山压", "Reshape 0 shieldStrike 50"),
             ("㙓", L5, Ftr, "厚土", "Amplify 50 scope Shield|AddHeft 2"),
+            ("㙓", L6, Atk, "厚壤", "Augment 1 of ArmorBreak.Turns|ArmorBreak 20 turns 3"),   // spec A D1 改名自「厚土」
             ("㙓", L6, Ftr, "载物", "ShieldSummons 50 ofShield"),
             ("㙓", L8, Atk, "地动", "Reshape 0 shape All shieldStrike 30|ArmorBreak 45 turns 2 pick All"),
             ("㙓", L8, Ftr, "厚德载物", "Amplify 100 scope Shield|TurnPulse 0 turns -1 perHit[ShieldSummons 10 ofPlayerShield]"),
@@ -136,8 +140,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(37), "35 格,塔基 / 深厚拆成两行(V4)");
-            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(35));
+            Assert.That(Table.Length, Is.EqualTo(41), "35 格,塔基 / 深厚拆成两行(V4);spec A 增 Lv6 攻面专属 4 行");
+            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(39));
             foreach (var (ch, slot, face, name, sigs) in Table)
             {
                 var t = Graph.Get(ch).Traits.SingleOrDefault(x => x.Slot == slot && x.Face == face && x.Name == name);
@@ -169,10 +173,10 @@ namespace Brushblade.Core.Tests
             // 㙓 Lv8 攻:山压 50 + 地动 30 = 80,全体
             var dong = Folded("㙓", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((dong.ShieldStrikePercent, dong.Shape), Is.EqualTo((80, TargetArea.All)));
-            // 垚 Lv8 攻:三山散射 3 发、逐发镇压 300;移山的 shieldStrike 30 留着(Q13)
+            // 垚 Lv8 攻:三山散射 3 发、逐发镇压 300 + spec A Lv6 垚峙 200 = 500;移山的 shieldStrike 30 留着(Q13)
             var shan = Folded("垚", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((shan.Shape, shan.Shots, shan.ArmorStrikePercent, shan.ArmorStrikeEach, shan.ShieldStrikePercent),
-                Is.EqualTo((TargetArea.Scatter, 3, 300, true, 30)));
+                Is.EqualTo((TargetArea.Scatter, 3, 500, true, 30)));
             // 崩 Lv8 攻:击数按出字前护盾,每 100 点 +1、最多 +4
             var lie = Folded("崩", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((lie.ScaleBy, lie.ScaleDivisor, lie.ScaleCap, lie.Shape), Is.EqualTo((ScaleBasis.Shield, 100, 4, TargetArea.All)));
@@ -224,7 +228,7 @@ namespace Brushblade.Core.Tests
             int full = Dealt(400, out var b);
             Assert.That(full - bare, Is.EqualTo(200), "400 × 50%,读的是扣盾前的护盾");
             Assert.That(b.PlayerShield, Is.EqualTo(200), "400 → 200");
-            Assert.That(bare, Is.EqualTo(132), "钉值:本体 106 按 Lv5");
+            Assert.That(bare, Is.EqualTo(165), "钉值:spec A 本体 133(紫档单体)按 Lv5");
         }
 
         // ================= 积土成山:之后 3 个玩家回合开始各得护盾 16(按来源字等级缩放) =================
@@ -254,14 +258,14 @@ namespace Brushblade.Core.Tests
                 x.PlayerStatuses.All.Where(s => s.Kind == StatusKind.DefenseBuff).Select(s => s.Magnitude).ToList();
             var bare = Battle("塔", 8, Mob());
             Cast(bare, "塔", -1, attack: false);
-            Assert.That(bare.PlayerShield, Is.EqualTo(151), "钉值:塔 Lv8 固面护盾 106 按 Lv8(出字时护甲 0,塔基不加)");
+            Assert.That(bare.PlayerShield, Is.EqualTo(189), "钉值:塔 Lv8 固面护盾 spec A 133 按 Lv8(出字时护甲 0,塔基不加)");
             var body = Armors(bare);
-            Assert.That(body.Count, Is.EqualTo(1), "151 < 500:0 层不挂,只剩本体(破甲·强化)那条护甲");
+            Assert.That(body.Count, Is.EqualTo(1), "189 < 500:0 层不挂,只剩本体(破甲·强化)那条护甲");
 
             var b = Battle("塔", 8, 2000, Mob());
             Cast(b, "塔", -1, attack: false);
-            Assert.That(b.PlayerShield, Is.EqualTo(2151));
-            Assert.That(Armors(b), Is.EqualTo(new[] { body[0], perLayer * 4 }), "2151 × 10 / 5000 = 4 层,排在本体护甲之后");
+            Assert.That(b.PlayerShield, Is.EqualTo(2189));
+            Assert.That(Armors(b), Is.EqualTo(new[] { body[0], perLayer * 4 }), "2189 × 10 / 5000 = 4 层,排在本体护甲之后");
             Assert.That(b.PlayerStatuses.All.Last(s => s.Kind == StatusKind.DefenseBuff).TurnsLeft, Is.EqualTo(4));
 
             var full = Battle("塔", 8, MaxHp, Mob());
@@ -347,8 +351,8 @@ namespace Brushblade.Core.Tests
             Assert.That(reflect, Is.EqualTo(hit2.Amount * 40 / 100), "镜 40%");
             Assert.That(reflect + shatter2, Is.EqualTo(hit2.Amount * CombatCaps.ReflectPercent / 100), "合计钳 60%");
             Assert.That(shatter2, Is.LessThan(shatter), "碎玉只拿预算余量");
-            // 挥击 300 过护甲 25 → 240;盾 143 被打破;单独 71;有镜:镜 96 + 碎玉 48 = 144 = 240 × 60%
-            Assert.That((hit.Amount, hit.Absorbed, shatter, reflect, shatter2), Is.EqualTo((240, 143, 71, 96, 48)), "钉值");
+            // 挥击 300 过护甲 25 → 240;盾 129(spec A 碎 本体 90 按 Lv5)被打破;单独 64;有镜:镜 96 + 碎玉 48 = 144 = 240 × 60%
+            Assert.That((hit.Amount, hit.Absorbed, shatter, reflect, shatter2), Is.EqualTo((240, 129, 64, 96, 48)), "钉值");
         }
 
         // ================= 粉身碎骨:致死一击的溢出平分给其余存活敌人(Q9) =================
@@ -365,7 +369,7 @@ namespace Brushblade.Core.Tests
             Assert.That(splash.Select(e => e.TargetIndex).OrderBy(i => i).ToList(), Is.EqualTo(new[] { 1, 2 }), "其余两只各一份");
             Assert.That(splash.Select(e => e.Amount).ToList(), Is.EqualTo(new[] { (blow - 10) / 2, (blow - 10) / 2 }));
             Assert.That(splash.All(e => !e.Crit), Is.True, "不暴击");
-            Assert.That(blow, Is.EqualTo(142), "钉值:本体 100 按 Lv8;每份 (142 − 10) / 2 = 66");
+            Assert.That(blow, Is.EqualTo(128), "钉值:spec A 本体 90 按 Lv8;每份 (128 − 10) / 2 = 59");
         }
 
         // ================= 杜塞:杂兵封禁 2 回合;Boss 下一次大招伤害 −50%(Q3) =================
@@ -513,6 +517,25 @@ namespace Brushblade.Core.Tests
             Assert.That(Broken(lowArmor: false, out var high, out var highCharges), Is.EqualTo(new[] { true, false }), "只有第一个打中的被破甲");
             Assert.That(highCharges, Is.EqualTo(new int?[] { null, null }), "对照:过门槛时第一击就用掉本回合唯一一次(用尽返回 null)");
             Assert.That(high.Enemies[0].Statuses.Find(StatusKind.ArmorBreak)?.Magnitude, Is.EqualTo(50), "钉值:破甲 38 按 Lv6");
+        }
+
+        // ================= spec A:Lv6 新专属冒烟(真实 graph + cardLevels 6)=================
+
+        [Test]
+        public void YaoZhi_Lv6_AttackAddsTwiceTheArmorToDamage()
+        {
+            // 垚 Lv6·攻 垚峙:`Reshape` `armorStrike 200` —— 攻击伤害 + 玩家护甲 × 2(spec A)
+            int Dealt(int armor)
+            {
+                var b = Battle("垚", 6, 0, Mob());
+                if (armor > 0)
+                    b.PlayerStatuses.Apply(new StatusEffect
+                        { Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = armor, TurnsLeft = 3 });
+                Cast(b, "垚", 0, attack: true);
+                return Hp - b.Enemies[0].Hp;
+            }
+            int bare = Dealt(0), armored = Dealt(50);
+            Assert.That(armored - bare, Is.EqualTo(100).Within(2), "护甲 50 × 200% = +100");
         }
     }
 }

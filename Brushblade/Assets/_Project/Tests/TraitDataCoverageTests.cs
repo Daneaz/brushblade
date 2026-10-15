@@ -34,9 +34,35 @@ namespace Brushblade.Core.Tests
                 case Element.Fire: return "灼";
                 case Element.Metal: return "战意";
                 case Element.Earth: return "破甲";
-                case Element.Wood: return d.Id == "花" ? "魅惑" : "种";
+                case Element.Wood: return "种";   // spec A §5:花攻击面魅惑 → 种
                 default:
                     return d.AttackEffects.Any(e => e.Kind == EffectKind.Freeze) ? "冻结" : "减速";
+            }
+        }
+
+        /// <summary>五行面 Lv1 名(spec A §1 / 执行期 D2–D6):火 慑、金 格挡、土 护甲、水按模式、木 = 本命名。</summary>
+        private static readonly Dictionary<string, string> WaterMode = new()
+        {
+            ["冷"] = "涓", ["冻"] = "涓", ["澡"] = "涓", ["淋"] = "涓",
+            ["海"] = "涌", ["溃"] = "涌", ["湮"] = "涌", ["冰"] = "涌", ["淼"] = "涌",
+            ["沐"] = "苏", ["㵘"] = "苏",
+        };
+
+        private static readonly Dictionary<string, string> WoodNature = new()
+        {
+            ["花"] = "迷香", ["藤"] = "缠绕", ["箭"] = "远射", ["楸"] = "秋燥", ["荆"] = "荆棘", ["林"] = "成林",
+            ["柘"] = "坚木", ["森"] = "森然", ["藻"] = "丛生", ["桂"] = "桂香", ["\ue625"] = "参天",
+        };
+
+        private static string FeatureNameOf(CharDef d)
+        {
+            switch (d.Element)
+            {
+                case Element.Fire: return "慑";
+                case Element.Metal: return "格挡";
+                case Element.Earth: return "护甲";
+                case Element.Wood: return WoodNature[d.Id];
+                default: return WaterMode[d.Id];
             }
         }
 
@@ -66,7 +92,7 @@ namespace Brushblade.Core.Tests
         {
             "热 Lv4 Both 先声", "热 Lv5 Attack 引燃", "热 Lv5 Feature 续火", "热 Lv6 Feature 烟熏", "热 Lv8 Feature 火雨",
             "爆 Lv4 Both 精进", "爆 Lv5 Attack 爆燃", "爆 Lv5 Feature 续火", "爆 Lv6 Attack 炽烈", "爆 Lv8 Feature 焦热",
-            "炸 Lv4 Both 克敌", "炸 Lv5 Attack 引燃","炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
+            "炸 Lv4 Attack 克敌", "炸 Lv4 Feature 克敌", "炸 Lv5 Attack 引燃","炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
             "烈 Lv6 Attack 炽烈", "燥 Lv5 Feature 续火", "燥 Lv6 Feature 烟熏", "蒸 Lv5 Feature 烟障", "蒸 Lv6 Attack 炽烈",
             "炎 Lv5 Feature 续火", "灿 Lv5 Attack 引燃", "利 Lv4 Both 先声", "利 Lv5 Attack 破甲", "利 Lv5 Feature 砥砺",
             "利 Lv6 Feature 回锋", "利 Lv8 Attack 重斩", "锋 Lv4 Both 精进", "锋 Lv5 Attack 连斩", "锋 Lv5 Feature 砥砺",
@@ -77,7 +103,7 @@ namespace Brushblade.Core.Tests
             "冷 Lv5 Attack 凝冰", "冷 Lv5 Feature 涓流", "冷 Lv6 Feature 护持", "冷 Lv8 Feature 甘露", "冻 Lv4 Both 精进",
             "冻 Lv5 Attack 激流", "冻 Lv5 Feature 寒泉", "冻 Lv6 Attack 冰缚", "冻 Lv8 Feature 蓄泉", "海 Lv4 Both 化险",
             "海 Lv5 Feature 涓流", "海 Lv6 Feature 护持", "海 Lv8 Attack 怒涛", "溃 Lv4 Both 先声", "溃 Lv5 Attack 凝冰",
-            "溃 Lv6 Feature 护持", "溃 Lv8 Feature 甘露", "湮 Lv5 Attack 激流", "湮 Lv6 Attack 冰缚", "澡 Lv5 Feature 寒泉",
+            "溃 Lv6 Feature 护持", "湮 Lv5 Attack 激流", "湮 Lv6 Attack 冰缚", "澡 Lv5 Feature 寒泉",
             "澡 Lv6 Feature 护持", "冰 Lv5 Attack 凝冰", "沐 Lv5 Feature 涓流", "碉 Lv4 Both 先声", "碉 Lv5 Attack 碎石",
             "碉 Lv5 Feature 加固", "碉 Lv6 Feature 反震", "碉 Lv8 Attack 崩岩", "垒 Lv4 Both 化险", "垒 Lv5 Attack 震地",
             "垒 Lv5 Feature 垒土", "垒 Lv6 Feature 反震", "垒 Lv8 Attack 劈山", "壁 Lv4 Both 精进", "壁 Lv5 Attack 碎石",
@@ -88,7 +114,19 @@ namespace Brushblade.Core.Tests
             "花 Lv5 Attack 寄生", "花 Lv5 Feature 新芽", "花 Lv6 Feature 扎根", "花 Lv8 Feature 繁生", "藤 Lv4 Both 精进",
             "藤 Lv5 Attack 寄生", "藤 Lv5 Feature 沃土", "藤 Lv6 Attack 汲取", "藤 Lv8 Attack 缠缚", "箭 Lv4 Attack 破敌", "箭 Lv4 Feature 破敌",
             "箭 Lv5 Attack 蔓刺", "箭 Lv6 Feature 扎根", "箭 Lv8 Feature 灵荫", "楸 Lv5 Feature 新芽", "楸 Lv6 Feature 扎根",
-            "荆 Lv5 Feature 沃土", "荆 Lv6 Feature 扎根", "林 Lv5 Feature 新芽", "柘 Lv5 Feature 沃土"
+            "荆 Lv5 Feature 沃土", "荆 Lv6 Feature 扎根", "柘 Lv5 Feature 沃土",
+            // spec A(2026-10-15):林 Lv5 池·新芽 被林风(专属)替换;烈 Lv5 燃 烈风 → 池·烟障(D14);
+            // §6 Lv6 补缺的那一面(白 / 绿 / 蓝 / 紫取本系池该面的 Lv6),共 27 条
+            "烈 Lv5 Feature 烟障",
+            "热 Lv6 Attack 炽烈", "爆 Lv6 Feature 烟熏", "炸 Lv6 Attack 炽烈", "烈 Lv6 Feature 烟熏", "燥 Lv6 Attack 炽烈",
+            "蒸 Lv6 Feature 烟熏",
+            "利 Lv6 Attack 迎刃", "锥 Lv6 Attack 迎刃", "铡 Lv6 Attack 迎刃",
+            "锋 Lv6 Feature 回锋", "剑 Lv6 Feature 回锋", "剿 Lv6 Feature 回锋", "剁 Lv6 Feature 回锋",
+            "冻 Lv6 Feature 护持", "湮 Lv6 Feature 护持",
+            "碉 Lv6 Attack 余震", "垒 Lv6 Attack 余震", "堡 Lv6 Attack 余震", "塔 Lv6 Attack 余震",
+            "壁 Lv6 Feature 反震", "崩 Lv6 Feature 反震", "碎 Lv6 Feature 反震",
+            "花 Lv6 Attack 汲取", "箭 Lv6 Attack 汲取", "楸 Lv6 Attack 汲取", "荆 Lv6 Attack 汲取",
+            "藤 Lv6 Feature 扎根",
         };
 
         // ---- spec §9 专属格清单(加粗名;照表手抄:字 槽 面 名)----
@@ -99,7 +137,7 @@ namespace Brushblade.Core.Tests
             "热 Lv8 Attack 升温",
             "爆 Lv8 Attack 连爆",
             "炸 Lv5 Feature 埋雷", "炸 Lv8 Attack 惊爆",
-            "烈 Lv4 Both 气盛", "烈 Lv5 Feature 烈风", "烈 Lv8 Attack 火烧连营", "烈 Lv8 Feature 烈焰护身",
+            "烈 Lv4 Both 气盛", "烈 Lv8 Attack 火烧连营", "烈 Lv8 Feature 烈焰护身",
             "燥 Lv4 Both 干涸", "燥 Lv5 Attack 燥裂", "燥 Lv8 Attack 燥火攻心", "燥 Lv8 Feature 焦土",
             "蒸 Lv4 Both 温润", "蒸 Lv5 Attack 水火相激", "蒸 Lv8 Attack 蒸腾", "蒸 Lv8 Feature 蒸笼",
             "炎 Lv4 Both 双焰", "炎 Lv5 Attack 火上浇油", "炎 Lv6 Feature 上炎", "炎 Lv8 Attack 炎刃", "炎 Lv8 Feature 炎炎",
@@ -110,6 +148,8 @@ namespace Brushblade.Core.Tests
             "焚 Lv8 Attack 玉石俱焚", "焚 Lv8 Feature 焚林",
             "燚 Lv4 Both 四火", "燚 Lv5 Attack 四炎", "燚 Lv5 Feature 火海", "燚 Lv6 Attack 焚身", "燚 Lv8 Attack 焚天",
             "燚 Lv8 Feature 烈焰天幕",
+            // spec A §6.1 金 / 橙 / 红专属 Lv6(补缺的那一面;D1 改名 灿然 → 灿烂、燎原 → 燎天)
+            "炎 Lv6 Attack 赤炎", "灿 Lv6 Feature 灿烂", "焚 Lv6 Feature 焚心", "焱 Lv6 Attack 焱风", "燚 Lv6 Feature 燎天",
             // D2-金 Task 6:金系 39 格。Q20:放血(铠面无暴击)、剁骨(铠面无伤害)拆成攻击面原条目 + 铠面同档精进,
             // 两条同名,所以 41 条、39 格。Q7 直捣巢穴 = 横扫;Q8 剁骨从第 2 击起
             "利 Lv8 Feature 得利",
@@ -128,6 +168,8 @@ namespace Brushblade.Core.Tests
             "鑫 Lv8 Attack 三金破", "鑫 Lv8 Feature 金玉满堂",
             "𨰻 Lv4 Both 刚", "𨰻 Lv5 Attack 四金", "𨰻 Lv5 Feature 千锤", "𨰻 Lv6 Attack 破军",
             "𨰻 Lv8 Attack 千钧", "𨰻 Lv8 Feature 金刚",
+            // spec A §6.1(D1 改名 聚金 → 金汇)
+            "鍂 Lv6 Attack 金鸣", "鑫 Lv6 Attack 金汇", "刲 Lv6 Feature 刲刃", "𨰻 Lv6 Feature 镇军",
             // D2-水 Task 6:水系 42 格。Q2:冰封 / 怀山(润面无冻结)、汪洋 / 沐恩(攻击面无治疗)、淋漓(润面无减速)
             // 拆成生效面原条目 + 空转面同档精进,两条同名,所以 47 条、42 格。Q1:湮灭保留原文,空效果行
             "冷 Lv8 Attack 冷却",
@@ -146,6 +188,12 @@ namespace Brushblade.Core.Tests
             "淼 Lv6 Attack 冰水", "淼 Lv8 Attack 浩瀚", "淼 Lv8 Feature 水大无际",
             "㵘 Lv4 Attack 怀山", "㵘 Lv4 Feature 怀山", "㵘 Lv5 Attack 洪峰", "㵘 Lv5 Feature 泽被",
             "㵘 Lv6 Attack 浩荡", "㵘 Lv8 Attack 滔天", "㵘 Lv8 Feature 泽及四方",
+            // spec A §6:冷 / 海 / 溃 / 澡 攻面只减速,冰缚 / 护持都不生效 → 自定义行「精进」(D13,不是池引用);
+            // §6.1 专属(D1 改名 淋漓 → 淋透)
+            "冷 Lv6 Attack 精进", "海 Lv6 Attack 精进", "溃 Lv6 Attack 精进", "澡 Lv6 Attack 精进",
+            "冰 Lv6 Feature 冰肌", "沐 Lv6 Attack 沐霖", "淼 Lv6 Feature 淼茫", "淋 Lv6 Attack 淋透", "㵘 Lv6 Feature 泽润",
+            // D8:溃 Lv8 润 池·甘露 → 自定义行(Cleanse pick AllAllies,全体面不选友方)
+            "溃 Lv8 Feature 甘露",
             // D2-土 Task 6:土系 35 格。V4:塔基(攻面镇压 / 固面护盾 + 护甲 × 3,Q11)、深厚(攻面无护甲 → 红档精进)
             // 拆成两条单面,两条同名,所以 37 条、35 格。叠土 / 三土是字形特性,粉身碎骨是击杀时
             "碉 Lv8 Feature 碉楼",
@@ -161,6 +209,8 @@ namespace Brushblade.Core.Tests
             "垚 Lv8 Feature 对峙",
             "㙓 Lv4 Attack 深厚", "㙓 Lv4 Feature 深厚", "㙓 Lv5 Attack 山压", "㙓 Lv5 Feature 厚土", "㙓 Lv6 Feature 载物",
             "㙓 Lv8 Attack 地动", "㙓 Lv8 Feature 厚德载物",
+            // spec A §6.1(D1 改名 圭角 → 圭棱、杜绝 → 杜渐、厚土 → 厚壤)
+            "圭 Lv6 Attack 圭棱", "杜 Lv6 Attack 杜渐", "垚 Lv6 Attack 垚峙", "㙓 Lv6 Attack 厚壤",
             // D2-木 Task 6:木系 46 格。V4:秋实 / 披荆 / 馥郁 / 水草 / 参天之力(木灵本命,攻面不起作用)拆成生面本命
             // + 攻面同档精进,两条同名,所以 51 条、46 格。坚心保留原文、空效果行(同湮灭);双木 / 三木是字形特性;折桂是击杀时
             "花 Lv8 Attack 移花接木",
@@ -168,16 +218,20 @@ namespace Brushblade.Core.Tests
             "箭 Lv5 Feature 箭灵", "箭 Lv8 Attack 万箭齐发",
             "楸 Lv4 Attack 秋实", "楸 Lv4 Feature 秋实", "楸 Lv5 Attack 落叶", "楸 Lv8 Attack 秋风扫叶", "楸 Lv8 Feature 一叶知秋",
             "荆 Lv4 Attack 披荆", "荆 Lv4 Feature 披荆", "荆 Lv5 Attack 荆刺", "荆 Lv8 Attack 荆鞭", "荆 Lv8 Feature 荆天棘地",
-            "林 Lv4 Both 双木", "林 Lv5 Attack 众木", "林 Lv6 Feature 林荫", "林 Lv8 Attack 林海", "林 Lv8 Feature 林立",
+            "林 Lv4 Both 双木", "林 Lv5 Attack 众木", "林 Lv5 Feature 林风", "林 Lv6 Feature 林荫", "林 Lv8 Attack 林海", "林 Lv8 Feature 林立",
             "柘 Lv4 Both 坚心", "柘 Lv5 Attack 柘弓", "柘 Lv6 Feature 守护", "柘 Lv8 Attack 硬弓", "柘 Lv8 Feature 良弓",
             "桂 Lv4 Attack 馥郁", "桂 Lv4 Feature 馥郁", "桂 Lv5 Attack 折桂", "桂 Lv5 Feature 桂花雨", "桂 Lv6 Feature 蟾宫",
             "桂 Lv8 Attack 月桂", "桂 Lv8 Feature 桂冠",
-            "藻 Lv4 Attack 水草", "藻 Lv4 Feature 水草", "藻 Lv5 Attack 缠足", "藻 Lv5 Feature 丛藻", "藻 Lv6 Feature 藻荇",
+            "藻 Lv4 Attack 水草", "藻 Lv4 Feature 水草", "藻 Lv5 Attack 缠足", "藻 Lv5 Feature 浮藻", "藻 Lv6 Feature 藻荇",
             "藻 Lv8 Attack 藻缚", "藻 Lv8 Feature 绿潮",
-            "森 Lv4 Both 三木", "森 Lv5 Attack 森罗", "森 Lv5 Feature 丛林", "森 Lv6 Feature 森严", "森 Lv8 Attack 林深",
+            "森 Lv4 Both 三木", "森 Lv5 Attack 森罗", "森 Lv5 Feature 森风", "森 Lv6 Feature 森严", "森 Lv8 Attack 林深",
             "森 Lv8 Feature 万木回春",
-            "𣛧 Lv4 Attack 参天之力", "𣛧 Lv4 Feature 参天之力", "𣛧 Lv5 Attack 四木成林", "𣛧 Lv5 Feature 独木生林",
+            "𣛧 Lv4 Attack 参天之力", "𣛧 Lv4 Feature 参天之力", "𣛧 Lv5 Attack 四木成林", "𣛧 Lv5 Feature 木疾",
             "𣛧 Lv6 Feature 落木", "𣛧 Lv8 Attack 撼天", "𣛧 Lv8 Feature 擎天",
+            // spec A §4.5:速度从本命挪到五行面 Lv5 被动(林风替换池·新芽;森风 / 浮藻 / 木疾替换丛林 / 丛藻 / 独木生林,已就地改名);
+            // §6.1 专属 Lv6(D1 改名 森然 → 森生)
+            "林 Lv6 Attack 林间", "柘 Lv6 Attack 柘刺", "森 Lv6 Attack 森生", "藻 Lv6 Attack 藻缠", "桂 Lv6 Attack 桂馥",
+            "𣛧 Lv6 Attack 落叶",
         };
 
         /// <summary>V4 拆行的专属 Lv4:燃面那条按同档「精进」写。</summary>
@@ -190,36 +244,47 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PoolCellList_Has131Cells()
+        public void PoolCellList_Has158Rows()
         {
-            Assert.That(PoolCells.Length, Is.EqualTo(131));
+            // 131(spec v7 §9)− 林 新芽 − 溃 甘露(D8 改自定义行)+ 烈 烟障 + spec A Lv6 补面 27 条
+            // + 炸 克敌拆成两条单面(spec A §3 炸五行面改全体、不再选敌,U6 拆行规则自动生效)
+            Assert.That(PoolCells.Length, Is.EqualTo(158));
         }
 
         [Test]
-        public void ExclusiveCellList_Fire44Cells_45Rows_Metal39Cells_41Rows_Water42Cells_47Rows_Earth35Cells_37Rows_Wood46Cells_51Rows()
+        public void ExclusiveCellList_Fire48Cells_49Rows_Metal43Cells_45Rows_Water52Cells_57Rows_Earth39Cells_41Rows_Wood53Cells_58Rows()
         {
-            Assert.That(ExclusiveCells.Length, Is.EqualTo(45 + 41 + 47 + 37 + 51));
+            // spec A:火 −烈风 +5、金 +4、水 +9(含 4 条自定义精进)+ 甘露(D8)、土 +4、木 +1 林风 +6(森风 / 浮藻 / 木疾为就地改名)
+            Assert.That(ExclusiveCells.Length, Is.EqualTo(49 + 45 + 57 + 41 + 58));
             Assert.That(ExclusiveCells.Select(c => c.Split(' ')).Select(p => (p[0], p[1], p[3])).Distinct().Count(),
-                Is.EqualTo(44 + 39 + 42 + 35 + 46), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 44 格 + 金 39 格 + 水 42 格 + 土 35 格 + 木 46 格");
+                Is.EqualTo(48 + 43 + 52 + 39 + 53), "去掉 V4 / Q20 / Q2 拆出的五行面行 = 火 48 格 + 金 43 格 + 水 52 格 + 土 39 格 + 木 53 格");
             Assert.That(ExclusiveCells.Distinct().Count(), Is.EqualTo(ExclusiveCells.Length));
             foreach (var c in ExclusiveCells)
                 Assert.That(PoolCells.Contains(c), Is.False, $"{c} 不能同时是池格");
         }
 
         [Test]
-        public void All55Chars_HaveLv1_BothFaces_ActiveNamedByKeyword_NoEffects()
+        public void All55Chars_HaveLv1_OnePerFace_NamedByFace_NoEffects()
         {
+            // spec A §1:Lv1 按面分开命名 —— 攻击面沿用攻击关键词,五行面用五行面名(木 = 本命名,被动)
             var all = Playable();
             Assert.That(all.Count, Is.EqualTo(55));
             foreach (var d in all)
             {
                 var lv1 = At(d, TraitSlot.Lv1);
-                Assert.That(lv1.Count, Is.EqualTo(1), $"{d.Id} 应恰有一条 Lv1");
-                Assert.That(lv1[0].Face, Is.EqualTo(TraitFace.Both), $"{d.Id} Lv1 面");
-                Assert.That(lv1[0].Form, Is.EqualTo(TraitForm.Active), $"{d.Id} Lv1 形态");
-                Assert.That(lv1[0].Replaces.HasValue, Is.False, $"{d.Id} Lv1 不替换");
-                Assert.That(lv1[0].Name, Is.EqualTo(KeywordOf(d)), $"{d.Id} Lv1 名");
-                Assert.That(lv1[0].Effects.Count, Is.EqualTo(0), $"{d.Id} Lv1 效果在本体里,特性行只放名字");
+                Assert.That(lv1.Count, Is.EqualTo(2), $"{d.Id} 应恰有两条 Lv1");
+                var attack = lv1.Single(t => t.Face == TraitFace.Attack);
+                var feature = lv1.Single(t => t.Face == TraitFace.Feature);
+                Assert.That(attack.Name, Is.EqualTo(KeywordOf(d)), $"{d.Id} Lv1 攻名");
+                Assert.That(feature.Name, Is.EqualTo(FeatureNameOf(d)), $"{d.Id} Lv1 五行面名");
+                Assert.That(attack.Form, Is.EqualTo(TraitForm.Active), $"{d.Id} Lv1 攻形态");
+                Assert.That(feature.Form, Is.EqualTo(d.Element == Element.Wood ? TraitForm.Passive : TraitForm.Active),
+                    $"{d.Id} Lv1 五行面形态(木本命被动)");
+                foreach (var t in lv1)
+                {
+                    Assert.That(t.Replaces.HasValue, Is.False, $"{d.Id} Lv1 不替换");
+                    Assert.That(t.Effects.Count, Is.EqualTo(0), $"{d.Id} Lv1 效果在本体里,特性行只放名字");
+                }
             }
         }
 
@@ -239,14 +304,15 @@ namespace Brushblade.Core.Tests
                     if (d.Element == Element.Wood && t.Face == TraitFace.Feature)
                     {
                         Assert.That(t.Form, Is.EqualTo(TraitForm.Passive), $"{d.Id} Lv3 本命强化是被动");
-                        Assert.That(t.Name, Does.EndWith("·强化"), $"{d.Id} Lv3 本命强化名");
+                        Assert.That(t.Name, Is.EqualTo(FeatureNameOf(d) + "·强化"), $"{d.Id} Lv3 本命强化名");
                         Assert.That(t.Effects.Count, Is.EqualTo(1), $"{d.Id} Lv3 本命强化 = 一条 Summon 0");
                         Assert.That(t.Effects[0].Kind, Is.EqualTo(EffectKind.Summon), $"{d.Id} Lv3 本命强化");
                         Assert.That(t.Effects[0].Value, Is.EqualTo(0), $"{d.Id} Lv3 本命强化不动血量");
                         continue;
                     }
                     Assert.That(t.Form, Is.EqualTo(TraitForm.Active), $"{d.Id} Lv3 主动");
-                    Assert.That(t.Name, Is.EqualTo(KeywordOf(d) + "·强化"), $"{d.Id} Lv3 名");
+                    string lv1Name = t.Face == TraitFace.Attack ? KeywordOf(d) : FeatureNameOf(d);
+                    Assert.That(t.Name, Is.EqualTo(lv1Name + "·强化"), $"{d.Id} Lv3 名 = 同面 Lv1 名 + ·强化");
                     Assert.That(t.Effects.Count, Is.GreaterThan(0), $"{d.Id} Lv3 要有效果");
                     var body = BodyOf(d, t.Face);
                     foreach (var e in t.Effects)
@@ -257,7 +323,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Fire_Lv3_BurnPlusOne_FeatureWeakenThreeTurns()
+        public void Fire_Lv3_BurnPlusOne_FeatureWeakenPlusFiveAndOneTurn()
         {
             foreach (var d in OfElement(Element.Fire))
             {
@@ -266,23 +332,23 @@ namespace Brushblade.Core.Tests
                 var f = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Feature).Effects;
                 Assert.That(a.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { FirstOf(d.AttackEffects, IsBurn).Kind }), $"{d.Id} 攻");
                 Assert.That(a[0].Value, Is.EqualTo(n + 1), $"{d.Id} 攻 灼 N+1");
-                Assert.That(f.Select(e => e.Kind).ToList(),
-                    Is.EqualTo(new[] { FirstOf(d.Effects, IsBurn).Kind, EffectKind.Weaken }), $"{d.Id} 燃");
-                Assert.That(f[0].Value, Is.EqualTo(n + 1), $"{d.Id} 燃 灼 N+1");
+                // spec A §4.1:慑·强化只强化主手段 —— 慑 +5%、回合 +1;灼恒 1 不动
+                Assert.That(f.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { EffectKind.Weaken }), $"{d.Id} 慑·强化");
                 var bodyWeaken = d.Effects.Single(e => e.Kind == EffectKind.Weaken);
-                Assert.That(f[1].Value, Is.EqualTo(15));
-                Assert.That(f[1].Turns, Is.EqualTo(3), $"{d.Id} 燃 减攻 3 回合");
-                Assert.That(f[1].Pick, Is.EqualTo(bodyWeaken.Pick), $"{d.Id} 减攻选择器随本体");
+                Assert.That(f[0].Value, Is.EqualTo(bodyWeaken.Value + 5), $"{d.Id} 慑 +5%");
+                Assert.That(f[0].Turns, Is.EqualTo(bodyWeaken.Turns + 1), $"{d.Id} 慑回合 +1");
+                Assert.That(f[0].Pick, Is.EqualTo(bodyWeaken.Pick), $"{d.Id} 慑选择器随本体");
             }
-            // 焱:燃面全体灼 + 全体减攻
+            // 焱:攻击面改全体(spec A §3),Lv3 攻 BurnAll 4(D16);五行面全体慑
             var yan = Graph.Get("焱");
+            var ya = At(yan, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects;
+            Assert.That((ya[0].Kind, ya[0].Value), Is.EqualTo((EffectKind.BurnAll, 4)));
             var yf = At(yan, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Feature).Effects;
-            Assert.That(yf[0].Kind, Is.EqualTo(EffectKind.BurnAll));
-            Assert.That(yf[1].Pick, Is.EqualTo(EffectPick.All));
+            Assert.That(yf[0].Pick, Is.EqualTo(EffectPick.All));
         }
 
         [Test]
-        public void Metal_Lv3_MoralePlusOne_FeatureBlockTwo()
+        public void Metal_Lv3_MoralePlusOne_FeatureBlockPlusOneCounterPlusTen()
         {
             foreach (var d in OfElement(Element.Metal))
             {
@@ -291,36 +357,51 @@ namespace Brushblade.Core.Tests
                 var f = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Feature).Effects;
                 Assert.That(a.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { EffectKind.Morale }), $"{d.Id} 攻");
                 Assert.That(a[0].Value, Is.EqualTo(n + 1), $"{d.Id} 攻 战意 N+1");
-                Assert.That(f.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { EffectKind.Morale, EffectKind.Block }), $"{d.Id} 铠");
-                Assert.That(f[0].Value, Is.EqualTo(n + 1), $"{d.Id} 铠 战意 N+1");
-                Assert.That(f[1].Value, Is.EqualTo(2), $"{d.Id} 铠 格挡 2 次");
+                // spec A §4.2:格挡·强化 = 格挡 +1 次、反击 +10%;战意恒 1 不动
+                var block = d.Effects.Single(e => e.Kind == EffectKind.Block);
+                Assert.That(f.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { EffectKind.Block }), $"{d.Id} 格挡·强化");
+                Assert.That(f[0].Value, Is.EqualTo(block.Value + 1), $"{d.Id} 格挡 +1 次");
+                Assert.That(f[0].CounterPercent, Is.EqualTo(block.CounterPercent + 10), $"{d.Id} 反击 +10%");
             }
         }
 
         [Test]
-        public void Water_Lv3_ControlPlusOneTurn_HealOverTimeThreeTurns()
+        public void Water_Lv3_ControlPlusOneTurn_FeatureStrengthensMode()
         {
             foreach (var d in OfElement(Element.Water))
             {
                 var ctrl = d.AttackEffects.Single(e => e.Kind == EffectKind.Freeze || e.Kind == EffectKind.Slow);
-                var hot = d.Effects.Single(e => e.Kind == EffectKind.HealOverTime);
                 var a = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects;
                 var f = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Feature).Effects;
                 Assert.That(a.Count, Is.EqualTo(1), $"{d.Id} 攻");
                 Assert.That(a[0].Kind, Is.EqualTo(ctrl.Kind), $"{d.Id} 攻 控制种类随本体");
                 Assert.That(a[0].Value, Is.EqualTo(ctrl.Value + 1), $"{d.Id} 攻 控制 +1 回合");
                 Assert.That(a[0].Pick, Is.EqualTo(ctrl.Pick), $"{d.Id} 攻 选择器随本体");
+                // spec A §4.3:涓 回合 +1;涌 治疗 +20%;苏 复活生命 P +20
                 Assert.That(f.Count, Is.EqualTo(1), $"{d.Id} 润");
-                Assert.That(f[0].Kind, Is.EqualTo(EffectKind.HealOverTime));
-                Assert.That(f[0].Value, Is.EqualTo(hot.Value), $"{d.Id} 润泽数值照本体");
-                Assert.That(f[0].Turns, Is.EqualTo(3), $"{d.Id} 润泽 3 回合");
+                var main = d.Effects[0];
+                Assert.That(f[0].Kind, Is.EqualTo(main.Kind), $"{d.Id} Lv3 替换本体主手段");
+                switch (WaterMode[d.Id])
+                {
+                    case "涓":
+                        Assert.That(f[0].Value, Is.EqualTo(main.Value), $"{d.Id} 涓 每回合量照本体");
+                        Assert.That(f[0].Turns, Is.EqualTo(main.Turns + 1), $"{d.Id} 涓 回合 +1");
+                        break;
+                    case "涌":
+                        Assert.That(f[0].Value, Is.EqualTo((main.Value * 12 + 5) / 10), $"{d.Id} 涌 治疗 +20%");
+                        break;
+                    default:
+                        Assert.That(f[0].Value, Is.EqualTo(main.Value), $"{d.Id} 苏 复活只数照本体");
+                        Assert.That(f[0].ReviveHpPercent, Is.EqualTo(main.ReviveHpPercent + 20), $"{d.Id} 苏 P +20");
+                        break;
+                }
             }
             Assert.That(At(Graph.Get("溃"), TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects[0].Pick,
                 Is.EqualTo(EffectPick.All));
         }
 
         [Test]
-        public void Earth_Lv3_FourTurns()
+        public void Earth_Lv3_AttackFourTurns_FeatureTurnsPlusOne()
         {
             foreach (var d in OfElement(Element.Earth))
             {
@@ -336,14 +417,14 @@ namespace Brushblade.Core.Tests
                 Assert.That(f.Count, Is.EqualTo(1), $"{d.Id} 固");
                 Assert.That(f[0].Kind, Is.EqualTo(EffectKind.DefenseBuff));
                 Assert.That(f[0].Value, Is.EqualTo(db.Value), $"{d.Id} 护甲点数照本体");
-                Assert.That(f[0].Turns, Is.EqualTo(4), $"{d.Id} 护甲 4 回合");
+                Assert.That(f[0].Turns, Is.EqualTo(db.Turns + 1), $"{d.Id} 护甲·强化 回合 +1(spec A §4.4)");
             }
             Assert.That(At(Graph.Get("崩"), TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects[0].Pick,
                 Is.EqualTo(EffectPick.All));
         }
 
         [Test]
-        public void Wood_Lv3_SeedThreeTurns_FlowerCharmTwoTurns_AttackRow()
+        public void Wood_Lv3_SeedThreeTurns_AttackRow()
         {
             foreach (var d in OfElement(Element.Wood))
             {
@@ -351,18 +432,11 @@ namespace Brushblade.Core.Tests
                 Assert.That(At(d, TraitSlot.Lv3).Count(t => t.Face == TraitFace.Feature), Is.EqualTo(1), $"{d.Id} Lv3 生面本命强化");
                 var a = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects;
                 Assert.That(a.Count, Is.EqualTo(1));
-                if (d.Id == "花")
-                {
-                    Assert.That(a[0].Kind, Is.EqualTo(EffectKind.Charm));
-                    Assert.That(a[0].Turns, Is.EqualTo(2), "花 魅惑 2 回合");
-                }
-                else
-                {
-                    var seed = d.AttackEffects.Single(e => e.Kind == EffectKind.Seed);
-                    Assert.That(a[0].Kind, Is.EqualTo(EffectKind.Seed));
-                    Assert.That(a[0].Value, Is.EqualTo(seed.Value), $"{d.Id} 种的量照本体");
-                    Assert.That(a[0].Turns, Is.EqualTo(3), $"{d.Id} 种 3 回合");
-                }
+                // spec A §5:花攻击面也是种(Seed 9),Lv3 与其他木字一致 = 种 3 回合
+                var seed = d.AttackEffects.Single(e => e.Kind == EffectKind.Seed);
+                Assert.That(a[0].Kind, Is.EqualTo(EffectKind.Seed));
+                Assert.That(a[0].Value, Is.EqualTo(seed.Value), $"{d.Id} 种的量照本体");
+                Assert.That(a[0].Turns, Is.EqualTo(3), $"{d.Id} 种 3 回合");
             }
         }
 
@@ -502,7 +576,7 @@ namespace Brushblade.Core.Tests
                         case "铁则":
                             Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnExecute)), at);
                             break;
-                        case "割取":
+                        case "割取": case "金汇":
                             Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
                             break;
                         case "放血" when t.Face == TraitFace.Attack:
@@ -515,7 +589,7 @@ namespace Brushblade.Core.Tests
                             break;
                     }
                 }
-            Assert.That(seen, Is.EqualTo(41), "金系专属 39 格 41 行");
+            Assert.That(seen, Is.EqualTo(45), "金系专属 43 格 45 行(spec A +4 条 Lv6)");
         }
 
         [Test]
@@ -561,7 +635,7 @@ namespace Brushblade.Core.Tests
                     Assert.That(t.Form, Is.EqualTo(passive ? TraitForm.Passive : TraitForm.Active), at);
                     Assert.That(t.Trigger, Is.EqualTo(TraitTrigger.Cast), at);
                 }
-            Assert.That(seen, Is.EqualTo(47), "水系专属 42 格 47 行");
+            Assert.That(seen, Is.EqualTo(57), "水系专属 52 格 57 行(spec A +9 条 Lv6、D8 甘露)");
         }
 
         [Test]
@@ -619,7 +693,7 @@ namespace Brushblade.Core.Tests
                     }
                     Assert.That(t.MaxPerBattle, Is.EqualTo(t.Name == "杜门不出" ? 1 : 0), at + " 每场次数(E35)");
                 }
-            Assert.That(seen, Is.EqualTo(37), "土系专属 35 格 37 行");
+            Assert.That(seen, Is.EqualTo(41), "土系专属 39 格 41 行(spec A +4 条 Lv6)");
         }
 
         [Test]
@@ -668,8 +742,14 @@ namespace Brushblade.Core.Tests
                             Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnCompose)), at);
                             Assert.That(t.PartChar, Is.Null, at + "(即时类,不挂印记)");
                             break;
-                        case "折桂":
+                        case "折桂": case "森生":
                             Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.OnKill)), at);
+                            break;
+                        case "林风": case "森风": case "浮藻": case "木疾":
+                            // spec A §4.5 / D22:速度挪到五行面 Lv5,形态被动(Lv5 = 主动的例外)
+                            Assert.That((t.Form, t.Trigger), Is.EqualTo((TraitForm.Passive, TraitTrigger.Cast)), at);
+                            Assert.That(t.Slot, Is.EqualTo(TraitSlot.Lv5), at);
+                            Assert.That(t.Effects.Single().Passive.Speed, Is.EqualTo(150), at + " 速度 150");
                             break;
                         default:
                             bool passive = t.Slot == TraitSlot.Lv4 || t.Slot == TraitSlot.Lv6;
@@ -679,7 +759,7 @@ namespace Brushblade.Core.Tests
                     }
                     Assert.That(t.MaxPerBattle, Is.EqualTo(t.Name == "折桂" ? 1 : 0), at + " 每场次数(E49)");
                 }
-            Assert.That(seen, Is.EqualTo(51), "木系专属 46 格 51 行");
+            Assert.That(seen, Is.EqualTo(58), "木系专属 53 格 58 行(51 − 丛林 / 丛藻 / 独木生林 + 林风 / 森风 / 浮藻 / 木疾 + 6 条 Lv6)");
         }
 
         [Test]

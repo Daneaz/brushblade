@@ -134,12 +134,17 @@ namespace Brushblade.Core
             public List<int> SummonedSlots = new List<int>();
             /// <summary>本次出字落位的森然入场幼苗(D2-木 擎天 OtherSummons 也排除它们;不进 SummonedSlots,不改既有选择器)。</summary>
             public List<int> EntrySaplingSlots = new List<int>();
+            /// <summary>本次出字复活的木灵槽位(泽润 ReviveShield 用,spec A D8)。</summary>
+            public List<int> RevivedSlots = new List<int>();
 
             /// <summary>本次出字 Morale 效果累计溢出的层数(聚金,D2-金 J7;补满与锋芒不计)。</summary>
             public int MoraleOverflow;
 
             /// <summary>本次出字内的**实际**治疗量(溢出不算;治疗转盾用)。</summary>
             public int HealTotal;
+
+            /// <summary>本次出字内的治疗溢出量(玩家与木灵合计;冰肌 OverhealShield 用,spec A D8)。</summary>
+            public int Overheal;
 
             /// <summary>HealTotal 里落在带水草(HealMirror)的木灵身上的那部分(D2-木 M11,Q17:镜像量不含给藻灵自己的)。</summary>
             public int MirrorHealed;
@@ -172,6 +177,10 @@ namespace Brushblade.Core
 
             /// <summary>出字前的存活木灵数(含幼苗;D2-木 E39,众木 / 林深 ScaleBasis.SummonCount 读)。与 PreCastConditions 同生命周期、同「外层优先」。</summary>
             public int? PreCastSummons;
+
+            /// <summary>spec A §7:本次出字 DamageSingle 各击(含形状扩展 / 多段 / 同击镇压加码)实际落到敌人身上的量之和 ——
+            /// 掉血 + 被敌盾吸收,不含击杀溢出。顶层出字结束时按它给水 / 土攻击面攒泉 / 厚;Lifesteal(沐霖)也读它。</summary>
+            public int DirectDamage;
 
             /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
             public int ShieldNominal;

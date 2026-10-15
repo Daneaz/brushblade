@@ -137,6 +137,8 @@ namespace Brushblade.Core.Tests
             // D2-木 Task 1 预留:木灵光环 / 远程挂玩家袋,并入 / 立即行动 / 折桂作用于我方
             EffectKind.SummonEmpower, EffectKind.SummonThorns, EffectKind.SummonRanged,
             EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar,
+            EffectKind.Lifesteal, EffectKind.OverhealShield,   // spec A D8:回复玩家 / 给玩家护盾
+            EffectKind.BlockGain, EffectKind.ReviveShield,     // spec A D7 / D8:给玩家格挡 / 给复活木灵护盾
         };
 
         [Test]

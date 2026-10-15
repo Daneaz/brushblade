@@ -45,7 +45,7 @@ namespace Brushblade.Core
     }
 
     /// <summary>字卡详情 / 升级预览「显示哪几行」的规则(Plan E2)。纯函数,只读字表,不看场面。
-    /// 槽位归属:Lv1 不成行(效果恒空);Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 进各自那一面。</summary>
+    /// 槽位归属:Lv1 不成行(效果恒空);Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 两面各一条,进各自那一面。</summary>
     public static class CardSheetRules
     {
         /// <summary>进「两面」条的槽位(spec §1 写的是「两面」;数据里 Lv3 恒分面、Lv4 有 22 张分面)。</summary>
@@ -54,7 +54,7 @@ namespace Brushblade.Core
         private static readonly TraitFace[] BothMark = { TraitFace.Both };
 
         /// <summary>等级条第 <paramref name="level"/> 格的解锁记号:Lv1 / 3 / 4 → [Both](按槽位定);
-        /// 面特性所在的格 → 该级出现的面(先攻后五行,Lv5 / Lv8 = 两枚,Lv6 = 它挂的那一面);没有特性的格 → 空。</summary>
+        /// 面特性所在的格 → 该级出现的面(先攻后五行,Lv5 / Lv6 / Lv8 都是两枚,攻面一枚、五行面一枚);没有特性的格 → 空。</summary>
         public static IReadOnlyList<TraitFace> LadderMarks(CharDef def, int level)
         {
             var atLevel = def.Traits.Where(t => t.UnlockLevel == level).ToList();
@@ -82,7 +82,7 @@ namespace Brushblade.Core
                 .ToList();
 
         /// <summary>恰好在 <paramref name="level"/> 解锁的行(升级预览「新解锁」):Lv3 / Lv4 一行(两面合并),
-        /// Lv5 / Lv8 两行(先攻后五行),Lv6 一行,其余空。行一律 Unlocked。Lv1 不算(没有效果)。</summary>
+        /// Lv5 / Lv6 / Lv8 两行(先攻后五行),其余空。行一律 Unlocked。Lv1 不算(没有效果)。</summary>
         public static IReadOnlyList<SheetTrait> UnlockedAt(CharDef def, int level) => RowsAt(def, level, level);
 
         /// <summary><paramref name="afterLevel"/> 之后第一个有特性的等级及其全部行(行按 afterLevel 判定,均未解锁);

@@ -44,15 +44,15 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Zao_ScorchedEarth_DoublesBurn_TraitWeakenIsOwnSource()
         {
-            // 燥 Lv8·燃 焦土:`BurnScale 200` + `Weaken 30` `turns 2`。Lv3 燃面上灼 3(续火看出字前,不触发)→ 翻倍 6
+            // 燥 Lv8·燃 焦土:`BurnScale 200` + `Weaken 30` `turns 2`。spec A:燃面本体灼恒 1(Lv3 只强化慑,不动灼)→ 翻倍 2
             var b = Battle("燥", 8, Mob());
             Assert.That(b.Cast("燥", 0), Is.EqualTo(BattleError.None));
-            Assert.That(Burn(b, 0), Is.EqualTo(6), "3 层 × 200%");
+            Assert.That(Burn(b, 0), Is.EqualTo(2), "spec A:本体灼 1 层 × 200%");
             var curses = b.Enemies[0].Statuses.All.Where(s => s.Kind == StatusKind.Curse).ToList();
             var scorched = curses.SingleOrDefault(c => c.TraitKey == Key("燥", TraitSlot.Lv8, TraitFace.Feature));
             Assert.That(scorched, Is.Not.Null, "焦土的减攻独立来源(G11),不并进本体那条");
             Assert.That(scorched.TurnsLeft, Is.EqualTo(2));
-            Assert.That(curses.Any(c => c.TraitKey == null && c.TurnsLeft == 3), Is.True, "本体减攻(Lv3 3 回合)仍在");
+            Assert.That(curses.Any(c => c.TraitKey == null && c.TurnsLeft == 4), Is.True, "本体减攻(Lv3 强化后 4 回合)仍在");
         }
 
         [Test]
@@ -159,7 +159,7 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[0].Alive, Is.False);
             Assert.That(On(b, 1, BattleEventKind.BurnTick).Count, Is.EqualTo(1), "死者的残灼对另一名敌人结算一次");
-            Assert.That(Burn(b, 1), Is.EqualTo(4), "焚城不改层数:只有攻击面本体的 4 层");
+            Assert.That(Burn(b, 1), Is.EqualTo(5), "焚城不改层数:spec A 五行面灼全体 1 层 + 攻击面本体 4 层(Lv3 灼·强化)");
 
             // 对照:没有焚城载体时同一下不会烧到旁人
             var plain = Battle("焚", 5, Mob(hp: 1), Mob());
@@ -181,7 +181,11 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("爆", -1, attackMode: true), Is.EqualTo(BattleError.None));
             var hits = On(b, 3, BattleEventKind.Damage);
             Assert.That(hits.Count, Is.EqualTo(1 + 2), "本体一击 + 连爆 2 次(limit 2)");
-            Assert.That(hits[1].Amount, Is.EqualTo(hits[0].Amount).Within(1), "连爆 = 本体 100%");
+            // spec A:本体数值是真实档位值,Lv4 精进 +12% 只落在出字本体那一击上;连爆 = 本体基础值的 100%(不吃精进)
+            int body = MetaRules.ScaleEffectValue(EffectKind.DamageSingle,
+                Graph.Get("爆").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value, 8);
+            Assert.That(hits[1].Amount, Is.EqualTo(body).Within(1), "连爆 = 本体基础值 100%");
+            Assert.That(hits[0].Amount, Is.EqualTo(body * 112 / 100).Within(1), "本体一击吃了 Lv4 精进 +12%");
             Assert.That(b.PendingReactionCount, Is.EqualTo(0));
         }
 
@@ -204,7 +208,9 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Enemies[1].Alive, Is.False, "前提:连爆打死了敌人 1");
             Assert.That(On(b, 2, BattleEventKind.Damage).Count, Is.EqualTo(1 + 1),
                 "反应里的击杀不再入队连爆(R4,虽然 limit 2 还剩 1 次)");
-            Assert.That(On(b, 2, BattleEventKind.BurnTick).Count, Is.EqualTo(0), "反应里的击杀不触发焚城(R4)");
+            // spec A:焚五行面改全体,敌人 0 也带焚城载体 —— 它被本体击杀(出字本身)正当触发 1 次。
+            // 若敌人 1 被连爆(反应)打死也触发,这里会是 2
+            Assert.That(On(b, 2, BattleEventKind.BurnTick).Count, Is.EqualTo(1), "反应里的击杀不触发焚城(R4):只有敌人 0 本体击杀那 1 次");
             Assert.That(b.PendingReactionCount, Is.EqualTo(0));
         }
 
@@ -287,7 +293,7 @@ namespace Brushblade.Core.Tests
             var run = new RunEngine(Graph, config, Config, new[] { "炎", "炎", "炎", "炎", "炎" }, Array.Empty<string>(),
                 seed: 1, cardLevels: new Dictionary<string, int> { ["炎"] = 8 });
             Assert.That(run.Battle.Cast("炎", 0), Is.EqualTo(BattleError.None));
-            Assert.That(Burn(run.Battle, 0), Is.EqualTo(8), "本场:Lv3 灼 4 × 200%,开局那条不执行");
+            Assert.That(Burn(run.Battle, 0), Is.EqualTo(2), "本场:spec A 燃面本体灼 1 层 × 200%,开局那条不执行");
             var pending = run.Battle.PendingOpenings.Single();
             Assert.That((pending.Kind, pending.Value, pending.BattlesLeft), Is.EqualTo((EffectKind.BurnAll, 2, 1)));
 
@@ -390,6 +396,39 @@ namespace Brushblade.Core.Tests
             Assert.That(mark, Is.Not.Null);
             Assert.That(mark.TraitKey, Is.EqualTo(Key("灿", TraitSlot.Lv6, TraitFace.Attack)));
             Assert.That(mark.Magnitude, Is.GreaterThanOrEqualTo(15));
+        }
+
+        // ================= spec A:Lv6 新专属冒烟(真实 graph + cardLevels 6)=================
+
+        [Test]
+        public void ChiYan_Lv6_AttackHitsBurningTarget_TwentyPercentMore()
+        {
+            // 炎 Lv6·攻 赤炎:`Amplify 20` `scope Damage` `onlyIf Burning`(spec A 新增)。
+            // Lv5 火上浇油(+100%)同样只对带灼目标生效,两者相加:带灼 / 不带灼 = (100 + 100 + 20) / 100 = 2.2
+            int Hit(bool burning)
+            {
+                var b = Battle("炎", 6, Mob());
+                if (burning) SetBurn(b, 0, 3);
+                Assert.That(b.Cast("炎", 0, attackMode: true), Is.EqualTo(BattleError.None));
+                return On(b, 0, BattleEventKind.Damage)[0].Amount;
+            }
+            int plain = Hit(false), burning = Hit(true);
+            Assert.That(burning, Is.EqualTo(plain * 220 / 100).Within(2), $"带灼 {burning} / 不带灼 {plain}");
+        }
+
+        [Test]
+        public void CanLan_Lv6_FeatureFace_BurnPotencyRaisedByHalf()
+        {
+            // 灿 Lv6·润 灿烂(D1 由「灿然」改名):`Amplify 50` `scope Burn` —— 本字这次上的灼火力 ×1.5(spec A D6)
+            int Potency(int level)
+            {
+                var b = Battle("灿", level, Mob());
+                Assert.That(b.Cast("灿", 0), Is.EqualTo(BattleError.None));
+                return b.Enemies[0].Statuses.Find(StatusKind.Burn).Potency;
+            }
+            // 火力随卡等级缩放(Lv5 = 100 × 系数5);Lv6 = 150 × 系数6
+            Assert.That(Potency(5), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5)).Within(1), "对照:Lv5 无灿烂");
+            Assert.That(Potency(6), Is.EqualTo(MetaRules.ScaleByCardLevel(150, 6)).Within(1), "Lv6 灿烂:灼火力 ×1.5");
         }
     }
 }

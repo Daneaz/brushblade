@@ -2159,7 +2159,9 @@ namespace Brushblade.Core
                     // 护甲/反弹(铠/壁)要先在召唤物侧建结算链路 —— 在那之前放进来,
                     // 玩家能把铠加给召唤物、状态挂上去却没人读,比不让加更糟。
                     // D1 Task 7:Pick.Self 的净化落到玩家自身,不选友方(攻击面「我方清 1 个减益」)
-                    || (effect.Kind == EffectKind.Cleanse && effect.Pick != EffectPick.Self)
+                    // spec A D8:AllAllies(玩家 + 全部木灵)同样免选 —— 否则全体五行面挂不上它
+                    || (effect.Kind == EffectKind.Cleanse && effect.Pick != EffectPick.Self
+                        && effect.Pick != EffectPick.AllAllies)
                     || effect.Kind == EffectKind.Immunity
                     // 第二批(2026-08-28):攻击/暴击/穿透。召唤物侧的结算链路同批建好 ——
                     // SummonState.EffectiveAttack / RollCritForSummon / EffectiveEnemyDefense 的
@@ -3376,6 +3378,13 @@ namespace Brushblade.Core
                     ApplyStatus(AllyStatuses(allySlot), status, AllyRef(allySlot), UnitRef.Player);
                 }
             ApplyFeatureOntoSummon(def, attackMode, allySlot);
+            // spec A §7:水 / 土字攻击面按本次直接伤害攒泉 / 厚(1:1);攻面带释放泉 / 厚的字(溃 / 㵘 / 崩 / 㙓)不攒
+            if (topLevelCast && castFace == CardFace.Attack && !def.IsComponent && _cast.DirectDamage > 0
+                && !castEffects.Any(e => e.Kind == EffectKind.SpendWellspring || e.Kind == EffectKind.SpendHeft))
+            {
+                if (def.Element == Element.Water) GainWellspring(_cast.DirectDamage);
+                else if (def.Element == Element.Earth) GainHeft(_cast.DirectDamage);
+            }
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
             // 每场次数记账(E35):本次进了 Fold 的限次特性各记一次(出字已结算完,不会再被拒)
             foreach (var t in battleLimited)
@@ -3431,7 +3440,7 @@ namespace Brushblade.Core
                             if (armorStrikeBonus > 0)
                                 // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
                                 // 的调用)同口径——折返/加码都不是挥击。
-                                DamageEnemy(at, armorStrikeBonus, Element.Heart,
+                                _cast.DirectDamage += DamageEnemy(at, armorStrikeBonus, Element.Heart,
                                     bypassDefense: true, // 镇压不吃目标护甲
                                     source: EffectSource.ArmorStrike,
                                     attackerRef: UnitRef.Player);
@@ -3498,7 +3507,7 @@ namespace Brushblade.Core
                                     damage += SummonStrikeBonus(effect, def.Id);
                                 // 摇点位置不变(原先就在 DamageEnemy 的实参里、伤害算完之后):提成局部量只为暴击时入队
                                 bool crit = RollCrit(effect.ForceCrit);
-                                DamageEnemy(tgt, damage, attacker,
+                                _cast.DirectDamage += DamageEnemy(tgt, damage, attacker,
                                     crit: crit,
                                     pierce: primary ? effect.Pierce : 0, // 多段:每段各减一次护甲(裁定 4)
                                     // 碾(2026-09-16,土):跳过整条 DR,与穿透是两档 —— 对这一效果
@@ -3884,6 +3893,47 @@ namespace Brushblade.Core
                         _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
                         break;
                     }
+                    case EffectKind.Lifesteal:
+                    {
+                        // 沐霖(spec A D8):本次出字直接伤害 × Value% 回复玩家。不吃泉放大、不攒泉(不经 HealSelf 那条路)。
+                        // 裁定(C5 顾虑 1):独立回复,不串进治疗链 —— 不触发溢流、不计入 HealTotal / Overheal。
+                        int drained = _cast.DirectDamage * value / 100;
+                        if (drained > 0) HealAlly(Targeting.PlayerTarget, drained, overflowToDamage: false, countInCast: false);
+                        break;
+                    }
+                    case EffectKind.OverhealShield:
+                    {
+                        // 冰肌(spec A D8):本次出字到此为止的治疗溢出 × Value% 转为玩家护盾;同治疗转盾,不攒厚。
+                        int converted = _cast.Overheal * value / 100;
+                        if (converted <= 0) break;
+                        int granted = AddPlayerShield(converted);
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+                        break;
+                    }
+                    case EffectKind.BlockGain:
+                    {
+                        // 金汇(spec A D7):已有格挡只加次数、反击不变;没有则新挂,反击 = 攻面本体(吃等级)× 本字五行面
+                        // (按卡等级折叠后)Block 的反击 %。金汇是击杀时反应,这里的 def 是合成的 —— 回图谱取真身(同 BodySummonStats)
+                        var held = _playerStatuses.Find(StatusKind.Block);
+                        if (held != null) { held.Magnitude += value; break; }
+                        if (!_graph.TryGet(def.Id, out var real)) real = def;
+                        int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(real), cardLevel) * FeatureBlockCounterPercent(real, cardLevel) / 100;
+                        ApplyStatus(_playerStatuses, new StatusEffect
+                        {
+                            Kind = StatusKind.Block, Polarity = StatusPolarity.Buff, Magnitude = value, CounterDamage = counter, TurnsLeft = -1,
+                        }, UnitRef.Player, UnitRef.Player);
+                        break;
+                    }
+                    case EffectKind.ReviveShield:
+                        // 泽润(spec A D8):只给本次出字复活的木灵,护盾 = 其最大生命 × Value%;不攒厚
+                        foreach (int slot in _cast.RevivedSlots)
+                        {
+                            var s = _summons[slot];
+                            if (s == null || !s.Alive) continue;
+                            int granted = AddSummonShield(slot, s.MaxHp * value / 100);
+                            _events.Add(new BattleEvent(BattleEventKind.Shield, slot, granted));
+                        }
+                        break;
                     case EffectKind.AddWellspring:
                         // 直接加泉(D1 Task 7,附录 M18,蓄泉):不经治疗折算,只受上限
                         // 补满(D2-水 E21,泽及四方):加到上限
@@ -5320,6 +5370,7 @@ namespace Brushblade.Core
             int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
             PlayerHp += healed;
             if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+            if (_inApplyEffects) _cast.Overheal += amount - healed;   // 冰肌(spec A D8):溢出另记
             int playerEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
             if (overflowToDamage && SettleOverheal(amount - healed, Targeting.PlayerTarget))
@@ -5332,6 +5383,7 @@ namespace Brushblade.Core
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
                 if (_inApplyEffects) CountCastHealOnSummon(summon, given);
+                if (_inApplyEffects) _cast.Overheal += amount - given;   // 冰肌(spec A D8)
                 // 每只被治疗的召唤物各发一条治疗事件,**插在自己那发溢流伤害之前**。
                 //
                 // 2026-09-18 只补了「溢流」那一支(满血召唤物 given=0,不发事件的话伤害凭空冒出来),
@@ -5393,14 +5445,16 @@ namespace Brushblade.Core
         /// <param name="overflowToDamage">见 <see cref="HealPlayerAndSummons"/> 的同名参数。</param>
         /// <param name="source">这份治疗来自哪条附加机制(2026-09-18,目前只有归根);只作用于玩家那一支。</param>
         /// <param name="originSlot">治疗从哪来(归根 = 阵亡召唤物槽位),进事件的 TargetIndex;缺省 −1 与改前相同。</param>
+        /// <param name="countInCast">计不计入本次出字的治疗链(HealTotal / Overheal);只有吸血传 false(spec A D8 裁定:独立回复)。</param>
         private void HealAlly(int slot, int amount, bool overflowToDamage = true,
-            EffectSource source = EffectSource.None, int originSlot = -1)
+            EffectSource source = EffectSource.None, int originSlot = -1, bool countInCast = true)
         {
             if (slot == Targeting.PlayerTarget)
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
-                if (_inApplyEffects) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+                if (_inApplyEffects && countInCast) _cast.HealTotal += healed;   // 治疗转盾(D1 Task 7):只计实际回的血
+                if (_inApplyEffects && countInCast) _cast.Overheal += amount - healed;   // 冰肌(spec A D8):溢出另记
                 int playerEvent = _events.Count;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, originSlot, healed, Targeting.PlayerTarget,
                     source: source));
@@ -5413,6 +5467,7 @@ namespace Brushblade.Core
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
             if (_inApplyEffects) CountCastHealOnSummon(summon, given);
+            if (_inApplyEffects) _cast.Overheal += amount - given;   // 冰肌(spec A D8)
             int summonEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
             if (overflowToDamage && SettleOverheal(amount - given, slot))
@@ -5505,6 +5560,7 @@ namespace Brushblade.Core
         /// 自动救最前一具与玩家点名救某一具共用)。调用方负责判「是尸体、未满员」。</summary>
         private void ReviveAt(int slot, int hpPercent = 0)
         {
+            if (_inApplyEffects) _cast.RevivedSlots.Add(slot);   // 泽润(spec A D8)
             var revived = _summons[slot];
             // 半血,向上取整;hpPercent > 0(D2-木 E43 万木回春)= ⌈MaxHp × N%⌉
             revived.Hp = hpPercent > 0 ? (revived.MaxHp * hpPercent + 99) / 100 : (revived.MaxHp + 1) / 2;
@@ -5666,7 +5722,7 @@ namespace Brushblade.Core
         // 不该连带把反噬也关掉。
         /// <param name="sameSwing">这一记与上一记落在同一目标上的伤害是同一次挥击
         /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。</param>
-        private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
+        private int DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
             EffectSource source = EffectSource.None, int sourceSlot = -1, UnitRef attackerRef = default,
@@ -5754,6 +5810,8 @@ namespace Brushblade.Core
             enemy.Shield -= absorbed;
             int hpBefore = enemy.Hp;
             enemy.Hp = Math.Max(0, enemy.Hp - (damage - absorbed));
+            // spec A §7:这一记实际落到敌人身上的量 = 掉血 + 敌盾吸收,不含击杀溢出(DirectDamage 读它)
+            int landed = absorbed + (hpBefore - enemy.Hp);
             if (_config.Tally != null && damage > _config.Tally.MaxHit) _config.Tally.MaxHit = damage;
             // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
             // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
@@ -5780,11 +5838,11 @@ namespace Brushblade.Core
                 // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
                 // 的情形——同归于尽时玩家阵亡优先,既有口径不变。
                 CheckWin();
-                return;
+                return landed;
             }
             FlushCritMorale(enemyIndex);
             // 致命(D2-金 J5):掉血后低于 30% 直接斩杀 —— 已经死了,下面的受击存活类反应(现形 / 焦痕 / 铁画 / 分裂)一律不走
-            if (AfterEnemyHpLoss(enemyIndex)) return;
+            if (AfterEnemyHpLoss(enemyIndex)) return landed;
 
             // 生僻字:受击两次后被「读懂」(8.3);打死了就无所谓读不读得懂
             if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
@@ -5846,6 +5904,7 @@ namespace Brushblade.Core
                     AfterEnemyHpLoss(enemyIndex);   // 致命(D2-金 J5):分裂掉的那一半也是掉血(克隆不带状态)
                 }
             }
+            return landed;
         }
 
         /// <summary>优先返回 preferred 排(**剩余宽度**放得下 span 时),否则另一排。

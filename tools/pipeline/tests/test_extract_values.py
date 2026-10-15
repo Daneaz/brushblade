@@ -1010,7 +1010,6 @@ def test_d2metal_execute_still_attaches_to_damage_without_reshape():
 
 
 @pytest.mark.parametrize("config, needle", [
-    ("`Block 1` `counter 50`", "counter"),                          # counter 没有 BlockMod 宿主
     ("`BlockMod` `min 2`", "min"),                                  # min 没配 countPerMorale
     ("`Block 1` `countPerMorale`", "countPerMorale"),               # countPerMorale 没有 BlockMod 宿主
     ("`BlockMod` `countPerMorale`", "min"),                         # 次数按战意必须写下限
@@ -1597,3 +1596,31 @@ def test_earth_new_trait_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- spec A(2026-10-15):Block 自带反击 %、Amplify 按战意 ----
+
+def test_spec_a_counter_attaches_to_block_body():
+    effects = _parse_effects("`Morale 1` + `Block 2` `counter 40`", "剑")
+    assert [e["kind"] for e in effects] == ["Morale", "Block"]
+    assert effects[1]["value"] == 2 and effects[1]["counterPercent"] == 40
+
+
+def test_spec_a_counter_still_attaches_to_blockmod():
+    effects = _parse_effects("`Morale 1` + `BlockMod` `counter 50`", "剑")
+    assert [e for e in effects if e["kind"] == "BlockMod"][0]["counterPercent"] == 50
+
+
+def test_spec_a_counter_with_both_block_and_blockmod_is_ambiguous():
+    with pytest.raises(ValueError, match="counter"):
+        _parse_effects("`Block 2` + `BlockMod` `counter 40`", "剑")
+
+
+def test_spec_a_per_morale_attaches_to_amplify():
+    effects = _parse_effects("`Amplify 5` `scope Damage` `per Morale`", "鍂")
+    assert effects[0]["kind"] == "Amplify" and effects[0]["scaleBy"] == "Morale"
+
+
+def test_spec_a_per_morale_rejected_on_non_amplify():
+    with pytest.raises(ValueError, match="per"):
+        _parse_effects("`Shield 5` `per Morale`", "鍂")

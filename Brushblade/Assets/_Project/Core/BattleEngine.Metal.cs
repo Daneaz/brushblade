@@ -38,6 +38,10 @@ namespace Brushblade.Core
         private static int BlockCounterPercentOf(EffectDef effect) =>
             effect.CounterPercent > 0 ? effect.CounterPercent : BattleConfig.BlockCounterPercent;
 
+        /// <summary>本字五行面(按卡等级折叠后,Lv3 强化 / BlockMod 都算进去)第一条 Block 的反击百分比(金汇新挂格挡时用);没有 Block 取缺省。</summary>
+        private static int FeatureBlockCounterPercent(CharDef def, int cardLevel) =>
+            TraitRules.FaceBlockCounterPercent(TraitRules.CastEffects(def, CardFace.Feature, cardLevel));
+
         /// <summary>Morale 分支(E9 / E10):补满 = 战意直接设为上限(顶满不发事件,不算溢出);
         /// ExtraHitTarget = 值 × (本次出字命中过的敌人数 − 1),0 层不挂。其余照旧累加并钳到上限。</summary>
         private void ResolveMorale(EffectDef effect, int value)

@@ -823,6 +823,9 @@ namespace Brushblade.Core
                 or EffectKind.AddWellspring or EffectKind.AddHeft => false,
             // D1 Task 9:反震的 Value 是反弹吸收量的百分比 —— 吸收量本身已随护盾吃过等级,再缩放就重复吃等级
             EffectKind.ShieldRecoil => false,
+            // spec A D8:吸血 / 溢疗转盾的 Value 是百分比,作用于已按等级缩放的量(直接伤害 / 治疗溢出)
+            EffectKind.Lifesteal or EffectKind.OverhealShield => false,
+            EffectKind.BlockGain or EffectKind.ReviveShield => false,
             // D2-0 Task 2:嘲讽的 Value 是回合数(0 = 本场),离散
             EffectKind.Taunt => false,
             // D2-火 Task 2:灼层翻倍的 Value 是百分比(作用于离散的层数)、拉平不用 Value

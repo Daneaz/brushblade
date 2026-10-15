@@ -450,6 +450,25 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Summons[1].Statuses.Has(StatusKind.Curse), Is.False);
         }
 
+        /// <summary>spec A D8:AllAllies 覆盖玩家 + 全部木灵,无从选起 —— 与 Self 一样不需要友方目标;
+        /// 否则 HealAll / Revive 这类全体五行面上挂 `Cleanse pick AllAllies` 的特性过不了加载校验(㵘 泽被、溃 甘露)。</summary>
+        [Test]
+        public void Cleanse_AllAllies_DoesNotNeedAllyTarget()
+        {
+            Assert.That(BattleEngine.EffectNeedsAllyTarget(new EffectDef(EffectKind.Cleanse, 1, pick: EffectPick.AllAllies)), Is.False);
+            Assert.That(BattleEngine.EffectNeedsAllyTarget(new EffectDef(EffectKind.Cleanse, 1)), Is.True, "缺省 Primary 仍要选友方");
+        }
+
+        [Test]
+        public void Loader_AcceptsCleanseAllAllies_OnHealAllFace()
+        {
+            var g = ConfigLoader.LoadGraph(
+                @"{""chars"":[{""id"":""溃"",""element"":""Water"",""effects"":[{""kind"":""HealAll"",""value"":10}],
+                  ""traits"":[{""slot"":""Lv8"",""face"":""Feature"",""form"":""Active"",""name"":""甘露"",
+                  ""effects"":[{""kind"":""Cleanse"",""value"":1,""pick"":""AllAllies""}]}]}]}");
+            Assert.That(g.Get("溃").Traits[0].Effects[0].Pick, Is.EqualTo(EffectPick.AllAllies));
+        }
+
         // ---- E20 治疗改形 ----
 
         /// <summary>海纳百川 / 细雨:HealSelf 100 + Reshape shape All(shapePercent)+ 润泽(HoT)。</summary>

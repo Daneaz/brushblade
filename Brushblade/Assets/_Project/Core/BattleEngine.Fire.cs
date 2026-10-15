@@ -92,6 +92,7 @@ namespace Brushblade.Core
             long count = per == ScaleBasis.BurnStack ? PreCastBurnStacksOf(enemyIndex)
                 : per == ScaleBasis.Wellspring ? PreCastWellspringStacks()   // D2-水 E22a 洪峰
                 : per == ScaleBasis.SummonCount ? _cast.PreCastSummons ?? AliveSummons()   // D2-木 E39 众木 / 林深
+                : per == ScaleBasis.Morale ? MoraleStacks   // spec A 鍂·金鸣:结算时的战意层数
                 : PreCastBurningEnemies();
             long sum = percent * count;
             if (cap > 0) sum = Math.Min(sum, cap);

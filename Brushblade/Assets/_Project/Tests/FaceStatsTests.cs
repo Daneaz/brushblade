@@ -6,7 +6,9 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>Plan E2 Task 1:每面数值格(<see cref="FaceStats"/>)。口径 Q5(Lv1 本体 + Lv3 替换,按卡等级缩放,
-    /// 不并入 Lv4+)、Q6(每面 1–3 格,主量优先)、Q2(Lv3 本体差)、Q7(生面本命格)。读真实 chars.json。</summary>
+    /// 不并入 Lv4+)、Q6(每面 1–3 格,主量优先)、Q2(Lv3 本体差)、Q7(生面本命格)。读真实 chars.json。
+    /// 期望值按 spec A(2026-10-15)重算:单体 = 锚点 × 70%(金 195 / 蓝 90 / 红 420 …),五行面附带灼 / 战意恒 1,
+    /// 慑 / 格挡 / 护甲按档梯度,Lv3 只强化主手段。</summary>
     public class FaceStatsTests
     {
         private static RecipeGraph _graph;
@@ -29,9 +31,9 @@ namespace Brushblade.Core.Tests
         public void Body_Yan_Attack()
         {
             var yan = Graph.Get("炎");
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Attack, 1)), Is.EqualTo("Damage:168,Burn:3"));
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(168, 3)},Burn:4"), "Lv3 灼 3→4");
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Attack, 10)), Is.EqualTo($"Damage:{Scale(168, 10)},Burn:4"),
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Attack, 1)), Is.EqualTo("Damage:195,Burn:3"));
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(195, 3)},Burn:4"), "Lv3 灼 3→4");
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Attack, 10)), Is.EqualTo($"Damage:{Scale(195, 10)},Burn:4"),
                 "伤害按等级缩放;层数不缩放,也不并入 Lv4+");
         }
 
@@ -39,29 +41,38 @@ namespace Brushblade.Core.Tests
         public void Body_Yan_Feature_WeakenThenDuration()
         {
             var yan = Graph.Get("炎");
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 1)), Is.EqualTo("Burn:3,Weaken:15,Duration:2"));
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 10)), Is.EqualTo($"Burn:4,Weaken:{Scale(15, 10)},Duration:3"));
+            // 金档慑 25% / 3 回合、灼恒 1;Lv3 慑·强化 = 30% / 4 回合,灼不动
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 1)), Is.EqualTo("Burn:1,Weaken:25,Duration:3"));
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 10)), Is.EqualTo($"Burn:1,Weaken:{Scale(30, 10)},Duration:4"));
         }
 
         [Test]
         public void Body_OtherElements()
         {
-            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Attack, 1)), Is.EqualTo("Damage:94,Morale:1"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 1)), Is.EqualTo($"Morale:1,Block:1,Counter:{94 * 30 / 100}"));
+            // 剑(蓝):格挡 2 次、反击 40%;Lv3 格挡·强化 3 次、反击 50%;五行面战意恒 1(spec A §4.2)
+            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Attack, 1)), Is.EqualTo("Damage:90,Morale:1"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 1)), Is.EqualTo($"Morale:1,Block:2,Counter:{90 * 40 / 100}"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 10)),
-                Is.EqualTo($"Morale:2,Block:2,Counter:{Scale(94, 10) * 30 / 100}"), "反击 = 攻面本体(吃等级)× 30%");
-            Assert.That(Cells(FaceStats.Body(Graph.Get("林"), CardFace.Attack, 1)), Is.EqualTo("Damage:233,Seed:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("林"), CardFace.Feature, 1)), Is.EqualTo("SummonHp:346,SummonAttack:73,Nature:0"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("荆"), CardFace.Feature, 1)), Is.EqualTo("SummonHp:499,Nature:0"), "攻击 0 不出格");
-            Assert.That(Cells(FaceStats.Body(Graph.Get("花"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(36, 3)},Charm:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Attack, 1)), Is.EqualTo("Damage:45,Slow:1"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Feature, 1)), Is.EqualTo("Heal:45,HealOverTime:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("冰"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(152, 3)},Freeze:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:235,ArmorBreak:2,SpendHeft:60"),
+                Is.EqualTo($"Morale:1,Block:3,Counter:{Scale(90, 10) * 50 / 100}"), "反击 = 攻面本体(吃等级)× 本字反击 %");
+            // 木灵 血 = 单体 × 1.5、攻 = 单体 × 0.35;荆肉盾 血 = 单体 × 3、攻 0(spec A §4.5)
+            Assert.That(Cells(FaceStats.Body(Graph.Get("林"), CardFace.Attack, 1)), Is.EqualTo("Damage:195,Seed:2"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("林"), CardFace.Feature, 1)), Is.EqualTo("SummonHp:293,SummonAttack:68,Nature:0"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("荆"), CardFace.Feature, 1)), Is.EqualTo("SummonHp:399,Nature:0"), "攻击 0 不出格");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("花"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(42, 3)},Seed:3"), "花攻击面魅惑 → 种(§5)");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Attack, 1)), Is.EqualTo("Damage:42,Slow:1"));
+            // 涓(冷):本体只有 HealOverTime 17 × 3 回合。现行 FaceStats 的 HealOverTime 格只印回合数,
+            // 每回合量没有格 —— 已在 G1 报告里列为待 controller 裁定(spec B 出格或 FaceStats 补格)
+            Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Feature, 1)), Is.EqualTo("HealOverTime:3"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("海"), CardFace.Feature, 1)), Is.EqualTo("Heal:90"), "涌:只有治疗");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("沐"), CardFace.Feature, 1)), Is.EqualTo("Heal:98"), "苏:复活生命 % 格归 spec B(D19)");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Feature, 1)), Is.EqualTo("Heal:210"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Feature, 1)), Is.EqualTo("Shield:45,Armor:20,Duration:2"), "崩五行面全体盾 45");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("冰"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(195, 3)},Freeze:2"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:420,ArmorBreak:2,SpendHeft:60"),
                 "厚积薄发出耗厚格(final review Important 1)");
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 1)), Is.EqualTo("Shield:235,Armor:100,Duration:2"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 1)), Is.EqualTo("Shield:420,Armor:70,Duration:3"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 4)),
-                Is.EqualTo($"Shield:{Scale(235, 4)},Armor:{Scale(100, 4)},Duration:4"), "不并入 Lv4 深厚的回合加成(Q5)");
+                Is.EqualTo($"Shield:{Scale(420, 4)},Armor:{Scale(70, 4)},Duration:4"), "Lv3 回合 +1;不并入 Lv4 深厚的回合加成(Q5)");
         }
 
         [Test]
@@ -162,15 +173,15 @@ namespace Brushblade.Core.Tests
         public void Deltas_Yan_L1ToL2_OnlyScaledValues()
         {
             Assert.That(Diffs(FaceStats.Deltas(Graph.Get("炎"), 1, 2)),
-                Is.EqualTo($"Attack.Damage:168->{Scale(168, 2)},Feature.Weaken:15->{Scale(15, 2)}"));
+                Is.EqualTo($"Attack.Damage:195->{Scale(195, 2)},Feature.Weaken:25->{Scale(25, 2)}"));
         }
 
         [Test]
         public void Deltas_Yan_L2ToL3_IncludesStacksAndTurns()
         {
             Assert.That(Diffs(FaceStats.Deltas(Graph.Get("炎"), 2, 3)),
-                Is.EqualTo($"Attack.Damage:{Scale(168, 2)}->{Scale(168, 3)},Attack.Burn:3->4,"
-                    + $"Feature.Burn:3->4,Feature.Weaken:{Scale(15, 2)}->{Scale(15, 3)},Feature.Duration:2->3"));
+                Is.EqualTo($"Attack.Damage:{Scale(195, 2)}->{Scale(195, 3)},Attack.Burn:3->4,"
+                    + $"Feature.Weaken:{Scale(25, 2)}->{Scale(30, 3)},Feature.Duration:3->4"));
         }
 
         [Test]
@@ -209,13 +220,15 @@ namespace Brushblade.Core.Tests
         {
             var yan = Graph.Get("炎");
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Attack)), Is.EqualTo("Attack.Burn:3->4"));
-            Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Feature)), Is.EqualTo("Feature.Burn:3->4,Feature.Duration:2->3"));
+            Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Feature)),
+                Is.EqualTo($"Feature.Weaken:{Scale(25, 3)}->{Scale(30, 3)},Feature.Duration:3->4"), "慑·强化:+5%、回合 +1,灼不动");
         }
 
         [Test]
         public void Lv3Change_OtherElements()
         {
-            Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("剑"), CardFace.Feature)), Is.EqualTo("Feature.Morale:1->2,Feature.Block:1->2"));
+            Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("剑"), CardFace.Feature)),
+                Is.EqualTo($"Feature.Block:2->3,Feature.Counter:{Scale(90, 3) * 40 / 100}->{Scale(90, 3) * 50 / 100}"), "格挡·强化:+1 次、反击 +10%");
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("㙓"), CardFace.Attack)), Is.EqualTo("Attack.ArmorBreak:2->4"));
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("林"), CardFace.Attack)), Is.EqualTo("Attack.Seed:2->3"));
             Assert.That(FaceStats.Lv3Change(Graph.Get("林"), CardFace.Feature), Is.Empty, "本命强化只改被动,没有数值差");
@@ -271,11 +284,11 @@ namespace Brushblade.Core.Tests
         public void Body_SpendCells_PerStackDamage_Scaled()
         {
             var lei = Graph.Get("㙓");
-            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:235,ArmorBreak:2,SpendHeft:60"));
+            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:420,ArmorBreak:2,SpendHeft:60"));
             Assert.That(FaceStats.Body(lei, CardFace.Attack, 10).Last().Value, Is.EqualTo(Scale(60, 10)));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Attack, 1)), Is.EqualTo("Damage:65,ArmorBreak:2,SpendHeft:13"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Attack, 1)), Is.EqualTo("Damage:174,Freeze:1,SpendWellspring:60"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("溃"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(65, 3)},Slow:2,SpendWellspring:{Scale(13, 3)}"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Attack, 1)), Is.EqualTo("Damage:45,ArmorBreak:2,SpendHeft:13"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Attack, 1)), Is.EqualTo("Damage:210,Freeze:1,SpendWellspring:60"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("溃"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(45, 3)},Slow:2,SpendWellspring:{Scale(13, 3)}"));
             Assert.That(Diffs(FaceStats.Deltas(lei, 1, 2).Where(d => d.Kind == FaceStatKind.SpendHeft)),
                 Is.EqualTo($"Attack.SpendHeft:60->{Scale(60, 2)}"), "升级预览的差行带上耗厚");
             Assert.That(FaceStats.Scales(FaceStatKind.SpendHeft) && FaceStats.Scales(FaceStatKind.SpendWellspring), Is.True);
@@ -287,6 +300,7 @@ namespace Brushblade.Core.Tests
         /// 加一项之前先确认:玩家不看这一格,也不会漏掉改变出牌决策的信息。</summary>
         private static readonly Dictionary<EffectKind, string> NoCellExempt = new()
         {
+            [EffectKind.Revive] = "spec B 出「复活生命 %」格(D19);在那之前复活在技能说明里写",
         };
 
         /// <summary>Final review Important 1:本体(Lv1 + Lv3 替换)里出现的每一种 EffectKind,要么出数值格,要么进

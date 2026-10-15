@@ -89,6 +89,7 @@ def test_extract_pulls_60_implementable_chars():
     2026-09-16 土水系机制重做 Task 12:57 → 55,移出 枪(木·白·召唤,土系交出召唤位后
     木系白档由 花 补位)/ 灭(火·白,封禁已是水系标识机制)两字,不新增(花 只是绿→白
     换档,桂 只是土→木搬家,均非新增)。
+    2026-10-15 spec A:字数不变;数值按 spec A §2 口径归一(焚 全体 77 → 143)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
     assert len(values) == 55
@@ -100,7 +101,7 @@ def test_extract_pulls_60_implementable_chars():
     # 2026-10-05(D1 Task 12):火字拆两面,伤害进攻击面(attackEffects);对灼烧翻倍随附加效果作废。
     fen = next(e for e in values["焚"]["attackEffects"]
                if e["kind"] == "DamageSingle" and e.get("shape") == "All")
-    assert fen["value"] == 77
+    assert fen["value"] == 143
     assert "doubleVs" not in fen
     assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
@@ -137,9 +138,11 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     weaken = next(e for e in values["热"]["effects"] if e["kind"] == "Weaken")
     assert weaken["turns"] == 2
 
-    mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
-    assert mu["turns"] == 2
-    assert "targetAll" not in mu
+    # 2026-10-15 spec A:沐 的本体不再有 HoT(润面改直接治疗),turns 括注解析改由 淋 守。
+    lin = next(e for e in values["淋"]["effects"] if e["kind"] == "HealOverTime")
+    assert lin["value"] == 114
+    assert lin["turns"] == 5
+    assert "targetAll" not in lin
 
 
 def test_extract_pierce_points_attach_to_damage_effect():
@@ -488,8 +491,8 @@ def test_shipped_chars_json_carries_the_new_row_fields():
 
     # D1 Task 12 新写法的字段(选择器 / 回合)在真实产物里落得下来
     assert by_id["焱"]["effects"] == [
-        {"kind": "BurnAll", "value": 3},
-        {"kind": "Weaken", "value": 15, "pick": "All", "turns": 2}], "焱 燃:全体灼 + 全体减攻"
+        {"kind": "BurnAll", "value": 1},
+        {"kind": "Weaken", "value": 30, "pick": "All", "turns": 3}], "焱 燃:全体灼 + 全体减攻"
     assert by_id["崩"]["attackEffects"][1] == {"kind": "ArmorBreak", "value": 20, "pick": "All", "turns": 2}
     assert by_id["溃"]["attackEffects"][1] == {"kind": "Slow", "value": 1, "pick": "All"}
 
@@ -677,9 +680,41 @@ def test_zao_carries_sprout_passive():
     补迅捷(`SummonSpeed`,spec §6 特性技能列「自愈/迅捷」)。
     """
     zao = _shipped()["藻"]["effects"][0]
-    assert zao["passive"] == {"sproutPercent": 30, "sproutMax": 2, "speed": 150}
+    assert zao["passive"] == {"sproutPercent": 30, "sproutMax": 2}  # spec A:迅捷 speed 取消
     assert zao["count"] == 1
     # 2026-09-11(档位统一 G=1.468,T3):橙档召唤血锚点 780 → 706,694×(706/780) = 628.2 → 628。
-    assert zao["value"] == 628
+    assert zao["value"] == 429  # 2026-10-15 spec A 归一
     # 同上:橙档召唤攻锚点 300 → 184(r=0.45 锁死),187×(184/300) = 114.7 → 115。
-    assert zao["attack"] == 115
+    assert zao["attack"] == 100
+
+
+_SPEC_A_FACES = {"Lv1", "Lv3", "Lv4", "Lv5", "Lv6", "Lv8"}
+
+
+def test_spec_a_every_slot_has_both_faces():
+    """spec A §9.3:每张字 Lv1/3/4/5/6/8 两面各一条(Both 计两面)。"""
+    bad = []
+    for c in _shipped().values():
+        if c.get("component"):
+            continue
+        for slot in _SPEC_A_FACES:
+            faces = {t.get("face", "Both") for t in c.get("traits", []) if t["slot"] == slot}
+            if not ("Both" in faces or {"Attack", "Feature"} <= faces):
+                bad.append(f"{c['id']} {slot} {sorted(faces)}")
+    assert bad == []
+
+
+def test_spec_a_every_block_carries_its_counter_percent():
+    """spec A §4.2:真实数据里每条 Block(本体与 Lv3)都显式带 counterPercent。"""
+    missing = []
+    for c in _shipped().values():
+        blocks = [e for e in c.get("effects", []) if e["kind"] == "Block"]
+        blocks += [e for t in c.get("traits", []) if t["slot"] == "Lv3" for e in t["effects"] if e["kind"] == "Block"]
+        missing += [c["id"] for e in blocks if not e.get("counterPercent")]
+    assert missing == []
+
+
+def test_spec_a_flower_attack_is_seed_not_charm():
+    a = _shipped()["花"]["attackEffects"]
+    assert [e["kind"] for e in a] == ["DamageSingle", "Seed"]
+    assert a[0]["value"] == 42 and a[1]["value"] == 9 and a[1]["turns"] == 2

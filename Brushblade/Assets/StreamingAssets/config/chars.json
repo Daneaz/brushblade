@@ -37,19 +37,20 @@
       "gloss": "火势极盛",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 4
+          "kind": "BurnAll",
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 35,
+          "pick": "All",
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 86,
+          "value": 210,
           "shape": "All"
         },
         {
@@ -60,7 +61,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -79,16 +87,13 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 5
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 40,
+              "pick": "All",
+              "turns": 4
             }
           ]
         },
@@ -156,6 +161,20 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "燎天",
+          "effects": [
+            {
+              "kind": "BurnSettleNow",
+              "value": 0,
+              "pick": "All",
+              "keepStacks": true
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "焚天",
@@ -199,19 +218,20 @@
       "gloss": "烧毁",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 3
+          "kind": "BurnAll",
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 30,
+          "pick": "All",
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 77,
+          "value": 143,
           "shape": "All"
         },
         {
@@ -222,7 +242,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -241,16 +268,13 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 4
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 35,
+              "pick": "All",
+              "turns": 4
             }
           ]
         },
@@ -322,6 +346,21 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "焚心",
+          "effects": [
+            {
+              "kind": "BurnGrow",
+              "value": 1,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn",
+              "turns": 3
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "玉石俱焚",
@@ -373,29 +412,37 @@
       "effects": [
         {
           "kind": "BurnAll",
-          "value": 3
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
+          "value": 30,
           "pick": "All",
-          "turns": 2
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 99
+          "value": 143,
+          "shape": "All"
         },
         {
-          "kind": "BurnSingle",
+          "kind": "BurnAll",
           "value": 3
         }
       ],
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -405,7 +452,7 @@
           "name": "灼·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
+              "kind": "BurnAll",
               "value": 4
             }
           ]
@@ -414,17 +461,13 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnAll",
-              "value": 4
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
+              "value": 35,
               "pick": "All",
-              "turns": 3
+              "turns": 4
             }
           ]
         },
@@ -474,6 +517,20 @@
               "kind": "BurnSingle",
               "value": 2,
               "pick": "Random"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "焱风",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 1,
+              "onlyIf": "Burning",
+              "pick": "HitTargets"
             }
           ]
         },
@@ -549,18 +606,18 @@
       "effects": [
         {
           "kind": "BurnSingle",
-          "value": 3
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 25,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 168
+          "value": 195
         },
         {
           "kind": "BurnSingle",
@@ -570,7 +627,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -589,16 +653,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 4
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 30,
+              "turns": 4
             }
           ]
         },
@@ -637,6 +697,20 @@
             {
               "kind": "BurnSingle",
               "value": 2,
+              "onlyIf": "Burning"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "赤炎",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 20,
+              "scope": "Damage",
               "onlyIf": "Burning"
             }
           ]
@@ -705,19 +779,20 @@
       "gloss": "迸裂炸开",
       "effects": [
         {
-          "kind": "BurnSingle",
+          "kind": "BurnAll",
           "value": 1
         },
         {
           "kind": "Weaken",
           "value": 15,
+          "pick": "All",
           "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 4,
+          "value": 31,
           "shape": "All"
         },
         {
@@ -728,7 +803,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -747,15 +829,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 2
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
+              "value": 20,
+              "pick": "All",
               "turns": 3
             }
           ]
@@ -793,7 +872,8 @@
             {
               "kind": "BurnSingle",
               "value": 2,
-              "onlyIf": "Burning"
+              "onlyIf": "Burning",
+              "pick": "All"
             }
           ]
         },
@@ -807,6 +887,20 @@
             {
               "kind": "BurnSingle",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "烟熏",
+          "effects": [
+            {
+              "kind": "Blind",
+              "value": 15,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
             }
           ]
         },
@@ -833,12 +927,14 @@
           "effects": [
             {
               "kind": "BurnSingle",
-              "value": 3
+              "value": 3,
+              "pick": "All"
             },
             {
               "kind": "Weaken",
               "value": 25,
-              "turns": 2
+              "turns": 2,
+              "pick": "All"
             }
           ]
         }
@@ -856,19 +952,20 @@
       "gloss": "骤然爆开",
       "effects": [
         {
-          "kind": "BurnSingle",
+          "kind": "BurnAll",
           "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
+          "value": 20,
+          "pick": "All",
           "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 42,
+          "value": 45,
           "shape": "All"
         },
         {
@@ -879,7 +976,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -898,21 +1002,19 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 2
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
+              "value": 25,
+              "pick": "All",
               "turns": 3
             }
           ]
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "克敌",
           "effects": [
@@ -921,6 +1023,19 @@
               "value": 15,
               "scope": "All",
               "onlyIf": "Countering"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "克敌",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -945,7 +1060,21 @@
             {
               "kind": "Mine",
               "value": 0,
-              "bodyPercent": 200
+              "bodyPercent": 200,
+              "pick": "Random"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnCrit",
+          "name": "炽烈",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 2
             }
           ]
         },
@@ -1001,19 +1130,20 @@
       "gloss": "火猛、气盛",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 2
+          "kind": "BurnAll",
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 20,
+          "pick": "All",
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 44,
+          "value": 67,
           "shape": "All"
         },
         {
@@ -1024,7 +1154,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -1043,16 +1180,13 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 3
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 25,
+              "pick": "All",
+              "turns": 4
             }
           ]
         },
@@ -1085,12 +1219,13 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "烈风",
+          "name": "烟障",
           "effects": [
             {
-              "kind": "Reshape",
-              "value": 0,
-              "pick": "Row"
+              "kind": "Blind",
+              "value": 15,
+              "turns": 2,
+              "pick": "All"
             }
           ]
         },
@@ -1104,6 +1239,20 @@
             {
               "kind": "BurnSingle",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "烟熏",
+          "effects": [
+            {
+              "kind": "Blind",
+              "value": 15,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
             }
           ]
         },
@@ -1154,18 +1303,18 @@
       "effects": [
         {
           "kind": "BurnSingle",
-          "value": 3
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 25,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 216
+          "value": 195
         },
         {
           "kind": "BurnSingle",
@@ -1175,7 +1324,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -1194,16 +1350,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 4
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 30,
+              "turns": 4
             }
           ]
         },
@@ -1268,6 +1420,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "灿烂",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Burn"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "灿然",
@@ -1316,18 +1481,18 @@
       "effects": [
         {
           "kind": "BurnSingle",
-          "value": 2
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 20,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 112
+          "value": 133
         },
         {
           "kind": "BurnSingle",
@@ -1337,7 +1502,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -1356,16 +1528,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 3
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 25,
+              "turns": 4
             }
           ]
         },
@@ -1405,6 +1573,19 @@
               "kind": "BurnSingle",
               "value": 2,
               "onlyIf": "Burning"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnCrit",
+          "name": "炽烈",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 2
             }
           ]
         },
@@ -1471,18 +1652,18 @@
       "effects": [
         {
           "kind": "BurnSingle",
-          "value": 2
+          "value": 1
         },
         {
           "kind": "Weaken",
-          "value": 15,
-          "turns": 2
+          "value": 20,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 112
+          "value": 133
         },
         {
           "kind": "BurnSingle",
@@ -1492,7 +1673,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -1511,16 +1699,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 3
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
-              "turns": 3
+              "value": 25,
+              "turns": 4
             }
           ]
         },
@@ -1575,6 +1759,20 @@
             {
               "kind": "BurnSingle",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "烟熏",
+          "effects": [
+            {
+              "kind": "Blind",
+              "value": 15,
+              "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
             }
           ]
         },
@@ -1640,7 +1838,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 45
+          "value": 42
         },
         {
           "kind": "BurnSingle",
@@ -1650,7 +1848,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "灼",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "慑",
           "effects": []
         },
         {
@@ -1669,15 +1874,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "灼·强化",
+          "name": "慑·强化",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 2
-            },
-            {
               "kind": "Weaken",
-              "value": 15,
+              "value": 20,
               "turns": 3
             }
           ]
@@ -1716,6 +1917,19 @@
               "kind": "BurnSingle",
               "value": 2,
               "onlyIf": "Burning"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnCrit",
+          "name": "炽烈",
+          "effects": [
+            {
+              "kind": "BurnSingle",
+              "value": 2
             }
           ]
         },
@@ -1769,12 +1983,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 938,
+          "value": 630,
           "count": 1,
-          "attack": 146,
+          "attack": 147,
           "summonChar": "",
           "passive": {
-            "speed": 150,
             "shape": "Adjacent",
             "shapePercent": 50
           }
@@ -1783,7 +1996,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 465
+          "value": 420
         },
         {
           "kind": "Seed",
@@ -1794,7 +2007,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "参天",
           "effects": []
         },
         {
@@ -1875,12 +2096,30 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "独木生林",
+          "form": "Passive",
+          "name": "木疾",
           "effects": [
             {
-              "kind": "SummonSapling",
-              "value": 30,
-              "count": 2
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "",
+              "passive": {
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "落叶",
+          "effects": [
+            {
+              "kind": "SummonStrike",
+              "value": 30
             }
           ]
         },
@@ -1942,12 +2181,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 531,
+          "value": 429,
           "count": 1,
-          "attack": 97,
+          "attack": 100,
           "summonChar": "森",
           "passive": {
-            "speed": 150,
             "entrySaplings": 1
           }
         }
@@ -1955,7 +2193,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 308
+          "value": 286
         },
         {
           "kind": "Seed",
@@ -1966,7 +2204,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "森然",
           "effects": []
         },
         {
@@ -2029,12 +2275,32 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "丛林",
+          "form": "Passive",
+          "name": "森风",
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "森",
+              "passive": {
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "森生",
           "effects": [
             {
               "kind": "SummonSapling",
-              "value": 40,
-              "count": 2
+              "value": 20,
+              "fromBody": true
             }
           ]
         },
@@ -2103,12 +2369,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 346,
+          "value": 293,
           "count": 1,
-          "attack": 73,
+          "attack": 68,
           "summonChar": "林",
           "passive": {
-            "speed": 150,
             "perAllyAttackPercent": 15
           }
         }
@@ -2116,7 +2381,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 233
+          "value": 195
         },
         {
           "kind": "Seed",
@@ -2127,7 +2392,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "成林",
           "effects": []
         },
         {
@@ -2192,11 +2465,32 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "新芽",
+          "form": "Passive",
+          "name": "林风",
           "effects": [
             {
-              "kind": "SummonSapling",
-              "value": 20
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "林",
+              "passive": {
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "林间",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 20,
+              "scope": "Seed",
+              "scaleBy": "SummonCount"
             }
           ]
         },
@@ -2269,9 +2563,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 141,
+          "value": 135,
           "count": 1,
-          "attack": 41,
+          "attack": 32,
           "summonChar": "箭",
           "passive": {
             "ranged": true
@@ -2281,7 +2575,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 129
+          "value": 90
         },
         {
           "kind": "Seed",
@@ -2292,7 +2586,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "远射",
           "effects": []
         },
         {
@@ -2379,6 +2681,19 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "汲取",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Seed"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "扎根",
@@ -2439,9 +2754,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 193,
+          "value": 200,
           "count": 1,
-          "attack": 48,
+          "attack": 47,
           "summonChar": "楸",
           "passive": {
             "onHitBurn": 1
@@ -2451,7 +2766,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 152
+          "value": 133
         },
         {
           "kind": "Seed",
@@ -2462,7 +2777,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "秋燥",
           "effects": []
         },
         {
@@ -2553,6 +2876,19 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "汲取",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Seed"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "扎根",
@@ -2619,7 +2955,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 499,
+          "value": 399,
           "count": 1,
           "attack": 0,
           "summonChar": "荆",
@@ -2631,7 +2967,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 144
+          "value": 133
         },
         {
           "kind": "Seed",
@@ -2642,7 +2978,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "荆棘",
           "effects": []
         },
         {
@@ -2733,6 +3077,19 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "汲取",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Seed"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "扎根",
@@ -2790,12 +3147,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 628,
+          "value": 429,
           "count": 1,
-          "attack": 115,
+          "attack": 100,
           "summonChar": "藻",
           "passive": {
-            "speed": 150,
             "sproutPercent": 30,
             "sproutMax": 2
           }
@@ -2804,7 +3160,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 364
+          "value": 286
         },
         {
           "kind": "Seed",
@@ -2815,7 +3171,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "丛生",
           "effects": []
         },
         {
@@ -2897,13 +3261,30 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "丛藻",
+          "form": "Passive",
+          "name": "浮藻",
           "effects": [
             {
-              "kind": "SummonSapling",
-              "value": 30,
-              "sprout": true,
-              "count": 2
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "藻",
+              "passive": {
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "藻缠",
+          "effects": [
+            {
+              "kind": "Slow",
+              "value": 2
             }
           ]
         },
@@ -2972,9 +3353,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 820,
+          "value": 429,
           "count": 1,
-          "attack": 54,
+          "attack": 100,
           "summonChar": "桂",
           "passive": {
             "healAlly": 30
@@ -2984,7 +3365,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 342
+          "value": 286
         },
         {
           "kind": "Seed",
@@ -2995,7 +3376,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "桂香",
           "effects": []
         },
         {
@@ -3089,6 +3478,19 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "桂馥",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Seed"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "蟾宫",
@@ -3146,7 +3548,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 788,
+          "value": 585,
           "count": 1,
           "attack": 0,
           "summonChar": "柘",
@@ -3159,7 +3561,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 224
+          "value": 195
         },
         {
           "kind": "Seed",
@@ -3170,7 +3572,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "坚木",
           "effects": []
         },
         {
@@ -3238,6 +3648,18 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "柘刺",
+          "effects": [
+            {
+              "kind": "ShieldSummons",
+              "value": 59
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "守护",
@@ -3299,9 +3721,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 82,
+          "value": 93,
           "count": 1,
-          "attack": 28,
+          "attack": 22,
           "summonChar": "藤",
           "passive": {
             "onHitFreezeChance": 20,
@@ -3312,7 +3734,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 88
+          "value": 62
         },
         {
           "kind": "Seed",
@@ -3323,7 +3745,15 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "缠绕",
           "effects": []
         },
         {
@@ -3408,6 +3838,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "扎根",
+          "effects": [
+            {
+              "kind": "Endure",
+              "value": 1,
+              "pick": "SummonedThisCast"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "缠缚",
@@ -3445,9 +3888,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 72,
+          "value": 63,
           "count": 1,
-          "attack": 18,
+          "attack": 15,
           "summonChar": "花",
           "passive": {
             "onHitCharmChance": 20
@@ -3457,30 +3900,38 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 36
+          "value": 42
         },
         {
-          "kind": "Charm",
-          "value": 0,
-          "turns": 1
+          "kind": "Seed",
+          "value": 9,
+          "turns": 2
         }
       ],
       "traits": [
         {
           "slot": "Lv1",
-          "name": "魅惑",
+          "face": "Attack",
+          "name": "种",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "迷香",
           "effects": []
         },
         {
           "slot": "Lv3",
           "face": "Attack",
           "replaces": "Lv1",
-          "name": "魅惑·强化",
+          "name": "种·强化",
           "effects": [
             {
-              "kind": "Charm",
-              "value": 0,
-              "turns": 2
+              "kind": "Seed",
+              "value": 9,
+              "turns": 3
             }
           ]
         },
@@ -3542,6 +3993,19 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "汲取",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Seed"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "扎根",
@@ -3559,10 +4023,9 @@
           "name": "移花接木",
           "effects": [
             {
-              "kind": "Augment",
+              "kind": "Charm",
               "value": 100,
-              "augmentKind": "Charm",
-              "augmentField": "Count"
+              "turns": 1
             }
           ]
         },
@@ -3592,19 +4055,19 @@
       "gloss": "洪水滔天",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 174
+          "kind": "Revive",
+          "value": 0,
+          "reviveHpPercent": 60
         },
         {
-          "kind": "HealOverTime",
-          "value": 35,
-          "turns": 2
+          "kind": "HealAll",
+          "value": 210
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 174,
+          "value": 210,
           "shape": "All"
         },
         {
@@ -3620,7 +4083,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "冻结",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "苏",
           "effects": []
         },
         {
@@ -3640,12 +4110,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "冻结·强化",
+          "name": "苏·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 35,
-              "turns": 3
+              "kind": "Revive",
+              "value": 0,
+              "reviveHpPercent": 80
             }
           ]
         },
@@ -3702,7 +4172,8 @@
             },
             {
               "kind": "Cleanse",
-              "value": 1
+              "value": 1,
+              "pick": "AllAllies"
             }
           ]
         },
@@ -3716,6 +4187,18 @@
               "kind": "Vulnerable",
               "value": 25,
               "pick": "FrozenByThisCast"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "泽润",
+          "effects": [
+            {
+              "kind": "ReviveShield",
+              "value": 30
             }
           ]
         },
@@ -3769,18 +4252,13 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 200
-        },
-        {
-          "kind": "HealOverTime",
-          "value": 40,
-          "turns": 2
+          "value": 286
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 200
+          "value": 286
         },
         {
           "kind": "Freeze",
@@ -3790,7 +4268,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "冻结",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涌",
           "effects": []
         },
         {
@@ -3809,12 +4294,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "冻结·强化",
+          "name": "涌·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 40,
-              "turns": 3
+              "kind": "HealSelf",
+              "value": 343
             }
           ]
         },
@@ -3881,6 +4365,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "淼茫",
+          "effects": [
+            {
+              "kind": "Slow",
+              "value": 1,
+              "pick": "All"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "浩瀚",
@@ -3936,18 +4433,13 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 88
-        },
-        {
-          "kind": "HealOverTime",
-          "value": 18,
-          "turns": 2
+          "value": 133
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 88
+          "value": 133
         },
         {
           "kind": "Freeze",
@@ -3957,7 +4449,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "冻结",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涌",
           "effects": []
         },
         {
@@ -3976,12 +4475,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "冻结·强化",
+          "name": "涌·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 18,
-              "turns": 3
+              "kind": "HealSelf",
+              "value": 160
             }
           ]
         },
@@ -4035,6 +4533,18 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "护持",
+          "effects": [
+            {
+              "kind": "ShieldFromHeal",
+              "value": 20
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "湮灭无踪",
@@ -4081,18 +4591,13 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 88
-        },
-        {
-          "kind": "HealOverTime",
-          "value": 18,
-          "turns": 2
+          "value": 90
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 88
+          "value": 90
         },
         {
           "kind": "Slow",
@@ -4102,7 +4607,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "减速",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涌",
           "effects": []
         },
         {
@@ -4121,12 +4633,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "涌·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 18,
-              "turns": 3
+              "kind": "HealSelf",
+              "value": 108
             }
           ]
         },
@@ -4165,6 +4676,19 @@
             {
               "kind": "Cleanse",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
             }
           ]
         },
@@ -4224,19 +4748,14 @@
       "gloss": "堤破水散",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 64
-        },
-        {
-          "kind": "HealOverTime",
-          "value": 13,
-          "turns": 2
+          "kind": "HealAll",
+          "value": 45
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 65,
+          "value": 45,
           "shape": "All"
         },
         {
@@ -4252,7 +4771,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "减速",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涌",
           "effects": []
         },
         {
@@ -4272,12 +4798,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "涌·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 13,
-              "turns": 3
+              "kind": "HealAll",
+              "value": 54
             }
           ]
         },
@@ -4321,6 +4846,19 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 15,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "护持",
@@ -4356,7 +4894,8 @@
             },
             {
               "kind": "Cleanse",
-              "value": 1
+              "value": 1,
+              "pick": "AllAllies"
             }
           ]
         }
@@ -4375,18 +4914,13 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 152
-        },
-        {
-          "kind": "HealOverTime",
-          "value": 30,
-          "turns": 2
+          "value": 195
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 152
+          "value": 195
         },
         {
           "kind": "Freeze",
@@ -4396,7 +4930,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "冻结",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涌",
           "effects": []
         },
         {
@@ -4415,12 +4956,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "冻结·强化",
+          "name": "涌·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 30,
-              "turns": 3
+              "kind": "HealSelf",
+              "value": 234
             }
           ]
         },
@@ -4489,6 +5029,18 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "冰肌",
+          "effects": [
+            {
+              "kind": "OverhealShield",
+              "value": 100
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "坚冰",
@@ -4535,19 +5087,15 @@
       "gloss": "遇寒凝结",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 55
-        },
-        {
           "kind": "HealOverTime",
-          "value": 11,
-          "turns": 2
+          "value": 25,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 55
+          "value": 62
         },
         {
           "kind": "Freeze",
@@ -4557,7 +5105,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "冻结",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涓",
           "effects": []
         },
         {
@@ -4576,12 +5131,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "冻结·强化",
+          "name": "涓·强化",
           "effects": [
             {
               "kind": "HealOverTime",
-              "value": 11,
-              "turns": 3
+              "value": 25,
+              "turns": 4
             }
           ]
         },
@@ -4636,6 +5191,18 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "护持",
+          "effects": [
+            {
+              "kind": "ShieldFromHeal",
+              "value": 20
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "冰冻三尺",
@@ -4680,19 +5247,15 @@
       "gloss": "寒而不温",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 45
-        },
-        {
           "kind": "HealOverTime",
-          "value": 9,
-          "turns": 2
+          "value": 17,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 45
+          "value": 42
         },
         {
           "kind": "Slow",
@@ -4702,7 +5265,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "减速",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涓",
           "effects": []
         },
         {
@@ -4721,12 +5291,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "涓·强化",
           "effects": [
             {
               "kind": "HealOverTime",
-              "value": 9,
-              "turns": 3
+              "value": 17,
+              "turns": 4
             }
           ]
         },
@@ -4777,6 +5347,19 @@
             {
               "kind": "Cleanse",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 10,
+              "scope": "All"
             }
           ]
         },
@@ -4839,19 +5422,15 @@
       "gloss": "水自上浇下",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 90
-        },
-        {
           "kind": "HealOverTime",
-          "value": 18,
-          "turns": 2
+          "value": 114,
+          "turns": 5
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 286
         },
         {
           "kind": "Slow",
@@ -4861,7 +5440,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "减速",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涓",
           "effects": []
         },
         {
@@ -4880,12 +5466,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "涓·强化",
           "effects": [
             {
               "kind": "HealOverTime",
-              "value": 18,
-              "turns": 3
+              "value": 114,
+              "turns": 6
             }
           ]
         },
@@ -4946,6 +5532,19 @@
               "value": 0,
               "shape": "All",
               "shapePercent": 50
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "淋透",
+          "effects": [
+            {
+              "kind": "HealOverTime",
+              "value": 29,
+              "turns": 2
             }
           ]
         },
@@ -5020,19 +5619,15 @@
       "gloss": "洗涤全身",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 103
-        },
-        {
           "kind": "HealOverTime",
-          "value": 21,
-          "turns": 2
+          "value": 53,
+          "turns": 4
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 103
+          "value": 133
         },
         {
           "kind": "Slow",
@@ -5042,7 +5637,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "减速",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "涓",
           "effects": []
         },
         {
@@ -5061,12 +5663,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "涓·强化",
           "effects": [
             {
               "kind": "HealOverTime",
-              "value": 21,
-              "turns": 3
+              "value": 53,
+              "turns": 5
             }
           ]
         },
@@ -5107,6 +5709,19 @@
               "kind": "Slow",
               "value": 1,
               "pick": "Random"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 18,
+              "scope": "All"
             }
           ]
         },
@@ -5175,19 +5790,19 @@
       "gloss": "以水濯发",
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 86
+          "kind": "Revive",
+          "value": 1,
+          "reviveHpPercent": 50
         },
         {
-          "kind": "HealOverTime",
-          "value": 17,
-          "turns": 2
+          "kind": "HealSelf",
+          "value": 98
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 130
+          "value": 195
         },
         {
           "kind": "Slow",
@@ -5197,7 +5812,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "减速",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "苏",
           "effects": []
         },
         {
@@ -5216,12 +5838,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "苏·强化",
           "effects": [
             {
-              "kind": "HealOverTime",
-              "value": 17,
-              "turns": 3
+              "kind": "Revive",
+              "value": 1,
+              "reviveHpPercent": 70
             }
           ]
         },
@@ -5276,6 +5898,18 @@
         },
         {
           "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "沐霖",
+          "effects": [
+            {
+              "kind": "Lifesteal",
+              "value": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
           "name": "春雨",
@@ -5324,17 +5958,18 @@
       "effects": [
         {
           "kind": "Morale",
-          "value": 3
+          "value": 1
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 3,
+          "counterPercent": 70
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 384
+          "value": 420
         },
         {
           "kind": "Morale",
@@ -5344,7 +5979,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -5363,15 +6005,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 4
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 4,
+              "counterPercent": 80
             }
           ]
         },
@@ -5440,6 +6079,18 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "镇军",
+          "effects": [
+            {
+              "kind": "DamageCut",
+              "value": 15
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "千钧",
@@ -5494,17 +6145,18 @@
       "effects": [
         {
           "kind": "Morale",
-          "value": 3
+          "value": 1
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 3,
+          "counterPercent": 60
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 297
+          "value": 286
         },
         {
           "kind": "Morale",
@@ -5514,7 +6166,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -5533,15 +6192,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 4
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 4,
+              "counterPercent": 70
             }
           ]
         },
@@ -5584,6 +6240,19 @@
               "kind": "DefenseBuff",
               "value": 30,
               "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "金汇",
+          "effects": [
+            {
+              "kind": "BlockGain",
+              "value": 1
             }
           ]
         },
@@ -5656,17 +6325,18 @@
       "effects": [
         {
           "kind": "Morale",
-          "value": 3
+          "value": 1
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 3,
+          "counterPercent": 60
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 159
+          "value": 286
         },
         {
           "kind": "Morale",
@@ -5676,7 +6346,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -5695,15 +6372,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 4
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 4,
+              "counterPercent": 70
             }
           ]
         },
@@ -5778,6 +6452,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "刲刃",
+          "effects": [
+            {
+              "kind": "BlockMod",
+              "value": 0,
+              "blockBleed": 75
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "割喉",
@@ -5821,17 +6508,18 @@
       "effects": [
         {
           "kind": "Morale",
-          "value": 2
+          "value": 1
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 2,
+          "counterPercent": 50
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 98
+          "value": 195
         },
         {
           "kind": "Morale",
@@ -5841,7 +6529,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -5860,15 +6555,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 3
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 3,
+              "counterPercent": 60
             }
           ]
         },
@@ -5912,6 +6604,20 @@
             {
               "kind": "Morale",
               "value": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "金鸣",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 5,
+              "scope": "Damage",
+              "scaleBy": "Morale"
             }
           ]
         },
@@ -5978,17 +6684,18 @@
       "effects": [
         {
           "kind": "Morale",
-          "value": 2
+          "value": 1
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 2,
+          "counterPercent": 45
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 122
+          "value": 133
         },
         {
           "kind": "Morale",
@@ -5998,7 +6705,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6017,15 +6731,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 3
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 3,
+              "counterPercent": 55
             }
           ]
         },
@@ -6062,6 +6773,19 @@
               "kind": "BlockMod",
               "value": 0,
               "counterExecuteBelow": 20
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "迎刃",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 1
             }
           ]
         },
@@ -6129,17 +6853,18 @@
       "effects": [
         {
           "kind": "Morale",
-          "value": 2
+          "value": 1
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 2,
+          "counterPercent": 45
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 61
+          "value": 133
         },
         {
           "kind": "Morale",
@@ -6149,7 +6874,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6168,15 +6900,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 3
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 3,
+              "counterPercent": 55
             }
           ]
         },
@@ -6252,6 +6981,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "回锋",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Counter"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "大卸八块",
@@ -6301,13 +7043,14 @@
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 2,
+          "counterPercent": 40
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 94
+          "value": 90
         },
         {
           "kind": "Morale",
@@ -6317,7 +7060,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6336,15 +7086,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 2
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 3,
+              "counterPercent": 50
             }
           ]
         },
@@ -6417,6 +7164,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "回锋",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Counter"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "横扫千军",
@@ -6464,13 +7224,14 @@
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 2,
+          "counterPercent": 40
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 106
+          "value": 90
         },
         {
           "kind": "Morale",
@@ -6480,7 +7241,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6499,15 +7267,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 2
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 3,
+              "counterPercent": 50
             }
           ]
         },
@@ -6566,6 +7331,19 @@
               "kind": "BlockMod",
               "value": 0,
               "counterColumn": true
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "迎刃",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 1
             }
           ]
         },
@@ -6632,13 +7410,14 @@
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 2,
+          "counterPercent": 40
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 112
+          "value": 90
         },
         {
           "kind": "Morale",
@@ -6648,7 +7427,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6667,15 +7453,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 2
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 3,
+              "counterPercent": 50
             }
           ]
         },
@@ -6736,6 +7519,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "回锋",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Counter"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "直捣巢穴",
@@ -6778,13 +7574,14 @@
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 1,
+          "counterPercent": 30
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 45
+          "value": 42
         },
         {
           "kind": "Morale",
@@ -6794,7 +7591,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6813,15 +7617,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 2
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 2,
+              "counterPercent": 40
             }
           ]
         },
@@ -6860,6 +7661,19 @@
               "value": 1,
               "augmentKind": "Block",
               "augmentField": "Count"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "trigger": "OnKill",
+          "name": "迎刃",
+          "effects": [
+            {
+              "kind": "Morale",
+              "value": 1
             }
           ]
         },
@@ -6928,7 +7742,8 @@
         },
         {
           "kind": "Block",
-          "value": 1
+          "value": 1,
+          "counterPercent": 35
         }
       ],
       "attackEffects": [
@@ -6944,7 +7759,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "战意",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "格挡",
           "effects": []
         },
         {
@@ -6963,15 +7785,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "战意·强化",
+          "name": "格挡·强化",
           "effects": [
             {
-              "kind": "Morale",
-              "value": 2
-            },
-            {
               "kind": "Block",
-              "value": 2
+              "value": 2,
+              "counterPercent": 45
             }
           ]
         },
@@ -7027,6 +7846,19 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "回锋",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 50,
+              "scope": "Counter"
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "锋锐",
@@ -7070,18 +7902,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 235
+          "value": 420
         },
         {
           "kind": "DefenseBuff",
-          "value": 100,
-          "turns": 2
+          "value": 70,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 235
+          "value": 420
         },
         {
           "kind": "ArmorBreak",
@@ -7096,7 +7928,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -7116,11 +7955,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
-              "value": 100,
+              "value": 70,
               "turns": 4
             }
           ]
@@ -7177,6 +8016,25 @@
             {
               "kind": "AddHeft",
               "value": 2
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "厚壤",
+          "effects": [
+            {
+              "kind": "Augment",
+              "value": 1,
+              "augmentKind": "ArmorBreak",
+              "augmentField": "Turns"
+            },
+            {
+              "kind": "ArmorBreak",
+              "value": 20,
+              "turns": 3
             }
           ]
         },
@@ -7251,18 +8109,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 290
+          "value": 286
         },
         {
           "kind": "DefenseBuff",
-          "value": 75,
-          "turns": 2
+          "value": 50,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 290
+          "value": 286
         },
         {
           "kind": "ArmorBreak",
@@ -7273,7 +8131,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -7293,11 +8158,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
-              "value": 75,
+              "value": 50,
               "turns": 4
             }
           ]
@@ -7337,6 +8202,19 @@
               "kind": "DefenseBuff",
               "value": 38,
               "turns": 4
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "垚峙",
+          "effects": [
+            {
+              "kind": "Reshape",
+              "value": 0,
+              "armorStrikePercent": 200
             }
           ]
         },
@@ -7409,18 +8287,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 161
+          "value": 195
         },
         {
           "kind": "DefenseBuff",
-          "value": 30,
-          "turns": 2
+          "value": 35,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 161
+          "value": 195
         },
         {
           "kind": "ArmorBreak",
@@ -7431,7 +8309,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -7451,11 +8336,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
-              "value": 30,
+              "value": 35,
               "turns": 4
             }
           ]
@@ -7500,6 +8385,20 @@
               "value": 50,
               "scope": "Shield",
               "onlyIf": "PlayerHasArmor"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "圭棱",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 20,
+              "scope": "Damage",
+              "onlyIf": "ArmorBroken"
             }
           ]
         },
@@ -7560,7 +8459,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 106
+          "value": 133
         },
         {
           "kind": "DefenseBuff",
@@ -7571,7 +8470,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 106
+          "value": 133
         },
         {
           "kind": "ArmorBreak",
@@ -7582,7 +8481,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -7602,12 +8508,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
               "value": 25,
-              "turns": 4
+              "turns": 3
             }
           ]
         },
@@ -7663,6 +8569,20 @@
               "value": 50,
               "scope": "Shield",
               "onlyIf": "PlayerHasArmor"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "余震",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "HitTargets",
+              "turns": 1
             }
           ]
         },
@@ -7724,7 +8644,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 60
+          "value": 42
         },
         {
           "kind": "DefenseBuff",
@@ -7735,7 +8655,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 60
+          "value": 42
         },
         {
           "kind": "ArmorBreak",
@@ -7746,7 +8666,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -7766,12 +8693,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
               "value": 10,
-              "turns": 4
+              "turns": 3
             }
           ]
         },
@@ -7811,6 +8738,20 @@
               "value": 50,
               "scope": "Shield",
               "onlyIf": "PlayerHasArmor"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "余震",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "HitTargets",
+              "turns": 1
             }
           ]
         },
@@ -7865,18 +8806,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 63
+          "value": 62
         },
         {
           "kind": "DefenseBuff",
-          "value": 20,
+          "value": 15,
           "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 63
+          "value": 62
         },
         {
           "kind": "ArmorBreak",
@@ -7887,7 +8828,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -7907,12 +8855,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
-              "value": 20,
-              "turns": 4
+              "value": 15,
+              "turns": 3
             }
           ]
         },
@@ -7951,6 +8899,20 @@
               "value": 2,
               "augmentKind": "DefenseBuff",
               "augmentField": "Turns"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "余震",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "HitTargets",
+              "turns": 1
             }
           ]
         },
@@ -8023,18 +8985,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 67
+          "value": 90
         },
         {
           "kind": "DefenseBuff",
-          "value": 28,
+          "value": 20,
           "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 67
+          "value": 90
         },
         {
           "kind": "ArmorBreak",
@@ -8045,7 +9007,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -8065,12 +9034,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
-              "value": 28,
-              "turns": 4
+              "value": 20,
+              "turns": 3
             }
           ]
         },
@@ -8123,6 +9092,20 @@
               "value": 2,
               "augmentKind": "DefenseBuff",
               "augmentField": "Turns"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "余震",
+          "effects": [
+            {
+              "kind": "Weaken",
+              "value": 20,
+              "pick": "HitTargets",
+              "turns": 1
             }
           ]
         },
@@ -8184,7 +9167,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 60
+          "value": 62
         },
         {
           "kind": "DefenseBuff",
@@ -8195,7 +9178,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 60
+          "value": 62
         },
         {
           "kind": "ArmorBreak",
@@ -8206,7 +9189,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -8226,12 +9216,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
               "value": 15,
-              "turns": 4
+              "turns": 3
             }
           ]
         },
@@ -8288,6 +9278,18 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "反震",
+          "effects": [
+            {
+              "kind": "ShieldRecoil",
+              "value": 30
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "崩岩",
@@ -8325,18 +9327,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 128
+          "value": 195
         },
         {
           "kind": "DefenseBuff",
-          "value": 55,
-          "turns": 2
+          "value": 35,
+          "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 128
+          "value": 195
         },
         {
           "kind": "ArmorBreak",
@@ -8347,7 +9349,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -8367,11 +9376,11 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
-              "value": 55,
+              "value": 35,
               "turns": 4
             }
           ]
@@ -8417,6 +9426,19 @@
               "value": 2,
               "augmentKind": "DefenseBuff",
               "augmentField": "Turns"
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "杜渐",
+          "effects": [
+            {
+              "kind": "BuffBlock",
+              "value": 0,
+              "turns": 2
             }
           ]
         },
@@ -8474,8 +9496,8 @@
       "gloss": "山石塌落",
       "effects": [
         {
-          "kind": "Shield",
-          "value": 64
+          "kind": "ShieldAll",
+          "value": 45
         },
         {
           "kind": "DefenseBuff",
@@ -8486,7 +9508,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 65,
+          "value": 45,
           "shape": "All"
         },
         {
@@ -8503,7 +9525,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -8524,12 +9553,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
               "value": 20,
-              "turns": 4
+              "turns": 3
             }
           ]
         },
@@ -8600,6 +9629,18 @@
           ]
         },
         {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "反震",
+          "effects": [
+            {
+              "kind": "ShieldRecoil",
+              "value": 30
+            }
+          ]
+        },
+        {
           "slot": "Lv8",
           "face": "Attack",
           "name": "地裂",
@@ -8644,7 +9685,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 100
+          "value": 90
         },
         {
           "kind": "DefenseBuff",
@@ -8655,7 +9696,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 100
+          "value": 90
         },
         {
           "kind": "ArmorBreak",
@@ -8666,7 +9707,14 @@
       "traits": [
         {
           "slot": "Lv1",
+          "face": "Attack",
           "name": "破甲",
+          "effects": []
+        },
+        {
+          "slot": "Lv1",
+          "face": "Feature",
+          "name": "护甲",
           "effects": []
         },
         {
@@ -8686,12 +9734,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "护甲·强化",
           "effects": [
             {
               "kind": "DefenseBuff",
               "value": 20,
-              "turns": 4
+              "turns": 3
             }
           ]
         },
@@ -8757,6 +9805,18 @@
               "value": 20,
               "pick": "HitTargets",
               "turns": 1
+            }
+          ]
+        },
+        {
+          "slot": "Lv6",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "反震",
+          "effects": [
+            {
+              "kind": "ShieldRecoil",
+              "value": 30
             }
           ]
         },

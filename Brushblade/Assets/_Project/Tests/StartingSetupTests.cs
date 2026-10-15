@@ -120,6 +120,16 @@ namespace Brushblade.Core.Tests
 
         // ---- 实船:新初始字必须打得过首塔首层(否则新手一开局就卡死) ----
 
+        [Test]
+        public void FirstTowerFloorOne_IsCappedForTheDemoChar_OtherFloorsUntouched()
+        {
+            var campaign = ConfigLoader.LoadCampaign(File.ReadAllText(Path.Combine(RepoRoot(),
+                "Brushblade/Assets/StreamingAssets/config/enemies.json")), RealGraph());
+            var seg = EndlessGenerator.BuildFirstTowerSegment(campaign.Endless, seed: 7);
+            Assert.That(seg.Encounters[0][0].MaxHp, Is.LessThanOrEqualTo(EndlessGenerator.TutorialFloorOneMaxHp));
+            Assert.That(seg.Encounters[1].All(e => e.MaxHp > EndlessGenerator.TutorialFloorOneMaxHp), Is.True);
+        }
+
         /// <summary>用真实 chars.json + enemies.json 跑首层。ConfigLoaderTests 里那条同名守卫
         /// 引了 UnityEngine.Application 被工装排除,这里用不依赖引擎的路径再守一遍。
         ///

@@ -381,6 +381,17 @@ namespace Brushblade.Core
 
         /// <summary>Reshape:只改**第一条** DamageSingle;Reshape 上非缺省的字段覆盖原值(shieldStrike / armorStrike 相加,D2-土 E27)。
         /// 没有伤害时:armorShield 改第一条护盾(E30),其余见下。</summary>
+        /// <summary>治疗改形会改哪一条(卡面文案与 <see cref="ApplyReshape"/> 共用这一个判据):本面没有 DamageSingle 时,
+        /// 第一条 HealSelf,否则第一条非 TargetAll 的 HealOverTime;都没有(含本面本体已是 HealAll,改形空转)返回 -1。</summary>
+        public static int HealReshapeIndex(IReadOnlyList<EffectDef> effects)
+        {
+            if (effects.Any(e => e.Kind == EffectKind.DamageSingle)) return -1;
+            for (int i = 0; i < effects.Count; i++) if (effects[i].Kind == EffectKind.HealSelf) return i;
+            for (int i = 0; i < effects.Count; i++)
+                if (effects[i].Kind == EffectKind.HealOverTime && !effects[i].TargetAll) return i;
+            return -1;
+        }
+
         private static void ApplyReshape(List<EffectDef> effects, EffectDef r)
         {
             int at = effects.FindIndex(e => e.Kind == EffectKind.DamageSingle);
@@ -403,8 +414,15 @@ namespace Brushblade.Core
                 // 改本面第一条 HealSelf 为全体(shapePercent 同伤害的口径:没写就是全额 100)。其余形状不碰治疗
                 if (r.Pick == EffectPick.Primary && r.Shape == TargetArea.All)
                 {
-                    int heal = effects.FindIndex(e => e.Kind == EffectKind.HealSelf);
-                    if (heal >= 0) effects[heal] = effects[heal].With(shape: TargetArea.All, shapePercent: r.ShapePercent);
+                    int heal = HealReshapeIndex(effects);
+                    if (heal >= 0)
+                    {
+                        // spec A §4.3「涓」只有持续治疗(D14,淋·细雨):改为全体,每回合量 × ShapePercent%
+                        if (effects[heal].Kind == EffectKind.HealSelf)
+                            effects[heal] = effects[heal].With(shape: TargetArea.All, shapePercent: r.ShapePercent);
+                        else
+                            effects[heal] = effects[heal].With(targetAll: true, value: effects[heal].Value * r.ShapePercent / 100);
+                    }
                     return;
                 }
                 // 重选目标(D2-火 E3,烈风「燃改为横扫」):本面没有伤害时,把落在主目标上的敌方效果换成 Reshape 的选择器
@@ -456,7 +474,8 @@ namespace Brushblade.Core
             int at = effects.FindIndex(e => e.Kind == EffectKind.Block);
             if (at < 0) return;
             effects[at] = effects[at].With(
-                counterPercent: m.CounterPercent > 0 ? m.CounterPercent : (int?)null,
+                // D10:只抬不降 —— 本字 Block 自带反击 %,BlockMod 较低时不能把它拉下来
+                counterPercent: m.CounterPercent > 0 ? Math.Max(m.CounterPercent, effects[at].CounterPercent) : (int?)null,
                 scaleBy: m.ScaleBy != ScaleBasis.None ? m.ScaleBy : (ScaleBasis?)null,
                 scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null,
                 // D2-金 Task 2(J1):格挡附带的运行时字段,同样非缺省覆盖
@@ -467,6 +486,30 @@ namespace Brushblade.Core
                 blockMorale: m.BlockMorale > 0 ? m.BlockMorale : (int?)null,
                 killRefundAp: m.KillRefundAp > 0 ? m.KillRefundAp : (int?)null);
         }
+
+        /// <summary>一面效果里第一条 Block 的反击百分比;没写 counter 或没有 Block 取 <see cref="BattleConfig.BlockCounterPercent"/>(D12 兜底)。
+        /// 金汇新挂格挡(spec A D7)与 BlockMod 卡面的「原为 N%」共用。</summary>
+        public static int FaceBlockCounterPercent(IReadOnlyList<EffectDef> face)
+        {
+            if (face != null)
+                foreach (var e in face)
+                    if (e.Kind == EffectKind.Block)
+                        return e.CounterPercent > 0 ? e.CounterPercent : BattleConfig.BlockCounterPercent;
+            return BattleConfig.BlockCounterPercent;
+        }
+
+        /// <summary>特性 <paramref name="trait"/> 所在那一面、在它解锁时的格挡反击 %(BlockMod 卡面「原为 N%」用):
+        /// 按 max(卡等级, 特性解锁等级) 折叠该面,但不含这条特性自己 —— 否则它的抬升已算进去,比不出「改没改」。</summary>
+        public static int FaceBlockCounterPercent(CharDef def, TraitDef trait, int cardLevel)
+        {
+            var face = trait.Face == TraitFace.Attack ? CardFace.Attack : CardFace.Feature;
+            return FaceBlockCounterPercent(Fold(BattleEngine.EffectsOf(def, face == CardFace.Attack), def, face,
+                Math.Max(cardLevel, trait.UnlockLevel), skip: t => ReferenceEquals(t, trait)));
+        }
+
+        /// <summary>BlockMod 改后的反击百分比(D10 只抬不降,同 <see cref="ApplyBlockMod"/>);不改反击的 BlockMod 原样返回。</summary>
+        public static int BlockModCounterPercent(int facePercent, EffectDef mod) =>
+            mod.CounterPercent > 0 ? Math.Max(mod.CounterPercent, facePercent) : facePercent;
 
         public static bool InScope(AmpScope scope, EffectKind kind)
         {

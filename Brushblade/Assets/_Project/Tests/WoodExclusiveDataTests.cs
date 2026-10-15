@@ -115,7 +115,7 @@ namespace Brushblade.Core.Tests
         // 本命追加(E37)= `Summon 0` + 本命字段;Fold 时并进本面第一条本体召唤(见下方 Fold 测试)
         private static readonly (string Ch, TraitSlot Slot, TraitFace Face, string Name, string Sigs)[] Table =
         {
-            ("花", L8, Atk, "移花接木", "Augment 100 of Charm.Count"),
+            ("花", L8, Atk, "移花接木", "Charm 100 turns 1"),   // spec A D15:花攻面不再有魅惑,魅惑挪到 Lv8 招牌
             ("藤", L8, Ftr, "攀附", "Bind 100 pick HighestHp"),
             ("箭", L5, Ftr, "箭灵", "SummonRanged 0"),
             ("箭", L8, Atk, "万箭齐发", "Reshape 0 shape Scatter shots 5 shotPct 40|SummonStrike 50"),
@@ -131,11 +131,14 @@ namespace Brushblade.Core.Tests
             ("荆", L8, Ftr, "荆天棘地", "SummonThorns 30 turns 3"),
             ("林", L4, Both, "双木", "SummonSapling 20 count 2 fromBody"),
             ("林", L5, Atk, "众木", "Amplify 10 scope Damage per SummonCount"),
+            ("林", L5, Ftr, "林风", "Summon 0 count 1 passive{Speed=150}"),   // spec A D22:底速移出本命,Lv5 起再出现
+            ("林", L6, Atk, "林间", "Amplify 20 scope Seed per SummonCount"),
             ("林", L6, Ftr, "林荫", "Summon 0 count 1 passive{GroveCut=5,GroveCutCap=20}"),
             ("林", L8, Atk, "林海", "SummonStrike 70"),
             ("林", L8, Ftr, "林立", "Augment 1 of Summon.Count|Reshape 0 summonPercent 60|SummonEmpower 20 turns 3 pick AllSummons"),
             ("柘", L4, Both, "坚心", ""),
             ("柘", L5, Atk, "柘弓", "SummonStrike 200 own byArmor"),
+            ("柘", L6, Atk, "柘刺", "ShieldSummons 59"),   // spec A D5
             ("柘", L6, Ftr, "守护", "Summon 0 count 1 passive{Guard=30}"),
             ("柘", L8, Atk, "硬弓", "Reshape 0 armorIgnore 100 hostArmorStrike 400"),
             ("柘", L8, Ftr, "良弓", "Summon 0 count 1 passive{ReturnFire=200}"),
@@ -143,26 +146,30 @@ namespace Brushblade.Core.Tests
             ("桂", L4, Ftr, "馥郁", "Summon 0 count 1 passive{HealAllyPercent=30}"),
             ("桂", L5, Atk, "折桂", "GrantChar 1"),
             ("桂", L5, Ftr, "桂花雨", "HealAll 75"),
+            ("桂", L6, Atk, "桂馥", "Amplify 50 scope Seed"),
             ("桂", L6, Ftr, "蟾宫", "Summon 0 count 1 passive{CritAura=10}"),
             ("桂", L8, Atk, "月桂", "CritBuff 30 turns 1 pick Self"),
             ("桂", L8, Ftr, "桂冠", "SummonEmpower 50 turns 3 pick StrongestSummon"),
             ("藻", L4, Atk, "水草", "Amplify 25 scope All"),
             ("藻", L4, Ftr, "水草", "Summon 0 count 1 passive{HealMirror=100}"),
             ("藻", L5, Atk, "缠足", "Slow 1 pick All"),
-            ("藻", L5, Ftr, "丛藻", "SummonSapling 30 count 2 sprout"),
+            ("藻", L5, Ftr, "浮藻", "Summon 0 count 1 passive{Speed=150}"),   // spec A D22:丛藻删除
+            ("藻", L6, Atk, "藻缠", "Slow 2"),   // spec A review 裁定:改为纯减速 2
             ("藻", L6, Ftr, "藻荇", "Summon 0 count 1 passive{SproutDeathSlow=1}"),
             ("藻", L8, Atk, "藻缚", "Freeze 1|Slow 2 pick Adjacent"),
             ("藻", L8, Ftr, "绿潮", "SummonMerge 0|Taunt 2 pick SummonedThisCast"),
             ("森", L4, Both, "三木", "HealSummons 100 pct"),
             ("森", L5, Atk, "森罗", "Reshape 0 summonAtkStrike 20"),
-            ("森", L5, Ftr, "丛林", "SummonSapling 40 count 2"),
+            ("森", L5, Ftr, "森风", "Summon 0 count 1 passive{Speed=150}"),   // spec A D22:丛林删除
+            ("森", L6, Atk, "森生", "SummonSapling 20 count 1 fromBody"),   // spec A D1 改名自「森然」;击杀时
             ("森", L6, Ftr, "森严", "Summon 0 count 1 passive{ThicketCut=25,ThicketMin=3}"),
             ("森", L8, Atk, "林深", "Reshape 0 shape All shapePct 50|Amplify 10 scope Damage per SummonCount"),
             ("森", L8, Ftr, "万木回春", "Revive 0 pct 30"),
             (Ten, L4, Atk, "参天之力", "Amplify 30 scope All"),
             (Ten, L4, Ftr, "参天之力", "Summon 0 count 1 passive{AttackPercent=20}"),
             (Ten, L5, Atk, "四木成林", "SummonAct 0"),
-            (Ten, L5, Ftr, "独木生林", "SummonSapling 30 count 2"),
+            (Ten, L5, Ftr, "木疾", "Summon 0 count 1 passive{Speed=150}"),   // spec A D22:独木生林删除
+            (Ten, L6, Atk, "落叶", "SummonStrike 30"),   // 与楸 Lv5「落叶」重名,分属两字(D1)
             (Ten, L6, Ftr, "落木", "Summon 0 count 1 passive{DeathBlast=300}"),
             (Ten, L8, Atk, "撼天", "Reshape 0 hostAtkStrike 200"),
             (Ten, L8, Ftr, "擎天", "SummonEmpower 30 turns 3 pick OtherSummons"),
@@ -171,24 +178,29 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(51), "46 格,秋实 / 披荆 / 馥郁 / 水草 / 参天之力拆成两行(V4)");
-            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(46));
+            Assert.That(Table.Length, Is.EqualTo(58), "46 格,秋实 / 披荆 / 馥郁 / 水草 / 参天之力拆成两行(V4);spec A 增 Lv5 底速被动 / Lv6 攻面专属共 7 行");
+            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(53), "46 格 + spec A 新增 7 格(丛藻 / 丛林 / 独木生林 被 浮藻 / 森风 / 木疾 取代)");
+            var errors = new List<string>();   // 汇总全部不符,免得第一条失败遮住后面
             foreach (var (ch, slot, face, name, sigs) in Table)
             {
                 var t = Graph.Get(ch).Traits.SingleOrDefault(x => x.Slot == slot && x.Face == face && x.Name == name);
-                Assert.That(t, Is.Not.Null, $"{ch} {name}({slot}/{face})");
+                if (t == null) { errors.Add($"缺 {ch} {name}({slot}/{face})"); continue; }
                 (TraitForm, TraitTrigger) form = name switch
                 {
                     "双木" => (TraitForm.Passive, TraitTrigger.OnDismantle),
                     "三木" => (TraitForm.Passive, TraitTrigger.OnCompose),
                     "折桂" => (TraitForm.Passive, TraitTrigger.OnKill),
+                    "森生" => (TraitForm.Passive, TraitTrigger.OnKill),
+                    "林风" or "森风" or "浮藻" or "木疾" => (TraitForm.Passive, TraitTrigger.Cast),   // spec A D22:Lv5 五行面被动
                     _ => (slot == L4 || slot == L6 ? TraitForm.Passive : TraitForm.Active, TraitTrigger.Cast),
                 };
-                Assert.That((t.Form, t.Trigger), Is.EqualTo(form), $"{ch} {name} 形态");
-                Assert.That(t.Replaces.HasValue, Is.False, $"{ch} {name} 不替换");
-                Assert.That(t.MaxPerBattle, Is.EqualTo(name == "折桂" ? 1 : 0), $"{ch} {name} 每场次数(E49)");
-                Assert.That(string.Join("|", t.Effects.Select(Sig)), Is.EqualTo(sigs), $"{ch} {name}({slot}/{face})效果");
+                if ((t.Form, t.Trigger) != form) errors.Add($"{ch} {name} 形态 {t.Form}/{t.Trigger} 应为 {form}");
+                if (t.Replaces.HasValue) errors.Add($"{ch} {name} 不应替换");
+                if (t.MaxPerBattle != (name == "折桂" ? 1 : 0)) errors.Add($"{ch} {name} 每场次数(E49) {t.MaxPerBattle}");
+                var got = string.Join("|", t.Effects.Select(Sig));
+                if (got != sigs) errors.Add($"{ch} {name}({slot}/{face})效果:期望 [{sigs}] 实际 [{got}]");
             }
+            Assert.That(errors, Is.Empty, string.Join("\n", errors));
         }
 
         // ================= 折叠:本命追加并进本体召唤(E37)、改形 / 加伤修饰落到本体上 =================
@@ -225,10 +237,11 @@ namespace Brushblade.Core.Tests
             // 攻面的本命追加没有本体召唤可并 → 空转(V4 攻面另写精进)
             Assert.That(Folded("楸", CardFace.Attack, 8).Any(e => e.Kind == EffectKind.Summon), Is.False);
 
-            // 林立:召唤 2 只、各 60%(E48);花 Lv8:移花接木写进魅惑 Value(E45)
+            // 林立:召唤 2 只、各 60%(E48);花 Lv8:spec A D15 起移花接木本身就是 `Charm 100` `turns 1`(E45 的 Augment 写法作废)
             var lin = FoldedOf("林", CardFace.Feature, 8, EffectKind.Summon);
             Assert.That((lin.SummonCount, lin.SummonPercent), Is.EqualTo((2, 60)));
-            Assert.That(FoldedOf("花", CardFace.Attack, 8, EffectKind.Charm).Value, Is.EqualTo(100));
+            var charm = FoldedOf("花", CardFace.Attack, 8, EffectKind.Charm);
+            Assert.That((charm.Value, charm.Turns), Is.EqualTo((100, 1)));
             // 硬弓 / 撼天 / 森罗加伤落到本体伤害;林深全体 50%;万箭齐发散射 5 发 40%;秋风扫叶横扫各 60%
             var ying = FoldedOf("柘", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((ying.HostArmorStrikePercent, ying.ArmorIgnorePercent), Is.EqualTo((400, 100)));
@@ -239,9 +252,9 @@ namespace Brushblade.Core.Tests
             Assert.That((jian.Shape, jian.Shots, jian.ShotPercent), Is.EqualTo((TargetArea.Scatter, 5, 40)));
             var qiu = FoldedOf("楸", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((qiu.Shape, qiu.ShapePercent, qiu.HitPercent), Is.EqualTo((TargetArea.Row, 60, 60)));
-            // Q27:花 Lv5 池·寄生 = 魅惑 +1 回合(Lv3 2 → 3)
-            Assert.That(FoldedOf("花", CardFace.Attack, 5, EffectKind.Charm).Turns, Is.EqualTo(3));
-            Assert.That(FoldedOf("花", CardFace.Attack, 4, EffectKind.Charm).Turns, Is.EqualTo(2));
+            // spec A D15:花攻击面本体不再有魅惑,Lv8 之前攻面都没有 Charm(Q27 的 Lv5 寄生 +1 回合随之无物可加)
+            Assert.That(Folded("花", CardFace.Attack, 5).Any(e => e.Kind == EffectKind.Charm), Is.False);
+            Assert.That(Folded("花", CardFace.Attack, 4).Any(e => e.Kind == EffectKind.Charm), Is.False);
         }
 
         // ================= 数据任务补的规则缺口 =================
@@ -344,11 +357,14 @@ namespace Brushblade.Core.Tests
         public void GroveCut_FivePercentPerSummon_CappedAtTwenty()
         {
             var b = Battle("林", 6, new[] { Shooter(1000) });
+            // spec A:Lv5 幼苗(独木生林 / 丛林 / 新芽)已删除,一次生面只召 1 只林灵 —— 靠多出几次生面凑木灵数
             Cast(b, "林");
-            Assert.That(Alive(b).Count, Is.EqualTo(2), "林灵 + 新芽幼苗");
+            Assert.That(Alive(b).Count, Is.EqualTo(1), "1 只林灵");
+            Assert.That(b.WoodDamageCutPercent(forSummon: false), Is.EqualTo(5));
+            Cast(b, "林");
+            Assert.That(Alive(b).Count, Is.EqualTo(2));
             Assert.That(b.WoodDamageCutPercent(forSummon: false), Is.EqualTo(10));
-            Cast(b, "林");
-            Cast(b, "林");
+            for (int i = 0; i < 4; i++) Cast(b, "林");
             Assert.That(Alive(b).Count, Is.EqualTo(6));
             Assert.That(b.WoodDamageCutPercent(forSummon: false), Is.EqualTo(20), "6 × 5% = 30 → 封顶 20");
             Assert.That(b.WoodDamageCutPercent(forSummon: true), Is.EqualTo(20));
@@ -364,7 +380,7 @@ namespace Brushblade.Core.Tests
         {
             var b = Battle("森", 6, new[] { Shooter(1000) });
             Cast(b, "森");
-            Assert.That(Alive(b).Count, Is.EqualTo(5), "森灵 + 森然 2 + 丛林 2");
+            Assert.That(Alive(b).Count, Is.EqualTo(3), "spec A:森灵 + 入场幼苗 2(本命 EntrySaplings;丛林 / 森然 的幼苗已删除)");
             Assert.That(b.WoodDamageCutPercent(forSummon: true), Is.EqualTo(25));
             Assert.That(b.WoodDamageCutPercent(forSummon: false), Is.EqualTo(0), "玩家不吃森严");
             int hp = b.PlayerHp;
@@ -452,7 +468,7 @@ namespace Brushblade.Core.Tests
             Assert.That(strikesInBoundBeat.Count, Is.EqualTo(boundBeats), "它每次行动开头挨一下");
             Assert.That(strikesInBoundBeat.All(e => e.TargetIndex == 1 && e.Amount == vine.EffectiveAttack), Is.True,
                 "打击 = 藤灵有效攻击 × 100%");
-            Assert.That(vine.EffectiveAttack, Is.EqualTo(45), "钉值:藤 Lv8 生面攻击(含通·精进 +12%,E38)");
+            Assert.That(vine.EffectiveAttack, Is.EqualTo(36), "钉值:spec A 藤 Lv8 生面攻击(绿档 22,含通·精进 +12%,E38)");
         }
 
         // ================= 7 绿潮:小藻并入藻灵(属性相加),不触发阵亡;藻灵嘲讽 2 =================
@@ -460,23 +476,33 @@ namespace Brushblade.Core.Tests
         [Test]
         public void GreenTide_SproutsMergeIntoAlgaeLing_NoDeath_Taunt()
         {
+            // spec A:丛藻(Lv5 一次分出 2 只小藻)已删除,小藻只剩本命「丛生」(藻灵每拍分裂 1 只,SproutMax 2)这一个来源。
+            // 先出一只藻灵、过两拍让它分出小藻(Lv3 本命强化 SproutMax 3,两拍内已满 3 只),再出第二只藻灵 —— 绿潮把场上全部小藻并入这只新召出的藻灵
             var log = new HookLog();
             var b = Battle("藻", 8, new[] { Dummy() });
             b.AddHookListener(log);
             Cast(b, "藻");
+            var first = Alive(b).Single();
+            b.EndTurn();
+            b.EndTurn();
+            var sprouts = Alive(b).Where(s => s.Char == "苗").ToList();
+            Assert.That(sprouts.Count, Is.EqualTo(3), "前提:丛生分出 3 只小藻(SproutMax 3)");
+            int sproutAttack = sprouts.Sum(s => s.Attack), sproutHp = sprouts.Sum(s => s.Hp);
+            int firstAttack = first.Attack;
+            Cast(b, "藻");
             var merged = b.LastEvents.Where(e => e.Kind == BattleEventKind.SummonMerged).ToList();
-            Assert.That(merged.Count, Is.EqualTo(2), "丛藻分出的 2 只小藻当场并入");
+            Assert.That(merged.Count, Is.EqualTo(3), "3 只小藻当场并入");
             var alive = Alive(b);
-            Assert.That(alive.Count, Is.EqualTo(1), "小藻槽位置空");
-            var zao = alive[0];
+            Assert.That(alive.Count, Is.EqualTo(2), "两只藻灵;小藻槽位置空");
+            Assert.That(alive.All(s => s.Char != "苗"), Is.True);
             int born = b.LastEvents.First(e => e.Kind == BattleEventKind.Summon).Amount;
+            var zao = alive.Single(s => s.MaxHp > first.MaxHp);
             Assert.That(zao.MaxHp, Is.EqualTo(born + merged.Sum(e => e.Amount)), "血量相加");
+            Assert.That(merged.Sum(e => e.Amount), Is.EqualTo(sproutHp), "并入的是小藻当前生命");
             Assert.That(zao.Hp, Is.EqualTo(zao.MaxHp), "当前生命也相加(Q18;三只都满血 → 合计满血)");
-            Assert.That(zao.Attack, Is.EqualTo(164 + 49 + 49), "攻击相加(Q18):藻灵 164;小藻各 30% = 49");
+            Assert.That(zao.Attack, Is.EqualTo(firstAttack + sproutAttack), "攻击相加(Q18):藻灵 + 小藻各 30%");
             Assert.That(zao.Statuses.Find(StatusKind.Taunt)?.TurnsLeft, Is.EqualTo(2), "嘲讽 2");
             Assert.That(log.All.Any(h => h.Kind == HookKind.SummonDied), Is.False, "并入不算阵亡");
-            Assert.That((born, merged[0].Amount, merged[1].Amount, zao.MaxHp), Is.EqualTo((892, 267, 267, 1426)),
-                "钉值:藻灵 892;小藻各 30% = 267;合计 1426");
         }
 
         // ================= 8 落木:巨木灵阵亡 → 全体敌人吃 有效攻击 × 300%(不暴击) =================
@@ -494,7 +520,7 @@ namespace Brushblade.Core.Tests
             var blasts = b.LastEvents.Where(e => e.Kind == BattleEventKind.Damage && e.Source == EffectSource.DeathBlast).ToList();
             Assert.That(blasts.Select(e => e.TargetIndex).OrderBy(i => i).ToList(), Is.EqualTo(new[] { 0, 1, 2 }), "全体");
             Assert.That(blasts.All(e => e.Amount == atk * 3 && !e.Crit), Is.True, $"每只 {atk} × 300%");
-            Assert.That(atk, Is.EqualTo(228), "钉值:巨木灵 Lv6 有效攻击(含参天之力 +20%)→ 每只 684");
+            Assert.That(atk, Is.EqualTo(230), "钉值:spec A 巨木灵 Lv6 有效攻击(含参天之力 +20%)→ 每只 690");
         }
 
         // ================= 9 秋实:楸灵阵亡,部件池 +木 =================
@@ -560,9 +586,10 @@ namespace Brushblade.Core.Tests
             Assert.That(lings[0].MaxHp == lings[1].MaxHp && lings[0].Attack == lings[1].Attack, Is.True);
             var aura = b.PlayerStatuses.All.Single(s => s.Kind == StatusKind.SummonEmpower);
             Assert.That((aura.Magnitude, aura.TurnsLeft, aura.TargetSlot), Is.EqualTo((20, 3, -1)));
-            // 钉值:林 Lv8 本体血 / 攻各 × 60% → 295 / 62;有效攻击 = 62 × (100 + 成林 25 × 2 + 光环 20)% = 105
-            Assert.That((lings[0].MaxHp, lings[0].Attack, lings[0].EffectiveAttack, Alive(b).Count), Is.EqualTo((295, 62, 105, 3)),
-                "钉值(第 3 只是新芽幼苗)");
+            // 钉值(spec A):林 Lv8 本体血 / 攻(293 / 68 按 Lv8)各 × 60% → 250 / 58;
+            // 有效攻击 = 58 × 光环 120% + 成林 58 × 25% × 其他 1 只 = 83(新芽幼苗已删除,场上只有 2 只林灵)
+            Assert.That((lings[0].MaxHp, lings[0].Attack, lings[0].EffectiveAttack, Alive(b).Count), Is.EqualTo((250, 58, 83, 2)),
+                "钉值(场上只有这 2 只林灵)");
         }
 
         // ================= 12 擎天:出字时已在场的木灵各挂攻击 +30%,本次召出的不吃 =================
@@ -573,14 +600,14 @@ namespace Brushblade.Core.Tests
             var b = Battle(Ten, 8, new[] { Dummy() });
             Cast(b, Ten);
             var first = Enumerable.Range(0, 6).Where(i => b.Summons[i] != null && b.Summons[i].Alive).ToList();
-            Assert.That(first.Count, Is.EqualTo(3), "巨木灵 + 独木生林 2 只");
+            Assert.That(first.Count, Is.EqualTo(1), "spec A:只有 1 只巨木灵(独木生林已删除)");
             Assert.That(b.PlayerStatuses.Has(StatusKind.SummonEmpower), Is.False, "第一次出字场上没有别的木灵");
             Cast(b, Ten);
             var auras = b.PlayerStatuses.All.Where(s => s.Kind == StatusKind.SummonEmpower).ToList();
-            Assert.That(auras.Select(s => s.TargetSlot).OrderBy(i => i).ToList(), Is.EqualTo(first), "只挂第一次的 3 只");
+            Assert.That(auras.Select(s => s.TargetSlot).OrderBy(i => i).ToList(), Is.EqualTo(first), "只挂第一次的那只");
             Assert.That(auras.All(s => s.Magnitude == 30 && s.TurnsLeft == 3), Is.True);
             var second = Enumerable.Range(0, 6).Where(i => b.Summons[i] != null && b.Summons[i].Alive).Except(first).ToList();
-            Assert.That(second.Count, Is.EqualTo(3));
+            Assert.That(second.Count, Is.EqualTo(1));
             Assert.That(second.All(i => b.SummonAurasAt(i).Count == 0), Is.True, "新召出的不吃");
         }
 
@@ -603,9 +630,9 @@ namespace Brushblade.Core.Tests
                 Cast(b, "森");
                 return b;
             }
-            // 8 具尸体:森灵 + 森然 2 + 丛林 2 先占 5 格(Q28 书写顺序),万木回春救剩下 3 具
+            // 8 具尸体:spec A 森灵 + 入场幼苗 2 先占 3 格(Q28 书写顺序),万木回春救剩下 5 具
             var revived = Alive(Run(8)).Where(s => s.Char == "木").ToList();
-            Assert.That(revived.Count, Is.EqualTo(3));
+            Assert.That(revived.Count, Is.EqualTo(5));
             Assert.That(revived.All(s => s.Hp == 300), Is.True, "⌈1000 × 30%⌉");
             Assert.That(Alive(Run(7)).Any(s => s.Char == "木"), Is.False, "对照:Lv7 没有万木回春");
         }
@@ -620,8 +647,8 @@ namespace Brushblade.Core.Tests
             var saplings = Alive(b);
             Assert.That(saplings.Count, Is.EqualTo(2));
             Assert.That(saplings.All(s => s.Char == "苗" && s.SourceChar == "林"), Is.True);
-            Assert.That(saplings.Select(s => (s.MaxHp, s.Attack)).Distinct().Single(), Is.EqualTo((81, 17)),
-                "钉值:林 Lv4 生面本体 × 20%");
+            Assert.That(saplings.Select(s => (s.MaxHp, s.Attack)).Distinct().Single(), Is.EqualTo((69, 16)),
+                "钉值:spec A 林 Lv4 生面本体(293 / 68 按 Lv4)× 20%");
 
             var c = Battle("林", 3, new[] { Dummy() }, copies: 2);   // 对照:Lv3 没有双木
             Assert.That(c.Dismantle("林"), Is.EqualTo(BattleError.None));
@@ -644,8 +671,45 @@ namespace Brushblade.Core.Tests
             }
             var with = Summoned(Graph);
             var without = Summoned(RebalanceFixture.Graph(bare));
-            Assert.That((without.MaxHp, without.Attack), Is.EqualTo((97, 34)), "钉值:藤 Lv4 生面本体");
-            Assert.That((with.MaxHp, with.Attack), Is.EqualTo((109, 39)), "× 112%(通·精进 12,E38 作用于召唤血与攻)");
+            Assert.That((without.MaxHp, without.Attack), Is.EqualTo((110, 26)), "钉值:spec A 藤 Lv4 生面本体(93 / 22,绿档)");
+            Assert.That((with.MaxHp, with.Attack), Is.EqualTo((124, 30)), "× 112%(通·精进 12,E38 作用于召唤血与攻;110 / 26 取整后)");
+        }
+
+        // ================= spec A:Lv6 新专属冒烟(真实 graph + cardLevels 6)=================
+
+        [Test]
+        public void LuoYe_Lv6_AttackFace_EachSummonStrikesAtThirtyPercent()
+        {
+            // 𣛧 Lv6·攻 落叶:`SummonStrike 30` —— 攻击面出字时每只木灵各追击 30%(与楸 Lv5「落叶」重名,分属两字)。
+            // Lv5 的四木成林(SummonAct)已让木灵出手 1 次(100%),Lv6 在它之上再多 1 次 30% 的追击
+            (List<int> Amounts, int GiantAttack) Strikes(int level)
+            {
+                var b = Battle(Ten, level, new[] { Dummy() });
+                Cast(b, Ten);
+                var giant = Alive(b).Single();
+                Cast(b, Ten, 0, attack: true);
+                return (b.LastEvents.Where(e => e.Kind == BattleEventKind.SummonAttack).Select(e => e.Amount).ToList(), giant.EffectiveAttack);
+            }
+            var (lv5, _) = Strikes(5);
+            var (lv6, atk) = Strikes(6);
+            Assert.That(lv6.Count, Is.EqualTo(lv5.Count + 1), "Lv6 比 Lv5 多 1 次木灵追击");
+            Assert.That(lv6.Any(a => Math.Abs(a - atk * 30 / 100) <= 2), Is.True,
+                $"其中一击 ≈ 有效攻击 {atk} × 30%;实际 {string.Join(",", lv6)}");
+        }
+
+        [Test]
+        public void SenSheng_Lv6_AttackKill_SummonsOneSapling()
+        {
+            // 森 Lv6·攻 森生(D1 改名自「森然」):击杀时 `SummonSapling 20` `fromBody` —— 出 1 只小木灵
+            int Saplings(int level, int victimHp)
+            {
+                var b = Battle("森", level, new[] { Dummy(victimHp), Dummy() });
+                Cast(b, "森", 0, attack: true);
+                return Alive(b).Count(s => s.Char == "苗");
+            }
+            Assert.That(Saplings(6, 1), Is.EqualTo(1), "击杀:出 1 只小木灵");
+            Assert.That(Saplings(6, Hp), Is.EqualTo(0), "对照:没击杀不出");
+            Assert.That(Saplings(5, 1), Is.EqualTo(0), "对照:Lv5 没有森生");
         }
     }
 }

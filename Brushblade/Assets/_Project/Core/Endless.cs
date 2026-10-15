@@ -103,6 +103,10 @@ namespace Brushblade.Core
         public static GameRandom FloorRandom(int seed, int depth) =>
             new(unchecked(seed * 31 + depth * 7919));
 
+        /// <summary>首塔第一层脚本敌人的生命上限(spec A D18):演示字剿(蓝·单体 90,金克木 ×1.5 = 135)一击清场。
+        /// 只钳首塔第一层,其余层与无尽生成不受影响。</summary>
+        public const int TutorialFloorOneMaxHp = 130;
+
         /// <summary>首塔剧本段(20.10 初次登入剧本化):前 3 层固定编成保证引导七拍可达成
         /// (第 1 层单敌教出字,第 2 层双敌供焚清场),4~5 层回归随机与 Boss。</summary>
         public static RunConfig BuildFirstTowerSegment(EndlessConfig config, int seed,
@@ -112,7 +116,14 @@ namespace Brushblade.Core
             var pool = config.Bands[0].EnemyPool;
             var lead = pool[0];
             var scripted = new List<IReadOnlyList<EnemyDef>>(segment.Encounters);
-            scripted[0] = Scaled(config, 1, lead);
+            var first = Scaled(config, 1, lead)[0];
+            scripted[0] = new[]
+            {
+                first.MaxHp <= TutorialFloorOneMaxHp ? first
+                    : new EnemyDef(first.Id, first.Element, TutorialFloorOneMaxHp, first.Attack, first.Ability,
+                        first.Phases, first.Defense, first.Speed, first.Row, first.Range, first.Focus,
+                        first.ColumnSpan, first.MinDepth, first.RowSpan),
+            };
             scripted[1] = Scaled(config, 2, lead, lead);
             scripted[2] = Scaled(config, 3, pool[1 % pool.Count], pool[2 % pool.Count]);
             segment.Encounters = scripted;
