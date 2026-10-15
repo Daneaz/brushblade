@@ -89,6 +89,8 @@ namespace Brushblade.Core.Tests
             // spec A D8:吸血 / 溢疗转盾是对已缩放量(直接伤害 / 治疗溢出)取百分比
             EffectKind.Lifesteal, EffectKind.OverhealShield,
             EffectKind.BlockGain, EffectKind.ReviveShield,
+            // spec C:换属性不用 Value;回澜 / 地动对已缩放量取百分比
+            EffectKind.Attune, EffectKind.SpendHeal, EffectKind.SpendShield,
         };
 
         private static readonly HashSet<EffectKind> Continuous = new()
@@ -118,6 +120,8 @@ namespace Brushblade.Core.Tests
             EffectKind.DebuffWard,
             // D2-土 Task 3:堡垒的 Value 是受击得盾量,连续(出字时再乘攻击力定死)
             EffectKind.HurtShield,
+            // spec C:燃意攻击 % 同慑
+            EffectKind.Kindle,
         };
 
         [Test]

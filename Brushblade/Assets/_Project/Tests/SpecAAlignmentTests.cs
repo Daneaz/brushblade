@@ -115,9 +115,11 @@ namespace Brushblade.Core.Tests
                 int t = Tier(d.Rarity);
                 foreach (var e in d.Effects)
                 {
-                    if ((e.Kind == EffectKind.BurnSingle || e.Kind == EffectKind.BurnAll) && e.Value != 1) bad.Add($"{d.Id} 灼 {e.Value}");
+                    // spec C:火面本体不再带灼 / 慑,只有燃意(灼改由燃意命中时附加)
+                    if (d.Element == Element.Fire && e.Kind != EffectKind.Kindle) bad.Add($"{d.Id} 火面本体多出 {e.Kind}");
                     if (e.Kind == EffectKind.Morale && e.Value != 1) bad.Add($"{d.Id} 战意 {e.Value}");
-                    if (e.Kind == EffectKind.Weaken && (e.Value, e.Turns) != Weaken[t]) bad.Add($"{d.Id} 慑 {e.Value}/{e.Turns}");
+                    // spec C §5.1:火面本体的慑换成燃意,同一张 (Pct, Turns) 梯度表
+                    if (e.Kind == EffectKind.Kindle && (e.Value, e.Turns) != Weaken[t]) bad.Add($"{d.Id} 燃意 {e.Value}/{e.Turns}");
                     if (e.Kind == EffectKind.Block && (e.Value, e.CounterPercent) != Block[t]) bad.Add($"{d.Id} 格挡 {e.Value}/{e.CounterPercent}");
                     if (e.Kind == EffectKind.DefenseBuff && (e.Value, e.Turns) != Armor[t]) bad.Add($"{d.Id} 护甲 {e.Value}/{e.Turns}");
                 }

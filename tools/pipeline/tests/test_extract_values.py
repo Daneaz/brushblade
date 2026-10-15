@@ -1058,7 +1058,6 @@ def test_d2metal_task2_block_rider_tokens(config, char, expected):
 @pytest.mark.parametrize("config, needle", [
     ("`Block 1` `counterHits 3`", "counterHits"),          # 没有 BlockMod 宿主
     ("`Block 1` `counterShape Column`", "counterShape"),
-    ("`BlockMod` `counterShape Row`", "counterShape"),      # 只认 Column
     ("`BlockMod` `counterExecute 100`", "counterExecute"),  # 阈值须 < 100
     ("`BlockMod` `killRefund 0`", "killRefund"),            # 须 ≥ 1
 ])
@@ -1624,3 +1623,46 @@ def test_spec_a_per_morale_attaches_to_amplify():
 def test_spec_a_per_morale_rejected_on_non_amplify():
     with pytest.raises(ValueError, match="per"):
         _parse_effects("`Shield 5` `per Morale`", "鍂")
+
+
+# ---- spec C(2026-10-15)----
+
+@pytest.mark.parametrize("config, char, expected", [
+    # §1 扫锋
+    ("`BlockMod` `counterShape Row`", "剑", [{"kind": "BlockMod", "value": 0, "counterRow": True}]),
+    ("`BlockMod` `counterShape Row` `counterShape Column`", "剑",
+     [{"kind": "BlockMod", "value": 0, "counterRow": True, "counterColumn": True}]),
+    # §4 换属性
+    ("`Attune`", "利", [{"kind": "Attune", "value": 0}]),
+    # §5 燃意
+    ("`Kindle 20`(turns 3)", "燥", [{"kind": "Kindle", "value": 20, "turns": 3}]),
+    ("`Kindle 35` + `pick AllAllies`(turns 3)", "燚", [{"kind": "Kindle", "value": 35, "pick": "AllAllies", "turns": 3}]),
+    # §6 释放层数族
+    ("`Amplify 30` `scope Spend`", "㙓", [{"kind": "Amplify", "value": 30, "scope": "Spend"}]),
+    ("`Amplify 100` `scope Spend` `minSpent 8` + `Freeze 1` `pick All` `minSpent 8`", "㵘",
+     [{"kind": "Amplify", "value": 100, "scope": "Spend", "minSpent": 8},
+      {"kind": "Freeze", "value": 1, "pick": "All", "minSpent": 8}]),
+    ("`ArmorBreak 2` `turns 2` `pick All` `per Spent`", "崩",
+     [{"kind": "ArmorBreak", "value": 2, "turns": 2, "pick": "All", "scaleBy": "Spent"}]),
+    ("`SpendHeal 30`", "溃", [{"kind": "SpendHeal", "value": 30}]),
+    ("`SpendShield 50`", "㙓", [{"kind": "SpendShield", "value": 50}]),
+])
+def test_spec_c_tokens(config, char, expected):
+    assert _parse_effects(config, char) == expected
+
+
+def test_spec_c_selfcut_is_a_summon_passive():
+    effects = _parse_effects("`Summon 1`(0 血/攻 0) `SelfCut 15`", "柘")
+    assert effects[0]["passive"] == {"selfCut": 15}
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`BlockMod` `counterShape Diagonal`", "counterShape"),
+    ("`Shield 5` `minSpent 3`", "minSpent"),            # 只挂 Freeze / Slow / Amplify
+    ("`Shield 5` `per Spent`", "per"),                  # per Spent 只挂 ArmorBreak
+    ("`Kindle 20`", "turns"),                           # 燃意必须写回合
+])
+def test_spec_c_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)

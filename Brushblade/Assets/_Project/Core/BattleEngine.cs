@@ -389,6 +389,10 @@ namespace Brushblade.Core
         BlockUsed,     // 格挡挡下一记敌人挥击、扣掉一次(TargetIndex = 攻击者敌人下标;SecondIndex = 格挡所在木灵槽位,玩家 −1;
                        // Amount = 扣完后的剩余次数,0 = 用完已移除)。玩家侧紧跟 EnemyAttack,木灵侧紧跟 SummonHit(及其 EndureSaved),
                        // 都在反击伤害(Source BlockCounter)之前。反击被预算削到 0 / 攻击者已死时照发 —— 表现层据此只演「挡 / 扣」两拍。
+        // ---- spec C 终审修复 2(⚠ 只在末尾追加)----
+        ElementChanged, // 木灵属性被确定地改掉:五行面 Attune(点金 / 化水 / 引火 / 培土)改成本字所属系、嫁接让非木木灵回归木。
+                        // 参数同 Unseal(TargetIndex = 木灵槽位,Amount = 新属性的 (int)Element)。不复用 Unseal:那条是「解封」随机重掷,
+                        // 表现层会把消息印成「解封:…」。落玩家 / 尸体不发;嫁接时本来就是木也不发。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -708,6 +712,10 @@ namespace Brushblade.Core
             return (_cast.PreCastConditions[enemyIndex] & (1 << (int)condition)) != 0; // 同上:int 掩码,枚举 < 32 种
         }
 
+        /// <summary>读本次释放层数的效果(spec C §6,Q7):门槛 MinSpent、按层 ScaleBasis.Spent、回澜、地动。</summary>
+        private static bool ReadsSpent(EffectDef e) =>
+            e.MinSpent > 0 || e.ScaleBy == ScaleBasis.Spent || e.Kind == EffectKind.SpendHeal || e.Kind == EffectKind.SpendShield;
+
         private static bool IsTargetIndependent(DamageCondition c) =>
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
             || c == DamageCondition.FirstCastThisTurn
@@ -723,10 +731,13 @@ namespace Brushblade.Core
         private int AmpPercent(EffectDef effect, int enemyIndex)
         {
             int sum = 0;
-            foreach (var (percent, onlyIf, per, cap) in effect.AmpTerms)
+            foreach (var (percent, onlyIf, per, cap, minSpent) in effect.AmpTerms)
+            {
+                if (minSpent > 0 && _cast.Spent < minSpent) continue;   // spec C §6:释放门槛;不设门槛时恒等
                 if (onlyIf == DamageCondition.None || PreCastConditionMet(onlyIf, enemyIndex))
                     // 计数缩放(D2-火 N4,燥裂):百分点 × 出字前计数,钳到 cap;不缩放的项原样相加
                     sum += per == ScaleBasis.None ? percent : ScaledAmpPercent(percent, per, cap, enemyIndex);
+            }
             return sum;
         }
 
@@ -866,8 +877,9 @@ namespace Brushblade.Core
         /// 战意(2026-08-12,战/戮)单开一个 Kind:它的 Magnitude 是**层数**不是加成值,
         /// 混进 AttackBuff 会既丢掉层数上限又让 +1 层被当成 +1 攻击。
         /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
-        /// 等于给敌人回血,且全程无声。</summary>
-        public int EffectiveAttack => Math.Max(0, FlatAttack * AttackPercent / 100);
+        /// 等于给敌人回血,且全程无声。
+        /// 燃意(spec C Q9)只进玩家这一份,不进 SummonAttackPercent —— 玩家燃意不传给木灵。</summary>
+        public int EffectiveAttack => Math.Max(0, FlatAttack * (AttackPercent + _playerStatuses.MaxMagnitude(StatusKind.Kindle)) / 100);
 
         /// <summary>「先加后乘」里的**加**那一半:角色等级攻击力 + 局内攻击加点(剡 的 Empower、
         /// 标点小妖那类 <see cref="StatusKind.AttackBuff"/>),**不含**战意/厚那条百分比乘区。
@@ -2188,6 +2200,11 @@ namespace Brushblade.Core
                     // 格挡(D2-0 Task 3,Ruling E1,spec §2.2):铠可落到木灵身上,格挡挂在木灵自己的袋子里;
                     // 战意照旧给玩家。场上没有存活木灵时 Cast 自动锁玩家(免选口径)。
                     || effect.Kind == EffectKind.Block
+                    // 燃意(spec C §5):单体写法拖到自己或木灵;我方全体(AllAllies)免选
+                    || (effect.Kind == EffectKind.Kindle && effect.Pick != EffectPick.AllAllies)
+                    // 换属性(spec C §4):要落到某只木灵上才生效。与 Kindle AllAllies 同面时也得逼出友方选择,
+                    // 否则整面免选、allySlot 恒为玩家,Attune 静默空转
+                    || effect.Kind == EffectKind.Attune
                     // 免疫减益(D2-水 W4,濯身 / 浇熄):挂在落点(玩家或木灵)身上
                     || effect.Kind == EffectKind.DebuffWard)
                     return true;
@@ -2223,23 +2240,14 @@ namespace Brushblade.Core
             && ReplaceableSummonCountOf(def, attackMode) > 0;
 
         /// <summary>spec §2.2:五行面落到活着的木灵上时的附加规则(D2-0 Task 4,Ruling E2)。
-        /// 水 = 本场改水属性(复原点见 RunEngine.CaptureAliveSummons,E3);土 = 本场嘲讽;
-        /// 金(格挡落木灵)归 Block 效果本身,木(嫁接)归 Task 5。攻击面、落点是玩家、燃面都不触发。
-        /// 自带解封的字不叠加改水:解封是它自己的属性重掷,再盖一层水等于把重掷作废。</summary>
+        /// 土 = 本场嘲讽(spec §2.2);水字改水已于 spec C §4 删除,换属性改由 Attune 效果承担。
+        /// 金(格挡落木灵)归 Block 效果本身,木(嫁接)归 Task 5。攻击面、落点是玩家、燃面都不触发。</summary>
         private void ApplyFeatureOntoSummon(CharDef def, bool attackMode, int allySlot)
         {
             if (attackMode || allySlot == Targeting.PlayerTarget || allySlot < 0 || allySlot >= _summons.Length) return;
             var summon = _summons[allySlot];
             if (summon == null || !summon.Alive) return;
-            if (def.Element == Element.Water)
-            {
-                foreach (var effect in EffectsOf(def, false))
-                    if (effect.Kind == EffectKind.Unseal) return;
-                summon.BaseElement ??= summon.Element;
-                summon.Element = Element.Water;
-                _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)Element.Water));
-            }
-            else if (def.Element == Element.Earth)
+            if (def.Element == Element.Earth)
             {
                 ApplyStatus(summon.Statuses, new StatusEffect
                 {
@@ -3013,11 +3021,14 @@ namespace Brushblade.Core
             if (!sameSwing)
                 _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
             if (damage > 0)
+            {
                 // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle 分支里
                 // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
                 DamageEnemy(tgt, damage, summon.Element,
                     crit: RollCritForSummon(summon), attackerBag: summon.Statuses,
                     sameSwing: sameSwing, attackerRef: UnitRef.Summon(summonIndex));
+                KindleOnHit(summon.Statuses, tgt);   // 木灵燃意(spec C §5.1)
+            }
             ApplySummonOnHit(summon, tgt, summonIndex);
         }
 
@@ -3406,6 +3417,8 @@ namespace Brushblade.Core
                     RegisterOpening(OpeningEffect.Of(effect, def.Id, attacker));
                     return;
                 }
+                // 按释放层数的效果(spec C §6,Q7):没释放 / 低于门槛时整条跳过、不摇号、不发事件;别的效果一次判断即过,恒等
+                if (ReadsSpent(effect) && _cast.Spent < Math.Max(1, effect.MinSpent)) return;
                 // 本字木灵在场(D2-木 E50,一叶知秋):与目标无关的条件门在选目标 / 摇号之前判,不满足整条空转(不多摇)
                 if (effect.OnlyIf == DamageCondition.OwnSummonAlive && !PreCastConditionMet(DamageCondition.OwnSummonAlive, -1)) return;
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
@@ -3418,7 +3431,8 @@ namespace Brushblade.Core
                 // 无加成项时整句跳过。
                 // 灼的加成作用于火力不作用于层数(G3,在 BurnSingle / BurnAll 分支里按目标乘)
                 if (effect.AmpTerms.Count > 0 && effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.Block
-                    && effect.Kind != EffectKind.BurnSingle && effect.Kind != EffectKind.BurnAll)
+                    && effect.Kind != EffectKind.BurnSingle && effect.Kind != EffectKind.BurnAll
+                    && effect.Kind != EffectKind.SpendHeft && effect.Kind != EffectKind.SpendWellspring)   // 释放伤害的加成在 SpendResource 里求(层数那时才已知)
                     value = Amplified(value, AmpPercent(effect, targetIndex), AmpAxisPercent(attacker, effect.Kind));
                 if (moraleRelease && effect.Kind == EffectKind.DamageSingle)
                     value = value * (100 + _config.MoraleReleasePercent) / 100;
@@ -3524,6 +3538,7 @@ namespace Brushblade.Core
                                     sameSwing: sameSwing && hit == 0,
                                     attackerRef: UnitRef.Player);
                                 if (!_cast.HitTargets.Contains(tgt)) _cast.HitTargets.Add(tgt);   // 选择器 HitTargets 用
+                                KindleOnHit(_playerStatuses, tgt);   // 燃意(spec C §5.1):每段命中 +1 层灼;没挂燃意时一次判断即返回
                                 // 暴击时(D1 Task 9,炽烈):每击各入队,目标 = 这一击的落点;Cast 末尾兑现
                                 if (crit) EnqueueCastTraits(_cast.OnCrit, tgt);
                                 // 每击附带(D2-火 N4b / 跨计划 Q23):这一击之后对这一击的目标同步结算;
@@ -3606,6 +3621,21 @@ namespace Brushblade.Core
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                             RecordSlowed(ti);   // 选择器 SlowedByThisCast(D2-水 E15)
                         }
+                        break;
+                    case EffectKind.Kindle:
+                        // 燃意(spec C §5.1):单体落 allySlot(玩家或木灵),我方全体 = 玩家 + 全部存活木灵。
+                        // Magnitude = 攻击 %(已吃卡等级与 Amplify All),Potency = 本字灼火力(命中加灼时用;
+                        // 已折进本字 scope Burn / All 的 Amplify,G3 裁定 A)
+                        int kindlePotency = KindlePotency(def, attackMode, cardLevel, burnPotency);
+                        if (effect.Pick == EffectPick.AllAllies)
+                        {
+                            ApplyKindle(_playerStatuses, value, effect.Turns, kindlePotency, def.Id, UnitRef.Player);
+                            for (int s = 0; s < _summons.Length; s++)
+                                if (_summons[s] is { Alive: true } ks)
+                                    ApplyKindle(ks.Statuses, value, effect.Turns, kindlePotency, def.Id, UnitRef.Summon(s));
+                        }
+                        else ApplyKindle(AllyStatuses(allySlot), value, effect.Turns, kindlePotency, def.Id, AllyRef(allySlot));
+                        RefreshSummonAura();
                         break;
                     case EffectKind.Weaken:
                         // 减攻(D1 Task 5,M5):挂 Curse(攻击 −Magnitude%),SourceId = 字 ID,同源刷新取强(ApplyStatus)。
@@ -3690,7 +3720,7 @@ namespace Brushblade.Core
                             {
                                 Kind = StatusKind.ArmorBreak,
                                 Polarity = StatusPolarity.Debuff,
-                                Magnitude = value,
+                                Magnitude = effect.ScaleBy == ScaleBasis.Spent ? value * _cast.Spent : value,   // 崩裂 / 厚壤(spec C §6)
                                 TurnsLeft = Math.Max(1, effect.Turns),
                                 SourceId = $"{def.Id}#{_statusSerial++}",
                             }, UnitRef.Enemy(ti), UnitRef.Player);
@@ -4034,6 +4064,7 @@ namespace Brushblade.Core
                         // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样。
                         // 顺序(D2-金):BlockMod 先改基数(本体 × CounterPercent%),Amplify 再在改后的基数上乘
                         // (剑意 50 + 刀光 100 = 本体 × 50% × 2)—— 见 MetalSharedExtTests.BlockMod_CounterPercent_ThenAmplifyCounter
+                        // ⚠ 反击加成按「无目标」求值(enemyIndex −1):目标相关的条件门(TargetHpAbove70 等)在这里恒假。现数据没有这种组合;以后要配,先改这里(spec C §2 备注)
                         counter = Amplified(counter, AmpPercent(effect, -1));
                         // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
                         var blockStatus = new StatusEffect
@@ -4245,11 +4276,26 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.SpendHeft:
-                        SpendResource(StatusKind.Heft, value, attacker);
+                        SpendResource(StatusKind.Heft, effect, value, attacker);
                         break;
                     case EffectKind.SpendWellspring:
-                        SpendResource(StatusKind.Wellspring, value, attacker);
+                        SpendResource(StatusKind.Wellspring, effect, value, attacker);
                         break;
+                    case EffectKind.SpendHeal:
+                        // 回澜(spec C §6):本次释放实际伤害 × N% 治疗我方全体;不吃泉放大、不攒泉
+                        HealPlayerAndSummons(_cast.SpentDamage * effect.Value / 100);
+                        break;
+                    case EffectKind.SpendShield:
+                    {
+                        // 地动(spec C §6):每目标释放伤害 × N% → 玩家与每只存活木灵各一份护盾;不攒厚
+                        int amount = _cast.SpentPerTarget * effect.Value / 100;
+                        int granted = AddPlayerShield(amount);
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, granted));
+                        for (int s = 0; s < _summons.Length; s++)
+                            if (_summons[s] is { Alive: true })
+                                _events.Add(new BattleEvent(BattleEventKind.Shield, s, AddSummonShield(s, amount)));
+                        break;
+                    }
                     case EffectKind.Empower:
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
                         // SourceId 铸唯一序号(用法 2)才能叠 —— 传裸字 ID 会让第二张剡
@@ -4357,6 +4403,16 @@ namespace Brushblade.Core
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
+                    case EffectKind.Attune:
+                        // spec C §4(点金 / 化水 / 引火 / 培土):五行面落到活木灵 → 属性改为本字所属系,永久(直接改字段,跨场随 Element 带走)。
+                        // 落玩家 / 尸体空转;本字无属性(心)时空转
+                        if (allySlot >= 0 && allySlot < _summons.Length && _summons[allySlot] is { Alive: true } attuned
+                            && def.Element is Element own && own != Element.Heart)
+                        {
+                            attuned.Element = own;
+                            _events.Add(new BattleEvent(BattleEventKind.ElementChanged, allySlot, (int)own));
+                        }
+                        break;
                     case EffectKind.Unseal:
                         // 解封(2026-09-16,水):落在被治疗的那个目标身上,与 Haste 同一张名单
                         // (NeedsAllyTarget)。玩家没有五行属性,落到玩家槽位时空转 ——
@@ -4374,7 +4430,6 @@ namespace Brushblade.Core
                             // 不进 StatusBag,不随回合递减。
                             var rerolled = (Element)_random.Next(6);
                             unsealTarget.Element = rerolled;
-                            unsealTarget.BaseElement = null;   // E4:解封是永久重掷,清掉「战后复原」记号
                             _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)rerolled));
                         }
                         break;
@@ -4515,13 +4570,12 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         if (graft)
                         {
-                            // 嫁接(E5):不召新木灵;回满生命,本命换成本字的(吃卡等级缩放,效果表已含 Lv3 强化),本场有效。
+                            // 嫁接(E5):不召新木灵;回满生命,本命换成本字的(吃卡等级缩放,效果表已含 Lv3 强化),永久有效(spec C §3)。
                             // 只结算一次;SummonShield / SummonDefense 不发,幼苗等其余效果照常。
                             if (grafted) break;
                             grafted = true;
                             _cast.SummonedSlots.Add(allySlot);   // D2-木 E42(Q4):嫁接算「本次召出」,嘲讽 / 保命 / 攀附的 SummonedThisCast 认它
                             var target = _summons[allySlot];
-                            target.BasePassive ??= target.Passive?.Clone() ?? new SummonPassive();
                             // Ruling 4:嫁接不发护甲不附幼苗,被动对象与行为一致;Speed 沿用被嫁接者原被动(底速是属性不是本命)
                             int keepSpeed = target.Passive?.Speed ?? 0;
                             var grafted2 = ScalePassiveByCardLevel(effect.Passive, cardLevel)?.Clone();
@@ -4532,6 +4586,12 @@ namespace Brushblade.Core
                                 grafted2.EntrySaplings = 0;
                             }
                             target.Passive = grafted2;
+                            // spec C §3:嫁接 = 回满 + 新本命 + 属性回归木;永久(跨场),直到死亡或再次嫁接 / 换属性
+                            if (target.Element != Element.Wood)
+                            {
+                                target.Element = Element.Wood;
+                                _events.Add(new BattleEvent(BattleEventKind.ElementChanged, allySlot, (int)Element.Wood));
+                            }
                             int healed = target.MaxHp - target.Hp;   // E3(Q14):Amount = 回复量,表现层飘治疗数字
                             target.Hp = target.MaxHp;
                             RefreshSummonAura();
@@ -4848,22 +4908,26 @@ namespace Brushblade.Core
         ///
         /// 走 DamageEnemy 而不是自己扣血:相克、护甲、暴击、反噬、分裂那一整套
         /// 都在那条链路上,绕过去就得抄一遍。</summary>
-        private void SpendResource(StatusKind kind, int perStack, Element attacker)
+        private void SpendResource(StatusKind kind, EffectDef effect, int perStack, Element attacker)
         {
             int stacks = _playerStatuses.TotalMagnitude(kind);
             if (stacks <= 0 || perStack <= 0) return;
 
             _playerStatuses.Remove(kind);
+            _cast.Spent = stacks;   // spec C §6:清空前的层数,本面其后读层数的效果用
 
             int spendPercent = _config == null ? 0
                 : kind == StatusKind.Heft ? _config.HeftSpendPercent : _config.WellspringSpendPercent;
             int damage = ScaleByAttack(stacks * perStack * (100 + spendPercent) / 100);
+            // 深厚 / 怀山 / 山崩 / 决堤 / 滔天(scope Spend,Q6):层数已知后求值,门槛项在 AmpPercent 里判;没有加成时整句跳过
+            if (effect.AmpTerms.Count > 0) damage = Amplified(damage, AmpPercent(effect, -1));
+            _cast.SpentPerTarget = damage;
             // 取 Count 快照:分裂(叠字怪)会在循环里往 _enemies 追加,
             // 新生成的克隆不该被同一发引爆再打一次(与全体伤害 All 同口径)。
             int count = _enemies.Count;
             for (int i = 0; i < count; i++)
                 if (_enemies[i].Alive)
-                    DamageEnemy(i, damage, attacker, crit: RollCrit(), attackerRef: UnitRef.Player);
+                    _cast.SpentDamage += DamageEnemy(i, damage, attacker, crit: RollCrit(), attackerRef: UnitRef.Player);
 
             // 积土/涌泉(2026-10-02):返还发生在清空与伤害之后 —— 返还的层数不参与本次伤害。
             // 走 AddPlayerCounter 直接加层(不经 GainHeft 的护盾折算,不触发「获盾攒厚」)。
@@ -5061,6 +5125,8 @@ namespace Brushblade.Core
             }
             // 流血不论来源合成单条(D2-金 E8,Q12):量取大、回合取长
             else if (effect.Kind == StatusKind.Bleed) MergeBleed(bag, effect);
+            // 燃意同一单位合成单条(spec C §5.1):% 取大、回合取长
+            else if (effect.Kind == StatusKind.Kindle) MergeKindle(bag, effect);
             // 格挡同类取最强(spec v7 §5.2.1):次数、反击各取较大值,不累加
             else if (effect.Kind == StatusKind.Block)
             {
@@ -6240,7 +6306,8 @@ namespace Brushblade.Core
             // 林荫 / 森严(D2-木 M2,Q8):与 DamageCut 取最强后加格挡、钳 60%;没有这类木灵时 = 0,恒等
             int summonCut = Math.Min(
                 (blocking ? BattleConfig.BlockReductionPercent : 0)
-                + Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
+                + Math.Max(Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
+                    summon.Passive?.SelfCut ?? 0),   // 坚心(spec C §2,柘):只减本木灵,与上两者取最强
                 CombatCaps.NonArmorReductionPercent);
             int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;

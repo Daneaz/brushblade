@@ -194,8 +194,6 @@ namespace Brushblade.Core
         /// 两者同型。</summary>
         public Element Element { get; internal set; }
 
-        /// <summary>§2.2 本场改属性前的属性;null = 本场没改过。战后复原(E3),解封清掉它(E4)。</summary>
-        public Element? BaseElement { get; internal set; }
         public int Hp { get; internal set; }
         /// <summary>破例可写(D2-木 M8 绿潮,Q18):唯一写入点是 BattleEngine.Wood 的小藻并入(按当前值相加)。快照本来就存这两项。</summary>
         public int MaxHp { get; internal set; }
@@ -215,10 +213,6 @@ namespace Brushblade.Core
 
         /// <summary>被动(2026-08-05)。null = 无被动。</summary>
         public SummonPassive Passive { get; internal set; }
-
-        /// <summary>嫁接前的本命;null = 本场没嫁接过。战后复原(E3/E5)。
-        /// 嫁接前本无被动的,这里存一份空被动当记号(区分「没嫁接」与「嫁接前无本命」)。</summary>
-        public SummonPassive BasePassive { get; internal set; }
 
         /// <summary>召唤物身上的状态容器(2026-08-26)。与 <see cref="EnemyState.Statuses"/> 同型。
         ///
@@ -244,10 +238,11 @@ namespace Brushblade.Core
         /// 钳到 ≥0:负攻击力会打出负伤害 = 给敌人回血,且全程无声。
         ///
         /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示
-        /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
+        /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。
+        /// 燃意(spec C):木灵自己的燃意进同一乘区。</summary>
         public int EffectiveAttack => System.Math.Max(0,
             (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus + PerAllyAttackBonus + TraitAttackBonus)
-            * System.Math.Max(0, PlayerAttackPercent) / 100);
+            * System.Math.Max(0, PlayerAttackPercent + Statuses.MaxMagnitude(StatusKind.Kindle)) / 100);
 
         /// <summary>木灵攻击光环(D2-木 M1:林立 / 擎天 / 桂冠,玩家袋 <see cref="StatusKind.SummonEmpower"/>)落到这只身上的百分比,
         /// 同一只取最强(Q6)。由 <c>BattleEngine.RefreshSummonAura</c> 注入(与成林同一时点),不进快照、每次重算;无光环恒 0。</summary>
@@ -341,9 +336,9 @@ namespace Brushblade.Core
             {
                 Slot = slot,
                 Char = Char, SourceChar = SourceChar,
-                Element = Element, BaseElement = BaseElement, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+                Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
-                Passive = Passive?.Clone(), BasePassive = BasePassive?.Clone(), Statuses = statuses,
+                Passive = Passive?.Clone(), Statuses = statuses,
                 SproutParentSlot = SproutParentSlot,
             };
         }
@@ -352,8 +347,6 @@ namespace Brushblade.Core
         {
             var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
                 s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
-            state.BaseElement = s.BaseElement;
-            state.BasePassive = s.BasePassive?.Clone();
             state.SproutParentSlot = s.SproutParentSlot;
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;

@@ -182,6 +182,13 @@ namespace Brushblade.Core
             /// 掉血 + 被敌盾吸收,不含击杀溢出。顶层出字结束时按它给水 / 土攻击面攒泉 / 厚;Lifesteal(沐霖)也读它。</summary>
             public int DirectDamage;
 
+            /// <summary>spec C §6:本次出字释放的泉 / 厚层数(清空前);0 = 没释放。由 SpendResource 写。读层数的效果在 0 / 低于门槛时整条跳过。</summary>
+            public int Spent;
+            /// <summary>本次释放的每目标伤害(放大后、过生克 / 护甲前;地动 SpendShield 读)。</summary>
+            public int SpentPerTarget;
+            /// <summary>本次释放实际落到敌人身上的伤害合计(掉血 + 敌盾吸收,不含溢出;回澜 SpendHeal 读)。</summary>
+            public int SpentDamage;
+
             /// <summary>本次出字的名义护盾量(放大后的请求量,Shield / ShieldAll 累加;D2-土 E28,ShieldSummons ofShield 读)。</summary>
             public int ShieldNominal;
 

@@ -82,6 +82,7 @@ namespace Brushblade.Core
             [EffectKind.Vulnerable] = false,
             [EffectKind.Bleed] = false,   // D2-金 E8:流血读 turns(缺省 3)
             [EffectKind.Charm] = false,   // D2-木 Q27:花的池·寄生(种 +1 回合)落到魅惑,见 ApplyAugment
+            [EffectKind.Kindle] = false,   // spec C:燃意读 turns
         };
 
         public static bool HasTurns(EffectKind kind) => TurnsInValue.ContainsKey(kind);
@@ -182,7 +183,23 @@ namespace Brushblade.Core
                 }
             }
             ApplyModifiers(effects, modifiers);
+            HoistPreSpend(effects);
             return effects;
+        }
+
+        /// <summary>「释放前先 +N 层」(spec C §6,Q8):本面有释放泉 / 厚时,把排在第一条释放之后的同资源直接加层
+        /// (AddWellspring / AddHeft,非 fill、非开局登记)稳定地挪到它前面。没有释放的面原样返回 —— 恒等。</summary>
+        private static void HoistPreSpend(List<EffectDef> effects)
+        {
+            int spend = effects.FindIndex(e => e.Kind == EffectKind.SpendHeft || e.Kind == EffectKind.SpendWellspring);
+            if (spend < 0) return;
+            var add = effects[spend].Kind == EffectKind.SpendHeft ? EffectKind.AddHeft : EffectKind.AddWellspring;
+            var moved = new List<EffectDef>();
+            for (int i = spend + 1; i < effects.Count; i++)
+                if (effects[i].Kind == add && !effects[i].Fill && effects[i].OpeningBattles == 0) moved.Add(effects[i]);
+            if (moved.Count == 0) return;
+            foreach (var m in moved) effects.Remove(m);
+            effects.InsertRange(spend, moved);
         }
 
         /// <summary>一条特性效果进出字 / 反应前的解析(D2-火 E4 / E5):① bodyPercent → 具体 Value;
@@ -315,6 +332,7 @@ namespace Brushblade.Core
             if (over.ReturnFire != 0) m.ReturnFire = over.ReturnFire;
             if (over.DeathBlast != 0) m.DeathBlast = over.DeathBlast;
             if (over.SproutDeathSlow != 0) m.SproutDeathSlow = over.SproutDeathSlow;
+            if (over.SelfCut != 0) m.SelfCut = over.SelfCut;
             if (over.DeathPart) m.DeathPart = true;
             return m;
         }
@@ -373,8 +391,8 @@ namespace Brushblade.Core
             {
                 var e = effects[i];
                 if (!InScope(amp.Scope, e.Kind) || e.OpeningBattles > 0) continue;
-                var terms = new List<(int Percent, DamageCondition If, ScaleBasis Per, int Cap)>(e.AmpTerms)
-                    { (amp.Value, amp.OnlyIf, amp.ScaleBy, amp.ScaleCap) };
+                var terms = new List<(int Percent, DamageCondition If, ScaleBasis Per, int Cap, int MinSpent)>(e.AmpTerms)
+                    { (amp.Value, amp.OnlyIf, amp.ScaleBy, amp.ScaleCap, amp.MinSpent) };
                 effects[i] = e.With(ampTerms: terms);
             }
         }
@@ -454,7 +472,9 @@ namespace Brushblade.Core
                 hostAtkStrikePercent: r.HostAtkStrikePercent > 0 ? effects[at].HostAtkStrikePercent + r.HostAtkStrikePercent : (int?)null,
                 hostArmorStrikePercent: r.HostArmorStrikePercent > 0 ? effects[at].HostArmorStrikePercent + r.HostArmorStrikePercent : (int?)null,
                 // 每击附带 / 散射每发百分比(D2-火 N4b):炎刃、四炎、火花四溅都写在 Reshape 上
-                perHit: r.PerHit.Count > 0 ? r.PerHit : null,
+                // 每击附带同面多条 Reshape 拼接(spec C §2,金石 + 双锋),低槽在前;只有一条时与原覆盖逐位相同
+                // 改散射(Ruling 14)时前一条的每击附带随多段一并重置,不拼接(淋·暴雨不带倾盆的 extend)
+                perHit: r.PerHit.Count > 0 ? (toScatter ? r.PerHit : effects[at].PerHit.Concat(r.PerHit).ToList()) : null,
                 perHitFrom: r.PerHitFrom != 1 ? r.PerHitFrom : toScatter ? 1 : (int?)null,
                 shotPercent: r.ShotPercent != 100 ? r.ShotPercent : (int?)null,
                 // 斩杀(D2-金 E7,铡刀落)与击数按战意(E10,大卸八块)
@@ -480,6 +500,7 @@ namespace Brushblade.Core
                 scaleMin: m.ScaleMin > 0 ? m.ScaleMin : (int?)null,
                 // D2-金 Task 2(J1):格挡附带的运行时字段,同样非缺省覆盖
                 counterColumn: m.CounterColumn ? true : (bool?)null,
+                counterRow: m.CounterRow ? true : (bool?)null,
                 counterHits: m.CounterHits > 0 ? m.CounterHits : (int?)null,
                 counterExecuteBelow: m.CounterExecuteBelow > 0 ? m.CounterExecuteBelow : (int?)null,
                 blockBleed: m.BlockBleed > 0 ? m.BlockBleed : (int?)null,
@@ -521,6 +542,8 @@ namespace Brushblade.Core
             bool burn = kind == EffectKind.BurnSingle || kind == EffectKind.BurnAll;   // 作用于火力(D2-火 G3)
             // 生面(D2-木 E38,Q5):召唤的血与攻、群疗、群盾只进 All(不动 Heal / Shield 档);幼苗百分比、嘲讽、保命不进
             bool summon = kind == EffectKind.Summon || kind == EffectKind.HealSummons || kind == EffectKind.ShieldSummons;
+            bool kindle = kind == EffectKind.Kindle;   // spec C 燃意:攻击 %
+            bool spend = kind == EffectKind.SpendHeft || kind == EffectKind.SpendWellspring;   // spec C §6:只进 Spend,不进 All
             return scope switch
             {
                 AmpScope.Damage => damage,
@@ -529,7 +552,8 @@ namespace Brushblade.Core
                 AmpScope.Counter => counter,
                 AmpScope.Seed => seed,
                 AmpScope.Burn => burn,
-                AmpScope.All => damage || heal || shield || counter || seed || burn || summon,
+                AmpScope.Spend => spend,
+                AmpScope.All => damage || heal || shield || counter || seed || burn || summon || kindle,
                 _ => false,
             };
         }

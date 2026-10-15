@@ -78,9 +78,10 @@ namespace Brushblade.Presentation
         /// ⚠ 判据是「note 的各项拼起来要能推出大字」(2026-09-01 review 定的线,敌人那格已经
         /// 满足:BaseAttack × (100+buff%−curse%)/100)。玩家这格第一版没做到,已改:
         /// EffectiveAttack 的真实公式是 flat = PlayerAttack + AttackBuff(点数,不是百分比!)
-        /// 然后 × (100 + 战意% ) / 100(见 BattleEngine.EffectiveAttack 的源码)。
-        /// 所以 note 现在拼成「基准 X · 攻击 +N(点数)· 战意 +M%」,读的人能自己算:
-        /// (X+N) × (100+M) / 100(整数除)= 显示的大字,与敌人那格同一个可验证标准。</summary>
+        /// 然后 × (100 + 战意% + 厚% + 燃意%) / 100(见 BattleEngine.EffectiveAttack 的源码;
+        /// 燃意与战意 / 厚同一个百分比乘区相加,spec C Q9)。
+        /// 所以 note 现在拼成「基准 X · 攻击 +N(点数)· 战意 +M% · 厚 +H% · 燃意 +K%」,读的人能自己算:
+        /// (X+N) × (100+M+H+K) / 100(整数除)= 显示的大字,与敌人那格同一个可验证标准。</summary>
         private static (string, string, string)[] BuildFigures(BattleEngine battle, MetaState meta)
         {
             int level = MetaRules.CharacterLevel(meta.CharacterXp);
@@ -97,7 +98,8 @@ namespace Brushblade.Presentation
             string attackNote = UnitDetailChip.BaseNote(MetaRules.AttackFor(level),
                 UnitDetailChip.DeltaBuffPts(Strings.T("status.attack.name"), attackBuffPts),
                 UnitDetailChip.DeltaBuffPct(Strings.T("status.morale.name"), moralePercent),
-                UnitDetailChip.DeltaBuffPct(Strings.T("status.heft.name"), heftPercent));
+                UnitDetailChip.DeltaBuffPct(Strings.T("status.heft.name"), heftPercent),
+                UnitDetailChip.DeltaBuffPct(Strings.T("status.kindle.name"), statuses.TotalMagnitude(StatusKind.Kindle)));   // 燃意(spec C Q9)
 
             int defenseBuff = statuses.TotalMagnitude(StatusKind.DefenseBuff);
             int armorBreak = statuses.TotalMagnitude(StatusKind.ArmorBreak);

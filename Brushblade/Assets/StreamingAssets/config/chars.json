@@ -37,13 +37,9 @@
       "gloss": "火势极盛",
       "effects": [
         {
-          "kind": "BurnAll",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 35,
-          "pick": "All",
+          "pick": "AllAllies",
           "turns": 3
         }
       ],
@@ -68,7 +64,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -87,18 +83,19 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 40,
-              "pick": "All",
+              "pick": "AllAllies",
               "turns": 4
             }
           ]
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "四火",
           "effects": [
@@ -106,6 +103,20 @@
               "kind": "BurnHold",
               "value": 0,
               "pick": "BurnedByThisCast",
+              "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "四火",
+          "effects": [
+            {
+              "kind": "BurnHold",
+              "value": 0,
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -218,13 +229,9 @@
       "gloss": "烧毁",
       "effects": [
         {
-          "kind": "BurnAll",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 30,
-          "pick": "All",
+          "pick": "AllAllies",
           "turns": 3
         }
       ],
@@ -249,7 +256,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -268,12 +275,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 35,
-              "pick": "All",
+              "pick": "AllAllies",
               "turns": 4
             }
           ]
@@ -296,12 +303,13 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "焚风",
+          "name": "先声",
           "effects": [
             {
               "kind": "Amplify",
-              "value": 25,
-              "scope": "All"
+              "value": 38,
+              "scope": "All",
+              "onlyIf": "FirstCastThisTurn"
             }
           ]
         },
@@ -325,7 +333,7 @@
             {
               "kind": "BurnBurst",
               "value": 0,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -354,7 +362,7 @@
             {
               "kind": "BurnGrow",
               "value": 1,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn",
               "turns": 3
             }
@@ -411,13 +419,9 @@
       "gloss": "火花飞迸",
       "effects": [
         {
-          "kind": "BurnAll",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 30,
-          "pick": "All",
+          "pick": "AllAllies",
           "turns": 3
         }
       ],
@@ -442,7 +446,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -461,12 +465,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 35,
-              "pick": "All",
+              "pick": "AllAllies",
               "turns": 4
             }
           ]
@@ -543,7 +547,7 @@
             {
               "kind": "Weaken",
               "value": 30,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn",
               "minBurn": 5
             }
@@ -605,11 +609,7 @@
       "gloss": "火苗上炎",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 25,
           "turns": 3
         }
@@ -634,7 +634,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -653,10 +653,10 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 30,
               "turns": 4
             }
@@ -697,7 +697,7 @@
             {
               "kind": "BurnSingle",
               "value": 2,
-              "onlyIf": "Burning"
+              "pick": "MostBurn"
             }
           ]
         },
@@ -724,7 +724,7 @@
             {
               "kind": "BurnGrow",
               "value": 1,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn",
               "turns": 3
             }
@@ -756,7 +756,8 @@
           "effects": [
             {
               "kind": "BurnScale",
-              "value": 200
+              "value": 200,
+              "pick": "MostBurn"
             },
             {
               "kind": "BurnAll",
@@ -779,13 +780,9 @@
       "gloss": "迸裂炸开",
       "effects": [
         {
-          "kind": "BurnAll",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 15,
-          "pick": "All",
+          "pick": "AllAllies",
           "turns": 2
         }
       ],
@@ -810,7 +807,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -829,12 +826,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 20,
-              "pick": "All",
+              "pick": "AllAllies",
               "turns": 3
             }
           ]
@@ -872,8 +869,7 @@
             {
               "kind": "BurnSingle",
               "value": 2,
-              "onlyIf": "Burning",
-              "pick": "All"
+              "pick": "MostBurn"
             }
           ]
         },
@@ -899,7 +895,7 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -928,13 +924,13 @@
             {
               "kind": "BurnSingle",
               "value": 3,
-              "pick": "All"
+              "pick": "MostBurn"
             },
             {
               "kind": "Weaken",
               "value": 25,
-              "turns": 2,
-              "pick": "All"
+              "pick": "MostBurn",
+              "turns": 2
             }
           ]
         }
@@ -952,13 +948,9 @@
       "gloss": "骤然爆开",
       "effects": [
         {
-          "kind": "BurnAll",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 20,
-          "pick": "All",
+          "pick": "AllAllies",
           "turns": 2
         }
       ],
@@ -983,7 +975,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -1002,12 +994,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 25,
-              "pick": "All",
+              "pick": "AllAllies",
               "turns": 3
             }
           ]
@@ -1087,7 +1079,7 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -1130,13 +1122,9 @@
       "gloss": "火猛、气盛",
       "effects": [
         {
-          "kind": "BurnAll",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 20,
-          "pick": "All",
+          "pick": "AllAllies",
           "turns": 3
         }
       ],
@@ -1161,7 +1149,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -1180,12 +1168,12 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 25,
-              "pick": "All",
+              "pick": "AllAllies",
               "turns": 4
             }
           ]
@@ -1224,8 +1212,8 @@
             {
               "kind": "Blind",
               "value": 15,
-              "turns": 2,
-              "pick": "All"
+              "pick": "Random",
+              "turns": 2
             }
           ]
         },
@@ -1251,7 +1239,7 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -1302,11 +1290,7 @@
       "gloss": "光彩明亮",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 25,
           "turns": 3
         }
@@ -1331,7 +1315,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -1350,10 +1334,10 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 30,
               "turns": 4
             }
@@ -1398,6 +1382,7 @@
             {
               "kind": "Blind",
               "value": 20,
+              "pick": "Random",
               "turns": 2
             }
           ]
@@ -1455,13 +1440,13 @@
           "effects": [
             {
               "kind": "BurnSingle",
-              "value": 3,
-              "pick": "Adjacent"
+              "value": 2,
+              "pick": "All"
             },
             {
               "kind": "Weaken",
-              "value": 40,
-              "pick": "Adjacent",
+              "value": 30,
+              "pick": "All",
               "turns": 1
             }
           ]
@@ -1480,11 +1465,7 @@
       "gloss": "干而无润",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 20,
           "turns": 3
         }
@@ -1509,7 +1490,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -1528,10 +1509,10 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 25,
               "turns": 4
             }
@@ -1539,6 +1520,7 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
           "name": "干涸",
           "effects": [
@@ -1547,6 +1529,19 @@
               "value": 0,
               "pick": "BurnedByThisCast",
               "riderOf": "Burn"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 18,
+              "scope": "All"
             }
           ]
         },
@@ -1567,12 +1562,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "续火",
+          "name": "引火",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 2,
-              "onlyIf": "Burning"
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -1598,7 +1592,7 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -1628,11 +1622,13 @@
           "effects": [
             {
               "kind": "BurnScale",
-              "value": 200
+              "value": 200,
+              "pick": "MostBurn"
             },
             {
               "kind": "Weaken",
               "value": 30,
+              "pick": "MostBurn",
               "turns": 2
             }
           ]
@@ -1651,11 +1647,7 @@
       "gloss": "水气上腾",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 20,
           "turns": 3
         }
@@ -1680,7 +1672,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -1699,10 +1691,10 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 25,
               "turns": 4
             }
@@ -1745,6 +1737,7 @@
             {
               "kind": "Blind",
               "value": 15,
+              "pick": "Random",
               "turns": 2
             }
           ]
@@ -1771,7 +1764,7 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -1826,11 +1819,7 @@
       "gloss": "温度高",
       "effects": [
         {
-          "kind": "BurnSingle",
-          "value": 1
-        },
-        {
-          "kind": "Weaken",
+          "kind": "Kindle",
           "value": 15,
           "turns": 2
         }
@@ -1855,7 +1844,7 @@
         {
           "slot": "Lv1",
           "face": "Feature",
-          "name": "慑",
+          "name": "燃意",
           "effects": []
         },
         {
@@ -1874,10 +1863,10 @@
           "slot": "Lv3",
           "face": "Feature",
           "replaces": "Lv1",
-          "name": "慑·强化",
+          "name": "燃意·强化",
           "effects": [
             {
-              "kind": "Weaken",
+              "kind": "Kindle",
               "value": 20,
               "turns": 3
             }
@@ -1911,12 +1900,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "续火",
+          "name": "引火",
           "effects": [
             {
-              "kind": "BurnSingle",
-              "value": 2,
-              "onlyIf": "Burning"
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -1942,7 +1930,7 @@
             {
               "kind": "Blind",
               "value": 15,
-              "pick": "BurnedByThisCast",
+              "pick": "All",
               "riderOf": "Burn"
             }
           ]
@@ -2055,12 +2043,13 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "参天之力",
+          "name": "先声",
           "effects": [
             {
               "kind": "Amplify",
-              "value": 30,
-              "scope": "All"
+              "value": 45,
+              "scope": "All",
+              "onlyIf": "FirstCastThisTurn"
             }
           ]
         },
@@ -2824,12 +2813,13 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "秋实",
+          "name": "先声",
           "effects": [
             {
               "kind": "Amplify",
-              "value": 18,
-              "scope": "All"
+              "value": 26,
+              "scope": "All",
+              "onlyIf": "FirstCastThisTurn"
             }
           ]
         },
@@ -3025,7 +3015,7 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "披荆",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -3219,7 +3209,7 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "水草",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -3424,7 +3414,7 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "馥郁",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -3618,9 +3608,34 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 21,
+              "scope": "All"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
           "form": "Passive",
           "name": "坚心",
-          "effects": []
+          "effects": [
+            {
+              "kind": "Summon",
+              "value": 0,
+              "count": 1,
+              "attack": 0,
+              "summonChar": "柘",
+              "passive": {
+                "selfCut": 15
+              }
+            }
+          ]
         },
         {
           "slot": "Lv5",
@@ -4071,11 +4086,6 @@
           "shape": "All"
         },
         {
-          "kind": "Freeze",
-          "value": 1,
-          "pick": "All"
-        },
-        {
           "kind": "SpendWellspring",
           "value": 60
         }
@@ -4084,7 +4094,7 @@
         {
           "slot": "Lv1",
           "face": "Attack",
-          "name": "冻结",
+          "name": "涌泉相报",
           "effects": []
         },
         {
@@ -4097,12 +4107,11 @@
           "slot": "Lv3",
           "face": "Attack",
           "replaces": "Lv1",
-          "name": "冻结·强化",
+          "name": "涌泉相报·强化",
           "effects": [
             {
-              "kind": "Freeze",
-              "value": 2,
-              "pick": "All"
+              "kind": "SpendWellspring",
+              "value": 78
             }
           ]
         },
@@ -4126,11 +4135,9 @@
           "name": "怀山",
           "effects": [
             {
-              "kind": "FrostBite",
-              "value": 0,
-              "bodyPercent": 20,
-              "pick": "FrozenByThisCast",
-              "riderOf": "Freeze"
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "Spend"
             }
           ]
         },
@@ -4138,7 +4145,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "怀山",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -4150,13 +4157,11 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "洪峰",
+          "name": "汇流",
           "effects": [
             {
-              "kind": "Amplify",
-              "value": 10,
-              "scope": "Damage",
-              "scaleBy": "Wellspring"
+              "kind": "AddWellspring",
+              "value": 4
             }
           ]
         },
@@ -4166,14 +4171,18 @@
           "name": "泽被",
           "effects": [
             {
-              "kind": "Reshape",
-              "value": 0,
-              "shape": "All"
-            },
-            {
               "kind": "Cleanse",
               "value": 1,
               "pick": "AllAllies"
+            },
+            {
+              "kind": "Amplify",
+              "value": 30,
+              "scope": "Heal"
+            },
+            {
+              "kind": "OverhealShield",
+              "value": 50
             }
           ]
         },
@@ -4184,9 +4193,10 @@
           "name": "浩荡",
           "effects": [
             {
-              "kind": "Vulnerable",
-              "value": 25,
-              "pick": "FrozenByThisCast"
+              "kind": "Freeze",
+              "value": 1,
+              "minSpent": 6,
+              "pick": "All"
             }
           ]
         },
@@ -4210,8 +4220,14 @@
             {
               "kind": "Amplify",
               "value": 100,
-              "scope": "Damage",
-              "onlyIf": "Frozen"
+              "minSpent": 8,
+              "scope": "Spend"
+            },
+            {
+              "kind": "Freeze",
+              "value": 1,
+              "minSpent": 8,
+              "pick": "All"
             }
           ]
         },
@@ -4220,11 +4236,6 @@
           "face": "Feature",
           "name": "泽及四方",
           "effects": [
-            {
-              "kind": "Reshape",
-              "value": 0,
-              "shape": "All"
-            },
             {
               "kind": "Amplify",
               "value": 50,
@@ -4306,12 +4317,13 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "汪洋",
+          "name": "先声",
           "effects": [
             {
               "kind": "Amplify",
-              "value": 25,
-              "scope": "All"
+              "value": 38,
+              "scope": "All",
+              "onlyIf": "FirstCastThisTurn"
             }
           ]
         },
@@ -4485,9 +4497,30 @@
         },
         {
           "slot": "Lv4",
+          "face": "Attack",
           "form": "Passive",
+          "trigger": "OnKill",
           "name": "湮灭",
-          "effects": []
+          "effects": [
+            {
+              "kind": "Freeze",
+              "value": 1,
+              "pick": "Random"
+            }
+          ]
+        },
+        {
+          "slot": "Lv4",
+          "face": "Feature",
+          "form": "Passive",
+          "name": "精进",
+          "effects": [
+            {
+              "kind": "Amplify",
+              "value": 18,
+              "scope": "All"
+            }
+          ]
         },
         {
           "slot": "Lv5",
@@ -4671,11 +4704,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "涓流",
+          "name": "化水",
           "effects": [
             {
-              "kind": "Cleanse",
-              "value": 1
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -4759,11 +4792,6 @@
           "shape": "All"
         },
         {
-          "kind": "Slow",
-          "value": 1,
-          "pick": "All"
-        },
-        {
           "kind": "SpendWellspring",
           "value": 13
         }
@@ -4772,7 +4800,7 @@
         {
           "slot": "Lv1",
           "face": "Attack",
-          "name": "减速",
+          "name": "涌泉相报",
           "effects": []
         },
         {
@@ -4785,12 +4813,11 @@
           "slot": "Lv3",
           "face": "Attack",
           "replaces": "Lv1",
-          "name": "减速·强化",
+          "name": "涌泉相报·强化",
           "effects": [
             {
-              "kind": "Slow",
-              "value": 2,
-              "pick": "All"
+              "kind": "SpendWellspring",
+              "value": 17
             }
           ]
         },
@@ -4822,13 +4849,11 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "凝冰",
+          "name": "引泉",
           "effects": [
             {
-              "kind": "Freeze",
-              "value": 1,
-              "onlyIf": "Slowed",
-              "pick": "All"
+              "kind": "AddWellspring",
+              "value": 3
             }
           ]
         },
@@ -4848,12 +4873,11 @@
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
-          "name": "精进",
+          "name": "回澜",
           "effects": [
             {
-              "kind": "Amplify",
-              "value": 15,
-              "scope": "All"
+              "kind": "SpendHeal",
+              "value": 30
             }
           ]
         },
@@ -4872,13 +4896,19 @@
         {
           "slot": "Lv8",
           "face": "Attack",
-          "name": "溃不成军",
+          "name": "决堤",
           "effects": [
             {
-              "kind": "Weaken",
-              "value": 25,
-              "pick": "All",
-              "turns": 2
+              "kind": "Amplify",
+              "value": 100,
+              "minSpent": 8,
+              "scope": "Spend"
+            },
+            {
+              "kind": "Slow",
+              "value": 2,
+              "minSpent": 8,
+              "pick": "All"
             }
           ]
         },
@@ -4981,12 +5011,13 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "冰封",
+          "name": "先声",
           "effects": [
             {
               "kind": "Amplify",
-              "value": 21,
-              "scope": "All"
+              "value": 32,
+              "scope": "All",
+              "onlyIf": "FirstCastThisTurn"
             }
           ]
         },
@@ -5342,11 +5373,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "涓流",
+          "name": "化水",
           "effects": [
             {
-              "kind": "Cleanse",
-              "value": 1
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -5493,7 +5524,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "淋漓",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -5851,7 +5882,7 @@
           "slot": "Lv4",
           "face": "Attack",
           "form": "Passive",
-          "name": "沐恩",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -6060,7 +6091,7 @@
             {
               "kind": "BlockMod",
               "value": 0,
-              "counterPercent": 50
+              "counterPercent": 90
             }
           ]
         },
@@ -6121,7 +6152,7 @@
             {
               "kind": "BlockMod",
               "value": 0,
-              "counterPercent": 60
+              "counterPercent": 100
             },
             {
               "kind": "Morale",
@@ -6399,12 +6430,13 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "放血",
+          "name": "先声",
           "effects": [
             {
               "kind": "Amplify",
-              "value": 25,
-              "scope": "All"
+              "value": 38,
+              "scope": "All",
+              "onlyIf": "FirstCastThisTurn"
             }
           ]
         },
@@ -6660,7 +6692,7 @@
               "kind": "BlockMod",
               "value": 0,
               "scaleBy": "Morale",
-              "scaleMin": 2
+              "scaleMin": 3
             },
             {
               "kind": "Morale",
@@ -6743,12 +6775,12 @@
         {
           "slot": "Lv4",
           "form": "Passive",
-          "trigger": "OnExecute",
+          "trigger": "OnKill",
           "name": "铁则",
           "effects": [
             {
               "kind": "Morale",
-              "value": 2
+              "value": 1
             }
           ]
         },
@@ -6923,8 +6955,7 @@
                   "kind": "Bleed",
                   "value": 35
                 }
-              ],
-              "perHitFrom": 2
+              ]
             }
           ]
         },
@@ -6932,7 +6963,7 @@
           "slot": "Lv4",
           "face": "Feature",
           "form": "Passive",
-          "name": "剁骨",
+          "name": "精进",
           "effects": [
             {
               "kind": "Amplify",
@@ -6957,13 +6988,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "剁截",
+          "name": "点金",
           "effects": [
             {
-              "kind": "BlockMod",
-              "value": 0,
-              "counterPercent": 40,
-              "counterHits": 3
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -7146,7 +7175,7 @@
             {
               "kind": "BlockMod",
               "value": 0,
-              "counterPercent": 50
+              "counterPercent": 60
             }
           ]
         },
@@ -7197,11 +7226,12 @@
         {
           "slot": "Lv8",
           "face": "Feature",
-          "name": "反戈",
+          "name": "扫锋",
           "effects": [
             {
-              "kind": "CounterBoost",
-              "value": 100
+              "kind": "BlockMod",
+              "value": 0,
+              "counterRow": true
             }
           ]
         }
@@ -7654,13 +7684,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "砥砺",
+          "name": "点金",
           "effects": [
             {
-              "kind": "Augment",
-              "value": 1,
-              "augmentKind": "Block",
-              "augmentField": "Count"
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -7916,11 +7944,6 @@
           "value": 420
         },
         {
-          "kind": "ArmorBreak",
-          "value": 40,
-          "turns": 2
-        },
-        {
           "kind": "SpendHeft",
           "value": 60
         }
@@ -7929,7 +7952,7 @@
         {
           "slot": "Lv1",
           "face": "Attack",
-          "name": "破甲",
+          "name": "厚积薄发",
           "effects": []
         },
         {
@@ -7942,12 +7965,11 @@
           "slot": "Lv3",
           "face": "Attack",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "厚积薄发·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 40,
-              "turns": 4
+              "kind": "SpendHeft",
+              "value": 78
             }
           ]
         },
@@ -7973,7 +7995,7 @@
             {
               "kind": "Amplify",
               "value": 30,
-              "scope": "All"
+              "scope": "Spend"
             }
           ]
         },
@@ -7994,12 +8016,11 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "山压",
+          "name": "山积",
           "effects": [
             {
-              "kind": "Reshape",
-              "value": 0,
-              "shieldStrikePercent": 50
+              "kind": "AddHeft",
+              "value": 4
             }
           ]
         },
@@ -8026,14 +8047,10 @@
           "name": "厚壤",
           "effects": [
             {
-              "kind": "Augment",
-              "value": 1,
-              "augmentKind": "ArmorBreak",
-              "augmentField": "Turns"
-            },
-            {
               "kind": "ArmorBreak",
-              "value": 20,
+              "value": 3,
+              "pick": "All",
+              "scaleBy": "Spent",
               "turns": 3
             }
           ]
@@ -8057,16 +8074,8 @@
           "name": "地动",
           "effects": [
             {
-              "kind": "Reshape",
-              "value": 0,
-              "shape": "All",
-              "shieldStrikePercent": 30
-            },
-            {
-              "kind": "ArmorBreak",
-              "value": 45,
-              "pick": "All",
-              "turns": 2
+              "kind": "SpendShield",
+              "value": 50
             }
           ]
         },
@@ -8731,13 +8740,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "加固",
+          "name": "培土",
           "effects": [
             {
-              "kind": "Amplify",
-              "value": 50,
-              "scope": "Shield",
-              "onlyIf": "PlayerHasArmor"
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -9085,13 +9092,11 @@
         {
           "slot": "Lv5",
           "face": "Feature",
-          "name": "垒土",
+          "name": "培土",
           "effects": [
             {
-              "kind": "Augment",
-              "value": 2,
-              "augmentKind": "DefenseBuff",
-              "augmentField": "Turns"
+              "kind": "Attune",
+              "value": 0
             }
           ]
         },
@@ -9512,12 +9517,6 @@
           "shape": "All"
         },
         {
-          "kind": "ArmorBreak",
-          "value": 20,
-          "pick": "All",
-          "turns": 2
-        },
-        {
           "kind": "SpendHeft",
           "value": 13
         }
@@ -9526,7 +9525,7 @@
         {
           "slot": "Lv1",
           "face": "Attack",
-          "name": "破甲",
+          "name": "厚积薄发",
           "effects": []
         },
         {
@@ -9539,13 +9538,11 @@
           "slot": "Lv3",
           "face": "Attack",
           "replaces": "Lv1",
-          "name": "破甲·强化",
+          "name": "厚积薄发·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 20,
-              "pick": "All",
-              "turns": 4
+              "kind": "SpendHeft",
+              "value": 17
             }
           ]
         },
@@ -9592,12 +9589,11 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "震地",
+          "name": "聚土",
           "effects": [
             {
-              "kind": "Reshape",
-              "value": 0,
-              "armorStrikePercent": 300
+              "kind": "AddHeft",
+              "value": 3
             }
           ]
         },
@@ -9618,13 +9614,14 @@
           "slot": "Lv6",
           "face": "Attack",
           "form": "Passive",
-          "name": "余震",
+          "name": "崩裂",
           "effects": [
             {
-              "kind": "Weaken",
-              "value": 20,
-              "pick": "HitTargets",
-              "turns": 1
+              "kind": "ArmorBreak",
+              "value": 2,
+              "pick": "All",
+              "scaleBy": "Spent",
+              "turns": 2
             }
           ]
         },
@@ -9643,18 +9640,13 @@
         {
           "slot": "Lv8",
           "face": "Attack",
-          "name": "地裂",
+          "name": "山崩",
           "effects": [
             {
-              "kind": "Reshape",
-              "value": 0,
-              "scaleBy": "Shield",
-              "scaleDivisor": 100,
-              "scaleCap": 4
-            },
-            {
-              "kind": "ShieldSpend",
-              "value": 100
+              "kind": "Amplify",
+              "value": 100,
+              "minSpent": 8,
+              "scope": "Spend"
             }
           ]
         },

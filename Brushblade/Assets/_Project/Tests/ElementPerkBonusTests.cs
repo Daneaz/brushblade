@@ -225,6 +225,8 @@ namespace Brushblade.Core.Tests
                 // spec A D8:吸血 / 溢疗转盾是对已结算量取百分比,不是本系字的治疗 / 护盾本体
                 EffectKind.Lifesteal, EffectKind.OverhealShield,
                 EffectKind.BlockGain, EffectKind.ReviveShield,
+                // spec C:燃意 / 换属性 / 回澜 / 地动不是本系字的伤害 / 治疗 / 护盾本体
+                EffectKind.Kindle, EffectKind.Attune, EffectKind.SpendHeal, EffectKind.SpendShield,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

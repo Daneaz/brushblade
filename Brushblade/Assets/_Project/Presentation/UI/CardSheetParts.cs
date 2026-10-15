@@ -158,7 +158,10 @@ namespace Brushblade.Presentation
             };
             if (target == FaceTarget.Summon) return where;
             var area = CardSheetRules.AreaOf(def, face, level) ?? TargetArea.Single;
-            return Strings.T("charsheet.landing.line", ("target", where), ("area", CharInfo.ShapeLabel(area)));
+            // spec C §5.3(Q12):作用于我方的全体面写「我方全体」
+            string areaText = area == TargetArea.All && target != FaceTarget.Enemy
+                ? Strings.T("charsheet.area.allies") : CharInfo.ShapeLabel(area);
+            return Strings.T("charsheet.landing.line", ("target", where), ("area", areaText));
         }
 
         /// <summary>面名:攻击 / 五行面。</summary>
@@ -190,6 +193,7 @@ namespace Brushblade.Presentation
             FaceStatKind.SpendHeft => Strings.T("charsheet.stat.spend_heft"),
             FaceStatKind.CounterPercent => Strings.T("charsheet.stat.counter"),
             FaceStatKind.ReviveHp => Strings.T("charsheet.stat.revive"),
+            FaceStatKind.Kindle => Strings.T("charsheet.stat.kindle"),
             _ => kind.ToString(),
         };
 
@@ -219,6 +223,7 @@ namespace Brushblade.Presentation
             FaceStatKind.Armor or FaceStatKind.Morale => Strings.T("charsheet.stat.plus", ("value", value)),
             FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft => Strings.T("charsheet.stat.per_stack", ("value", value)),
             FaceStatKind.CounterPercent or FaceStatKind.ReviveHp => Strings.T("charsheet.stat.pct", ("value", value)),
+            FaceStatKind.Kindle => Strings.T("charsheet.stat.plus_pct", ("value", value)),
             _ => value.ToString(),
         };
 
@@ -237,7 +242,8 @@ namespace Brushblade.Presentation
         private static string DeltaText(StatDelta d)
         {
             string label = DeltaLabel(d);
-            if (d.Kind == FaceStatKind.Weaken || d.Kind == FaceStatKind.CounterPercent || d.Kind == FaceStatKind.ReviveHp)
+            if (d.Kind == FaceStatKind.Weaken || d.Kind == FaceStatKind.CounterPercent || d.Kind == FaceStatKind.ReviveHp
+                || d.Kind == FaceStatKind.Kindle)
                 return Strings.T("charsheet.lv3.delta_pct", ("label", label), ("from", d.From), ("to", d.To));
             string unit = StatUnit(d.Kind);
             return unit.Length == 0

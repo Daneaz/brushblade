@@ -104,7 +104,7 @@ namespace Brushblade.Core.Tests
         /// 确认后更新快照;若是用了新写法(又一个「召唤物」),先给词条加别名。</summary>
         private static readonly string[] NoTermTemplates =
         {
-            "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.item_sep", "char.effect.amplify.items", "char.effect.amplify.heal", "char.effect.apcost",
+            "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.item_sep", "char.effect.amplify.items", "char.effect.amplify.heal", "char.effect.amplify.spend", "char.effect.apcost",
             "char.effect.armorstrike.each", "char.effect.augment", "char.effect.augment.field.count", "char.effect.augment.field.shots",
             "char.effect.augment.field.turns", "char.effect.augment.target.damage", "char.effect.augment.target.healself",
             "char.effect.blind.single", "char.effect.blockmod.counter",
@@ -114,11 +114,11 @@ namespace Brushblade.Core.Tests
             "char.effect.debuffward.count", "char.effect.debuffward.of", "char.effect.dispel.single.count", "char.effect.dispel.single.full",
             "char.effect.empower", "char.effect.execute.double", "char.effect.extrastrike", "char.effect.grantchar",
             "char.effect.healself", "char.effect.healself.victim", "char.effect.hitcap", "char.effect.hitcount",
-            "char.effect.hitpercent", "char.effect.hurtheal", "char.effect.immunity", "char.effect.lifesteal", "char.effect.mine", "char.effect.mine.body",
+            "char.effect.hitpercent", "char.effect.hurtheal", "char.effect.immunity", "char.effect.lifesteal", "char.effect.mine", "char.effect.mine.body", "char.effect.minspent",
             "char.effect.onlyif.countering", "char.effect.onlyif.firstcastthisturn", "char.effect.onlyif.isboss",
             "char.effect.onlyif.notboss", "char.effect.onlyif.playerhpabove70", "char.effect.onlyif.playerhpbelow50",
             "char.effect.onlyif.targethpabove70", "char.effect.onlyif.targethpbelow30", "char.effect.overkillsplash",
-            "char.effect.overkillsplash.all", "char.effect.per.cap", "char.effect.per.cleansed", "char.effect.per.extrahittarget",
+            "char.effect.overkillsplash.all", "char.effect.per.cap", "char.effect.per.cleansed", "char.effect.per.extrahittarget", "char.effect.per.spent", "char.effect.spendheal",
             "char.effect.perhit", "char.effect.perhit.from", "char.effect.pick.adjacent", "char.effect.pick.adjacentone",
             "char.effect.pick.all", "char.effect.pick.column", "char.effect.pick.highesthp", "char.effect.pick.hittargets",
             "char.effect.pick.random", "char.effect.pick.row", "char.effect.reflect", "char.effect.reshape",

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -38,6 +39,8 @@ namespace Brushblade.Core
                 if (e.Kind == EffectKind.Summon || e.Kind == EffectKind.SummonSapling) summons = true;
                 if (IsHostileTargeted(e)) hostile = true;
             }
+            // 燃意面(spec C §5.3,Q12):落点恒为自己或木灵;pick All 的敌方特性不另加 Enemy 落点
+            if (effects.Any(e => e.Kind == EffectKind.Kindle)) return FaceLanding.Self | FaceLanding.Summons;
 
             bool needsEnemy = BattleEngine.NeedsTarget(def, attackMode, cardLevel);
             bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode);

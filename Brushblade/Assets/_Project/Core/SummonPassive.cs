@@ -173,6 +173,8 @@ namespace Brushblade.Core
         public int SproutDeathSlow { get; set; }
         /// <summary>秋实:阵亡时部件池 +木(满池不入)。Task 3</summary>
         public bool DeathPart { get; set; }
+        /// <summary>坚心(spec C §2,柘):本木灵受到的伤害 −N%,与 DamageCut / 林荫 / 森严取最强(BattleEngine.DamageSummon 读)。</summary>
+        public int SelfCut { get; set; }
 
         public SummonPassive Clone() => new()
         {
@@ -189,6 +191,7 @@ namespace Brushblade.Core
             AttackPercent = AttackPercent, HealAllyPercent = HealAllyPercent, HealMirror = HealMirror, ThornsBleed = ThornsBleed,
             CritAura = CritAura, GroveCut = GroveCut, GroveCutCap = GroveCutCap, ThicketCut = ThicketCut, ThicketMin = ThicketMin,
             Guard = Guard, ReturnFire = ReturnFire, DeathBlast = DeathBlast, SproutDeathSlow = SproutDeathSlow, DeathPart = DeathPart,
+            SelfCut = SelfCut,
         };
     }
 }

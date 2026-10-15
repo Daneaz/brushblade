@@ -139,11 +139,15 @@ namespace Brushblade.Core
         /// <summary>贯穿反击打同列其余目标的百分比(锥立「其余目标 70%」)。</summary>
         public const int CounterColumnPercent = 70;
 
+        /// <summary>反击横扫打同排其余目标的百分比(扫锋「其余 70%」)。</summary>
+        public const int CounterRowPercent = 70;
+
         /// <summary>出字时把 Block 条目上的格挡附带搬进状态(J1)。流血量此刻按卡等级与攻击力定死(Q12);
         /// 立威记下施加者字 ID(Task 3 铁则回查)。全缺省时什么都不写 —— 状态与原格挡逐位相同。</summary>
         private void CarryBlockRiders(StatusEffect block, EffectDef effect, string charId, int cardLevel)
         {
             block.CounterColumn = effect.CounterColumn;
+            block.CounterRow = effect.CounterRow;
             block.CounterHits = effect.CounterHits;
             block.CounterExecuteBelow = effect.CounterExecuteBelow;
             block.BlockBleed = effect.BlockBleed > 0
@@ -158,6 +162,7 @@ namespace Brushblade.Core
         private static void MergeBlockRiders(StatusEffect incoming, StatusEffect existing)
         {
             incoming.CounterColumn |= existing.CounterColumn;
+            incoming.CounterRow |= existing.CounterRow;
             incoming.CounterHits = Math.Max(incoming.CounterHits, existing.CounterHits);
             incoming.CounterExecuteBelow = Math.Max(incoming.CounterExecuteBelow, existing.CounterExecuteBelow);
             incoming.BlockBleed = Math.Max(incoming.BlockBleed, existing.BlockBleed);
@@ -171,7 +176,7 @@ namespace Brushblade.Core
         /// (CounterDamage 已乘反击增强);<paramref name="budget"/> = 60% 反伤预算扣掉先结算的镜 / 荆棘之后的余额。
         ///
         /// 顺序:格挡加战意 → 攻击者流血(两者不是伤害,不占预算,预算为 0 也给)→ 立威判血(杂兵斩杀,不吃预算,Q3;
-        /// Boss 改本次反击 ×2)→ 攻击者 N 击 → 贯穿时同列其余存活敌人(下标序)各 N 击 × 70%。
+        /// Boss 改本次反击 ×2)→ 攻击者 N 击 → 贯穿时同列其余存活敌人、横扫时同排其余存活敌人(下标序,同一敌人只吃一次)各 N 击 × 70%。
         /// 所有伤害击共用一份预算,扣完即止(Q2)。反击 / 立威造成击杀且带 KillRefundAp 时挂 ApRefund(J2)。
         /// 返回实际打出的反击伤害合计(反震从同一份预算里扣它)。附带字段全缺省时与原反击段逐位相同、不摇随机数。</summary>
         private int ResolveCounter(int enemyIndex, StatusEffect block, int counter, int budget, UnitRef attackerRef)
@@ -210,14 +215,19 @@ namespace Brushblade.Core
             {
                 int hits = Math.Max(1, block.CounterHits);
                 dealt += CounterHitsOn(enemyIndex, counter * multiplier, hits, budget - dealt, attackerRef, ref killed);
-                if (block.CounterColumn)
+                if (block.CounterColumn || block.CounterRow)
                 {
+                    // 贯穿(同列)与横扫(同排,spec C §1)各打各的,同一敌人只吃一次(跨排 Boss 也只算一次);
+                    // 比例两者同为 70%。按下标序结算,共用一份预算。都缺省时整段不进,恒等
                     int splash = counter * CounterColumnPercent / 100;
                     for (int i = 0; i < _enemies.Count && splash > 0; i++)
                     {
                         if (i == enemyIndex || !_enemies[i].Alive) continue;
-                        if (!(_enemies[i].Column < attacker.ColumnEnd && attacker.Column < _enemies[i].ColumnEnd)) continue;
-                        dealt += CounterHitsOn(i, splash, hits, budget - dealt, attackerRef, ref killed);
+                        bool sameColumn = block.CounterColumn
+                            && _enemies[i].Column < attacker.ColumnEnd && attacker.Column < _enemies[i].ColumnEnd;
+                        bool sameRow = block.CounterRow && _enemies[i].SharesRow(attacker);
+                        if (!sameColumn && !sameRow) continue;
+                        dealt += CounterHitsOn(i, sameColumn ? splash : counter * CounterRowPercent / 100, hits, budget - dealt, attackerRef, ref killed);
                     }
                 }
             }

@@ -44,15 +44,21 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Zao_ScorchedEarth_DoublesBurn_TraitWeakenIsOwnSource()
         {
-            // 燥 Lv8·燃 焦土:`BurnScale 200` + `Weaken 30` `turns 2`。spec A:燃面本体灼恒 1(Lv3 只强化慑,不动灼)→ 翻倍 2
+            // 燥 Lv8·燃 焦土:`BurnScale 200` `pick MostBurn` + `Weaken 30` `turns 2` `pick MostBurn`。
+            // spec C:燃面本体只剩燃意、落玩家;灼要先由攻击面上,焦土再把「灼最多的敌人」的层数翻倍并给它减攻
             var b = Battle("燥", 8, Mob());
-            Assert.That(b.Cast("燥", 0), Is.EqualTo(BattleError.None));
-            Assert.That(Burn(b, 0), Is.EqualTo(2), "spec A:本体灼 1 层 × 200%");
+            Assert.That(b.Cast("燥", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            int before = Burn(b, 0);
+            Assert.That(before, Is.GreaterThan(0), "前提:攻击面上了灼");
+            var cursesBefore = b.Enemies[0].Statuses.All.Count(s => s.Kind == StatusKind.Curse);
+            Assert.That(b.Cast("燥", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerStatuses.Find(StatusKind.Kindle), Is.Not.Null, "燃面本体:燃意落玩家");
+            Assert.That(Burn(b, 0), Is.EqualTo(before * 2), "焦土:灼 ×200%");
             var curses = b.Enemies[0].Statuses.All.Where(s => s.Kind == StatusKind.Curse).ToList();
             var scorched = curses.SingleOrDefault(c => c.TraitKey == Key("燥", TraitSlot.Lv8, TraitFace.Feature));
-            Assert.That(scorched, Is.Not.Null, "焦土的减攻独立来源(G11),不并进本体那条");
+            Assert.That(scorched, Is.Not.Null, "焦土的减攻独立来源(G11)");
             Assert.That(scorched.TurnsLeft, Is.EqualTo(2));
-            Assert.That(curses.Any(c => c.TraitKey == null && c.TurnsLeft == 4), Is.True, "本体减攻(Lv3 强化后 4 回合)仍在");
+            Assert.That(curses.Count - cursesBefore, Is.EqualTo(1), "燃面本体不再减攻:只多出焦土这一条");
         }
 
         [Test]
@@ -136,35 +142,38 @@ namespace Brushblade.Core.Tests
         // ================= 灼附着族 =================
 
         [Test]
-        public void Zao_Drought_HealBlockRidesOnBothFaces()
+        public void Zao_Drought_HealBlockRidesOnAttackFaceOnly()
         {
-            // 燥 Lv4·两面 干涸:`HealBlock` `pick BurnedByThisCast` `rider Burn`
-            foreach (bool attack in new[] { true, false })
-            {
-                var b = Battle("燥", 4, Mob());
-                Assert.That(b.Cast("燥", 0, attackMode: attack), Is.EqualTo(BattleError.None));
-                var block = b.Enemies[0].Statuses.Find(StatusKind.HealBlock);
-                Assert.That(block, Is.Not.Null, attack ? "攻击面" : "燃面");
-                Assert.That(block.TraitKey, Is.EqualTo(Key("燥", TraitSlot.Lv4, TraitFace.Both)));
-            }
+            // 燥 Lv4·攻 干涸(spec C:不再是两面):`HealBlock` `pick BurnedByThisCast` `rider Burn`
+            var b = Battle("燥", 4, Mob());
+            Assert.That(b.Cast("燥", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            var block = b.Enemies[0].Statuses.Find(StatusKind.HealBlock);
+            Assert.That(block, Is.Not.Null);
+            Assert.That(block.TraitKey, Is.EqualTo(Key("燥", TraitSlot.Lv4, TraitFace.Attack)));
+
+            var feature = Battle("燥", 4, Mob());
+            Assert.That(feature.Cast("燥", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(feature.Enemies[0].Statuses.Find(StatusKind.HealBlock), Is.Null, "燃面不再带干涸(Lv4 燃面是精进)");
         }
 
         [Test]
         public void Fen_BurningCity_DeathSettlesRemainingBurnOnOthers()
         {
-            // 焚 Lv5·燃 焚城:被本字点灼的敌人死亡时,对其余敌人结算一次它剩下的灼(不改它们的层数)
-            var b = Battle("焚", 5, Mob(hp: 1), Mob());
-            Assert.That(b.Cast("焚", 0), Is.EqualTo(BattleError.None));
+            // 焚 Lv5·燃 焚城:`BurnBurst` `pick All` `rider Burn`。spec C:燃面不再上灼,载体挂在「身上已有灼」的敌人上
+            // (Q3:非「本次名单」选择器只要求目标有灼);载体敌人死亡时,对其余敌人结算一次它剩下的灼(不改层数)
+            BattleEngine Make() { var x = Battle("焚", 5, Mob(hp: 1), Mob()); SetBurn(x, 0, 3); SetBurn(x, 1, 3); return x; }
+            var b = Make();
+            Assert.That(b.Cast("焚", -1, attackMode: false), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.BurnBurstMark), Is.True, "焚城载体挂上");
             Assert.That(b.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[0].Alive, Is.False);
             Assert.That(On(b, 1, BattleEventKind.BurnTick).Count, Is.EqualTo(1), "死者的残灼对另一名敌人结算一次");
-            Assert.That(Burn(b, 1), Is.EqualTo(5), "焚城不改层数:spec A 五行面灼全体 1 层 + 攻击面本体 4 层(Lv3 灼·强化)");
 
-            // 对照:没有焚城载体时同一下不会烧到旁人
-            var plain = Battle("焚", 5, Mob(hp: 1), Mob());
+            // 对照:没有焚城载体时同一下不会烧到旁人,且旁人的灼层数与有焚城时一致(焚城不改层数)
+            var plain = Make();
             Assert.That(plain.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(On(plain, 1, BattleEventKind.BurnTick).Count, Is.EqualTo(0));
+            Assert.That(Burn(b, 1) - Burn(plain, 1), Is.EqualTo(1), "焚城不改层数:唯一的差是落过燃面的那次攻击多吃 1 层燃意灼");
         }
 
         // ================= 反应击杀链(R4)=================
@@ -193,22 +202,29 @@ namespace Brushblade.Core.Tests
         public void Bao_ChainBlast_ReactionKill_DoesNotChainAgain_NorTriggerBurningCity()
         {
             // 同一夹具先量出敌人 1(带灼,吃爆燃)挨的本体一击 d;正式那场给它 d + 1 血:本体打不死、连爆打死
-            var probe = Duo("焚", 5, "爆", 8, Mob(hp: 1), Mob(), Mob());
-            Assert.That(probe.Cast("焚", 1), Is.EqualTo(BattleError.None));
+            // spec C:燃面不再上灼 —— 先给三名敌人各挂灼(焚城载体只挂在有灼的敌人上),再落燃面
+            BattleEngine Burning(params EnemyDef[] enemies)
+            {
+                var x = Duo("焚", 5, "爆", 8, enemies);
+                for (int i = 0; i < enemies.Length; i++) SetBurn(x, i, 3);
+                return x;
+            }
+            var probe = Burning(Mob(hp: 1), Mob(), Mob());
+            Assert.That(probe.Cast("焚", -1, attackMode: false), Is.EqualTo(BattleError.None));
             Assert.That(probe.Cast("爆", -1, attackMode: true), Is.EqualTo(BattleError.None));
             var probeHits = On(probe, 1, BattleEventKind.Damage);
             Assert.That(probeHits.Count, Is.EqualTo(2), "前提:本体一击 + 连爆 1 次");
             int d = probeHits[0].Amount;
 
             // 敌人 1 先吃焚 Lv5·燃 的焚城载体与灼;再用爆出字:敌人 0 被本体打死 → 连爆 1 次 → 打死敌人 1
-            var b = Duo("焚", 5, "爆", 8, Mob(hp: 1), Mob(hp: d + 1), Mob());
-            Assert.That(b.Cast("焚", 1), Is.EqualTo(BattleError.None));
+            var b = Burning(Mob(hp: 1), Mob(hp: d + 1), Mob());
+            Assert.That(b.Cast("焚", -1, attackMode: false), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[1].Statuses.Has(StatusKind.BurnBurstMark), Is.True, "前提:焚城载体挂上");
             Assert.That(b.Cast("爆", -1, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[1].Alive, Is.False, "前提:连爆打死了敌人 1");
             Assert.That(On(b, 2, BattleEventKind.Damage).Count, Is.EqualTo(1 + 1),
                 "反应里的击杀不再入队连爆(R4,虽然 limit 2 还剩 1 次)");
-            // spec A:焚五行面改全体,敌人 0 也带焚城载体 —— 它被本体击杀(出字本身)正当触发 1 次。
+            // spec A:焚五行面改全体(spec C 起要求目标有灼,夹具已给三人挂灼),敌人 0 也带焚城载体 —— 它被本体击杀(出字本身)正当触发 1 次。
             // 若敌人 1 被连爆(反应)打死也触发,这里会是 2
             Assert.That(On(b, 2, BattleEventKind.BurnTick).Count, Is.EqualTo(1), "反应里的击杀不触发焚城(R4):只有敌人 0 本体击杀那 1 次");
             Assert.That(b.PendingReactionCount, Is.EqualTo(0));
@@ -219,15 +235,22 @@ namespace Brushblade.Core.Tests
         {
             // 口径(终审 Important 2):烈焚 / 星火的追加一击是出字本身(TriggerDepth 0),它打死带焚城载体的敌人 → 焚城入队 1 次;
             // 对照上一条:连爆(反应)打死的不入队
-            var probe = Duo("焚", 5, "焚", 5, Mob(), Mob());
-            Assert.That(probe.Cast("焚", 0), Is.EqualTo(BattleError.None));
+            // spec C:先给敌人 0 挂更多灼(= MostBurn),敌人 1 少一些;两人都带焚城载体
+            BattleEngine Burning(params EnemyDef[] enemies)
+            {
+                var x = Duo("焚", 5, "焚", 5, enemies);
+                SetBurn(x, 0, 5); SetBurn(x, 1, 1);
+                return x;
+            }
+            var probe = Burning(Mob(), Mob());
+            Assert.That(probe.Cast("焚", -1, attackMode: false), Is.EqualTo(BattleError.None));
             Assert.That(probe.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
             var probeHits = On(probe, 0, BattleEventKind.Damage);
             Assert.That(probeHits.Count, Is.EqualTo(2), "前提:本体一击 + 烈焚追加一击(MostBurn = 敌人 0)");
             int body = probeHits[0].Amount;
 
-            var b = Duo("焚", 5, "焚", 5, Mob(hp: body + 1), Mob());
-            Assert.That(b.Cast("焚", 0), Is.EqualTo(BattleError.None));
+            var b = Burning(Mob(hp: body + 1), Mob());
+            Assert.That(b.Cast("焚", -1, attackMode: false), Is.EqualTo(BattleError.None));
             Assert.That(b.Cast("焚", -1, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(b.Enemies[0].Alive, Is.False, "前提:追加一击打死了敌人 0");
             Assert.That(On(b, 1, BattleEventKind.BurnTick).Count, Is.EqualTo(1), "焚城入队并兑现恰好 1 次");
@@ -284,7 +307,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Yan_Blazing_RegistersOpening_NextBattleStartsBurning()
         {
-            // 炎 Lv8·燃 炎炎:`BurnScale 200` + `BurnAll 2` `battles 1` —— 本场只翻倍,下一场开局全体 +灼 2
+            // 炎 Lv8·燃 炎炎:`BurnScale 200` `pick MostBurn` + `BurnAll 2` `battles 1` —— 本场只翻倍,下一场开局全体 +灼 2
             var config = new RunConfig
             {
                 Encounters = Enumerable.Range(0, 3).Select(_ => new[] { Mob(hp: 50) }).ToArray(),
@@ -292,8 +315,13 @@ namespace Brushblade.Core.Tests
             };
             var run = new RunEngine(Graph, config, Config, new[] { "炎", "炎", "炎", "炎", "炎" }, Array.Empty<string>(),
                 seed: 1, cardLevels: new Dictionary<string, int> { ["炎"] = 8 });
-            Assert.That(run.Battle.Cast("炎", 0), Is.EqualTo(BattleError.None));
-            Assert.That(Burn(run.Battle, 0), Is.EqualTo(2), "本场:spec A 燃面本体灼 1 层 × 200%,开局那条不执行");
+            // spec C:燃面不再上灼 —— 夹具先给敌人 1 层灼,炎炎把「灼最多的敌人」翻倍
+            SetBurn(run.Battle, 0, 1);
+            Assert.That(run.Battle.Cast("炎", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            // 炎 Lv8 燃面还带 池·续火(BurnSingle 2 pick MostBurn);BurnScale 是整面末尾的一道「翻倍」,
+            // 所以先续火补层(1 + 续火)、再 × 200%
+            int xuHuo = MetaRules.ScaleEffectValue(EffectKind.BurnSingle, 2, 8);
+            Assert.That(Burn(run.Battle, 0), Is.EqualTo((1 + xuHuo) * 2), "本场:(灼 1 层 + 续火)× 200%,开局那条不执行");
             var pending = run.Battle.PendingOpenings.Single();
             Assert.That((pending.Kind, pending.Value, pending.BattlesLeft), Is.EqualTo((EffectKind.BurnAll, 2, 1)));
 
@@ -315,8 +343,8 @@ namespace Brushblade.Core.Tests
             };
             var run = new RunEngine(Graph, config, Config, new[] { "炎", "炎", "炎", "焱", "焱" }, Array.Empty<string>(),
                 seed: 1, cardLevels: new Dictionary<string, int> { ["炎"] = 8, ["焱"] = 8 });
-            Assert.That(run.Battle.Cast("焱", 0), Is.EqualTo(BattleError.None));
-            Assert.That(run.Battle.Cast("炎", 0), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("焱", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("炎", -1, attackMode: false), Is.EqualTo(BattleError.None));
             var pending = run.Battle.PendingOpenings;
             Assert.That(pending.Select(o => (o.Kind, o.Value, o.BattlesLeft)).OrderBy(x => x.BattlesLeft).ToArray(),
                 Is.EqualTo(new[] { (EffectKind.BurnAll, 2, 1), (EffectKind.BurnAll, 2, 5) }), "前提:两条都登记");
@@ -417,18 +445,42 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void CanLan_Lv6_FeatureFace_BurnPotencyRaisedByHalf()
+        public void CanLan_Lv6_RealData_KindleHitBurnPotencyIsOneAndHalfOfLv5()
         {
-            // 灿 Lv6·润 灿烂(D1 由「灿然」改名):`Amplify 50` `scope Burn` —— 本字这次上的灼火力 ×1.5(spec A D6)
-            int Potency(int level)
+            // 真实数据:灿 Lv6·燃 灿烂 `Amplify 50` `scope Burn` 折进燃意火力(G3 机制,合成字的覆盖在 KindlePotencyTests)。
+            // 燃面(燃意)落玩家 → 攻击面一击 → 敌人身上命中灼的火力 = 卡等级火力 × 1.5(向上取整);Lv5 还没有灿烂,对照不放大
+            int HitPotency(int level)
             {
                 var b = Battle("灿", level, Mob());
-                Assert.That(b.Cast("灿", 0), Is.EqualTo(BattleError.None));
+                Assert.That(b.Cast("灿", -1, attackMode: false), Is.EqualTo(BattleError.None));
+                Assert.That(b.Cast("灿", 0, attackMode: true), Is.EqualTo(BattleError.None));
                 return b.Enemies[0].Statuses.Find(StatusKind.Burn).Potency;
             }
-            // 火力随卡等级缩放(Lv5 = 100 × 系数5);Lv6 = 150 × 系数6
-            Assert.That(Potency(5), Is.EqualTo(MetaRules.ScaleByCardLevel(100, 5)).Within(1), "对照:Lv5 无灿烂");
-            Assert.That(Potency(6), Is.EqualTo(MetaRules.ScaleByCardLevel(150, 6)).Within(1), "Lv6 灿烂:灼火力 ×1.5");
+            Assert.That(HitPotency(5), Is.EqualTo(MetaRules.CardLevelPercent(5)), "对照:Lv5 无灿烂");
+            Assert.That(HitPotency(6), Is.EqualTo((MetaRules.CardLevelPercent(6) * 150 + 99) / 100), "Lv6 灿烂:×1.5");
+        }
+
+        // ================= spec C 真实数据冒烟:燃意 =================
+
+        [Test]
+        public void Kindle_Yi_Lv1_FeatureOnPlayer_ThenAttackAddsOneBurnPerHitEnemy()
+        {
+            // 燚 Lv1 燃面:`Kindle 35` `pick AllAllies` `turns 3` → 玩家身上燃意 = 35%;再用攻击面出手,每个被命中的敌人比对照多 1 层灼
+            Assert.That(Graph.Get("燚").Element, Is.EqualTo(Element.Fire));
+            var control = Battle("燚", 1, Mob(), Mob());
+            Assert.That(control.Cast("燚", -1, attackMode: true), Is.EqualTo(BattleError.None));
+
+            var b = Battle("燚", 1, Mob(), Mob());
+            Assert.That(b.Cast("燚", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            var kindle = b.PlayerStatuses.Find(StatusKind.Kindle);
+            Assert.That(kindle, Is.Not.Null);
+            Assert.That(kindle.Magnitude, Is.EqualTo(MetaRules.ScaleEffectValue(EffectKind.Kindle, 35, 1)), "燃意 35% × 卡等级 1");
+            Assert.That(b.Cast("燚", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            for (int i = 0; i < 2; i++)
+            {
+                Assert.That(On(b, i, BattleEventKind.Damage).Count, Is.GreaterThan(0), $"前提:敌人 {i} 被命中");
+                Assert.That(Burn(b, i) - Burn(control, i), Is.EqualTo(1), $"敌人 {i}:燃意每次命中 +1 灼");
+            }
         }
     }
 }

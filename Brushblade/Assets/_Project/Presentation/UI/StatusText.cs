@@ -307,6 +307,10 @@ namespace Brushblade.Presentation
                     return new Info("hurtshield", Strings.T("status.hurtshield.name"),
                         Duration(turnsLeft),
                         Strings.T("status.hurtshield.desc", ("magnitude", magnitude)));
+                case StatusKind.Kindle:
+                    // 燃意(spec C §5.3):玩家或木灵身上,赭金、借用 burn 图标、战场 chip 无数字
+                    return new Info("burn", Strings.T("status.kindle.name"), Duration(turnsLeft),
+                        Strings.T("status.kindle.desc", ("magnitude", magnitude)));
                 case StatusKind.TurnPulse:
                     // 大雨滂沱(D2-水 W7):玩家身上。turnpulse 图标(StatusChipsWaterEarth 拍板;战场 chip 数字 = 剩余次数)。
                     // 载荷在 StatusEffect.OnHit 上 —— 详情走 Of(StatusEffect) 重载逐条列出,这里只有三元组时不列

@@ -2351,6 +2351,9 @@ namespace Brushblade.Presentation
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff) > 0)
                 statusChips.Add(new("", BattleChipColor(StatusKind.AttackBuff), Theme.GoldText, "attack"));
+            // 燃意(spec C §5.3):赭金、借用灼图标、无数字(% 与回合在详情)
+            if (Battle.PlayerStatuses.Has(StatusKind.Kindle))
+                statusChips.Add(new("", BattleChipColor(StatusKind.Kindle), Theme.GoldText, "burn"));
             // 战意带数字:数字是层数(2026-09-30 起本场保留不衰减、战斗结束清零,不再是倒计时),
             // 层数直接决定攻击乘区,玩家要看「叠到几层了」—— 和旁边那排平量增益不同。
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
@@ -3010,7 +3013,8 @@ namespace Brushblade.Presentation
                 or StatusKind.HealOverTime or StatusKind.Seed or StatusKind.Retaliate or StatusKind.SummonThorns
                 or StatusKind.Wellspring => Theme.Jade,
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff or StatusKind.PierceBuff
-                or StatusKind.CounterBoost or StatusKind.SummonEmpower or StatusKind.Heft => Theme.Gold,
+                or StatusKind.CounterBoost or StatusKind.SummonEmpower or StatusKind.Heft
+                or StatusKind.Kindle => Theme.Gold,
             // Freeze / Blind / Silence / Curse / ArmorBreak / Seal / Taunt / HealBlock / BuffBlock / SkillCut / Charm
             _ => Theme.InkSoft,
         };
@@ -3162,6 +3166,7 @@ namespace Brushblade.Presentation
             AddWardChips(chips, st);
             // 攻击光环占攻击增益的位置;与自身的攻击增益同一枚图标、同一个意思(「攻击变高了」),只出一枚,分项在详情
             if (attackAura || st.TotalMagnitude(StatusKind.AttackBuff) > 0) chips.Add(new("", BattleChipColor(StatusKind.AttackBuff), Theme.GoldText, "attack"));
+            Flag(StatusKind.Kindle, "burn");   // 燃意(spec C)
             Decaying(StatusKind.Morale, "morale");   // 战意:数字是层数(本场不衰减)
             // 暴击(W6 蟾宫):读 Core 的木灵暴击率(自身暴击增益 + 蟾宫),读到就出赭金暴击 chip,不标来源(详情写)
             if (Battle.SummonCritPercent(summon) > 0) chips.Add(new("", BattleChipColor(StatusKind.CritBuff), Theme.GoldText, "crit"));
@@ -4374,20 +4379,23 @@ namespace Brushblade.Presentation
         private string SummonLandingLabel()
         {
             if (_faceDragFace != CardFace.Feature) return null;
-            switch (_faceDragDef.Element)
-            {
-                case Element.Metal:
-                    foreach (var e in TraitRules.CastEffects(_faceDragDef, CardFace.Feature, _run.CardLevel(_faceDragDef.Id)))
-                        if (e.Kind == EffectKind.Block)
-                            // 按战意(D2-金 E10,BlockMod countPerMorale):次数出字后才定,签上写「= 战意」不写死数字
-                            return e.ScaleBy == ScaleBasis.Morale
-                                ? Strings.T("battle.landing.block.morale")
-                                : Strings.T("battle.landing.block", ("n", e.Value));
-                    return null;
-                case Element.Water: return Strings.T("battle.landing.to_water");
-                case Element.Earth: return Strings.T("battle.landing.taunt");
-                default: return null;
-            }
+            var cast = TraitRules.CastEffects(_faceDragDef, CardFace.Feature, _run.CardLevel(_faceDragDef.Id));
+            var parts = new List<string>();
+            if (_faceDragDef.Element == Element.Metal)
+                foreach (var e in cast)
+                    if (e.Kind == EffectKind.Block)
+                    {
+                        // 按战意(D2-金 E10,BlockMod countPerMorale):次数出字后才定,签上写「= 战意」不写死数字
+                        parts.Add(e.ScaleBy == ScaleBasis.Morale
+                            ? Strings.T("battle.landing.block.morale")
+                            : Strings.T("battle.landing.block", ("n", e.Value)));
+                        break;
+                    }
+            if (_faceDragDef.Element == Element.Earth) parts.Add(Strings.T("battle.landing.taunt"));
+            // 换属性(spec C §4):落木灵即永久改为本字所属系;水字不再「本场改水」
+            if (_faceDragDef.Element is Element own && cast.Any(e => e.Kind == EffectKind.Attune))
+                parts.Add(Strings.T("battle.landing.attune", ("element", CharInfo.ElementName(own))));
+            return parts.Count == 0 ? null : string.Join(Strings.T("battle.landing.sep"), parts);
         }
 
         /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
@@ -7085,7 +7093,7 @@ namespace Brushblade.Presentation
             {
                 AppendBossPhaseMessage();
                 AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
-                AppendUnsealMessage(); // 解封重掷召唤物属性,同样产自 Cast() 自己的 _events
+                AppendUnsealMessage(); // 解封重掷 / 改属性 / 嫁接回木,同样产自 Cast() 自己的 _events
                 // 嫁接不弹文字条(E3 Q8):提示全在 Juice(JuiceWaterEarth.PlayGraft)
             }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
@@ -7376,17 +7384,20 @@ namespace Brushblade.Presentation
         /// 现读 summon.Element 自动跟上的,但玩家没有别的渠道知道「刚才那下改的是谁的属性、
         /// 变成了什么」——不发这条提示,变化就只体现在下一次重绘的底色上,容易被当成没生效。
         /// 用 e.Amount 里带的新属性而不是回读 Battle.Summons[e.TargetIndex].Element:后者如果
-        /// 那只召唤物在同一批事件里又被打死,索引仍合法但语义上「去读一个已经死了的槽位」更绕。</summary>
+        /// 那只召唤物在同一批事件里又被打死,索引仍合法但语义上「去读一个已经死了的槽位」更绕。
+        /// spec C 终审修复 2:Attune(点金 / 化水 / 引火 / 培土)与嫁接回木发的是 ElementChanged,同样提示,但不印「解封」。</summary>
         private void AppendUnsealMessage()
         {
             foreach (var e in Battle.LastEvents)
-                if (e.Kind == BattleEventKind.Unseal)
+                if (e.Kind == BattleEventKind.Unseal || e.Kind == BattleEventKind.ElementChanged)
                 {
                     string charId = e.TargetIndex >= 0 && e.TargetIndex < Battle.Summons.Count
                         && Battle.Summons[e.TargetIndex] != null
                         ? Battle.Summons[e.TargetIndex].Char : "";
-                    _message += Strings.T("battle.msg.unseal",
-                        ("charId", charId), ("element", CharInfo.ElementName((Element)e.Amount)));
+                    string element = CharInfo.ElementName((Element)e.Amount);
+                    _message += e.Kind == BattleEventKind.Unseal
+                        ? Strings.T("battle.msg.unseal", ("charId", charId), ("element", element))
+                        : Strings.T("battle.msg.element_changed", ("name", charId), ("element", element));
                 }
         }
 

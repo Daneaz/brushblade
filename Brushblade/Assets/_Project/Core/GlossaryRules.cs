@@ -1,6 +1,6 @@
 namespace Brushblade.Core
 {
-    /// <summary>词条表的术语(spec 2026-10-03 §3,2026-10-15 spec B 追加涓 / 涌 / 苏 / 速度、同日厚积薄发 / 涌泉相报单列后共 47 条(关键词 37 / 范围 7 / 存续 3),按 §3.1 关键词 → §3.2 范围 → §3.3 存续的顺序)。
+    /// <summary>词条表的术语(spec 2026-10-03 §3,2026-10-15 spec B 追加涓 / 涌 / 苏 / 速度、同日厚积薄发 / 涌泉相报单列后共 48 条(关键词 38 / 范围 7 / 存续 3),按 §3.1 关键词 → §3.2 范围 → §3.3 存续的顺序)。
     /// 名称取字符串表 key 的 ASCII id(<c>term.&lt;id&gt;.name / .desc</c>)转 PascalCase;说明文案在字符串表,不在这里。
     /// ordinal 不进存档,但 <see cref="GlossaryRules.Group"/> 依赖三组连续排列 —— 新增时插在所属组的末尾。</summary>
     public enum GlossaryTerm
@@ -43,6 +43,7 @@ namespace Brushblade.Core
         Speed,         // 速度(林风 / 森风 / 浮藻 / 木疾 的 Lv5 被动)
         SpendHeft,     // 厚积薄发(2026-10-15 用户:特殊词条,单独成条)
         SpendWellspring, // 涌泉相报(同上)
+        Kindle,        // 燃意(spec C §5.3:火五行面)
         // ---- §3.2 范围 ----
         AreaSingle,    // 单体
         AreaAdjacent,  // 溅射
@@ -72,7 +73,7 @@ namespace Brushblade.Core
     {
         /// <summary>0 = 关键词、1 = 范围、2 = 存续(spec §3.1 / §3.2 / §3.3)。</summary>
         public static int Group(GlossaryTerm term) =>
-            term <= GlossaryTerm.SpendWellspring ? 0 : term <= GlossaryTerm.AreaAll ? 1 : 2;
+            term <= GlossaryTerm.Kindle ? 0 : term <= GlossaryTerm.AreaAll ? 1 : 2;
 
         /// <summary>字卡详情数值格对应的术语;null = 这一格不带术语(伤害 / 治疗 / 召唤攻击 / 反击 / 持续),不开气泡。</summary>
         public static GlossaryTerm? TermOf(FaceStatKind kind) => kind switch
@@ -94,6 +95,7 @@ namespace Brushblade.Core
             FaceStatKind.SpendWellspring => GlossaryTerm.SpendWellspring,
             FaceStatKind.SpendHeft => GlossaryTerm.SpendHeft,
             FaceStatKind.ReviveHp => GlossaryTerm.Revive,
+            FaceStatKind.Kindle => GlossaryTerm.Kindle,
             _ => null,
         };
 
@@ -115,6 +117,7 @@ namespace Brushblade.Core
             GlossaryTerm.IceStall => ("chill", ChipTone.Control),
             GlossaryTerm.Slow => ("slow", ChipTone.Control),
             GlossaryTerm.Morale => ("morale", ChipTone.Boost),
+            GlossaryTerm.Kindle => ("burn", ChipTone.Boost),   // 燃意:增益组(赭金),借用灼图标(spec C §5.3)
             GlossaryTerm.Block => ("block", ChipTone.Guard),
             GlossaryTerm.Shield => ("shield", ChipTone.Guard),
             GlossaryTerm.Armor => ("defense", ChipTone.Guard),

@@ -77,7 +77,7 @@ namespace Brushblade.Presentation
 
         /// <summary>攻/盾/甲/速四格。攻的口径与老文本 <see cref="Detail(SummonState)"/> 一致
         /// (读 EffectiveAttack,不是 Attack)——这是稿子标出来的既有规则(见那个属性的文档),
-        /// 这里不重新推一遍。</summary>
+        /// 这里不重新推一遍。EffectiveAttack 已含光环与燃意(spec C),攻的注释两项都交代。</summary>
         private static (string, string, string)[] BuildFigures(SummonState summon, int defenseValue)
         {
             // 老文本(Detail(SummonState))这里是无条件二选一(action_attack / action_passive_only),
@@ -88,9 +88,16 @@ namespace Brushblade.Presentation
             string attackNote = summon.Attack == 0
                 ? Strings.T("summon.detail.figure_attack_passive_note")
                 : Strings.T("summon.detail.action_attack").TrimEnd('\n');
-            // 攻击光环(SummonInfoNature 稿「攻 48 · 含光环 +20%」):攻击一栏是有效值,已含光环,注明一句
-            if (summon.TraitAttackPercent > 0)
-                attackNote = Strings.T("summon.detail.figure_attack_aura", ("value", summon.TraitAttackPercent));
+            // 攻击光环(SummonInfoNature 稿「攻 48 · 含光环 +20%」)与燃意(spec C,同 PlayerInfo「燃意 +x%」):
+            // 攻击一栏是有效值(EffectiveAttack),已含这两项,有哪项注明哪项,两项都有用「 · 」连。
+            // 燃意读 MaxMagnitude —— 与 SummonState.EffectiveAttack 同口径(不同字的燃意各挂一条,只取最强)
+            string auraNote = summon.TraitAttackPercent > 0
+                ? Strings.T("summon.detail.figure_attack_aura", ("value", summon.TraitAttackPercent))
+                : null;
+            string kindleNote = UnitDetailChip.DeltaBuffPct(Strings.T("status.kindle.name"),
+                summon.Statuses.MaxMagnitude(StatusKind.Kindle));
+            if (auraNote != null || kindleNote != null)
+                attackNote = auraNote != null && kindleNote != null ? auraNote + " · " + kindleNote : auraNote ?? kindleNote;
 
             string defenseNote = defenseValue > 0
                 ? Strings.T("summon.detail.figure_defense_note")
@@ -183,6 +190,7 @@ namespace Brushblade.Presentation
             if (p.OnHitCurse > 0) Old(Strings.T("summon.passive.curse", ("curse", p.OnHitCurse)));
             Wood(CharInfo.NatureKey.GroveCut, x => x.GroveCut > 0);
             Wood(CharInfo.NatureKey.ThicketCut, x => x.ThicketCut > 0);
+            Wood(CharInfo.NatureKey.SelfCut, x => x.SelfCut > 0);
             Wood(CharInfo.NatureKey.CritAura, x => x.CritAura > 0);
             if (p.HealAlly > 0) Old(Strings.T("summon.passive.heal_ally", ("heal", p.HealAlly)));
             if (p.Regen > 0) Old(Strings.T("summon.passive.regen", ("regen", p.Regen)));
@@ -242,7 +250,7 @@ namespace Brushblade.Presentation
             if (passive.Thorns > 0) return "thorns";   // 披荆只认本命荆棘,与盾反同一枚
             if (passive.OnHitBurn > 0) return "burn";
             if (passive.OnHitCurse > 0) return "curse";
-            if (passive.GroveCut > 0 || passive.ThicketCut > 0) return "bulwark";
+            if (passive.GroveCut > 0 || passive.ThicketCut > 0 || passive.SelfCut > 0) return "bulwark";
             if (passive.CritAura > 0) return "crit";
             if (passive.HealAlly > 0 || passive.Regen > 0) return "heal";
             if (passive.Dodge > 0) return "dodge";

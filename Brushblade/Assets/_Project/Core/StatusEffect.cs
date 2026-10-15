@@ -142,6 +142,9 @@ namespace Brushblade.Core
         SummonRanged,     // M1 木灵远程(玩家袋,本场 TurnsLeft −1,TargetSlot −1):木灵出手按远程选目标
         Bind,             // M7 攀附(敌人,TargetSlot = 藤灵槽,Magnitude = 打击百分比)。Task 4
         ThornMark,        // M6 荆刺(敌人,Magnitude = 反弹百分比,按该敌人行动递减)。Task 3
+        // ---- spec C(2026-10-15)。⚠ 只在末尾追加 ----
+        Kindle,           // 燃意(玩家或木灵,Buff,可见 chip「burn」赭金):Magnitude = 攻击 +N%,TurnsLeft = 回合,Potency = 施加字的灼火力;
+                          // 同一单位只留一条(取大 %、取长回合)。
     }
 
     /// <summary>状态的分类规则。</summary>
@@ -241,6 +244,9 @@ namespace Brushblade.Core
         /// <summary>贯穿反击:打完攻击者再打同列其余存活敌人(每击 70%),共用 60% 预算。</summary>
         public bool CounterColumn { get; set; }
 
+        /// <summary>横扫反击:打完攻击者再打同排其余存活敌人(每击 70%),共用 60% 预算(spec C 扫锋)。</summary>
+        public bool CounterRow { get; set; }
+
         /// <summary>反击击数(0 / 1 = 一击):每击 = CounterDamage,逐击扣预算。</summary>
         public int CounterHits { get; set; }
 
@@ -280,7 +286,7 @@ namespace Brushblade.Core
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
             TargetSlot = TargetSlot, CounterDamage = CounterDamage, Potency = Potency, TraitKey = TraitKey,
             MinBurn = MinBurn, OnHit = OnHit?.Select(o => o.Clone()).ToList(),
-            CounterColumn = CounterColumn, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
+            CounterColumn = CounterColumn, CounterRow = CounterRow, CounterHits = CounterHits, CounterExecuteBelow = CounterExecuteBelow,
             BlockBleed = BlockBleed, BlockMorale = BlockMorale, KillRefundAp = KillRefundAp,
             ExecuteSourceCharId = ExecuteSourceCharId, WhileSlowed = WhileSlowed,
             WardOf = WardOf, WardCount = WardCount, MinArmor = MinArmor,

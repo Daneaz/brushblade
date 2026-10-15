@@ -14,11 +14,12 @@ namespace Brushblade.Core.Tests
         private static FaceLanding L(string id, CardFace f) => CardFaceRules.Landing(Def(id), f, 1);
 
         [Test]
-        public void Fire_Heat_BothFacesHitEnemy()
+        public void Fire_Heat_AttackHitsEnemy_FeatureLandsOnSelfOrSummons()
         {
             Assert.That(CardFaceRules.HasTwoFaces(Def("热")), Is.True);
             Assert.That(L("热", CardFace.Attack), Is.EqualTo(FaceLanding.Enemy));
-            Assert.That(L("热", CardFace.Feature), Is.EqualTo(FaceLanding.Enemy));
+            // spec C §5.1 / Q12:火系五行面改燃意,拖到自己或木灵
+            Assert.That(L("热", CardFace.Feature), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
         }
 
         [TestCase("利")]
@@ -66,9 +67,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Fire_Yan_FeatureBurnAllHitsEnemy()
+        public void Fire_Yan_KindleAllAllies_LandsOnSelfOrSummons()
         {
-            Assert.That(L("焱", CardFace.Feature), Is.EqualTo(FaceLanding.Enemy));
+            // spec C §5.1 / Q12:焱五行面 = 燃意我方全体,不再带全体灼;燃意面落点恒为自己或木灵
+            Assert.That(L("焱", CardFace.Feature), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
         }
 
         [TestCase("冻")]
@@ -88,9 +90,11 @@ namespace Brushblade.Core.Tests
                     var landing = CardFaceRules.Landing(d, CardFace.Feature, lv);
                     if ((landing & FaceLanding.Self) == 0) continue;
                     // D2-水 E26(Q25,溃围 `Slow 1 pick All`):需要友方目标的面,pick All 的敌方附带不选敌,允许与 Self 落点共存;
-                    // 落在主目标上的敌对效果仍然不许
+                    // 落在主目标上的敌对效果仍然不许。
+                    // spec C §5.1 / §5.2:燃面落 Self 后,BurnAll(本就全体)、pick Random / MostBurn 都不选敌 ——
+                    // 判据改用 EffectNeedsTarget(与 NeedsTarget 同口径),不再只认 pick All
                     foreach (var e in TraitRules.CastEffects(d, CardFace.Feature, lv))
-                        Assert.That(CardFaceRules.IsHostileTargeted(e) && EffectPickRules.Effective(e) != EffectPick.All, Is.False,
+                        Assert.That(CardFaceRules.IsHostileTargeted(e) && BattleEngine.EffectNeedsTarget(e), Is.False,
                             $"{d.Id} Lv{lv} 五行面含 Self 落点却有选主目标的敌对效果 {e.Kind}");
                 }
         }
@@ -139,6 +143,7 @@ namespace Brushblade.Core.Tests
             EffectKind.SummonMerge, EffectKind.SummonAct, EffectKind.GrantChar,
             EffectKind.Lifesteal, EffectKind.OverhealShield,   // spec A D8:回复玩家 / 给玩家护盾
             EffectKind.BlockGain, EffectKind.ReviveShield,     // spec A D7 / D8:给玩家格挡 / 给复活木灵护盾
+            EffectKind.Kindle, EffectKind.Attune, EffectKind.SpendHeal, EffectKind.SpendShield,   // spec C:作用于我方 / 木灵属性
         };
 
         [Test]

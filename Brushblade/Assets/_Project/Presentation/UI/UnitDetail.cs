@@ -135,7 +135,9 @@ namespace Brushblade.Presentation
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.CounterBoost    // 反击加倍(StatusChips 10-04 稿赭金:加的是伤害)
                 or StatusKind.SummonEmpower   // 攻击光环(StatusChipsWood 稿 k-gold 赭金)
-                or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
+                or StatusKind.PierceBuff
+                or StatusKind.Kindle   // 燃意(spec C)
+                => Theme.RarityColor(CardRarity.Gold),
             StatusKind.SummonRanged => Positioning,   // 远程光环:射程一类(攻击模式与站位)
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
             // 与 morale/attack/pierce 同属「我方增益」大类,按气质就近归到金,而不是新开一支色。
@@ -173,7 +175,8 @@ namespace Brushblade.Presentation
             // 减伤 / 受伤上限有了正式图标(bulwark / hitcap,2026-10-11 拍板):详情 chip 印百分比(SummonInfoNature 稿「减伤 15%」);
             // 战场上不带数字。
             // 攻击 / 荆棘光环(StatusChipsWood / SummonInfoNature 稿):详情 chip 印百分比
-            StatusKind.DamageCut or StatusKind.HitCap or StatusKind.SummonEmpower or StatusKind.SummonThorns =>
+            StatusKind.DamageCut or StatusKind.HitCap or StatusKind.SummonEmpower or StatusKind.SummonThorns
+                or StatusKind.Kindle =>
                 Strings.T("detail.chip.plain_pct", ("value", magnitude)),
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))

@@ -38,12 +38,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Body_Yan_Feature_WeakenThenDuration()
+        public void Body_Yan_Feature_KindleThenDuration()
         {
             var yan = Graph.Get("炎");
-            // 金档慑 25% / 3 回合、灼恒 1;Lv3 慑·强化 = 30% / 4 回合,灼不动
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 1)), Is.EqualTo("Burn:1,Weaken:25,Duration:3"));
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 10)), Is.EqualTo($"Burn:1,Weaken:{Scale(30, 10)},Duration:4"));
+            // spec C §5.1:火面本体 = 燃意(金档 25% / 3 回合),不再带灼、不再减攻;Lv3 燃意·强化 = 30% / 4 回合
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 1)), Is.EqualTo("Kindle:25,Duration:3"));
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 10)), Is.EqualTo($"Kindle:{Scale(30, 10)},Duration:4"));
         }
 
         [Test]
@@ -68,7 +68,7 @@ namespace Brushblade.Core.Tests
             Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Feature, 1)), Is.EqualTo("Heal:210,ReviveHp:60"), "㵘 = 苏(全体),复活生命 60%");
             Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Feature, 1)), Is.EqualTo("Shield:45,Armor:20,Duration:2"), "崩五行面全体盾 45");
             Assert.That(Cells(FaceStats.Body(Graph.Get("冰"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(195, 3)},Freeze:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:420,ArmorBreak:2,SpendHeft:60"),
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:420,SpendHeft:60"),
                 "厚积薄发出耗厚格(final review Important 1)");
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 1)), Is.EqualTo("Shield:420,Armor:70,Duration:3"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 4)),
@@ -163,7 +163,8 @@ namespace Brushblade.Core.Tests
                     }
                 }
             var unobserved = System.Enum.GetValues(typeof(FaceStatKind)).Cast<FaceStatKind>()
-                .Where(k => FaceStats.Scales(k) && !observed.Contains(k)).ToList();
+                .Where(k => FaceStats.Scales(k) && !observed.Contains(k)
+                    && k != FaceStatKind.Weaken).ToList();   // spec C:火面不再减攻,Weaken 在真实字表里没有载体(格仍留给手造字 / 池特性)
             Assert.That(unobserved, Is.Empty, "标了缩放、真实字表里却没出现过的格:" + string.Join(",", unobserved));
         }
 
@@ -173,7 +174,7 @@ namespace Brushblade.Core.Tests
         public void Deltas_Yan_L1ToL2_OnlyScaledValues()
         {
             Assert.That(Diffs(FaceStats.Deltas(Graph.Get("炎"), 1, 2)),
-                Is.EqualTo($"Attack.Damage:195->{Scale(195, 2)},Feature.Weaken:25->{Scale(25, 2)}"));
+                Is.EqualTo($"Attack.Damage:195->{Scale(195, 2)},Feature.Kindle:25->{Scale(25, 2)}"));
         }
 
         [Test]
@@ -181,8 +182,10 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(Diffs(FaceStats.Deltas(Graph.Get("炎"), 2, 3)),
                 Is.EqualTo($"Attack.Damage:{Scale(195, 2)}->{Scale(195, 3)},Attack.Burn:3->4,"
-                    + $"Feature.Weaken:{Scale(25, 2)}->{Scale(30, 3)},Feature.Duration:3->4"));
+                    + $"Feature.Kindle:{Scale(25, 2)}->{Scale(30, 3)},Feature.Duration:3->4"));
         }
+
+        private static readonly HashSet<string> SpendChars = new() { "崩", "㙓", "溃", "㵘" };
 
         [Test]
         public void Deltas_AllChars_L1ToL2_OnlyScalable_L2ToL3_HasDiscrete()
@@ -193,7 +196,9 @@ namespace Brushblade.Core.Tests
                 Assert.That(up2, Is.Not.Empty, d.Id);
                 Assert.That(up2.All(x => FaceStats.Scales(x.Kind)), Is.True, $"{d.Id}:{Diffs(up2)}");
                 var up3 = FaceStats.Deltas(d, 2, 3);
-                Assert.That(up3.Any(x => !FaceStats.Scales(x.Kind)), Is.True, $"{d.Id}:{Diffs(up3)}");
+                // spec C:崩 / 㙓 / 溃 / 㵘 的 Lv3 是「厚积薄发 / 涌泉相报·强化」,只把每层伤害 +30%(连续量),没有离散变化
+                if (!SpendChars.Contains(d.Id))
+                    Assert.That(up3.Any(x => !FaceStats.Scales(x.Kind)), Is.True, $"{d.Id}:{Diffs(up3)}");
                 // CardFace 枚举是 Feature = 0、Attack = 1,不能用 Is.Ordered
                 var faces = up3.Select(x => x.Face).ToList();
                 Assert.That(faces.SkipWhile(f => f == CardFace.Attack).All(f => f == CardFace.Feature), Is.True,
@@ -221,7 +226,7 @@ namespace Brushblade.Core.Tests
             var yan = Graph.Get("炎");
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Attack)), Is.EqualTo("Attack.Burn:3->4"));
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Feature)),
-                Is.EqualTo($"Feature.Weaken:{Scale(25, 3)}->{Scale(30, 3)},Feature.Duration:3->4"), "慑·强化:+5%、回合 +1,灼不动");
+                Is.EqualTo($"Feature.Kindle:{Scale(25, 3)}->{Scale(30, 3)},Feature.Duration:3->4"), "燃意·强化:+5%、回合 +1(spec C §5.1),灼不动");
         }
 
         [Test]
@@ -229,7 +234,7 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("剑"), CardFace.Feature)),
                 Is.EqualTo("Feature.Block:2->3,Feature.CounterPercent:40->50"), "格挡·强化:+1 次、反击 40%→50%(统一按 %)");
-            Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("㙓"), CardFace.Attack)), Is.EqualTo("Attack.ArmorBreak:2->4"));
+            Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("㙓"), CardFace.Attack)), Is.EqualTo("Attack.SpendHeft:68->88"), "spec C:厚积薄发·强化 = 每层 60→78(同级 Lv3 缩放后 68→88),不再有破甲");
             Assert.That(Diffs(FaceStats.Lv3Change(Graph.Get("林"), CardFace.Attack)), Is.EqualTo("Attack.Seed:2->3"));
             Assert.That(FaceStats.Lv3Change(Graph.Get("林"), CardFace.Feature), Is.Empty, "本命强化只改被动,没有数值差");
         }
@@ -284,11 +289,11 @@ namespace Brushblade.Core.Tests
         public void Body_SpendCells_PerStackDamage_Scaled()
         {
             var lei = Graph.Get("㙓");
-            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:420,ArmorBreak:2,SpendHeft:60"));
-            Assert.That(FaceStats.Body(lei, CardFace.Attack, 10).Last().Value, Is.EqualTo(Scale(60, 10)));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Attack, 1)), Is.EqualTo("Damage:45,ArmorBreak:2,SpendHeft:13"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Attack, 1)), Is.EqualTo("Damage:210,Freeze:1,SpendWellspring:60"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("溃"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(45, 3)},Slow:2,SpendWellspring:{Scale(13, 3)}"));
+            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:420,SpendHeft:60"));
+            Assert.That(FaceStats.Body(lei, CardFace.Attack, 10).Last().Value, Is.EqualTo(Scale(78, 10)), "Lv10 已含 Lv3 厚积薄发·强化(60→78)");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Attack, 1)), Is.EqualTo("Damage:45,SpendHeft:13"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Attack, 1)), Is.EqualTo("Damage:210,SpendWellspring:60"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("溃"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(45, 3)},SpendWellspring:{Scale(17, 3)}"));
             Assert.That(Diffs(FaceStats.Deltas(lei, 1, 2).Where(d => d.Kind == FaceStatKind.SpendHeft)),
                 Is.EqualTo($"Attack.SpendHeft:60->{Scale(60, 2)}"), "升级预览的差行带上耗厚");
             Assert.That(FaceStats.Scales(FaceStatKind.SpendHeft) && FaceStats.Scales(FaceStatKind.SpendWellspring), Is.True);
@@ -322,7 +327,7 @@ namespace Brushblade.Core.Tests
                     switch (d.Element)
                     {
                         case Element.Metal: Assert.That(got, Is.EqualTo("CounterPercent,Block,Morale"), why); break;
-                        case Element.Fire: Assert.That(got, Is.EqualTo("Weaken,Duration,Burn"), why); break;
+                        case Element.Fire: Assert.That(got, Is.EqualTo("Kindle,Duration,Burn"), why); break;
                         case Element.Wood: Assert.That(got, Is.EqualTo("SummonHp,SummonAttack"), why); break;
                         case Element.Earth: Assert.That(got, Is.EqualTo("Shield,Armor,Duration"), why); break;
                         case Element.Water:
@@ -353,11 +358,11 @@ namespace Brushblade.Core.Tests
                             Assert.That(cells[2].Value, Is.EqualTo(1), why + ":五行面战意恒 1(spec A §4.2)");
                             break;
                         case Element.Fire:
-                            var weaken = fx.First(e => e.Kind == EffectKind.Weaken);
-                            Assert.That(cells[0].Value, Is.EqualTo(MetaRules.ScaleEffectValue(weaken.Kind, weaken.Value, lv)), why);
-                            Assert.That(cells[1].DurationOf, Is.EqualTo(FaceStatKind.Weaken), why);
-                            Assert.That(cells[1].Value, Is.EqualTo(TraitRules.TurnsOf(weaken)), why);
-                            Assert.That(cells[2].Value, Is.EqualTo(1), why + ":五行面灼恒 1(spec A §4.1)");
+                            var kindle = fx.First(e => e.Kind == EffectKind.Kindle);
+                            Assert.That(cells[0].Value, Is.EqualTo(MetaRules.ScaleEffectValue(kindle.Kind, kindle.Value, lv)), why);
+                            Assert.That(cells[1].DurationOf, Is.EqualTo(FaceStatKind.Kindle), why);
+                            Assert.That(cells[1].Value, Is.EqualTo(TraitRules.TurnsOf(kindle)), why);
+                            Assert.That(cells[2].Value, Is.EqualTo(BattleEngine.KindleBurnPerHit), why + ":每次命中加灼层数恒 1(spec C §5.3)");
                             break;
                         case Element.Water:
                             if (cells.Count == 2 && cells[1].Kind == FaceStatKind.ReviveHp)
