@@ -1457,7 +1457,7 @@
   "char.effect.grantchar": "字库额外获得{value}张最高档字",
   "char.effect.lifesteal": "回复本次伤害的{value}%",
   "char.effect.overhealshield": "治疗溢出的{value}%转为护盾",
-  "char.effect.blockgain": "格挡 +{value} 次",
+  "char.effect.blockgain": "格挡 +{value} 次(无格挡则获得{value}次格挡)",
   "char.effect.reviveshield": "复活的木灵获得最大生命{value}%的护盾",
   "char.effect.reshape.summonpercent": "召出的木灵改为每只{percent}%属性",
   "char.effect.summonatkstrike": "(+场上木灵攻击总和的{percent}%)",

@@ -60,12 +60,12 @@ namespace Brushblade.Presentation
         public static string SideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel) =>
             OneSideEffectsText(effects, def, cardLevel);
 
-        /// <param name="healReshape">治疗改形(D2-水 E20):这些效果所在那一面没有伤害、有 HealSelf ——
+        /// <param name="reshapeFace">治疗改形(D2-水 E20):这些效果所在那一面没有伤害、有 HealSelf ——
         /// Reshape 的 shape All 改的是治疗,不是伤害。只有 <see cref="TraitEffectsText"/> 拿得到面的上下文。</param>
         /// <param name="blockBasePercent">BlockMod 印「原为 N%」的原值:该特性解锁时本面折叠后的格挡反击 %
         /// (<see cref="TraitRules.FaceBlockCounterPercent(CharDef, TraitDef, int)"/>);拿不到面上下文时按缺省 30% 印。</param>
         private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel,
-            bool healReshape = false, int blockBasePercent = BattleConfig.BlockCounterPercent)
+            ReshapeFace reshapeFace = ReshapeFace.Damage, int blockBasePercent = BattleConfig.BlockCounterPercent)
         {
             if (effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
@@ -79,8 +79,11 @@ namespace Brushblade.Presentation
                 // 分隔符与内容同为 U+002C 时,多效果字会被读成比实际更多的段。
                 // 分号的层级严格强于逗号(顿号反而更弱,当结构分隔符会把层级弄反),
                 // 所以各分支内部照常写逗号即可,不必再逐个改文案。
-                if (i > 0) parts.Append(';');
                 var e = effects[i];
+                // 空转的改形(治疗面本体已是全体)整句不印,连分号一起省
+                if (e.Kind == EffectKind.Reshape && reshapeFace == ReshapeFace.Noop && e.Pick == EffectPick.Primary
+                    && e.Shape == TargetArea.All && e.SummonPercent == 100 && e.ArmorShieldPercent <= 0) continue;
+                if (parts.Length > 0) parts.Append(';');
                 int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
                 // 本体百分比(D2-火 E5,连爆 / 埋雷):数值在出字时才按本面本体解析,没有具体数可印;
                 // 只有 DamageSingle / Mine 能写(ConfigLoader 拦其余),这两个分支各走自己的整句 key,
@@ -313,7 +316,7 @@ namespace Brushblade.Presentation
                     EffectKind.Unseal => Strings.T("char.effect.unseal"),
                     // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
                     EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
-                    EffectKind.Reshape => ReshapeText(e, healReshape),
+                    EffectKind.Reshape => ReshapeText(e, reshapeFace == ReshapeFace.Heal),
                     // Augment(D1 Task 4):「目标 字段 +N」,不吃卡等级(shown == e.Value)
                     EffectKind.Augment => AugmentText(e),
                     // 格挡修饰器(D2-金 E12):按战意的次数 / 反击百分比覆盖 / 格挡附带都在 BlockModText 里印
@@ -428,23 +431,27 @@ namespace Brushblade.Presentation
         /// 特性详情页(Plan E)的入口;卡面主句仍走 <see cref="EffectsText"/>。</summary>
         public static string TraitEffectsText(TraitDef trait, CharDef def, int cardLevel) =>
             TriggerText(trait.Trigger)
-            + OneSideEffectsText(trait.Effects, def, cardLevel, HealReshapeFace(trait, def, cardLevel),
+            + OneSideEffectsText(trait.Effects, def, cardLevel, ReshapeFaceOf(trait, def, cardLevel),
                 def != null && trait.Effects.Any(e => e.Kind == EffectKind.BlockMod)
                     ? TraitRules.FaceBlockCounterPercent(def, trait, cardLevel) : BattleConfig.BlockCounterPercent)
             + (trait.MaxPerCast > 0 ? Strings.T("char.trait.limit", ("count", trait.MaxPerCast)) : "")
             + (trait.MaxPerBattle > 0 ? Strings.T("char.trait.battlelimit", ("count", trait.MaxPerBattle)) : "");   // D2-土 E35
 
+        private enum ReshapeFace { Damage, Heal, Noop }
+
         /// <summary>这条特性所在那一面「没有伤害、有治疗」(D2-水 E20,海纳百川 / 细雨 / 泽被…):Reshape shape All 改的是第一条 HealSelf。
-        /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面**折叠后**的出字效果(<see cref="TraitRules.CastEffects"/>,
-        /// 等级取 max(卡等级, 本特性解锁等级) —— 未解锁的特性也要印得对)。两面通用(Both)的特性按润面判:
+        /// 判据与 <c>TraitRules.ApplyReshape</c> 同口径,读的是该面折叠前的本体效果(折叠后已含本条 Reshape,HoT 会被改成全体而误判)。两面通用(Both)的特性按润面判:
         /// 双方向字的攻面恒有伤害,改的是伤害,印成「伤害改为」;单方向字只有一面,与润面同一份效果。</summary>
-        private static bool HealReshapeFace(TraitDef trait, CharDef def, int cardLevel)
+        private static ReshapeFace ReshapeFaceOf(TraitDef trait, CharDef def, int cardLevel)
         {
-            if (def == null || !trait.Effects.Any(e => e.Kind == EffectKind.Reshape)) return false;
-            if (trait.Face == TraitFace.Both && def.AttackEffects.Count > 0) return false;
-            var face = trait.Face == TraitFace.Attack ? CardFace.Attack : CardFace.Feature;
-            var cast = TraitRules.CastEffects(def, face, Math.Max(cardLevel, trait.UnlockLevel));
-            return !cast.Any(e => e.Kind == EffectKind.DamageSingle) && cast.Any(e => e.Kind == EffectKind.HealSelf);
+            if (def == null || !trait.Effects.Any(e => e.Kind == EffectKind.Reshape)) return ReshapeFace.Damage;
+            if (trait.Face == TraitFace.Both && def.AttackEffects.Count > 0) return ReshapeFace.Damage;
+            // 读折叠**前**的面本体:折叠已含本条 Reshape 时,HoT 早被改成全体,判据会误判成空转
+            var cast = trait.Face == TraitFace.Attack ? def.AttackEffects : def.Effects;
+            if (TraitRules.HealReshapeIndex(cast) >= 0) return ReshapeFace.Heal;
+            // 无伤害、已是 HealAll(㵘):改形空转,这句不印
+            return !cast.Any(e => e.Kind == EffectKind.DamageSingle) && cast.Any(e => e.Kind == EffectKind.HealAll)
+                ? ReshapeFace.Noop : ReshapeFace.Damage;
         }
 
         /// <summary>冻结附着族的句子自带主语(「被本字冻结的敌人…」「本字的冻结结束时…」),选择器后缀不再印。</summary>

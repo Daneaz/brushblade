@@ -200,5 +200,30 @@ namespace Brushblade.Core.Tests
             Assert.That(Gain("冰"), Is.EqualTo(1), "195 → 1 层");
             Assert.That(Gain("溃"), Is.EqualTo(0));
         }
+
+        // ---- 治疗改形判据(终审 I1):卡面文案与 TraitRules.ApplyReshape 共用 HealReshapeIndex ----
+
+        [Test]
+        public void HealReshapeIndex_PicksHealSelf_ThenFirstSingleHoT_NeverOnDamageOrHealAll()
+        {
+            var heal = new EffectDef(EffectKind.HealSelf, 10);
+            var hot = new EffectDef(EffectKind.HealOverTime, 5, turns: 3);
+            var hotAll = new EffectDef(EffectKind.HealOverTime, 5, turns: 3, targetAll: true);
+            Assert.That(TraitRules.HealReshapeIndex(new[] { hot, heal }), Is.EqualTo(1), "HealSelf 优先");
+            Assert.That(TraitRules.HealReshapeIndex(new[] { hot }), Is.EqualTo(0), "只有 HoT");
+            Assert.That(TraitRules.HealReshapeIndex(new[] { hotAll }), Is.EqualTo(-1), "HoT 已是全体");
+            Assert.That(TraitRules.HealReshapeIndex(new[] { new EffectDef(EffectKind.HealAll, 10) }), Is.EqualTo(-1), "HealAll 空转");
+            Assert.That(TraitRules.HealReshapeIndex(new[] { new EffectDef(EffectKind.DamageSingle, 10), heal }), Is.EqualTo(-1), "有伤害");
+        }
+
+        [Test]
+        public void HealReshapeIndex_RealTable_LinHot_YesHuiHealAll_No()
+        {
+            var g = CharTableTests.RealGraph();
+            var lin = TraitRules.CastEffects(g.Get("淋"), CardFace.Feature, 4);
+            var hui = TraitRules.CastEffects(g.Get("㵘"), CardFace.Feature, 4);
+            Assert.That(TraitRules.HealReshapeIndex(lin), Is.GreaterThanOrEqualTo(0), "淋五行面只有 HoT,细雨改它");
+            Assert.That(TraitRules.HealReshapeIndex(hui), Is.EqualTo(-1), "㵘五行面是 HealAll,泽被空转");
+        }
     }
 }
