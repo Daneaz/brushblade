@@ -45,8 +45,9 @@ namespace Brushblade.Core.Tests
             var b = Battle(new[] { Wood(0) });
             Assert.That(b.Cast("鎏", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
             Assert.That(b.Summons[0].Element, Is.EqualTo(Element.Metal));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal && e.TargetIndex == 0
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.ElementChanged && e.TargetIndex == 0
                 && e.Amount == (int)Element.Metal), Is.True);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal), Is.False, "改属性不是解封,消息不能印「解封」");
         }
 
         [Test]
@@ -55,7 +56,7 @@ namespace Brushblade.Core.Tests
             var b = Battle(new[] { Wood(0) });
             Assert.That(b.Cast("鎏", -1, attackMode: false, allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
             Assert.That(b.Summons[0].Element, Is.EqualTo(Element.Wood));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal), Is.False);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal || e.Kind == BattleEventKind.ElementChanged), Is.False);
         }
 
         [Test]
@@ -75,7 +76,7 @@ namespace Brushblade.Core.Tests
             var b = Battle(new[] { Wood(0) });
             Assert.That(b.Cast("润", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
             Assert.That(b.Summons[0].Element, Is.EqualTo(Element.Wood));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal), Is.False);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal || e.Kind == BattleEventKind.ElementChanged), Is.False);
         }
 
         [Test]

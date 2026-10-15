@@ -389,6 +389,10 @@ namespace Brushblade.Core
         BlockUsed,     // 格挡挡下一记敌人挥击、扣掉一次(TargetIndex = 攻击者敌人下标;SecondIndex = 格挡所在木灵槽位,玩家 −1;
                        // Amount = 扣完后的剩余次数,0 = 用完已移除)。玩家侧紧跟 EnemyAttack,木灵侧紧跟 SummonHit(及其 EndureSaved),
                        // 都在反击伤害(Source BlockCounter)之前。反击被预算削到 0 / 攻击者已死时照发 —— 表现层据此只演「挡 / 扣」两拍。
+        // ---- spec C 终审修复 2(⚠ 只在末尾追加)----
+        ElementChanged, // 木灵属性被确定地改掉:五行面 Attune(点金 / 化水 / 引火 / 培土)改成本字所属系、嫁接让非木木灵回归木。
+                        // 参数同 Unseal(TargetIndex = 木灵槽位,Amount = 新属性的 (int)Element)。不复用 Unseal:那条是「解封」随机重掷,
+                        // 表现层会把消息印成「解封:…」。落玩家 / 尸体不发;嫁接时本来就是木也不发。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -4406,7 +4410,7 @@ namespace Brushblade.Core
                             && def.Element is Element own && own != Element.Heart)
                         {
                             attuned.Element = own;
-                            _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)own));
+                            _events.Add(new BattleEvent(BattleEventKind.ElementChanged, allySlot, (int)own));
                         }
                         break;
                     case EffectKind.Unseal:
@@ -4586,7 +4590,7 @@ namespace Brushblade.Core
                             if (target.Element != Element.Wood)
                             {
                                 target.Element = Element.Wood;
-                                _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)Element.Wood));
+                                _events.Add(new BattleEvent(BattleEventKind.ElementChanged, allySlot, (int)Element.Wood));
                             }
                             int healed = target.MaxHp - target.Hp;   // E3(Q14):Amount = 回复量,表现层飘治疗数字
                             target.Hp = target.MaxHp;

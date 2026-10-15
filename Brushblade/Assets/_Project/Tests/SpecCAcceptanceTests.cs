@@ -95,22 +95,23 @@ namespace Brushblade.Core.Tests
         });
 
         [Test]
-        public void Graft_OnNonWoodSummon_EmitsUnsealWood()
+        public void Graft_OnNonWoodSummon_EmitsElementChangedWood()
         {
             var metal = WoodSprite(0); metal.Element = Element.Metal;
             var b = Duel(new[] { Graftor() }, metal);
             Assert.That(b.Cast("藤", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
             Assert.That(b.Summons[0].Element, Is.EqualTo(Element.Wood));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal && e.TargetIndex == 0
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.ElementChanged && e.TargetIndex == 0
                 && e.Amount == (int)Element.Wood), Is.True);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal), Is.False, "嫁接回木不是解封");
         }
 
         [Test]
-        public void Graft_OnWoodSummon_EmitsNoUnseal()
+        public void Graft_OnWoodSummon_EmitsNoElementChange()
         {
             var b = Duel(new[] { Graftor() }, WoodSprite(0));
             Assert.That(b.Cast("藤", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal), Is.False);
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal || e.Kind == BattleEventKind.ElementChanged), Is.False);
         }
     }
 }

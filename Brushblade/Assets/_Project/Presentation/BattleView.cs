@@ -7093,7 +7093,7 @@ namespace Brushblade.Presentation
             {
                 AppendBossPhaseMessage();
                 AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
-                AppendUnsealMessage(); // 解封重掷召唤物属性,同样产自 Cast() 自己的 _events
+                AppendUnsealMessage(); // 解封重掷 / 改属性 / 嫁接回木,同样产自 Cast() 自己的 _events
                 // 嫁接不弹文字条(E3 Q8):提示全在 Juice(JuiceWaterEarth.PlayGraft)
             }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
@@ -7384,17 +7384,20 @@ namespace Brushblade.Presentation
         /// 现读 summon.Element 自动跟上的,但玩家没有别的渠道知道「刚才那下改的是谁的属性、
         /// 变成了什么」——不发这条提示,变化就只体现在下一次重绘的底色上,容易被当成没生效。
         /// 用 e.Amount 里带的新属性而不是回读 Battle.Summons[e.TargetIndex].Element:后者如果
-        /// 那只召唤物在同一批事件里又被打死,索引仍合法但语义上「去读一个已经死了的槽位」更绕。</summary>
+        /// 那只召唤物在同一批事件里又被打死,索引仍合法但语义上「去读一个已经死了的槽位」更绕。
+        /// spec C 终审修复 2:Attune(点金 / 化水 / 引火 / 培土)与嫁接回木发的是 ElementChanged,同样提示,但不印「解封」。</summary>
         private void AppendUnsealMessage()
         {
             foreach (var e in Battle.LastEvents)
-                if (e.Kind == BattleEventKind.Unseal)
+                if (e.Kind == BattleEventKind.Unseal || e.Kind == BattleEventKind.ElementChanged)
                 {
                     string charId = e.TargetIndex >= 0 && e.TargetIndex < Battle.Summons.Count
                         && Battle.Summons[e.TargetIndex] != null
                         ? Battle.Summons[e.TargetIndex].Char : "";
-                    _message += Strings.T("battle.msg.unseal",
-                        ("charId", charId), ("element", CharInfo.ElementName((Element)e.Amount)));
+                    string element = CharInfo.ElementName((Element)e.Amount);
+                    _message += e.Kind == BattleEventKind.Unseal
+                        ? Strings.T("battle.msg.unseal", ("charId", charId), ("element", element))
+                        : Strings.T("battle.msg.element_changed", ("name", charId), ("element", element));
                 }
         }
 
