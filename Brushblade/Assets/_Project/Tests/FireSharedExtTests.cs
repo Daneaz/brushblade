@@ -139,16 +139,20 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealData_PoolSmoke_OnFeatureFace_Blinds()
         {
-            // 热 Lv6 = 燃·池·烟熏(池表改 pick BurnedByThisCast 后重新生成的 chars.json)
+            // 热 Lv6 = 燃·池·烟熏。spec C §5.2 + Q3:燃面改燃意落我方、本体不再上灼,烟熏改 `pick All`
+            // `rider Burn`——不再查「本次出字的灼」名单,只要求敌人身上有灼。先用攻击面上灼,再把燃面落玩家。
             var graph = CharTableTests.RealGraph();
             var re = graph.Get("热");
             var smoke = re.Traits.Single(t => t.Slot == TraitSlot.Lv6 && t.Face == TraitFace.Feature);
-            Assert.That(smoke.Effects.Single().Pick, Is.EqualTo(EffectPick.BurnedByThisCast));
+            Assert.That(smoke.Effects.Single().Pick, Is.EqualTo(EffectPick.All));
             var b = new BattleEngine(graph, Config, new[] { "热", "热" }, Array.Empty<string>(),
-                new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: new Dictionary<string, int> { ["热"] = 6 });
-            Assert.That(b.Cast("热", 0), Is.EqualTo(BattleError.None));
-            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Burn), Is.True);
-            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Blind), Is.True, "燃面烟熏生效");
+                new[] { RebalanceFixture.Mob(), RebalanceFixture.Mob() }, seed: 1, cardLevels: new Dictionary<string, int> { ["热"] = 6 });
+            Assert.That(b.Cast("热", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Burn), Is.True, "攻击面上灼");
+            Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Burn), Is.False, "前提:另一只没灼");
+            Assert.That(b.Cast("热", -1, allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Blind), Is.True, "燃面烟熏:有灼的敌人挂致盲");
+            Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Blind), Is.False, "没灼的不挂(随灼存续)");
         }
 
         // ---------------- E3:Reshape 重选目标 ----------------

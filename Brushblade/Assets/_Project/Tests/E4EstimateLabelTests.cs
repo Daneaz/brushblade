@@ -152,10 +152,11 @@ namespace Brushblade.Core.Tests
 
         // ================= 全体 + Primary:不能共享一次试算(fix round 1 Important 1)=================
 
-        /// <summary>热 五行面 Lv8:火雨(全体灼)+ 本体 BurnSingle 1(主目标)。打全体但仍要选主目标 ——
-        /// 悬停第 j 只的签必须按 j 为主目标单独试算;拿以第 0 只为主目标的那份去读第 j 只会少掉主目标那 1 层灼。
-        /// (spec A §3 起燚五行面整面改全体、不再选敌,夹具换成仍「全体 + 主目标」的热;逐字逐面逐级扫过,
-        /// 五行面满足前提的只有炎 / 蒸 / 热的 Lv8。)
+        /// <summary>蒸 攻击面 Lv8:蒸腾(Reshape 全体 60%)+ 本体 BurnSingle 2(主目标)。打全体但仍要选主目标 ——
+        /// 悬停第 j 只的签必须按 j 为主目标单独试算;拿以第 0 只为主目标的那份去读第 j 只会少掉主目标那 2 层灼。
+        /// (spec A §3 起燚五行面整面改全体、不再选敌,夹具换成热 五行面 Lv8;spec C §5.1 起火系五行面改燃意、
+        /// 落我方不再选敌,五行面再无满足前提的字。逐字逐面逐级重扫,满足前提的只剩攻击面:
+        /// 蒸 / 森 / 淼 / 海 / 澡 Lv8、楸 / 藻 Lv5+、㙓 Lv6+;取同样读灼的蒸 Lv8。)
         /// BattleView 因此只在 !NeedsTargetNow 时共享全体试算。</summary>
         [Test]
         public void AllWithPrimary_EstimatePerTarget_MatchesRealCast()
@@ -172,19 +173,19 @@ namespace Brushblade.Core.Tests
                 new EnemyDef("乙", Element.Heart, 100000, 0),
                 new EnemyDef("丙", Element.Heart, 100000, 0),
             };
-            const string id = "热";
+            const string id = "蒸";   // spec C §5.1:燃面不再选敌,夹具改攻击面
             var levels = new Dictionary<string, int> { [id] = 8 };
             var b = new BattleEngine(graph, config, new[] { id, id }, Array.Empty<string>(), enemies, seed: 1,
                 cardLevels: levels);
-            Assert.That(b.HitsAllEnemiesNow(id, attackMode: false), Is.True, "夹具前提:打全体");
-            Assert.That(b.NeedsTargetNow(id, attackMode: false), Is.True, "夹具前提:仍有主目标效果");
+            Assert.That(b.HitsAllEnemiesNow(id, attackMode: true), Is.True, "夹具前提:打全体");
+            Assert.That(b.NeedsTargetNow(id, attackMode: true), Is.True, "夹具前提:仍有主目标效果");
 
             int BurnAt(CastEstimate est, int i) => est.Enemies.Where(h => h.Index == i).Sum(h => h.Burn);
-            var own = b.EstimateCast(id, 2, attackMode: false);
-            var shared = b.EstimateCast(id, 0, attackMode: false);
+            var own = b.EstimateCast(id, 2, attackMode: true);
+            var shared = b.EstimateCast(id, 0, attackMode: true);
             var defs = enemies.ToDictionary(e => e.Id);
             var twin = BattleEngine.Restore(b.Capture(), graph, config, levels, defs);
-            Assert.That(twin.Cast(id, 2, replaceSummon: true, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(twin.Cast(id, 2, replaceSummon: true, attackMode: true), Is.EqualTo(BattleError.None));
             int real = twin.LastEvents.Where(e => e.Kind == BattleEventKind.Burn && e.TargetIndex == 2).Sum(e => e.Amount);
             Assert.That(BurnAt(own, 2), Is.EqualTo(real), "按悬停那只单独试算 == 实际");
             Assert.That(BurnAt(shared, 2), Is.Not.EqualTo(real), "以别的敌人为主目标的试算读不出这一只的主目标灼");
