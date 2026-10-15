@@ -238,10 +238,11 @@ namespace Brushblade.Core
         /// 钳到 ≥0:负攻击力会打出负伤害 = 给敌人回血,且全程无声。
         ///
         /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示
-        /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
+        /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。
+        /// 燃意(spec C):木灵自己的燃意进同一乘区。</summary>
         public int EffectiveAttack => System.Math.Max(0,
             (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus + PerAllyAttackBonus + TraitAttackBonus)
-            * System.Math.Max(0, PlayerAttackPercent) / 100);
+            * System.Math.Max(0, PlayerAttackPercent + Statuses.MaxMagnitude(StatusKind.Kindle)) / 100);
 
         /// <summary>木灵攻击光环(D2-木 M1:林立 / 擎天 / 桂冠,玩家袋 <see cref="StatusKind.SummonEmpower"/>)落到这只身上的百分比,
         /// 同一只取最强(Q6)。由 <c>BattleEngine.RefreshSummonAura</c> 注入(与成林同一时点),不进快照、每次重算;无光环恒 0。</summary>
