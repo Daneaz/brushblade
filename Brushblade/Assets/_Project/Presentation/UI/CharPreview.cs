@@ -19,7 +19,7 @@ namespace Brushblade.Presentation
     /// · 部件没有等级与稀有度,右栏换成「能凑出什么」,与拆合台的可合成列表同一套读法。
     ///
     /// 2026-10-11 Plan E2 改版(拍板稿 <c>drafts/traits/CardSheet</c> / <c>CardSheetBattle</c>):非部件那一支换成
-    /// 「头(牌 + 等级条)+ 正左背右两面 + 两面条 + 右栏」,部件那一支不动。
+    /// 「头 + 两面按级全平铺(spec B,稿 drafts/abilitytext)+ 右栏」,部件那一支不动。
     /// · 卡组 / 开箱 / 商城走铺满版:右栏是配方与生克;卡组页脚上挂升级钮;
     /// · 战斗长按走战斗版:不印成本,朝上那一面描环 +「朝上」签,未解锁的特性收成一行,右栏「此刻的场面」
     ///   ——**这一击对场上每只敌人各是多少倍**;奖励阶段没有活敌,退回静态生克(Q16)。
@@ -108,7 +108,7 @@ namespace Brushblade.Presentation
 
             if (!def.IsComponent)
             {
-                // Plan E2 改版(稿 CardSheet / CardSheetBattle):头 + 两面 + 两面条 + 右栏 + 脚
+                // Plan E2 改版 + spec B 全平铺(稿 drafts/abilitytext):头 + 两面 + 右栏 + 脚
                 BuildSheet(content, layout, overlay, def, graph, cardLevel, battle, meta, footActions, sheetW);
                 return overlay;
             }
@@ -249,7 +249,7 @@ namespace Brushblade.Presentation
         //   两面区 = contentW − 右栏 306 − 21 = 1203 / 966;每面 (两面区 − 19) / 2 = 592 / 473;面内宽 550 / 431。
         //   · 头部等级行:16:9 下信息区 1140,Lv 大字 + 等级条 454 + 两格成本是临界 —— 成本格放不下时整体缩字号(CostBoxes);
         //   · 面头落点句按剩余宽截断(木生面已换短句 Q12,两档都不截);特性行头放不下先丢类别小字再截名(CardSheetParts.FitHead)。
-        // 纵向:两面区(连同两面条,Q13)进 ScrollList,两面等高,行高按实际面宽算(Review Focus 1)。
+        // 纵向:两面区进 ScrollList,两面等高,行高按实际面宽算(Review Focus 1)。
 
         private const float SidePad = 29f;     // 稿 pad 左右 14pt
         private const float SideW = 306f;      // 右栏 146pt
@@ -455,69 +455,68 @@ namespace Brushblade.Presentation
             }
         }
 
-        // ---- 两面 + 两面条 ----
+        // ---- 两面 ----
 
-        /// <summary>正左背右两面(等宽、等高)+ 底部「两面」条。战斗版:朝上那面描环 + 签;面里只列已解锁行,
-        /// 未解锁的收成一行;每场限次且本场已用尽的行走 spent 态;两面条只列已解锁的、压成单行。</summary>
+        /// <summary>两面按级全平铺(spec B §1.2,稿 drafts/abilitytext):每一级两面各一行、同级并排、行高取两面较大值;
+        /// 两面效果相同也各写一遍;某面缺该级画待补。战斗版只列已解锁的级,未解锁的每面收成一行贴底;
+        /// 每场限次且本场已用尽的行走 spent 态。</summary>
         private static void BuildFaces(Transform parent, CharDef def, int level, int traitLevel,
             BattleContext battle, float facesW, CardSheetParts.Sizes z, CardSheetParts.TermsTap onTerms)
         {
             float faceW = (facesW - PairGap) / 2f;
             // 正左背右:CardFace 的枚举值是 Feature = 0、Attack = 1,不能按枚举排序,这里写死顺序
-            var models = new List<CardSheetParts.FaceModel>();
-            foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
-                models.Add(FaceModel(def, face, level, traitLevel, battle));
-            float pairH = 0f;
-            foreach (var model in models) pairH = Mathf.Max(pairH, CardSheetParts.FaceHeight(model, faceW, z));
-
-            var pair = Ui.Row(parent, "Pair", PairGap);
-            pair.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Ui.Sized(pair, facesW, pairH);
-            foreach (var model in models)
-                CardSheetParts.FacePanel(pair.transform, def, model, faceW, pairH, z, onTerms);
-
-            var rows = new List<CardSheetParts.RowModel>();
-            foreach (var row in CardSheetRules.SharedTraits(def, traitLevel))
-            {
-                if (z.Battle && !row.Unlocked) continue;
-                rows.Add(CardSheetParts.SharedRow(def, row, traitLevel,
-                    row.Unlocked ? CardSheetParts.RowState.On : CardSheetParts.RowState.Off));
-            }
-            if (rows.Count == 0) return;
-            float rowW = CardSheetParts.SharedRowWidth(facesW, rows.Count, z);
-            CardSheetParts.SharedStrip(parent, def, rows, facesW, CardSheetParts.SharedHeight(rows, rowW, z), z, onTerms);
-        }
-
-        private static CardSheetParts.FaceModel FaceModel(CharDef def, CardFace face, int level, int traitLevel,
-            BattleContext battle)
-        {
-            var model = new CardSheetParts.FaceModel
-            {
-                Face = face,
-                Role = CardSheetParts.RoleText(face),
-                Landing = CardSheetParts.LandingText(def, face, level),
-                Up = battle?.UpFace == face,
-                Stats = FaceStats.Body(def, face, level),
-            };
-            var locked = new List<string>();
-            foreach (var row in CardSheetRules.FaceTraits(def, face, traitLevel))
+            var attack = NewFace(def, CardFace.Attack, level, battle);
+            var feature = NewFace(def, CardFace.Feature, level, battle);
+            var lockedA = new List<string>();
+            var lockedF = new List<string>();
+            foreach (var row in CardSheetRules.LevelRows(def, traitLevel))
             {
                 if (battle != null && !row.Unlocked)
                 {
-                    locked.Add(Strings.T("charsheet.locked_item", ("level", (int)row.Slot),
-                        ("name", CardSheetParts.NameText(row))));
+                    AddLocked(lockedA, row.Attack);
+                    AddLocked(lockedF, row.Feature);
                     continue;
                 }
-                var state = !row.Unlocked ? CardSheetParts.RowState.Off
-                    : battle?.TraitSpent != null && battle.TraitSpent(row.Defs[0]) ? CardSheetParts.RowState.Spent
-                    : CardSheetParts.RowState.On;
-                model.Rows.Add(CardSheetParts.FaceRow(def, row, traitLevel, state));
+                attack.Rows.Add(CardSheetParts.LevelCell(def, row.Slot, CardFace.Attack, row.Attack, traitLevel, StateOf(row.Attack, battle)));
+                feature.Rows.Add(CardSheetParts.LevelCell(def, row.Slot, CardFace.Feature, row.Feature, traitLevel, StateOf(row.Feature, battle)));
             }
-            if (locked.Count > 0)
-                model.LockedLine = Strings.T("charsheet.locked_line",
-                    ("list", string.Join(Strings.T("charsheet.locked_sep"), locked)));
-            return model;
+            attack.LockedLine = LockedLine(lockedA);
+            feature.LockedLine = LockedLine(lockedF);
+
+            var heights = CardSheetParts.LevelHeights(attack, feature, faceW, z);
+            float pairH = Mathf.Max(CardSheetParts.FaceHeight(attack, faceW, z, heights),
+                CardSheetParts.FaceHeight(feature, faceW, z, heights));
+            var pair = Ui.Row(parent, "Pair", PairGap);
+            pair.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Ui.Sized(pair, facesW, pairH);
+            CardSheetParts.FacePanel(pair.transform, def, attack, faceW, pairH, z, heights, onTerms);
+            CardSheetParts.FacePanel(pair.transform, def, feature, faceW, pairH, z, heights, onTerms);
         }
+
+        private static CardSheetParts.FaceModel NewFace(CharDef def, CardFace face, int level, BattleContext battle) => new()
+        {
+            Face = face,
+            Role = CardSheetParts.RoleText(face),
+            Landing = CardSheetParts.LandingText(def, face, level),
+            Up = battle?.UpFace == face,
+            Stats = FaceStats.Body(def, face, level),   // Task 10 换成 FaceStats.Sheet
+        };
+
+        private static CardSheetParts.RowState StateOf(SheetTrait cell, BattleContext battle) =>
+            cell == null ? CardSheetParts.RowState.Missing
+            : !cell.Unlocked ? CardSheetParts.RowState.Off
+            : battle?.TraitSpent != null && battle.TraitSpent(cell.Defs[0]) ? CardSheetParts.RowState.Spent
+            : CardSheetParts.RowState.On;
+
+        private static void AddLocked(List<string> into, SheetTrait cell)
+        {
+            if (cell == null) return;
+            into.Add(Strings.T("charsheet.locked_item", ("level", (int)cell.Slot), ("name", cell.Defs[0].Name)));
+        }
+
+        private static string LockedLine(List<string> locked) =>
+            locked.Count == 0 ? null
+            : Strings.T("charsheet.locked_line", ("list", string.Join(Strings.T("charsheet.locked_sep"), locked)));
 
         // ---- 右栏 ----
 

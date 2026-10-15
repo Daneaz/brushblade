@@ -602,6 +602,9 @@ namespace Brushblade.Presentation
             return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
         }
 
+        /// <summary>木系五行面 Lv1 本命行的正文(spec B §1.4):本命被动的裸句,斜杠分隔。</summary>
+        internal static string NatureText(SummonPassive p) => PassiveText(p, bare: true);
+
         /// <summary>D2-木 的 14 个本命字段,各一句(SummonInfoNature 稿「13 个新字段的说明句」,林荫的上限并在同一句)。
         /// 卡面 <see cref="PassiveText"/> 与召唤物详情右栏(<c>SummonInfo</c>)共用 —— 两处说的是同一件事,只有一份文案。
         /// 顺序与 <see cref="SummonPassive"/> 的字段声明一致。CardFaceCoverageTests 把 PassiveText 与本方法的方法体

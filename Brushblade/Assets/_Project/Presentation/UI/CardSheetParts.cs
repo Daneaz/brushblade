@@ -9,12 +9,13 @@ using UnityEngine.UI;
 namespace Brushblade.Presentation
 {
     /// <summary>字卡详情改版(Plan E2)的部件:等级条 <see cref="LevelLadder"/>、一面 <see cref="FacePanel"/>
-    /// (面头 + 数值格 + 本面特性行)、特性行 <see cref="TraitRow"/>(on / off / spent 三态)、两面条 <see cref="SharedStrip"/>。
+    /// (面头 + 数值格 + 本面特性行)、特性行 <see cref="TraitRow"/>(on / off / spent 三态 + 待补占位)。
+    /// 全平铺:两面逐级同高(spec B,稿 <c>docs/design/drafts/abilitytext</c>)—— 每一级两面各一格,同级行高取两面较大值。
     /// 稿 <c>docs/design/drafts/traits/CardSheet.dc.html</c> / <c>CardSheetBattle.dc.html</c>;
     /// 组件卡 <c>component/TraitRow</c>、<c>component/LevelLadder</c>、<c>component/FaceSeal</c>。
     ///
     /// 「显示哪几行、取哪几格」全在 Core(<see cref="CardSheetRules"/>、<see cref="FaceStats"/>),这里只排版。
-    /// 高度一律**先算后画**(<see cref="FaceHeight"/> / <see cref="SharedHeight"/>):两面要等高,
+    /// 高度一律**先算后画**(<see cref="LevelHeights"/> / <see cref="FaceHeight"/>):两面要等高、同级行要等高,
     /// 行高要按实际面宽折行(16:9 下面内宽只有 431),靠布局组事后撑高做不到「两面取较高的那一面」。
     ///
     /// 点击只有一种:有术语的特性行 / 单术语数值格点了开词条气泡(Plan E4 Glossary,<see cref="GlossaryBubble"/>),
@@ -41,9 +42,8 @@ namespace Brushblade.Presentation
             public int Name, Body, LvTagFont, KindFont;
             /// <summary>特性行与数值格的圆角(铺满 7pt → 15,战斗 6pt → 12.6 取整 13)。</summary>
             public int CellRadius;
-            // 两面条
-            public float SharedLabelW, SharedRowH;
-            public int SharedLabelFont, SharedText;
+            /// <summary>行头图标 chip 边长(稿 13pt;战斗版收到行头高 25,执行期决定 D18)。</summary>
+            public float Chip;
 
             public static readonly Sizes Tall = new()
             {
@@ -52,8 +52,7 @@ namespace Brushblade.Presentation
                 FacePadV = 17f, HeadH = 50f, Seal = Ui.FaceSealL, HeadGap = 15f, Role = 25, Landing = 19,
                 StatGap = 12.6f, StatK = 17, StatUnit = 18, StatPadH = 15,
                 RowPadV = 8f, RowPadH = 17f, RowHead = 29f, RowGap = 6f, LvTagH = 25f, LvTagFont = 16, KindFont = 17,
-                Name = 24, Body = 20, CellRadius = 15,
-                SharedLabelW = 71f, SharedLabelFont = 21,
+                Name = 24, Body = 20, CellRadius = 15, Chip = 27f,
             };
 
             public static readonly Sizes BattleSheet = new()
@@ -63,8 +62,7 @@ namespace Brushblade.Presentation
                 FacePadV = 15f, HeadH = 42f, Seal = Ui.FaceSealM, HeadGap = 12.6f, Role = 24, Landing = 18,
                 StatGap = 10.5f, StatK = 16, StatUnit = 17, StatPadH = 13,
                 RowPadV = 6f, RowPadH = 15f, RowHead = 25f, RowGap = 8.4f, LvTagH = 23f, LvTagFont = 15, KindFont = 16,
-                Name = 22, Body = 19, CellRadius = 13,
-                SharedLabelW = 63f, SharedLabelFont = 20, SharedRowH = 46f, SharedText = 18,
+                Name = 22, Body = 19, CellRadius = 13, Chip = 25f,
             };
 
             /// <summary>等级条整条宽:10 格 + 9 道格距(铺满版 454)。</summary>
@@ -80,8 +78,10 @@ namespace Brushblade.Presentation
         private const float HeadItemGap = 10.5f;    // 行头各件之间 5pt
         private const float LineSealGap = 6f;       // 两小句前缀 xs 面印与字之间
         private const float UpTagFont = 17f;
+        private const float MissingH = 46f;         // 待补占位高(稿 .void min-height 22pt)
 
-        public enum RowState { On, Off, Spent }
+        /// <summary>Missing = 这一面缺这一级(画待补占位,spec A 合并后不应出现)。</summary>
+        public enum RowState { On, Off, Spent, Missing }
 
         /// <summary>点了有术语的行 / 格:<paramref name="target"/> = 被点的那块(选中描环挂在它上),<paramref name="radius"/> = 它的圆角,
         /// <paramref name="title"/> = 行名或格名(气泡标题「名 · 词条」),<paramref name="terms"/> = 按出现顺序去重的术语。</summary>
@@ -100,6 +100,11 @@ namespace Brushblade.Presentation
             public IReadOnlyList<GlossaryTerm> Terms = Array.Empty<GlossaryTerm>();
             /// <summary>字形特性(拆字 / 成字时)的行首 xs 印「拆 / 合」(B-Qe1);null = 不印。</summary>
             public TraitDef HeadSeal;
+            /// <summary>行头图标 chip(spec B §1.5):本命行取本命 chip,其余取正文里第一个有图标的词条;null = 不画。</summary>
+            public string Icon;
+            public ChipTone IconTone;
+            /// <summary>木系五行面 Lv1 本命行:左缘 2pt 朱砂(稿 .tr.nat)。</summary>
+            public bool Nature;
         }
 
         /// <summary>一面要画的东西。</summary>
@@ -124,7 +129,7 @@ namespace Brushblade.Presentation
             return signature ? Strings.T("charsheet.trait.signature", ("kind", kind)) : kind;
         }
 
-        /// <summary>两面条的类别:按每条 Def 自己的类别(<see cref="SheetTrait.Forms"/>,已去重),
+        /// <summary>升级预览两面合并行的类别(<see cref="SharedRow"/>):按每条 Def 自己的类别(<see cref="SheetTrait.Forms"/>,已去重),
         /// 两条不同时印「主动 / 被动」(final review Minor 2),同则只印一个。</summary>
         public static string KindText(SheetTrait row) =>
             row.Forms.Count >= 2
@@ -265,11 +270,11 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>这一行里的字形特性(拆字 / 成字时触发,<see cref="TraitCueRules.SealOf"/> = 拆 / 合);没有 = null。
-        /// 字卡详情两面条行首印与升级预览卡头印共用。</summary>
+        /// 字卡详情各面行首印(<see cref="LevelCell"/>)与升级预览卡头印共用。</summary>
         public static TraitDef GlyphTrait(SheetTrait row) =>
             row.Defs.FirstOrDefault(t => TraitCueRules.SealOf(t) is TraitSealKind.Dismantle or TraitSealKind.Compose);
 
-        /// <summary>两面条的一行(Lv3 / Lv4)。分面的两条:正文相同合成一句;不同则两小句各带 xs 面印(Q2 / Q3)。
+        /// <summary>升级预览(CollectionView)两面合并的一行(Lv3 / Lv4;字卡详情已改全平铺,不再用)。分面的两条:正文相同合成一句;不同则两小句各带 xs 面印(Q2 / Q3)。
         /// Review Focus 2:两条 Defs 都要画到,不能只取第一条。</summary>
         public static RowModel SharedRow(CharDef def, SheetTrait row, int level, RowState state)
         {
@@ -295,6 +300,83 @@ namespace Brushblade.Presentation
             else
                 foreach (var p in parts) model.Lines.Add((p.Face, p.Text));
             return WithTerms(model);
+        }
+
+        /// <summary>全平铺的一格(spec B §1.2):Lv1 印本体关键词效果(木五行面印本命),Lv3 印本体差,其余同 <see cref="FaceRow"/>。
+        /// <paramref name="cell"/> = null → 待补占位。字形特性的「拆 / 合」xs 印搬进各面的行(执行期决定 D14)。</summary>
+        public static RowModel LevelCell(CharDef def, TraitSlot slot, CardFace face, SheetTrait cell, int level, RowState state)
+        {
+            if (cell == null) return new RowModel { Level = (int)slot, Name = "", Kind = "", State = RowState.Missing };
+            var model = slot switch
+            {
+                TraitSlot.Lv1 => Lv1Row(def, face, cell, level, state),
+                TraitSlot.Lv3 => Lv3Row(def, face, cell, level, state),
+                _ => FaceRow(def, cell, level, state),
+            };
+            model.HeadSeal ??= GlyphTrait(cell);
+            PickIcon(model);
+            return model;
+        }
+
+        private static RowModel Lv1Row(CharDef def, CardFace face, SheetTrait cell, int level, RowState state)
+        {
+            var trait = cell.Defs[0];
+            int lv = Math.Max(1, level);
+            var effects = CardSheetRules.Lv1Effects(def, face, lv);
+            var summon = face == CardFace.Feature
+                ? effects.FirstOrDefault(e => e.Kind == EffectKind.Summon && e.Passive != null) : null;
+            bool water = face == CardFace.Feature && def.Element == Element.Water;
+            var model = new RowModel
+            {
+                Level = 1,
+                Name = trait.Name,
+                State = state,
+                Nature = summon != null,
+                Kind = summon != null ? Strings.T("charsheet.trait.nature_kind")
+                    : water ? Strings.T("charsheet.trait.active_hot")
+                    : FormText(trait.Form),
+            };
+            string text = summon != null ? CharInfo.NatureText(summon.Passive)
+                : effects.Count > 0 ? CharInfo.SideEffectsText(effects, def, lv) : null;
+            if (!string.IsNullOrEmpty(text)) model.Lines.Add((null, text));
+            var lead = new List<GlossaryTerm>();
+            if (summon != null) lead.Add(GlossaryTerm.Nature);   // 本命行的气泡固定带「本命」(稿 extra)
+            if (water) lead.Add(GlossaryTerm.Hot);               // 水五行面 Lv1 带「润泽」总称
+            model.Terms = GlossaryText.TermsOf(new[] { trait.Name }.Concat(model.Lines.Select(l => l.Text)), lead);
+            if (summon != null)
+            {
+                model.Icon = SummonInfo.NatureChipIcon(summon.Passive);   // 无图标的本命(花 / 藤 / 箭 / 柘)= null,不画 chip
+                model.IconTone = ChipTone.Threat;                         // 本命一律朱砂
+            }
+            return model;
+        }
+
+        private static RowModel Lv3Row(CharDef def, CardFace face, SheetTrait cell, int level, RowState state)
+        {
+            var trait = cell.Defs[0];
+            bool nature = face == CardFace.Feature && trait.Effects.Any(e => e.Kind == EffectKind.Summon && e.Passive != null);
+            var model = new RowModel
+            {
+                Level = 3,
+                Name = trait.Name,
+                State = state,
+                Kind = nature ? Strings.T("charsheet.trait.nature_up") : FormText(trait.Form),
+            };
+            model.Lines.Add((null, Lv3Text(def, face, trait, level)));
+            return WithTerms(model);
+        }
+
+        /// <summary>行头图标:本命行已在 <see cref="Lv1Row"/> 定好(无图标就不画);其余取第一个有 chip 的词条。</summary>
+        private static void PickIcon(RowModel row)
+        {
+            if (row.Icon != null || row.Nature) return;
+            foreach (var t in row.Terms)
+                if (GlossaryRules.ChipOf(t) is { } chip)
+                {
+                    row.Icon = chip.Icon;
+                    row.IconTone = chip.Tone;
+                    return;
+                }
         }
 
         // ================= 等级条 =================
@@ -371,7 +453,8 @@ namespace Brushblade.Presentation
             float name = Ui.EstimateWidth(row.Name, z.Name);
             float kind = Ui.EstimateWidth(row.Kind, z.KindFont);
             float fixedPart = tag + HeadItemGap + (tail > 0 ? HeadItemGap + tail : 0f)
-                + (row.HeadSeal != null ? Ui.FaceSealXs + HeadItemGap : 0f);
+                + (row.HeadSeal != null ? Ui.FaceSealXs + HeadItemGap : 0f)
+                + (row.Icon != null ? z.Chip + HeadItemGap : 0f);
             if (fixedPart + name + HeadItemGap + kind <= width) return (row.Name, true);
             return (Ui.Truncate(row.Name, z.Name, width - fixedPart), false);
         }
@@ -398,6 +481,7 @@ namespace Brushblade.Presentation
         /// <summary>一条特性行的高。<paramref name="width"/> = 行本身的宽(含内边距)。</summary>
         public static float RowHeight(RowModel row, float width, Sizes z)
         {
+            if (row.State == RowState.Missing) return MissingH;
             float textW = width - 2f * z.RowPadH;
             float h = 2f * z.RowPadV + z.RowHead;
             // 行内竖排的间距 BodyGap 落在每一句之前(行头与第一句之间、两小句之间)
@@ -407,23 +491,27 @@ namespace Brushblade.Presentation
 
         private static float LockedLineH(Sizes z) => Mathf.Ceil(TailFont * 1.35f);
 
-        /// <summary>一面的内容高(两面取较高的那一面,两面等高)。<paramref name="faceW"/> = 面的外宽。</summary>
-        public static float FaceHeight(FaceModel face, float faceW, Sizes z)
+        /// <summary>两面逐级的行高:同一级取两面较高者(稿 sheet-view.js:两面 = 同一张网格的两列)。两面行数由构造保证相等。
+        /// <paramref name="faceW"/> = 面的外宽。</summary>
+        public static float[] LevelHeights(FaceModel a, FaceModel b, float faceW, Sizes z)
         {
             float inner = faceW - 2f * z.FacePadH;
-            float h = 2f * z.FacePadV + z.HeadH + z.FaceGap + z.StatH;
-            for (int i = 0; i < face.Rows.Count; i++)
-                h += (i == 0 ? z.FaceGap : z.RowGap) + RowHeight(face.Rows[i], inner, z);
-            if (face.LockedLine != null) h += z.FaceGap + LockedLineH(z);
-            return h;
+            int n = Math.Max(a.Rows.Count, b.Rows.Count);
+            var heights = new float[n];
+            for (int i = 0; i < n; i++)
+                heights[i] = Mathf.Max(
+                    i < a.Rows.Count ? RowHeight(a.Rows[i], inner, z) : 0f,
+                    i < b.Rows.Count ? RowHeight(b.Rows[i], inner, z) : 0f);
+            return heights;
         }
 
-        /// <summary>两面条的高(各行并排、等高)。<paramref name="rowW"/> = 每一行的外宽。</summary>
-        public static float SharedHeight(IReadOnlyList<RowModel> rows, float rowW, Sizes z)
+        /// <summary>一面的内容高(两面等高,取较高的那一面)。<paramref name="rowHeights"/> = <see cref="LevelHeights"/>。</summary>
+        public static float FaceHeight(FaceModel face, float faceW, Sizes z, IReadOnlyList<float> rowHeights)
         {
-            if (z.Battle) return z.SharedRowH;
-            float h = 0f;
-            foreach (var row in rows) h = Mathf.Max(h, RowHeight(row, rowW, z));
+            float h = 2f * z.FacePadV + z.HeadH + z.FaceGap + z.StatH;
+            for (int i = 0; i < rowHeights.Count; i++)
+                h += (i == 0 ? z.FaceGap : z.RowGap) + rowHeights[i];
+            if (face.LockedLine != null) h += z.FaceGap + LockedLineH(z);
             return h;
         }
 
@@ -432,7 +520,7 @@ namespace Brushblade.Presentation
         /// <summary>一面:正面(攻击)纸白底 + panel-border 内描边;背面(五行面)<see cref="Theme.FaceTint"/> 底 + 本系字形色 22% 内描边。
         /// 战斗版朝上的那一面换 1.5pt 墨色描环 +「朝上」签(稿 .face.up / .uptag)。</summary>
         public static void FacePanel(Transform parent, CharDef def, FaceModel face, float faceW, float faceH, Sizes z,
-            TermsTap onTerms = null)
+            IReadOnlyList<float> rowHeights, TermsTap onTerms = null)
         {
             bool back = face.Face == CardFace.Feature;
             Color border = face.Up ? Theme.Ink
@@ -457,7 +545,9 @@ namespace Brushblade.Presentation
             for (int i = 0; i < face.Rows.Count; i++)
             {
                 Gap(stack.transform, i == 0 ? z.FaceGap : z.RowGap);
-                TraitRow(stack.transform, def, face.Rows[i], back, inner, z, onTerms: onTerms);
+                var row = face.Rows[i];
+                if (row.State == RowState.Missing) MissingCell(stack.transform, row, inner, rowHeights[i], z);
+                else TraitRow(stack.transform, def, row, back, inner, z, minHeight: rowHeights[i], onTerms: onTerms);
             }
             if (face.LockedLine != null)
             {
@@ -557,12 +647,10 @@ namespace Brushblade.Presentation
         /// <summary>一条特性行(component/TraitRow)。on:底 = 正面 panel-paper / 背面 card-face + panel-border 内描边,Lv 标墨底白字;
         /// off / spent:去底、描边 80%、字压 text-faint(背面 text-dim 78%),尾标锁 +「Lv{n} 解锁」或「本场已用」胶囊。
         /// <paramref name="width"/> = 行的外宽。</summary>
-        /// <param name="minHeight">两面条里并排的行要等高,传整条的高;面里的行传 0(按自己的内容高)。</param>
-        /// <param name="onFill">on 态的底色;缺省按所在面取(正面 panel-paper / 背面 card-face)。
-        /// 两面条不在任何一面之下,传 card-face(稿 .shared .tr)。</param>
+        /// <param name="minHeight">同级两面的行要等高,传 <see cref="LevelHeights"/> 的那一格;0 = 按自己的内容高。</param>
         /// <param name="onTerms">点行开词条气泡;null 或这一行没有术语时不挂(R7)。</param>
         public static void TraitRow(Transform parent, CharDef def, RowModel row, bool back, float width, Sizes z,
-            float minHeight = 0f, Color? onFill = null, TermsTap onTerms = null)
+            float minHeight = 0f, TermsTap onTerms = null)
         {
             bool on = row.State == RowState.On, spent = row.State == RowState.Spent;
             Color offColor = back ? WithAlpha(Theme.TextDim, 0.78f) : Theme.LockGray;
@@ -574,10 +662,21 @@ namespace Brushblade.Presentation
             // on:实底 + 描边;off / spent:去底,只剩 80% 的一圈描线(OutlinedPanel 是「描边色垫底 + 内层填充」,
             // 内层给透明会露出整块描边色,所以去底的一律用空心环)
             var card = on
-                ? Ui.OutlinedPanel(parent, "TraitRow", onFill ?? (back ? Theme.CardWhite : Theme.PanelPaper),
+                ? Ui.OutlinedPanel(parent, "TraitRow", back ? Theme.CardWhite : Theme.PanelPaper,
                     Theme.PanelBorder, z.CellRadius, 2).gameObject
                 : Ring(parent, "TraitRow", WithAlpha(Theme.PanelBorder, 0.8f), z.CellRadius, 2);
             Ui.Sized(card, width, height);
+            if (row.Nature)
+            {
+                // 本命行左缘 2pt 朱砂(稿 .tr.nat;off / spent 40%),与木灵详情里「战场上那枚」本命卡同一记号
+                var edge = Ui.Panel(card.transform, "NatureEdge");
+                var edgeImage = edge.AddComponent<Image>();
+                edgeImage.color = on ? Theme.Cinnabar : WithAlpha(Theme.Cinnabar, 0.4f);
+                edgeImage.raycastTarget = false;
+                edge.AddComponent<LayoutElement>().ignoreLayout = true;
+                Ui.Anchor((RectTransform)edge.transform, Vector2.zero, new Vector2(0f, 1f),
+                    new Vector2(0f, z.CellRadius / 2f), new Vector2(4f, -z.CellRadius / 2f));
+            }
             if (onTerms != null && row.Terms.Count > 0)
             {
                 var cardRect = (RectTransform)card.transform;
@@ -598,6 +697,8 @@ namespace Brushblade.Presentation
             Ui.Sized(head, textW, z.RowHead);
             LvTag(head.transform, row.Level, row.State, z);
             if (row.HeadSeal != null) HeadSeal(head.transform, def, row.HeadSeal, on);
+            if (row.Icon != null)
+                IconChip(head.transform, row.Icon, row.IconTone, z.Chip, on ? 1f : spent ? 0.6f : 0.4f);
             var nameLabel = Ui.ThemedLabel(head.transform, name, z.Name, nameColor, Theme.TitleFont);
             nameLabel.fontStyle = FontStyle.Bold;
             if (showKind) Ui.ThemedLabel(head.transform, row.Kind, z.KindFont, kindColor);
@@ -750,79 +851,16 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(row.transform, Ui.Truncate(text, TailFont, width - TailIcon - 6f), TailFont, color);
         }
 
-        /// <summary>两面条:左一格竖排「两面」(Unity Text 不能竖排,写成「两\n面」),右侧本卡的 Lv3 / Lv4 行并排、等高。
-        /// 铺满版每行照常折行;战斗版每行压成单行(Lv 标 + 名 + 截断后的正文,不印类别)。</summary>
-        public static void SharedStrip(Transform parent, CharDef def, IReadOnlyList<RowModel> rows, float width, float height, Sizes z,
-            TermsTap onTerms = null)
+        /// <summary>待补占位(执行期决定 D12):panel-border 空心环 + text-mute「Lv6 · 这一面待补」。spec A 合并后不应出现。</summary>
+        private static void MissingCell(Transform parent, RowModel row, float width, float height, Sizes z)
         {
-            var strip = Ui.Row(parent, "Shared", 17f);
-            var stripLayout = strip.GetComponent<HorizontalLayoutGroup>();
-            stripLayout.childAlignment = TextAnchor.UpperLeft;
-            Ui.Sized(strip, width, height);
-
-            var label = Ui.CardPanel(strip.transform, "SharedLabel", Theme.PanelInset, 15);
-            Ui.Sized(label.gameObject, z.SharedLabelW, height);
-            var text = Ui.ThemedLabel(label.transform, Strings.T("charsheet.shared"), z.SharedLabelFont,
-                Theme.TextDim, Theme.TitleFont);
-            text.fontStyle = FontStyle.Bold;
-            Ui.Stretch(text.rectTransform);
-
-            float rowW = SharedRowWidth(width, rows.Count, z);
-            foreach (var row in rows)
-            {
-                if (z.Battle) CompactRow(strip.transform, def, row, rowW, height, z, onTerms);
-                else TraitRow(strip.transform, def, row, false, rowW, z, height, Theme.CardWhite, onTerms);
-            }
-        }
-
-        /// <summary>两面条里每一行的外宽:条宽 − 左标 − 间距,余下按行数均分。</summary>
-        public static float SharedRowWidth(float width, int count, Sizes z) =>
-            count <= 0 ? 0f : (width - z.SharedLabelW - 17f * count) / count;
-
-        /// <summary>战斗版两面条的一行:压成单行(稿 .shared .tr 高 22pt)。两小句各带 xs 面印,宽度均分后各自截断。
-        /// 先截纯文本、再对截断后的串扫术语上色(截半的词不标);气泡列的是整行完整句的术语(<see cref="RowModel.Terms"/>)。</summary>
-        private static void CompactRow(Transform parent, CharDef def, RowModel row, float width, float height, Sizes z,
-            TermsTap onTerms)
-        {
-            var card = Ui.OutlinedPanel(parent, "TraitRow", Theme.CardWhite, Theme.PanelBorder, z.CellRadius, 2);
-            Ui.Sized(card.gameObject, width, height);
-            if (onTerms != null && row.Terms.Count > 0)
-            {
-                var cardRect = (RectTransform)card.transform;
-                TapTarget(card, () => onTerms(cardRect, z.CellRadius, row.Name, row.Terms));
-            }
-            var line = Ui.Row(card.transform, "Line", 12.6f);
-            var layout = line.GetComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            int padH = Mathf.RoundToInt(z.RowPadH);
-            layout.padding = new RectOffset(padH, padH, 0, 0);
-            Ui.Stretch((RectTransform)line.transform);
-
-            LvTag(line.transform, row.Level, RowState.On, z);
-            float inner = width - 2f * z.RowPadH;
-            float headSealW = 0f;
-            if (row.HeadSeal != null)
-            {
-                HeadSeal(line.transform, def, row.HeadSeal, true);
-                headSealW = Ui.FaceSealXs + 12.6f;
-            }
-            string name = Ui.Truncate(row.Name, z.Name, inner * 0.4f);
-            var nameLabel = Ui.ThemedLabel(line.transform, name, z.Name, Theme.TextMain, Theme.TitleFont);
-            nameLabel.fontStyle = FontStyle.Bold;
-
-            float rest = inner - TagWidth(row.Level, z) - headSealW - Ui.EstimateWidth(name, z.Name) - 2f * 12.6f;
-            float each = rest / Mathf.Max(1, row.Lines.Count) - (row.Lines.Count > 1 ? 12.6f : 0f);
-            foreach (var (seal, text) in row.Lines)
-            {
-                float textW = each;
-                if (seal != null)
-                {
-                    SealXs(line.transform, def, seal.Value);
-                    textW -= Ui.FaceSealXs + 12.6f;
-                }
-                Ui.ThemedLabel(line.transform, GlossaryText.Rich(Ui.Truncate(text, z.SharedText, textW), false),
-                    z.SharedText, Theme.TextDim);
-            }
+            var ring = Ring(parent, "Missing", Theme.PanelBorder, z.CellRadius, 2);
+            Ui.Sized(ring, width, height);
+            var label = Ui.ThemedLabel(ring.transform, Strings.T("charsheet.trait.missing", ("level", row.Level)), 18, Theme.TextMute);
+            label.alignment = TextAnchor.MiddleLeft;
+            Ui.Stretch(label.rectTransform);
+            label.rectTransform.offsetMin = new Vector2(z.RowPadH, 0f);
+            label.rectTransform.offsetMax = new Vector2(-z.RowPadH, 0f);
         }
 
         /// <summary>空心圆角描环(<see cref="Theme.RoundedRing"/>),给「去底」的态用。</summary>
