@@ -15,6 +15,37 @@ namespace Brushblade.Core
         /// <summary>燃意:每次攻击命中给敌人加的灼层数(spec C §5.1,各档恒 1)。</summary>
         public const int KindleBurnPerHit = 1;
 
+        /// <summary>燃意合并(spec C §5.1):同一单位只留一条 —— % 取大、回合取长,火力取大。由 ApplyStatus 调用。</summary>
+        private static void MergeKindle(StatusBag bag, StatusEffect effect)
+        {
+            for (int i = bag.All.Count - 1; i >= 0; i--)
+            {
+                var old = bag.All[i];
+                if (old.Kind != StatusKind.Kindle) continue;
+                effect.Magnitude = Math.Max(effect.Magnitude, old.Magnitude);
+                effect.TurnsLeft = Math.Max(effect.TurnsLeft, old.TurnsLeft);
+                effect.Potency = Math.Max(effect.Potency, old.Potency);
+                bag.RemoveEntry(old);
+            }
+        }
+
+        private void ApplyKindle(StatusBag bag, int percent, int turns, int potency, string sourceId, UnitRef target) =>
+            ApplyStatus(bag, new StatusEffect
+            {
+                Kind = StatusKind.Kindle, Polarity = StatusPolarity.Buff,
+                Magnitude = percent, TurnsLeft = Math.Max(1, turns), Potency = potency, SourceId = sourceId,
+            }, target, UnitRef.Player);
+
+        /// <summary>燃意命中加灼(spec C §5.1,Q10):attacker 袋里挂着燃意且目标仍活着 → +KindleBurnPerHit 层,火力取燃意记下的。
+        /// 只由 DamageSingle 每段命中与木灵出手调用;不进 _cast.BurnedTargets。没挂燃意时一次判断即返回(恒等)。</summary>
+        private void KindleOnHit(StatusBag attacker, int enemyIndex)
+        {
+            var kindle = attacker.Find(StatusKind.Kindle);
+            if (kindle == null || enemyIndex < 0 || enemyIndex >= _enemies.Count || !_enemies[enemyIndex].Alive) return;
+            int gain = ApplyBurn(enemyIndex, KindleBurnPerHit, UnitRef.Player, Math.Max(100, kindle.Potency));
+            if (gain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, enemyIndex, gain));
+        }
+
         /// <summary>BurnScale(N1,焦土 / 炎炎 / 灿然):目标灼层数 × percent%(向下取整),钳到上限;只升不降,0 层空转。</summary>
         private void ScaleBurnOn(int enemyIndex, int percent, int potency)
         {
@@ -167,8 +198,14 @@ namespace Brushblade.Core
         {
             var bag = _enemies[enemyIndex].Statuses;
             var carrier = effect.RiderOf ?? StatusKind.Burn;
-            var carried = carrier == StatusKind.Freeze ? _cast.FrozenTargets : _cast.BurnedTargets;
-            if (!carried.Contains(enemyIndex) || !bag.Has(carrier)) return;
+            if (!bag.Has(carrier)) return;
+            // 名单选择器(本次出字的灼 / 冻结)才要求落在本次名单上;pick All 等只要目标带着载体(spec C Q3:燃面不再上灼)
+            var pick = EffectPickRules.Effective(effect);
+            if (pick == EffectPick.BurnedByThisCast || pick == EffectPick.FrozenByThisCast)
+            {
+                var carried = carrier == StatusKind.Freeze ? _cast.FrozenTargets : _cast.BurnedTargets;
+                if (!carried.Contains(enemyIndex)) return;
+            }
             string riderKey = effect.TraitKey ?? sourceId;
             AttachRider(bag, sourceId, riderKey, carrier);
             ApplyStatus(bag, new StatusEffect

@@ -869,8 +869,9 @@ namespace Brushblade.Core
         /// 战意(2026-08-12,战/戮)单开一个 Kind:它的 Magnitude 是**层数**不是加成值,
         /// 混进 AttackBuff 会既丢掉层数上限又让 +1 层被当成 +1 攻击。
         /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
-        /// 等于给敌人回血,且全程无声。</summary>
-        public int EffectiveAttack => Math.Max(0, FlatAttack * AttackPercent / 100);
+        /// 等于给敌人回血,且全程无声。
+        /// 燃意(spec C Q9)只进玩家这一份,不进 SummonAttackPercent —— 玩家燃意不传给木灵。</summary>
+        public int EffectiveAttack => Math.Max(0, FlatAttack * (AttackPercent + _playerStatuses.MaxMagnitude(StatusKind.Kindle)) / 100);
 
         /// <summary>「先加后乘」里的**加**那一半:角色等级攻击力 + 局内攻击加点(剡 的 Empower、
         /// 标点小妖那类 <see cref="StatusKind.AttackBuff"/>),**不含**战意/厚那条百分比乘区。
@@ -2191,6 +2192,11 @@ namespace Brushblade.Core
                     // 格挡(D2-0 Task 3,Ruling E1,spec §2.2):铠可落到木灵身上,格挡挂在木灵自己的袋子里;
                     // 战意照旧给玩家。场上没有存活木灵时 Cast 自动锁玩家(免选口径)。
                     || effect.Kind == EffectKind.Block
+                    // 燃意(spec C §5):单体写法拖到自己或木灵;我方全体(AllAllies)免选
+                    || (effect.Kind == EffectKind.Kindle && effect.Pick != EffectPick.AllAllies)
+                    // 换属性(spec C §4):要落到某只木灵上才生效。与 Kindle AllAllies 同面时也得逼出友方选择,
+                    // 否则整面免选、allySlot 恒为玩家,Attune 静默空转
+                    || effect.Kind == EffectKind.Attune
                     // 免疫减益(D2-水 W4,濯身 / 浇熄):挂在落点(玩家或木灵)身上
                     || effect.Kind == EffectKind.DebuffWard)
                     return true;
@@ -3007,11 +3013,14 @@ namespace Brushblade.Core
             if (!sameSwing)
                 _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
             if (damage > 0)
+            {
                 // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle 分支里
                 // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
                 DamageEnemy(tgt, damage, summon.Element,
                     crit: RollCritForSummon(summon), attackerBag: summon.Statuses,
                     sameSwing: sameSwing, attackerRef: UnitRef.Summon(summonIndex));
+                KindleOnHit(summon.Statuses, tgt);   // 木灵燃意(spec C §5.1)
+            }
             ApplySummonOnHit(summon, tgt, summonIndex);
         }
 
@@ -3518,6 +3527,7 @@ namespace Brushblade.Core
                                     sameSwing: sameSwing && hit == 0,
                                     attackerRef: UnitRef.Player);
                                 if (!_cast.HitTargets.Contains(tgt)) _cast.HitTargets.Add(tgt);   // 选择器 HitTargets 用
+                                KindleOnHit(_playerStatuses, tgt);   // 燃意(spec C §5.1):每段命中 +1 层灼;没挂燃意时一次判断即返回
                                 // 暴击时(D1 Task 9,炽烈):每击各入队,目标 = 这一击的落点;Cast 末尾兑现
                                 if (crit) EnqueueCastTraits(_cast.OnCrit, tgt);
                                 // 每击附带(D2-火 N4b / 跨计划 Q23):这一击之后对这一击的目标同步结算;
@@ -3600,6 +3610,19 @@ namespace Brushblade.Core
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                             RecordSlowed(ti);   // 选择器 SlowedByThisCast(D2-水 E15)
                         }
+                        break;
+                    case EffectKind.Kindle:
+                        // 燃意(spec C §5.1):单体落 allySlot(玩家或木灵),我方全体 = 玩家 + 全部存活木灵。
+                        // Magnitude = 攻击 %(已吃卡等级与 Amplify All),Potency = 本字灼火力(命中加灼时用)
+                        if (effect.Pick == EffectPick.AllAllies)
+                        {
+                            ApplyKindle(_playerStatuses, value, effect.Turns, burnPotency, def.Id, UnitRef.Player);
+                            for (int s = 0; s < _summons.Length; s++)
+                                if (_summons[s] is { Alive: true } ks)
+                                    ApplyKindle(ks.Statuses, value, effect.Turns, burnPotency, def.Id, UnitRef.Summon(s));
+                        }
+                        else ApplyKindle(AllyStatuses(allySlot), value, effect.Turns, burnPotency, def.Id, AllyRef(allySlot));
+                        RefreshSummonAura();
                         break;
                     case EffectKind.Weaken:
                         // 减攻(D1 Task 5,M5):挂 Curse(攻击 −Magnitude%),SourceId = 字 ID,同源刷新取强(ApplyStatus)。
@@ -5070,6 +5093,8 @@ namespace Brushblade.Core
             }
             // 流血不论来源合成单条(D2-金 E8,Q12):量取大、回合取长
             else if (effect.Kind == StatusKind.Bleed) MergeBleed(bag, effect);
+            // 燃意同一单位合成单条(spec C §5.1):% 取大、回合取长
+            else if (effect.Kind == StatusKind.Kindle) MergeKindle(bag, effect);
             // 格挡同类取最强(spec v7 §5.2.1):次数、反击各取较大值,不累加
             else if (effect.Kind == StatusKind.Block)
             {
