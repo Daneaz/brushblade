@@ -736,9 +736,10 @@ def test_spec_c_fire_feature_body_is_kindle():
 
 
 def test_spec_c_spend_chars_attack_body_has_no_riders():
-    for cid in ("崩", "㙓", "溃", "㵘"):
+    expect = {"崩": "SpendHeft", "㙓": "SpendHeft", "溃": "SpendWellspring", "㵘": "SpendWellspring"}
+    for cid, spend in expect.items():
         kinds = [e["kind"] for e in _shipped()[cid]["attackEffects"]]
-        assert kinds in (["DamageSingle", "SpendHeft"], ["DamageSingle", "SpendWellspring"]), (cid, kinds)
+        assert kinds == ["DamageSingle", spend], (cid, kinds)
 
 
 def test_spec_c_attune_on_eight_chars():
@@ -761,6 +762,13 @@ def test_spec_c_spent_readers_follow_the_first_spend_in_their_face():
     for c in _shipped().values():
         if c.get("component"):
             continue
+        # 本体自己的顺序:读取者下标必须大于同面第一条 Spend
+        for key in ("attackEffects", "effects"):
+            body = c.get(key, [])
+            first = next((i for i, e in enumerate(body) if e["kind"] in spends), None)
+            for i, e in enumerate(body):
+                if _reads_spent(e) and (first is None or i < first):
+                    bad.append(f"{c['id']} 本体 {key} 的 {e['kind']} 排在 Spend 之前或无 Spend")
         for t in c.get("traits", []):
             readers = [i for i, e in enumerate(t["effects"]) if _reads_spent(e)]
             if not readers:
