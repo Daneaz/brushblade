@@ -269,8 +269,9 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TaoTian_Lv8_AtTenStacks_FreezesAllAndAddsHundredPercent()
+        public void TaoTian_Lv8_AtTenStacks_AddsHundredPercent_ComparedWithLv7()
         {
+            // 冻结由浩荡(≥6 层)保证,Lv7 / Lv8 都有,本条的冻结断言不区分滔天;滔天自己的区别只在 ≥8 层的 +100%。
             // Lv7:怀山 +30%,有浩荡(释放 ≥6 层全体冻 1)但没有滔天;Lv8:滔天 ≥8 层 +100%(与怀山相加 = +130% → 230%)
             var (b7, spend7) = ReleaseWith(7, CombatCaps.WellspringStacks, 2);
             var (b8, spend8) = ReleaseWith(8, CombatCaps.WellspringStacks, 2);

@@ -343,8 +343,8 @@ namespace Brushblade.Core.Tests
             };
             var run = new RunEngine(Graph, config, Config, new[] { "炎", "炎", "炎", "焱", "焱" }, Array.Empty<string>(),
                 seed: 1, cardLevels: new Dictionary<string, int> { ["炎"] = 8, ["焱"] = 8 });
-            Assert.That(run.Battle.Cast("焱", 0), Is.EqualTo(BattleError.None));
-            Assert.That(run.Battle.Cast("炎", 0), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("焱", -1, attackMode: false), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("炎", -1, attackMode: false), Is.EqualTo(BattleError.None));
             var pending = run.Battle.PendingOpenings;
             Assert.That(pending.Select(o => (o.Kind, o.Value, o.BattlesLeft)).OrderBy(x => x.BattlesLeft).ToArray(),
                 Is.EqualTo(new[] { (EffectKind.BurnAll, 2, 1), (EffectKind.BurnAll, 2, 5) }), "前提:两条都登记");
@@ -445,19 +445,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void CanLan_Lv6_FeatureFace_IsAmplifyBurn_ButKindleIgnoresIt()
+        public void CanLan_Lv6_RealData_KindleHitBurnPotencyIsOneAndHalfOfLv5()
         {
-            // 灿 Lv6·燃 灿烂(D1 由「灿然」改名):`Amplify 50` `scope Burn` —— spec A D6 本意是「本字这次上的灼火力 ×1.5」。
-            // spec C 把燃面本体换成燃意后,燃面这一次不再上灼;引擎的 Kindle 分支直接用卡等级火力、不吃 scope Burn,
-            // 所以灿烂目前无物可放大(已写进 task-G2 报告:spec 对灿烂没有交代,交 controller 裁定)。这里只钉数据形状 + 现状。
-            var face = TraitRules.CastEffects(Graph.Get("灿"), CardFace.Feature, 6);
-            Assert.That(face.Any(e => e.Kind == EffectKind.Kindle), Is.True, "燃面本体 = 燃意");
-            Assert.That(face.Any(e => e.AmpTerms.Any(t => t.Percent == 50)), Is.False,
-                "Fold 把 灿烂 的 Amplify 50 scope Burn 折到「同面的灼效果」上;燃面已无灼效果,它落空、不挂在任何效果上");
-            var b = Battle("灿", 6, Mob());
-            Assert.That(b.Cast("灿", -1, attackMode: false), Is.EqualTo(BattleError.None));
-            Assert.That(b.PlayerStatuses.Find(StatusKind.Kindle).Potency, Is.EqualTo(MetaRules.CardLevelPercent(6)),
-                "现状:燃意火力 = 卡等级火力,未吃灿烂 ×1.5");
+            // 真实数据:灿 Lv6·燃 灿烂 `Amplify 50` `scope Burn` 折进燃意火力(G3 机制,合成字的覆盖在 KindlePotencyTests)。
+            // 燃面(燃意)落玩家 → 攻击面一击 → 敌人身上命中灼的火力 = 卡等级火力 × 1.5(向上取整);Lv5 还没有灿烂,对照不放大
+            int HitPotency(int level)
+            {
+                var b = Battle("灿", level, Mob());
+                Assert.That(b.Cast("灿", -1, attackMode: false), Is.EqualTo(BattleError.None));
+                Assert.That(b.Cast("灿", 0, attackMode: true), Is.EqualTo(BattleError.None));
+                return b.Enemies[0].Statuses.Find(StatusKind.Burn).Potency;
+            }
+            Assert.That(HitPotency(5), Is.EqualTo(MetaRules.CardLevelPercent(5)), "对照:Lv5 无灿烂");
+            Assert.That(HitPotency(6), Is.EqualTo((MetaRules.CardLevelPercent(6) * 150 + 99) / 100), "Lv6 灿烂:×1.5");
         }
 
         // ================= spec C 真实数据冒烟:燃意 =================

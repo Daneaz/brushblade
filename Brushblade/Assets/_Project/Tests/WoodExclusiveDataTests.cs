@@ -407,6 +407,7 @@ namespace Brushblade.Core.Tests
                 Cast(b, "柘");
                 var zhe = Alive(b).Single();
                 Assert.That(zhe.Passive.SelfCut, Is.EqualTo(15), "坚心:本命 SelfCut 15");
+                // Passive 不是共享引用(SummonPassive.Clone() 在召唤时克隆),改运行时对象不会污染 chars.json 数据和别的用例
                 if (!keepSelfCut) zhe.Passive.SelfCut = 0;
                 b.EndTurn();
                 return b.LastEvents.First(e => e.Kind == BattleEventKind.SummonHit).Amount;
