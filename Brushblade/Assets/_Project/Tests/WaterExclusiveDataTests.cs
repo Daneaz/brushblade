@@ -461,7 +461,8 @@ namespace Brushblade.Core.Tests
         [TestCase("锋", "DamageSingle 62 hits 2 hitPct 60 crit")]
         [TestCase("鑫", "DamageSingle 286 shape Adjacent hits 3 hitPct 50")]
         [TestCase("\uE626", "DamageSingle 420 hits 4 hitPct 30 perHit[ArmorBreak 15 turns 3] armorIgnore 100")]
-        [TestCase("鍂", "DamageSingle 195 hits 2 hitPct 60 perHit[Morale 1]")]
+        // spec C §2:金石 + 双锋的每击附带拼接(原为后者覆盖,只剩 Morale 1)
+        [TestCase("鍂", "DamageSingle 195 hits 2 hitPct 60 perHit[ArmorBreak 20 turns 3;Morale 1]")]
         [TestCase("碉", "DamageSingle 42 shape Row shapePct 50 shieldStrike 40")]
         [TestCase("壁", "DamageSingle 62 shape Row shapePct 50 shieldStrike 40")]
         [TestCase("垒", "DamageSingle 62 shape Row shapePct 50 armorStrike 300")]
