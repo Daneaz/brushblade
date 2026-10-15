@@ -147,12 +147,19 @@ namespace Brushblade.Core
         /// <summary>全部格(未截断),主量在前、其余按本体顺序。internal 只为测试钉住「真实字表每面不超过
         /// <see cref="MaxCells"/> 格」(Body 截断与 Deltas 不截断才是同一口径)。<paramref name="unlockLevel"/> 决定哪些特性已解锁,
         /// <paramref name="skipFrom"/> 及以上的槽位整条跳过;<paramref name="scaleLevel"/> 决定缩放。</summary>
-        internal static List<FaceStat> AllCells(CharDef def, CardFace face, int unlockLevel, int scaleLevel, TraitSlot skipFrom)
+        /// <summary>该面折叠后的本体效果:Lv1 本体 + 已解锁特性折叠,<paramref name="skipFrom"/> 及以上的槽位整条跳过。
+        /// <see cref="AllCells"/>、<see cref="CardSheetRules.Lv1Effects"/> 共用这一份口径。</summary>
+        internal static List<EffectDef> FoldedBody(CharDef def, CardFace face, int unlockLevel, TraitSlot skipFrom)
         {
             bool attack = face == CardFace.Attack;
             var actual = BattleEngine.FaceOf(def, attack);
-            var effects = TraitRules.Fold(BattleEngine.EffectsOf(def, attack), def, actual, unlockLevel,
+            return TraitRules.Fold(BattleEngine.EffectsOf(def, attack), def, actual, unlockLevel,
                 skip: t => t.Slot >= skipFrom);
+        }
+
+        internal static List<FaceStat> AllCells(CharDef def, CardFace face, int unlockLevel, int scaleLevel, TraitSlot skipFrom)
+        {
+            var effects = FoldedBody(def, face, unlockLevel, skipFrom);
             var primary = new List<FaceStat>();
             var rest = new List<FaceStat>();
             foreach (var e in effects)
