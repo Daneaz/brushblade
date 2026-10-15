@@ -167,16 +167,16 @@ namespace Brushblade.Presentation
             return terms;
         }
 
-        /// <summary>正文上色(R1–R3):on = 术语加粗 ink-soft、数字加粗正文色;<paramref name="muted"/>(off / spent)
-        /// 只保留加粗,颜色跟随整句(不能出现「行是灰的,术语却是墨蓝」)。入参必须是纯文本。</summary>
-        public static string Rich(string plain, bool muted)
+        /// <summary>正文上色(R1–R3):on = 术语加粗 <paramref name="termColor"/>(缺省 ink-soft;字卡详情传本系 -fg,abilitytext A 案)、
+        /// 数字加粗 text-main;<paramref name="muted"/>(off / spent)只保留加粗,颜色跟随整句。入参必须是纯文本。</summary>
+        public static string Rich(string plain, bool muted, Color? termColor = null)
         {
             var scan = Scan(plain);
             if (muted) return TermMarkup.Rich(plain, scan, "<b>", "</b>", "<b>", "</b>");
-            return TermMarkup.Rich(plain, scan, TermOpen, "</color></b>", NumOpen, "</color></b>");
+            string termOpen = "<b><color=#" + ColorUtility.ToHtmlStringRGBA(termColor ?? Theme.InkSoft) + ">";
+            return TermMarkup.Rich(plain, scan, termOpen, "</color></b>", NumOpen, "</color></b>");
         }
 
-        private static string TermOpen => "<b><color=#" + ColorUtility.ToHtmlStringRGBA(Theme.InkSoft) + ">";
         private static string NumOpen => "<b><color=#" + ColorUtility.ToHtmlStringRGBA(Theme.TextMain) + ">";
     }
 }

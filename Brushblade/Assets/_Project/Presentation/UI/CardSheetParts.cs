@@ -515,7 +515,7 @@ namespace Brushblade.Presentation
 
                 var term = GlossaryRules.TermOf(stat.Kind);
                 string keyText = StatLabel(stat.Kind);
-                var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.InkSoft : Theme.TextDim);
+                var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.ElementSoftFg(def.Element) : Theme.TextDim);
                 key.alignment = TextAnchor.MiddleLeft;
                 if (term != null)
                 {
@@ -564,9 +564,11 @@ namespace Brushblade.Presentation
         public static void TraitRow(Transform parent, CharDef def, RowModel row, bool back, float width, Sizes z,
             float minHeight = 0f, Color? onFill = null, TermsTap onTerms = null)
         {
-            bool on = row.State == RowState.On;
-            Color nameColor = on ? Theme.TextMain : back ? WithAlpha(Theme.TextDim, 0.78f) : Theme.LockGray;
-            Color dimColor = on ? Theme.TextDim : back ? WithAlpha(Theme.TextDim, 0.78f) : Theme.LockGray;
+            bool on = row.State == RowState.On, spent = row.State == RowState.Spent;
+            Color offColor = back ? WithAlpha(Theme.TextDim, 0.78f) : Theme.LockGray;
+            Color nameColor = on ? Theme.TextMain : spent ? Theme.TextDim : offColor;
+            Color bodyColor = on ? Theme.TextQuiet : spent ? Theme.TextDim : offColor;   // A 案:正文 text-quiet
+            Color kindColor = on || spent ? Theme.TextDim : offColor;
 
             float height = Mathf.Max(minHeight, RowHeight(row, width, z));
             // on:实底 + 描边;off / spent:去底,只剩 80% 的一圈描线(OutlinedPanel 是「描边色垫底 + 内层填充」,
@@ -594,11 +596,11 @@ namespace Brushblade.Presentation
             var head = Ui.Row(stack.transform, "Head", HeadItemGap);
             head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Sized(head, textW, z.RowHead);
-            LvTag(head.transform, row.Level, on, z);
+            LvTag(head.transform, row.Level, row.State, z);
             if (row.HeadSeal != null) HeadSeal(head.transform, def, row.HeadSeal, on);
             var nameLabel = Ui.ThemedLabel(head.transform, name, z.Name, nameColor, Theme.TitleFont);
             nameLabel.fontStyle = FontStyle.Bold;
-            if (showKind) Ui.ThemedLabel(head.transform, row.Kind, z.KindFont, dimColor);
+            if (showKind) Ui.ThemedLabel(head.transform, row.Kind, z.KindFont, kindColor);
             if (!on)
             {
                 var spring = Ui.Panel(head.transform, "Spring");
@@ -608,7 +610,8 @@ namespace Brushblade.Presentation
             }
 
             foreach (var line in row.Lines)
-                BodyLine(stack.transform, def, line.Seal, line.Text, z.Body, dimColor, textW, muted: !on);
+                BodyLine(stack.transform, def, line.Seal, line.Text, z.Body, bodyColor, textW, muted: !on,
+                    termColor: Theme.ElementSoftFg(def.Element));
         }
 
         /// <summary>字形特性行首的 xs「拆 / 合」印(<see cref="Ui.TraitSeal"/>);off / spent 跟正文一起压到 α .78(附录 §B Q-e4)。</summary>
@@ -628,14 +631,45 @@ namespace Brushblade.Presentation
             button.onClick.AddListener(() => onTap());
         }
 
+        /// <summary>图标 chip(spec B §1.5):= 战场状态 chip 的方形缩小版,同图标、同底色(<see cref="UnitDetailChip.ToneColor"/>)。
+        /// 稿 13pt 见方、圆角 3.5pt、图标 9.5pt;赭金底配 gold-text 图标,其余白。PNG 取不到时印兜底字。
+        /// 行头与词条气泡共用。<paramref name="alpha"/>:off .4 / spent .6(稿 .tr.off .ic / .tr.spent .ic)。</summary>
+        internal static GameObject IconChip(Transform parent, string icon, ChipTone tone, float size, float alpha = 1f)
+        {
+            var chip = Ui.CardPanel(parent, "IconChip", UnitDetailChip.ToneColor(tone), Mathf.RoundToInt(size * 3.5f / 13f));
+            chip.raycastTarget = false;
+            Ui.Sized(chip.gameObject, size, size);
+            Color fg = tone == ChipTone.Boost ? Theme.GoldText : Color.white;
+            float inner = Mathf.Round(size * 9.5f / 13f);
+            var sprite = Icons.Get(icon);
+            if (sprite != null)
+            {
+                var image = Ui.Panel(chip.transform, "Icon").AddComponent<Image>();
+                image.sprite = sprite;
+                image.preserveAspect = true;
+                image.color = fg;
+                image.raycastTarget = false;
+                var rect = image.rectTransform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(inner, inner);
+            }
+            else
+            {
+                var glyph = Ui.ThemedLabel(chip.transform, Icons.Fallback(icon), Mathf.RoundToInt(inner), fg);
+                Ui.Stretch(glyph.rectTransform);
+            }
+            if (alpha < 1f) chip.gameObject.AddComponent<CanvasGroup>().alpha = alpha;
+            return chip.gameObject;
+        }
+
         /// <summary>正文一句:无印 = 折行文字;有印 = xs 面印 + 折行文字。高度取 <see cref="LineHeight"/>(吃纯文本)。
         /// <paramref name="text"/> 必须是纯文本;术语 / 数字的样式在这里、赋 Text.text 那一刻才套上(<see cref="GlossaryText.Rich"/>)。
         /// <paramref name="muted"/>:off / spent 态,术语与数字只加粗、不换色(R3)。</summary>
         internal static void BodyLine(Transform parent, CharDef def, CardFace? seal, string text, int font, Color color, float width,
-            bool muted = false)
+            bool muted = false, Color? termColor = null)
         {
             float h = LineHeight(text, seal != null, font, width);
-            string rich = GlossaryText.Rich(text, muted);
+            string rich = GlossaryText.Rich(text, muted, termColor);
             if (seal == null)
             {
                 WrapLabel(parent, rich, font, color, width, h);
@@ -664,17 +698,19 @@ namespace Brushblade.Presentation
             return label;
         }
 
-        private static void LvTag(Transform parent, int level, bool on, Sizes z)
+        private static void LvTag(Transform parent, int level, RowState state, Sizes z)
         {
             string text = LvText(level);
             float w = TagWidth(level, z);
-            GameObject tag;
-            if (on)
-                tag = Ui.CardPanel(parent, "LvTag", Theme.Ink, 12).gameObject;
-            else
-                tag = Ring(parent, "LvTag", Theme.LockGray, 12, 2);   // 去底:只剩一圈 text-faint 描线(稿 .tr.off .lvt)
+            GameObject tag = state switch
+            {
+                RowState.On => Ui.CardPanel(parent, "LvTag", Theme.Ink, 12).gameObject,
+                RowState.Spent => Ui.CardPanel(parent, "LvTag", Theme.TextDim, 12).gameObject,   // 稿 .tr.spent .lvt
+                _ => Ring(parent, "LvTag", Theme.LockGray, 12, 2),                               // 去底:text-faint 描线(稿 .tr.off .lvt)
+            };
             Ui.Sized(tag, w, z.LvTagH);
-            var label = Ui.ThemedLabel(tag.transform, text, z.LvTagFont, on ? Color.white : Theme.LockGray);
+            var label = Ui.ThemedLabel(tag.transform, text, z.LvTagFont,
+                state == RowState.Off ? Theme.LockGray : Color.white);
             Ui.Stretch(label.rectTransform);
         }
 
@@ -762,7 +798,7 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(padH, padH, 0, 0);
             Ui.Stretch((RectTransform)line.transform);
 
-            LvTag(line.transform, row.Level, true, z);
+            LvTag(line.transform, row.Level, RowState.On, z);
             float inner = width - 2f * z.RowPadH;
             float headSealW = 0f;
             if (row.HeadSeal != null)

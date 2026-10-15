@@ -98,6 +98,15 @@ namespace Brushblade.Presentation
         /// <summary>能力/被动类词条(召唤物反伤/闪避/疾,以及找不到更合适分组时的兜底)。</summary>
         public static readonly Color Ability = Theme.InkSoft; // #3D4E69
 
+        /// <summary>词条图标 chip 的底色(spec B §1.5):与 <see cref="ColorFor"/> 同四组,不另写一份色值。</summary>
+        internal static Color ToneColor(ChipTone tone) => tone switch
+        {
+            ChipTone.Threat => Theme.Cinnabar,
+            ChipTone.Control => Control,
+            ChipTone.Guard => Guard,
+            _ => Theme.RarityColor(CardRarity.Gold),
+        };
+
         /// <summary>状态 chip 底色。只有 SpeedModifier 需要看符号(减速走控制蓝,速度走守御绿),
         /// 其余 19 个 StatusKind 各自固定在一个分组里,与符号无关。</summary>
         public static Color ColorFor(StatusKind kind, int magnitude) => kind switch
