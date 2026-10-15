@@ -118,6 +118,7 @@ namespace Brushblade.Data
         {
             GlossaryTerm.DamageCut => ("(|,", null),
             GlossaryTerm.AreaAll => ("我方", "敌人)"),
+            GlossaryTerm.Surge => (null, "泉"),   // 「涌泉相报」不是涌(spec B §3)
             _ => (null, null),
         };
 

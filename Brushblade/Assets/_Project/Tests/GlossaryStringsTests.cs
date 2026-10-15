@@ -108,13 +108,13 @@ namespace Brushblade.Core.Tests
             "char.effect.amplify.all", "char.effect.amplify.damage", "char.effect.amplify.heal", "char.effect.apcost",
             "char.effect.armorstrike.each", "char.effect.augment", "char.effect.augment.field.count", "char.effect.augment.field.shots",
             "char.effect.augment.field.turns", "char.effect.augment.target.damage", "char.effect.augment.target.healself",
-            "char.effect.bind", "char.effect.blind.single", "char.effect.block.counter", "char.effect.blockmod.counter",
+            "char.effect.blind.single", "char.effect.block.counter", "char.effect.blockmod.counter",
             "char.effect.blockmod.hits", "char.effect.blockmod.refund", "char.effect.chargedelay", "char.effect.cleanse",
             "char.effect.cleanse.allies", "char.effect.cleanse.allies.count", "char.effect.cleanse.count", "char.effect.cleanse.self",
             "char.effect.cleanse.self.count", "char.effect.damagesingle", "char.effect.damagesingle.body", "char.effect.debuffward",
             "char.effect.debuffward.count", "char.effect.debuffward.of", "char.effect.dispel.single.count", "char.effect.dispel.single.full",
             "char.effect.empower", "char.effect.execute.double", "char.effect.extrastrike", "char.effect.grantchar",
-            "char.effect.haste", "char.effect.healself", "char.effect.healself.victim", "char.effect.hitcap", "char.effect.hitcount",
+            "char.effect.healself", "char.effect.healself.victim", "char.effect.hitcap", "char.effect.hitcount",
             "char.effect.hitpercent", "char.effect.hurtheal", "char.effect.immunity", "char.effect.lifesteal", "char.effect.mine", "char.effect.mine.body",
             "char.effect.onlyif.countering", "char.effect.onlyif.firstcastthisturn", "char.effect.onlyif.isboss",
             "char.effect.onlyif.notboss", "char.effect.onlyif.playerhpabove70", "char.effect.onlyif.playerhpbelow50",
@@ -122,15 +122,15 @@ namespace Brushblade.Core.Tests
             "char.effect.overkillsplash.all", "char.effect.per.cap", "char.effect.per.cleansed", "char.effect.per.extrahittarget",
             "char.effect.perhit", "char.effect.perhit.from", "char.effect.pick.adjacent", "char.effect.pick.adjacentone",
             "char.effect.pick.all", "char.effect.pick.column", "char.effect.pick.highesthp", "char.effect.pick.hittargets",
-            "char.effect.pick.random", "char.effect.pick.row", "char.effect.rapid", "char.effect.reflect", "char.effect.reshape",
+            "char.effect.pick.random", "char.effect.pick.row", "char.effect.reflect", "char.effect.reshape",
             "char.effect.reshape.retarget", "char.effect.retaliate", "char.effect.retaliate.cap", "char.effect.retaliate.turns",
             "char.effect.retaliate.turns.cap", "char.effect.reveal", "char.effect.selfcost",
             "char.effect.shotpercent", "char.effect.silence", "char.effect.skillcut", "char.effect.summon.other",
-            "char.effect.summon.percent", "char.effect.summon.self", "char.effect.summon.stats", "char.effect.summonsapling.sprout",
+            "char.effect.summon.percent", "char.effect.summon.self", "char.effect.summon.stats",
             "char.effect.taunt.self", "char.effect.thornmark", "char.effect.turnpulse", "char.passive.attackpercent",
             "char.passive.backrowbonus", "char.passive.deathpart", "char.passive.dodge", "char.passive.guard", "char.passive.healallypercent",
             "char.passive.healallytimes", "char.passive.healmirror", "char.passive.healmirror.pct", "char.passive.ranged",
-            "char.passive.regen", "char.passive.speed", "char.passive.sprout", "char.passive.wrap", "char.shape.chain.desc",
+            "char.passive.regen", "char.passive.wrap", "char.shape.chain.desc",
             "char.shape.suffix.all", "char.shape.suffix.chain", "char.shape.suffix.splash", "char.shape.suffix.volley",
             "char.shape.sweep.desc", "char.shape.volley.desc",
         };
@@ -150,6 +150,54 @@ namespace Brushblade.Core.Tests
             Assert.That(added.Length + removed.Length, Is.EqualTo(0),
                 "无术语模板快照变了。\n新增(扫不出术语):\n  " + string.Join("\n  ", added)
                 + "\n不再无术语:\n  " + string.Join("\n  ", removed));
+        }
+
+        /// <summary>Review Focus 3 + spec B §2/§3 的文案:最长匹配、排除上下文、改名与别名。</summary>
+        [Test]
+        public void SpecB_NewTerms_ScanAsExpected()
+        {
+            var lexicon = RealLexicon();
+            Assert.That(TermMarkup.Scan("出手时额外召出 2 只小木灵", lexicon).Terms,
+                Is.EqualTo(new[] { GlossaryTerm.Sapling }), "小木灵不被拆成木灵");
+            Assert.That(TermMarkup.Scan(Strings.T("char.effect.spendwellspring"), lexicon).Terms.Contains(GlossaryTerm.Surge),
+                Is.False, "涌泉相报不标涌");
+            Assert.That(TermMarkup.Scan("涌:立即回复 90", lexicon).Terms, Is.EqualTo(new[] { GlossaryTerm.Surge }));
+            Assert.That(TermMarkup.Scan("减攻 15%", lexicon).Terms, Is.EqualTo(new[] { GlossaryTerm.Weaken }), "旧名减攻作别名");
+            Assert.That(TermMarkup.Scan("速度 150", lexicon).Terms, Is.EqualTo(new[] { GlossaryTerm.Speed }));
+            Assert.That(Strings.T("term.weaken.name"), Is.EqualTo("慑"));
+            Assert.That(Strings.T("term.sapling.name"), Is.EqualTo("小木灵"));
+            Assert.That(Strings.T("term.spirit.desc"), Is.EqualTo("木系召唤的单位"));
+            Assert.That(Strings.T("term.wellspring.desc").Contains("攻击时积累"), Is.True, "泉:治疗或攻击时积累");
+            Assert.That(Strings.T("term.heft.desc").Contains("攻击时积累"), Is.True, "厚:获得护盾或攻击时积累");
+            Assert.That(Strings.Keys.Contains("term.sapling.alias"), Is.False, "「苗」别名随「幼苗」一起退役");
+        }
+
+        /// <summary>词条 chip 的图标必须有 PNG(管线产物,执行期决定 D1:不新增图标)。</summary>
+        [Test]
+        public void EveryTermChipIcon_HasPng()
+        {
+            var dir = Path.Combine(RepoRoot().FullName, "Brushblade", "Assets", "_Project", "Presentation", "UI", "Resources");
+            var missing = AllTerms().Select(GlossaryRules.ChipOf).Where(c => c != null).Select(c => c.Value.Icon)
+                .Distinct().Where(id => !File.Exists(Path.Combine(dir, $"icon_{id}.png"))).ToArray();
+            Assert.That(missing, Is.Empty, "词条 chip 用了不存在的图标:" + string.Join(",", missing));
+        }
+
+        /// <summary>spec B §6 验收 2:玩家可见文案里不再有「召唤物 / 幼苗 / 藤灵 / 小藻 / 减攻」(别名字段除外)。</summary>
+        [Test]
+        public void SpecB_NoLegacySummonNames()
+        {
+            var legacy = new[] { "召唤物", "幼苗", "藤灵", "小藻", "箭灵", "减攻" };
+            var aliasKeys = new[] { "term.spirit.alias", "term.weaken.alias" };
+            var bad = Strings.Keys.Where(k => !aliasKeys.Contains(k))
+                .Where(k => legacy.Any(w => Strings.T(k).Contains(w)))
+                .OrderBy(k => k, StringComparer.Ordinal).ToArray();
+            Assert.That(bad, Is.Empty, "仍含旧称:\n" + string.Join("\n", bad));
+            var sprout = Strings.Keys.Where(k => Strings.T(k).Contains("苗") && !Strings.T(k).Contains("小木灵"))
+                .OrderBy(k => k, StringComparer.Ordinal).ToArray();
+            Assert.That(sprout, Is.Empty, "「苗」不再作单位名:\n" + string.Join("\n", sprout));
+            Assert.That(Strings.T("status.curse.name"), Is.EqualTo("慑"));
+            Assert.That(Strings.T("charsheet.stat.weaken"), Is.EqualTo("慑"));
+            Assert.That(Strings.T("battle.hint.pick_dual_target").Contains("点自己/木灵=护"), Is.True);
         }
     }
 }

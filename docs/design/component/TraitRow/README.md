@@ -1,17 +1,19 @@
-字卡特性行：字卡详情与升级预览里「一条特性」的那一行。实现是 `CardSheetParts.TraitRow`（`Presentation/UI/CardSheetParts.cs:525`，2026-10-12 Plan E2 合并 `9e5d2cff`）；数据模型 `FaceRow` / `SharedRow`（同文件 236 / 252），高度 `RowHeight`（375）。调用点：面板里的行（`FacePanel`，435）、两面条（`SharedStrip`，671）。设计稿 `drafts/traits` 的 `CardSheet`（`.tr`）、`CardSheetBattle`、`WaterEarthCues`「本场已用」。
+字卡特性行：字卡详情与升级预览里「一条特性」的那一行。实现是 `CardSheetParts.TraitRow`（`Presentation/UI/CardSheetParts.cs`，行号以实际为准），逐级取格 `LevelCell`、逐级取高 `LevelHeights`；数据模型 `FaceRow` / `SharedRow`（升级预览仍用），高度 `RowHeight`。调用点：面板里的行（`FacePanel`）。设计稿 `drafts/abilitytext`（取代 `drafts/traits` 的 CardSheet 部分；`CardSheetBattle`、`WaterEarthCues`「本场已用」仍参照 traits）。
 
 ## 结构
-- **行头**（一行，定高）：Lv 标（胶囊，`Lv5`）→ 特性名（粗）→ 类别小字（「主动」「被动」「两面」，Lv8 加「 · 招牌」）→ 尾标（靠右，只在 off / spent 态出现）。
-- **正文**（行头下方，折行）：效果句。文案取 `CharInfo.TraitEffectsText` 的机械拼句（E2 附录 Q1），最长约 60 字，16:9 下会折 2–3 行 —— 行高按**实际面宽**用 `Ui.WrappedTextHeight` 算，不按稿上的一行估。
-- 整行是一个点击区：这一行有术语时点了开词条气泡（Glossary，Plan E4 接上，`GlossaryBubble`）；没有术语的行不挂、也没有按下态。**战斗长按版也挂**（Glossary 稿规则 3，E4 C-Q1）：点行只开气泡、不出字，「长按只看不出手」不受影响。正文里的术语加粗 `ink-soft`、数字加粗正文色；off / spent 态只加粗、颜色跟随整句。
-- 字形特性（拆字 / 成字时触发）在 Lv 标之后、名字之前加一枚 xs「拆 / 合」印（`Ui.TraitSeal`，E4 B-Qe1）；off / spent 态印压到 α .78。
+- **行头**（一行，定高）：Lv 标（胶囊，`Lv5`）→ [拆 / 合 xs 印] → **图标 chip**（13pt → 27，战斗版 25；与战场 chip 同图标、同底色，无图标不画）→ 名（粗）→ 类别小字（「主动」「被动」，Lv8 加「 · 招牌」）→ 尾标（靠右，只在 off / spent 态出现）。
+- **正文**（行头下方，折行）：效果句，色 `text-quiet`；词条加粗本系 `-fg`，数字加粗 `text-main`。文案取 `CharInfo.TraitEffectsText` 的机械拼句，16:9 下会折 2–3 行 —— 行高按**实际面宽**用 `Ui.WrappedTextHeight` 算。
+- 木系五行面 Lv1 本命行：左缘 2pt 朱砂（off / spent 取 40%）。
+- 整行是一个点击区：这一行有术语时点了开词条气泡（`GlossaryBubble`）；没有术语的行不挂、也没有按下态。**战斗长按版也挂**：点行只开气泡、不出字。
+- 字形特性（拆字 / 成字时触发）在 Lv 标之后、chip 之前加一枚 xs「拆 / 合」印（`Ui.TraitSeal`）；off / spent 态印压到 α .78。
 
 ## 三态
 | 态 | 何时 | 底 / 描边 | Lv 标 | 名 / 类别 / 正文 | 尾标 |
 | --- | --- | --- | --- | --- | --- |
-| **on** 已解锁 | 卡等级 ≥ 解锁级 | 正面（攻击）`panel-paper`、背面（五行面）`card-face`（`Theme.CardWhite`）；两面条里一律 `card-face`；描边 2 `panel-border` | `ink` 底白字 | 名 `text-main`；类别、正文 `text-dim` | 无 |
-| **off** 未解锁 | 卡等级 < 解锁级 | 去底；只剩一圈 `panel-border` 80% 的空心环（`OutlinedPanel` 内层给透明会露出整块描边色，所以另画环） | 去底，`text-faint` 1 描边 + `text-faint` 字 | 全部 `text-faint`（`Theme.LockGray`）；背面（有本系淡底）改 `text-dim` 78% | 锁图标 + 「Lv{n} 解锁」，`text-faint` |
-| **spent** 本场已用 | 只在**战斗长按版**：每场一次的特性（杜门不出、折桂）本场已触发 | 同 off | 同 off | 同 off | 「本场已用」胶囊：`ink-bar` 底、`text-warm` 字 |
+| **on** 已解锁 | 卡等级 ≥ 解锁级 | 正面（攻击）`panel-paper`、背面（五行面）`card-face`（`Theme.CardWhite`）；描边 2 `panel-border` | `ink` 底白字 | 名 `text-main`；类别 `text-dim`；正文 `text-quiet` | 无 |
+| **off** 未解锁 | 卡等级 < 解锁级 | 去底；只剩一圈 `panel-border` 80% 的空心环（`OutlinedPanel` 内层给透明会露出整块描边色，所以另画环） | 去底，`text-faint` 1 描边 + `text-faint` 字 | 全部 `text-faint`（`Theme.LockGray`）；背面（有本系淡底）改 `text-dim` 78%；chip .4 | 锁图标 + 「Lv{n} 解锁」，`text-faint` |
+| **spent** 本场已用 | 只在**战斗长按版**：每场一次的特性（杜门不出、折桂）本场已触发 | 去底 | `text-dim` 实底白字 | 名 / 正文 / 词条 / 数字全 `text-dim`；chip .6 | 「本场已用」胶囊：`ink-bar` 底、`text-warm` 字 |
+| **待补** | 某面缺某级（防御性占位，spec A 后不出现） | `panel-border` 空心环，不画斜纹 | 无 | `text-mute`「Lv6 · 这一面待补」 | 无 |
 
 - off / spent 是非激活态，不在对比度要求之内（`system/` 配色规则）；靠「去底 + 尾标」与 on 区分，不只靠变浅。
 - spent 下一场开始恢复成 on。升级预览在局外，没有「本场」，**不用** spent 态（WaterEarthCues 稿上写到升级预览是笔误，E2 附录 Q19 已指出）。
@@ -34,8 +36,8 @@
 
 横向贴边（E2 附录 §4.1）：16:9 下面内正文宽 431，行头「Lv 标 + 5 字名 + 主动 · 招牌 + 锁尾标」约 430，贴边。off 态放不下时去掉类别小字，保留锁尾标。
 
-## 两面条（组合用法）
-Lv3 / Lv4 两面都有的特性（含数据里分面的两条，按槽位合成一行，附录 Q3 / Q4）放在两面区下方的「两面条」里：左侧一格竖排「两面」标签（宽 34 → 71，战斗版 63；`panel-inset` 底、宋体 10 → 21，战斗版 20，`text-dim`；Unity Text 不能竖排，写成「两\n面」），右侧并排本卡的行。两面的效果不同时，正文分两小句，各自前缀 xs 面印（见 `FaceSeal`）。战斗长按版两面条压成单行（行高 46、字 18），超宽截断补「…」（`Ui.Truncate`，附录 Q11）。两面条的主动 / 被动按每条 Def 各自取。
+## 全平铺（组合用法）
+两面是同一张网格的两列：每级两面各一行，行高取两面较大者（`LevelHeights`），两面效果相同也各写一遍；不再有「两面条」。战斗长按版只列已解锁的级，未解锁每面收成一行。
 
 ## 使用方提供
 解锁级、特性名、类别、正文、所在面（攻击 / 五行面 / 两面，决定 on 态底色）、状态（on / off / spent）。

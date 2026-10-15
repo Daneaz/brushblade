@@ -12,7 +12,7 @@
 .lvt{flex:none;height:12px;padding:0 4px;border-radius:6px;background:var(--ink);color:#fff;font-size:7.5px;display:inline-flex;align-items:center;font-variant-numeric:tabular-nums}
 .tn{font-size:11.5px;font-weight:600;letter-spacing:.5px;white-space:nowrap;color:var(--text-main)}
 .tk{font-size:8px;color:var(--text-dim);white-space:nowrap}
-.tx{margin-top:2px;font-size:9.5px;line-height:1.4;color:var(--text-dim)}
+.tx{margin-top:2px;font-size:9.5px;line-height:1.4;color:var(--text-quiet)}
 .lock{margin-left:auto;display:inline-flex;align-items:center;gap:2px;font-size:8px;color:var(--text-faint);white-space:nowrap}
 .lock svg{width:8px;height:8px}
 .used{margin-left:auto;height:12px;padding:0 5px;border-radius:6px;background:var(--ink-bar);color:var(--text-warm);font-size:7.5px;display:inline-flex;align-items:center;white-space:nowrap}
@@ -20,10 +20,6 @@
 .tr.off .lvt{background:transparent;color:var(--text-faint);box-shadow:inset 0 0 0 1px var(--text-faint)}
 .tr.off .tn,.tr.off .tk,.tr.off .tx{color:var(--text-faint)}
 .face.back .tr.off .tn,.face.back .tr.off .tx{color:var(--text-dim);opacity:.78}
-.shared{display:flex;gap:8px;align-items:stretch;width:538px}
-.shl{flex:none;width:34px;border-radius:7px;background:var(--panel-inset);display:flex;align-items:center;justify-content:center}
-.shl b{font-family:var(--font-serif);font-size:10px;font-weight:600;color:var(--text-dim);writing-mode:vertical-rl;letter-spacing:2px}
-.shared .tr{flex:1}
 .seal{flex:none;display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;font-size:7px;border-radius:2px;font-family:var(--font-serif);font-weight:700;color:#fff;background:var(--glyph);vertical-align:-1px;margin-right:2px}
 .seal.atk{background:var(--ink)}
 .outer{display:flex;flex-direction:column;gap:10px}
@@ -36,14 +32,9 @@
   <div class="tr off"><div class="th"><span class="lvt">Lv8</span><span class="tn">堵截</span><span class="tk">主动 · 招牌</span><span class="lock"><svg><use href="#i-lock"></use></svg>Lv8 解锁</span></div><div class="tx">目标跳过下一次行动(Boss:行动条后退一半)</div></div>
  </div></div>
  <div class="col zd-e-earth"><div class="h">背面 · 五行面(本系淡底)· 杜</div><div class="face back">
-  <div class="tr"><div class="th"><span class="lvt">Lv6</span><span class="tn">闭门</span><span class="tk">被动</span></div><div class="tx">跨场：下一场开局获得护盾 60</div></div>
+  <div class="tr"><div class="th"><span class="lvt">Lv6</span><span class="ic" style="display:inline-flex;width:13px;height:13px;border-radius:3.5px;background:var(--cinnabar)"></span><span class="tn">闭门</span><span class="tk">被动</span></div><div class="tx">跨场：下一场开局获得<b style="color:var(--earth-fg)">护盾</b> 60</div></div>
   <div class="tr off"><div class="th"><span class="lvt">Lv8</span><span class="tn">杜门不出</span><span class="tk">主动 · 招牌</span><span class="used">本场已用</span></div><div class="tx">本回合受伤 −60%；下回合 AP −1；每场 1 次</div></div>
  </div></div>
-</div>
-<div class="h" style="margin:0 0 -6px">两面条 · Lv3 / Lv4 按槽位合成一行;两面效果不同时分两小句,各带 xs 面印(正文为示意)</div>
-<div class="shared zd-e-earth"><div class="shl"><b>两面</b></div>
- <div class="tr"><div class="th"><span class="lvt">Lv3</span><span class="tn">杜绝</span><span class="tk">两面</span></div><div class="tx"><span class="seal atk">攻</span>伤害 18→22;<span class="seal">固</span>护盾 30→36</div></div>
- <div class="tr off"><div class="th"><span class="lvt">Lv4</span><span class="tn">精进</span><span class="tk">两面</span><span class="lock"><svg><use href="#i-lock"></use></svg>Lv4 解锁</span></div><div class="tx">本体数值 +10%</div></div>
 </div>
 </div>
 </body></html>

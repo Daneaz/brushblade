@@ -6,14 +6,14 @@
 - **一式**：实底 + 白字，宋体（`TitleFont`）粗体，圆角 = 边长 × 0.19，字高 = 边长 × 0.7。
 - **攻击面**：`ink` 底白「攻」，不分五行（与彩色五行面一眼分开）。
 - **五行面**：`<el>-glyph` 底白面字（`Theme.GlyphColor(def.Element)`）：火「燃」、金「铠」、水「润」、土「固」、木「生」。心系兜底「心」（字符串表 `face.seal.heart`，稿上没有，两面字目前也没有心系）。
-- **两面通用**：`ink-soft` 底白「两」（稿 `.seal.both`）。只用在「这一条两面都有」的地方 —— 字卡详情的两面条、升级预览「新解锁 · 两面」小卡；不出现在手牌上（手牌总有一面朝上）。
+- **两面通用**：`ink-soft` 底白「两」（稿 `.seal.both`）。只用在「这一条两面都有」的地方 —— 升级预览「新解锁 · 两面」小卡（字卡详情已无两面条，spec B）；不出现在手牌上（手牌总有一面朝上）。
   与 PartsAndGraft 的「拆」「合」同底色：三枚都不是某一面，墨蓝底统一表示「不属于攻击 / 五行面」。实现是 `Ui.FaceSeal(parent, text, color, size)` 重载（`Ui.cs:797` 一族），三枚共用；字符串表 `face.seal.both`，取字用 `Ui.FaceSealBothText()`。
 - 面字是 UI 记号，进字符串表：`face.seal.attack` / `face.seal.fire` / `.metal` / `.water` / `.earth` / `.wood` / `.heart`；另备 `face.name.attack`「攻击」、`face.name.feature`「五行面」、`face.side.front`「正」、`face.side.back`「背」供翻面钮使用。
 
 ## 尺寸档（pt × 2.093 = 逻辑单位）
 | 档 | 稿 pt | 逻辑单位 | 字号（逻辑单位） | 用在哪 |
 | --- | --- | --- | --- | --- |
-| xs | 10 | 21（`Ui.FaceSealXs`） | 15 | 手牌（`BattleView.cs:6069`）、拆合台选中牌（`BattleView.cs:4470`）、升级预览差行前缀（`CollectionView.cs:1057`）、两面条分面小句前缀（`CardSheetParts.BodyLine`）；稿：TriggerFx 飘字签 |
+| xs | 10 | 21（`Ui.FaceSealXs`） | 15 | 手牌（`BattleView.cs:6069`）、拆合台选中牌（`BattleView.cs:4470`）、升级预览差行前缀（`CollectionView.cs:1057`）、升级预览两面条分面小句前缀（`CardSheetParts.BodyLine`）；字卡详情不再用 xs 印（全平铺后面由左右栏区分）；稿：TriggerFx 飘字签 |
 | s | 13 | 27（`Ui.FaceSealS`） | 19 | 升级预览「下一级解锁」预告框（`CollectionView.cs:1024`） |
 | m | 17 | 36（`Ui.FaceSealM`） | 25 | 字卡详情战斗版面头（`CardSheetParts.Sizes.BattleSheet`）与头部牌印、升级预览新解锁小卡卡头（`CollectionView.cs:967`，含「两」） |
 | l | 24 | 50（`Ui.FaceSealL`） | 34 | 字卡详情铺满版面头（`CardSheetParts.Sizes.Tall`） |

@@ -163,17 +163,77 @@ namespace Brushblade.Core.Tests
         // ---------------- GlossaryTerm / GlossaryRules ----------------
 
         [Test]
-        public void GlossaryTerm_41_InSpecOrder_Groups()
+        public void GlossaryTerm_45_InSpecOrder_Groups()
         {
-            // 2026-10-13:删去一条词条,关键词 32 → 31
+            // 2026-10-13:删去一条词条,关键词 32 → 31;2026-10-15 spec B:追加 涓 / 涌 / 苏 / 速度,31 → 35
             var all = Enum.GetValues(typeof(GlossaryTerm)).Cast<GlossaryTerm>().ToList();
-            Assert.That(all.Count, Is.EqualTo(41));
-            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(31), "关键词");
+            Assert.That(all.Count, Is.EqualTo(45));
+            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(35), "关键词");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 1), Is.EqualTo(7), "范围");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 2), Is.EqualTo(3), "存续");
             Assert.That(all.Select(GlossaryRules.Group), Is.Ordered, "组按 spec §3 顺序排");
-            Assert.That((all[0], all[30], all[31], all[37], all[38], all[40]), Is.EqualTo(
-                (GlossaryTerm.Burn, GlossaryTerm.Crit, GlossaryTerm.AreaSingle, GlossaryTerm.AreaAll, GlossaryTerm.Battle, GlossaryTerm.Band)));
+            Assert.That((all[0], all[30], all[31], all[34]), Is.EqualTo(
+                (GlossaryTerm.Burn, GlossaryTerm.Crit, GlossaryTerm.Trickle, GlossaryTerm.Speed)));
+            Assert.That((all[35], all[41], all[42], all[44]), Is.EqualTo(
+                (GlossaryTerm.AreaSingle, GlossaryTerm.AreaAll, GlossaryTerm.Battle, GlossaryTerm.Band)));
+        }
+
+        /// <summary>词条 chip = 战场上那枚状态 chip(同图标、同底色分组;执行期决定 D1 / D2)。每个词条都列到。</summary>
+        [Test]
+        public void ChipOf_EveryTerm_MatchesBattlefieldChip()
+        {
+            (string, ChipTone)? C(string icon, ChipTone tone) => (icon, tone);
+            var expected = new Dictionary<GlossaryTerm, (string, ChipTone)?>
+            {
+                [GlossaryTerm.Burn] = C("burn", ChipTone.Threat),
+                [GlossaryTerm.Detonate] = null,
+                [GlossaryTerm.Freeze] = C("freeze", ChipTone.Control),
+                [GlossaryTerm.FrostResist] = C("frostguard", ChipTone.Control),
+                [GlossaryTerm.IceStall] = C("chill", ChipTone.Control),
+                [GlossaryTerm.Slow] = C("slow", ChipTone.Control),
+                [GlossaryTerm.Morale] = C("morale", ChipTone.Boost),
+                [GlossaryTerm.Block] = C("block", ChipTone.Guard),
+                [GlossaryTerm.Wellspring] = null,
+                [GlossaryTerm.Heft] = null,
+                [GlossaryTerm.Shield] = C("shield", ChipTone.Guard),
+                [GlossaryTerm.Armor] = C("defense", ChipTone.Guard),
+                [GlossaryTerm.ArmorBreak] = C("armorbreak", ChipTone.Control),
+                [GlossaryTerm.Hot] = C("heal", ChipTone.Guard),
+                [GlossaryTerm.Seed] = C("seed", ChipTone.Guard),
+                [GlossaryTerm.Spirit] = null,
+                [GlossaryTerm.Nature] = null,
+                [GlossaryTerm.Sapling] = null,
+                [GlossaryTerm.Graft] = null,
+                [GlossaryTerm.Taunt] = C("taunt", ChipTone.Control),
+                [GlossaryTerm.Execute] = null,
+                [GlossaryTerm.Bleed] = C("bleed", ChipTone.Threat),
+                [GlossaryTerm.Doom] = C("mortal", ChipTone.Threat),
+                [GlossaryTerm.Charm] = null,
+                [GlossaryTerm.Mark] = C("mark", ChipTone.Threat),
+                [GlossaryTerm.Weaken] = C("curse", ChipTone.Control),
+                [GlossaryTerm.DamageCut] = C("bulwark", ChipTone.Guard),
+                [GlossaryTerm.CounterBoost] = C("riposte", ChipTone.Boost),
+                [GlossaryTerm.Endure] = C("lastlife", ChipTone.Guard),
+                [GlossaryTerm.Thorns] = C("thorns", ChipTone.Threat),
+                [GlossaryTerm.Crit] = C("crit", ChipTone.Boost),
+                [GlossaryTerm.Trickle] = C("heal", ChipTone.Guard),
+                [GlossaryTerm.Surge] = C("heal", ChipTone.Guard),
+                [GlossaryTerm.Revive] = C("lastlife", ChipTone.Guard),
+                [GlossaryTerm.Speed] = C("speed", ChipTone.Guard),
+                [GlossaryTerm.AreaSingle] = null,
+                [GlossaryTerm.AreaAdjacent] = null,
+                [GlossaryTerm.AreaRow] = null,
+                [GlossaryTerm.AreaColumn] = null,
+                [GlossaryTerm.AreaScatter] = null,
+                [GlossaryTerm.AreaChain] = null,
+                [GlossaryTerm.AreaAll] = null,
+                [GlossaryTerm.Battle] = null,
+                [GlossaryTerm.Carry] = null,
+                [GlossaryTerm.Band] = null,
+            };
+            Assert.That(expected.Count, Is.EqualTo(Enum.GetValues(typeof(GlossaryTerm)).Length), "每个词条都列到");
+            foreach (var kv in expected)
+                Assert.That(GlossaryRules.ChipOf(kv.Key), Is.EqualTo(kv.Value), kv.Key.ToString());
         }
 
         [Test]
@@ -202,10 +262,23 @@ namespace Brushblade.Core.Tests
                 [FaceStatKind.Nature] = GlossaryTerm.Nature,
                 [FaceStatKind.SpendWellspring] = GlossaryTerm.Wellspring,
                 [FaceStatKind.SpendHeft] = GlossaryTerm.Heft,
+                [FaceStatKind.CounterPercent] = null,
+                [FaceStatKind.ReviveHp] = GlossaryTerm.Revive,
             };
             Assert.That(expected.Count, Is.EqualTo(Enum.GetValues(typeof(FaceStatKind)).Length), "每个 FaceStatKind 都列到");
             foreach (var kv in expected)
                 Assert.That(GlossaryRules.TermOf(kv.Key), Is.EqualTo(kv.Value), kv.Key.ToString());
+        }
+
+        [Test]
+        public void TermOf_FaceStat_HealBySource()
+        {
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Heal, 30, EffectKind.HealOverTime)), Is.EqualTo(GlossaryTerm.Trickle));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Heal, 90, EffectKind.HealSelf)), Is.EqualTo(GlossaryTerm.Surge));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Heal, 45, EffectKind.HealAll)), Is.EqualTo(GlossaryTerm.Surge));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.ReviveHp, 50, EffectKind.Revive)), Is.EqualTo(GlossaryTerm.Revive));
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.CounterPercent, 40, EffectKind.Block)), Is.Null);
+            Assert.That(GlossaryRules.TermOf(new FaceStat(FaceStatKind.Burn, 1, EffectKind.BurnSingle)), Is.EqualTo(GlossaryTerm.Burn), "其余同 TermOf(kind)");
         }
     }
 }

@@ -44,11 +44,33 @@ namespace Brushblade.Core
         Summon,
     }
 
+    /// <summary>字卡详情全平铺的一级(spec B §1.2):两面是同一张网格的两列,同级并排。
+    /// 某面没有这一级 = null(Presentation 画「待补」占位;spec A 合并后不应出现,留作防御)。</summary>
+    public sealed class SheetLevelRow
+    {
+        public TraitSlot Slot { get; }
+        public SheetTrait Attack { get; }
+        public SheetTrait Feature { get; }
+        /// <summary>卡等级 ≥ 槽位等级(两面同级同解锁)。</summary>
+        public bool Unlocked { get; }
+
+        public SheetLevelRow(TraitSlot slot, SheetTrait attack, SheetTrait feature, bool unlocked)
+        {
+            Slot = slot;
+            Attack = attack;
+            Feature = feature;
+            Unlocked = unlocked;
+        }
+
+        public SheetTrait Of(CardFace face) => face == CardFace.Attack ? Attack : Feature;
+    }
+
     /// <summary>字卡详情 / 升级预览「显示哪几行」的规则(Plan E2)。纯函数,只读字表,不看场面。
-    /// 槽位归属:Lv1 不成行(效果恒空);Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 两面各一条,进各自那一面。</summary>
+    /// 字卡详情(spec B)已全平铺:每面逐级一行(Lv1 起,两面同级成对);「两面」条(<see cref="SharedTraits"/> 等)现只服务升级预览,
+    /// 其归属:Lv3 / Lv4 进「两面」条(Q3 / Q4);Lv5 / Lv6 / Lv8 两面各一条,进各自那一面。</summary>
     public static class CardSheetRules
     {
-        /// <summary>进「两面」条的槽位(spec §1 写的是「两面」;数据里 Lv3 恒分面、Lv4 有 22 张分面)。</summary>
+        /// <summary>进升级预览「两面」条的槽位(字卡详情已不用;数据里 Lv3 恒分面、Lv4 有 22 张分面)。</summary>
         private static bool IsShared(TraitSlot slot) => slot == TraitSlot.Lv3 || slot == TraitSlot.Lv4;
 
         private static readonly TraitFace[] BothMark = { TraitFace.Both };
@@ -95,6 +117,31 @@ namespace Brushblade.Core
                 if (rows.Count > 0) return (lv, rows);
             }
             return (0, Array.Empty<SheetTrait>());
+        }
+
+        /// <summary>字卡详情全平铺(spec B §1.2):每个有特性的槽一行(升序),两面各一格。Both 特性两面各挂一份;
+        /// 格的 <see cref="SheetTrait.Face"/> 是所在面。加载器保证同槽同面至多一条(ConfigLoader「同一槽位每个作用面只能有一条」)。</summary>
+        public static IReadOnlyList<SheetLevelRow> LevelRows(CharDef def, int cardLevel) =>
+            def.Traits.Select(t => t.Slot).Distinct().OrderBy(s => (int)s)
+                .Select(slot => new SheetLevelRow(slot,
+                    LevelCell(def, slot, CardFace.Attack, cardLevel),
+                    LevelCell(def, slot, CardFace.Feature, cardLevel),
+                    cardLevel >= (int)slot))
+                .ToList();
+
+        /// <summary>Lv1 行的正文效果(spec B §1.4):该面折叠后本体(Lv1 + Lv3 替换,不含 Lv4+),去掉伤害(伤害在数值格)。
+        /// 木系五行面里是带本命的召唤效果,Presentation 取它的被动印本命句。未拥有(&lt; 1)按 1 级。</summary>
+        public static IReadOnlyList<EffectDef> Lv1Effects(CharDef def, CardFace face, int cardLevel) =>
+            FaceStats.FoldedBody(def, face, Math.Max(1, cardLevel), TraitSlot.Lv4)
+                .Where(e => e.Kind != EffectKind.DamageSingle)
+                .ToList();
+
+        private static SheetTrait LevelCell(CharDef def, TraitSlot slot, CardFace face, int cardLevel)
+        {
+            var trait = def.Traits.FirstOrDefault(t => t.Slot == slot && t.AppliesTo(face));
+            if (trait == null) return null;
+            var mark = face == CardFace.Attack ? TraitFace.Attack : TraitFace.Feature;
+            return new SheetTrait(slot, mark, new[] { trait }, cardLevel >= trait.UnlockLevel);
         }
 
         /// <summary>面头落点:把 <see cref="CardFaceRules.Landing"/> 的 flags 折成四种说法。

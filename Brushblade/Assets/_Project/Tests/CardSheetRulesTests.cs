@@ -209,6 +209,98 @@ namespace Brushblade.Core.Tests
                 }
         }
 
+        // ---------------- LevelRows / Lv1Effects(spec B §1.2 全平铺)----------------
+
+        private static readonly TraitSlot[] SheetSlots =
+            { TraitSlot.Lv1, TraitSlot.Lv3, TraitSlot.Lv4, TraitSlot.Lv5, TraitSlot.Lv6, TraitSlot.Lv8 };
+
+        private static string KindValues(IEnumerable<EffectDef> effects) =>
+            string.Join(",", effects.Select(e => $"{e.Kind}:{e.Value}"));
+
+        [Test]
+        public void LevelRows_EveryChar_OneRowPerSlot_CellsHoldThatFacesTrait()
+        {
+            foreach (var d in Playable())
+            {
+                var rows = CardSheetRules.LevelRows(d, MetaRules.MaxCardLevel);
+                var slots = d.Traits.Select(t => t.Slot).Distinct().OrderBy(s => (int)s).ToList();
+                Assert.That(rows.Select(r => r.Slot), Is.EqualTo(slots), $"{d.Id} 每个有特性的级一行,升序");
+                foreach (var r in rows)
+                {
+                    Assert.That(SheetSlots.Contains(r.Slot), Is.True, $"{d.Id} Lv{(int)r.Slot} 不在 1/3/4/5/6/8");
+                    foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
+                    {
+                        var want = d.Traits.SingleOrDefault(t => t.Slot == r.Slot && t.AppliesTo(face));
+                        var cell = r.Of(face);
+                        string why = $"{d.Id} Lv{(int)r.Slot} {face}";
+                        if (want == null)
+                        {
+                            Assert.That(cell, Is.Null, why + ":缺这一级 → null(画待补)");
+                            continue;
+                        }
+                        Assert.That(cell, Is.Not.Null, why);
+                        Assert.That(cell.Defs.Count, Is.EqualTo(1), why);
+                        Assert.That(ReferenceEquals(cell.Defs[0], want), Is.True, why + ":Both 特性两面各挂一份");
+                        Assert.That(cell.Slot, Is.EqualTo(r.Slot), why);
+                        Assert.That(cell.Face, Is.EqualTo(face == CardFace.Attack ? TraitFace.Attack : TraitFace.Feature), why);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Review Focus 2:无图标本命(花 / 藤 / 箭 / 柘)过去整格被跳过;Lv1 行不依赖图标,两面都要有。</summary>
+        [Test]
+        public void LevelRows_Lv1_OnBothFaces_ForEveryChar()
+        {
+            foreach (var d in Playable())
+            {
+                var first = CardSheetRules.LevelRows(d, 1)[0];
+                Assert.That(first.Slot, Is.EqualTo(TraitSlot.Lv1), d.Id);
+                Assert.That(first.Attack, Is.Not.Null, d.Id + " 攻击面 Lv1");
+                Assert.That(first.Feature, Is.Not.Null, d.Id + " 五行面 Lv1");
+            }
+            foreach (var id in new[] { "花", "藤", "箭", "柘" })
+                Assert.That(CardSheetRules.LevelRows(Graph.Get(id), 1)[0].Feature, Is.Not.Null, id);
+        }
+
+        /// <summary>Review Focus 1:未拥有(traitLevel 0)全部 off;解锁按卡等级。</summary>
+        [Test]
+        public void LevelRows_UnlockedFollowsCardLevel_AndUnownedAllOff()
+        {
+            foreach (var r in CardSheetRules.LevelRows(Graph.Get("炎"), 5))
+            {
+                bool want = (int)r.Slot <= 5;
+                Assert.That(r.Unlocked, Is.EqualTo(want), $"Lv{(int)r.Slot}");
+                if (r.Attack != null) Assert.That(r.Attack.Unlocked, Is.EqualTo(want), $"Lv{(int)r.Slot} 攻");
+                if (r.Feature != null) Assert.That(r.Feature.Unlocked, Is.EqualTo(want), $"Lv{(int)r.Slot} 五");
+            }
+            foreach (var d in Playable())
+                Assert.That(CardSheetRules.LevelRows(d, 0).All(r => !r.Unlocked), Is.True, $"{d.Id} 未拥有应全 off");
+        }
+
+        [Test]
+        public void Lv1Effects_NoDamage_FoldsLv3_UnownedSameAsLevel1()
+        {
+            var yan = Graph.Get("炎");
+            var a1 = CardSheetRules.Lv1Effects(yan, CardFace.Attack, 1);
+            Assert.That(a1.Any(e => e.Kind == EffectKind.DamageSingle), Is.False, "伤害在数值格,不进 Lv1 行");
+            int burn1 = a1.First(e => e.Kind == EffectKind.BurnSingle).Value;
+            int burn3 = CardSheetRules.Lv1Effects(yan, CardFace.Attack, 3).First(e => e.Kind == EffectKind.BurnSingle).Value;
+            Assert.That(burn3, Is.GreaterThan(burn1), "Lv3 灼·强化折进 Lv1 行(当前等级的值)");
+
+            foreach (var d in Playable())
+                foreach (var face in new[] { CardFace.Attack, CardFace.Feature })
+                {
+                    var effects = CardSheetRules.Lv1Effects(d, face, 1);
+                    Assert.That(effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False, $"{d.Id} {face}");
+                    Assert.That(KindValues(CardSheetRules.Lv1Effects(d, face, 0)), Is.EqualTo(KindValues(effects)),
+                        $"{d.Id} {face}:未拥有按 1 级印");
+                }
+
+            var jing = CardSheetRules.Lv1Effects(Graph.Get("荆"), CardFace.Feature, 1);
+            Assert.That(jing.Any(e => e.Kind == EffectKind.Summon && e.Passive != null), Is.True, "木五行面 Lv1 = 本命:召唤带被动");
+        }
+
         // ---------------- TargetOf / AreaOf ----------------
 
         [Test]
@@ -385,6 +477,18 @@ namespace Brushblade.Core.Tests
             b.Cast("杜");
             foreach (var t in du.Traits.Where(t => t.MaxPerBattle == 0))
                 Assert.That(b.TraitSpentThisBattle(du, t), Is.False, t.Name);
+        }
+
+        /// <summary>spec A §6 合并后:每张字 Lv1/3/4/5/6/8 六级、每级两面都有(待补占位不再出现)。</summary>
+        [Test]
+        public void LevelRows_AfterSpecA_SixLevels_BothFaces()
+        {
+            foreach (var d in Playable())
+            {
+                var rows = CardSheetRules.LevelRows(d, 1);
+                Assert.That(rows.Select(r => (int)r.Slot), Is.EqualTo(new[] { 1, 3, 4, 5, 6, 8 }), d.Id);
+                Assert.That(rows.All(r => r.Attack != null && r.Feature != null), Is.True, d.Id + ":每级两面都有");
+            }
         }
     }
 }

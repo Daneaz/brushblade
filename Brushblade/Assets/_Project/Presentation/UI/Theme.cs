@@ -15,6 +15,8 @@ namespace Brushblade.Presentation
         public static readonly Color InkSoft = new(0.239f, 0.304f, 0.41f);      // 深灰蓝按钮
         public static readonly Color TextMain = new(0.088f, 0.105f, 0.132f);
         public static readonly Color TextDim = new(0.363f, 0.391f, 0.435f);
+        /// <summary>text-quiet #2C333D:字卡详情技能说明区的正文(abilitytext 稿 A 案,panel-paper 上 12.0:1)。</summary>
+        public static readonly Color TextQuiet = new(0.173f, 0.200f, 0.239f);
         public static readonly Color CardWhite = Color.white;
         // 石青 #2E5E8C = tokens.json `cta`(2026-10-04 用户拍板,比稿 docs/design/demos/cta-color/推进色比稿.html):
         // 一屏主推进钮(续爬/深入/结束回合/收下/确认类主钮)的实底,白字 6.78:1。

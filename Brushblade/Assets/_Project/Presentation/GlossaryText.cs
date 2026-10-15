@@ -51,6 +51,10 @@ namespace Brushblade.Presentation
             GlossaryTerm.Endure => Strings.T("term.endure.name"),
             GlossaryTerm.Thorns => Strings.T("term.thorns.name"),
             GlossaryTerm.Crit => Strings.T("term.crit.name"),
+            GlossaryTerm.Trickle => Strings.T("term.trickle.name"),
+            GlossaryTerm.Surge => Strings.T("term.surge.name"),
+            GlossaryTerm.Revive => Strings.T("term.revive.name"),
+            GlossaryTerm.Speed => Strings.T("term.speed.name"),
             GlossaryTerm.AreaSingle => Strings.T("term.area_single.name"),
             GlossaryTerm.AreaAdjacent => Strings.T("term.area_adjacent.name"),
             GlossaryTerm.AreaRow => Strings.T("term.area_row.name"),
@@ -97,6 +101,10 @@ namespace Brushblade.Presentation
             GlossaryTerm.Endure => Strings.T("term.endure.desc"),
             GlossaryTerm.Thorns => Strings.T("term.thorns.desc"),
             GlossaryTerm.Crit => Strings.T("term.crit.desc"),
+            GlossaryTerm.Trickle => Strings.T("term.trickle.desc"),
+            GlossaryTerm.Surge => Strings.T("term.surge.desc"),
+            GlossaryTerm.Revive => Strings.T("term.revive.desc"),
+            GlossaryTerm.Speed => Strings.T("term.speed.desc"),
             GlossaryTerm.AreaSingle => Strings.T("term.area_single.desc"),
             GlossaryTerm.AreaAdjacent => Strings.T("term.area_adjacent.desc"),
             GlossaryTerm.AreaRow => Strings.T("term.area_row.desc"),
@@ -116,10 +124,19 @@ namespace Brushblade.Presentation
             GlossaryTerm.Burn => Strings.T("term.burn.alias"),
             GlossaryTerm.Hot => Strings.T("term.hot.alias"),
             GlossaryTerm.Spirit => Strings.T("term.spirit.alias"),
-            GlossaryTerm.Sapling => Strings.T("term.sapling.alias"),
+            GlossaryTerm.Weaken => Strings.T("term.weaken.alias"),
             GlossaryTerm.Thorns => Strings.T("term.thorns.alias"),
             _ => null,
         };
+
+        /// <summary>气泡里词名后印的别名(第一个,执行期决定 D15);无别名 = null。</summary>
+        public static string AliasShown(GlossaryTerm term)
+        {
+            string aliases = Alias(term);
+            if (string.IsNullOrEmpty(aliases)) return null;
+            int bar = aliases.IndexOf('|');
+            return bar < 0 ? aliases : aliases.Substring(0, bar);
+        }
 
         private static IReadOnlyList<TermSurface> _lexicon;
 
@@ -139,16 +156,27 @@ namespace Brushblade.Presentation
             return terms;
         }
 
-        /// <summary>正文上色(R1–R3):on = 术语加粗 ink-soft、数字加粗正文色;<paramref name="muted"/>(off / spent)
-        /// 只保留加粗,颜色跟随整句(不能出现「行是灰的,术语却是墨蓝」)。入参必须是纯文本。</summary>
-        public static string Rich(string plain, bool muted)
+        /// <summary>同 <see cref="TermsOf(IEnumerable{string})"/>,但 <paramref name="lead"/> 排在最前(Lv1 行的「本命」「润泽」,spec B §1.4)。</summary>
+        public static IReadOnlyList<GlossaryTerm> TermsOf(IEnumerable<string> plains, IEnumerable<GlossaryTerm> lead)
+        {
+            var terms = new List<GlossaryTerm>();
+            foreach (var t in lead)
+                if (!terms.Contains(t)) terms.Add(t);
+            foreach (var t in TermsOf(plains))
+                if (!terms.Contains(t)) terms.Add(t);
+            return terms;
+        }
+
+        /// <summary>正文上色(R1–R3):on = 术语加粗 <paramref name="termColor"/>(缺省 ink-soft;字卡详情传本系 -fg,abilitytext A 案)、
+        /// 数字加粗 text-main;<paramref name="muted"/>(off / spent)只保留加粗,颜色跟随整句。入参必须是纯文本。</summary>
+        public static string Rich(string plain, bool muted, Color? termColor = null)
         {
             var scan = Scan(plain);
             if (muted) return TermMarkup.Rich(plain, scan, "<b>", "</b>", "<b>", "</b>");
-            return TermMarkup.Rich(plain, scan, TermOpen, "</color></b>", NumOpen, "</color></b>");
+            string termOpen = "<b><color=#" + ColorUtility.ToHtmlStringRGBA(termColor ?? Theme.InkSoft) + ">";
+            return TermMarkup.Rich(plain, scan, termOpen, "</color></b>", NumOpen, "</color></b>");
         }
 
-        private static string TermOpen => "<b><color=#" + ColorUtility.ToHtmlStringRGBA(Theme.InkSoft) + ">";
         private static string NumOpen => "<b><color=#" + ColorUtility.ToHtmlStringRGBA(Theme.TextMain) + ">";
     }
 }

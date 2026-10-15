@@ -64,8 +64,8 @@ namespace Brushblade.Core.Tests
             // 每回合量没有格 —— 已在 G1 报告里列为待 controller 裁定(spec B 出格或 FaceStats 补格)
             Assert.That(Cells(FaceStats.Body(Graph.Get("冷"), CardFace.Feature, 1)), Is.EqualTo("HealOverTime:3"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("海"), CardFace.Feature, 1)), Is.EqualTo("Heal:90"), "涌:只有治疗");
-            Assert.That(Cells(FaceStats.Body(Graph.Get("沐"), CardFace.Feature, 1)), Is.EqualTo("Heal:98"), "苏:复活生命 % 格归 spec B(D19)");
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Feature, 1)), Is.EqualTo("Heal:210"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("沐"), CardFace.Feature, 1)), Is.EqualTo("Heal:98,ReviveHp:50"), "苏:治疗 + 复活生命 %(spec B Task 9,D19 收口)");
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Feature, 1)), Is.EqualTo("Heal:210,ReviveHp:60"), "㵘 = 苏(全体),复活生命 60%");
             Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Feature, 1)), Is.EqualTo("Shield:45,Armor:20,Duration:2"), "崩五行面全体盾 45");
             Assert.That(Cells(FaceStats.Body(Graph.Get("冰"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(195, 3)},Freeze:2"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:420,ArmorBreak:2,SpendHeft:60"),
@@ -294,13 +294,147 @@ namespace Brushblade.Core.Tests
             Assert.That(FaceStats.Scales(FaceStatKind.SpendHeft) && FaceStats.Scales(FaceStatKind.SpendWellspring), Is.True);
         }
 
+        // ---------------- Sheet(spec B §1.3;依赖 spec A 数据)----------------
+
+        private static string KindsOf(IEnumerable<FaceStat> cells) => string.Join(",", cells.Select(c => c.Kind));
+
+        [Test]
+        public void Sheet_AttackFace_OnlyDamage()
+        {
+            foreach (var d in Playable())
+                foreach (var lv in new[] { 1, 3, 10 })
+                {
+                    var cells = FaceStats.Sheet(d, CardFace.Attack, lv);
+                    Assert.That(KindsOf(cells), Is.EqualTo("Damage"), $"{d.Id} L{lv}");
+                    Assert.That(cells[0].Value, Is.EqualTo(
+                        FaceStats.Body(d, CardFace.Attack, lv).First(c => c.Kind == FaceStatKind.Damage).Value), $"{d.Id} L{lv}");
+                }
+        }
+
+        [Test]
+        public void Sheet_FeatureFace_KindsByElement()
+        {
+            foreach (var d in Playable())
+                foreach (var lv in new[] { 1, 3, 10 })
+                {
+                    string got = KindsOf(FaceStats.Sheet(d, CardFace.Feature, lv));
+                    string why = $"{d.Id}({d.Element}) L{lv}";
+                    switch (d.Element)
+                    {
+                        case Element.Metal: Assert.That(got, Is.EqualTo("CounterPercent,Block,Morale"), why); break;
+                        case Element.Fire: Assert.That(got, Is.EqualTo("Weaken,Duration,Burn"), why); break;
+                        case Element.Wood: Assert.That(got, Is.EqualTo("SummonHp,SummonAttack"), why); break;
+                        case Element.Earth: Assert.That(got, Is.EqualTo("Shield,Armor,Duration"), why); break;
+                        case Element.Water:
+                            // 涌 = 治疗;涓 = 每回合治疗 + 回合;苏 = 治疗 + 复活生命 %
+                            Assert.That(got, Is.EqualTo("Heal").Or.EqualTo("Heal,Duration").Or.EqualTo("Heal,ReviveHp"), why);
+                            break;
+                        default: Assert.Fail(why + ":可玩字不该有第六系"); break;
+                    }
+                    Assert.That(got.Contains("Nature"), Is.False, why + ":数值格不再出本命格");
+                }
+        }
+
+        [Test]
+        public void Sheet_FeatureValues_ReadFromFoldedBody()
+        {
+            foreach (var d in Playable())
+                foreach (var lv in new[] { 1, 3, 10 })
+                {
+                    var cells = FaceStats.Sheet(d, CardFace.Feature, lv);
+                    var fx = FaceStats.FoldedBody(d, CardFace.Feature, lv, TraitSlot.Lv4);
+                    string why = $"{d.Id} L{lv}";
+                    switch (d.Element)
+                    {
+                        case Element.Metal:
+                            var block = fx.First(e => e.Kind == EffectKind.Block);
+                            Assert.That(cells[0].Value, Is.EqualTo(TraitRules.FaceBlockCounterPercent(fx)), why + ":反击 % 每字携带,Lv3 折叠后");
+                            Assert.That(cells[1].Value, Is.EqualTo(block.Value), why);
+                            Assert.That(cells[2].Value, Is.EqualTo(1), why + ":五行面战意恒 1(spec A §4.2)");
+                            break;
+                        case Element.Fire:
+                            var weaken = fx.First(e => e.Kind == EffectKind.Weaken);
+                            Assert.That(cells[0].Value, Is.EqualTo(MetaRules.ScaleEffectValue(weaken.Kind, weaken.Value, lv)), why);
+                            Assert.That(cells[1].DurationOf, Is.EqualTo(FaceStatKind.Weaken), why);
+                            Assert.That(cells[1].Value, Is.EqualTo(TraitRules.TurnsOf(weaken)), why);
+                            Assert.That(cells[2].Value, Is.EqualTo(1), why + ":五行面灼恒 1(spec A §4.1)");
+                            break;
+                        case Element.Water:
+                            if (cells.Count == 2 && cells[1].Kind == FaceStatKind.ReviveHp)
+                            {
+                                Assert.That(cells[0].Source, Is.EqualTo(EffectKind.Revive), why + ":苏的治疗格 Source 记 Revive(终审 I1,词条不判涌)");
+                                Assert.That(cells[1].Source, Is.EqualTo(EffectKind.Revive), why);
+                            }
+                            else if (cells.Count == 2)
+                            {
+                                var hot = fx.First(e => e.Kind == EffectKind.HealOverTime);
+                                Assert.That(cells[0].Source, Is.EqualTo(EffectKind.HealOverTime), why + ":涓");
+                                Assert.That(cells[0].Value, Is.EqualTo(MetaRules.ScaleEffectValue(hot.Kind, hot.Value, lv)), why + ":涓每回合量");
+                                Assert.That(cells[1].DurationOf, Is.EqualTo(FaceStatKind.Heal), why);
+                                Assert.That(cells[1].Value, Is.EqualTo(TraitRules.TurnsOf(hot)), why);
+                            }
+                            else
+                                Assert.That(cells[0].Source == EffectKind.HealSelf || cells[0].Source == EffectKind.HealAll, Is.True, why + ":涌");
+                            break;
+                        case Element.Wood:
+                            var summon = fx.First(e => e.Kind == EffectKind.Summon);
+                            Assert.That(cells[0].Value, Is.EqualTo(MetaRules.ScaleEffectValue(summon.Kind, summon.Value, lv)), why);
+                            Assert.That(cells[1].Value, Is.EqualTo(MetaRules.ScaleByCardLevel(summon.SummonAttack, lv)), why);
+                            break;
+                        case Element.Earth:
+                            Assert.That(cells[2].DurationOf, Is.EqualTo(FaceStatKind.Armor), why);
+                            break;
+                    }
+                }
+            Assert.That(FaceStats.Sheet(Graph.Get("荆"), CardFace.Feature, 1).Single(c => c.Kind == FaceStatKind.SummonAttack).Value,
+                Is.EqualTo(0), "荆 木灵攻击 0 也出格(稿;Review Focus 2)");
+        }
+
+        [Test]
+        public void Sheet_Water_HealTermFollowsMode()
+        {
+            // 苏(沐/㵘)面本体含 Revive:治疗格不挂涌;海=涌、冷=涓(终审 I1)
+            foreach (var ch in new[] { "沐", "㵘" })
+            {
+                var heal = FaceStats.Sheet(Graph.Get(ch), CardFace.Attack, 1).Concat(FaceStats.Sheet(Graph.Get(ch), CardFace.Feature, 1))
+                    .Where(c => c.Kind == FaceStatKind.Heal).ToList();
+                Assert.That(heal.Count, Is.GreaterThan(0), ch);
+                foreach (var c in heal)
+                    Assert.That(GlossaryRules.TermOf(c) == GlossaryTerm.Surge, Is.False, ch + " 治疗格不应是涌");
+            }
+            var all = new System.Func<string, CardFace, FaceStat[]>((n, f) => FaceStats.Sheet(Graph.Get(n), f, 1).Where(c => c.Kind == FaceStatKind.Heal).ToArray());
+            foreach (var f in new[] { CardFace.Attack, CardFace.Feature })
+            {
+                foreach (var c in all("海", f)) Assert.That(GlossaryRules.TermOf(c), Is.EqualTo(GlossaryTerm.Surge), "海");
+                foreach (var c in all("冷", f)) Assert.That(GlossaryRules.TermOf(c), Is.EqualTo(GlossaryTerm.Trickle), "冷");
+            }
+        }
+
+        [Test]
+        public void Sheet_Metal_CounterPercentRisesAtLv3()
+        {
+            // 剑(蓝):反击 40%,Lv3 格挡·强化 → 50%(同 Body_OtherElements)
+            Assert.That(Cells(FaceStats.Sheet(Graph.Get("剑"), CardFace.Feature, 1)), Is.EqualTo("CounterPercent:40,Block:2,Morale:1"));
+            Assert.That(Cells(FaceStats.Sheet(Graph.Get("剑"), CardFace.Feature, 3)), Is.EqualTo("CounterPercent:50,Block:3,Morale:1"));
+        }
+
+        [Test]
+        public void Sheet_WaterModes_SpecA()
+        {
+            var leng = FaceStats.Sheet(Graph.Get("冷"), CardFace.Feature, 1);
+            Assert.That(Cells(leng), Is.EqualTo("Heal:17,Duration:3"), "冷 = 涓:每回合 17 × 3 回合(spec A 终审遗留:每回合量出格)");
+            Assert.That(KindsOf(FaceStats.Sheet(Graph.Get("海"), CardFace.Feature, 1)), Is.EqualTo("Heal"), "海 = 涌");
+            Assert.That(Cells(FaceStats.Sheet(Graph.Get("沐"), CardFace.Feature, 1)), Is.EqualTo("Heal:98,ReviveHp:50"), "沐 = 苏:治疗 + 复活生命 50%(spec A §4.3)");
+            Assert.That(KindsOf(FaceStats.Sheet(Graph.Get("㵘"), CardFace.Feature, 1)), Is.EqualTo("Heal,ReviveHp"), "㵘 = 苏(全体)");
+        }
+
         // ---------------- 覆盖 ----------------
 
         /// <summary>本体效果里**不出数值格**的 EffectKind,每项写明它的信息在字卡详情的哪里能看到。
         /// 加一项之前先确认:玩家不看这一格,也不会漏掉改变出牌决策的信息。</summary>
         private static readonly Dictionary<EffectKind, string> NoCellExempt = new()
         {
-            [EffectKind.Revive] = "spec B 出「复活生命 %」格(D19);在那之前复活在技能说明里写",
+            // 空:苏的 Revive 已于 spec B Task 9 出「复活生命 %」格(D19 收口)
         };
 
         /// <summary>Final review Important 1:本体(Lv1 + Lv3 替换)里出现的每一种 EffectKind,要么出数值格,要么进

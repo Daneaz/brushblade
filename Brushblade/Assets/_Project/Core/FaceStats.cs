@@ -13,7 +13,7 @@ namespace Brushblade.Core
         Heal,           // HealSelf / HealAll 的治疗量
         Shield,         // Shield / ShieldAll 的护盾量
         SummonHp,       // Summon 的木灵生命
-        SummonAttack,   // Summon 的木灵攻击(为 0 不出格)
+        SummonAttack,   // Summon 的木灵攻击(Body 为 0 不出;Sheet 恒出)
         // ---- 关键状态 ----
         Burn,           // 灼:层(BurnSingle / BurnAll)
         Morale,         // 战意:层
@@ -32,6 +32,9 @@ namespace Brushblade.Core
         // ---- 资源结算(final review Important 1)----
         SpendWellspring, // 涌泉相报:清空全部泉,全体伤害 = 层数 × Value。Value = 每层伤害(缩放,同引擎 SpendResource 的 value)
         SpendHeft,       // 厚积薄发:同上,读厚
+        // ---- 字卡详情五行面按系定格(spec B §1.3,不缩放)----
+        CounterPercent,  // 金:反击 %(每字携带,spec A §4.2;Lv3 折叠后;缺省 BattleConfig.BlockCounterPercent)
+        ReviveHp,        // 水·苏:复活生命 %(Revive 的 ReviveHpPercent;0 = 半血 50)
     }
 
     /// <summary>一格数值。</summary>
@@ -125,6 +128,101 @@ namespace Brushblade.Core
             return list;
         }
 
+        /// <summary>字卡详情的数值格(spec B §1.3):攻击面只列「攻击」;五行面按系定格 ——
+        /// 金 反击% · 格挡 · 战意|水 涌 治疗 / 涓 每回合治疗 + 持续 / 苏 治疗 + 复活生命%|火 慑 · 持续 · 灼|
+        /// 木 木灵生命 · 木灵攻击(0 也出)|土 护盾 · 护甲 · 持续。不出本命格。口径同 <see cref="Body"/>(Lv1 + Lv3,不并入 Lv4+)。
+        /// 按系取不到任何格(防御)退回 Body 去掉本命格。升级预览仍走 <see cref="Body"/> / <see cref="Deltas"/>。</summary>
+        public static IReadOnlyList<FaceStat> Sheet(CharDef def, CardFace face, int cardLevel)
+        {
+            var effects = FoldedBody(def, face, cardLevel, TraitSlot.Lv4);
+            var cells = new List<FaceStat>();
+            if (face == CardFace.Attack)
+            {
+                var hit = First(effects, EffectKind.DamageSingle);
+                if (hit != null) cells.Add(new FaceStat(FaceStatKind.Damage, Scaled(hit, cardLevel), hit.Kind));
+            }
+            else
+            {
+                switch (def.Element)
+                {
+                    case Element.Metal: MetalCells(effects, cells); break;
+                    case Element.Water: WaterCells(effects, cardLevel, cells); break;
+                    case Element.Fire: FireCells(effects, cardLevel, cells); break;
+                    case Element.Wood: WoodCells(effects, cardLevel, cells); break;
+                    case Element.Earth: EarthCells(effects, cardLevel, cells); break;
+                }
+            }
+            if (cells.Count == 0)
+                cells.AddRange(Body(def, face, cardLevel).Where(c => c.Kind != FaceStatKind.Nature));
+            return cells;
+        }
+
+        private static EffectDef First(List<EffectDef> effects, params EffectKind[] kinds) =>
+            effects.FirstOrDefault(e => kinds.Contains(e.Kind));
+
+        private static void MetalCells(List<EffectDef> effects, List<FaceStat> cells)
+        {
+            var block = First(effects, EffectKind.Block);
+            if (block != null)
+            {
+                cells.Add(new FaceStat(FaceStatKind.CounterPercent, TraitRules.FaceBlockCounterPercent(effects), block.Kind));
+                cells.Add(new FaceStat(FaceStatKind.Block, block.Value, block.Kind));
+            }
+            var morale = First(effects, EffectKind.Morale);
+            if (morale != null) cells.Add(new FaceStat(FaceStatKind.Morale, morale.Value, morale.Kind));
+        }
+
+        private static void WaterCells(List<EffectDef> effects, int level, List<FaceStat> cells)
+        {
+            var burst = First(effects, EffectKind.HealSelf, EffectKind.HealAll);
+            var hot = First(effects, EffectKind.HealOverTime);
+            var revive = First(effects, EffectKind.Revive);
+            if (burst != null)
+                // 苏(面含 Revive)的治疗格归「苏」模式,Source 记 Revive,词条不判涌(终审 I1)
+                cells.Add(new FaceStat(FaceStatKind.Heal, Scaled(burst, level), revive != null ? revive.Kind : burst.Kind));
+            else if (hot != null)
+            {
+                // 涓:治疗格印每回合量(spec A 终审遗留),回合另列
+                cells.Add(new FaceStat(FaceStatKind.Heal, Scaled(hot, level), hot.Kind));
+                cells.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(hot), hot.Kind, durationOf: FaceStatKind.Heal));
+            }
+            if (revive != null) cells.Add(ReviveCell(revive));
+        }
+
+        private static void FireCells(List<EffectDef> effects, int level, List<FaceStat> cells)
+        {
+            var weaken = First(effects, EffectKind.Weaken);
+            if (weaken != null)
+            {
+                cells.Add(new FaceStat(FaceStatKind.Weaken, Scaled(weaken, level), weaken.Kind));
+                cells.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(weaken), weaken.Kind, durationOf: FaceStatKind.Weaken));
+            }
+            var burn = First(effects, EffectKind.BurnSingle, EffectKind.BurnAll);
+            if (burn != null) cells.Add(new FaceStat(FaceStatKind.Burn, burn.Value, burn.Kind));
+        }
+
+        private static void WoodCells(List<EffectDef> effects, int level, List<FaceStat> cells)
+        {
+            var summon = First(effects, EffectKind.Summon);
+            if (summon == null) return;
+            cells.Add(new FaceStat(FaceStatKind.SummonHp, Scaled(summon, level), summon.Kind));
+            cells.Add(new FaceStat(FaceStatKind.SummonAttack, MetaRules.ScaleByCardLevel(summon.SummonAttack, level), summon.Kind));
+        }
+
+        private static void EarthCells(List<EffectDef> effects, int level, List<FaceStat> cells)
+        {
+            var shield = First(effects, EffectKind.Shield, EffectKind.ShieldAll);
+            if (shield != null) cells.Add(new FaceStat(FaceStatKind.Shield, Scaled(shield, level), shield.Kind));
+            var armor = First(effects, EffectKind.DefenseBuff);
+            if (armor == null) return;
+            cells.Add(new FaceStat(FaceStatKind.Armor, Scaled(armor, level), armor.Kind));
+            cells.Add(new FaceStat(FaceStatKind.Duration, TraitRules.TurnsOf(armor), armor.Kind, durationOf: FaceStatKind.Armor));
+        }
+
+        /// <summary>苏的复活生命 %:ReviveHpPercent 为 0 时引擎按半血复活(BattleEngine.ReviveAt),印 50。</summary>
+        private static FaceStat ReviveCell(EffectDef e) =>
+            new FaceStat(FaceStatKind.ReviveHp, e.ReviveHpPercent > 0 ? e.ReviveHpPercent : 50, e.Kind);
+
         // ---- 内部 ----
 
         private static readonly CardFace[] FaceOrder = { CardFace.Attack, CardFace.Feature };
@@ -144,15 +242,22 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>该面折叠后的本体效果:Lv1 本体 + 已解锁特性折叠,<paramref name="skipFrom"/> 及以上的槽位整条跳过。
+        /// <see cref="AllCells"/>、<see cref="CardSheetRules.Lv1Effects"/> 共用这一份口径。</summary>
+        internal static List<EffectDef> FoldedBody(CharDef def, CardFace face, int unlockLevel, TraitSlot skipFrom)
+        {
+            bool attack = face == CardFace.Attack;
+            var actual = BattleEngine.FaceOf(def, attack);
+            return TraitRules.Fold(BattleEngine.EffectsOf(def, attack), def, actual, unlockLevel,
+                skip: t => t.Slot >= skipFrom);
+        }
+
         /// <summary>全部格(未截断),主量在前、其余按本体顺序。internal 只为测试钉住「真实字表每面不超过
         /// <see cref="MaxCells"/> 格」(Body 截断与 Deltas 不截断才是同一口径)。<paramref name="unlockLevel"/> 决定哪些特性已解锁,
         /// <paramref name="skipFrom"/> 及以上的槽位整条跳过;<paramref name="scaleLevel"/> 决定缩放。</summary>
         internal static List<FaceStat> AllCells(CharDef def, CardFace face, int unlockLevel, int scaleLevel, TraitSlot skipFrom)
         {
-            bool attack = face == CardFace.Attack;
-            var actual = BattleEngine.FaceOf(def, attack);
-            var effects = TraitRules.Fold(BattleEngine.EffectsOf(def, attack), def, actual, unlockLevel,
-                skip: t => t.Slot >= skipFrom);
+            var effects = FoldedBody(def, face, unlockLevel, skipFrom);
             var primary = new List<FaceStat>();
             var rest = new List<FaceStat>();
             foreach (var e in effects)
@@ -224,6 +329,9 @@ namespace Brushblade.Core
                     break;
                 case EffectKind.ArmorBreak:
                     rest.Add(new FaceStat(FaceStatKind.ArmorBreak, TraitRules.TurnsOf(e), e.Kind));
+                    break;
+                case EffectKind.Revive:
+                    rest.Add(ReviveCell(e));
                     break;
                 // 涌泉相报 / 厚积薄发(final review Important 1):出「每层伤害」一格。层数是战斗中的资源,详情里没有,
                 // 只能印每层多少;「清空全部」的语义由格标签「耗泉 / 耗厚」带出。
