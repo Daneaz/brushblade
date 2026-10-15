@@ -172,7 +172,7 @@ namespace Brushblade.Presentation
             FaceStatKind.Heal => Strings.T("collection.stat.heal"),
             FaceStatKind.Shield => Strings.T("collection.stat.shield"),
             FaceStatKind.SummonHp => Strings.T("charsheet.stat.summon_hp"),
-            FaceStatKind.SummonAttack => Strings.T("collection.stat.attack"),
+            FaceStatKind.SummonAttack => Strings.T("charsheet.stat.summon_atk"),
             FaceStatKind.Burn => Strings.T("charsheet.stat.burn"),
             FaceStatKind.Morale => Strings.T("charsheet.stat.morale"),
             FaceStatKind.Block => Strings.T("charsheet.stat.block"),
@@ -204,6 +204,12 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
+        /// <summary>按格取单位:涓的治疗格是每回合量(稿「治疗 30 / 回合」),其余同 <see cref="StatUnit(FaceStatKind)"/>。</summary>
+        internal static string StatUnit(FaceStat stat) =>
+            stat.Kind == FaceStatKind.Heal && stat.Source == EffectKind.HealOverTime
+                ? Strings.T("charsheet.unit.per_turn")
+                : StatUnit(stat.Kind);
+
         private static string StatValue(FaceStat stat) => StatValue(stat.Kind, stat.Value);
 
         /// <summary>格里的数:减攻印「−15%」、护甲 / 战意印「+N」(稿)、耗泉 / 耗厚印「×N」(每层伤害,同旧
@@ -213,6 +219,7 @@ namespace Brushblade.Presentation
             FaceStatKind.Weaken => Strings.T("charsheet.stat.minus_pct", ("value", value)),
             FaceStatKind.Armor or FaceStatKind.Morale => Strings.T("charsheet.stat.plus", ("value", value)),
             FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft => Strings.T("charsheet.stat.per_stack", ("value", value)),
+            FaceStatKind.CounterPercent or FaceStatKind.ReviveHp => Strings.T("charsheet.stat.pct", ("value", value)),
             _ => value.ToString(),
         };
 
@@ -583,9 +590,8 @@ namespace Brushblade.Presentation
             Ui.Chip(head.transform, Strings.T("charsheet.face_up"), Theme.Ink, Color.white, (int)UpTagFont, 21, 12);
         }
 
-        /// <summary>数值格(<see cref="FaceStats.Body"/>,每面 1–3 格)。生面「本命」格印本命 chip 的图标,没有图标就省掉这一格(Q7)。
-        /// 正面格底 panel-paper、背面格底 card-face(稿 .face.front .sb)。
-        /// 带术语的格(<see cref="GlossaryRules.TermOf"/>)标签按术语样式画(加粗 ink-soft),点格开气泡(R6);其余格不挂。</summary>
+        /// <summary>数值格(<see cref="FaceStats.Sheet"/>,攻击面 1 格、五行面按系 1–3 格);带术语的格键名本系 -fg 加粗、可点。
+        /// 正面格底 panel-paper、背面格底 card-face(稿 .face.front .sb)。</summary>
         private static void StatCells(Transform parent, CharDef def, FaceModel face, bool back, Sizes z, TermsTap onTerms)
         {
             var row = Ui.Row(parent, "Stats", z.StatGap);
@@ -593,9 +599,6 @@ namespace Brushblade.Presentation
             Ui.Sized(row, height: z.StatH, flexWidth: 1);
             foreach (var stat in face.Stats)
             {
-                string icon = stat.Kind == FaceStatKind.Nature ? SummonInfo.NatureChipIcon(stat.Passive) : null;
-                if (stat.Kind == FaceStatKind.Nature && icon == null) continue;
-
                 var cell = Ui.OutlinedPanel(row.transform, "Stat", back ? Theme.CardWhite : Theme.PanelPaper,
                     Theme.PanelBorder, z.CellRadius, 2);
                 Ui.Sized(cell.gameObject, height: z.StatH, flexWidth: 1);
@@ -605,7 +608,7 @@ namespace Brushblade.Presentation
                 layout.padding = new RectOffset(z.StatPadH, z.StatPadH, 6, 6);
                 Ui.Stretch((RectTransform)stack.transform);
 
-                var term = GlossaryRules.TermOf(stat.Kind);
+                var term = GlossaryRules.TermOf(stat);
                 string keyText = StatLabel(stat.Kind);
                 var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.ElementSoftFg(def.Element) : Theme.TextDim);
                 key.alignment = TextAnchor.MiddleLeft;
@@ -624,24 +627,9 @@ namespace Brushblade.Presentation
                 var value = Ui.Row(stack.transform, "Value", 4);
                 value.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
                 Ui.Sized(value, height: z.StatV + 2f, flexWidth: 1);
-                if (icon != null)
-                {
-                    var sprite = Icons.Get(icon);
-                    if (sprite != null)
-                    {
-                        var image = Ui.Panel(value.transform, "Icon").AddComponent<Image>();
-                        image.sprite = sprite;
-                        image.preserveAspect = true;
-                        image.color = Theme.ElementSoftFg(def.Element);
-                        Ui.Sized(image.gameObject, z.StatV, z.StatV);
-                    }
-                    else
-                        Ui.ThemedLabel(value.transform, Icons.Fallback(icon), z.StatV, Theme.TextMain, Theme.TitleFont);
-                    continue;
-                }
                 var number = Ui.ThemedLabel(value.transform, StatValue(stat), z.StatV, Theme.TextMain, Theme.TitleFont);
                 number.fontStyle = FontStyle.Bold;
-                string unit = StatUnit(stat.Kind);
+                string unit = StatUnit(stat);
                 if (unit.Length > 0) Ui.ThemedLabel(value.transform, unit, z.StatUnit, Theme.TextDim);
             }
         }

@@ -499,7 +499,7 @@ namespace Brushblade.Presentation
             Role = CardSheetParts.RoleText(face),
             Landing = CardSheetParts.LandingText(def, face, level),
             Up = battle?.UpFace == face,
-            Stats = FaceStats.Body(def, face, level),   // Task 10 换成 FaceStats.Sheet
+            Stats = FaceStats.Sheet(def, face, level),
         };
 
         private static CardSheetParts.RowState StateOf(SheetTrait cell, BattleContext battle) =>
