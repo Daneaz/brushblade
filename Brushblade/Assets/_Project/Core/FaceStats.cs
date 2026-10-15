@@ -18,7 +18,6 @@ namespace Brushblade.Core
         Burn,           // 灼:层(BurnSingle / BurnAll)
         Morale,         // 战意:层
         Block,          // 格挡:次
-        Counter,        // 格挡反击伤害(攻面本体 × 反击百分比,缩放)
         Weaken,         // 减攻:百分点(缩放);回合在紧跟的 Duration 格
         Armor,          // 护甲:点(DefenseBuff,缩放);回合在紧跟的 Duration 格
         Duration,       // 前一格(减攻 / 护甲)的持续回合
@@ -96,7 +95,7 @@ namespace Brushblade.Core
         {
             FaceStatKind.Damage or FaceStatKind.Heal or FaceStatKind.Shield
                 or FaceStatKind.SummonHp or FaceStatKind.SummonAttack
-                or FaceStatKind.Counter or FaceStatKind.Weaken or FaceStatKind.Armor
+                or FaceStatKind.Weaken or FaceStatKind.Armor
                 or FaceStatKind.SpendWellspring or FaceStatKind.SpendHeft => true,
             _ => false,
         };
@@ -299,10 +298,9 @@ namespace Brushblade.Core
                     break;
                 case EffectKind.Block:
                     rest.Add(new FaceStat(FaceStatKind.Block, e.Value, e.Kind));
-                    // 反击 = 攻面本体伤害(吃等级)× 反击百分比(与 BattleEngine 的 Block 分支同式)
-                    int counter = MetaRules.ScaleByCardLevel(BattleEngine.AttackBaseOf(def), level)
-                        * (e.CounterPercent > 0 ? e.CounterPercent : BattleConfig.BlockCounterPercent) / 100;
-                    if (counter > 0) rest.Add(new FaceStat(FaceStatKind.Counter, counter, e.Kind));
+                    // 反击统一按百分比展示(2026-10-15 用户):与数值格、正文「反击为本体 N%」同口径,不再折成点数
+                    rest.Add(new FaceStat(FaceStatKind.CounterPercent,
+                        e.CounterPercent > 0 ? e.CounterPercent : BattleConfig.BlockCounterPercent, e.Kind));
                     break;
                 case EffectKind.Weaken:
                     rest.Add(new FaceStat(FaceStatKind.Weaken, Scaled(e, level), e.Kind));

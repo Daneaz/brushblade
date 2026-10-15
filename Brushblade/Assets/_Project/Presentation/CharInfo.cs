@@ -192,12 +192,12 @@ namespace Brushblade.Presentation
                             : Strings.T("char.effect.cleanse")),
                     EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
                     // 格挡(spec v7 §3.1):次数是离散量,不吃等级 —— 读 e.Value,不读缩放后的 shown。
-                    // D2-金:BlockMod 折叠进来的字段(按战意的次数 / 反击百分比 / 格挡附带)也印在这一条上 ——
-                    // 按战意时引擎忽略 e.Value(BlockCountOf),不能再印「格挡N次」
+                    // D2-金:BlockMod 折叠进来的字段(按战意的次数 / 格挡附带)也印在这一条上 ——
+                    // 按战意时引擎忽略 e.Value(BlockCountOf),不能再印「格挡N次」。
+                    // 反击 % 不印(2026-10-15 用户):数值格「反击」已列,机制由「格挡」词条解释
                     EffectKind.Block => (e.ScaleBy == ScaleBasis.Morale
                             ? Strings.T("char.effect.block.morale", ("min", e.ScaleMin))
                             : Strings.T("char.effect.block", ("value", e.Value)))
-                        + (e.CounterPercent > 0 ? Strings.T("char.effect.block.counter", ("percent", e.CounterPercent)) : "")
                         + BlockRidersText(e, cardLevel),
                     // 万木回春(D2-木 E43):Value 0 = 全部尸体;ReviveHpPercent > 0 = 按最大生命百分比复活(缺省半血)
                     EffectKind.Revive => e.Value == 0
@@ -283,8 +283,8 @@ namespace Brushblade.Presentation
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
                     // 补满(D2-金 E9):战意直接设为上限
                     EffectKind.Morale when e.Fill => Strings.T("char.effect.morale.fill"),
-                    EffectKind.Morale => Strings.T("char.effect.morale",
-                        ("stacks", shown), ("per", 10), ("max", 5)),   // per 是百分数,文案里带 %
+                    // 不印「每层攻击 +10%,上限 5 层」(2026-10-15 用户):「战意」词条已有介绍
+                    EffectKind.Morale => Strings.T("char.effect.morale", ("stacks", shown)),
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
                     EffectKind.ApBoost => Strings.T("char.effect.apboost", ("value", e.Value)),

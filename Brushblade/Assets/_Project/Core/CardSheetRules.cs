@@ -130,10 +130,12 @@ namespace Brushblade.Core
                 .ToList();
 
         /// <summary>Lv1 行的正文效果(spec B §1.4):该面折叠后本体(Lv1 + Lv3 替换,不含 Lv4+),去掉伤害(伤害在数值格)。
-        /// 木系五行面里是带本命的召唤效果,Presentation 取它的被动印本命句。未拥有(&lt; 1)按 1 级。</summary>
+        /// 木系五行面里是带本命的召唤效果,Presentation 取它的被动印本命句。未拥有(&lt; 1)按 1 级。
+        /// 战意排到最后(2026-10-15 用户):金五行面先写「格挡」本身,再写附带的战意;只改印的顺序,不动字表 / 结算顺序。</summary>
         public static IReadOnlyList<EffectDef> Lv1Effects(CharDef def, CardFace face, int cardLevel) =>
             FaceStats.FoldedBody(def, face, Math.Max(1, cardLevel), TraitSlot.Lv4)
                 .Where(e => e.Kind != EffectKind.DamageSingle)
+                .OrderBy(e => e.Kind == EffectKind.Morale ? 1 : 0)
                 .ToList();
 
         private static SheetTrait LevelCell(CharDef def, TraitSlot slot, CardFace face, int cardLevel)
