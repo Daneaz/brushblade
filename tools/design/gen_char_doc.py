@@ -339,6 +339,11 @@ def desc(e):
         'CritBuff': f"暴击率 +{v}%,{t} 回合",
         # D1 Task 12(spec v7 §4):燃 的减攻、木攻击面的种、铠 的格挡;选择器 pick All 印「全体」
         'Weaken': ("全体" if e.get('pick') == 'All' else "") + f"攻击 −{v}%,{t} 回合",
+        # spec C(2026-10-15):燃意 / 换属性 / 释放层数族
+        'Kindle': ("我方全体" if e.get('pick') == 'AllAllies' else "") + f"燃意 +{v}%×{t} 回合",
+        'Attune': "落木灵改本系属性(永久)",
+        'SpendHeal': f"释放伤害 {v}% 治疗我方全体",
+        'SpendShield': f"我方全体护盾 = 释放伤害 × {v}%",
         'Seed': f"种 {v}(目标每次行动,我方生命最低的单位回复 {v}),{t} 回合",
         'Block': f"格挡 {v} 次(下一次受击 −40% 并反击)",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
@@ -421,6 +426,11 @@ TRAITS = {
     # D1 Task 12:对着 CharInfo.EffectsText 的 char.effect.weaken / seed / block 抄
     'Weaken': lambda e, v: f"减攻 {v}%",
     'Seed': lambda e, v: f"种 {v}",
+    # spec C:对着 CharInfo.EffectsText 抄
+    'Kindle': lambda e, v: f"燃意 +{v}%",
+    'Attune': lambda e, v: "换属性",
+    'SpendHeal': lambda e, v: f"回澜 {v}%",
+    'SpendShield': lambda e, v: f"地动 {v}%",
     'Block': lambda e, v: f"格挡 {v}",
     # 有数值/有去向、但本身不是特性的:各归各列
     'DamageSingle': None, 'Shield': None, 'ShieldAll': None,

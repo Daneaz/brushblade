@@ -135,8 +135,9 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
     assert not any(e["kind"] == "Silence" for e in values["湮"]["attackEffects"])
-    weaken = next(e for e in values["热"]["effects"] if e["kind"] == "Weaken")
-    assert weaken["turns"] == 2
+    # 2026-10-15 spec C:热 燃面改 `Kindle 15`(turns 2),turns 括注解析仍由它守。
+    kindle = next(e for e in values["热"]["effects"] if e["kind"] == "Kindle")
+    assert kindle["turns"] == 2
 
     # 2026-10-15 spec A:沐 的本体不再有 HoT(润面改直接治疗),turns 括注解析改由 淋 守。
     lin = next(e for e in values["淋"]["effects"] if e["kind"] == "HealOverTime")
@@ -490,11 +491,12 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 20, "onHitFreezeTurns": 1}  # D2-0 Task 9:E7 缠绕 Lv1 20%
 
     # D1 Task 12 新写法的字段(选择器 / 回合)在真实产物里落得下来
+    # 2026-10-15 spec C:燃面本体改为燃意 Kindle(我方全体)。
     assert by_id["焱"]["effects"] == [
-        {"kind": "BurnAll", "value": 1},
-        {"kind": "Weaken", "value": 30, "pick": "All", "turns": 3}], "焱 燃:全体灼 + 全体减攻"
-    assert by_id["崩"]["attackEffects"][1] == {"kind": "ArmorBreak", "value": 20, "pick": "All", "turns": 2}
-    assert by_id["溃"]["attackEffects"][1] == {"kind": "Slow", "value": 1, "pick": "All"}
+        {"kind": "Kindle", "value": 30, "pick": "AllAllies", "turns": 3}], "焱 燃:我方全体燃意"
+    # 2026-10-15 spec C:崩 / 溃 的破甲 / 减速附加删除,攻击面本体只剩 伤害 + Spend(层数族挪到特性)。
+    assert [e["kind"] for e in by_id["崩"]["attackEffects"]] == ["DamageSingle", "SpendHeft"]
+    assert [e["kind"] for e in by_id["溃"]["attackEffects"]] == ["DamageSingle", "SpendWellspring"]
 
     # 条件加成(2026-08-25 由 doubleVsBurning 泛化)
     # 2026-09-02:冰 的 doubleVs 随双方向重配(Task 10)挪进 attackEffects,
@@ -718,3 +720,59 @@ def test_spec_a_flower_attack_is_seed_not_charm():
     a = _shipped()["花"]["attackEffects"]
     assert [e["kind"] for e in a] == ["DamageSingle", "Seed"]
     assert a[0]["value"] == 42 and a[1]["value"] == 9 and a[1]["turns"] == 2
+
+
+# ---- spec C(2026-10-15)不变量 ----
+_FIRE_FEATURE = {"热": (15, 2, None), "爆": (15, 2, "AllAllies"), "炸": (20, 2, "AllAllies"), "烈": (20, 3, "AllAllies"),
+                 "燥": (20, 3, None), "蒸": (20, 3, None), "炎": (25, 3, None), "灿": (25, 3, None),
+                 "焚": (30, 3, "AllAllies"), "焱": (30, 3, "AllAllies"), "燚": (35, 3, "AllAllies")}
+
+
+def test_spec_c_fire_feature_body_is_kindle():
+    for cid, (pct, turns, pick) in _FIRE_FEATURE.items():
+        body = _shipped()[cid]["effects"]
+        assert [e["kind"] for e in body] == ["Kindle"], cid
+        assert (body[0]["value"], body[0]["turns"], body[0].get("pick")) == (pct, turns, pick), cid
+
+
+def test_spec_c_spend_chars_attack_body_has_no_riders():
+    for cid in ("崩", "㙓", "溃", "㵘"):
+        kinds = [e["kind"] for e in _shipped()[cid]["attackEffects"]]
+        assert kinds in (["DamageSingle", "SpendHeft"], ["DamageSingle", "SpendWellspring"]), (cid, kinds)
+
+
+def test_spec_c_attune_on_eight_chars():
+    for cid in ("利", "剁", "海", "冷", "热", "燥", "碉", "堡"):
+        lv5 = [t for t in _shipped()[cid]["traits"] if t["slot"] == "Lv5" and t.get("face") == "Feature"]
+        assert [e["kind"] for e in lv5[0]["effects"]] == ["Attune"], cid
+
+
+def _reads_spent(e):
+    return (bool(e.get("minSpent")) or e.get("scaleBy") == "Spent" or e.get("scope") == "Spend"
+            or e["kind"] in ("SpendHeal", "SpendShield"))
+
+
+def test_spec_c_spent_readers_follow_the_first_spend_in_their_face():
+    """读释放层数的效果必须排在同一面第一条 SpendHeft / SpendWellspring 之后,
+    否则引擎读到 Spent == 0 会静默跳过。本体先于特性折叠,故特性里的读取者只要
+    本体(同面)已有 Spend 即满足;特性自带 Spend 时读取者还得排在它后面。"""
+    spends = ("SpendHeft", "SpendWellspring")
+    bad, seen = [], 0
+    for c in _shipped().values():
+        if c.get("component"):
+            continue
+        for t in c.get("traits", []):
+            readers = [i for i, e in enumerate(t["effects"]) if _reads_spent(e)]
+            if not readers:
+                continue
+            seen += 1
+            face = t.get("face", "Both")
+            if face != "Attack":
+                bad.append(f"{c['id']} {t['slot']} 读层数的特性不在攻击面({face})")
+                continue
+            body_has = any(e["kind"] in spends for e in c.get("attackEffects", []))
+            own = [i for i, e in enumerate(t["effects"]) if e["kind"] in spends]
+            if not body_has and not (own and min(own) < min(readers)):
+                bad.append(f"{c['id']} {t['slot']} 读层数却没有排在 Spend 之后")
+    assert seen > 0
+    assert bad == []
