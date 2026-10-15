@@ -119,12 +119,12 @@ namespace Brushblade.Core.Tests
             ("藤", L8, Ftr, "攀附", "Bind 100 pick HighestHp"),
             ("箭", L5, Ftr, "木箭", "SummonRanged 0"),
             ("箭", L8, Atk, "万箭齐发", "Reshape 0 shape Scatter shots 5 shotPct 40|SummonStrike 50"),
-            ("楸", L4, Atk, "秋实", "Amplify 18 scope All"),
+            ("楸", L4, Atk, "先声", "Amplify 26 if FirstCastThisTurn scope All"),   // spec C §2:攻面 秋实 改名先声
             ("楸", L4, Ftr, "秋实", "Summon 0 count 1 passive{DeathPart=True}"),
             ("楸", L5, Atk, "落叶", "BurnSingle 1 pick All"),
             ("楸", L8, Atk, "秋风扫叶", "Reshape 0 shape Row shapePct 60 hitPct 60|BurnSingle 1 pick HitTargets"),
             ("楸", L8, Ftr, "一叶知秋", "TurnPulse 0 turns 3 perHit[Vulnerable 30 turns 1 pick Random if OwnSummonAlive]"),
-            ("荆", L4, Atk, "披荆", "Amplify 18 scope All"),
+            ("荆", L4, Atk, "精进", "Amplify 18 scope All"),   // spec C §2:攻面 披荆 改名精进
             ("荆", L4, Ftr, "披荆", "Summon 0 count 1 passive{ThornsBleed=35}"),
             ("荆", L5, Atk, "荆刺", "ThornMark 30 turns 2"),
             ("荆", L8, Atk, "荆鞭", "Reshape 0 hits 3 hitPct 40 perHit[Bleed 35 turns 3]"),   // 流血缺省 3 回合(金 E8,加载时补)
@@ -136,13 +136,14 @@ namespace Brushblade.Core.Tests
             ("林", L6, Ftr, "林荫", "Summon 0 count 1 passive{GroveCut=5,GroveCutCap=20}"),
             ("林", L8, Atk, "林海", "SummonStrike 70"),
             ("林", L8, Ftr, "林立", "Augment 1 of Summon.Count|Reshape 0 summonPercent 60|SummonEmpower 20 turns 3 pick AllSummons"),
-            ("柘", L4, Both, "坚心", ""),
+            ("柘", L4, Atk, "精进", "Amplify 21 scope All"),   // spec C §2:坚心拆两行,攻面精进
+            ("柘", L4, Ftr, "坚心", "Summon 0 count 1 passive{SelfCut=15}"),   // 生面本命:本字木灵受到伤害 −15%
             ("柘", L5, Atk, "柘弓", "SummonStrike 200 own byArmor"),
             ("柘", L6, Atk, "柘刺", "ShieldSummons 59"),   // spec A D5
             ("柘", L6, Ftr, "守护", "Summon 0 count 1 passive{Guard=30}"),
             ("柘", L8, Atk, "硬弓", "Reshape 0 armorIgnore 100 hostArmorStrike 400"),
             ("柘", L8, Ftr, "良弓", "Summon 0 count 1 passive{ReturnFire=200}"),
-            ("桂", L4, Atk, "馥郁", "Amplify 25 scope All"),
+            ("桂", L4, Atk, "精进", "Amplify 25 scope All"),   // spec C §2
             ("桂", L4, Ftr, "馥郁", "Summon 0 count 1 passive{HealAllyPercent=30}"),
             ("桂", L5, Atk, "折桂", "GrantChar 1"),
             ("桂", L5, Ftr, "桂花雨", "HealAll 75"),
@@ -150,7 +151,7 @@ namespace Brushblade.Core.Tests
             ("桂", L6, Ftr, "蟾宫", "Summon 0 count 1 passive{CritAura=10}"),
             ("桂", L8, Atk, "月桂", "CritBuff 30 turns 1 pick Self"),
             ("桂", L8, Ftr, "桂冠", "SummonEmpower 50 turns 3 pick StrongestSummon"),
-            ("藻", L4, Atk, "水草", "Amplify 25 scope All"),
+            ("藻", L4, Atk, "精进", "Amplify 25 scope All"),   // spec C §2
             ("藻", L4, Ftr, "水草", "Summon 0 count 1 passive{HealMirror=100}"),
             ("藻", L5, Atk, "缠足", "Slow 1 pick All"),
             ("藻", L5, Ftr, "浮藻", "Summon 0 count 1 passive{Speed=150}"),   // spec A D22:丛藻删除
@@ -165,7 +166,7 @@ namespace Brushblade.Core.Tests
             ("森", L6, Ftr, "森严", "Summon 0 count 1 passive{ThicketCut=25,ThicketMin=3}"),
             ("森", L8, Atk, "林深", "Reshape 0 shape All shapePct 50|Amplify 10 scope Damage per SummonCount"),
             ("森", L8, Ftr, "万木回春", "Revive 0 pct 30"),
-            (Ten, L4, Atk, "参天之力", "Amplify 30 scope All"),
+            (Ten, L4, Atk, "先声", "Amplify 45 if FirstCastThisTurn scope All"),   // spec C §2:攻面 参天之力 改名先声
             (Ten, L4, Ftr, "参天之力", "Summon 0 count 1 passive{AttackPercent=20}"),
             (Ten, L5, Atk, "四木成林", "SummonAct 0"),
             (Ten, L5, Ftr, "木疾", "Summon 0 count 1 passive{Speed=150}"),   // spec A D22:独木生林删除
@@ -178,8 +179,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(58), "46 格,秋实 / 披荆 / 馥郁 / 水草 / 参天之力拆成两行(V4);spec A 增 Lv5 底速被动 / Lv6 攻面专属共 7 行");
-            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(53), "46 格 + spec A 新增 7 格(丛藻 / 丛林 / 独木生林 被 浮藻 / 森风 / 木疾 取代)");
+            Assert.That(Table.Length, Is.EqualTo(59), "46 格,秋实 / 披荆 / 馥郁 / 水草 / 参天之力拆成两行(V4);spec A 增 Lv5 底速被动 / Lv6 攻面专属共 7 行;spec C 柘 坚心拆两行 +1");
+            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(59), "spec C 起拆行 / 改名后每一行名字互异(秋实 / 披荆 / 馥郁 / 水草 / 参天之力的攻面改名,柘 坚心拆行)");
             var errors = new List<string>();   // 汇总全部不符,免得第一条失败遮住后面
             foreach (var (ch, slot, face, name, sigs) in Table)
             {
@@ -219,7 +220,7 @@ namespace Brushblade.Core.Tests
                 ("楸", "DeathPart=True,OnHitBurn=2"),
                 ("荆", "Thorns=80,ThornsBleed=35"),
                 ("林", "GroveCut=5,GroveCutCap=20,PerAllyAttackPercent=25,Speed=150"),
-                ("柘", "Armor=60,Guard=30,ReturnFire=200,Taunt=True"),
+                ("柘", "Armor=60,Guard=30,ReturnFire=200,SelfCut=15,Taunt=True"),   // spec C:坚心 SelfCut 15 并入本命
                 ("桂", "CritAura=10,HealAlly=30,HealAllyPercent=30,HealAllyTimes=2"),
                 ("藻", "HealMirror=100,Speed=150,SproutDeathSlow=1,SproutMax=3,SproutPercent=30"),
                 ("森", "EntrySaplings=2,Speed=150,ThicketCut=25,ThicketMin=3"),
@@ -395,6 +396,26 @@ namespace Brushblade.Core.Tests
             Assert.That(c.WoodDamageCutPercent(forSummon: true), Is.EqualTo(0));
         }
 
+        // ================= 坚心(spec C 真实数据冒烟):柘 Lv4 生面召出的木灵受到伤害 × 85% =================
+
+        [Test]
+        public void JianXin_Lv4_SummonTakesFifteenPercentLess()
+        {
+            int Hit(bool keepSelfCut)
+            {
+                var b = Battle("柘", 4, new[] { Melee(1000) });
+                Cast(b, "柘");
+                var zhe = Alive(b).Single();
+                Assert.That(zhe.Passive.SelfCut, Is.EqualTo(15), "坚心:本命 SelfCut 15");
+                if (!keepSelfCut) zhe.Passive.SelfCut = 0;
+                b.EndTurn();
+                return b.LastEvents.First(e => e.Kind == BattleEventKind.SummonHit).Amount;
+            }
+            int plain = Hit(false), cut = Hit(true);
+            Assert.That(plain, Is.GreaterThan(0));
+            Assert.That(cut, Is.EqualTo(plain * 85 / 100).Within(1), "同一击:有坚心比没有少 15%");
+        }
+
         // ================= 4 良弓:柘灵挨打射还 护甲 × 200%,进 60% 反伤预算(最后一档) =================
 
         [TestCase(1000, false)]
@@ -408,8 +429,9 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             var hit = b.LastEvents.First(e => e.Kind == BattleEventKind.SummonHit);
             int fire = Dealt(b, EffectSource.ReturnFire);
-            // 钉值:柘灵护甲 86(柘 Lv8 坚木 60 按卡等级);1000 过护甲 → 537,良弓 172 ≤ 预算 322;150 → 80,预算 48
-            Assert.That((armor, hit.Amount, fire), Is.EqualTo(capped ? (86, 80, 48) : (86, 537, 172)), "钉值");
+            // 钉值:柘灵护甲 86(柘 Lv8 坚木 60 按卡等级);spec C 坚心 SelfCut 15%:受击再 × 85%。
+            // 1000 过护甲 537 → 456,良弓 172 ≤ 预算 273;150 → 80 → 68,预算 40
+            Assert.That((armor, hit.Amount, fire), Is.EqualTo(capped ? (86, 68, 40) : (86, 456, 172)), "钉值");
             Assert.That(fire, Is.EqualTo(capped ? hit.Amount * 60 / 100 : armor * 2),
                 capped ? "预算 = 这一击 × 60%" : "护甲 × 200%");
             Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.Damage && e.Source == EffectSource.ReturnFire),
