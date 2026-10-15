@@ -36,6 +36,15 @@ namespace Brushblade.Core
                 Magnitude = percent, TurnsLeft = Math.Max(1, turns), Potency = potency, SourceId = sourceId,
             }, target, UnitRef.Player);
 
+        /// <summary>燃意记下的灼火力(spec C G3 裁定 A):本字这一面 scope Burn / All 的 Amplify 按 <see cref="AmpBurnPotency"/>
+        /// 同口径折进卡等级火力。燃意面本体没有灼效果,Burn 档挂不上去 —— 用一条探针灼走同一次 Fold 取出加成项。
+        /// 条件按与目标无关判(目标相关的条件施加时不成立)。没有加成项时原样返回(恒等)。</summary>
+        private int KindlePotency(CharDef def, bool attackMode, int cardLevel, int burnPotency)
+        {
+            var probe = TraitRules.Fold(new[] { new EffectDef(EffectKind.BurnSingle, 0) }, def, FaceOf(def, attackMode), cardLevel)[0];
+            return AmpBurnPotency(probe, burnPotency, -1);
+        }
+
         /// <summary>燃意命中加灼(spec C §5.1,Q10):attacker 袋里挂着燃意且目标仍活着 → +KindleBurnPerHit 层,火力取燃意记下的。
         /// 只由 DamageSingle 每段命中与木灵出手调用;不进 _cast.BurnedTargets。没挂燃意时一次判断即返回(恒等)。</summary>
         private void KindleOnHit(StatusBag attacker, int enemyIndex)

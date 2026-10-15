@@ -3620,15 +3620,17 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Kindle:
                         // 燃意(spec C §5.1):单体落 allySlot(玩家或木灵),我方全体 = 玩家 + 全部存活木灵。
-                        // Magnitude = 攻击 %(已吃卡等级与 Amplify All),Potency = 本字灼火力(命中加灼时用)
+                        // Magnitude = 攻击 %(已吃卡等级与 Amplify All),Potency = 本字灼火力(命中加灼时用;
+                        // 已折进本字 scope Burn / All 的 Amplify,G3 裁定 A)
+                        int kindlePotency = KindlePotency(def, attackMode, cardLevel, burnPotency);
                         if (effect.Pick == EffectPick.AllAllies)
                         {
-                            ApplyKindle(_playerStatuses, value, effect.Turns, burnPotency, def.Id, UnitRef.Player);
+                            ApplyKindle(_playerStatuses, value, effect.Turns, kindlePotency, def.Id, UnitRef.Player);
                             for (int s = 0; s < _summons.Length; s++)
                                 if (_summons[s] is { Alive: true } ks)
-                                    ApplyKindle(ks.Statuses, value, effect.Turns, burnPotency, def.Id, UnitRef.Summon(s));
+                                    ApplyKindle(ks.Statuses, value, effect.Turns, kindlePotency, def.Id, UnitRef.Summon(s));
                         }
-                        else ApplyKindle(AllyStatuses(allySlot), value, effect.Turns, burnPotency, def.Id, AllyRef(allySlot));
+                        else ApplyKindle(AllyStatuses(allySlot), value, effect.Turns, kindlePotency, def.Id, AllyRef(allySlot));
                         RefreshSummonAura();
                         break;
                     case EffectKind.Weaken:
