@@ -398,6 +398,14 @@ namespace Brushblade.Presentation
                     EffectKind.OverhealShield => Strings.T("char.effect.overhealshield", ("value", e.Value)),
                     EffectKind.BlockGain => Strings.T("char.effect.blockgain", ("value", e.Value)),
                     EffectKind.ReviveShield => Strings.T("char.effect.reviveshield", ("value", e.Value)),
+                    // spec C §5:燃意 —— 攻击 % 吃卡等级(shown),回合不吃
+                    EffectKind.Kindle => e.Pick == EffectPick.AllAllies
+                        ? Strings.T("char.effect.kindle.allies", ("value", shown), ("turns", Math.Max(1, e.Turns)))
+                        : Strings.T("char.effect.kindle", ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                    // spec C §4:换属性,元素取本字所属系
+                    EffectKind.Attune => Strings.T("char.effect.attune", ("element", ElementName(def?.Element ?? Element.Heart))),
+                    EffectKind.SpendHeal => Strings.T("char.effect.spendheal", ("value", e.Value)),
+                    EffectKind.SpendShield => Strings.T("char.effect.spendshield", ("value", e.Value)),
                     _ => e.Kind.ToString(),
                 });
                 // 敌方侧效果的目标选择器与条件门后缀(D1 Task 5);Amplify 的条件门已在它自己的分支里印
@@ -408,6 +416,7 @@ namespace Brushblade.Presentation
                     parts.Append(OnlyIfText(e.OnlyIf));
                 // 计数缩放(D2-火 N4):Amplify 的百分点 / HealSelf 的回复量 × 计数
                 parts.Append(ScaleText(e));
+                if (e.MinSpent > 0) parts.Append(Strings.T("char.effect.minspent", ("min", e.MinSpent)));   // spec C §6 释放门槛
                 // 每击附带(D2-火 N4b):子效果逐条印,斜杠分隔(分号已是外层分隔符)
                 if (e.PerHit.Count > 0 && e.Kind != EffectKind.Retaliate && e.Kind != EffectKind.TurnPulse)   // 回敬 / 回合脉冲的 perHit 段已印在它自己的文案里
                 {
@@ -462,6 +471,7 @@ namespace Brushblade.Presentation
             AmpItem.Seed => Strings.T("char.amp_item.seed"),
             AmpItem.Burn => Strings.T("char.amp_item.burn"),
             AmpItem.Summon => Strings.T("char.amp_item.summon"),
+            AmpItem.Kindle => Strings.T("char.amp_item.kindle"),
             _ => item.ToString(),
         };
 
@@ -657,6 +667,7 @@ namespace Brushblade.Presentation
                     : Strings.T("char.passive.grovecut", ("value", p.GroveCut)));
             if (p.ThicketCut > 0)
                 Add(NatureKey.ThicketCut, Strings.T("char.passive.thicketcut", ("value", p.ThicketCut), ("min", p.ThicketMin)));
+            if (p.SelfCut > 0) Add(NatureKey.SelfCut, Strings.T("char.passive.selfcut", ("value", p.SelfCut)));
             if (p.Guard > 0) Add(NatureKey.Guard, Strings.T("char.passive.guard", ("value", p.Guard)));
             if (p.ReturnFire > 0) Add(NatureKey.ReturnFire, Strings.T("char.passive.returnfire", ("value", p.ReturnFire)));
             if (p.DeathBlast > 0)
@@ -670,7 +681,7 @@ namespace Brushblade.Presentation
         internal enum NatureKey
         {
             AttackPercent, HealAllyPercent, HealMirror, ThornsBleed, CritAura, GroveCut, ThicketCut,
-            Guard, ReturnFire, DeathBlast, SproutDeathSlow, DeathPart,
+            Guard, ReturnFire, DeathBlast, SproutDeathSlow, DeathPart, SelfCut,
         }
 
         /// <summary>特性名(游戏数据,不进字符串表):<paramref name="charId"/> 的特性表里第一条含满足 <paramref name="match"/>
@@ -757,6 +768,7 @@ namespace Brushblade.Presentation
             AmpScope.Counter => Strings.T("char.effect.amplify.counter", ("value", e.Value)),
             AmpScope.All => Strings.T("char.effect.amplify.all", ("value", e.Value)),
             AmpScope.Burn => Strings.T("char.effect.amplify.burn", ("value", e.Value)),
+            AmpScope.Spend => Strings.T("char.effect.amplify.spend", ("value", e.Value)),
             _ => Strings.T("char.effect.amplify.damage", ("value", e.Value)),
         };
 
@@ -878,6 +890,7 @@ namespace Brushblade.Presentation
         private static string BlockRidersText(EffectDef e, int cardLevel) =>
             (e.CounterHits > 1 ? Strings.T("char.effect.blockmod.hits", ("hits", e.CounterHits)) : "")
             + (e.CounterColumn ? Strings.T("char.effect.blockmod.column", ("percent", BattleEngine.CounterColumnPercent)) : "")
+            + (e.CounterRow ? Strings.T("char.effect.blockmod.row", ("percent", BattleEngine.CounterRowPercent)) : "")
             + (e.CounterExecuteBelow > 0 ? Strings.T("char.effect.blockmod.execute", ("percent", e.CounterExecuteBelow)) : "")
             + (e.BlockBleed > 0 ? Strings.T("char.effect.blockmod.bleed",
                 ("value", MetaRules.ScaleByCardLevel(e.BlockBleed, cardLevel)), ("turns", BattleEngine.BleedDefaultTurns)) : "")
@@ -900,6 +913,7 @@ namespace Brushblade.Presentation
                 // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),
                 ScaleBasis.Cleansed => Strings.T("char.effect.per.cleansed"),
+                ScaleBasis.Spent => Strings.T("char.effect.per.spent"),
                 // D2-木 E39(众木 / 林深):出字前的存活木灵数(含幼苗)
                 ScaleBasis.SummonCount => Strings.T("char.effect.per.summoncount"),
                 // D2-土 E36(地裂):出字前护盾每 ScaleDivisor 点 +1 击,上限写在同一句里(单位是击,不是百分点)

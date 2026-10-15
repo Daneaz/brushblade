@@ -183,6 +183,7 @@ namespace Brushblade.Presentation
             if (p.OnHitCurse > 0) Old(Strings.T("summon.passive.curse", ("curse", p.OnHitCurse)));
             Wood(CharInfo.NatureKey.GroveCut, x => x.GroveCut > 0);
             Wood(CharInfo.NatureKey.ThicketCut, x => x.ThicketCut > 0);
+            Wood(CharInfo.NatureKey.SelfCut, x => x.SelfCut > 0);
             Wood(CharInfo.NatureKey.CritAura, x => x.CritAura > 0);
             if (p.HealAlly > 0) Old(Strings.T("summon.passive.heal_ally", ("heal", p.HealAlly)));
             if (p.Regen > 0) Old(Strings.T("summon.passive.regen", ("regen", p.Regen)));
@@ -242,7 +243,7 @@ namespace Brushblade.Presentation
             if (passive.Thorns > 0) return "thorns";   // 披荆只认本命荆棘,与盾反同一枚
             if (passive.OnHitBurn > 0) return "burn";
             if (passive.OnHitCurse > 0) return "curse";
-            if (passive.GroveCut > 0 || passive.ThicketCut > 0) return "bulwark";
+            if (passive.GroveCut > 0 || passive.ThicketCut > 0 || passive.SelfCut > 0) return "bulwark";
             if (passive.CritAura > 0) return "crit";
             if (passive.HealAlly > 0 || passive.Regen > 0) return "heal";
             if (passive.Dodge > 0) return "dodge";
