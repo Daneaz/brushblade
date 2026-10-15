@@ -2226,23 +2226,14 @@ namespace Brushblade.Core
             && ReplaceableSummonCountOf(def, attackMode) > 0;
 
         /// <summary>spec §2.2:五行面落到活着的木灵上时的附加规则(D2-0 Task 4,Ruling E2)。
-        /// 水 = 本场改水属性(复原点见 RunEngine.CaptureAliveSummons,E3);土 = 本场嘲讽;
-        /// 金(格挡落木灵)归 Block 效果本身,木(嫁接)归 Task 5。攻击面、落点是玩家、燃面都不触发。
-        /// 自带解封的字不叠加改水:解封是它自己的属性重掷,再盖一层水等于把重掷作废。</summary>
+        /// 土 = 本场嘲讽(spec §2.2);水字改水已于 spec C §4 删除,换属性改由 Attune 效果承担。
+        /// 金(格挡落木灵)归 Block 效果本身,木(嫁接)归 Task 5。攻击面、落点是玩家、燃面都不触发。</summary>
         private void ApplyFeatureOntoSummon(CharDef def, bool attackMode, int allySlot)
         {
             if (attackMode || allySlot == Targeting.PlayerTarget || allySlot < 0 || allySlot >= _summons.Length) return;
             var summon = _summons[allySlot];
             if (summon == null || !summon.Alive) return;
-            if (def.Element == Element.Water)
-            {
-                foreach (var effect in EffectsOf(def, false))
-                    if (effect.Kind == EffectKind.Unseal) return;
-                summon.BaseElement ??= summon.Element;
-                summon.Element = Element.Water;
-                _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)Element.Water));
-            }
-            else if (def.Element == Element.Earth)
+            if (def.Element == Element.Earth)
             {
                 ApplyStatus(summon.Statuses, new StatusEffect
                 {
@@ -4037,6 +4028,7 @@ namespace Brushblade.Core
                         // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样。
                         // 顺序(D2-金):BlockMod 先改基数(本体 × CounterPercent%),Amplify 再在改后的基数上乘
                         // (剑意 50 + 刀光 100 = 本体 × 50% × 2)—— 见 MetalSharedExtTests.BlockMod_CounterPercent_ThenAmplifyCounter
+                        // ⚠ 反击加成按「无目标」求值(enemyIndex −1):目标相关的条件门(TargetHpAbove70 等)在这里恒假。现数据没有这种组合;以后要配,先改这里(spec C §2 备注)
                         counter = Amplified(counter, AmpPercent(effect, -1));
                         // 落点(E1):allySlot 指的木灵,缺省 / 无活木灵 = 玩家;战意不跟着走,仍在玩家身上
                         var blockStatus = new StatusEffect
@@ -4360,6 +4352,16 @@ namespace Brushblade.Core
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
+                    case EffectKind.Attune:
+                        // spec C §4(点金 / 化水 / 引火 / 培土):五行面落到活木灵 → 属性改为本字所属系,永久(直接改字段,跨场随 Element 带走)。
+                        // 落玩家 / 尸体空转;本字无属性(心)时空转
+                        if (allySlot >= 0 && allySlot < _summons.Length && _summons[allySlot] is { Alive: true } attuned
+                            && def.Element is Element own && own != Element.Heart)
+                        {
+                            attuned.Element = own;
+                            _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)own));
+                        }
+                        break;
                     case EffectKind.Unseal:
                         // 解封(2026-09-16,水):落在被治疗的那个目标身上,与 Haste 同一张名单
                         // (NeedsAllyTarget)。玩家没有五行属性,落到玩家槽位时空转 ——
@@ -4377,7 +4379,6 @@ namespace Brushblade.Core
                             // 不进 StatusBag,不随回合递减。
                             var rerolled = (Element)_random.Next(6);
                             unsealTarget.Element = rerolled;
-                            unsealTarget.BaseElement = null;   // E4:解封是永久重掷,清掉「战后复原」记号
                             _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)rerolled));
                         }
                         break;
@@ -4518,13 +4519,12 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         if (graft)
                         {
-                            // 嫁接(E5):不召新木灵;回满生命,本命换成本字的(吃卡等级缩放,效果表已含 Lv3 强化),本场有效。
+                            // 嫁接(E5):不召新木灵;回满生命,本命换成本字的(吃卡等级缩放,效果表已含 Lv3 强化),永久有效(spec C §3)。
                             // 只结算一次;SummonShield / SummonDefense 不发,幼苗等其余效果照常。
                             if (grafted) break;
                             grafted = true;
                             _cast.SummonedSlots.Add(allySlot);   // D2-木 E42(Q4):嫁接算「本次召出」,嘲讽 / 保命 / 攀附的 SummonedThisCast 认它
                             var target = _summons[allySlot];
-                            target.BasePassive ??= target.Passive?.Clone() ?? new SummonPassive();
                             // Ruling 4:嫁接不发护甲不附幼苗,被动对象与行为一致;Speed 沿用被嫁接者原被动(底速是属性不是本命)
                             int keepSpeed = target.Passive?.Speed ?? 0;
                             var grafted2 = ScalePassiveByCardLevel(effect.Passive, cardLevel)?.Clone();
@@ -4535,6 +4535,12 @@ namespace Brushblade.Core
                                 grafted2.EntrySaplings = 0;
                             }
                             target.Passive = grafted2;
+                            // spec C §3:嫁接 = 回满 + 新本命 + 属性回归木;永久(跨场),直到死亡或再次嫁接 / 换属性
+                            if (target.Element != Element.Wood)
+                            {
+                                target.Element = Element.Wood;
+                                _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)Element.Wood));
+                            }
                             int healed = target.MaxHp - target.Hp;   // E3(Q14):Amount = 回复量,表现层飘治疗数字
                             target.Hp = target.MaxHp;
                             RefreshSummonAura();
@@ -6243,7 +6249,8 @@ namespace Brushblade.Core
             // 林荫 / 森严(D2-木 M2,Q8):与 DamageCut 取最强后加格挡、钳 60%;没有这类木灵时 = 0,恒等
             int summonCut = Math.Min(
                 (blocking ? BattleConfig.BlockReductionPercent : 0)
-                + Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
+                + Math.Max(Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
+                    summon.Passive?.SelfCut ?? 0),   // 坚心(spec C §2,柘):只减本木灵,与上两者取最强
                 CombatCaps.NonArmorReductionPercent);
             int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;

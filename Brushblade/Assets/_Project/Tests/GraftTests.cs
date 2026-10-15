@@ -6,8 +6,9 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>嫁接(D2-0 Task 5,Ruling E5,spec §2.2):木的生面带 allySlot 指向活木灵 = 回满生命并换本命(本场),
-    /// 不召新木灵、召唤位满也能用;指向尸体 / 空格 = InvalidTarget;战后复原本命。</summary>
+    /// <summary>嫁接(D2-0 Task 5,Ruling E5,spec §2.2;spec C §3 改永久):木的生面带 allySlot 指向活木灵 = 回满生命、
+    /// 换本命并回归木属性,永久(跨场保留,直到死亡或再次嫁接 / 换属性);
+    /// 不召新木灵、召唤位满也能用;指向尸体 / 空格 = InvalidTarget。</summary>
     public class GraftTests
     {
         private static SummonPassive Vine => new() { OnHitFreezeChance = 20, OnHitFreezeTurns = 1 };
@@ -44,7 +45,6 @@ namespace Brushblade.Core.Tests
             Assert.That(s.Hp, Is.EqualTo(s.MaxHp));
             Assert.That(s.Passive.OnHitFreezeChance, Is.EqualTo(20));
             Assert.That(s.Passive.Thorns, Is.EqualTo(0));
-            Assert.That(s.BasePassive.Thorns, Is.EqualTo(50));
             Assert.That(b.Summons.Count(x => x != null && x.Alive), Is.EqualTo(1), "木灵只数不变");
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Graft && e.SecondIndex == 0), Is.True);
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Summon), Is.False);
@@ -71,12 +71,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Graft_Twice_KeepsFirstBasePassive()
+        public void Graft_Twice_KeepsLatestGraftedPassive()
         {
             var b = Battle(new[] { Wood(0, 30, 100, Thorny) }, Graftor());
             b.Cast("藤", -1, attackMode: false, allySlot: 0);
             b.Cast("藤", -1, attackMode: false, allySlot: 0);
-            Assert.That(b.Summons[0].BasePassive.Thorns, Is.EqualTo(50));
+            Assert.That(b.Summons[0].Passive.OnHitFreezeChance, Is.EqualTo(20));
+            Assert.That(b.Summons[0].Passive.Thorns, Is.EqualTo(0));
         }
 
         [Test]
@@ -110,7 +111,6 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("藤"), Is.EqualTo(BattleError.None));
             Assert.That(b.Summons.Count(x => x != null && x.Alive), Is.EqualTo(2));
             Assert.That(b.Summons[0].Hp, Is.EqualTo(30));
-            Assert.That(b.Summons[0].BasePassive, Is.Null);
         }
 
         [Test]
@@ -160,7 +160,7 @@ namespace Brushblade.Core.Tests
             Array.FindIndex(b.Summons.ToArray(), s => s != null && s.Alive);
 
         [Test]
-        public void Run_Carry_RestoresOriginalPassive()
+        public void Run_Carry_KeepsGraftedPassive()
         {
             var run = NewRun("荆");
             Assert.That(run.Battle.Cast("荆"), Is.EqualTo(BattleError.None));
@@ -169,13 +169,12 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Summons[slot].Passive.OnHitFreezeChance, Is.EqualTo(20));
             Win(run);
             var carried = run.CarriedSummons.Single();
-            Assert.That(carried.Passive.Thorns, Is.EqualTo(50));
-            Assert.That(carried.Passive.OnHitFreezeChance, Is.EqualTo(0));
-            Assert.That(carried.BasePassive, Is.Null);
+            Assert.That(carried.Passive.OnHitFreezeChance, Is.EqualTo(20));
+            Assert.That(carried.Passive.Thorns, Is.EqualTo(0));
         }
 
         [Test]
-        public void Run_Carry_GraftOntoPassivelessSummon_RestoresToNoEffectivePassive()
+        public void Run_Carry_GraftOntoPassivelessSummon_KeepsGraftedPassive()
         {
             var run = NewRun("素");
             Assert.That(run.Battle.Cast("素"), Is.EqualTo(BattleError.None));
@@ -183,12 +182,11 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Cast("藤", -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None));
             Win(run);
             var carried = run.CarriedSummons.Single();
-            Assert.That(carried.Passive?.OnHitFreezeChance ?? 0, Is.EqualTo(0));
-            Assert.That(carried.BasePassive, Is.Null);
+            Assert.That(carried.Passive.OnHitFreezeChance, Is.EqualTo(20));
         }
 
         [Test]
-        public void Snapshot_BasePassive_RoundTripsThroughSaveSerializer_AndStillRestoresAfterBattle()
+        public void Snapshot_GraftedPassive_RoundTripsAndPersistsAfterBattle()
         {
             var run = NewRun("荆");
             Assert.That(run.Battle.Cast("荆"), Is.EqualTo(BattleError.None));
@@ -205,18 +203,18 @@ namespace Brushblade.Core.Tests
             };
             var reloaded = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
             var snap = reloaded.EndlessV2.InProgress.Run;
-            Assert.That(snap.Battle.Summons.Single().BasePassive.Thorns, Is.EqualTo(50));
+            Assert.That(snap.Battle.Summons.Single().Passive.OnHitFreezeChance, Is.EqualTo(20));
 
             var resumed = RunEngine.Restore(snap, RunGraph(), RunCfg(), BattleCfg(), null);
             Assert.That(resumed.Battle.Summons[slot].Passive.OnHitFreezeChance, Is.EqualTo(20));
             Win(resumed);
-            Assert.That(resumed.CarriedSummons.Single().Passive.Thorns, Is.EqualTo(50));
+            Assert.That(resumed.CarriedSummons.Single().Passive.OnHitFreezeChance, Is.EqualTo(20));
         }
 
         [Test]
-        public void Run_Carry_StackedGraftWetFirmArmorEndure_RestoresAllAndKeepsEntryArmorAndShield()
+        public void Run_Carry_StackedGraftWetFirmArmorEndure_KeepsGraftStripsBattleStatesKeepsEntryArmorAndShield()
         {
-            // 同一只木灵同场叠:保命 + 入场护甲(Armor 12)+ 嫁接 + 润(改水)+ 固(嘲讽 + 盾)+ 铠(格挡)
+            // 同一只木灵同场叠:保命 + 入场护甲(Armor 12)+ 嫁接 + 润(spec C §4 起不再改水)+ 固(嘲讽 + 盾)+ 铠(格挡)
             var basePassive = new SummonPassive { Thorns = 7, Armor = 12 };
             var graph = new RecipeGraph(new[]
             {
@@ -247,7 +245,7 @@ namespace Brushblade.Core.Tests
             foreach (var id in new[] { "藤", "润", "固", "铠" })
                 Assert.That(run.Battle.Cast(id, -1, attackMode: false, allySlot: slot), Is.EqualTo(BattleError.None), id);
             var live = run.Battle.Summons[slot];
-            Assert.That(live.Element, Is.EqualTo(Element.Water), "夹具自检:润生效");
+            Assert.That(live.Element, Is.EqualTo(Element.Wood), "润不再改水(spec C §4)");
             Assert.That(live.Statuses.Has(StatusKind.Taunt) && live.Statuses.Has(StatusKind.Block)
                 && live.Statuses.Has(StatusKind.Endure), Is.True, "夹具自检:本场三态都挂上了");
             Assert.That(live.Passive.Armor, Is.EqualTo(0), "嫁接后被动不带护甲");
@@ -257,11 +255,9 @@ namespace Brushblade.Core.Tests
             Win(run);
             var carried = run.CarriedSummons.Single();
             Assert.That(carried.Element, Is.EqualTo(Element.Wood));
-            Assert.That(carried.BaseElement, Is.Null);
-            Assert.That(carried.Passive.Thorns, Is.EqualTo(7));
-            Assert.That(carried.Passive.Armor, Is.EqualTo(12));
-            Assert.That(carried.Passive.OnHitFreezeChance, Is.EqualTo(0));
-            Assert.That(carried.BasePassive, Is.Null);
+            Assert.That(carried.Passive.OnHitFreezeChance, Is.EqualTo(20), "嫁接本命跨场保留");
+            Assert.That(carried.Passive.Thorns, Is.EqualTo(0));
+            Assert.That(carried.Passive.Armor, Is.EqualTo(0), "嫁接本命不带护甲");
             foreach (var kind in new[] { StatusKind.Taunt, StatusKind.Block, StatusKind.Endure })
                 Assert.That(carried.Statuses.Any(st => st.Kind == kind), Is.False, kind.ToString());
             Assert.That(carried.Statuses.Any(st => st.Kind == StatusKind.DefenseBuff && st.TurnsLeft < 0), Is.True,

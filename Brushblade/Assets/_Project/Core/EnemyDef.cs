@@ -194,8 +194,6 @@ namespace Brushblade.Core
         /// 两者同型。</summary>
         public Element Element { get; internal set; }
 
-        /// <summary>§2.2 本场改属性前的属性;null = 本场没改过。战后复原(E3),解封清掉它(E4)。</summary>
-        public Element? BaseElement { get; internal set; }
         public int Hp { get; internal set; }
         /// <summary>破例可写(D2-木 M8 绿潮,Q18):唯一写入点是 BattleEngine.Wood 的小藻并入(按当前值相加)。快照本来就存这两项。</summary>
         public int MaxHp { get; internal set; }
@@ -215,10 +213,6 @@ namespace Brushblade.Core
 
         /// <summary>被动(2026-08-05)。null = 无被动。</summary>
         public SummonPassive Passive { get; internal set; }
-
-        /// <summary>嫁接前的本命;null = 本场没嫁接过。战后复原(E3/E5)。
-        /// 嫁接前本无被动的,这里存一份空被动当记号(区分「没嫁接」与「嫁接前无本命」)。</summary>
-        public SummonPassive BasePassive { get; internal set; }
 
         /// <summary>召唤物身上的状态容器(2026-08-26)。与 <see cref="EnemyState.Statuses"/> 同型。
         ///
@@ -341,9 +335,9 @@ namespace Brushblade.Core
             {
                 Slot = slot,
                 Char = Char, SourceChar = SourceChar,
-                Element = Element, BaseElement = BaseElement, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+                Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
-                Passive = Passive?.Clone(), BasePassive = BasePassive?.Clone(), Statuses = statuses,
+                Passive = Passive?.Clone(), Statuses = statuses,
                 SproutParentSlot = SproutParentSlot,
             };
         }
@@ -352,8 +346,6 @@ namespace Brushblade.Core
         {
             var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
                 s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
-            state.BaseElement = s.BaseElement;
-            state.BasePassive = s.BasePassive?.Clone();
             state.SproutParentSlot = s.SproutParentSlot;
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;
