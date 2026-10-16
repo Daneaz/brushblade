@@ -6157,7 +6157,7 @@ namespace Brushblade.Core
             // 林荫(D2-木 M2,Q8):与 DamageCut 取最强,再与格挡合计钳 60%;没有林荫木灵时 = 0,恒等
             int damageCut = Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: false));
             bool blocking = block != null && block.Magnitude > 0;
-            int preCut = damage;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
+            int preCut = damage;   // 护甲之后、格挡等非护甲减伤之前(铜墙铁壁的 60% 预算与反击类 60% 预算都以它为基数)
             if (blocking || damageCut > 0)
             {
                 int cut = Math.Min((blocking ? BattleConfig.BlockReductionPercent : 0) + damageCut,
@@ -6207,7 +6207,7 @@ namespace Brushblade.Core
             int bounced = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
-                bounced = damage * reflect / 100;
+                bounced = preCut * reflect / 100;   // 基数 = 格挡前(spec 2026-10-16 §2),与下面的反击 / 反震 / 碎玉同一份
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
@@ -6217,14 +6217,14 @@ namespace Brushblade.Core
             // 格挡反击:与镜共用 60% 反伤预算(§5.2.3),镜先用,反击拿剩下的
             // 结算与木灵侧共用 ResolveCounter(D2-金 J1)
             int counterDealt = ResolveCounter(enemyIndex, blocking ? block : null, counter,
-                damage * CombatCaps.ReflectPercent / 100 - bounced, UnitRef.Player);
+                preCut * CombatCaps.ReflectPercent / 100 - bounced, UnitRef.Player);
             // 反震(D1 Task 9,D9):护盾吸收之后按吸收量 × N% 反弹,每回合 1 次;同一份 60% 预算,排在镜 → 格挡之后。
             // 只认敌人挥击(allowReflect);没有反震状态时整段跳过 —— 恒等。
             var recoil = allowReflect ? _playerStatuses.Find(StatusKind.ShieldRecoil) : null;
             int recoilDealt = 0;   // 碎玉(G4)拿反震之后剩下的预算
             if (recoil != null && absorbed > 0 && _enemies[enemyIndex].Alive)
             {
-                int budget = damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt;
+                int budget = preCut * CombatCaps.ReflectPercent / 100 - bounced - counterDealt;
                 int dealt = Math.Min(absorbed * recoil.Magnitude / 100, budget);
                 if (dealt > 0 && TryUseTrait(recoil.TraitKey ?? recoil.SourceId ?? "", perTurn: 1, perBattle: 0))
                 {
@@ -6238,7 +6238,7 @@ namespace Brushblade.Core
             {
                 // 碎玉(D2-土 G4,Q6):同一份 60% 预算,排在镜 → 格挡 → 反震之后;没挂时一次判断即返回
                 ShatterShieldBack(enemyIndex, absorbed, allowReflect,
-                    damage * CombatCaps.ReflectPercent / 100 - bounced - counterDealt - recoilDealt);
+                    preCut * CombatCaps.ReflectPercent / 100 - bounced - counterDealt - recoilDealt);
                 EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空护盾 → 冻结攻击者(反应)
                 DropShieldRecoilIfEmpty();   // 这一下把护盾打空:反震 / 冰晶随之移除
             }
@@ -6309,7 +6309,7 @@ namespace Brushblade.Core
                 + Math.Max(Math.Max(_playerStatuses.MaxMagnitude(StatusKind.DamageCut), WoodCutPercent(forSummon: true)),
                     summon.Passive?.SelfCut ?? 0),   // 坚心(spec C §2,柘):只减本木灵,与上两者取最强
                 CombatCaps.NonArmorReductionPercent);
-            int preCut = taken;   // 非护甲减伤之前(铜墙铁壁的 60% 预算以它为基数)
+            int preCut = taken;   // 生克、护甲之后,格挡等非护甲减伤之前(铜墙铁壁的 60% 预算与反击类 60% 预算都以它为基数)
             if (summonCut > 0) taken = taken * (100 - summonCut) / 100;
             taken = CapHitDamage(taken, preCut, summon.MaxHp);   // 铜墙铁壁(D2-土 G2):按木灵自己的 MaxHp;没挂时一次判断即返回
             int hpBefore = summon.Hp;
@@ -6358,7 +6358,7 @@ namespace Brushblade.Core
             // 怪的线性成长甩开(与「低档字被点数护甲吃光」同型 —— 那个类比出自点数减法时代,
             // 2026-09-16 百分比化后伤害不会被吃光了,但「固定值追不上线性成长」这一层仍然成立)。
             //
-            // 基数用 taken:过完生克、护盾吸收**之前**的那个值,与 Reflect 同口径
+            // 基数用 preCut:过完生克、护甲、护盾吸收**之前**且**格挡等减伤之前**的那个值(2026-10-16 起,原为 taken),与 Reflect 同口径
             //(「按打过来的总伤害反,护盾吸掉的也反」)。反弹本身不再过第二次生克 ——
             // attacker 传 Element.Heart,心对全属性都是 1.0x。
             // 荆棘扎人不看自己死没死 —— 被打死的那一击照样反弹。
@@ -6378,7 +6378,7 @@ namespace Brushblade.Core
             {
                 // bounced > 0 守卫与下面 Reflect 那段同理:0 伤反弹会白白推进 enemy.HitsTaken,
                 // 送出生僻字现形 / 焦痕加攻 / 叠字分裂。低百分比 × 小伤害整除到 0 时正会撞上。
-                int bounced = taken * thornsEffective / 100;
+                int bounced = preCut * thornsEffective / 100;
                 thornsDealt = bounced;
                 if (bounced > 0)
                 {
@@ -6394,7 +6394,7 @@ namespace Brushblade.Core
             // 伤害同样算「打到了我方」,DamagePlayerDirect 末尾那段反弹不该只管玩家直接挨打
             // 的那一路,召唤物顶着承伤时玩家身上的反弹也要结算,否则「柳(闪避召唤)+ 镜」
             // 这类组合会与全部召唤字互斥,花 1 AP 一张蓝卡零收益。
-            // 结算点排在荆的反伤**之后**,基数用 taken(过完生克、护盾吸收之前的那个值)——
+            // 结算点排在荆的反伤**之后**,基数用 preCut(过完生克与护甲、格挡等减伤之前的那个值,2026-10-16 起)——
             // 召唤物承伤本来就走五行(上面 ResolveEffect 那句),所以「总伤害」在这一侧
             // 就是 taken,与玩家侧 DamagePlayerDirect 用 damage(护盾吸收之前)同口径:
             // 「按打过来的总伤害反,护盾吸掉的也反」。
@@ -6406,7 +6406,7 @@ namespace Brushblade.Core
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」,与玩家侧一致。
             // 两份反弹都算(2026-08-28,壁 可以挂给召唤物了):玩家身上那份管「我方挨的打」
             // (上面那段 2026-08-08 的裁定),召唤物自己那份管「它自己挨的打」。它们是两个
-            // 不同来源,不是同一条的重复 —— 各按自己的百分比反,基数同为 taken。
+            // 不同来源,不是同一条的重复 —— 各按自己的百分比反,基数同为 preCut。
             // 总量钳 60%(2026-09-05,任务 6;2026-09-06 纳入荆棘):见 CombatCaps.ReflectPercent 注释。
             // 这一支的钳位与玩家侧 DamagePlayerDirect 那支各自独立结算 —— 两条是分开的伤害
             // 管道,合起来钳会让「打召唤物」意外吃到玩家身上的层数上限。
@@ -6420,7 +6420,7 @@ namespace Brushblade.Core
             int reflectDealt = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
-                int bounced = taken * reflect / 100;
+                int bounced = preCut * reflect / 100;
                 if (bounced > 0)
                 {
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
@@ -6433,10 +6433,10 @@ namespace Brushblade.Core
             // 格挡反击(D2-0 Task 3):与荆棘、反弹共用 60% 反伤预算,荆棘 → 反弹 → 反击(与玩家侧「镜先用」同型)
             // 结算与玩家侧共用 ResolveCounter(D2-金 J1)
             int counterDealt = ResolveCounter(enemyIndex, blocking ? block : null, blockCounter,
-                taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
+                preCut * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt, UnitRef.Summon(summonIndex));
             // 良弓(D2-木 M4,Q10):60% 预算的最后一段,荆棘 → 反弹 → 格挡反击 → 良弓;没有字段时一次判断即返回
             ReturnFire(enemyIndex, summonIndex, summon,
-                taken * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
+                preCut * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。

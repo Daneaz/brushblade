@@ -311,27 +311,27 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Recoil_SharesReflectBudgetWithBlockCounter()
         {
-            // 怪打 100 → 格挡 −40% = 60 落下,全被盾吃;预算 60×60% = 36。
-            // 6 级格挡反击 = 攻击面 50×130%×30% = 19,反震只拿剩下的 17(而不是 60×30% = 18)
-            var b = Battle(new[] { Quake(200, block: true) }, 1, new[] { RebalanceFixture.Mob(attack: 100) }, "震");
+            // 怪打 40 → 格挡 −40% = 24 落下,全被盾吃;预算按格挡前 40×60% = 24(2026-10-16 起)。
+            // 6 级格挡反击 = 攻击面 50×130%×30% = 19,反震只拿剩下的 5(而不是 24×30% = 7)
+            var b = Battle(new[] { Quake(200, block: true) }, 1, new[] { RebalanceFixture.Mob(attack: 40) }, "震");
             b.Cast("震", -1);
             b.EndTurn();
             int counterOnly = EnemyLost(b);
             Assert.That(counterOnly, Is.EqualTo(15), "1 级无反震:只有格挡反击(50×30%)");
 
-            var b6 = Battle(new[] { Quake(200, block: true) }, 6, new[] { RebalanceFixture.Mob(attack: 100) }, "震");
+            var b6 = Battle(new[] { Quake(200, block: true) }, 6, new[] { RebalanceFixture.Mob(attack: 40) }, "震");
             b6.Cast("震", -1);
             int counter = b6.PlayerStatuses.Find(StatusKind.Block).CounterDamage;
             b6.EndTurn();
-            int budget = 60 * CombatCaps.ReflectPercent / 100;
+            int budget = 40 * CombatCaps.ReflectPercent / 100;
             Assert.That(EnemyLost(b6), Is.EqualTo(budget), "格挡反击 + 反震合计钳在 60% 预算");
             Assert.That(counter, Is.LessThan(budget), "反击先用,反震拿剩下的");
             // 终审补测:按 EffectSource 分别断言,钉住「镜 → 格挡 → 反震」的顺序 ——
-            // 若反震先用,它会拿满 60×30% = 18,格挡只剩 18;现在是格挡 19、反震 17
+            // 若反震先用,它会拿满 24×30% = 7,格挡只剩 17;现在是格挡 19、反震 5
             int SourceDamage(EffectSource src) => b6.LastEvents
                 .Where(e => e.Kind == BattleEventKind.Damage && e.Source == src).Sum(e => e.Amount);
             Assert.That(SourceDamage(EffectSource.BlockCounter), Is.EqualTo(19), "格挡反击先拿满 19");
-            Assert.That(SourceDamage(EffectSource.ShieldRecoil), Is.EqualTo(17), "反震拿剩下的 36 − 19 = 17");
+            Assert.That(SourceDamage(EffectSource.ShieldRecoil), Is.EqualTo(5), "反震拿剩下的 24 − 19 = 5");
         }
             // ---------------- 字表加载 ----------------
 

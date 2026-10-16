@@ -56,14 +56,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Counter_IsCappedBy60PercentOfDamageTaken()
+        public void Counter_IsCappedBy60PercentOfPreCutDamage()
         {
             int plain = HitTaken(Battle(10));
             var b = Battle(10);
             b.Cast("铠", -1, attackMode: false);
             int taken = HitTaken(b);
             Assert.That(taken, Is.EqualTo(plain * 60 / 100));
-            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(taken * 60 / 100), "反伤封顶 60%");
+            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(plain * 60 / 100), "反伤封顶 = 格挡前伤害 × 60%(2026-10-16 起,不是格挡后)");
         }
 
         [Test]

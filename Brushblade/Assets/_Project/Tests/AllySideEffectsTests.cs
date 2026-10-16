@@ -99,11 +99,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CounterBoost_StillCappedByReflectBudget()
         {
-            // 敌攻 100 → 格挡后 60,预算 60×60% = 36 < 60
-            var b = Battle(new[] { Riposte }, null, null, RebalanceFixture.Mob(attack: 100));
+            // 敌攻 50 → 格挡前 50,预算 50×60% = 30 < 反击 60(2026-10-16 起预算按格挡前起算)
+            var b = Battle(new[] { Riposte }, null, null, RebalanceFixture.Mob(attack: 50));
             b.Cast("戈", -1, attackMode: false);
             b.EndTurn();
-            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(36));
+            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(30));
         }
 
         // ---------------- 保命 Endure ----------------

@@ -361,7 +361,7 @@ namespace Brushblade.Core.Tests
         }
 
         // Review Focus 1:镜 + 格挡 + 反震 + 碎玉同时在 —— 合计钳 60%,顺序 镜 → 格挡 → 反震 → 碎玉(Q6)。
-        // 场景:挥击 100,格挡削 40% → 60(预算 36);镜 30% → 18;格挡反击 = 攻击面 50 × 30% = 15;剩 3。
+        // 场景:挥击 100,格挡削 40% → 60,预算按格挡前 100 × 60% = 60;镜 30% → 30;格挡反击 = 攻击面 50 × 30% = 15;剩 15。
         private static CharDef ReflectChar() => RebalanceFixture.Char("镜", new EffectDef(EffectKind.Reflect, 30, turns: 2));
         private static CharDef ParryChar() => new("挡", Element.Heart,
             effects: new[] { new EffectDef(EffectKind.Block, 1) },
@@ -374,9 +374,9 @@ namespace Brushblade.Core.Tests
             b.Cast("碎", -1); b.Cast("镜", -1); b.Cast("挡", -1);
             b.EndTurn();
             Assert.That(PlayerHits(b), Is.EqualTo(new[] { 60 }));
-            Assert.That(SourceDamage(b, EffectSource.Reflect), Is.EqualTo(18));
+            Assert.That(SourceDamage(b, EffectSource.Reflect), Is.EqualTo(30));
             Assert.That(SourceDamage(b, EffectSource.BlockCounter), Is.EqualTo(15));
-            Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(3), "碎玉 60 × 50% = 30,只拿剩下的 3");
+            Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(15), "碎玉 60 × 50% = 30,只拿剩下的 15");
             Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldShatter), Is.False, "预算打不满也照样移除");
         }
 
@@ -386,13 +386,13 @@ namespace Brushblade.Core.Tests
             var b = Battle(new[] { Jade(60, recoil: 30), ReflectChar(), ParryChar() }, new[] { Mob(100) });
             b.Cast("碎", -1); b.Cast("镜", -1); b.Cast("挡", -1);
             b.EndTurn();
-            Assert.That(SourceDamage(b, EffectSource.Reflect), Is.EqualTo(18));
+            Assert.That(SourceDamage(b, EffectSource.Reflect), Is.EqualTo(30));
             Assert.That(SourceDamage(b, EffectSource.BlockCounter), Is.EqualTo(15));
-            Assert.That(SourceDamage(b, EffectSource.ShieldRecoil), Is.EqualTo(3), "反震排在碎玉前,拿走剩下的 3");
+            Assert.That(SourceDamage(b, EffectSource.ShieldRecoil), Is.EqualTo(15), "反震 60 × 30% = 18,排在碎玉前,只拿剩下的 15");
             Assert.That(SourceDamage(b, EffectSource.ShieldShatter), Is.EqualTo(0), "预算已空,不出负数");
             int total = new[] { EffectSource.Reflect, EffectSource.BlockCounter, EffectSource.ShieldRecoil, EffectSource.ShieldShatter }
                 .Sum(s => SourceDamage(b, s));
-            Assert.That(total, Is.EqualTo(60 * CombatCaps.ReflectPercent / 100));
+            Assert.That(total, Is.EqualTo(100 * CombatCaps.ReflectPercent / 100), "预算 = 格挡前 100 × 60%");
             Assert.That(b.PlayerStatuses.Has(StatusKind.ShieldShatter), Is.False);
         }
 

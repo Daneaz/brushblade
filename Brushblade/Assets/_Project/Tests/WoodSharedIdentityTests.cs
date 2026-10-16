@@ -343,7 +343,7 @@ namespace Brushblade.Core.Tests
         private const string GraftExpected = "6b74b2e958eb187a 9266";
         // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "e524cbf0cff04a05 18948")。
         private const string SummonFamilyExpected = "96f77c3695d381ea 18976";
-        private const string ThornsExpected = "5a776f5f6463ca6d 7005";
+        private const string ThornsExpected = "8f218f0526c07b61 6953";
         // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "2944619ae0101fd6 403")。
         // spec C:删战后复原用的「原属性 / 原本命」两个快照字段,指纹只因格式变化(原值 "92e2ba139f7c4649 405";
         // 把这两段临时写回为战后恒有的 null 值时本测试原样通过,已核验)。

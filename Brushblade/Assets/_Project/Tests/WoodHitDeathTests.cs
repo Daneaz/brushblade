@@ -207,7 +207,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void M4_ReturnFire_LastInBudget_ThornsReflectCounterThenBow()
         {
-            // 1000 → 护甲 100 → 500 → 格挡 40% → 300;预算 180:荆棘 20% = 60 → 镜 10% = 30 → 格挡反击 30 → 良弓拿剩下 60(而不是 200)
+            // 1000 → 护甲 100 → 500 → 格挡 40% → 300;预算按格挡前 500 × 60% = 300(2026-10-16 起):荆棘 20% = 100 → 镜 10% = 50 → 格挡反击 30 → 良弓拿剩下 120(而不是 200)
             var b = Battle(Array.Empty<CharDef>(),
                 new[]
                 {
@@ -217,7 +217,7 @@ namespace Brushblade.Core.Tests
             b.PlayerStatuses.Apply(St(StatusKind.Reflect, 10, 5));
             b.EndTurn();
             Assert.That((Dealt(b, EffectSource.Thorns), Dealt(b, EffectSource.Reflect), Dealt(b, EffectSource.BlockCounter),
-                Dealt(b, EffectSource.ReturnFire)), Is.EqualTo((60, 30, 30, 60)));
+                Dealt(b, EffectSource.ReturnFire)), Is.EqualTo((100, 50, 30, 120)));
             int ret = b.LastEvents.ToList().FindIndex(e => e.Source == EffectSource.ReturnFire);
             int counter = b.LastEvents.ToList().FindIndex(e => e.Source == EffectSource.BlockCounter);
             Assert.That(ret, Is.GreaterThan(counter), "良弓排在格挡反击之后");
@@ -492,8 +492,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RF2_SummonSide_CutAndReflectBudgetsBothCapped()
         {
-            // 1000 → 护甲 100 → 500 → 格挡 40 + 森严 25 → 钳 60 → 200。反伤预算 120:
-            // 荆棘 40% = 80 → 反弹(镜 20 + 荆刺 30 → 钳到 60 − 40 = 20)= 40 → 格挡反击 0 → 良弓 0
+            // 1000 → 护甲 100 → 500 → 格挡 40 + 森严 25 → 钳 60 → 200。反伤预算按格挡 / 森严前的 500 × 60% = 300(2026-10-16 起):
+            // 荆棘 40% = 200 → 反弹(镜 20 + 荆刺 30 → 钳到 60 − 40 = 20)= 100 → 格挡反击 0 → 良弓 0
             var b = Battle(new[] { Mark },
                 new[]
                 {
@@ -506,15 +506,15 @@ namespace Brushblade.Core.Tests
             Assert.That(5000 - b.Summons[0].Hp, Is.EqualTo(200));
             int total = Dealt(b, EffectSource.Thorns) + Dealt(b, EffectSource.Reflect) + Dealt(b, EffectSource.BlockCounter)
                         + Dealt(b, EffectSource.ReturnFire);
-            Assert.That((Dealt(b, EffectSource.Thorns), Dealt(b, EffectSource.Reflect)), Is.EqualTo((80, 40)));
-            Assert.That(total, Is.EqualTo(120), "反伤合计 = 200 × 60%");
+            Assert.That((Dealt(b, EffectSource.Thorns), Dealt(b, EffectSource.Reflect)), Is.EqualTo((200, 100)));
+            Assert.That(total, Is.EqualTo(300), "反伤合计 = 减伤前 500 × 60%");
         }
 
         [Test]
         public void RF2_PlayerSide_CutAndReflectBudgetsBothCapped_GuardAfterCut()
         {
             // 1000 → 格挡 40 + 减伤 30 → 钳 60 → 400;守护转移 120,玩家 280。
-            // 反伤基数 = 转移前 400:镜 50 + 荆刺 30 → 钳 60% = 240;格挡反击拿剩下的 0
+            // 反伤基数 = 减伤前 1000(2026-10-16 起,原为转移前 400):镜 50 + 荆刺 30 → 钳 60% = 600;格挡反击拿剩下的 0
             var b = Battle(new[] { Mark }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { Shooter(1000) });
             b.PlayerStatuses.Apply(St(StatusKind.Reflect, 50, 5));
             b.PlayerStatuses.Apply(St(StatusKind.DamageCut, 30, 5));
@@ -523,8 +523,8 @@ namespace Brushblade.Core.Tests
             int hp = b.PlayerHp;
             b.EndTurn();
             Assert.That((hp - b.PlayerHp, 5000 - b.Summons[1].Hp), Is.EqualTo((280, 120)));
-            Assert.That(Dealt(b, EffectSource.Reflect), Is.EqualTo(240));
-            Assert.That(Dealt(b, EffectSource.Reflect) + Dealt(b, EffectSource.BlockCounter), Is.EqualTo(240), "合计 ≤ 400 × 60%");
+            Assert.That(Dealt(b, EffectSource.Reflect), Is.EqualTo(600));
+            Assert.That(Dealt(b, EffectSource.Reflect) + Dealt(b, EffectSource.BlockCounter), Is.EqualTo(600), "合计 ≤ 减伤前 1000 × 60%");
         }
 
         // ================= M3 秋实 DeathPart =================

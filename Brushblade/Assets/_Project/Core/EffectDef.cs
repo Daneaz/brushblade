@@ -117,7 +117,7 @@ namespace Brushblade.Core
         // ---- D1 Task 7:我方侧(附录 M12/M13/M14/M16/M18、扎根)。⚠ 只在末尾追加 ----
         DamageCut,      // 本回合减伤:给玩家挂 StatusKind.DamageCut(TurnsLeft 1),Value = 百分点(离散,不吃等级)。
                         // 与格挡的 40% 合计后钳到 CombatCaps.NonArmorReductionPercent。
-        CounterBoost,   // 反击增强:给玩家挂 StatusKind.CounterBoost(TurnsLeft 1),格挡反击 ×(100+Value)/100;仍受 60% 反伤预算。
+        CounterBoost,   // 反击增强:给玩家挂 StatusKind.CounterBoost(TurnsLeft 1),格挡反击 ×(100+Value)/100;仍受 60% 反伤预算(基数 = 护甲后、格挡等减伤前,2026-10-16 起)。
         Endure,         // 保命:给召唤物挂 StatusKind.Endure(一次性)。Pick = SummonedThisCast → 本次出字召出的召唤物;
                         // Primary → allySlot 指的那只召唤物(点玩家空转)。Value 不用。
         SummonSapling,  // 幼苗:额外召 SummonCount 只「苗」,血 / 攻 = 本次出字召出的第一只 × Value%,无本命;

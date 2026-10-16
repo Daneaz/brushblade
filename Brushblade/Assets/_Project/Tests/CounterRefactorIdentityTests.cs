@@ -11,6 +11,8 @@ namespace Brushblade.Core.Tests
     /// 抽成共用 ResolveCounter 的**纯重构**对照。trace 覆盖不到格挡反击,所以这里把同种子下的事件流、
     /// 敌我血量与三条随机流状态拼成指纹,与抽取前的代码逐位对照(期望值是抽取前在 54a49cdb 上跑出来的)。
     ///
+    /// ⚠ 2026-10-16:反击类 60% 预算基数改为格挡前(preCut),三条指纹按新口径重定基线(其余指纹测试同理)。
+    ///
     /// 覆盖:玩家格挡反击(含镜先用、预算钳制、致盲摇号)、木灵格挡反击(荆棘 → 镜 → 反击)、Boss 攻击者 + 反击增强。</summary>
     public class CounterRefactorIdentityTests
     {
@@ -98,8 +100,8 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(BossExpected), fp);
         }
 
-        private const string PlayerExpected = "c10fcc0de3ed1d37 1412";
-        private const string SummonExpected = "f06d11689e1359f9 1086";
-        private const string BossExpected = "6f0225ab1048a318 972";
+        private const string PlayerExpected = "7dac23a79e55e2ad 1415";
+        private const string SummonExpected = "a7080603091c1f8c 1086";
+        private const string BossExpected = "971b27f202e2af85 972";
     }
 }

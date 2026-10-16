@@ -431,10 +431,10 @@ namespace Brushblade.Core.Tests
             var hit = b.LastEvents.First(e => e.Kind == BattleEventKind.SummonHit);
             int fire = Dealt(b, EffectSource.ReturnFire);
             // 钉值:柘灵护甲 86(柘 Lv8 坚木 60 按卡等级);spec C 坚心 SelfCut 15%:受击再 × 85%。
-            // 1000 过护甲 537 → 456,良弓 172 ≤ 预算 273;150 → 80 → 68,预算 40
-            Assert.That((armor, hit.Amount, fire), Is.EqualTo(capped ? (86, 68, 40) : (86, 456, 172)), "钉值");
-            Assert.That(fire, Is.EqualTo(capped ? hit.Amount * 60 / 100 : armor * 2),
-                capped ? "预算 = 这一击 × 60%" : "护甲 × 200%");
+            // 1000 过护甲 537 → 456,良弓 172 ≤ 预算 322(537×60%);150 → 80 → 68,预算按坚心前 80×60% = 48(2026-10-16 起)
+            Assert.That((armor, hit.Amount, fire), Is.EqualTo(capped ? (86, 68, 48) : (86, 456, 172)), "钉值");
+            Assert.That(fire, Is.EqualTo(capped ? 80 * 60 / 100 : armor * 2),
+                capped ? "预算 = 减伤前(护甲后)80 × 60%" : "护甲 × 200%");
             Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.Damage && e.Source == EffectSource.ReturnFire),
                 Is.EqualTo(1), "每次受击一箭");
         }
