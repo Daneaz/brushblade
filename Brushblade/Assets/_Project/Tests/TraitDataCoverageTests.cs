@@ -336,7 +336,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Fire_Lv3_BurnPlusOne_FeatureKindlePlusFiveAndOneTurn()
+        public void Fire_Lv3_BurnPlusOne_FeatureKindleScopedBonusAndOneTurn()
         {
             foreach (var d in OfElement(Element.Fire))
             {
@@ -345,10 +345,10 @@ namespace Brushblade.Core.Tests
                 var f = At(d, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Feature).Effects;
                 Assert.That(a.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { FirstOf(d.AttackEffects, IsBurn).Kind }), $"{d.Id} 攻");
                 Assert.That(a[0].Value, Is.EqualTo(n + 1), $"{d.Id} 攻 灼 N+1");
-                // spec C §5.1:燃意·强化只强化燃意本身 —— 攻击 +5%、回合 +1(同 spec A 慑·强化的写法)
+                // spec C §5.1:燃意·强化只强化燃意本身 —— 单体 +5% / 全体 +3%(5 × 0.5 四舍五入,2026-10-16 拍板)、回合 +1
                 Assert.That(f.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { EffectKind.Kindle }), $"{d.Id} 燃意·强化");
                 var bodyKindle = d.Effects.Single(e => e.Kind == EffectKind.Kindle);
-                Assert.That(f[0].Value, Is.EqualTo(bodyKindle.Value + 5), $"{d.Id} 燃意 +5%");
+                Assert.That(f[0].Value, Is.EqualTo(bodyKindle.Value + (bodyKindle.Pick == EffectPick.AllAllies ? 3 : 5)), $"{d.Id} 燃意强化:单体 +5% / 全体 +3%");
                 Assert.That(f[0].Turns, Is.EqualTo(bodyKindle.Turns + 1), $"{d.Id} 燃意回合 +1");
                 Assert.That(f[0].Pick, Is.EqualTo(bodyKindle.Pick), $"{d.Id} 燃意选择器随本体");
             }

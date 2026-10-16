@@ -106,6 +106,10 @@ namespace Brushblade.Core.Tests
         private static readonly (int Count, int Counter)[] Block = { (1, 30), (1, 35), (2, 40), (2, 45), (2, 50), (3, 60), (3, 70) };
         private static readonly (int Points, int Turns)[] Armor = { (10, 2), (15, 2), (20, 2), (25, 2), (35, 3), (50, 3), (70, 3) };
 
+        // 2026-10-16 拍板:燃意 单体 = 梯度 +5;全体 = 梯度 ×0.5(四舍五入)+5
+        private static (int Pct, int Turns) KindleExpected((int Pct, int Turns) w, bool all)
+            => (all ? (w.Pct + 1) / 2 + 5 : w.Pct + 5, w.Turns);
+
         [Test]
         public void FeatureGradients_AndFixedRiders()   // §9.4
         {
@@ -119,7 +123,7 @@ namespace Brushblade.Core.Tests
                     if (d.Element == Element.Fire && e.Kind != EffectKind.Kindle) bad.Add($"{d.Id} 火面本体多出 {e.Kind}");
                     if (e.Kind == EffectKind.Morale && e.Value != 1) bad.Add($"{d.Id} 战意 {e.Value}");
                     // spec C §5.1:火面本体的慑换成燃意,同一张 (Pct, Turns) 梯度表
-                    if (e.Kind == EffectKind.Kindle && (e.Value, e.Turns) != Weaken[t]) bad.Add($"{d.Id} 燃意 {e.Value}/{e.Turns}");
+                    if (e.Kind == EffectKind.Kindle && (e.Value, e.Turns) != KindleExpected(Weaken[t], e.Pick == EffectPick.AllAllies)) bad.Add($"{d.Id} 燃意 {e.Value}/{e.Turns}");
                     if (e.Kind == EffectKind.Block && (e.Value, e.CounterPercent) != Block[t]) bad.Add($"{d.Id} 格挡 {e.Value}/{e.CounterPercent}");
                     if (e.Kind == EffectKind.DefenseBuff && (e.Value, e.Turns) != Armor[t]) bad.Add($"{d.Id} 护甲 {e.Value}/{e.Turns}");
                 }
