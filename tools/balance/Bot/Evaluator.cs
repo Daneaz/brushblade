@@ -91,10 +91,10 @@ namespace Brushblade.Balance.Bot
                 foreach (var face in prof.Faces)
                 {
                     double raw = 0, hits = 0;
-                    foreach (var e in face)
+                    foreach (var (e, value) in face)
                     {
                         double n = Math.Max(1, e.HitCount) * TargetsOf(e, alive);
-                        raw += e.Value * n;
+                        raw += value * n;
                         hits += n;
                     }
                     if (raw > bestRaw) { bestRaw = raw; bestHits = hits; }
@@ -131,7 +131,7 @@ namespace Brushblade.Balance.Bot
         /// <summary>一张字两面的直伤条目与释放值(折叠特性后),按「字表 × 字 × 卡等级」缓存:只依赖静态字表,与局面无关。</summary>
         private sealed class CharProfile
         {
-            public EffectDef[][] Faces;
+            public (EffectDef effect, int value)[][] Faces;   // value = 已套卡等级缩放(与 BattleEngine.ResolveEffect 同口径)
             public double HeftRelease, WellRelease;
         }
 
@@ -143,15 +143,20 @@ namespace Brushblade.Balance.Bot
             {
                 if (!key.Item1.TryGet(key.Item2, out var def)) return null;
                 var prof = new CharProfile();
-                var faces = new List<EffectDef[]>();
+                var faces = new List<(EffectDef, int)[]>();
+                int level = key.Item3;
                 foreach (bool attackMode in new[] { false, true })
                 {
                     if (attackMode && def.AttackEffects.Count == 0) continue;
-                    var effects = TraitRules.CastEffects(def, BattleEngine.FaceOf(def, attackMode), key.Item3);
-                    faces.Add(effects.Where(e => e.Kind == EffectKind.DamageSingle).ToArray());
+                    var effects = TraitRules.CastEffects(def, BattleEngine.FaceOf(def, attackMode), level);
+                    faces.Add(effects.Where(e => e.Kind == EffectKind.DamageSingle)
+                        .Select(e => (e, MetaRules.ScaleEffectValue(e.Kind, e.Value, level))).ToArray());
                     foreach (var e in effects)
-                        if (e.Kind == EffectKind.SpendHeft) prof.HeftRelease = Math.Max(prof.HeftRelease, e.Value);
-                        else if (e.Kind == EffectKind.SpendWellspring) prof.WellRelease = Math.Max(prof.WellRelease, e.Value);
+                    {
+                        int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, level);
+                        if (e.Kind == EffectKind.SpendHeft) prof.HeftRelease = Math.Max(prof.HeftRelease, v);
+                        else if (e.Kind == EffectKind.SpendWellspring) prof.WellRelease = Math.Max(prof.WellRelease, v);
+                    }
                 }
                 prof.Faces = faces.ToArray();
                 return prof;

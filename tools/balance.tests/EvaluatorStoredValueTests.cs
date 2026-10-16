@@ -127,6 +127,20 @@ namespace Brushblade.Balance.Tests
             }
         }
 
+        /// <summary>直伤 / 释放值与 offense 同口径:套卡等级缩放(MetaRules.ScaleEffectValue,Lv5 = ×1.24)。</summary>
+        /// 用 炎 + 战意:炎 Lv1 / Lv5 折叠后直伤条目不变,比值只剩等级系数(崩 Lv5 会折入特性,比值被混淆)。
+        [TestCase(StatusKind.Morale, "炎")]
+        public void StoredValue_ScalesWithCardLevel(StatusKind kind, string ch)
+        {
+            var s = new Scene(new[] { ch });
+            var b = s.With(x => x.PlayerStatuses.Add(Stack(kind, 3)));
+            var lv5 = new Dictionary<string, int> { [ch] = 5 };
+            double at1 = Evaluator.StoredValue(b, Fixture.Graph, null);
+            double at5 = Evaluator.StoredValue(b, Fixture.Graph, lv5);
+            Assert.That(at1, Is.GreaterThan(0));
+            Assert.That(at5 / at1, Is.EqualTo(MetaRules.ScaleEffectValue(EffectKind.DamageSingle, 10000, 5) / 10000.0).Within(0.01));
+        }
+
         /// <summary>崩 / 溃 攻击面同为全体 45 + 释放 13,预计输出一致,只差「有没有对应的释放字」。</summary>
         [TestCase(StatusKind.Heft, "崩", "溃")]
         [TestCase(StatusKind.Wellspring, "溃", "崩")]
