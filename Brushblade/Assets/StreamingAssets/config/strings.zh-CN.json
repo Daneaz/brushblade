@@ -1512,7 +1512,7 @@
   "char.passive.grovecut.cap": "在场时,每只木灵使我方减伤 {value}%(至多 {cap}%)",
   "char.passive.thicketcut": "木灵 ≥{min} 只时,全部木灵受伤 −{value}%",
   "char.passive.selfcut": "本木灵受到伤害 −{value}%",
-  "char.passive.guard": "在场时,替你承担 {value}% 伤害",
+  "char.passive.harden": "受到攻击时护甲 +{value}(本场,至多 +{cap})",
   "char.passive.returnfire": "每被攻击一次,向攻击者射还一箭(护甲的 {value}%)",
   "char.passive.deathblast": "阵亡时,对全体敌人造成攻击 ×{mult} 的伤害",
   "char.passive.sproutdeathslow": "分裂出的小木灵阵亡时,攻击者减速 {value} 回合",

@@ -71,7 +71,7 @@ namespace Brushblade.Core.Tests
             AppendState(sb, b);
         }
 
-        // ---------------- 木灵掉血三路(挨打 / 灼烧 / 守护),无保命 ----------------
+        // ---------------- 木灵掉血两路(挨打 / 灼烧;守护一路已随 2026-10-17 守护改磐固删除),无保命 ----------------
 
         private static readonly CharDef Hit = RebalanceFixture.Char("击", new EffectDef(EffectKind.DamageSingle, 30));
 
@@ -102,7 +102,7 @@ namespace Brushblade.Core.Tests
                 startingSummons: new[]
                 {
                     Spirit(0, 330, 330),
-                    Spirit(3, 400, 400, new SummonPassive { Guard = 50 }),
+                    Spirit(3, 400, 400),
                     Spirit(4, 90, 300, burn: 3),
                     Spirit(5, 70, 200, burn: 5),
                 });
@@ -116,7 +116,7 @@ namespace Brushblade.Core.Tests
             Assert.That(Hash(sb.ToString()), Is.EqualTo(SummonHpLossExpected), sb.ToString());
         }
 
-        private const string SummonHpLossExpected = "116eabd204470a60 5045";
+        private const string SummonHpLossExpected = "0d3b452a6d57732a 4967";   // 2026-10-17:3 号木灵去掉守护(守护改磐固)后重录
 
         // ---------------- 出字热路径:暴击 / 反应 / 限次特性 / 印记 ----------------
 

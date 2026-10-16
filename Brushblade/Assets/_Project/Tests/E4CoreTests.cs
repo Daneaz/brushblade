@@ -80,22 +80,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EndureSaved_OnGuard_FollowsGuardTransfer()
-        {
-            var shooter = new EnemyDef("盯", Element.Heart, 100000, 1000, range: AttackRange.Ranged, focus: AttackFocus.Player);
-            var b = Battle(shooter, Spirit(3, 50, 1000, new SummonPassive { Guard = 50 }, Endure()));
-            b.EndTurn();
-            var ev = b.LastEvents;
-            int guard = IndexOf(ev, BattleEventKind.GuardTransfer);
-            Assert.That((ev[guard].Amount, ev[guard].SecondIndex), Is.EqualTo((500, 3)), "夹具前提:转 500 给 3 号");
-            var saved = ev[guard + 1];
-            Assert.That((saved.Kind, saved.TargetIndex, saved.Amount, saved.SecondIndex),
-                Is.EqualTo((BattleEventKind.EndureSaved, 3, 500 - 49, -1)));
-            Assert.That(b.Summons[3].Hp, Is.EqualTo(1));
-            Assert.That(b.Summons[3].Statuses.Has(StatusKind.Endure), Is.False);
-        }
-
-        [Test]
         public void EndureSaved_NotLethal_NotEmitted()
         {
             var b = Battle(RebalanceFixture.Mob(attack: 50), Spirit(0, 100, 100, new SummonPassive { Taunt = true }, Endure()));

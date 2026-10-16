@@ -366,7 +366,7 @@ namespace Brushblade.Core
         Graft,         // 嫁接(D2-0 Task 5,spec §2.2):生面落到活木灵 = 回满并换本命,不召新木灵
                        // (SecondIndex = 被嫁接的召唤物槽位,与 Summon 事件同口径;TargetIndex = −1)。
         // ---- D2-木 Task 3(⚠ 只在末尾追加)----
-        GuardTransfer, // 守护(M5,Q9):玩家这一击的一部分转给带守护的木灵(TargetIndex = 攻击者敌人下标,Amount = 转移量,
+        GuardTransfer, // ⚠ 已无发出点(2026-10-17 守护改磐固,枚举只追加故保留)。原义:守护(M5,Q9):玩家这一击的一部分转给带守护的木灵(TargetIndex = 攻击者敌人下标,Amount = 转移量,
                        // SecondIndex = 承担的木灵槽位,Absorbed = 其中被木灵护盾吃掉的部分)。不算挥击,不发 SummonHit
                        // (那条会驱动第二次攻击者冲刺动效,且受击类钩子据此触发);表现层归 Plan D2-木 Task 5(W5)。
         PartGranted,   // 秋实(M3):木灵阵亡,部件池 +「木」(TargetIndex = 阵亡木灵槽位,Amount = 入池个数 1);满池不入不发。
@@ -384,7 +384,7 @@ namespace Brushblade.Core
                        // SecondIndex = (int)TraitTrigger)。发在次数阀通过之后、效果落地 / 挂印记之前,印记类也发(双焰 / 火山同样飘名)。
         // ---- Plan E4 Task 1(⚠ 只在末尾追加)----
         EndureSaved,   // 保命挡下致命一击(TargetIndex = 木灵槽位;Amount = 被挡掉的伤害 = 这一下 − (挡前血 − 1);SecondIndex = −1)。
-                       // 紧跟在那一下的事件之后(SummonHit / SummonBurnTick / GuardTransfer);只在保命真的触发时发。
+                       // 紧跟在那一下的事件之后(SummonHit / SummonBurnTick);只在保命真的触发时发。
         // ---- 格挡反击动效(drafts/counterfx,2026-10-15;⚠ 只在末尾追加)----
         BlockUsed,     // 格挡挡下一记敌人挥击、扣掉一次(TargetIndex = 攻击者敌人下标;SecondIndex = 格挡所在木灵槽位,玩家 −1;
                        // Amount = 扣完后的剩余次数,0 = 用完已移除)。玩家侧紧跟 EnemyAttack,木灵侧紧跟 SummonHit(及其 EndureSaved),
@@ -6175,23 +6175,17 @@ namespace Brushblade.Core
                 if (block.Magnitude <= 0) _playerStatuses.RemoveEntry(block);
             }
 
-            // 守护(D2-木 M5,Q9):减伤 / HitCap 之后、护盾之前,把这一击的 N% 转给带守护的木灵(只认挥击)。
-            // landed = 玩家实际承受的量(护盾 / 血 / EnemyAttack / 栉风沐雨 / 堡垒);镜 / 格挡反击 / 反震 / 碎玉的预算仍以 preCut(护甲后、格挡等减伤前,也在转移前)为基数。
-            // 没有守护木灵时 guardSlot = −1、landed == damage —— 恒等
-            int guardSlot = allowReflect ? GuardSlot() : -1;
-            int landed = guardSlot >= 0 ? damage - TransferToGuard(enemyIndex, guardSlot, damage) : damage;
-
-            int absorbed = Math.Min(_shieldNormal, landed);
+            int absorbed = Math.Min(_shieldNormal, damage);
             _shieldNormal -= absorbed;
-            PlayerHp = Math.Max(0, PlayerHp - (landed - absorbed));
-            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, landed, -1, absorbed));
+            PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
             // 格挡反击动效(drafts/counterfx):紧跟 EnemyAttack,反击为 0 / 攻击者已死也照发
             if (blocking) _events.Add(new BattleEvent(BattleEventKind.BlockUsed, enemyIndex, block.Magnitude, -1));
 
             // 立即判负(Task 12,spec §4.3.1):归零即当场收口,不推迟到下一次 BeginPlayerTurn ——
             // 逐格驱动下,推迟意味着已经死了还要陪剩下的怪把动画读完才弹结算。
             if (PlayerHp <= 0) Phase = BattlePhase.Lost;
-            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), landed, source: source, absorbed: absorbed);
+            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), damage, source: source, absorbed: absorbed);
             CheckThreshold(UnitRef.Player, hpBefore, PlayerHp, _config.PlayerMaxHp);
 
             // 反弹(2026-08-07,镜):按**打过来的总伤害**照回去,不是按实际掉血 ——
@@ -6242,11 +6236,8 @@ namespace Brushblade.Core
                 EnqueueShieldFrost(enemyIndex, allowReflect);   // 冰晶(D2-水 W6):挥击打空护盾 → 冻结攻击者(反应)
                 DropShieldRecoilIfEmpty();   // 这一下把护盾打空:反震 / 冰晶随之移除
             }
-            TriggerHurtHeal(landed, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回(守护:按玩家实际承受)
-            TriggerHurtShield(landed, allowReflect);   // 堡垒(D2-土 G3):同上
-            // 守护转移致死(Q15):排在这一击全部反应之后,与 DamageSummon 挨打死亡同序;玩家已阵亡则战斗已分胜负,不再结算
-            if (guardSlot >= 0 && !_summons[guardSlot].Alive && Phase != BattlePhase.Lost)
-                OnSummonDeath(guardSlot, UnitRef.Enemy(enemyIndex));
+            TriggerHurtHeal(damage, allowReflect);   // 栉风沐雨(D2-水 W5):命中结算之后;没挂时一次判断即返回
+            TriggerHurtShield(damage, allowReflect);   // 堡垒(D2-土 G3):同上
             return true;
         }
 
@@ -6437,6 +6428,7 @@ namespace Brushblade.Core
             // 良弓(D2-木 M4,Q10):60% 预算的最后一段,荆棘 → 反弹 → 格挡反击 → 良弓;没有字段时一次判断即返回
             ReturnFire(enemyIndex, summonIndex, summon,
                 preCut * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
+            Harden(summon);   // 磐固(spec 2026-10-16 §3):本击全部结算完才加层(本击不吃本次加成);阵亡不加;没有字段时一次判断即返回
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。

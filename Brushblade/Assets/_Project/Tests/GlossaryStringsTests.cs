@@ -127,7 +127,7 @@ namespace Brushblade.Core.Tests
             "char.effect.shotpercent", "char.effect.silence", "char.effect.skillcut", "char.effect.summon.other",
             "char.effect.summon.percent", "char.effect.summon.self", "char.effect.summon.stats",
             "char.effect.taunt.self", "char.effect.thornmark", "char.effect.turnpulse", "char.passive.attackpercent",
-            "char.passive.backrowbonus", "char.passive.deathpart", "char.passive.dodge", "char.passive.guard", "char.passive.healallypercent",
+            "char.passive.backrowbonus", "char.passive.deathpart", "char.passive.dodge", "char.passive.healallypercent",
             "char.passive.healallytimes", "char.passive.healmirror", "char.passive.healmirror.pct", "char.passive.ranged",
             "char.passive.regen", "char.passive.wrap", "char.shape.chain.desc",
             "char.shape.suffix.all", "char.shape.suffix.chain", "char.shape.suffix.splash", "char.shape.suffix.volley",

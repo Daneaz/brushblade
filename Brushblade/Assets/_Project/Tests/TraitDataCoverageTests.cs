@@ -225,7 +225,7 @@ namespace Brushblade.Core.Tests
             "楸 Lv4 Attack 先声", "楸 Lv4 Feature 秋实", "楸 Lv5 Attack 落叶", "楸 Lv8 Attack 秋风扫叶", "楸 Lv8 Feature 一叶知秋",
             "荆 Lv4 Attack 精进", "荆 Lv4 Feature 披荆", "荆 Lv5 Attack 荆刺", "荆 Lv8 Attack 荆鞭", "荆 Lv8 Feature 荆天棘地",
             "林 Lv4 Both 双木", "林 Lv5 Attack 众木", "林 Lv5 Feature 林风", "林 Lv6 Feature 林荫", "林 Lv8 Attack 林海", "林 Lv8 Feature 林立",
-            "柘 Lv4 Attack 精进", "柘 Lv4 Feature 坚心", "柘 Lv5 Attack 柘弓", "柘 Lv6 Feature 守护", "柘 Lv8 Attack 硬弓", "柘 Lv8 Feature 良弓",
+            "柘 Lv4 Attack 精进", "柘 Lv4 Feature 坚心", "柘 Lv5 Attack 柘弓", "柘 Lv6 Feature 磐固", "柘 Lv8 Attack 硬弓", "柘 Lv8 Feature 良弓",
             "桂 Lv4 Attack 精进", "桂 Lv4 Feature 馥郁", "桂 Lv5 Attack 折桂", "桂 Lv5 Feature 桂花雨", "桂 Lv6 Feature 蟾宫",
             "桂 Lv8 Attack 月桂", "桂 Lv8 Feature 桂冠",
             "藻 Lv4 Attack 精进", "藻 Lv4 Feature 水草", "藻 Lv5 Attack 缠足", "藻 Lv5 Feature 浮藻", "藻 Lv6 Feature 藻荇",

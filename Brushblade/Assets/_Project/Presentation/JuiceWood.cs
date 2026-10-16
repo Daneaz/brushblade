@@ -15,7 +15,7 @@ namespace Brushblade.Presentation
     /// 特性名是游戏数据,不进字符串表 —— 由 BattleView 接到图谱(<see cref="NatureCueOf"/> / <see cref="EffectCueOf"/>),
     /// 取不到时不飘名字。飘字样式 = TriggerFx 特性名签(纸底 + 面印,JuiceTriggerFx,Plan E4)。
     ///
-    /// 「chip 闪」分两种时机:当场就在格子上的(守护)直接闪;这一批事件里才挂上、要等重绘才出现的
+    /// 「chip 闪」分两种时机:当场就在格子上的直接闪;这一批事件里才挂上、要等重绘才出现的
     /// (披荆的流血、藻荇的减速、绿潮的嘲讽、光环挂上)经 <see cref="ChipCue"/> 交给 BattleView,重绘后再闪。</summary>
     public sealed partial class Juice
     {
@@ -28,7 +28,7 @@ namespace Brushblade.Presentation
         /// <summary>效果特性(按效果种类在图谱里找,绿潮 / 折桂 / 杜塞 …):kind → 字 + 特性;取不到 null。</summary>
         public Func<EffectKind, TraitCue?> EffectCueOf { get; set; }
 
-        /// <summary>第 k 格木灵的整格(chip 在格里):守护 chip 当场闪、绿潮的小藻格淡出用。</summary>
+        /// <summary>第 k 格木灵的整格(chip 在格里):绿潮的小藻格淡出用。</summary>
         public Func<int, RectTransform> SummonCellAt { get; set; }
 
         /// <summary>第 i 只敌人的整格(chip 在格里):攀附那一下被缠 chip 当场闪。</summary>
@@ -56,22 +56,6 @@ namespace Brushblade.Presentation
                     FlashCarrier(chip, glow);
                 }
             return first;
-        }
-
-        /// <summary>守护(W5):与玩家那一下**同时**飘伤害 —— 由 EnemyAttack 那一拍触达时调用。柘灵飘自己的那份(盾吃掉的分账同玩家侧),
-        /// 守护 chip 闪,「守护」从它上面飘出;不画连线。</summary>
-        private void PlayGuard(BattleEvent e, Func<int, RectTransform> summonAnchor, Color foe, Action<BattleEvent> onImpact)
-        {
-            var tank = summonAnchor?.Invoke(e.SecondIndex);
-            int hpLoss = e.Amount - e.Absorbed;
-            if (e.Absorbed <= 0) Popup($"-{e.Amount}", foe, tank);
-            else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, tank);
-            else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), foe, tank, small: true);
-            HitReact(tank, 0.6f);
-            SummonViewOf(tank)?.PlayHit();
-            var chip = FlashIcon(SummonCellAt?.Invoke(e.SecondIndex), "guard");
-            TraitCueAt(NatureCueOf?.Invoke(p => p.Guard > 0), chip != null ? chip : tank);   // 从 chip 飘,chip 不在退回立绘
-            onImpact?.Invoke(e);   // 触达才扣柘灵血条
         }
 
         /// <summary>保命(扎根,StatusChips 稿):木灵的保命 chip 闪,「扎根」(面印 生)从 chip 飘出;血停在 1 由前一条
