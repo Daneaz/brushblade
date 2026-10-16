@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Brushblade.Core;
@@ -14,19 +15,21 @@ namespace Brushblade.Balance.Bot
         public const double KillBonus = 50;         // 每打倒一只
         public const double SurvivalHigh = 80;      // 玩家血线 > 50% 时的 W
         public const double SurvivalLow = 200;      // 玩家血线 ≤ 50% 时的 W
-        public const double StackValue = 3;         // 厚 / 泉 / 战意 每层
+        /// <summary>无释放字在字库时,厚 / 泉每层按此「最低档释放字每层值」(崩 / 溃 = 13)再 × <see cref="NoReleaserFactor"/> 计。</summary>
+        public const double FallbackReleasePerStack = 13;
+        public const double NoReleaserFactor = 0.5;
 
         /// <summary>快速打分(spec §3.2):不跑敌人回合,按当前局面记分。只给剪枝排序用。</summary>
-        public static double Quick(BattleEngine b)
+        public static double Quick(BattleEngine b, RecipeGraph g, IReadOnlyDictionary<string, int> cardLevels)
         {
             if (b.Phase == BattlePhase.Won) return WinScore - b.Turn;
             if (b.Phase == BattlePhase.Lost) return LossScore;
-            return Terms(b);
+            return Terms(b, g, cardLevels);
         }
 
         /// <summary><see cref="Quick"/> 去掉胜负两档后的「进攻 + 生存 + 蓄能」本身。局外估值用它:
         /// 参考局面里一张字清场时,按打掉的血与击杀记分,而不是记成 1e6 的「已赢」。</summary>
-        public static double Terms(BattleEngine b)
+        public static double Terms(BattleEngine b, RecipeGraph g, IReadOnlyDictionary<string, int> cardLevels)
         {
             double offense = 0;
             foreach (var e in b.Enemies)
@@ -42,12 +45,129 @@ namespace Brushblade.Balance.Bot
                 if (s != null && s.Alive && s.MaxHp > 0)
                     survival += (double)(s.Hp + s.Shield) / s.MaxHp * (w / 2);
 
-            var bag = b.PlayerStatuses;
-            int stacks = bag.TotalMagnitude(StatusKind.Heft) + bag.TotalMagnitude(StatusKind.Wellspring)
-                         + bag.TotalMagnitude(StatusKind.Morale);
-
-            return offense + survival + stacks * StackValue;
+            return offense + survival + StoredValue(b, g, cardLevels);
         }
+
+        /// <summary>蓄能分(spec 2026-10-16 §6 / Plan F A1):把增益折成「预计兑现伤害」,再按 offense 同口径
+        /// (÷ 活敌总最大生命 × <see cref="DamageWeight"/>)记分。只读局面与字表,不摇任何随机数。
+        /// - 燃意(玩家):剩余回合 × (燃意% × 每回合预计输出 + 每回合命中段数 × 一层灼);
+        /// - 燃意(各存活木灵):剩余回合 × (燃意% 折出的攻击增量 + 一段命中的一层灼);
+        /// - 战意 / 厚 的攻击乘区:层数 × 每层% × 一回合预计输出;
+        /// - 厚 / 泉 的释放:层数 × 释放字每层值 × 活敌数(字库里没有对应释放字 → 按最低档 × 0.5)。
+        /// 「每回合预计输出」= 字库里有伤害面的字的平均单次伤害(按「先加」攻击、不含战意 / 厚 / 燃意乘区)
+        /// × min(每回合 AP, 字库张数)。合计封顶活敌剩余血量(兑现不了比敌人血更多的伤害)。</summary>
+        public static double StoredValue(BattleEngine b, RecipeGraph g, IReadOnlyDictionary<string, int> cardLevels)
+        {
+            var bag = b.PlayerStatuses;
+            var kindle = bag.Find(StatusKind.Kindle);
+            int morale = bag.TotalMagnitude(StatusKind.Morale);
+            int heft = bag.TotalMagnitude(StatusKind.Heft);
+            int well = bag.TotalMagnitude(StatusKind.Wellspring);
+            bool summonKindle = false;
+            foreach (var su in b.Summons)
+                if (su != null && su.Alive && su.Statuses.Find(StatusKind.Kindle) != null) summonKindle = true;
+            if (kindle == null && !summonKindle && morale == 0 && heft == 0 && well == 0) return 0;
+
+            int alive = 0;
+            double aliveMaxHp = 0, aliveHp = 0;
+            foreach (var e in b.Enemies)
+                if (e.Alive) { alive++; aliveMaxHp += e.MaxHp; aliveHp += e.Hp; }
+            if (alive == 0 || aliveMaxHp <= 0) return 0;
+
+            // 「先加」攻击(不含战意 / 厚 / 燃意乘区)相对基准的倍数
+            int percent = 100 + morale * BattleConfig.MoralePercentPerStack + heft * BattleConfig.HeftPercentPerStack
+                          + (kindle?.Magnitude ?? 0);
+            double flat = percent > 0 ? b.EffectiveAttack * 100.0 / percent / BattleConfig.AttackBaseline : 0;
+
+            double rawSum = 0, hitSum = 0, heftRelease = 0, wellRelease = 0;
+            int damageChars = 0;
+            foreach (string id in b.Library)
+            {
+                var prof = ProfileOf(g, id, CardAppraiser.LevelOf(cardLevels, id));
+                if (prof == null) continue;
+                heftRelease = Math.Max(heftRelease, prof.HeftRelease);
+                wellRelease = Math.Max(wellRelease, prof.WellRelease);
+                double bestRaw = 0, bestHits = 0;
+                foreach (var face in prof.Faces)
+                {
+                    double raw = 0, hits = 0;
+                    foreach (var e in face)
+                    {
+                        double n = Math.Max(1, e.HitCount) * TargetsOf(e, alive);
+                        raw += e.Value * n;
+                        hits += n;
+                    }
+                    if (raw > bestRaw) { bestRaw = raw; bestHits = hits; }
+                }
+                if (bestRaw <= 0) continue;
+                damageChars++;
+                rawSum += bestRaw;
+                hitSum += bestHits;
+            }
+            double casts = damageChars == 0 ? 0 : Math.Min(b.ApPerTurn, b.Library.Count);
+            double perTurn = damageChars == 0 ? 0 : rawSum / damageChars * casts * flat;   // 每回合预计输出(先加口径)
+            double hitsPerTurn = damageChars == 0 ? 0 : hitSum / damageChars * casts;
+            double burnLayer = BattleConfig.BaseBurnPerStack * flat;                       // 一层灼的 DOT 当量(一跳)
+
+            double damage = 0;
+            if (kindle != null)
+                damage += kindle.TurnsLeft * (kindle.Magnitude / 100.0 * perTurn + hitsPerTurn * BattleEngine.KindleBurnPerHit * burnLayer);
+            foreach (var su in b.Summons)
+            {
+                var k = su != null && su.Alive ? su.Statuses.Find(StatusKind.Kindle) : null;
+                if (k == null) continue;
+                int sp = su.PlayerAttackPercent + k.Magnitude;
+                double gain = sp > 0 ? (double)su.EffectiveAttack * k.Magnitude / sp : 0;
+                damage += k.TurnsLeft * (gain + BattleEngine.KindleBurnPerHit * burnLayer);
+            }
+            damage += (morale * BattleConfig.MoralePercentPerStack + heft * BattleConfig.HeftPercentPerStack) / 100.0 * perTurn;
+            double scale = b.EffectiveAttack / (double)BattleConfig.AttackBaseline;
+            damage += heft * ReleasePerStack(heftRelease) * alive * scale;
+            damage += well * ReleasePerStack(wellRelease) * alive * scale;
+
+            return Math.Min(damage, aliveHp) / aliveMaxHp * DamageWeight;
+        }
+
+        /// <summary>一张字两面的直伤条目与释放值(折叠特性后),按「字表 × 字 × 卡等级」缓存:只依赖静态字表,与局面无关。</summary>
+        private sealed class CharProfile
+        {
+            public EffectDef[][] Faces;
+            public double HeftRelease, WellRelease;
+        }
+
+        private static readonly ConcurrentDictionary<(RecipeGraph, string, int), CharProfile> Profiles =
+            new ConcurrentDictionary<(RecipeGraph, string, int), CharProfile>();
+
+        private static CharProfile ProfileOf(RecipeGraph g, string id, int level) =>
+            Profiles.GetOrAdd((g, id, level), key =>
+            {
+                if (!key.Item1.TryGet(key.Item2, out var def)) return null;
+                var prof = new CharProfile();
+                var faces = new List<EffectDef[]>();
+                foreach (bool attackMode in new[] { false, true })
+                {
+                    if (attackMode && def.AttackEffects.Count == 0) continue;
+                    var effects = TraitRules.CastEffects(def, BattleEngine.FaceOf(def, attackMode), key.Item3);
+                    faces.Add(effects.Where(e => e.Kind == EffectKind.DamageSingle).ToArray());
+                    foreach (var e in effects)
+                        if (e.Kind == EffectKind.SpendHeft) prof.HeftRelease = Math.Max(prof.HeftRelease, e.Value);
+                        else if (e.Kind == EffectKind.SpendWellspring) prof.WellRelease = Math.Max(prof.WellRelease, e.Value);
+                }
+                prof.Faces = faces.ToArray();
+                return prof;
+            });
+
+        private static double ReleasePerStack(double inLibrary) =>
+            inLibrary > 0 ? inLibrary : FallbackReleasePerStack * NoReleaserFactor;
+
+        /// <summary>一条直伤打到几个目标(近似):全体 = 活敌数,散射 = 发数,其余非单体按 min(2, 活敌数)。</summary>
+        private static double TargetsOf(EffectDef e, int alive) => e.Shape switch
+        {
+            TargetArea.Single => 1,
+            TargetArea.All => alive,
+            TargetArea.Scatter => Math.Max(1, e.Shots),
+            _ => Math.Min(2, alive),
+        };
 
         /// <summary>完整打分(spec §3.1):在换了固定种子的副本上「结束回合 → 敌人回合 → 停在下一个玩家回合开始」
         /// 再 <see cref="Quick"/>。副本 RNG 只由 <paramref name="leafSeed"/> 派生,与本体 RNG 无关(spec §2.4)。
@@ -62,7 +182,7 @@ namespace Brushblade.Balance.Bot
             if (copy.Phase == BattlePhase.DropChoice) copy.SkipDrop();
             if (copy.Phase == BattlePhase.PlayerTurn) copy.EndTurn(); // 内部推进到下一个玩家回合开始或分出胜负
             if (copy.Phase == BattlePhase.DropChoice) copy.SkipDrop();
-            return Quick(copy);
+            return Quick(copy, g, cardLevels);
         }
 
         /// <summary>经 <c>Capture → Restore</c> 复制出独立副本。<paramref name="seed"/> 非空时把三条随机流

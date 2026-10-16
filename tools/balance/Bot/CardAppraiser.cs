@@ -68,7 +68,7 @@ namespace Brushblade.Balance.Bot
 
             var copyConfig = config.WithPlayerMaxHp(run.EffectiveMaxHp);
             copyConfig.UnlockedSummonSlots = MetaRules.UnlockedSlotMask(run.CurrentDepth);
-            double baseline = Evaluator.Terms(battle);
+            double baseline = Evaluator.Terms(battle, _graph, levels);
             var snap = battle.Capture();
             var defs = Evaluator.EnemyDefsOf(battle);
             double best = 0;
@@ -78,7 +78,7 @@ namespace Brushblade.Balance.Bot
                 var copy = BattleEngine.Restore(snap, _graph, copyConfig, levels, defs);
                 copy.SuppressCritRolls = true;
                 if (action.ApplyTo(copy) != BattleError.None) continue;
-                best = Math.Max(best, Evaluator.Terms(copy) - baseline);
+                best = Math.Max(best, Evaluator.Terms(copy, _graph, levels) - baseline);
             }
             return best;
         }
