@@ -44,11 +44,13 @@ namespace Brushblade.Core
 
             bool needsEnemy = BattleEngine.NeedsTarget(def, attackMode, cardLevel);
             bool needsAlly = BattleEngine.NeedsAllyTarget(def, attackMode);
+            // 我方全体类(溃的群治 / 全体护盾等):免选目标,但落点放开到玩家 / 木灵(结算不看落点,与落玩家一致)
+            bool allyAll = effects.Any(CardSheetRules.IsAllyAllTargeted);
 
             var landing = FaceLanding.None;
             // D2-水 E26(溃围):需要友方目标的面,pick All 的敌方附带不另加 Enemy 落点(那条效果不选敌)
             if (needsEnemy || (hostile && !needsAlly)) landing |= FaceLanding.Enemy;
-            if (needsAlly) landing |= FaceLanding.Self | FaceLanding.Summons;
+            if (needsAlly || allyAll) landing |= FaceLanding.Self | FaceLanding.Summons;
             else if (!needsEnemy && !summons && !hostile) landing |= FaceLanding.Self;
             if (summons) landing |= FaceLanding.EmptySlot;
             if (summons && HasGraftFace(def, actual, effects)) landing |= FaceLanding.Graft;

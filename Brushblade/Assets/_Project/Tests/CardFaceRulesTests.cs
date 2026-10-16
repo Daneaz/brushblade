@@ -99,6 +99,34 @@ namespace Brushblade.Core.Tests
                 }
         }
 
+        /// <summary>我方全体类五行面(溃的群治、全体护盾)免选目标,但落点放开到玩家 / 木灵;溃围的敌对 pick All 不另加 Enemy。</summary>
+        [Test]
+        public void AllyAllFace_LandsOnSelfOrSummons()
+        {
+            Assert.That(L("溃", CardFace.Feature).HasFlag(FaceLanding.Self), Is.True, "溃 五行面落 Self");
+            Assert.That(L("溃", CardFace.Feature).HasFlag(FaceLanding.Summons), Is.True, "溃 五行面落 Summons");
+            Assert.That(L("崩", CardFace.Feature), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
+
+            foreach (var kind in new[] { EffectKind.ShieldAll, EffectKind.HealAll })
+            {
+                var def = new CharDef("全体试", Element.Water,
+                    effects: new[] { new EffectDef(kind, 10) },
+                    attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+                Assert.That(CardFaceRules.Landing(def, CardFace.Feature, 1), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons), kind.ToString());
+            }
+        }
+
+        [Test]
+        public void AllyAllFace_WithPickAllHostile_KeepsEnemyLanding()
+        {
+            var def = new CharDef("溃围试", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealAll, 10), new EffectDef(EffectKind.Slow, 1, pick: EffectPick.All) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+            var l = CardFaceRules.Landing(def, CardFace.Feature, 1);
+            Assert.That(l.HasFlag(FaceLanding.Self) && l.HasFlag(FaceLanding.Summons), Is.True);
+            Assert.That(l.HasFlag(FaceLanding.Enemy), Is.True, "溃围的 Enemy 落点要保留");
+        }
+
         [Test]
         public void SingleFaced_CannotFlip()
         {

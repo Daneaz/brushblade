@@ -2156,7 +2156,7 @@ namespace Brushblade.Core
         /// 单体治疗(HealSelf / HealOverTime)从此可以选治玩家还是某只召唤物;
         /// 2026-08-26 起护盾(Shield)同理 —— 土系 5 张护盾字都能加给召唤物。
         ///
-        /// 群治(HealAll)不在内 —— 它覆盖全体,本就无从选起,保持免选。
+        /// 群治(HealAll)不在内 —— 它覆盖全体,免选目标,但落点放开到玩家 / 木灵(见 CardFaceRules.Landing)。
         /// 桂 的全场加盾也不在内:那是 Summon 效果上的 SummonShield 字段,不是 Shield 这个 Kind。</summary>
         public static bool NeedsAllyTarget(CharDef def, bool attackMode = false)
         {

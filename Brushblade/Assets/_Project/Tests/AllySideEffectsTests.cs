@@ -593,6 +593,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void HealAll_CastOnSummonSlot_HealsPlayerAndAllSummons()
+        {
+            var c = new CharDef("群治", Element.Water, effects: new[] { new EffectDef(EffectKind.HealAll, 30) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10) });
+            var b = Battle(new[] { c }, startingHp: 20, summons: new[] { Summon(0, 10), Summon(1, 10) });
+            int hp0 = b.PlayerHp;
+            Assert.That(b.Cast("群治", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerHp, Is.GreaterThan(hp0), "玩家被治疗");
+            Assert.That(b.Summons[0].Hp, Is.GreaterThan(10));
+            Assert.That(b.Summons[1].Hp, Is.GreaterThan(10));
+        }
+
+        [Test]
         public void Cleanse_PickSelf_IgnoresAllySlot_SummonDebuffsUntouched()
         {
             var c = new CharDef("涤", Element.Heart, effects: new[] { new EffectDef(EffectKind.Shield, 5) },

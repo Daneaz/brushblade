@@ -198,7 +198,7 @@ namespace Brushblade.Core
             return TargetArea.Single;
         }
 
-        private static bool IsAllyAllTargeted(EffectDef e) =>
+        internal static bool IsAllyAllTargeted(EffectDef e) =>
             e.Kind == EffectKind.HealAll || e.Kind == EffectKind.ShieldAll
             || ((e.Kind == EffectKind.Kindle || e.Kind == EffectKind.Cleanse) && e.Pick == EffectPick.AllAllies)
             || ((e.Kind == EffectKind.HealSelf || e.Kind == EffectKind.HealOverTime) && (e.TargetAll || e.Shape == TargetArea.All));
