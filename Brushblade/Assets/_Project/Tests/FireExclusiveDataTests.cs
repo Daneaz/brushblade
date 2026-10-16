@@ -465,7 +465,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Kindle_Yi_Lv1_FeatureOnPlayer_ThenAttackAddsOneBurnPerHitEnemy()
         {
-            // 燚 Lv1 燃面:`Kindle 35` `pick AllAllies` `turns 3` → 玩家身上燃意 = 35%;再用攻击面出手,每个被命中的敌人比对照多 1 层灼
+            // 燚 Lv1 燃面:`Kindle 23` `pick AllAllies` `turns 3` → 玩家身上燃意 = 23%(2026-10-16:全体 ×0.5 后 +5);再用攻击面出手,每个被命中的敌人比对照多 1 层灼
             Assert.That(Graph.Get("燚").Element, Is.EqualTo(Element.Fire));
             var control = Battle("燚", 1, Mob(), Mob());
             Assert.That(control.Cast("燚", -1, attackMode: true), Is.EqualTo(BattleError.None));
@@ -474,7 +474,7 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("燚", -1, attackMode: false), Is.EqualTo(BattleError.None));
             var kindle = b.PlayerStatuses.Find(StatusKind.Kindle);
             Assert.That(kindle, Is.Not.Null);
-            Assert.That(kindle.Magnitude, Is.EqualTo(MetaRules.ScaleEffectValue(EffectKind.Kindle, 35, 1)), "燃意 35% × 卡等级 1");
+            Assert.That(kindle.Magnitude, Is.EqualTo(MetaRules.ScaleEffectValue(EffectKind.Kindle, 23, 1)), "燃意 23% × 卡等级 1");
             Assert.That(b.Cast("燚", 0, attackMode: true), Is.EqualTo(BattleError.None));
             for (int i = 0; i < 2; i++)
             {

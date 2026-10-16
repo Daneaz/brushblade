@@ -41,9 +41,9 @@ namespace Brushblade.Core.Tests
         public void Body_Yan_Feature_KindleThenDuration()
         {
             var yan = Graph.Get("炎");
-            // spec C §5.1:火面本体 = 燃意(金档 25% / 3 回合),不再带灼、不再减攻;Lv3 燃意·强化 = 30% / 4 回合
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 1)), Is.EqualTo("Kindle:25,Duration:3"));
-            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 10)), Is.EqualTo($"Kindle:{Scale(30, 10)},Duration:4"));
+            // spec C §5.1 + 2026-10-16 拍板:火面本体 = 燃意(炎:单体,Lv1 30% / 3 回合),不再带灼、不再减攻;Lv3 燃意·强化 = 35% / 4 回合(单体 +5%)
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 1)), Is.EqualTo("Kindle:30,Duration:3"));
+            Assert.That(Cells(FaceStats.Body(yan, CardFace.Feature, 10)), Is.EqualTo($"Kindle:{Scale(35, 10)},Duration:4"));
         }
 
         [Test]
@@ -174,7 +174,7 @@ namespace Brushblade.Core.Tests
         public void Deltas_Yan_L1ToL2_OnlyScaledValues()
         {
             Assert.That(Diffs(FaceStats.Deltas(Graph.Get("炎"), 1, 2)),
-                Is.EqualTo($"Attack.Damage:195->{Scale(195, 2)},Feature.Kindle:25->{Scale(25, 2)}"));
+                Is.EqualTo($"Attack.Damage:195->{Scale(195, 2)},Feature.Kindle:30->{Scale(30, 2)}"));
         }
 
         [Test]
@@ -182,7 +182,7 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(Diffs(FaceStats.Deltas(Graph.Get("炎"), 2, 3)),
                 Is.EqualTo($"Attack.Damage:{Scale(195, 2)}->{Scale(195, 3)},Attack.Burn:3->4,"
-                    + $"Feature.Kindle:{Scale(25, 2)}->{Scale(30, 3)},Feature.Duration:3->4"));
+                    + $"Feature.Kindle:{Scale(30, 2)}->{Scale(35, 3)},Feature.Duration:3->4"));
         }
 
         private static readonly HashSet<string> SpendChars = new() { "崩", "㙓", "溃", "㵘" };
@@ -226,7 +226,7 @@ namespace Brushblade.Core.Tests
             var yan = Graph.Get("炎");
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Attack)), Is.EqualTo("Attack.Burn:3->4"));
             Assert.That(Diffs(FaceStats.Lv3Change(yan, CardFace.Feature)),
-                Is.EqualTo($"Feature.Kindle:{Scale(25, 3)}->{Scale(30, 3)},Feature.Duration:3->4"), "燃意·强化:+5%、回合 +1(spec C §5.1),灼不动");
+                Is.EqualTo($"Feature.Kindle:{Scale(30, 3)}->{Scale(35, 3)},Feature.Duration:3->4"), "燃意·强化:单体 +5%、回合 +1(spec C §5.1 / 2026-10-16),灼不动");
         }
 
         [Test]

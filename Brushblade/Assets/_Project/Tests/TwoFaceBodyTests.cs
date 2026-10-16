@@ -94,7 +94,9 @@ namespace Brushblade.Core.Tests
                 Assert.That(d.Effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False, $"{d.Id} 五行面不该有伤害");
                 Assert.That(d.Effects.Select(e => e.Kind).ToList(), Is.EqualTo(new[] { EffectKind.Kindle }), $"{d.Id} 五行面本体只有燃意");
                 var kindle = d.Effects[0];
-                var (pct, turns) = WeakenByTier[Tier(d.Rarity)];
+                var (basePct, turns) = WeakenByTier[Tier(d.Rarity)];
+                // 2026-10-16 拍板:单体 = 梯度 +5;全体 = 梯度 ×0.5(四舍五入)+5
+                int pct = all ? (basePct + 1) / 2 + 5 : basePct + 5;
                 Assert.That(kindle.Value, Is.EqualTo(pct), $"{d.Id} 燃意 %");
                 Assert.That(kindle.Turns, Is.EqualTo(turns), $"{d.Id} 燃意回合");
                 Assert.That(kindle.Pick == EffectPick.AllAllies, Is.EqualTo(all), $"{d.Id} 燃意范围随攻击面");

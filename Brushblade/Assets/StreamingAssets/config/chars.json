@@ -38,7 +38,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 35,
+          "value": 23,
           "pick": "AllAllies",
           "turns": 3
         }
@@ -87,7 +87,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 40,
+              "value": 26,
               "pick": "AllAllies",
               "turns": 4
             }
@@ -230,7 +230,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 30,
+          "value": 20,
           "pick": "AllAllies",
           "turns": 3
         }
@@ -279,7 +279,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 35,
+              "value": 23,
               "pick": "AllAllies",
               "turns": 4
             }
@@ -420,7 +420,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 30,
+          "value": 20,
           "pick": "AllAllies",
           "turns": 3
         }
@@ -469,7 +469,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 35,
+              "value": 23,
               "pick": "AllAllies",
               "turns": 4
             }
@@ -610,7 +610,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 25,
+          "value": 30,
           "turns": 3
         }
       ],
@@ -657,7 +657,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 30,
+              "value": 35,
               "turns": 4
             }
           ]
@@ -781,7 +781,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 15,
+          "value": 13,
           "pick": "AllAllies",
           "turns": 2
         }
@@ -830,7 +830,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 20,
+              "value": 16,
               "pick": "AllAllies",
               "turns": 3
             }
@@ -949,7 +949,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 20,
+          "value": 15,
           "pick": "AllAllies",
           "turns": 2
         }
@@ -998,7 +998,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 25,
+              "value": 18,
               "pick": "AllAllies",
               "turns": 3
             }
@@ -1123,7 +1123,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 20,
+          "value": 15,
           "pick": "AllAllies",
           "turns": 3
         }
@@ -1172,7 +1172,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 25,
+              "value": 18,
               "pick": "AllAllies",
               "turns": 4
             }
@@ -1291,7 +1291,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 25,
+          "value": 30,
           "turns": 3
         }
       ],
@@ -1338,7 +1338,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 30,
+              "value": 35,
               "turns": 4
             }
           ]
@@ -1466,7 +1466,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 20,
+          "value": 25,
           "turns": 3
         }
       ],
@@ -1513,7 +1513,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 25,
+              "value": 30,
               "turns": 4
             }
           ]
@@ -1648,7 +1648,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 20,
+          "value": 25,
           "turns": 3
         }
       ],
@@ -1695,7 +1695,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 25,
+              "value": 30,
               "turns": 4
             }
           ]
@@ -1820,7 +1820,7 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 15,
+          "value": 20,
           "turns": 2
         }
       ],
@@ -1867,7 +1867,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 20,
+              "value": 25,
               "turns": 3
             }
           ]
