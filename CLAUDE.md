@@ -34,7 +34,7 @@
 # 漏掉 tools/monetization/ 看不到「广告发奖有没有过 AdGate」的接线对账 ——
 # 后两个是 2026-09-21/22 新增的,加新目录记得同步这一行
 python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ tools/icons/tests/ \
-  tools/design/tests/ tools/branding/tests/ tools/monetization/tests/ -q
+  tools/design/tests/ tools/branding/tests/ tools/monetization/tests/ tools/save/tests/ -q
 
 # Core/Data 单元测试(首选,不依赖编辑器锁,毫秒级;用 Unity 自带 dotnet SDK)
 cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet test --nologo -v q
