@@ -79,7 +79,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CounterClippedToZero_StillEmitsBlockUsed_NoCounterDamage()
         {
-            // 敌攻 1 → 格挡后 0,60% 预算 0:反击被削光
+            // 敌攻 1 → 格挡前 1 × 60% = 0(整除),预算 0:反击被削光
             var b = Battle(RebalanceFixture.Mob(attack: 1));
             b.Cast("铠", -1, attackMode: false);
             b.EndTurn();

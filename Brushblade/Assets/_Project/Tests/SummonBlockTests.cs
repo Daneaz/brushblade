@@ -80,6 +80,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SummonBlock_CounterBoost_ClippedByPreCutBudget()
+        {
+            var boost = new CharDef("戈", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.CounterBoost, 100) });
+            var b = Battle(50, Summoner("垛"), boost);
+            b.Cast("垛");
+            int slot = SlotOfFirstSummon(b);
+            b.Cast("铠", -1, attackMode: false, allySlot: slot);
+            Assert.That(b.Cast("戈"), Is.EqualTo(BattleError.None));
+            b.EndTurn();
+            Assert.That(EnemyDamage(b), Is.EqualTo(30), "30 × 2 = 60,预算按格挡前 50 × 60% = 30 钳住");
+        }
+
+        [Test]
         public void SummonBlock_SharesThe60PercentBudget_WithThorns_ThornsFirst()
         {
             var b = Battle(100, Summoner("棘", new SummonPassive { Thorns = 50 }));
