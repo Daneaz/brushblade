@@ -105,13 +105,18 @@ namespace Brushblade.Core
         // 都在霜抗挂上之后调 OnFreezeEnd;
         // 敌人死亡不是「冻结结束」,附着随尸体留在袋子里、不再结算。全部在没有附着时一次判断即返回,不摇随机数(trace 必经)。
 
-        /// <summary>冻结结束(自然到期 / 被解冻,霜抗已按现状挂上):先结算寒彻(每条一次伤害)、再挂冰水的减速(Q19:霜抗在前、减速在后,
+        /// <summary>冻结结束(自然到期 / 被解冻,霜抗已按现状挂上):先移除冰滞上的标记附着(冰封 / 冰缚),再结算寒彻(每条一次伤害)、再挂冰水的减速(Q19:霜抗在前、减速在后,
         /// 两者并存),最后 DropRiders(Freeze) 把挂在冻结上的附着(含怀山)一并移除。没有附着载体时一次判断即返回(恒等)。</summary>
         private void OnFreezeEnd(int enemyIndex, int slowExtraTurns = 0)
         {
             var enemy = _enemies[enemyIndex];
             var bag = enemy.Statuses;
             if (!bag.Has(StatusKind.TraitRider)) return;
+            // 冰封 / 冰缚挂在冰滞上的标记(只有 Boss 有,spec 2026-10-16 §5)先移除再打寒彻:对齐小怪自然到期 ——
+            // 那里标记与冻结同一次 tick 到期,寒彻在其后,不吃标记。小怪的标记不是附着,这里碰不到(恒等)
+            foreach (var r in bag.All.Where(s => s.Kind == StatusKind.TraitRider && s.Magnitude == (int)StatusKind.Freeze).ToList())
+                foreach (var mark in bag.All.Where(s => s.Kind == StatusKind.Vulnerable && s.SourceId == r.SourceId && s.TraitKey == r.TraitKey).ToList())
+                    bag.RemoveEntry(mark);
             FreezeRiderStrikes(enemyIndex, StatusKind.ThawStrike);
             if (enemy.Alive)
                 foreach (var thawSlow in bag.All.Where(s => s.Kind == StatusKind.ThawSlow).ToList())

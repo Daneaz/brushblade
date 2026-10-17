@@ -181,7 +181,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void FrozenMark_Boss_RaisesDamageTaken()
+        public void FrozenMark_Boss_RaisesDamageTaken_MultipliesAfterIceStall()
         {
             int Taken(CharDef icer)
             {
@@ -192,7 +192,62 @@ namespace Brushblade.Core.Tests
                 return before - b.Enemies[0].Hp;
             }
             int plain = Taken(Icer(2));
-            Assert.That(Taken(Marker(30)), Is.GreaterThan(plain), "冰滞期间标记生效");
+            Assert.That(plain, Is.EqualTo(100 * 115 / 100), "对照:只吃冰滞 15%");
+            Assert.That(Taken(Marker(30)), Is.EqualTo(plain * 130 / 100), "冰滞 15% 之后再乘标记 30%,各自整数取整");
+        }
+
+        /// <summary>review 第 1 轮:冰封 + 寒彻同字打 Boss。冰滞结束时先移除标记、再结算寒彻,
+        /// 与小怪自然到期(标记与冻结同一次 tick 到期,寒彻在其后)对齐 —— 寒彻不吃冰封。</summary>
+        [Test]
+        public void FrozenMarkAndThawStrike_Boss_StrikeDoesNotEatMark()
+        {
+            var icer = new CharDef("冰", Element.Water, effects: new[]
+            {
+                new EffectDef(EffectKind.Freeze, 2),
+                new EffectDef(EffectKind.Vulnerable, 30, pick: EffectPick.FrozenByThisCast),
+                Rider(EffectKind.ThawStrike, 50),
+            });
+            var b = Battle(new[] { icer }, new[] { Boss() });
+            Cast(b, "冰", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.True, "前提:标记已挂");
+            b.EndTurn();
+            Assert.That(RiderHits(b.LastEvents).Single().Amount, Is.EqualTo(50), "不吃冰滞 15%,也不吃冰封 30%");
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(Hp - 50));
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.False);
+        }
+
+        [Test]
+        public void FrozenMarkAndThawStrike_Mob_NaturalExpiry_StrikeDoesNotEatMark()
+        {
+            // 对照口径:小怪自然到期,冰缚标记(回合 = 冻结回合)与冻结同一次 tick 到期,寒彻在其后
+            var icer = new CharDef("冰", Element.Water, effects: new[]
+            {
+                new EffectDef(EffectKind.Freeze, 2),
+                new EffectDef(EffectKind.Vulnerable, 30, pick: EffectPick.FrozenByThisCast),
+                Rider(EffectKind.ThawStrike, 50),
+            });
+            var b = Battle(new[] { icer }, new[] { Mob() });
+            Cast(b, "冰", 0);
+            int strike = 0;
+            for (int t = 0; t < 3; t++) { b.EndTurn(); strike += RiderHits(b.LastEvents).Sum(e => e.Amount); }
+            Assert.That(strike, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void ThawStrike_KillsBossWhenIceStallEnds_BossDoesNotAct_DiesOnce()
+        {
+            var boss = new EnemyDef("钧", Element.Heart, 40, 5,
+                phases: new[] { new BossPhaseDef("钧", Element.Heart, 40, 5, BossSkill.Deluge) });
+            var b = Battle(new[] { Icer(2, Rider(EffectKind.ThawStrike, 50)) }, new[] { boss });
+            Cast(b, "冰", 0);
+            int playerHp = b.PlayerHp;
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Alive, Is.False, "寒彻打死");
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Won));
+            Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied), Is.EqualTo(1), "死亡事件只发一次");
+            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyAttack
+                || e.Kind == BattleEventKind.BossCharging || e.Kind == BattleEventKind.BossSkillCast), Is.False, "本拍不行动");
+            Assert.That(b.PlayerHp, Is.EqualTo(playerHp));
         }
 
         [Test]

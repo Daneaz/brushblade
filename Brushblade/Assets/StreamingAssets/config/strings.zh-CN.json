@@ -403,7 +403,7 @@
   "char.effect.weaken.rider_burn.min": "带本字灼且灼≥{min}层的目标被慑:攻击−{value}%(随灼存续)",
   "char.effect.seed": "种每次回复{value}，持续{turns}回合",
   "char.effect.vulnerable": "标记 受伤+{value}% {turns}回合",
-  "char.effect.vulnerable.bind": "标记 受伤+{value}% 持续到解冻(Boss:冰滞结束)",
+  "char.effect.vulnerable.bind": "标记 受伤+{value}%,至冻结/冰滞结束",
   "char.effect.pick.all": "(全体敌人)",
   "char.effect.pick.random": "(随机一名敌人)",
   "char.effect.pick.hittargets": "(被命中的敌人)",
