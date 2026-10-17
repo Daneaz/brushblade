@@ -175,7 +175,7 @@ namespace Brushblade.Balance.Bot
                 child.SuppressCritRolls = true;
                 if (action.ApplyTo(child) != BattleError.None) { c.Stats.Rejected++; continue; }
                 if (apSpent && child.LastEvents.Count == 0) continue;
-                children.Add((action, child, Evaluator.Quick(child), children.Count));
+                children.Add((action, child, Evaluator.Quick(child, c.Graph, c.CardLevels), children.Count));
             }
 
             var picked = new List<(BotAction, BattleEngine, ulong)>();
