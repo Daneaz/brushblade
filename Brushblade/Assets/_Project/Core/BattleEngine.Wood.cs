@@ -6,8 +6,8 @@ namespace Brushblade.Core
 {
     /// <summary>木系专属机制(Plan D2-木)。Task 1 = 共用小扩展里需要读木灵编队的那几项:E40 按木灵攻击 / 护甲加伤、
     /// E41 幼苗取本体、E46 柘弓只让本字最强木灵出手、E50 条件 OwnSummonAlive。Task 2 = 光环族:M1 玩家袋光环、
-    /// M2 本命在场光环(林荫 / 森严 / 蟾宫)、馥郁读点。Task 3 = 受击 / 阵亡 / 守护 / 标记:M3 秋实 / 落木 / 藻荇、
-    /// M4 披荆 / 良弓、M5 守护、M6 荆刺。Task 4 = 木灵编队与敌人侧:M7 攀附(Bind)、M8 绿潮(小藻并入)、
+    /// M2 本命在场光环(林荫 / 森严 / 蟾宫)、馥郁读点。Task 3 = 受击 / 阵亡 / 标记(守护已于 2026-10-17 改为磐固):M3 秋实 / 落木 / 藻荇、
+    /// M4 披荆 / 良弓、磐固、M6 荆刺。Task 4 = 木灵编队与敌人侧:M7 攀附(Bind)、M8 绿潮(小藻并入)、
     /// M9 四木成林(全体木灵立即出手)、M10 折桂(击杀时字库 +N,满库退次)、M11 水草(出字治疗镜像给藻灵)。
     /// 挂点处只留一行调用,实现放这里。
     ///
@@ -19,7 +19,7 @@ namespace Brushblade.Core
 
         /// <summary>木灵阵亡的特性挂点(M3 秋实 / 落木 / 藻荇、M7 攀附清理等,Task 3 / 4):OnSummonDeath 的单点调用,
         /// 在归根治疗之后、刷光环之前(落木读的是阵亡这一刻的有效攻击,光环份额还没摘)。
-        /// 阵亡 = 走 OnSummonDeath 的路径:挨打、灼烧、吞噬、守护转移致死;顶替召唤与绿潮并入不走这里(Q15)。
+        /// 阵亡 = 走 OnSummonDeath 的路径:挨打、灼烧、吞噬;顶替召唤与绿潮并入不走这里(Q15)。
         /// 死者没有本命、也不是有母体的小藻时只做光环清理,不摇随机数。</summary>
         private void OnSummonDeathTraits(int slot, UnitRef killer)
         {
@@ -288,35 +288,28 @@ namespace Brushblade.Core
                     source: EffectSource.ReturnFire, attackerRef: UnitRef.Summon(slot));
         }
 
-        // ---- M5 守护(Task 3)----
+        // ---- 磐固(spec 2026-10-16 §3,柘 Lv6;替换 M5 守护)----
 
-        /// <summary>带守护(本命 Guard &gt; 0)的存活木灵里槽位最小的一只;没有 −1(Q9)。</summary>
-        private int GuardSlot()
+        /// <summary>磐固那一条护甲的 SourceId:木灵袋里同源只留一条(StatusBag.Apply 覆盖刷新),战后由 RunEngine 按它剥掉不携带。</summary>
+        internal const string HardenSourceId = "#harden";
+
+        /// <summary>磐固:本木灵被挥击命中(DamageSummon 走到末段 = 没打空、没被免疫抵消)后护甲 +Harden,本场累计至多 HardenMax。
+        /// 落在 DefenseBuff 上,SummonDefense(受击减伤、良弓、柘弓 byArmor)都读得到;本击已结算完,不吃本次加成。阵亡不加。</summary>
+        private static void Harden(SummonState summon)
         {
-            for (int s = 0; s < _summons.Length; s++)
+            int step = summon.Passive?.Harden ?? 0;
+            if (step <= 0 || !summon.Alive) return;
+            int now = 0;
+            foreach (var st in summon.Statuses.All)
+                if (st.Kind == StatusKind.DefenseBuff && st.SourceId == HardenSourceId) now = st.Magnitude;
+            int cap = summon.Passive.HardenMax;
+            int next = cap > 0 ? Math.Min(cap, now + step) : now + step;
+            if (next == now) return;
+            summon.Statuses.Apply(new StatusEffect
             {
-                var w = _summons[s];
-                if (w != null && w.Alive && w.Passive != null && w.Passive.Guard > 0) return s;
-            }
-            return -1;
-        }
-
-        /// <summary>守护(Q9):把 <paramref name="damage"/>(玩家这一击过完护甲 / 格挡 / 减伤 / HitCap 之后)× Guard% 转给 <paramref name="slot"/>
-        /// 的木灵:先扣它的护盾、再扣血(LoseSummonHp,保命照常),不再过护甲 / 生克,不算挥击(不发 SummonHit、不触发它的荆棘 / 良弓)。
-        /// 返回转移量(0 ≤ 转移 ≤ damage)。致死由调用方在这一击收尾时走 OnSummonDeath。</summary>
-        private int TransferToGuard(int enemyIndex, int slot, int damage)
-        {
-            var guard = _summons[slot];
-            int transfer = damage * Math.Clamp(guard.Passive.Guard, 0, 100) / 100;
-            if (transfer <= 0) return 0;
-            int hpBefore = guard.Hp;
-            int absorbed = Math.Min(guard.Shield, transfer);
-            guard.Shield -= absorbed;
-            bool saved = LoseSummonHp(guard, transfer - absorbed);
-            _events.Add(new BattleEvent(BattleEventKind.GuardTransfer, enemyIndex, transfer, slot, absorbed));
-            if (saved) _events.Add(EndureSavedEvent(slot, transfer - absorbed, hpBefore));
-            CheckThreshold(UnitRef.Summon(slot), hpBefore, guard.Hp, guard.MaxHp);
-            return transfer;
+                Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = next, TurnsLeft = -1,
+                SourceId = HardenSourceId,
+            });
         }
 
         // ---- M6 荆刺(Task 3)----

@@ -7,9 +7,9 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>Plan D2-木 Task 3:受击 / 阵亡 / 守护 / 标记。
+    /// <summary>Plan D2-木 Task 3:受击 / 阵亡 / 标记(M5 守护已于 2026-10-17 改为磐固,见 WoodHardenTests)。
     /// M3 阵亡挂点(秋实 DeathPart / 落木 DeathBlast / 藻荇 SproutDeathSlow)、M4 受击挂点(披荆 ThornsBleed / 良弓 ReturnFire)、
-    /// M5 守护 Guard、M6 荆刺 ThornMark;Review Focus 2 的组合用例(减伤与反伤两份 60% 预算、守护转移的位置与守恒)。
+    /// M6 荆刺 ThornMark;Review Focus 2 的组合用例(减伤与反伤两份 60% 预算)。
     ///
     /// 夹具:Element.Heart 敌人(对木 1.0×)、PlayerAttack = 100、玩家暴击率 0、卡等级 1、无掉字。木灵用起手携带直接摆位。</summary>
     public class WoodHitDeathTests
@@ -207,7 +207,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void M4_ReturnFire_LastInBudget_ThornsReflectCounterThenBow()
         {
-            // 1000 → 护甲 100 → 500 → 格挡 40% → 300;预算 180:荆棘 20% = 60 → 镜 10% = 30 → 格挡反击 30 → 良弓拿剩下 60(而不是 200)
+            // 1000 → 护甲 100 → 500 → 格挡 40% → 300;预算按格挡前 500 × 60% = 300(2026-10-16 起):荆棘 20% = 100 → 镜 10% = 50 → 格挡反击 30 → 良弓拿剩下 120(而不是 200)
             var b = Battle(Array.Empty<CharDef>(),
                 new[]
                 {
@@ -217,7 +217,7 @@ namespace Brushblade.Core.Tests
             b.PlayerStatuses.Apply(St(StatusKind.Reflect, 10, 5));
             b.EndTurn();
             Assert.That((Dealt(b, EffectSource.Thorns), Dealt(b, EffectSource.Reflect), Dealt(b, EffectSource.BlockCounter),
-                Dealt(b, EffectSource.ReturnFire)), Is.EqualTo((60, 30, 30, 60)));
+                Dealt(b, EffectSource.ReturnFire)), Is.EqualTo((100, 50, 30, 120)));
             int ret = b.LastEvents.ToList().FindIndex(e => e.Source == EffectSource.ReturnFire);
             int counter = b.LastEvents.ToList().FindIndex(e => e.Source == EffectSource.BlockCounter);
             Assert.That(ret, Is.GreaterThan(counter), "良弓排在格挡反击之后");
@@ -264,208 +264,7 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Summons[0].Alive, Is.False);
         }
 
-        // ================= M5 守护 Guard =================
-
-        private static readonly SummonPassive GuardP = new() { Guard = 30 };
-
-        [Test]
-        public void M5_Guard_TransfersAfterCuts_BeforePlayerShield()
-        {
-            // 1000 → 减伤 20% → 800;转移 240 给柘灵;玩家 560:护盾 100 先吸,血 −460
-            var shield = Card("盾", new EffectDef(EffectKind.Shield, 100));
-            var b = Battle(new[] { shield }, new[] { W(1, hp: 1000, passive: GuardP) }, new[] { Shooter(1000, Element.Metal) });
-            b.PlayerStatuses.Apply(St(StatusKind.DamageCut, 20, 5));
-            b.Cast("盾");
-            Assert.That(b.ShieldNormal, Is.EqualTo(100), "夹具前提");
-            int hp = b.PlayerHp;
-            b.EndTurn();
-            Assert.That(b.Summons[1].Hp, Is.EqualTo(760), "转移不过柘灵护甲 / 生克(金克木不 ×1.5)");
-            Assert.That(hp - b.PlayerHp, Is.EqualTo(460));
-            var attack = b.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
-            Assert.That((attack.Amount, attack.Absorbed), Is.EqualTo((560, 100)), "EnemyAttack 报玩家实际承受的量");
-            var guard = b.LastEvents.Single(e => e.Kind == BattleEventKind.GuardTransfer);
-            Assert.That((guard.TargetIndex, guard.Amount, guard.SecondIndex, guard.Absorbed), Is.EqualTo((0, 240, 1, 0)));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.SummonHit), Is.False, "不算挥击");
-        }
-
-        [Test]
-        public void M5_Guard_SummonShieldFirst_NoArmor_NoSwingReactions()
-        {
-            var b = Battle(Array.Empty<CharDef>(),
-                new[]
-                {
-                    W(1, hp: 1000, shield: 100,
-                        passive: new SummonPassive { Guard = 30, Thorns = 50, ReturnFire = 200 },
-                        statuses: new[] { St(StatusKind.DefenseBuff, 100) }),
-                },
-                new[] { Shooter(1000) });
-            b.EndTurn();
-            Assert.That((b.Summons[1].Shield, b.Summons[1].Hp), Is.EqualTo((0, 800)), "300:盾 100 → 血 200;不吃护甲 100");
-            Assert.That(Count(b, EffectSource.Thorns) + Count(b, EffectSource.ReturnFire), Is.EqualTo(0),
-                "转移不算挥击:不触发它的荆棘 / 良弓");
-            Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.GuardTransfer).Absorbed, Is.EqualTo(100));
-        }
-
-        [Test]
-        public void M5_Guard_MirrorUsesPreTransferDamage()
-        {
-            var b = Battle(Array.Empty<CharDef>(), new[] { W(1, hp: 1000, passive: GuardP) }, new[] { Shooter(1000) });
-            b.PlayerStatuses.Apply(St(StatusKind.Reflect, 10, 5));
-            b.EndTurn();
-            Assert.That(Dealt(b, EffectSource.Reflect), Is.EqualTo(100), "镜按转移前的 1000 反");
-        }
-
-        [Test]
-        public void M5_Guard_ImmunityBlocksFirst_NoTransfer()
-        {
-            var b = Battle(Array.Empty<CharDef>(), new[] { W(1, hp: 1000, passive: GuardP) }, new[] { Shooter(1000) });
-            b.PlayerStatuses.Apply(St(StatusKind.Immunity, 1));
-            b.EndTurn();
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.ImmunityBlocked), Is.True);
-            Assert.That(b.Summons[1].Hp, Is.EqualTo(1000));
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.GuardTransfer), Is.False);
-        }
-
-        [Test]
-        public void M5_Guard_LowestSlotGuardTakesIt()
-        {
-            var b = Battle(Array.Empty<CharDef>(),
-                new[] { W(3, hp: 1000, passive: new SummonPassive { Guard = 50 }), W(1, hp: 1000, passive: GuardP), W(0, hp: 1000) },
-                new[] { Shooter(1000) });
-            b.EndTurn();
-            Assert.That((b.Summons[0].Hp, b.Summons[1].Hp, b.Summons[3].Hp), Is.EqualTo((1000, 700, 1000)),
-                "取槽位最小的带守护木灵,按它的 30%");
-        }
-
-        [Test]
-        public void M5_Guard_LethalTransfer_TriggersDeathTraits()
-        {
-            var log = new HookLog();
-            var b = Battle(Array.Empty<CharDef>(),
-                new[] { W(1, hp: 100, passive: new SummonPassive { Guard = 30, DeathPart = true }) }, new[] { Shooter(1000) });
-            b.AddHookListener(log);
-            int hp = b.PlayerHp;
-            b.EndTurn();
-            Assert.That(b.Summons[1].Alive, Is.False, "转移可致死");
-            Assert.That(hp - b.PlayerHp, Is.EqualTo(700), "玩家只承受转移后的部分,致死不回吐");
-            Assert.That(b.Pool, Is.EqualTo(new[] { "木" }), "守护转移致死触发秋实(Q15)");
-            var died = log.All.Single(h => h.Kind == HookKind.SummonDied);
-            Assert.That((died.Subject.Index, died.Other.Side, died.Other.Index), Is.EqualTo((1, UnitSide.Enemy, 0)));
-        }
-
-        [Test]
-        public void M5_Guard_NotOnPlayerWithoutGuardSummon_Identical()
-        {
-            var b = Battle(Array.Empty<CharDef>(), new[] { W(1, hp: 1000) }, new[] { Shooter(1000) });
-            int hp = b.PlayerHp;
-            b.EndTurn();
-            Assert.That(hp - b.PlayerHp, Is.EqualTo(1000));
-            Assert.That(b.Summons[1].Hp, Is.EqualTo(1000));
-        }
-
-        // ---- Task 3 review Minor 1 / 2:守护与反震 / 碎玉同场,守护三条边界 ----
-
-        private static StatusEffect Recoil(int percent) => new()
-            { Kind = StatusKind.ShieldRecoil, Polarity = StatusPolarity.Buff, Magnitude = percent, TurnsLeft = -1, SourceId = "护" };
-
-        private static StatusEffect Shatter(int percent) => new()
-            { Kind = StatusKind.ShieldShatter, Polarity = StatusPolarity.Buff, Magnitude = percent, TurnsLeft = -1, SourceId = "玉" };
-
-        [Test]
-        public void M5_Guard_WithShieldRecoil_AmountFromPostTransferAbsorbed()
-        {
-            // 1000 → 守护转 300,玩家 700 全被盾 1000 吸。反震 50% 按吸收量:700 × 50% = 350(不是转移前的 500)
-            var shield = Card("盾", new EffectDef(EffectKind.Shield, 1000));
-            var b = Battle(new[] { shield }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { Shooter(1000) });
-            b.Cast("盾");
-            b.PlayerStatuses.Apply(Recoil(50));
-            b.EndTurn();
-            Assert.That(5000 - b.Summons[1].Hp, Is.EqualTo(300), "夹具前提:守护转移 300");
-            Assert.That(Dealt(b, EffectSource.ShieldRecoil), Is.EqualTo(350));
-        }
-
-        [Test]
-        public void M5_Guard_WithShieldRecoilAndShatter_BudgetFromPreTransferDamage()
-        {
-            // 1000 → 守护转 300,玩家 700 恰好打空盾 700。反震 50% = 350;碎玉 100% = 700 钳在剩余预算:
-            // 预算以转移前 1000 × 60% = 600 为基数 → 碎玉 250(若按转移后 700 × 60% = 420 则只剩 70)
-            var shield = Card("盾", new EffectDef(EffectKind.Shield, 700));
-            var b = Battle(new[] { shield }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { Shooter(1000) });
-            b.Cast("盾");
-            b.PlayerStatuses.Apply(Recoil(50));
-            b.PlayerStatuses.Apply(Shatter(100));
-            int hp = b.PlayerHp;
-            b.EndTurn();
-            Assert.That((hp - b.PlayerHp, b.ShieldNormal), Is.EqualTo((0, 0)), "夹具前提:盾恰好吃满");
-            Assert.That((Dealt(b, EffectSource.ShieldRecoil), Dealt(b, EffectSource.ShieldShatter)), Is.EqualTo((350, 250)));
-        }
-
-        [Test]
-        public void M5_Guard_NotOnIronBarbBacklash()
-        {
-            // 铁画反噬(allowReflect = false)不是敌人挥击:不转移,玩家全额承受
-            var hit = Card("击", new EffectDef(EffectKind.DamageSingle, 1000));
-            var barb = new EnemyDef("铁", Element.Heart, 100000, 0, ability: EnemyAbility.Barb);
-            var b = Battle(new[] { hit }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { barb });
-            int hp = b.PlayerHp;
-            Assert.That(b.Cast("击", 0), Is.EqualTo(BattleError.None));
-            Assert.That(hp - b.PlayerHp, Is.GreaterThan(0), "夹具前提:反噬确实发生");
-            Assert.That(b.Summons[1].Hp, Is.EqualTo(5000), "反噬不转移");
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.GuardTransfer), Is.False);
-        }
-
-        [Test]
-        public void M5_Guard_BossSkillPlayerShare_IsTransferred()
-        {
-            // 倾覆:玩家份 = 攻击 × 2 = 1000,守护转 300,玩家 700
-            var boss = new EnemyDef("覆", Element.Heart, 100000, 500,
-                phases: new[] { new BossPhaseDef("覆", Element.Heart, 100000, 500, skill: BossSkill.Topple) });
-            var cfg = Config();
-            cfg.BossChargeEvery = 1;
-            var b = Battle(Array.Empty<CharDef>(), new[] { W(1, hp: 50000, passive: GuardP) }, new[] { boss }, cfg);
-            for (int t = 0; t < 6; t++)
-            {
-                int hp = b.PlayerHp, wood = b.Summons[1].Hp;
-                b.EndTurn();
-                if (!b.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast)) continue;
-                Assert.That(b.LastEvents.Single(e => e.Kind == BattleEventKind.GuardTransfer).Amount, Is.EqualTo(300));
-                Assert.That((hp - b.PlayerHp, wood - b.Summons[1].Hp), Is.EqualTo((700, 300)), "大招玩家份照常转移");
-                return;
-            }
-            Assert.Fail("夹具前提:Boss 没放出倾覆");
-        }
-
-        [Test]
-        public void M5_Guard_PlayerAndGuardDieSameHit_SkipsDeathFlow()
-        {
-            // 玩家 3000:5000 → 守护转 1500 打死柘灵(100 血),玩家 3500 阵亡 → 战斗已分胜负,不走阵亡流程(秋实不入池)
-            var log = new HookLog();
-            var b = Battle(Array.Empty<CharDef>(),
-                new[] { W(1, hp: 100, passive: new SummonPassive { Guard = 30, DeathPart = true }) }, new[] { Shooter(5000) });
-            b.AddHookListener(log);
-            b.EndTurn();
-            Assert.That(b.Phase, Is.EqualTo(BattlePhase.Lost), "夹具前提:玩家阵亡");
-            Assert.That(b.Summons[1].Hp, Is.EqualTo(0), "夹具前提:柘灵被转移打死");
-            Assert.That(b.Pool, Is.Empty, "不走阵亡流程:秋实不入池");
-            Assert.That(log.All.Any(h => h.Kind == HookKind.SummonDied), Is.False);
-        }
-
         // ================= Review Focus 2 组合 =================
-
-        [Test]
-        public void RF2_GroveCutThenHitCap_ThenGuard_Conserved()
-        {
-            // 林荫 20 → 1000 × 80% = 800;铜墙铁壁 10% × 6000 = 600(下限 1000 × 40% = 400)→ 600;守护 30% = 180;玩家 420
-            var b = Battle(Array.Empty<CharDef>(),
-                new[] { W(0, hp: 5000, passive: new SummonPassive { GroveCut = 20, GroveCutCap = 20, Guard = 30 }) },
-                new[] { Shooter(1000) });
-            b.PlayerStatuses.Apply(St(StatusKind.HitCap, 10, 5));
-            int hp = b.PlayerHp;
-            b.EndTurn();
-            int playerLoss = hp - b.PlayerHp, summonLoss = 5000 - b.Summons[0].Hp;
-            Assert.That((playerLoss, summonLoss), Is.EqualTo((420, 180)));
-            Assert.That(playerLoss + summonLoss, Is.EqualTo(600), "转移不重复计入、不为负:两边之和 = 减伤 / HitCap 之后的伤害");
-        }
 
         [Test]
         public void RF2_GroveCutWithHitCap_NoGuard()
@@ -492,8 +291,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RF2_SummonSide_CutAndReflectBudgetsBothCapped()
         {
-            // 1000 → 护甲 100 → 500 → 格挡 40 + 森严 25 → 钳 60 → 200。反伤预算 120:
-            // 荆棘 40% = 80 → 反弹(镜 20 + 荆刺 30 → 钳到 60 − 40 = 20)= 40 → 格挡反击 0 → 良弓 0
+            // 1000 → 护甲 100 → 500 → 格挡 40 + 森严 25 → 钳 60 → 200。反伤预算按格挡 / 森严前的 500 × 60% = 300(2026-10-16 起):
+            // 荆棘 40% = 200 → 反弹(镜 20 + 荆刺 30 → 钳到 60 − 40 = 20)= 100 → 格挡反击 0 → 良弓 0
             var b = Battle(new[] { Mark },
                 new[]
                 {
@@ -506,25 +305,25 @@ namespace Brushblade.Core.Tests
             Assert.That(5000 - b.Summons[0].Hp, Is.EqualTo(200));
             int total = Dealt(b, EffectSource.Thorns) + Dealt(b, EffectSource.Reflect) + Dealt(b, EffectSource.BlockCounter)
                         + Dealt(b, EffectSource.ReturnFire);
-            Assert.That((Dealt(b, EffectSource.Thorns), Dealt(b, EffectSource.Reflect)), Is.EqualTo((80, 40)));
-            Assert.That(total, Is.EqualTo(120), "反伤合计 = 200 × 60%");
+            Assert.That((Dealt(b, EffectSource.Thorns), Dealt(b, EffectSource.Reflect)), Is.EqualTo((200, 100)));
+            Assert.That(total, Is.EqualTo(300), "反伤合计 = 减伤前 500 × 60%");
         }
 
         [Test]
-        public void RF2_PlayerSide_CutAndReflectBudgetsBothCapped_GuardAfterCut()
+        public void RF2_PlayerSide_CutAndReflectBudgetsBothCapped()
         {
-            // 1000 → 格挡 40 + 减伤 30 → 钳 60 → 400;守护转移 120,玩家 280。
-            // 反伤基数 = 转移前 400:镜 50 + 荆刺 30 → 钳 60% = 240;格挡反击拿剩下的 0
-            var b = Battle(new[] { Mark }, new[] { W(1, hp: 5000, passive: GuardP) }, new[] { Shooter(1000) });
+            // 1000 → 格挡 40 + 减伤 30 → 钳 60 → 400(守护已于 2026-10-17 改磐固,玩家全额承受)。
+            // 反伤基数 = 减伤前 1000(2026-10-16 起):镜 50 + 荆刺 30 → 钳 60% = 600;格挡反击拿剩下的 0
+            var b = Battle(new[] { Mark }, new[] { W(1, hp: 5000) }, new[] { Shooter(1000) });
             b.PlayerStatuses.Apply(St(StatusKind.Reflect, 50, 5));
             b.PlayerStatuses.Apply(St(StatusKind.DamageCut, 30, 5));
             b.PlayerStatuses.Apply(St(StatusKind.Block, 1, counter: 500));
             b.Cast("刺", 0);
             int hp = b.PlayerHp;
             b.EndTurn();
-            Assert.That((hp - b.PlayerHp, 5000 - b.Summons[1].Hp), Is.EqualTo((280, 120)));
-            Assert.That(Dealt(b, EffectSource.Reflect), Is.EqualTo(240));
-            Assert.That(Dealt(b, EffectSource.Reflect) + Dealt(b, EffectSource.BlockCounter), Is.EqualTo(240), "合计 ≤ 400 × 60%");
+            Assert.That((hp - b.PlayerHp, 5000 - b.Summons[1].Hp), Is.EqualTo((400, 0)));
+            Assert.That(Dealt(b, EffectSource.Reflect), Is.EqualTo(600));
+            Assert.That(Dealt(b, EffectSource.Reflect) + Dealt(b, EffectSource.BlockCounter), Is.EqualTo(600), "合计 ≤ 减伤前 1000 × 60%");
         }
 
         // ================= M3 秋实 DeathPart =================

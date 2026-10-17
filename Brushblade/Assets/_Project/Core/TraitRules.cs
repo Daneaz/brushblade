@@ -328,7 +328,8 @@ namespace Brushblade.Core
             if (over.GroveCutCap != 0) m.GroveCutCap = over.GroveCutCap;
             if (over.ThicketCut != 0) m.ThicketCut = over.ThicketCut;
             if (over.ThicketMin != 0) m.ThicketMin = over.ThicketMin;
-            if (over.Guard != 0) m.Guard = over.Guard;
+            if (over.Harden != 0) m.Harden = over.Harden;
+            if (over.HardenMax != 0) m.HardenMax = over.HardenMax;
             if (over.ReturnFire != 0) m.ReturnFire = over.ReturnFire;
             if (over.DeathBlast != 0) m.DeathBlast = over.DeathBlast;
             if (over.SproutDeathSlow != 0) m.SproutDeathSlow = over.SproutDeathSlow;

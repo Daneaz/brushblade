@@ -163,8 +163,11 @@ namespace Brushblade.Core
         public int ThicketCut { get; set; }
         /// <summary>森严:生效所需的存活木灵数(含森灵自己与幼苗)。</summary>
         public int ThicketMin { get; set; }
-        /// <summary>守护:玩家受到的挥击伤害 × N% 转给本木灵。Task 3</summary>
-        public int Guard { get; set; }
+        /// <summary>磐固(spec 2026-10-16 §3,柘 Lv6,替换守护):本木灵每次被敌人挥击命中,自身护甲 +N(本场叠加,
+        /// 至多 <see cref="HardenMax"/>)。BattleEngine.DamageSummon 末段加层,本击不吃本次加成;战后不携带。</summary>
+        public int Harden { get; set; }
+        /// <summary>磐固:本场累计加成上限;≤0 = 不设上限。</summary>
+        public int HardenMax { get; set; }
         /// <summary>良弓:被挥击命中后对攻击者造成 SummonDefense × N%。Task 3</summary>
         public int ReturnFire { get; set; }
         /// <summary>落木:阵亡时对全体敌人造成有效攻击 × N%。Task 3</summary>
@@ -190,7 +193,7 @@ namespace Brushblade.Core
             EntrySaplings = EntrySaplings, OnHitCharmChance = OnHitCharmChance,
             AttackPercent = AttackPercent, HealAllyPercent = HealAllyPercent, HealMirror = HealMirror, ThornsBleed = ThornsBleed,
             CritAura = CritAura, GroveCut = GroveCut, GroveCutCap = GroveCutCap, ThicketCut = ThicketCut, ThicketMin = ThicketMin,
-            Guard = Guard, ReturnFire = ReturnFire, DeathBlast = DeathBlast, SproutDeathSlow = SproutDeathSlow, DeathPart = DeathPart,
+            Harden = Harden, HardenMax = HardenMax, ReturnFire = ReturnFire, DeathBlast = DeathBlast, SproutDeathSlow = SproutDeathSlow, DeathPart = DeathPart,
             SelfCut = SelfCut,
         };
     }

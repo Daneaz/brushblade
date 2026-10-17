@@ -99,6 +99,43 @@ namespace Brushblade.Core.Tests
                 }
         }
 
+        /// <summary>我方全体类五行面(溃的群治、全体护盾)免选目标,但落点放开到玩家 / 木灵;溃围的敌对 pick All 不另加 Enemy。</summary>
+        [Test]
+        public void AllyAllFace_LandsOnSelfOrSummons()
+        {
+            Assert.That(L("溃", CardFace.Feature).HasFlag(FaceLanding.Self), Is.True, "溃 五行面落 Self");
+            Assert.That(L("溃", CardFace.Feature).HasFlag(FaceLanding.Summons), Is.True, "溃 五行面落 Summons");
+            Assert.That(L("崩", CardFace.Feature), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons));
+
+            foreach (var kind in new[] { EffectKind.ShieldAll, EffectKind.HealAll })
+            {
+                var def = new CharDef("全体试", Element.Water,
+                    effects: new[] { new EffectDef(kind, 10) },
+                    attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+                Assert.That(CardFaceRules.Landing(def, CardFace.Feature, 1), Is.EqualTo(FaceLanding.Self | FaceLanding.Summons), kind.ToString());
+            }
+        }
+
+        /// <summary>召唤面折入的我方全体效果(桂 Lv5 桂花雨 HealAll)不放开玩家 / 木灵落点:召唤面只落空位 / 嫁接。</summary>
+        [Test]
+        public void SummonFace_WithFoldedAllyAll_DoesNotLandOnSelf()
+        {
+            var landing = CardFaceRules.Landing(Def("桂"), CardFace.Feature, 5);
+            Assert.That(landing.HasFlag(FaceLanding.Self), Is.False, "桂 Lv5 召唤面不落玩家");
+            Assert.That(landing.HasFlag(FaceLanding.EmptySlot), Is.True, "桂 Lv5 召唤面落空位");
+        }
+
+        [Test]
+        public void AllyAllFace_WithPickAllHostile_KeepsEnemyLanding()
+        {
+            var def = new CharDef("溃围试", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealAll, 10), new EffectDef(EffectKind.Slow, 1, pick: EffectPick.All) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 30) });
+            var l = CardFaceRules.Landing(def, CardFace.Feature, 1);
+            Assert.That(l.HasFlag(FaceLanding.Self) && l.HasFlag(FaceLanding.Summons), Is.True);
+            Assert.That(l.HasFlag(FaceLanding.Enemy), Is.True, "溃围的 Enemy 落点要保留");
+        }
+
         [Test]
         public void SingleFaced_CannotFlip()
         {

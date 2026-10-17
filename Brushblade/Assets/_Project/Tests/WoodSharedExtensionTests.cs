@@ -747,13 +747,13 @@ namespace Brushblade.Core.Tests
         private static SummonPassive FullWoodPassive() => new()
         {
             AttackPercent = 20, HealAllyPercent = 30, HealMirror = 100, ThornsBleed = 35, CritAura = 10,
-            GroveCut = 5, GroveCutCap = 20, ThicketCut = 25, ThicketMin = 3, Guard = 30, ReturnFire = 200,
+            GroveCut = 5, GroveCutCap = 20, ThicketCut = 25, ThicketMin = 3, Harden = 10, HardenMax = 50, ReturnFire = 200,
             DeathBlast = 300, SproutDeathSlow = 1, DeathPart = true,
         };
 
         private static string WoodFields(SummonPassive p) =>
             $"{p.AttackPercent}/{p.HealAllyPercent}/{p.HealMirror}/{p.ThornsBleed}/{p.CritAura}/{p.GroveCut}/{p.GroveCutCap}/"
-            + $"{p.ThicketCut}/{p.ThicketMin}/{p.Guard}/{p.ReturnFire}/{p.DeathBlast}/{p.SproutDeathSlow}/{p.DeathPart}";
+            + $"{p.ThicketCut}/{p.ThicketMin}/{p.Harden}/{p.HardenMax}/{p.ReturnFire}/{p.DeathBlast}/{p.SproutDeathSlow}/{p.DeathPart}";
 
         [Test]
         public void Reserve_NewPassiveFields_CloneAndMerge()
@@ -762,12 +762,12 @@ namespace Brushblade.Core.Tests
             Assert.That(WoodFields(full.Clone()), Is.EqualTo(WoodFields(full)), "Clone 同步全部新字段");
             Assert.That(WoodFields(TraitRules.MergePassive(new SummonPassive { Thorns = 50 }, full)), Is.EqualTo(WoodFields(full)),
                 "MergePassive 并入全部新字段");
-            Assert.That(TraitRules.MergePassive(full, new SummonPassive()).Guard, Is.EqualTo(30), "缺省不覆盖");
-            // 本命追加(E37)经新字段走通:Summon 0 + Guard 30
+            Assert.That(TraitRules.MergePassive(full, new SummonPassive()).Harden, Is.EqualTo(10), "缺省不覆盖");
+            // 本命追加(E37)经新字段走通:Summon 0 + Harden 10 / HardenMax 50
             var def = WoodChar("柘", new[] { Body(new SummonPassive { Taunt = true }) }, null,
-                Trait(TraitSlot.Lv6, TraitFace.Feature, TraitForm.Passive, Append(new SummonPassive { Guard = 30 })));
+                Trait(TraitSlot.Lv6, TraitFace.Feature, TraitForm.Passive, Append(new SummonPassive { Harden = 10, HardenMax = 50 })));
             var p = TraitRules.CastEffects(def, CardFace.Feature, 6).Single().Passive;
-            Assert.That((p.Taunt, p.Guard), Is.EqualTo((true, 30)));
+            Assert.That((p.Taunt, p.Harden, p.HardenMax), Is.EqualTo((true, 10, 50)));
         }
 
         [Test]

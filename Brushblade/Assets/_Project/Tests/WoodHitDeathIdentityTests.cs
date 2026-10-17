@@ -237,7 +237,8 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(DeathExpected), fp);
         }
 
-        private const string ThornExpected = "5187440cccd34b26 14090";
+        // 2026-10-16(反击预算改格挡前):预算基数换 preCut,指纹重取(原值 "5187440cccd34b26 14090")。
+        private const string ThornExpected = "b16336190c99b654 14015";
         private const string DevourExpected = "f0372edb4512881d 15062";
         private const string DeathExpected = "55783f4ee8db30f9 16607";
     }

@@ -66,7 +66,8 @@ SUMMON_PASSIVE = {
     "GroveCutCap": "groveCutCap",
     "ThicketCut": "thicketCut",               # 森严
     "ThicketMin": "thicketMin",
-    "Guard": "guard",                         # 守护
+    "Harden": "harden",                       # 磐固(spec 2026-10-16 §3,替换守护):每次受击护甲 +N
+    "HardenMax": "hardenMax",                 # 磐固:本场累计上限
     "ReturnFire": "returnFire",               # 良弓
     "DeathBlast": "deathBlast",               # 落木
     "SproutDeathSlow": "sproutDeathSlow",     # 藻荇

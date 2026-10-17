@@ -33,6 +33,8 @@ namespace Brushblade.Balance.Tests
                 foreach (bool attackMode in new[] { false, true })
                     for (int target = -1; target < enemies; target++)
                         for (int ally = Targeting.PlayerTarget; ally < BattleEngine.MaxSummonSlots; ally++)
+                        {
+                            if (TraitOnlyAllyOnDeadSlot(b, id, attackMode, ally)) continue;
                             foreach (SummonDropMode drop in Enum.GetValues(typeof(SummonDropMode)))
                                 foreach (bool replace in new[] { false, true })
                                 {
@@ -43,6 +45,7 @@ namespace Brushblade.Balance.Tests
                                         Run = e => e.Cast(cid, tg, rp, am, -1, null, al, dm),
                                     };
                                 }
+                        }
 
             foreach (var def in Fixture.Graph.All)
             {
@@ -70,6 +73,20 @@ namespace Brushblade.Balance.Tests
                 }
             }
             yield return new Probe { Label = "EndTurn", Run = e => { e.EndTurn(); return BattleError.None; } };
+        }
+
+        /// <summary>玩家做不出的组合:本体不选友方、只有特性折入的效果选友方(如 淋 Lv6 淋透的 HoT),
+        /// 却落在不是活单位的槽(空格 / 尸体)。Core 对特性折入的友方效果不校验 allySlot(另记 Plan F),
+        /// 受理后得到一条指向空槽的 HoT —— 拖放 UI 只许落活友方,不算可达动作,不枚举。
+        /// 召唤 / 复活面落空格 / 尸体是正当落点,不在此列。</summary>
+        private static bool TraitOnlyAllyOnDeadSlot(BattleEngine b, string id, bool attackMode, int ally)
+        {
+            if (ally < 0 || b.SlotOccupancy(ally) == SlotState.Alive) return false;
+            if (!Fixture.Graph.TryGet(id, out var def)) return false;
+            var body = attackMode && def.AttackEffects.Count > 0 ? def.AttackEffects : def.Effects;
+            var cast = b.CastEffectsNow(id, attackMode);
+            if (body.Any(BattleEngine.EffectNeedsAllyTarget) || !cast.Any(BattleEngine.EffectNeedsAllyTarget)) return false;
+            return !cast.Any(e => e.Kind == EffectKind.Summon || e.Kind == EffectKind.SummonSapling || e.Kind == EffectKind.Revive);
         }
 
         [Test]

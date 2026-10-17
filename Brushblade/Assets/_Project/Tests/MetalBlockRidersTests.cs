@@ -11,7 +11,7 @@ namespace Brushblade.Core.Tests
     /// 合并(Q4)、得利每轮至多一次(Q5);木灵格挡同样生效;Block 新字段 Clone 与存档往返;ConfigLoader。
     ///
     /// 夹具:字一律 Element.Heart、攻击面 DamageSingle 100、Lv1 → 反击 30;PlayerAttack 100。
-    /// 预算 = 敌人攻击 × 60%(格挡减伤后)× 60%:攻击 1000 → 360,攻击 100 → 36。</summary>
+    /// 预算 = 敌人攻击(格挡减伤前,2026-10-16 起)× 60%:攻击 1000 → 600,攻击 60 → 36。</summary>
     public class MetalBlockRidersTests
     {
         private const int Hp = 100000;
@@ -60,13 +60,13 @@ namespace Brushblade.Core.Tests
             b.Cast("剁", -1, attackMode: false);
             var ev = EndTurn(b);
             Assert.That(CounterEvents(ev), Is.EqualTo(3));
-            Assert.That(Lost(b, 0), Is.EqualTo(90), "30 × 3,预算 360 够用");
+            Assert.That(Lost(b, 0), Is.EqualTo(90), "30 × 3,预算 600 够用");
         }
 
         [Test]
         public void CounterHits_ShareOneBudget_StopWhenExhausted()
         {
-            var b = Battle(Guard("剁", Mod(hits: 3)), Mob(100));
+            var b = Battle(Guard("剁", Mod(hits: 3)), Mob(60));
             b.Cast("剁", -1, attackMode: false);
             var ev = EndTurn(b);
             Assert.That(Lost(b, 0), Is.EqualTo(36), "30 + 6 = 预算 36,扣完即止");
@@ -76,8 +76,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CounterStats_DealtPlusClipped_EqualsWhatTheHitsWanted()
         {
-            // Q1 反击实效读数:预算 36,3 击 × 30 想打 90 → 实打 36、被预算削掉 54
-            var b = Battle(Guard("剁", Mod(hits: 3)), Mob(100));
+            // Q1 反击实效读数:预算 36(攻击 60 × 60%),3 击 × 30 想打 90 → 实打 36、被预算削掉 54
+            var b = Battle(Guard("剁", Mod(hits: 3)), Mob(60));
             b.Cast("剁", -1, attackMode: false);
             EndTurn(b);
             Assert.That((b.CounterDamageDealt, b.CounterDamageClipped), Is.EqualTo((36, 54)));
@@ -132,8 +132,8 @@ namespace Brushblade.Core.Tests
         public void CounterColumn_SharesBudget_AttackerFirst()
         {
             int attacker = FrontMateOfBack();
-            // 攻击 100 → 预算 36:攻击者 30,同列只剩 6
-            var b = Battle(Guard("锥", Mod(column: true)), FourMobs(attacker, 100));
+            // 攻击 60 → 预算 36:攻击者 30,同列只剩 6
+            var b = Battle(Guard("锥", Mod(column: true)), FourMobs(attacker, 60));
             b.Cast("锥", -1, attackMode: false);
             EndTurn(b);
             Assert.That(Lost(b, attacker), Is.EqualTo(30));
@@ -194,7 +194,7 @@ namespace Brushblade.Core.Tests
             Assert.That(roomy.Enemies[0].Alive, Is.True, "Boss 不可斩杀");
             Assert.That(10000 - roomy.Enemies[0].Hp, Is.EqualTo(60), "反击 ×2");
 
-            var tight = Battle(Guard("铡", Mod(execute: 20)), RebalanceFixture.Boss(attack: 100));
+            var tight = Battle(Guard("铡", Mod(execute: 20)), RebalanceFixture.Boss(attack: 60));
             tight.Enemies[0].Hp = 10000;
             tight.Cast("铡", -1, attackMode: false);
             EndTurn(tight);
@@ -362,11 +362,46 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SummonBlock_HitsShareBudget()
         {
-            // 攻击 100 → 木灵挨 60 → 预算 36
-            var b = Battle(new[] { Guard("剁", Mod(hits: 3)), Summoner() }, Mob(100));
+            // 攻击 60 → 木灵 preCut 60 → 预算 36(格挡前起算)
+            var b = Battle(new[] { Guard("剁", Mod(hits: 3)), Summoner() }, Mob(60));
             CastOnSummon(b, "剁");
             EndTurn(b);
             Assert.That(Lost(b, 0), Is.EqualTo(36));
+        }
+
+        // ---------------- 预算基数 = 格挡前(spec 2026-10-16 §2) ----------------
+
+        [Test]
+        public void Budget_BaseIsPreCut_BlockOnField_CounterTotalIs60PercentOfPreCut()
+        {
+            // 攻击 1000:格挡 −40% 后只落 600,但预算按减伤前的 1000 × 60% = 600;反击 30 × 30 击想打 900
+            var b = Battle(Guard("剁", Mod(hits: 30)), Mob(1000));
+            b.Cast("剁", -1, attackMode: false);
+            EndTurn(b);
+            Assert.That(Lost(b, 0), Is.EqualTo(600), "preCut × 60%,不是格挡后 600 × 60% = 360");
+        }
+
+        [Test]
+        public void Budget_MirrorAndCounter_ShareOnePreCutBudget_MirrorFirst()
+        {
+            var mirror = new CharDef("映", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Reflect, 30, turns: 5) });
+            var b = Battle(new[] { Guard("剁", Mod(hits: 30)), mirror }, Mob(1000));
+            b.Cast("映", -1, attackMode: false);
+            b.Cast("剁", -1, attackMode: false);
+            EndTurn(b);
+            Assert.That(Lost(b, 0), Is.EqualTo(600), "镜 1000 × 30% = 300 先扣,反击拿剩下的 300,合计 600");
+            Assert.That(b.CounterDamageDealt, Is.EqualTo(300), "反击只拿到镜扣完后的余额");
+        }
+
+        [Test]
+        public void Budget_SummonBlock_BaseIsSummonPreCut()
+        {
+            // 攻击 1000 → 木灵挨 600(格挡后),预算按木灵侧 preCut 1000 × 60% = 600
+            var b = Battle(new[] { Guard("剁", Mod(hits: 30)), Summoner() }, Mob(1000));
+            CastOnSummon(b, "剁");
+            EndTurn(b);
+            Assert.That(Lost(b, 0), Is.EqualTo(600));
         }
 
         // ---------------- 合并(Q4) ----------------

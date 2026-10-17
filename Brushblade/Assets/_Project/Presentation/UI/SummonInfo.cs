@@ -179,8 +179,7 @@ namespace Brushblade.Presentation
                 if (wood.TryGetValue(key, out var line)) Named(has, line);
             }
 
-            // 有图标的,按战场 chip 优先级:守护 › 盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾
-            Wood(CharInfo.NatureKey.Guard, x => x.Guard > 0);
+            // 有图标的,按战场 chip 优先级:盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾
             if (p.Thorns > 0) Old(Strings.T("summon.passive.thorns", ("thorns", p.Thorns)));
             Wood(CharInfo.NatureKey.ThornsBleed, x => x.ThornsBleed > 0);
             if (p.OnHitBurn > 0)
@@ -196,7 +195,8 @@ namespace Brushblade.Presentation
             if (p.Regen > 0) Old(Strings.T("summon.passive.regen", ("regen", p.Regen)));
             if (p.Dodge > 0) Old(Strings.T("summon.passive.dodge", ("dodge", p.Dodge)));
             if (p.Speed > 100) Old(Strings.T("summon.passive.haste", ("speed", p.Speed)));
-            // 没有图标的:先 D2-木 的(Lv4–Lv8 特性追加,稿的柘灵例「守护 › 良弓 › 坚木」),再 D2-0 那批 Lv1 / Lv3 本命
+            // 没有图标的:先 D2-木 的(Lv4–Lv8 特性追加,稿的柘灵例「守护 › 良弓 › 坚木」,守护已改磐固、无 chip),再 D2-0 那批 Lv1 / Lv3 本命
+            Wood(CharInfo.NatureKey.Harden, x => x.Harden > 0);
             Wood(CharInfo.NatureKey.AttackPercent, x => x.AttackPercent > 0);
             Wood(CharInfo.NatureKey.HealAllyPercent, x => x.HealAllyPercent > 0);
             Wood(CharInfo.NatureKey.HealMirror, x => x.HealMirror > 0);
@@ -240,13 +240,12 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>战场木灵格上那一枚本命 chip 的图标(StatusChipsWood 稿,2026-10-11 拍板):一格只出一枚,
-        /// 取排得最前、且有图标的那一条 —— 守护 › 盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾。
+        /// 取排得最前、且有图标的那一条 —— 盾反 / 披荆 › 附灼 › 减攻 › 林荫 / 森严 › 蟾宫 › 回血 › 闪避 › 疾。
         /// 判据:先改变敌我怎么挨打的,再是出手附带,再是给全队的光环,最后是自身数值。没有图标的本命返回 null(不出 chip)。
         /// 战场格(BattleView.SummonPassiveChip)与详情右栏的第一条同读这一处。</summary>
         public static string NatureChipIcon(SummonPassive passive)
         {
             if (passive == null) return null;
-            if (passive.Guard > 0) return "guard";
             if (passive.Thorns > 0) return "thorns";   // 披荆只认本命荆棘,与盾反同一枚
             if (passive.OnHitBurn > 0) return "burn";
             if (passive.OnHitCurse > 0) return "curse";

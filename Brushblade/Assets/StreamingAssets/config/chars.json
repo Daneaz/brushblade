@@ -3677,7 +3677,7 @@
           "slot": "Lv6",
           "face": "Feature",
           "form": "Passive",
-          "name": "守护",
+          "name": "磐固",
           "effects": [
             {
               "kind": "Summon",
@@ -3686,7 +3686,8 @@
               "attack": 0,
               "summonChar": "柘",
               "passive": {
-                "guard": 30
+                "harden": 10,
+                "hardenMax": 50
               }
             }
           ]

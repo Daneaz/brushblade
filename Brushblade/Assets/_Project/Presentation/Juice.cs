@@ -257,12 +257,10 @@ namespace Brushblade.Presentation
             // 上一记挨打的召唤物:紧随其后的盾反(Source = Thorns)从它身上打回攻击者
             RectTransform lastTank = null;
             int lastTankSlot = -1;           // 同上,槽位(披荆查它的本命)
-            BattleEvent? pendingGuard = null;  // 守护(W5):等这一击打到玩家那一刻再一起飘,两边同时
             int lastDiedEnemy = -1;          // 折桂(W8):特性名从被杀的敌人格飘出;粉身碎骨同
             RectTransform lastHurtSummon = null;   // 落木(B-Qa5):这一批里最后一只挨打 / 挨烧的木灵 = 阵亡格
             var namedCarriers = new HashSet<RectTransform>();   // 落木打全体:同一载体(阵亡格)只飘一次名
             bool overkillNamed = false;      // 粉身碎骨:一批里只飘一次名(一次出字至多一次击杀时兑现)
-            BattleEvent? pendingEndure = null;   // 保命(B-Qb1):目标是待演守护的柘灵时,等守护演完再播
             var mergeGroup = new List<BattleEvent>();   // 绿潮(W10):连续的 SummonMerged 成一组依次飞
             int enemyActor = -1;             // 这一段的行动者是敌人时它的下标:那一拍里木灵打它 = 攀附(W3)
             bool bindShown = false;          // 这一拍已经飘过「攀附」
@@ -648,13 +646,6 @@ namespace Brushblade.Presentation
                         else if (e.Absorbed <= 0) Popup($"-{e.Amount}", foeColor, null);
                         else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, null);
                         else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), foeColor, null, small: true);
-                        // 守护(W5):柘灵那一份与玩家这一下同时飘(GuardTransfer 先于 EnemyAttack 到,扣在这里一起演)
-                        if (pendingGuard is { } guardHit)
-                        {
-                            PlayGuard(guardHit, summonAnchor, foeColor, onImpact);
-                            pendingGuard = null;
-                            if (pendingEndure is { } endureAfterGuard) { PlayEndure(endureAfterGuard, summonAnchor); pendingEndure = null; }
-                        }
                         if (playerBlocked) BlockedHitFx(me, enemyAnchor(e.TargetIndex), shake: true);
                         else
                         {
@@ -809,14 +800,6 @@ namespace Brushblade.Presentation
                         bindShown = false;
                         break;
                     // ---- D2-木 Task 5(WoodCues 稿)----
-                    case BattleEventKind.GuardTransfer:   // 守护:先记下,等紧随其后的 EnemyAttack 打到玩家时同时飘
-                        if (pendingGuard is { } stale)    // 防御性:上一条没等到 EnemyAttack,先演掉
-                        {
-                            PlayGuard(stale, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(stale.TargetIndex)), onImpact);
-                            if (pendingEndure is { } staleEndure) { PlayEndure(staleEndure, summonAnchor); pendingEndure = null; }
-                        }
-                        pendingGuard = e;
-                        break;
                     case BattleEventKind.PartGranted:     // 秋实:特性名从阵亡那一格飘出;部件池的「木」由 BattleView 记成新到手(光晕)
                         TraitCueAt(NatureCueOf?.Invoke(p => p.DeathPart), summonAnchor?.Invoke(e.TargetIndex));
                         onImpact?.Invoke(e);
@@ -825,16 +808,14 @@ namespace Brushblade.Presentation
                         TraitCueAt(EffectCueOf?.Invoke(EffectKind.GrantChar), lastDiedEnemy >= 0 ? enemyAnchor(lastDiedEnemy) : null);
                         onImpact?.Invoke(e);
                         break;
-                    // 保命(Plan E4,B-Qb1):紧跟 SummonHit / SummonBurnTick / GuardTransfer。守护转伤是延后演的(pendingGuard),
-                    // 保命的是那只柘灵时也跟着延后,守护演完再播 —— 否则「扎根」先于那一下伤害飘出来
+                    // 保命(Plan E4,B-Qb1):紧跟 SummonHit / SummonBurnTick
                     // 格挡反击(counterfx,JuiceCounter):① 盾印 + 半弧、② chip 闪 / 跳格、③ 反击线按时发射;命中在后面的 BlockCounter 伤害
                     case BattleEventKind.BlockUsed:
                         counter = PlayBlockUsed(events, idx, enemyAnchor, summonAnchor);
                         if (counter != null) counterStepStart = counter.Start;
                         break;
                     case BattleEventKind.EndureSaved:
-                        if (pendingGuard is { } guarding && guarding.SecondIndex == e.TargetIndex) pendingEndure = e;
-                        else PlayEndure(e, summonAnchor);
+                        PlayEndure(e, summonAnchor);
                         break;
                     case BattleEventKind.SummonMerged:    // 绿潮:攒成一组,组尾一起依次飞(见循环开头)
                         mergeGroup.Add(e);
@@ -864,9 +845,6 @@ namespace Brushblade.Presentation
                 }
             }
             if (mergeGroup.Count > 0) yield return PlayMerge(mergeGroup, summonAnchor, onImpact);
-            if (pendingGuard is { } lastGuard)   // 防御性:守护后面没有 EnemyAttack(玩家这一下全被转走)
-                PlayGuard(lastGuard, summonAnchor, Theme.GlyphColor(enemyElement?.Invoke(lastGuard.TargetIndex)), onImpact);
-            if (pendingEndure is { } lastEndure) PlayEndure(lastEndure, summonAnchor);
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
                 yield return Beat(StepWait());   // 带格挡反击的一步:反击已在步内演过,只补到 StepGap(至少末次命中 + 0.10)
             foreach (var d in deferred)
@@ -909,13 +887,13 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>藻荇用(D2-木 fix round 1):这一记之后,这一批里还有没有别的事件再扣这只木灵的血
-        /// (SummonHit / 自身灼烧 / 守护转移)。没有 = 它终局阵亡时,这一记就是致死的那一下。</summary>
+        /// (SummonHit / 自身灼烧)。没有 = 它终局阵亡时,这一记就是致死的那一下。</summary>
         private static bool LastHitOnSummon(IReadOnlyList<BattleEvent> events, int from, int slot)
         {
             for (int j = from + 1; j < events.Count; j++)
             {
                 var x = events[j];
-                if ((x.Kind == BattleEventKind.SummonHit || x.Kind == BattleEventKind.GuardTransfer) && x.SecondIndex == slot) return false;
+                if (x.Kind == BattleEventKind.SummonHit && x.SecondIndex == slot) return false;
                 if (x.Kind == BattleEventKind.SummonBurnTick && x.TargetIndex == slot) return false;
             }
             return true;

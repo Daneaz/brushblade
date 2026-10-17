@@ -117,7 +117,7 @@ namespace Brushblade.Core
         // ---- D1 Task 7:我方侧(附录 M12/M13/M14/M16/M18、扎根)。⚠ 只在末尾追加 ----
         DamageCut,      // 本回合减伤:给玩家挂 StatusKind.DamageCut(TurnsLeft 1),Value = 百分点(离散,不吃等级)。
                         // 与格挡的 40% 合计后钳到 CombatCaps.NonArmorReductionPercent。
-        CounterBoost,   // 反击增强:给玩家挂 StatusKind.CounterBoost(TurnsLeft 1),格挡反击 ×(100+Value)/100;仍受 60% 反伤预算。
+        CounterBoost,   // 反击增强:给玩家挂 StatusKind.CounterBoost(TurnsLeft 1),格挡反击 ×(100+Value)/100;仍受 60% 反伤预算(基数 = 护甲后、格挡等减伤前,2026-10-16 起)。
         Endure,         // 保命:给召唤物挂 StatusKind.Endure(一次性)。Pick = SummonedThisCast → 本次出字召出的召唤物;
                         // Primary → allySlot 指的那只召唤物(点玩家空转)。Value 不用。
         SummonSapling,  // 幼苗:额外召 SummonCount 只「苗」,血 / 攻 = 本次出字召出的第一只 × Value%,无本命;
@@ -186,7 +186,7 @@ namespace Brushblade.Core
         MoraleShield,         // 金气:给玩家挂 StatusKind.MoraleShield,Value = 战意满时每回合开始的护盾量(连续)。仅玩家。
         // ---- D2-水 Task 2:冻结载体附着(附录 W1)与冷却(W2)。⚠ 只在末尾追加 ----
         // 前三个一律写 riderOf Freeze + pick FrozenByThisCast(ConfigLoader 拦不写的):只挂在本次出字真冻上的目标上
-        // (Boss 的冰滞不算,Q3),冻结结束(自然到期 / 被解冻)或敌人死亡时随载体移除(DropRiders)。支持 Pick / OnlyIf。
+        // (寒彻 / 冰水也挂 Boss 的冰滞,怀山不挂,spec 2026-10-16 §5 改 Q3),冻结 / 冰滞结束(自然到期 / 被解冻)或敌人死亡时随载体移除(DropRiders)。支持 Pick / OnlyIf。
         FrostBite,      // 怀山:挂 StatusKind.FrostBite(Magnitude = ScaleByAttack(Value),出字时定死,同埋雷)。该敌人冻结中每次行动开始
                         // (含被冻结跳过的那拍)受 Magnitude 点水属性伤害(过生克与护甲、吃标记、不暴击,R4)。Value 吃卡等级;可写 bodyPercent。
         ThawStrike,     // 寒彻:挂 StatusKind.ThawStrike(Magnitude 同上)。冻结自然到期或被解冻时受一次同口径伤害;敌人死亡不算。

@@ -338,7 +338,7 @@ namespace Brushblade.Core.Tests
                 foreach (int lv in new[] { 1, 10 })
                 {
                     Assert.That(CardSheetRules.TargetOf(d, CardFace.Attack, lv), Is.EqualTo(FaceTarget.Enemy), $"{d.Id} 攻面");
-                    // spec A §3:溃 / 㵘 五行面改全体(HealAll,不选友方)→ 只作用于自身一方
+                    // spec A §3:溃 / 㵘 五行面改全体(HealAll,不选友方);F2a 起落点放开到玩家 / 木灵 → Ally
                     var expected = d.Element switch
                     {
                         Element.Fire => FaceTarget.Ally,   // spec C §5:燃意挂我方,火面落点改 Ally(玩家 / 木灵)
@@ -346,7 +346,6 @@ namespace Brushblade.Core.Tests
                         // 溃 Lv5 溃围(Slow pick All)解锁后面上有了敌对效果、又不选友方 → 落点 Enemy(CardFaceRules.Landing E26 只在选友方时压掉)
                         _ when d.Id == "溃" && lv >= 5 => FaceTarget.Enemy,
                         // 崩 = ShieldAll + DefenseBuff:护甲仍要选友方(EffectNeedsAllyTarget),落点保持 Ally
-                        _ when d.Id == "溃" || d.Id == "㵘" => FaceTarget.SelfOnly,
                         _ => FaceTarget.Ally,
                     };
                     Assert.That(CardSheetRules.TargetOf(d, CardFace.Feature, lv), Is.EqualTo(expected), $"{d.Id} 五行面 Lv{lv}");

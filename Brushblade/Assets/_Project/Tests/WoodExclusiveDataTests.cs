@@ -9,7 +9,7 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>Plan D2-木 Task 6:木系 46 格专属特性的数据落表 —— 读真实 chars.json。
     /// 先用一张表钉死「每条特性落在正确的 (槽, 面, 形态),效果按书写顺序、关键字段(含本命字段)逐条对得上特性表那一行」,
-    /// 再按机制类别各取一条做集成测试(附录 T6 列的 15 类:守护转移、林荫封顶 20、森严 ≥3、良弓进预算、荆刺进预算、
+    /// 再按机制类别各取一条做集成测试(附录 T6 列的 15 类;守护转移已随守护改磐固移到 WoodHardenTests:林荫封顶 20、森严 ≥3、良弓进预算、荆刺进预算、
     /// 攀附每次行动、绿潮并入不触发阵亡、落木全体、秋实入池、折桂每场 1 次、林立 2×60%、擎天不给新召出的、万木回春 30%、
     /// 双木拆字、E38 生面精进放大召唤)。机制本身的单元级测试在 Wood* 系列;这里只证明「那一行写出来的配置在真字上接上了」。
     ///
@@ -140,7 +140,7 @@ namespace Brushblade.Core.Tests
             ("柘", L4, Ftr, "坚心", "Summon 0 count 1 passive{SelfCut=15}"),   // 生面本命:本字木灵受到伤害 −15%
             ("柘", L5, Atk, "柘弓", "SummonStrike 200 own byArmor"),
             ("柘", L6, Atk, "柘刺", "ShieldSummons 59"),   // spec A D5
-            ("柘", L6, Ftr, "守护", "Summon 0 count 1 passive{Guard=30}"),
+            ("柘", L6, Ftr, "磐固", "Summon 0 count 1 passive{Harden=10,HardenMax=50}"),   // spec 2026-10-16 §3:守护改磐固
             ("柘", L8, Atk, "硬弓", "Reshape 0 armorIgnore 100 hostArmorStrike 400"),
             ("柘", L8, Ftr, "良弓", "Summon 0 count 1 passive{ReturnFire=200}"),
             ("桂", L4, Atk, "精进", "Amplify 25 scope All"),   // spec C §2
@@ -220,7 +220,7 @@ namespace Brushblade.Core.Tests
                 ("楸", "DeathPart=True,OnHitBurn=2"),
                 ("荆", "Thorns=80,ThornsBleed=35"),
                 ("林", "GroveCut=5,GroveCutCap=20,PerAllyAttackPercent=25,Speed=150"),
-                ("柘", "Armor=60,Guard=30,ReturnFire=200,SelfCut=15,Taunt=True"),   // spec C:坚心 SelfCut 15 并入本命
+                ("柘", "Armor=60,Harden=10,HardenMax=50,ReturnFire=200,SelfCut=15,Taunt=True"),   // spec C:坚心 SelfCut 15 并入本命
                 ("桂", "CritAura=10,HealAlly=30,HealAllyPercent=30,HealAllyTimes=2"),
                 ("藻", "HealMirror=100,Speed=150,SproutDeathSlow=1,SproutMax=3,SproutPercent=30"),
                 ("森", "EntrySaplings=2,Speed=150,ThicketCut=25,ThicketMin=3"),
@@ -323,34 +323,7 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo((4, 2)), "有种:加在种上,魅惑不动");
         }
 
-        // ================= 1 守护:柘灵在场,替玩家承担 30%(减伤之后、护盾之前;不算挥击) =================
-
-        [Test]
-        public void Guard_ZheLing_TakesThirtyPercentOfPlayersHit()
-        {
-            // 柘灵天生嘲讽,敌人只会打它;给玩家挂嘲讽(压过一切)让这一击落到玩家身上
-            var b = Battle("柘", 6, new[] { Shooter(1000) });
-            Cast(b, "柘");
-            b.PlayerStatuses.Apply(new StatusEffect
-                { Kind = StatusKind.Taunt, Polarity = StatusPolarity.Buff, TurnsLeft = 5, SourceId = "试" });
-            var zhe = Alive(b).Single();
-            int zheHp = zhe.Hp, hp = b.PlayerHp;
-            b.EndTurn();
-            var guard = b.LastEvents.Single(e => e.Kind == BattleEventKind.GuardTransfer);
-            var hit = b.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
-            Assert.That(guard.Amount, Is.EqualTo(300), "1000 × 30%");
-            Assert.That((hit.Amount, hp - b.PlayerHp), Is.EqualTo((700, 700)), "玩家只承受 70%");
-            Assert.That(zheHp - zhe.Hp, Is.EqualTo(300), "转移不过柘灵护甲");
-            Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.SummonHit), Is.False, "不算挥击");
-
-            var c = Battle("柘", 5, new[] { Shooter(1000) });   // 对照:Lv5 没有守护
-            Cast(c, "柘");
-            c.PlayerStatuses.Apply(new StatusEffect
-                { Kind = StatusKind.Taunt, Polarity = StatusPolarity.Buff, TurnsLeft = 5, SourceId = "试" });
-            int hp5 = c.PlayerHp;
-            c.EndTurn();
-            Assert.That(hp5 - c.PlayerHp, Is.EqualTo(1000));
-        }
+        // (1 守护已于 2026-10-17 改为磐固,集成测试见 WoodHardenTests.RealData_*)
 
         // ================= 2 林荫:每只木灵 5%,封顶 20%(玩家与木灵都吃) =================
 
@@ -431,10 +404,10 @@ namespace Brushblade.Core.Tests
             var hit = b.LastEvents.First(e => e.Kind == BattleEventKind.SummonHit);
             int fire = Dealt(b, EffectSource.ReturnFire);
             // 钉值:柘灵护甲 86(柘 Lv8 坚木 60 按卡等级);spec C 坚心 SelfCut 15%:受击再 × 85%。
-            // 1000 过护甲 537 → 456,良弓 172 ≤ 预算 273;150 → 80 → 68,预算 40
-            Assert.That((armor, hit.Amount, fire), Is.EqualTo(capped ? (86, 68, 40) : (86, 456, 172)), "钉值");
-            Assert.That(fire, Is.EqualTo(capped ? hit.Amount * 60 / 100 : armor * 2),
-                capped ? "预算 = 这一击 × 60%" : "护甲 × 200%");
+            // 1000 过护甲 537 → 456,良弓 172 ≤ 预算 322(537×60%);150 → 80 → 68,预算按坚心前 80×60% = 48(2026-10-16 起)
+            Assert.That((armor, hit.Amount, fire), Is.EqualTo(capped ? (86, 68, 48) : (86, 456, 172)), "钉值");
+            Assert.That(fire, Is.EqualTo(capped ? 80 * 60 / 100 : armor * 2),
+                capped ? "预算 = 减伤前(护甲后)80 × 60%" : "护甲 × 200%");
             Assert.That(b.LastEvents.Count(e => e.Kind == BattleEventKind.Damage && e.Source == EffectSource.ReturnFire),
                 Is.EqualTo(1), "每次受击一箭");
         }

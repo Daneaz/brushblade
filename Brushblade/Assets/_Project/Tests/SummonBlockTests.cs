@@ -76,7 +76,21 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("戈"), Is.EqualTo(BattleError.None));
             Assert.That(b.PlayerStatuses.Has(StatusKind.CounterBoost), Is.True);
             b.EndTurn();
-            Assert.That(EnemyDamage(b), Is.EqualTo(36), "30 × 2 = 60,被 60% 预算钳到 36");
+            Assert.That(EnemyDamage(b), Is.EqualTo(60), "30 × 2 = 60,预算按格挡前 100 × 60% = 60,刚好放行");
+        }
+
+        [Test]
+        public void SummonBlock_CounterBoost_ClippedByPreCutBudget()
+        {
+            var boost = new CharDef("戈", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.CounterBoost, 100) });
+            var b = Battle(50, Summoner("垛"), boost);
+            b.Cast("垛");
+            int slot = SlotOfFirstSummon(b);
+            b.Cast("铠", -1, attackMode: false, allySlot: slot);
+            Assert.That(b.Cast("戈"), Is.EqualTo(BattleError.None));
+            b.EndTurn();
+            Assert.That(EnemyDamage(b), Is.EqualTo(30), "30 × 2 = 60,预算按格挡前 50 × 60% = 30 钳住");
         }
 
         [Test]
@@ -87,8 +101,8 @@ namespace Brushblade.Core.Tests
             int slot = SlotOfFirstSummon(b);
             b.Cast("铠", -1, attackMode: false, allySlot: slot);
             b.EndTurn();
-            // 承伤 60:荆棘 30,预算余 36 − 30 = 6,反击 30 被钳到 6;合计 36 = 60%
-            Assert.That(EnemyDamage(b), Is.EqualTo(36));
+            // 格挡前 100:荆棘 50,预算余 60 − 50 = 10,反击 30 被钳到 10;合计 60 = 格挡前 × 60%
+            Assert.That(EnemyDamage(b), Is.EqualTo(60));
         }
 
         [Test]
@@ -102,7 +116,7 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Cast("壁"), Is.EqualTo(BattleError.None));
             b.EndTurn();
             Assert.That(b.Summons[slot].Hp, Is.EqualTo(200 - 40), "30 + 40 = 70 → 封顶 60");
-            Assert.That(EnemyDamage(b), Is.EqualTo(24), "反击被 40 × 60% 钳到 24");
+            Assert.That(EnemyDamage(b), Is.EqualTo(30), "格挡前 100 × 60% = 60 预算够用,反击 30 全出");
         }
 
         [Test]

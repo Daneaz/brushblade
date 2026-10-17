@@ -922,7 +922,8 @@ namespace Brushblade.Core
                 // 出字挂上的本场护甲(圭臬,D2-土 E34)另剥
                 // D2-木 E44(Ruling 16):限时(TurnsLeft > 0)的条目不跨场,与玩家侧同口径;入场护甲 / 灼(−1)照常携带
                 snapshot.Statuses = snapshot.Statuses.Where(st => !StatusRules.IsBattleScoped(st.Kind)
-                    && !IsBattleLongCastArmor(st) && st.TurnsLeft <= 0).ToList();
+                    && !IsBattleLongCastArmor(st) && st.SourceId != BattleEngine.HardenSourceId   // 磐固:本场累计,下一场从 +0 起
+                    && st.TurnsLeft <= 0).ToList();
                 snapshot.Shield = snapshot.Shield * _battleConfig.ShieldCarryPercent / 100;   // 战后护盾保留对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }

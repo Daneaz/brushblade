@@ -99,11 +99,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CounterBoost_StillCappedByReflectBudget()
         {
-            // 敌攻 100 → 格挡后 60,预算 60×60% = 36 < 60
-            var b = Battle(new[] { Riposte }, null, null, RebalanceFixture.Mob(attack: 100));
+            // 敌攻 50 → 格挡前 50,预算 50×60% = 30 < 反击 60(2026-10-16 起预算按格挡前起算)
+            var b = Battle(new[] { Riposte }, null, null, RebalanceFixture.Mob(attack: 50));
             b.Cast("戈", -1, attackMode: false);
             b.EndTurn();
-            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(36));
+            Assert.That(100000 - b.Enemies[0].Hp, Is.EqualTo(30));
         }
 
         // ---------------- 保命 Endure ----------------
@@ -590,6 +590,19 @@ namespace Brushblade.Core.Tests
             b.Cast("刺", 0);
             Assert.That(100000 - b.Enemies[0].Hp, Is.GreaterThan(20), "暴击率 100%:必暴");
             Assert.That(b.LastEvents.Any(e => e.Kind == BattleEventKind.Damage && e.Crit), Is.True);
+        }
+
+        [Test]
+        public void HealAll_CastOnSummonSlot_HealsPlayerAndAllSummons()
+        {
+            var c = new CharDef("群治", Element.Water, effects: new[] { new EffectDef(EffectKind.HealAll, 30) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10) });
+            var b = Battle(new[] { c }, startingHp: 20, summons: new[] { Summon(0, 10), Summon(1, 10) });
+            int hp0 = b.PlayerHp;
+            Assert.That(b.Cast("群治", -1, attackMode: false, allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(b.PlayerHp, Is.GreaterThan(hp0), "玩家被治疗");
+            Assert.That(b.Summons[0].Hp, Is.GreaterThan(10));
+            Assert.That(b.Summons[1].Hp, Is.GreaterThan(10));
         }
 
         [Test]

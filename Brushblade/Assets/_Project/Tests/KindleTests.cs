@@ -133,7 +133,7 @@ namespace Brushblade.Core.Tests
             var guard = new CharDef("锋", Element.Fire,
                 effects: new[] { new EffectDef(EffectKind.Block, 1, counterPercent: 30), new EffectDef(EffectKind.Kindle, 20, turns: 2) },
                 attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
-            var b = Battle(new[] { guard }, null, RebalanceFixture.Mob(attack: 300));   // 预算 300×60%×60% = 108 > 反击 30
+            var b = Battle(new[] { guard }, null, RebalanceFixture.Mob(attack: 300));   // 预算 300×60%(格挡前)= 180 > 反击 30
             Assert.That(b.Cast("锋", -1, attackMode: false, allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
             b.EndTurn();
             Assert.That(b.Enemies[0].MaxHp - b.Enemies[0].Hp, Is.GreaterThan(0), "夹具自检:反击打出");

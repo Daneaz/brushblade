@@ -710,17 +710,6 @@ namespace Brushblade.Presentation
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     ChipDamage(sbar, summonBefore, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     break;
-                // 守护(D2-木 W5):玩家这一击的一部分转给柘灵 —— 按它的槽位(SecondIndex)推血条,盾吃掉的那份不掉血(同 SummonHit)
-                case BattleEventKind.GuardTransfer:
-                    int gsi = e.SecondIndex;
-                    if (gsi < 0 || gsi >= Battle.Summons.Count || Battle.Summons[gsi] == null
-                        || !_summonAnimHp.ContainsKey(gsi)
-                        || !_summonBarByCore.TryGetValue(gsi, out var gbar) || gbar.fill == null) break;
-                    int guardBefore = _summonAnimHp[gsi];
-                    _summonAnimHp[gsi] = System.Math.Max(Battle.Summons[gsi].Hp, _summonAnimHp[gsi] - (e.Amount - e.Absorbed));
-                    SetHpBar(gbar, _summonAnimHp[gsi], Battle.Summons[gsi].MaxHp);
-                    ChipDamage(gbar, guardBefore, _summonAnimHp[gsi], Battle.Summons[gsi].MaxHp);
-                    break;
                 // 秋实 / 折桂(W7 / W8):新进池的「木」、新进库的那张字记成新到手,重绘时套光晕(同战利品的读法)
                 case BattleEventKind.PartGranted:
                     MarkFreshPoolTail(WoodPart);

@@ -173,7 +173,7 @@ namespace Brushblade.Core
 
         /// <summary>格挡被消耗后的结算(玩家侧 DamagePlayerDirect 与木灵侧 DamageSummon 共用;排在镜 / 荆棘之后、反震之前)。
         /// <paramref name="block"/> = 这一下消耗掉的格挡(没格挡 = null,直接返回 0);<paramref name="counter"/> = 每击反击量
-        /// (CounterDamage 已乘反击增强);<paramref name="budget"/> = 60% 反伤预算扣掉先结算的镜 / 荆棘之后的余额。
+        /// (CounterDamage 已乘反击增强);<paramref name="budget"/> = 60% 反伤预算(基数 = preCut:护甲后、格挡等减伤前)扣掉先结算的镜 / 荆棘之后的余额。
         ///
         /// 顺序:格挡加战意 → 攻击者流血(两者不是伤害,不占预算,预算为 0 也给)→ 立威判血(杂兵斩杀,不吃预算,Q3;
         /// Boss 改本次反击 ×2)→ 攻击者 N 击 → 贯穿时同列其余存活敌人、横扫时同排其余存活敌人(下标序,同一敌人只吃一次)各 N 击 × 70%。

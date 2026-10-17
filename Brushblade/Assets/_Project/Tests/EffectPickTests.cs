@@ -174,7 +174,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Pick_FrozenByThisCast_OnlyEnemiesActuallyFrozen()
+        public void Pick_FrozenByThisCast_OnlyEnemiesFrozenOrStalledByThisCast()
         {
             var def = Def(new EffectDef(EffectKind.Freeze, 1, pick: EffectPick.All),
                 new EffectDef(EffectKind.ArmorBreak, 5, turns: 2, pick: EffectPick.FrozenByThisCast));
@@ -186,7 +186,7 @@ namespace Brushblade.Core.Tests
             b.Cast("试");
             Assert.That(Broken(b, 0), Is.True, "本次冻住的");
             Assert.That(Broken(b, 1), Is.False, "早就冻着的:冻结没成功");
-            Assert.That(Broken(b, 2), Is.False, "Boss 只吃冰滞,不是冻结");
+            Assert.That(Broken(b, 2), Is.True, "本次打进冰滞的 Boss 也算(spec 2026-10-16 §5:冰滞 = Boss 版的冻结中)");
             Assert.That(b.Enemies[2].Statuses.Has(StatusKind.IceStall), Is.True);
         }
 

@@ -140,11 +140,14 @@ namespace Brushblade.Balance.Bot
         }
 
         /// <summary>敌方落点:要选目标 → 每只活敌一条;不选目标(全体 / 无敌对)→ 一条 −1。
-        /// 判据 = NeedsTargetNow(与 CastCore 同源,含池中部件的拆字印记)。</summary>
+        /// 判据 = NeedsTargetNow(与 CastCore 同源,含池中部件的拆字印记)。
+        /// 例外:折叠后有连发(DamageSingle + Scatter)的面不需选目标,但玩家指定目标时首发落在该敌人
+        /// (Core Targeting.ExpandTargets 的 volleyLeadsWithPrimary)—— −1 之外再为每只活敌各列一条,同局面由转置表去重。</summary>
         private static List<int> EnemyTargets(BattleEngine battle, FaceInfo face)
         {
-            if (!face.NeedsTarget) return new List<int> { -1 };
-            var targets = new List<int>();
+            bool volley = face.Effects.Any(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.Scatter);
+            if (!face.NeedsTarget && !volley) return new List<int> { -1 };
+            var targets = face.NeedsTarget ? new List<int>() : new List<int> { -1 };
             for (int i = 0; i < battle.Enemies.Count; i++)
                 if (battle.Enemies[i].Alive) targets.Add(i);
             return targets;

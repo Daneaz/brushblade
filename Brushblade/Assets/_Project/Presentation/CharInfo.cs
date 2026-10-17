@@ -668,7 +668,8 @@ namespace Brushblade.Presentation
             if (p.ThicketCut > 0)
                 Add(NatureKey.ThicketCut, Strings.T("char.passive.thicketcut", ("value", p.ThicketCut), ("min", p.ThicketMin)));
             if (p.SelfCut > 0) Add(NatureKey.SelfCut, Strings.T("char.passive.selfcut", ("value", p.SelfCut)));
-            if (p.Guard > 0) Add(NatureKey.Guard, Strings.T("char.passive.guard", ("value", p.Guard)));
+            if (p.Harden > 0)
+                Add(NatureKey.Harden, Strings.T("char.passive.harden", ("value", p.Harden), ("cap", p.HardenMax)));
             if (p.ReturnFire > 0) Add(NatureKey.ReturnFire, Strings.T("char.passive.returnfire", ("value", p.ReturnFire)));
             if (p.DeathBlast > 0)
                 Add(NatureKey.DeathBlast, Strings.T("char.passive.deathblast", ("mult", (p.DeathBlast / 100f).ToString("0.##"))));
@@ -681,7 +682,7 @@ namespace Brushblade.Presentation
         internal enum NatureKey
         {
             AttackPercent, HealAllyPercent, HealMirror, ThornsBleed, CritAura, GroveCut, ThicketCut,
-            Guard, ReturnFire, DeathBlast, SproutDeathSlow, DeathPart, SelfCut,
+            Harden, ReturnFire, DeathBlast, SproutDeathSlow, DeathPart, SelfCut,
         }
 
         /// <summary>特性名(游戏数据,不进字符串表):<paramref name="charId"/> 的特性表里第一条含满足 <paramref name="match"/>
@@ -709,7 +710,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>本命特性名(D2-木):整张图谱里第一条「`Summon 0` 本命追加、本命满足 <paramref name="has"/>」的特性名
-        /// (守护、林荫、蟾宫…)。本命会随嫁接换到别的字的木灵身上,所以不按木灵的来源字查,按字段查 —— 每个木系本命字段
+        /// (磐固、林荫、蟾宫…)。本命会随嫁接换到别的字的木灵身上,所以不按木灵的来源字查,按字段查 —— 每个木系本命字段
         /// 只由一条特性给。取不到返回 null。</summary>
         internal static string NatureTraitName(RecipeGraph graph, Func<SummonPassive, bool> has) =>
             NatureTraitCue(graph, has)?.Trait.Name;

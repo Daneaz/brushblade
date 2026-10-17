@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>spec C §1 扫锋:格挡反击打攻击者 100% + 同排其余 70%,共用 60% 预算;与贯穿同时有时每个敌人只吃一次。
-    /// 夹具同 MetalBlockRidersTests:心属性、攻击面 DamageSingle 100、Lv1 → 反击 30;攻击 1000 → 预算 360。</summary>
+    /// 夹具同 MetalBlockRidersTests:心属性、攻击面 DamageSingle 100、Lv1 → 反击 30;攻击 1000 → 预算 600(格挡前起算)。</summary>
     public class MetalCounterRowTests
     {
         private const int Hp = 100000;

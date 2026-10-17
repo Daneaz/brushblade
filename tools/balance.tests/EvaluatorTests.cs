@@ -48,9 +48,6 @@ namespace Brushblade.Balance.Tests
 
         private static string Json(BattleEngine b) => JsonConvert.SerializeObject(b.Capture());
 
-        private static StatusEffect Stack(StatusKind kind, int n) =>
-            new StatusEffect { Kind = kind, Magnitude = n, TurnsLeft = 99 };
-
         // ── §3.1 终局 ─────────────────────────────────────────────
 
         [Test]
@@ -58,9 +55,9 @@ namespace Brushblade.Balance.Tests
         {
             var s = new Scene(new[] { Dummy });
             var won = s.With(x => { x.Phase = BattlePhase.Won; x.Turn = 7; foreach (var e in x.Enemies) e.Hp = 0; });
-            Assert.That(Evaluator.Quick(won), Is.EqualTo(1_000_000 - 7));
+            Assert.That(Evaluator.Quick(won, Fixture.Graph, null), Is.EqualTo(1_000_000 - 7));
             var fasterWin = s.With(x => { x.Phase = BattlePhase.Won; x.Turn = 3; foreach (var e in x.Enemies) e.Hp = 0; });
-            Assert.That(Evaluator.Quick(fasterWin), Is.GreaterThan(Evaluator.Quick(won)), "越快赢分越高");
+            Assert.That(Evaluator.Quick(fasterWin, Fixture.Graph, null), Is.GreaterThan(Evaluator.Quick(won, Fixture.Graph, null)), "越快赢分越高");
         }
 
         [Test]
@@ -68,7 +65,7 @@ namespace Brushblade.Balance.Tests
         {
             var s = new Scene(new[] { Dummy });
             var lost = s.With(x => { x.Phase = BattlePhase.Lost; x.PlayerHp = 0; });
-            Assert.That(Evaluator.Quick(lost), Is.EqualTo(-1_000_000));
+            Assert.That(Evaluator.Quick(lost, Fixture.Graph, null), Is.EqualTo(-1_000_000));
         }
 
         [Test]
@@ -85,11 +82,11 @@ namespace Brushblade.Balance.Tests
         public void Offense_DamageRatioTimes100_PlusFiftyPerKill()
         {
             var s = new Scene(new[] { Dummy, Dummy });
-            double baseline = Evaluator.Quick(s.Battle);
+            double baseline = Evaluator.Quick(s.Battle, Fixture.Graph, null);
             var hurt = s.With(x => x.Enemies[0].Hp = 7500); // 损失 25%
-            Assert.That(Evaluator.Quick(hurt) - baseline, Is.EqualTo(25.0).Within(1e-9));
+            Assert.That(Evaluator.Quick(hurt, Fixture.Graph, null) - baseline, Is.EqualTo(25.0).Within(1e-9));
             var killed = s.With(x => x.Enemies[1].Hp = 0);   // 损失 100% + 打倒 50
-            Assert.That(Evaluator.Quick(killed) - baseline, Is.EqualTo(150.0).Within(1e-9));
+            Assert.That(Evaluator.Quick(killed, Fixture.Graph, null) - baseline, Is.EqualTo(150.0).Within(1e-9));
         }
 
         [Test]
@@ -99,8 +96,8 @@ namespace Brushblade.Balance.Tests
             var above = s.With(x => x.PlayerHp = PlayerMax / 2 + 1); // > 50% → W = 80
             var at = s.With(x => x.PlayerHp = PlayerMax / 2);         // ≤ 50% → W = 200
             double offense = 0; // 敌人满血、无蓄能
-            Assert.That(Evaluator.Quick(above), Is.EqualTo(offense + 2501.0 / PlayerMax * 80).Within(1e-9));
-            Assert.That(Evaluator.Quick(at), Is.EqualTo(offense + 2500.0 / PlayerMax * 200).Within(1e-9));
+            Assert.That(Evaluator.Quick(above, Fixture.Graph, null), Is.EqualTo(offense + 2501.0 / PlayerMax * 80).Within(1e-9));
+            Assert.That(Evaluator.Quick(at, Fixture.Graph, null), Is.EqualTo(offense + 2500.0 / PlayerMax * 200).Within(1e-9));
         }
 
         [Test]
@@ -109,7 +106,7 @@ namespace Brushblade.Balance.Tests
             var s = new Scene(new[] { Dummy });
             // 血 2500(= 50%)+ 盾 2000:血线判据不含盾 → 仍按 W = 200
             var b = s.With(x => { x.PlayerHp = 2500; x.ShieldNormal = 2000; });
-            Assert.That(Evaluator.Quick(b), Is.EqualTo(4500.0 / PlayerMax * 200).Within(1e-9));
+            Assert.That(Evaluator.Quick(b, Fixture.Graph, null), Is.EqualTo(4500.0 / PlayerMax * 200).Within(1e-9));
         }
 
         [Test]
@@ -119,22 +116,10 @@ namespace Brushblade.Balance.Tests
             alive.Shield = 200;
             var s = new Scene(new[] { Dummy }, summons: new[] { alive, Fixture.WoodSummon(1, hp: 0) });
             double player = (double)s.Battle.PlayerHp / PlayerMax * 80; // 开场满血 → W = 80
-            Assert.That(Evaluator.Quick(s.Battle), Is.EqualTo(player + 800.0 / 1000 * 40).Within(1e-9));
+            Assert.That(Evaluator.Quick(s.Battle, Fixture.Graph, null), Is.EqualTo(player + 800.0 / 1000 * 40).Within(1e-9));
         }
 
-        [Test]
-        public void Stacks_HeftWellspringMorale_ThreeEach()
-        {
-            var s = new Scene(new[] { Dummy });
-            double baseline = Evaluator.Quick(s.Battle);
-            var b = s.With(x =>
-            {
-                x.PlayerStatuses.Add(Stack(StatusKind.Heft, 2));
-                x.PlayerStatuses.Add(Stack(StatusKind.Wellspring, 1));
-                x.PlayerStatuses.Add(Stack(StatusKind.Morale, 3));
-            });
-            Assert.That(Evaluator.Quick(b) - baseline, Is.EqualTo(6 * 3.0).Within(1e-9));
-        }
+        // 厚 / 泉 / 战意 的蓄能分见 EvaluatorStoredValueTests(2026-10-17 起按预计兑现伤害记分,不再每层 3 分)
 
         // ── §2.4 副本隔离与防偷看 ───────────────────────────────────
 
@@ -175,7 +160,7 @@ namespace Brushblade.Balance.Tests
             {
                 var plain = Evaluator.CloneWithSeed(s.Battle, Fixture.Graph, s.Config, null, null);
                 plain.EndTurn();
-                plainScores.Add(Evaluator.Quick(plain));
+                plainScores.Add(Evaluator.Quick(plain, Fixture.Graph, null));
             }
             foreach (uint flip in RngFlips)
             {
@@ -183,7 +168,7 @@ namespace Brushblade.Balance.Tests
                 // 对照:照抄本体随机流的副本跑敌人回合,分数随本体 RNG 变
                 var plain = Evaluator.CloneWithSeed(other, Fixture.Graph, s.Config, null, null);
                 plain.EndTurn();
-                plainScores.Add(Evaluator.Quick(plain));
+                plainScores.Add(Evaluator.Quick(plain, Fixture.Graph, null));
 
                 Assert.That(s.Full(other), Is.EqualTo(expected), $"换本体 RNG(^{flip:X8}),Full 不变");
             }

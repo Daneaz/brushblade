@@ -512,18 +512,18 @@ namespace Brushblade.Core.Tests
 
         /// <summary>钉住现行为(终审 m1,移交 Plan F):格挡反击按 60% 预算记账之后,DamageEnemy 里的 Boss 致命 ×2 才乘上去,
         /// 所以实打可超预算;<see cref="BattleEngine.CounterDamageDealt"/> 记的是乘 2 之前的值。
-        /// 夹具:Lv4 本体 100 → 反击 118 × 30% = 35;Boss 攻击 100,格挡后 60 → 预算 36。</summary>
+        /// 夹具:Lv4 本体 100 → 反击 118 × 30% = 35;Boss 攻击 60,预算按格挡前 60 × 60% = 36(2026-10-16 起)。</summary>
         [Test]
         public void Doom_Boss_CounterDoubledAfterBudget_CurrentBehavior()
         {
             var guard = new CharDef("挡", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Block, 1) },
                 attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
-            var b = Battle(new[] { guard }, 4, RebalanceFixture.Boss(hp: 10000, attack: 100));
+            var b = Battle(new[] { guard }, 4, RebalanceFixture.Boss(hp: 10000, attack: 60));
             b.Cast("挡", -1, attackMode: false);
             Doom(b, 0);
             b.EndTurn();
-            Assert.That(10000 - b.Enemies[0].Hp, Is.EqualTo(70), "35 ≤ 预算 36,之后 ×2 = 70(超 60% 预算,Plan F 定口径)");
+            Assert.That(10000 - b.Enemies[0].Hp, Is.EqualTo(70), "35 ≤ 预算 36,之后 ×2 = 70(超 60% 预算 36,Plan F 定口径)");
             Assert.That(b.CounterDamageDealt, Is.EqualTo(35), "读数记乘 2 之前");
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Doom), Is.False, "Boss 版用一次即移除");
         }
