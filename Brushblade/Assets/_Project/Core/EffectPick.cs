@@ -11,7 +11,7 @@ namespace Brushblade.Core
         Random,             // 随机一名存活敌人(摇特性随机流 _traitRandom)
         HitTargets,         // 本次出字被 DamageSingle 命中的敌人,按命中顺序去重
         MostBurn,           // 灼层最高的存活敌人,同层取下标小;没人带灼 = 空
-        FrozenByThisCast,   // 本次出字真正冻结成功的敌人(Boss 的冰滞不算冻结)
+        FrozenByThisCast,   // 本次出字真正冻结成功的敌人(含被打进冰滞的 Boss,spec 2026-10-16 §5)
         // ---- D1 Task 7:我方侧选择器(不进 Supports;合法组合见 EffectPickRules.Allows) ----
         Self,               // 玩家自身(Cleanse:攻击面「我方清 1 个减益」,不要求友方目标)
         SummonedThisCast,   // 本次出字召出的召唤物(Endure:扎根)

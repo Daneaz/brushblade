@@ -201,13 +201,15 @@ namespace Brushblade.Core
         };
 
         /// <summary>通用附着(照烟熏写法抽出):目标带本次出字所上的载体时,挂隐藏载体 + 附带状态。
-        /// 载体 = effect.RiderOf:灼(缺省)读 _cast.BurnedTargets;冻结(D2-水 W1)读 _cast.FrozenTargets(真冻上的,冰滞不算,Q3)。
+        /// 载体 = effect.RiderOf:灼(缺省)读 _cast.BurnedTargets;冻结(D2-水 W1)读 _cast.FrozenTargets(含 Boss 冰滞,spec 2026-10-16 §5 改 Q3)。
         /// 附带状态保留自己的回合数(Turns &gt; 0,上炎),否则随载体存续(-1)。同字同特性再挂只刷新(G10 四火据此「重新算第一次」)。</summary>
         private void ApplyRider(int enemyIndex, string sourceId, EffectDef effect, int magnitude)
         {
             var bag = _enemies[enemyIndex].Statuses;
             var carrier = effect.RiderOf ?? StatusKind.Burn;
-            if (!bag.Has(carrier)) return;
+            // 冰滞 = Boss 版的冻结中(spec 2026-10-16 §5):寒彻 / 冰水照挂;怀山只在真冻结的跳过拍结算,不挂冰滞
+            bool onIceStall = carrier == StatusKind.Freeze && effect.Kind != EffectKind.FrostBite && bag.Has(StatusKind.IceStall);
+            if (!bag.Has(carrier) && !onIceStall) return;
             // 名单选择器(本次出字的灼 / 冻结)才要求落在本次名单上;pick All 等只要目标带着载体(spec C Q3:燃面不再上灼)
             var pick = EffectPickRules.Effective(effect);
             if (pick == EffectPick.BurnedByThisCast || pick == EffectPick.FrozenByThisCast)
@@ -499,8 +501,8 @@ namespace Brushblade.Core
         }
 
         /// <summary>解冻(N10,水火相激):移除冻结(按「结束」挂等长霜抗,R1)、负的 SpeedModifier(减速;正的是加速,不动)、
-        /// 冰滞(照自然结束给霜抗 N+1,R1b)。冰缚的标记不跟着移除。都没有时空转。
-        /// 移除了冻结时最后走 OnFreezeEnd(D2-水 W1:寒彻 / 冰水结算一次,附着随载体移除)。</summary>
+        /// 冰滞(照自然结束给霜抗 N+1,R1b)。冰缚的标记不跟着移除(Boss 冰滞上的标记是附着,随载体移除)。都没有时空转。
+        /// 移除了冻结或冰滞时最后走 OnFreezeEnd(D2-水 W1:寒彻 / 冰水结算一次,附着随载体移除)。</summary>
         private void ThawOn(int enemyIndex)
         {
             var bag = _enemies[enemyIndex].Statuses;
@@ -527,7 +529,8 @@ namespace Brushblade.Core
             }
             // 冻结附着(D2-水 W1):解冻也是「冻结结束」—— 寒彻 / 冰水在这里结算一次再随载体移除。排在清减速之后,
             // 冰水挂的减速是冻结结束的产物,不被这次解冻清掉。没有附着时一次判断即返回(恒等)
-            if (freeze != null) OnFreezeEnd(enemyIndex);
+            // 冰滞同理(spec 2026-10-16 §5):Boss 只会有冰滞、小怪只会有冻结,两者不并存,至多结算一次
+            if (freeze != null || stall != null) OnFreezeEnd(enemyIndex);
         }
 
         /// <summary>自损(N10b,玉石俱焚,G9):失去 ⌊当前生命 × percent%⌋,至少留 1 点;不走护盾 / 护甲,不发 PlayerHit(R4 不算受击),

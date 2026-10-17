@@ -2783,6 +2783,10 @@ namespace Brushblade.Core
                 {
                     Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = stall.Magnitude + 1,
                 }, UnitRef.Enemy(enemyIndex), UnitRef.None);
+                // 冰滞结束 = Boss 的冻结结束(spec 2026-10-16 §5):寒彻 / 冰水结算一次、附着(含冰封标记)随载体移除。
+                // 冰水的减速同霜抗 +1(本拍末尾 TickTurns 会减 1)。没有附着时一次判断即返回(恒等)
+                OnFreezeEnd(enemyIndex, slowExtraTurns: 1);
+                if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }
             }
 
             // 上炎(D2-火 Task 3,N5):灼结算前 +N 层。没有 BurnGrow 时一次判断即返回(恒等)
@@ -3603,8 +3607,9 @@ namespace Brushblade.Core
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                                 TurnsLeft = value + FreezeBonusTurns(effect, ti),   // 冰冻三尺(D2-水 E17b),缺省 0
                             }, UnitRef.Enemy(ti), UnitRef.Player, extraStallPush: effect.StallPushPercent);
-                            // 「冻结成功」= 袋子里真挂上了 Freeze:Boss 吃的是冰滞(返回 true 但没有 Freeze),不算
-                            if (applied && _enemies[ti].Statuses.Has(StatusKind.Freeze) && !_cast.FrozenTargets.Contains(ti))
+                            // 「冻结成功」= 真挂上了 Freeze,或 Boss 被打进冰滞(spec 2026-10-16 §5:冰滞 = Boss 版的冻结中)
+                            if (applied && (_enemies[ti].Statuses.Has(StatusKind.Freeze) || _enemies[ti].Statuses.Has(StatusKind.IceStall))
+                                && !_cast.FrozenTargets.Contains(ti))
                                 _cast.FrozenTargets.Add(ti);
                         }
                         break;
@@ -3674,12 +3679,27 @@ namespace Brushblade.Core
                     case EffectKind.Vulnerable:
                         // 标记(D1 Task 6,M11):受伤 +value%。Turns == 0 且 Pick == FrozenByThisCast(冰缚)时,
                         // 回合数 = 该目标本次冻结的回合数(此刻 Freeze 条目的 TurnsLeft);其余缺 turns 兜 1 回合。
+                        // Boss 的冰滞(spec 2026-10-16 §5):冰滞没有回合数,标记改挂成冻结载体的附着(-1),冰滞结束时随 DropRiders 移除。
                         foreach (int ti in PickTargets(effect, targetIndex))
                         {
                             if (!OnlyIfMet(effect, ti) || !_enemies[ti].Alive) continue;
                             int markTurns = effect.Turns;
                             if (markTurns <= 0 && EffectPickRules.Effective(effect) == EffectPick.FrozenByThisCast)
-                                markTurns = _enemies[ti].Statuses.Find(StatusKind.Freeze)?.TurnsLeft ?? 0;
+                            {
+                                var bag = _enemies[ti].Statuses;
+                                if (!bag.Has(StatusKind.Freeze) && bag.Has(StatusKind.IceStall))
+                                {
+                                    string riderKey = effect.TraitKey ?? def.Id;
+                                    AttachRider(bag, def.Id, riderKey, StatusKind.Freeze);
+                                    ApplyStatus(bag, new StatusEffect
+                                    {
+                                        Kind = StatusKind.Vulnerable, Polarity = StatusPolarity.Debuff,
+                                        Magnitude = value, TurnsLeft = -1, SourceId = def.Id, TraitKey = riderKey,
+                                    }, UnitRef.Enemy(ti), UnitRef.Player);
+                                    continue;
+                                }
+                                markTurns = bag.Find(StatusKind.Freeze)?.TurnsLeft ?? 0;
+                            }
                             ApplyStatus(_enemies[ti].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Vulnerable, Polarity = StatusPolarity.Debuff,

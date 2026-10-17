@@ -100,13 +100,14 @@ namespace Brushblade.Core
         }
 
         // ---- Task 2:冻结族(附录 W1 冻结载体附着、W2 冷却)----
-        // 附着走 D2-火 的通用件(ApplyRider / DropRiders),载体 = Freeze、名单 = _cast.FrozenTargets(Boss 的冰滞不算,Q3)。
-        // 冻结的两个结束点(ActEnemyTurn 冻结分支 tick 后自然到期、ThawOn 解冻)都在霜抗挂上之后调 OnFreezeEnd;
+        // 附着走 D2-火 的通用件(ApplyRider / DropRiders),载体 = Freeze、名单 = _cast.FrozenTargets(含 Boss 冰滞,spec 2026-10-16 §5)。
+        // 冻结的两个结束点(ActEnemyTurn 冻结分支 tick 后自然到期、ThawOn 解冻)与冰滞的两个结束点(Boss 行动开始移除、ThawOn)
+        // 都在霜抗挂上之后调 OnFreezeEnd;
         // 敌人死亡不是「冻结结束」,附着随尸体留在袋子里、不再结算。全部在没有附着时一次判断即返回,不摇随机数(trace 必经)。
 
         /// <summary>冻结结束(自然到期 / 被解冻,霜抗已按现状挂上):先结算寒彻(每条一次伤害)、再挂冰水的减速(Q19:霜抗在前、减速在后,
         /// 两者并存),最后 DropRiders(Freeze) 把挂在冻结上的附着(含怀山)一并移除。没有附着载体时一次判断即返回(恒等)。</summary>
-        private void OnFreezeEnd(int enemyIndex)
+        private void OnFreezeEnd(int enemyIndex, int slowExtraTurns = 0)
         {
             var enemy = _enemies[enemyIndex];
             var bag = enemy.Statuses;
@@ -119,7 +120,7 @@ namespace Brushblade.Core
                     ApplyStatus(bag, new StatusEffect
                     {
                         Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
-                        Magnitude = -50, TurnsLeft = thawSlow.Magnitude, SourceId = thawSlow.SourceId,
+                        Magnitude = -50, TurnsLeft = thawSlow.Magnitude + slowExtraTurns, SourceId = thawSlow.SourceId,
                     }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
                 }
             DropRiders(bag, StatusKind.Freeze);

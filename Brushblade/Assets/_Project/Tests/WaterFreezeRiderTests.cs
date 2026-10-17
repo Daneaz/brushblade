@@ -88,18 +88,121 @@ namespace Brushblade.Core.Tests
             Assert.That(Find(b, 1, StatusKind.TraitRider), Is.Null);
         }
 
+        /// <summary>spec 2026-10-16 §5:冰滞 = Boss 版的「冻结中」。寒彻 / 冰水附着到冰滞上;怀山只认真冻结(冰滞期间没有
+        /// 「冻结中每次行动开始」这一拍),仍不挂。</summary>
         [Test]
-        public void Riders_DoNotLandOnBoss_IceStallIsNotFreeze()
+        public void Riders_LandOnBossIceStall_ThawFamilyOnly()
         {
             var b = Battle(new[] { Icer(2, Rider(EffectKind.FrostBite, 30), Rider(EffectKind.ThawStrike, 50), Rider(EffectKind.ThawSlow, 2)) },
                 new[] { Boss() });
             Cast(b, "冰", 0);
             Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.True);
-            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.TraitRider), Is.False, "Q3:冰滞不收进「被本字冻结」");
-            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.FrostBite) || b.Enemies[0].Statuses.Has(StatusKind.ThawStrike)
-                || b.Enemies[0].Statuses.Has(StatusKind.ThawSlow), Is.False);
+            Assert.That(Find(b, 0, StatusKind.TraitRider)?.Magnitude, Is.EqualTo((int)StatusKind.Freeze), "载体仍记 Freeze");
+            Assert.That(Find(b, 0, StatusKind.ThawStrike)?.Magnitude, Is.EqualTo(50));
+            Assert.That(Find(b, 0, StatusKind.ThawSlow)?.Magnitude, Is.EqualTo(2));
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.FrostBite), Is.False, "怀山不挂冰滞");
+        }
+
+        [Test]
+        public void ThawStrike_Boss_FiresOnceWhenIceStallEnds()
+        {
+            var b = Battle(new[] { Icer(2, Rider(EffectKind.ThawStrike, 50)) }, new[] { Boss() });
+            Cast(b, "冰", 0);
+            Assert.That(RiderHits(b.LastEvents), Is.Empty, "冰滞期间不结算");
+            var perBeat = new List<int>();
+            for (int t = 0; t < 3; t++)
+            {
+                b.EndTurn();
+                perBeat.Add(RiderHits(b.LastEvents).Count);
+            }
+            Assert.That(perBeat, Is.EqualTo(new[] { 1, 0, 0 }), "冰滞在 Boss 下次行动开始时结束,结算一次");
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(Hp - 50), "冰滞先移除再结算:不吃冰滞 15% 易伤");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.ThawStrike), Is.False);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.TraitRider), Is.False);
+        }
+
+        [Test]
+        public void ThawSlow_Boss_SlowedTwoTurnsAfterIceStallEnds()
+        {
+            var b = Battle(new[] { Icer(2, Rider(EffectKind.ThawSlow, 2)) }, new[] { Boss() });
+            Cast(b, "冰", 0);
             b.EndTurn();
-            Assert.That(RiderHits(b.LastEvents), Is.Empty);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.False);
+            var slow = Find(b, 0, StatusKind.SpeedModifier);
+            Assert.That(slow, Is.Not.Null, "冰滞结束后挂减速");
+            Assert.That(slow.Magnitude, Is.LessThan(0));
+            Assert.That(slow.TurnsLeft, Is.EqualTo(2), "同霜抗口径 +1 挂上,本拍末尾减 1,覆盖之后 2 次行动");
+            Assert.That(Find(b, 0, StatusKind.FrostResist), Is.Not.Null, "霜抗照旧");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.ThawSlow), Is.False);
+        }
+
+        [Test]
+        public void ThawFamily_Boss_ThawedEarly_FiresOnce_RidersDropped()
+        {
+            var b = Battle(new[] { Icer(2, Rider(EffectKind.ThawStrike, 50), Rider(EffectKind.ThawSlow, 2)), Thawer }, new[] { Boss() });
+            Cast(b, "冰", 0);
+            Cast(b, "融", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.False, "解冻清冰滞");
+            Assert.That(RiderHits(b.LastEvents).Count, Is.EqualTo(1), "解冻也是冰滞结束,寒彻一次");
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(Hp - 50));
+            Assert.That(Find(b, 0, StatusKind.SpeedModifier)?.TurnsLeft, Is.EqualTo(2), "冰水减速不被这次解冻清掉");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.TraitRider), Is.False, "附着随载体移除");
+            for (int t = 0; t < 3; t++)
+            {
+                b.EndTurn();
+                Assert.That(RiderHits(b.LastEvents), Is.Empty, "不再结算");
+            }
+        }
+
+        // ---------------- 冰封 / 冰缚:标记对冰滞生效,持续到冰滞结束(spec 2026-10-16 §5) ----------------
+
+        private static CharDef Marker(int percent) =>
+            new("冰", Element.Water, effects: new[]
+            {
+                new EffectDef(EffectKind.Freeze, 2),
+                new EffectDef(EffectKind.Vulnerable, percent, pick: EffectPick.FrozenByThisCast),
+            });
+
+        [TestCase(30)]   // 冰 Lv4 冰封
+        [TestCase(20)]   // 池·冰缚
+        public void FrozenMark_Boss_LastsUntilIceStallEnds(int percent)
+        {
+            var b = Battle(new[] { Marker(percent) }, new[] { Boss() });
+            Cast(b, "冰", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.True);
+            var mark = Find(b, 0, StatusKind.Vulnerable);
+            Assert.That(mark, Is.Not.Null, "本字冰滞的 Boss 也收进「被本字冻结」名单");
+            Assert.That(mark.Magnitude, Is.EqualTo(percent));
+            Assert.That(mark.TurnsLeft, Is.EqualTo(-1), "不按回合数,随冰滞移除");
+            b.EndTurn();
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.IceStall), Is.False);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.False, "冰滞结束,标记一并移除");
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.TraitRider), Is.False);
+        }
+
+        [Test]
+        public void FrozenMark_Boss_RaisesDamageTaken()
+        {
+            int Taken(CharDef icer)
+            {
+                var b = Battle(new[] { icer, Killer(100) }, new[] { Boss() });
+                Cast(b, "冰", 0);
+                int before = b.Enemies[0].Hp;
+                Cast(b, "斩", 0);
+                return before - b.Enemies[0].Hp;
+            }
+            int plain = Taken(Icer(2));
+            Assert.That(Taken(Marker(30)), Is.GreaterThan(plain), "冰滞期间标记生效");
+        }
+
+        [Test]
+        public void FrozenMark_Boss_ClearedWhenThawed()
+        {
+            var b = Battle(new[] { Marker(30), Thawer }, new[] { Boss() });
+            Cast(b, "冰", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.True, "前提:标记已挂");
+            Cast(b, "融", 0);
+            Assert.That(b.Enemies[0].Statuses.Has(StatusKind.Vulnerable), Is.False, "解冻 = 冰滞结束,标记清除");
         }
 
         // ---------------- 怀山:冻结中每次行动开始(含被跳过那拍) ----------------

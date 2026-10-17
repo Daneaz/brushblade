@@ -186,7 +186,7 @@ namespace Brushblade.Core
         MoraleShield,         // 金气:给玩家挂 StatusKind.MoraleShield,Value = 战意满时每回合开始的护盾量(连续)。仅玩家。
         // ---- D2-水 Task 2:冻结载体附着(附录 W1)与冷却(W2)。⚠ 只在末尾追加 ----
         // 前三个一律写 riderOf Freeze + pick FrozenByThisCast(ConfigLoader 拦不写的):只挂在本次出字真冻上的目标上
-        // (Boss 的冰滞不算,Q3),冻结结束(自然到期 / 被解冻)或敌人死亡时随载体移除(DropRiders)。支持 Pick / OnlyIf。
+        // (寒彻 / 冰水也挂 Boss 的冰滞,怀山不挂,spec 2026-10-16 §5 改 Q3),冻结 / 冰滞结束(自然到期 / 被解冻)或敌人死亡时随载体移除(DropRiders)。支持 Pick / OnlyIf。
         FrostBite,      // 怀山:挂 StatusKind.FrostBite(Magnitude = ScaleByAttack(Value),出字时定死,同埋雷)。该敌人冻结中每次行动开始
                         // (含被冻结跳过的那拍)受 Magnitude 点水属性伤害(过生克与护甲、吃标记、不暴击,R4)。Value 吃卡等级;可写 bodyPercent。
         ThawStrike,     // 寒彻:挂 StatusKind.ThawStrike(Magnitude 同上)。冻结自然到期或被解冻时受一次同口径伤害;敌人死亡不算。
