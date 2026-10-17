@@ -116,6 +116,15 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        /// <summary>召唤面折入的我方全体效果(桂 Lv5 桂花雨 HealAll)不放开玩家 / 木灵落点:召唤面只落空位 / 嫁接。</summary>
+        [Test]
+        public void SummonFace_WithFoldedAllyAll_DoesNotLandOnSelf()
+        {
+            var landing = CardFaceRules.Landing(Def("桂"), CardFace.Feature, 5);
+            Assert.That(landing.HasFlag(FaceLanding.Self), Is.False, "桂 Lv5 召唤面不落玩家");
+            Assert.That(landing.HasFlag(FaceLanding.EmptySlot), Is.True, "桂 Lv5 召唤面落空位");
+        }
+
         [Test]
         public void AllyAllFace_WithPickAllHostile_KeepsEnemyLanding()
         {

@@ -50,7 +50,7 @@ namespace Brushblade.Core
             var landing = FaceLanding.None;
             // D2-水 E26(溃围):需要友方目标的面,pick All 的敌方附带不另加 Enemy 落点(那条效果不选敌)
             if (needsEnemy || (hostile && !needsAlly)) landing |= FaceLanding.Enemy;
-            if (needsAlly || allyAll) landing |= FaceLanding.Self | FaceLanding.Summons;
+            if (needsAlly || (allyAll && !summons)) landing |= FaceLanding.Self | FaceLanding.Summons;   // 召唤面折入的群治(桂花雨)不放开
             else if (!needsEnemy && !summons && !hostile) landing |= FaceLanding.Self;
             if (summons) landing |= FaceLanding.EmptySlot;
             if (summons && HasGraftFace(def, actual, effects)) landing |= FaceLanding.Graft;
