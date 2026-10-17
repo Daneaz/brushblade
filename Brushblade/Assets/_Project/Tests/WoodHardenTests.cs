@@ -143,6 +143,39 @@ namespace Brushblade.Core.Tests
             Assert.That(carried.Sum(st => st.Magnitude), Is.EqualTo(BaseArmor), "下一场从 +0 起,本命护甲照常携带");
         }
 
+        [Test]
+        public void Stack_SurvivesCaptureRestore_MidBattle()
+        {
+            var enemy = Melee(100);
+            var b = Battle(Zhe(HardenP()), enemy);
+            for (int turn = 0; turn < 10 && b.SummonDefense(b.Summons[0]) == BaseArmor; turn++) b.EndTurn();
+            int stacked = b.SummonDefense(b.Summons[0]);
+            Assert.That(stacked, Is.GreaterThan(BaseArmor), "夹具前提:本场已叠过磐固");
+            var restored = BattleEngine.Restore(b.Capture(), RebalanceFixture.Graph(), Config(),
+                new Dictionary<string, int>(), new Dictionary<string, EnemyDef> { ["怔"] = enemy });
+            Assert.That(restored.SummonDefense(restored.Summons[0]), Is.EqualTo(stacked), "读档后磐固层保留");
+            int hits = 0;
+            for (int turn = 0; turn < 10 && hits == 0; turn++)
+            {
+                restored.EndTurn();
+                hits = restored.LastEvents.Count(e => e.Kind == BattleEventKind.SummonHit);
+            }
+            Assert.That(hits, Is.GreaterThan(0), "夹具前提:读档后再挨打");
+            Assert.That(restored.SummonDefense(restored.Summons[0]), Is.EqualTo(Math.Min(BaseArmor + 50, stacked + 10 * hits)), "读档后继续叠加");
+        }
+
+        [Test]
+        public void FatalHit_DoesNotAddStack()
+        {
+            var zhe = Zhe(HardenP());
+            zhe.Hp = 50;
+            var b = Battle(zhe, Melee(100000));
+            var spirit = b.Summons[0];
+            for (int turn = 0; turn < 10 && spirit.Alive; turn++) b.EndTurn();
+            Assert.That(spirit.Alive, Is.False, "夹具前提:柘灵被致死一击打死");
+            Assert.That(spirit.Statuses.All.Any(s => s.SourceId == BattleEngine.HardenSourceId), Is.False, "致死的那一击不加层");
+        }
+
         // ---------------- 真实字表 ----------------
 
         [Test]
