@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./kd.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./kd.css">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    .board { width: 1320px; height: 880px; box-sizing: border-box; padding: 24px 28px; background: var(--paper); color: var(--text-main);
+      font-family: "Noto Sans SC", "PingFang SC", sans-serif; display: grid; grid-template-columns: 1fr 1fr; gap: 22px 32px; align-content: start; }
+    h2 { grid-column: 1 / -1; margin: 0; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: var(--text-quiet); letter-spacing: 1px; }
+    .full { grid-column: 1 / -1; }
+    p, li { font-size: 10px; line-height: 1.65; color: var(--text-quiet); margin: 0; }
+    ul { margin: 2px 0 0; padding-left: 16px; }
+    b.k { color: var(--cinnabar-dark); }
+    table { border-collapse: collapse; font-size: 9.5px; font-variant-numeric: tabular-nums; width: 100%; }
+    th { text-align: left; font-weight: 600; color: var(--text-dim); padding: 4px 7px; border-bottom: 1px solid var(--panel-border); white-space: nowrap; }
+    td { padding: 4px 7px; border-bottom: 1px solid #ECE6D9; color: var(--text-main); vertical-align: top; }
+    td.k { font-weight: 600; color: var(--text-quiet); white-space: nowrap; }
+    /* 时间轴 */
+    .tl { position: relative; height: 250px; }
+    .lane { position: absolute; left: 0; right: 0; height: 22px; display: flex; align-items: center; }
+    .lane > i { width: 128px; flex: none; font-style: normal; font-size: 9.5px; color: var(--text-dim); text-align: right; padding-right: 10px; box-sizing: border-box; }
+    .bar { position: absolute; height: 12px; border-radius: 3px; font-size: 8px; color: #fff; display: flex; align-items: center; padding: 0 4px; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
+    .tick { position: absolute; top: 0; bottom: 18px; width: 1px; background: rgba(22,27,34,.08); }
+    .tick span { position: absolute; bottom: -16px; left: -10px; width: 20px; text-align: center; font-size: 8px; color: var(--text-faint); }
+    .mark { position: absolute; top: 0; bottom: 18px; width: 1.5px; background: rgba(197,54,55,.5); }
+    .mark span { position: absolute; top: -12px; left: 3px; font-size: 8px; color: var(--cinnabar-dark); white-space: nowrap; }
+    .c-cast { background: var(--ink-soft); } .c-hit { background: var(--cinnabar); } .c-pop { background: var(--fire); } .c-pop2 { background: var(--wood); }
+    .c-lbl { background: var(--panel-paper); color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .c-park { background: repeating-linear-gradient(90deg, rgba(22,27,34,.18) 0 3px, transparent 3px 6px); color: var(--text-dim); }
+    .c-fly { background: var(--water); } .c-land { background: var(--gold); color: var(--gold-text); }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>斩获 · 掉字飞入 · 规格</h2>
+
+  <div class="full">
+    <h3>① 时间轴(群攻连杀 2,1×;以出字为 0 s)</h3>
+    <div class="tl">
+      <sc-for list="{{ ticks }}" as="t"><i class="tick" style="{{ t.style }}"><span>{{ t.t }}</span></i></sc-for>
+      <sc-for list="{{ marks }}" as="m"><i class="mark" style="{{ m.style }}"><span>{{ m.t }}</span></i></sc-for>
+      <sc-for list="{{ lanes }}" as="l">
+        <div class="lane" style="{{ l.style }}"><i>{{ l.n }}</i>
+          <sc-for list="{{ l.bars }}" as="b"><span class="{{ b.cls }}" style="{{ b.style }}">{{ b.t }}</span></sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>② 四拍与时长(1×;按住加速一律 ÷ 倍率)</h3>
+    <table>
+      <tr><th>拍</th><th>时长</th><th>缓动</th><th>做什么</th></tr>
+      <tr><td class="k">① 冒</td><td>0.18 s</td><td>ease-out-back(1.56)</td><td>阵亡那一刻,token 从立绘中心 scale .3 → 1.18 → 1 弹出、上移 30(夹在战场顶以下);0.11 s 起一圈赭金环 0.3 s 扩散。名签同时从该格信息列上方飘出。</td></tr>
+      <tr><td class="k">名签</td><td>1.3 s</td><td>同 TriggerFx</td><td>纸底特性名签「斩获」:技能树来源 → <b>不带面印</b>,字 <code>ink-soft</code>。折桂沿用原签(「攻」印 + 折桂)。一格一签,同批多格各飘各的。</td></tr>
+      <tr><td class="k">② 停</td><td>≥ 0.25 s</td><td>—</td><td>token 停在阵亡格上方等本批收尾:飞行起点 = max(批尾, 冒字 + 0.18 + 0.25)。批尾 = 最后一次阵亡 + 0.42(Juice 收尾 0.3 + OnAnimDone 重绘 + 等一帧布局)。</td></tr>
+      <tr><td class="k">③ 飞</td><td>0.45 s</td><td>ease-in-out cubic</td><td>二次贝塞尔弧(控制点在中点上方 46,向下行程的 35% 处),途中 scale 1 → 1.12 → 1,拖尾沿用 FlyRoutine(每 0.03 s 一片)。多张按落位顺序错开 <b>0.12 s</b>(= DealStagger)。</td></tr>
+      <tr><td class="k">④ 落</td><td>0.20 s</td><td>ease-out</td><td>真牌 scale 0 → 现身,PopTile 弹一下;新到手光晕(MarkFresh,现有)。</td></tr>
+    </table>
+    <p style="margin-top:8px">token 就是现有 <code>Juice.FlyGlyph</code>(56 见方、五行原色底、白字宋体 26 粗)——和回合掉字、出字是同一个物件,只换起点与路径。</p>
+  </div>
+
+  <div class="sec">
+    <h3>③ 规则</h3>
+    <ul>
+      <li><b class="k">从哪来就从哪飞</b>:击杀得字(斩获、折桂)一律从阵亡的敌人格飞来;回合开始掉字照旧从字库行右侧滑入(现状不变)。玩家一眼分得清「这张是杀出来的」还是「回合给的」。</li>
+      <li><b>敌人回合的击杀也走这条</b>(木灵、灼、流血杀死):不再并进 SplitOutDrawn 的右侧滑入。同一拍里先播击杀得字,再播回合开始掉字。</li>
+      <li><b>折桂并进同一条路径</b>:原来只有名签 + 光晕、牌凭空出现,现在同样冒字 → 飞入。</li>
+      <li><b>群攻连杀</b>:每张 token 在自己那只阵亡的时刻冒出(逐目标 0.05 s 的节奏自然错开),停到批尾一起起飞,按落位顺序错开 0.12 s。</li>
+      <li><b>本回合已掉满 2 张</b>:不掉、不演、不提示(上限是规则,天天碰到,提示会变成噪音)。</li>
+      <li><b>字库满</b>:不冒 token;阵亡格飘划线的「<s>斩获</s> 字库满」(沿用现状「被挡下」样式:α .6 + 删除线),批尾字库计数「字库 10/10」<code>cinnabar-dark</code> 闪一下(0.45 s,scale 1.25)。<b>每回合只提示一次</b>。</li>
+      <li><b>当拍胜利</b>:结算不画字库 → token 冒出、停 0.25 s 后原地 0.3 s 淡出,不飞(字照样进字库)。</li>
+      <li><b>加速</b>:四拍与名签全部 ÷ 倍率(×2 / ×3)。</li>
+      <li><b>出画</b>:后排 token 停点夹在战场顶 + 半个 token 以下;落点 = 字库牌实际位置(按张数同比缩,16:9 满 10 张 ≈ 37pt 宽),两档屏宽都在中区内,不越过拆合台。</li>
+    </ul>
+  </div>
+
+  <div class="sec full">
+    <h3>④ 实现需要</h3>
+    <table>
+      <tr><th>项</th><th>说明</th></tr>
+      <tr><td class="k">Core 事件</td><td>斩获掉字发 <code>CharGranted</code>(Amount = 字库下标,TargetIndex = 阵亡敌人下标),与折桂同一事件、同一处消费;敌人回合也发它而不是 <code>CharDrawn</code>。字库满时新发 <code>CharGrantBlocked</code>(TargetIndex = 阵亡敌人,本回合首次才发,或由表现层去重)。上限 2 张到顶不发事件。</td></tr>
+      <tr><td class="k">冒 / 停</td><td>Juice 播到 CharGranted 时在 <code>enemyAnchor(lastDiedEnemy)</code> 冒 token,token 挂在 BattleView 的常驻浮层上(<b>不能挂在会被 Refresh 清掉的节点下</b>),登记 (token, 字库下标)。</td></tr>
+      <tr><td class="k">飞 / 落</td><td>写法照 <code>DealRoutine</code>:OnAnimDone 重绘后把目标牌 localScale 按 0 → 等一帧读 position → 从 token 当前位置沿弧飞 → 到达 scale 1 + PopTile。自己 BeginAnim / Release 持锁(同 GuardedDeal)。与回合掉字同批时先播它。</td></tr>
+      <tr><td class="k">FlyGlyph</td><td>加一个可选的弧高参数(缺省 0 = 现状直线),时长走 <code>_rate</code>。</td></tr>
+      <tr><td class="k">名签</td><td><code>TraitCueAt</code> 支持「无面印」变体(技能树来源),文案 <code>perk.node.wide_2.name</code>(斩获)复用技能树名;「字库满」新文案 1 条 + 划线签复用「被挡下」那套;重跑字体子集。</td></tr>
+      <tr><td class="k">字库计数闪</td><td>「字库 N/M」标题 0.45 s <code>cinnabar-dark</code> + scale 1.25 回弹,批尾(重绘后)播一次。</td></tr>
+    </table>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 880}}'>
+var KD = window.KD, T = KD.T;
+class Component extends DCLogic {
+  renderVals() {
+    var X0 = 128, PX = 560;   // 1 s = 560px
+    function x(t) { return X0 + t * PX; }
+    function bar(cls, t0, d, txt) { return { cls: 'bar ' + cls, style: 'left:' + x(t0) + 'px;width:' + Math.max(3, d * PX) + 'px', t: txt }; }
+    var d1 = T.CAST + .06, d2 = T.CAST + 2 * T.MULTI + .06;     // 铭文(第 1 个目标)/ 印泥(第 3 个)阵亡
+    var batch = d2 + T.TAIL;
+    var f1 = Math.max(batch, d1 + T.POP + T.PARK_MIN), f2 = Math.max(batch, d2 + T.POP + T.PARK_MIN) + T.STAGGER;
+    var lanes = [
+      ['出字飞牌', [bar('c-cast', 0, T.CAST, '剑 0.22')]],
+      ['命中 ×3', [bar('c-hit', T.CAST, .02, ''), bar('c-hit', T.CAST + T.MULTI, .02, ''), bar('c-hit', T.CAST + 2 * T.MULTI, .02, '')]],
+      ['铭文 · 冒 / 停', [bar('c-pop', d1, T.POP, '冒'), bar('c-park', d1 + T.POP, f1 - d1 - T.POP, '停')]],
+      ['铭文 · 飞 / 落', [bar('c-fly', f1, T.FLY, '飞 0.45'), bar('c-land', f1 + T.FLY, T.LAND, '落')]],
+      ['印泥 · 冒 / 停', [bar('c-pop2', d2, T.POP, '冒'), bar('c-park', d2 + T.POP, f2 - d2 - T.POP, '停')]],
+      ['印泥 · 飞 / 落', [bar('c-fly', f2, T.FLY, '飞 +0.12'), bar('c-land', f2 + T.FLY, T.LAND, '落')]],
+      ['名签「斩获」×2', [bar('c-lbl', d1, T.LABEL, '铭文格 1.3 s'), bar('c-lbl', d2, T.LABEL, '印泥格')]]
+    ].map(function (l, i) { return { n: l[0], bars: l[1], style: 'top:' + (14 + i * 30) + 'px' }; });
+    var ticks = []; for (var t = 0; t <= 1.8; t += .2) ticks.push({ style: 'left:' + x(t) + 'px', t: t.toFixed(1) });
+    var marks = [{ style: 'left:' + x(batch) + 'px', t: '批尾 ' + batch.toFixed(2) + ' s' }, { style: 'left:' + x(f2 + T.FLY + T.LAND) + 'px', t: '全部落定 ' + (f2 + T.FLY + T.LAND).toFixed(2) + ' s' }];
+    return { lanes: lanes, ticks: ticks, marks: marks };
+  }
+}
+</script>
+</body>
+</html>

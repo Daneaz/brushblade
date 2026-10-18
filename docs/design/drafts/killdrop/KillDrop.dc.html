@@ -1,0 +1,304 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./data.js"></script>
+  <script src="./kd.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./kd.css">
+  <style>
+    /* 斩获 · 掉字飞入。四拍:① 冒(token 从阵亡格弹出 + 名签)→ ② 停(等本批演出收尾)→ ③ 飞(弧线飞到字库落位)→ ④ 落(字牌弹一下 + 新到手光晕)。
+       「播放」走 Web Animations,时长 ÷ 倍率;「定格」四个按钮是静态帧,供评审与截图。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .wrap { position: relative; width: 932px; height: 520px; background: #E9E3D6; font-family: "Noto Sans SC", "PingFang SC", sans-serif; color: var(--text-main); }
+    .dev { position: relative; height: 430px; margin: 0 auto; overflow: hidden; background: color-mix(in srgb, var(--paper) 87.5%, var(--band-mohai)); }
+    .abs { position: absolute; box-sizing: border-box; }
+    .ph { border-radius: 8px; background: repeating-linear-gradient(135deg, rgba(22,27,34,.035) 0 4px, transparent 4px 8px); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--text-mute); letter-spacing: 1px; }
+    .tbar { font-family: "Noto Serif SC", serif; font-size: 9.56px; font-weight: 600; display: flex; align-items: center; height: 22px; }
+    .guide { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(197,54,55,.22); z-index: 60; }
+    .tag { position: absolute; right: 6px; bottom: 4px; z-index: 70; font-size: 8px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; }
+
+    .e-Metal { --el: var(--metal); --glyph: var(--metal-glyph); --elSoft: var(--metal-soft); }
+    .e-Wood  { --el: var(--wood);  --glyph: var(--wood-glyph);  --elSoft: var(--wood-soft); }
+    .e-Water { --el: var(--water); --glyph: var(--water-glyph); --elSoft: var(--water-soft); }
+    .e-Fire  { --el: var(--fire);  --glyph: var(--fire-glyph);  --elSoft: var(--fire-soft); }
+    .e-Earth { --el: var(--earth); --glyph: var(--earth-glyph); --elSoft: var(--earth-soft); }
+    .r-Green { --rar: var(--rarity-green); } .r-Blue { --rar: var(--rarity-blue); } .r-Purple { --rar: var(--rarity-purple); } .r-Orange { --rar: var(--rarity-orange); }
+
+    /* 敌人格(简化:立绘用字头像代替) */
+    .foe { display: flex; align-items: center; gap: 6.21px; }
+    .foe .pt { flex: none; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 700; color: var(--glyph); line-height: 1; }
+    .foe .inf { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1.91px; }
+    .foe .nm { font-family: "Noto Serif SC", serif; font-size: 9.08px; font-weight: 600; }
+    .foe .hp { height: 9.08px; border-radius: 4.5px; background: var(--paper-dim); overflow: hidden; }
+    .foe .hp span { display: block; height: 100%; width: 70%; background: var(--cinnabar); }
+    .foe .at { height: 2.87px; border-radius: 1.4px; background: var(--paper-dim); }
+    .foe.dead .pt { color: #A9A49A; filter: grayscale(1); opacity: .55; }
+    .foe.dead .hp { background: none; font-size: 6.5px; color: var(--text-faint); }
+    .foe.dead .hp span { display: none; }
+    .foe.dead .hp::before { content: "已正"; }
+    .foe.hit .pt { filter: brightness(2.2) saturate(0); }
+
+    /* 字库行 */
+    .cap { display: flex; align-items: center; font-size: 6.69px; color: var(--text-dim); white-space: nowrap; }
+    .cap.flash { color: var(--cinnabar-dark); font-weight: 700; }
+    .tile { box-sizing: border-box; border-radius: 6px; border: 1.5px solid var(--rar); background: var(--card-face); display: flex; align-items: flex-start; justify-content: center; }
+    .tile { container-type: size; } .tile b { margin-top: 16%; font-family: "Noto Serif SC", serif; font-size: 34cqh; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .tile.fresh { box-shadow: 0 0 0 1.5px rgba(202,157,51,.9), 0 0 9px 3px rgba(202,157,51,.45); }
+    .tile.hidden { transform: scale(0); }
+    .slotmk { border: 1px dashed rgba(197,54,55,.45); border-radius: 6px; z-index: 1; }
+    .tile.slotmark { border: 1px dashed rgba(22,27,34,.25); background: transparent; }
+
+    /* token = 现有 FlyGlyph(56 → 26.76pt,圆角 12 → 5.73,五行原色底,白字宋体 26 → 12.42 粗) */
+    .tok { position: absolute; width: 26.76px; height: 26.76px; margin: -13.38px 0 0 -13.38px; border-radius: 5.73px; background: var(--el); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 700; font-size: 12.42px; line-height: 1;
+      box-shadow: 0 1px 4px rgba(22,27,34,.28); z-index: 40; }
+    .tok.cast { z-index: 41; }
+    .tok.ghost { box-shadow: none; opacity: .28; z-index: 39; }
+    /* 冒字瞬间的赭金环(同 TriggerFx 载体闪的外发光色) */
+    .ring { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--gold); z-index: 38; }
+    /* 名签 = TriggerFx 特性名签:纸底 α .96、圆角 8 → 3.82、高 33.5 → 16、宋体 22 → 10.5 粗。斩获是技能树,不带面印,字 ink-soft */
+    .lbl { position: absolute; height: 16px; padding: 0 5px; border-radius: 3.82px; background: rgba(251,248,241,.96); box-shadow: 0 1px 3px rgba(22,27,34,.18);
+      display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; transform: translateX(-50%); z-index: 45;
+      font-family: "Noto Serif SC", serif; font-weight: 700; font-size: 10.5px; color: var(--ink-soft); }
+    .lbl .seal { width: 12.9px; height: 12.9px; border-radius: 2.4px; background: var(--ink); color: #fff; font-size: 8.6px; display: inline-flex; align-items: center; justify-content: center; }
+    .lbl.zg { color: var(--rarity-orange); color: color-mix(in srgb, var(--rarity-orange) 70%, #161B22); }
+    .lbl.blocked { opacity: .6; }
+    .lbl.blocked s { text-decoration: line-through; text-decoration-thickness: 1.2px; }
+    .lbl.blocked small { font-family: "Noto Sans SC", sans-serif; font-weight: 500; font-size: 7.5px; color: var(--text-dim); }
+
+    .ctl { display: flex; align-items: center; gap: 4px; padding: 0 12px; height: 28px; font-size: 9px; color: var(--text-dim); }
+    .ctl .lb { color: var(--text-faint); margin-right: 2px; }
+    .ctl .sp { width: 8px; }
+    .ctl button { height: 19px; padding: 0 7px; border: none; border-radius: 10px; background: var(--locked-bg); color: var(--text-quiet); font-size: 8.5px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: var(--ink-soft); color: #fff; }
+    .ctl button.go { background: var(--ink); color: #fff; }
+    .note { position: absolute; left: 14px; right: 14px; bottom: 4px; font-size: 8.5px; color: var(--text-warm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</helmet>
+
+<div class="wrap">
+  <div class="dev" style="{{ devStyle }}">
+    <i class="guide" style="{{ gl }}"></i><i class="guide" style="{{ gr }}"></i>
+    <div class="abs tbar" style="{{ tbarStyle }}">墨海 第 46 层 · 玩家回合</div>
+    <div class="abs ph" style="{{ railStyle }}">相克 · 配字表</div>
+    <div class="abs ph" style="{{ benchStyle }}">拆合台</div>
+    <sc-for list="{{ foes }}" as="f">
+      <div class="{{ f.cls }}" style="{{ f.style }}" data-foe="{{ f.i }}">
+        <div class="pt" style="{{ f.ptStyle }}">{{ f.g }}</div>
+        <div class="inf"><b class="nm">{{ f.n }}</b><div class="hp"><span></span></div><div class="at"></div></div>
+      </div>
+    </sc-for>
+    <div class="abs ph" style="{{ sumStyle }}">召唤区 3 × 2</div>
+    <div class="abs ph" style="{{ playerStyle }}">执笔人条</div>
+    <div class="abs cap" style="{{ capStyle }}" data-cap="1">{{ capTxt }}</div>
+    <sc-for list="{{ tiles }}" as="t"><div class="{{ t.cls }}" style="{{ t.style }}" data-tile="{{ t.i }}"><b>{{ t.g }}</b></div></sc-for>
+    <div class="abs ph" style="{{ poolStyle }}">部件池</div>
+    <sc-for list="{{ fx }}" as="x"><div class="{{ x.cls }}" style="{{ x.style }}"><sc-for list="{{ x.seal }}" as="s"><i class="seal">{{ s }}</i></sc-for><sc-for list="{{ x.strike }}" as="s"><s>{{ s }}</s></sc-for>{{ x.t }}<sc-for list="{{ x.small }}" as="s"><small>{{ s }}</small></sc-for></div></sc-for>
+    <div class="fxl" data-fxl="1"></div>
+    <div class="tag">{{ wLabel }}</div>
+  </div>
+  <div class="ctl">
+    <span class="lb">情形</span>
+    <sc-for list="{{ cBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  </div>
+  <div class="ctl">
+    <button class="go" onClick="{{ play }}">▶ 播放</button>
+    <span class="sp"></span><span class="lb">倍速</span>
+    <sc-for list="{{ rBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">定格</span>
+    <sc-for list="{{ fBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">屏宽</span>
+    <sc-for list="{{ wBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  </div>
+  <div class="note">{{ note }}</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 520}}'>
+var KD = window.KD, T = KD.T, pt = KD.pt;
+var FRAMES = [['rest', '起'], ['pop', '① 冒'], ['fly', '③ 飞'], ['land', '④ 落']];
+
+// 本局字库最终张数(布局按终态排:实现里新牌落位前已按终态 Refresh,只是 scale 0 藏着)
+function totalTiles(cs) { var l0 = cs.libStart || KD.LIB.length; return l0 + (cs.deal ? 1 : cs.kills.filter(function (k) { return !k.none && !k.full; }).length); }
+function css(o) { return Object.keys(o).map(function (k) { return k + ':' + (typeof o[k] === 'number' ? o[k] + 'px' : o[k]); }).join(';'); }
+function ease(k) { return k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; }      // ease-in-out cubic
+function bez(a, b, c, k) { var u = 1 - k; return { x: u * u * a.x + 2 * u * k * c.x + k * k * b.x, y: u * u * a.y + 2 * u * k * c.y + k * k * b.y }; }
+
+// 每张掉字的几何:冒字起点 / 停点 / 落点 / 弧控制点
+function dropGeo(g, cs, lib0) {
+  var out = [], n = 0;
+  cs.kills.forEach(function (k) {
+    var f = KD.FOES[k.foe], c = g.cell(f.c, f.r);
+    var start = { x: c.cx, y: c.cy };
+    var park = { x: c.cx, y: Math.max(g.top + 13.4, c.cy - pt(T.RISE)) };   // 夹在战场顶之下
+    var o = { k: k, f: f, cell: c, start: start, park: park, label: { x: c.x + c.p + 6.21 + (c.w - c.p - 6.21) / 2, y: c.y + 2 } };
+    if (!k.none && !k.full) {
+      var t = g.tile(lib0 + n); n++;
+      o.idx = lib0 + n - 1;
+      o.end = { x: t.x + t.w / 2, y: t.y + t.h / 2 };
+      o.ctrl = { x: (park.x + o.end.x) / 2, y: Math.min(park.y, o.end.y) - pt(T.ARC) + (o.end.y - park.y) * .35 };
+    }
+    out.push(o);
+  });
+  return out;
+}
+
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { cs: 'aoe', w: 'base', rate: 1, frame: 'fly', run: 0 }; }
+
+  play(e) {
+    var root = e.currentTarget.closest('.wrap');
+    var self = this;
+    root.querySelector('[data-fxl]').innerHTML = '';
+    root.querySelectorAll('.foe').forEach(function (f) { f.classList.remove('dead', 'hit'); });
+    root.querySelectorAll('.tile.fresh').forEach(function (t) { if (+t.dataset.tile >= (KD.CASES[self.state.cs].libStart || KD.LIB.length)) { t.classList.remove('fresh'); t.classList.add('hidden'); } });
+    var c = root.querySelector('[data-cap]'); if (c) c.classList.remove('flash');
+    this.setState({ frame: 'rest', run: this.state.run + 1 });
+    setTimeout(function () { self.animate(root); }, 60);
+  }
+
+  animate(root) {
+    var s = this.state, cs = KD.CASES[s.cs], g = KD.geom(s.w, totalTiles(cs)), R = s.rate, layer = root.querySelector('[data-fxl]');
+    layer.innerHTML = '';
+    var lib0 = cs.libStart || KD.LIB.length;
+    function ms(sec) { return sec * 1000 / R; }
+    function el(cls, style, html) { var d = document.createElement('div'); d.className = cls; d.style.cssText = style; if (html != null) d.innerHTML = html; layer.appendChild(d); return d; }
+    function at(sec, fn) { setTimeout(fn, ms(sec)); }
+
+    if (cs.deal) {   // 对照:回合开始掉字从右侧滑入(现状 DealRoutine)
+      var t = g.tile(lib0), tileEl = root.querySelector('[data-tile="' + lib0 + '"]');
+      var tok = el('tok e-Wood', css({ left: t.x + t.w / 2 + pt(152), top: t.y + t.h / 2 }), '桂');
+      tok.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-pt(152)) + 'px)' }], { duration: ms(T.FLY), easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'forwards' });
+      at(T.FLY, function () { tok.remove(); landTile(tileEl); });
+      return;
+    }
+    // 出字飞牌
+    var src = g.tile(cs.cast), first = KD.FOES[cs.hits[0]], fc = g.cell(first.c, first.r);
+    var castG = KD.LIB[cs.cast];
+    var cast = el('tok cast e-' + castG[1], css({ left: src.x + src.w / 2, top: src.y + src.h / 2 }), castG[0]);
+    cast.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(' + (fc.cx - src.x - src.w / 2) + 'px,' + (fc.cy - src.y - src.h / 2) + 'px)' }], { duration: ms(T.CAST), easing: 'cubic-bezier(.55,0,1,.45)', fill: 'forwards' });
+    at(T.CAST, function () { cast.remove(); });
+    cs.hits.forEach(function (fi, i) {
+      at(T.CAST + i * T.MULTI, function () { var f = root.querySelector('[data-foe="' + fi + '"]'); if (f) { f.classList.add('hit'); setTimeout(function () { f.classList.remove('hit'); }, ms(.08)); } });
+    });
+    var drops = dropGeo(g, cs, lib0);
+    var deaths = drops.map(function (d) { return T.CAST + cs.hits.indexOf(d.k.foe) * T.MULTI + .06; });
+    var batchEnd = Math.max.apply(null, deaths) + T.TAIL;
+    var flyN = 0;
+    drops.forEach(function (d, i) {
+      var t0 = deaths[i];
+      at(t0, function () { var f = root.querySelector('[data-foe="' + d.k.foe + '"]'); if (f) f.classList.add('dead'); });
+      if (d.k.none) return;                                      // 上限已到:不掉、不提示
+      // 名签
+      at(t0, function () {
+        var html = d.k.full ? '<s>斩获</s><small>字库满</small>' : d.k.zhegui ? '<i class="seal">攻</i>折桂' : '斩获';
+        var lb = el('lbl' + (d.k.full ? ' blocked' : '') + (d.k.zhegui ? ' zg' : ''), css({ left: d.label.x, top: d.label.y }), html);
+        lb.animate([{ opacity: 0, transform: 'translate(-50%,4px) scale(.8)' }, { opacity: 1, transform: 'translate(-50%,0) scale(1.08)', offset: .12 }, { opacity: 1, transform: 'translate(-50%,-6px) scale(1)', offset: .7 }, { opacity: 0, transform: 'translate(-50%,-17px) scale(1)' }],
+          { duration: ms(T.LABEL), easing: 'linear', fill: 'forwards' });
+        setTimeout(function () { lb.remove(); }, ms(T.LABEL) + 20);
+      });
+      if (d.k.full) {                                             // 批尾:字库计数朱砂闪
+        at(batchEnd, function () { var c = root.querySelector('[data-cap]'); c.classList.add('flash'); c.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: ms(.45) }); setTimeout(function () { c.classList.remove('flash'); }, ms(.9)); });
+        return;
+      }
+      // ① 冒
+      var tok, ring;
+      at(t0, function () {
+        tok = el('tok e-' + d.k.el, css({ left: d.start.x, top: d.start.y }), d.k.g);
+        tok.animate([{ transform: 'translate(0,0) scale(.3)', opacity: 0 }, { transform: 'translate(0,' + (d.park.y - d.start.y) * 1.1 + 'px) scale(1.18)', opacity: 1, offset: .7 }, { transform: 'translate(0,' + (d.park.y - d.start.y) + 'px) scale(1)', opacity: 1 }],
+          { duration: ms(T.POP), easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'forwards' });
+        ring = el('ring', css({ left: d.park.x, top: d.park.y }));
+        ring.animate([{ transform: 'scale(.5)', opacity: .95 }, { transform: 'scale(1.5)', opacity: 0 }], { duration: ms(.3), delay: ms(T.POP * .6), easing: 'ease-out', fill: 'both' });
+      });
+      if (s.cs === 'win' || cs.win) {                            // 当拍胜利:不飞,原地淡出
+        at(t0 + T.POP + T.PARK_MIN, function () { tok.animate([{ opacity: 1, transform: 'translate(0,' + (d.park.y - d.start.y) + 'px)' }, { opacity: 0, transform: 'translate(0,' + (d.park.y - d.start.y - 6) + 'px)' }], { duration: ms(T.FADE), fill: 'forwards' }); });
+        return;
+      }
+      // ② 停 → ③ 飞
+      var fs = Math.max(batchEnd, t0 + T.POP + T.PARK_MIN) + (flyN++) * T.STAGGER;
+      at(fs, function () {
+        var frames = [], dx0 = d.start.x, dy0 = d.start.y;
+        for (var j = 0; j <= 16; j++) { var p = bez(d.park, d.end, d.ctrl, ease(j / 16)); frames.push({ transform: 'translate(' + (p.x - dx0) + 'px,' + (p.y - dy0) + 'px) scale(' + (1 + .12 * Math.sin(Math.PI * j / 16)) + ')' }); }
+        tok.animate(frames, { duration: ms(T.FLY), easing: 'linear', fill: 'forwards' });
+        // 拖尾:沿用 FlyRoutine 每 0.03s 一片残影
+        for (var q = 1; q < 7; q++) (function (q) {
+          setTimeout(function () { var p = bez(d.park, d.end, d.ctrl, ease(Math.max(0, q / 7 - .05))); var gh = el('tok ghost e-' + d.k.el, css({ left: p.x, top: p.y }), ''); gh.animate([{ opacity: .3 }, { opacity: 0 }], { duration: ms(.22), fill: 'forwards' }); setTimeout(function () { gh.remove(); }, ms(.24)); }, ms(T.FLY * q / 7));
+        })(q);
+      });
+      at(fs + T.FLY, function () { tok.remove(); landTile(root.querySelector('[data-tile="' + d.idx + '"]')); });
+    });
+
+    function landTile(tileEl) {
+      if (!tileEl) return;
+      tileEl.classList.remove('hidden');
+      tileEl.classList.add('fresh');
+      tileEl.animate([{ transform: 'scale(.6)' }, { transform: 'scale(1.12)', offset: .55 }, { transform: 'scale(1)' }], { duration: ms(T.LAND), easing: 'ease-out' });
+    }
+  }
+
+  renderVals() {
+    var self = this, s = this.state, cs = KD.CASES[s.cs], g = KD.geom(s.w, totalTiles(cs)), W = g.W;
+    var lib0 = cs.libStart || KD.LIB.length;
+    var drops = cs.deal ? [] : dropGeo(g, cs, lib0);
+    var newCount = cs.deal ? 1 : drops.filter(function (d) { return d.end; }).length;
+    var after = s.frame === 'pop' || s.frame === 'fly' || s.frame === 'land';
+    var deadSet = {}; if (after) drops.forEach(function (d) { deadSet[d.k.foe] = true; });
+    var foes = KD.FOES.map(function (f, i) {
+      var c = g.cell(f.c, f.r);
+      return { i: i, g: f.g, n: f.n, cls: 'abs foe e-' + f.el + (deadSet[i] ? ' dead' : ''), style: css({ left: c.x, top: c.y, width: c.w, height: c.h }),
+        ptStyle: css({ width: c.p, height: c.p, 'font-size': c.p * .62 }) };
+    });
+    // 字库:前 lib0 张(满库示例重复填充),再加本次新到的落位(定格「落」之前藏起来)
+    var tiles = [];
+    for (var i = 0; i < Math.min(lib0, 11); i++) { var L = KD.LIB[i % KD.LIB.length], t = g.tile(i);
+      tiles.push({ i: i, g: L[0], cls: 'abs tile e-' + L[1] + ' r-' + L[2], style: css({ left: t.x, top: t.y, width: t.w, height: t.h }) }); }
+    var newGlyphs = cs.deal ? [['桂', 'Wood']] : drops.filter(function (d) { return d.end; }).map(function (d) { return [d.k.g, d.k.el]; });
+    newGlyphs.forEach(function (ng, j) { var t = g.tile(lib0 + j);
+      tiles.push({ i: 'mk' + j, g: '', cls: 'abs slotmk', style: css({ left: t.x, top: t.y, width: t.w, height: t.h }) });   // 标注:落位(实现里是 scale 0 的真牌)
+      tiles.push({ i: lib0 + j, g: ng[0], cls: 'abs tile e-' + ng[1] + ' r-Blue' + (s.frame === 'land' ? ' fresh' : ' hidden'), style: css({ left: t.x, top: t.y, width: t.w, height: t.h }) }); });
+    var nowCount = lib0 + (s.frame === 'land' ? newCount : 0);
+    // 定格帧
+    var fx = [];
+    if (!cs.deal && (s.frame === 'pop' || s.frame === 'fly')) drops.forEach(function (d, j) {
+      if (d.k.none) return;
+      if (s.frame === 'pop') {
+        var html = d.k.full ? { strike: ['斩获'], small: ['字库满'], t: '' } : d.k.zhegui ? { seal: ['攻'], t: '折桂' } : { t: '斩获' };
+        fx.push({ cls: 'lbl' + (d.k.full ? ' blocked' : '') + (d.k.zhegui ? ' zg' : ''), style: css({ left: d.label.x, top: d.label.y - 3 }), seal: html.seal || [], strike: html.strike || [], small: html.small || [], t: html.t });
+      }
+      if (d.k.full || !d.end && !cs.win) return;
+      var p = s.frame === 'pop' || !d.end ? d.park : bez(d.park, d.end, d.ctrl, ease(Math.max(0, .55 - j * .12)));
+      if (s.frame === 'fly' && d.end) for (var q = 1; q <= 3; q++) { var gp = bez(d.park, d.end, d.ctrl, ease(Math.max(0, .55 - j * .12 - q * .07))); fx.push({ cls: 'tok ghost e-' + d.k.el, style: css({ left: gp.x, top: gp.y, opacity: .3 - q * .07 }), seal: [], strike: [], small: [], t: '' }); }
+      fx.push({ cls: 'tok e-' + d.k.el, style: css({ left: p.x, top: p.y }), seal: [], strike: [], small: [], t: d.k.g });
+    });
+    if (cs.deal && s.frame === 'fly') { var tt = g.tile(lib0); fx.push({ cls: 'tok e-Wood', style: css({ left: tt.x + tt.w / 2 + pt(152) * .35, top: tt.y + tt.h / 2 }), seal: [], strike: [], small: [], t: '桂' }); }
+    return {
+      devStyle: 'width:' + W.dev + 'px', gl: 'left:' + W.side + 'px', gr: 'right:' + W.side + 'px', wLabel: W.label,
+      tbarStyle: css({ left: g.frameL, top: 0, width: 400 }),
+      railStyle: css({ left: g.railL, top: 24, width: 67.85, height: 380 }), benchStyle: css({ left: g.benchL, top: 24, width: 131.87, height: 380 }),
+      foes: foes,
+      sumStyle: css({ left: g.fieldL, top: g.sumTop, width: g.fieldW, height: pt(113 + 4 + 88) }),
+      playerStyle: css({ left: g.fieldL, top: g.playerY, width: g.fieldW, height: 40 }),
+      capStyle: css({ left: g.fieldL, top: g.handY, width: g.cap, height: g.th }), capTxt: '字库 ' + nowCount + '/10',
+      tiles: tiles,
+      poolStyle: css({ left: g.fieldL, top: g.handY + g.th + 3, width: g.fieldW, height: 34 }),
+      fx: fx,
+      note: cs.note,
+      play: function (e) { self.play(e); },
+      cBtns: Object.keys(KD.CASES).map(function (k) { return { n: KD.CASES[k].n, cls: k === s.cs ? 'on' : '', pick: function () { self.setState({ cs: k, frame: 'rest' }); } }; }),
+      rBtns: [1, 2, 3].map(function (r) { return { n: '×' + r, cls: r === s.rate ? 'on' : '', pick: function () { self.setState({ rate: r }); } }; }),
+      fBtns: FRAMES.map(function (f) { return { n: f[1], cls: f[0] === s.frame ? 'on' : '', pick: function (e) { var l = e.currentTarget.closest('.wrap').querySelector('[data-fxl]'); if (l) l.innerHTML = ''; self.setState({ frame: f[0] }); } }; }),
+      wBtns: Object.keys(KD.WIDTHS).map(function (k) { return { n: KD.WIDTHS[k].n, cls: k === s.w ? 'on' : '', pick: function () { self.setState({ w: k }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>
