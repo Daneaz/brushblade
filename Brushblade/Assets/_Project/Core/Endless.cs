@@ -454,12 +454,19 @@ namespace Brushblade.Core
 
         /// <summary>层清算墨锭(2026-07-21):普通层 2、Boss 层 5,每 10 层翻倍。
         /// 2026-08-30 起**赚到即入账**(走 RunEngine.AddInk 进本段账目,由外层即时结进账户),
-        /// 不再攒成滚存等塔结算 —— 那条通道存在的唯一理由是阵亡减半,减半已取消。</summary>
+        /// 不再攒成滚存等塔结算 —— 那条通道存在的唯一理由是阵亡减半,减半已取消。
+        ///
+        /// 3×2 改版补偿(2026-10-18 收尾 spec §4,只动层墨锭、不动击杀单价):改版让 Boss 随从提前到 15 层
+        /// (击杀墨锭多)、普通层满员 8 → 6(37 层起击杀墨锭少)。对应两刀:11 层起 Boss 层底数 5 → 4,
+        /// 31 层起普通层 ×4/3(向下取整)。整趟墨锭(层清算 + 击杀 + 奇遇)对改版前:30 层 ±0%、
+        /// 50 层 −0.5%、60 层 −0.1%(tools/design/economy_model.py 镜像同一公式;70 层起渐偏多,100 层约 +8%)。</summary>
         public static int FloorInk(EndlessConfig config, int depth)
         {
             int tier = (depth - 1) / 10;                  // 1~10 档 0,11~20 档 1……
-            int baseInk = config.IsBossDepth(depth) ? 5 : 2;
-            return baseInk << tier;
+            if (config.IsBossDepth(depth))
+                return (tier >= 1 ? 4 : 5) << tier;
+            int ink = 2 << tier;
+            return tier >= 3 ? ink * 4 / 3 : ink;
         }
 
         /// <summary>主题 Boss 层(2026-09-30,十层一主题):第 10/20/30… 层 —— 从 1 数起的第偶数个
