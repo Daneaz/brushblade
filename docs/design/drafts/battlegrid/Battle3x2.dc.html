@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./data.js"></script>
+  <script src="./art.js"></script>
+  <script src="./grid.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./grid.css">
+  <style>
+    /* 战场 3×2 · 整屏。尺寸全部由 grid.js 按逻辑单位算出再 ÷ 2.093;左栏 / 拆合台 / 执笔人条 / 字库 / 部件池不在本稿范围,画成灰块占位。 */
+    .wrap { position: relative; width: 932px; height: 506px; background: #E9E3D6; font-family: "Noto Sans SC", "PingFang SC", sans-serif; color: var(--text-main); }
+    .dev { position: relative; height: 430px; margin: 0 auto; overflow: hidden; background: color-mix(in srgb, var(--paper) 87.5%, var(--band-mohai)); }
+    .frame { position: absolute; top: 0; bottom: 21px; display: flex; flex-direction: column; }
+    .tbar { height: 22px; flex: none; display: flex; align-items: center; gap: 5px; font-size: 6.2px; color: var(--text-dim); }
+    .tbar b { font-family: "Noto Serif SC", serif; font-size: 9.56px; font-weight: 600; color: var(--text-main); }
+    .arena { flex: 1; min-height: 0; display: flex; gap: 6.21px; }
+    .rail, .bench { flex: none; border-radius: 9.56px; background: repeating-linear-gradient(135deg, rgba(22,27,34,.035) 0 4px, transparent 4px 8px); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--text-mute); writing-mode: vertical-rl; letter-spacing: 2px; }
+    .rail { width: 67.85px; } .bench { width: 131.87px; writing-mode: horizontal-tb; }
+    .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding-top: 2px; }
+    .ph { flex: none; border-radius: 6px; background: repeating-linear-gradient(135deg, rgba(22,27,34,.035) 0 4px, transparent 4px 8px); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--text-mute); letter-spacing: 1px; }
+    .guide i { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(197,54,55,.22); z-index: 60; }
+    .tag { position: absolute; right: 6px; bottom: 4px; z-index: 70; font-size: 8px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; }
+    .ctl { height: 34px; display: flex; align-items: center; gap: 5px; padding: 0 14px; font-size: 9px; color: var(--text-dim); }
+    .ctl .lb { color: var(--text-faint); margin-right: 2px; }
+    .ctl .sp { width: 10px; }
+    .ctl button { height: 20px; padding: 0 8px; border: none; border-radius: 10px; background: var(--locked-bg); color: var(--text-quiet); font-size: 9px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: var(--ink-soft); color: #fff; }
+    .cap { position: absolute; left: 14px; right: 14px; bottom: 6px; font-size: 8.5px; color: var(--text-warm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</helmet>
+
+<div class="wrap">
+  <div class="dev" style="{{ devStyle }}">
+    <div class="guide"><i style="{{ gl }}"></i><i style="{{ gr }}"></i></div>
+    <div class="frame" style="{{ frameStyle }}">
+      <div class="tbar"><b>{{ title }}</b><span class="grow"></span><span>回合 3</span></div>
+      <div class="arena">
+        <div class="rail">相克 · 配字表</div>
+        <div class="mid">
+          <div class="{{ fieldCls }}" style="{{ m.fieldStyle }}">
+            <sc-for list="{{ m.slots }}" as="s"><div class="{{ s.cls }}" style="{{ s.style }}"></div></sc-for>
+            <div class="divider" style="{{ m.dividerStyle }}"></div>
+
+            <sc-for list="{{ m.units }}" as="u">
+              <sc-if value="{{ u.isFoe }}" hint-placeholder-val="{{ false }}">
+                <div class="{{ u.cls }}" style="{{ u.style }}">
+                  <div class="pt" style="{{ u.ptStyle }}"><sc-for list="{{ u.layers }}" as="l"><img alt="" src="{{ l.src }}"></sc-for></div>
+                  <div class="inf" style="{{ u.infStyle }}">
+                    <div class="hd"><b class="nm">{{ u.name }}</b><i class="eb">{{ u.eln }}</i><span class="grow"></span><sc-for list="{{ u.tier }}" as="t"><i class="{{ t.cls }}" style="{{ t.style }}">{{ t.t }}</i></sc-for></div>
+                    <div class="scs"><sc-for list="{{ u.lines }}" as="ln"><div class="ln"><sc-for list="{{ ln.chips }}" as="c"><i class="{{ c.cls }}" style="{{ c.style }}"><sc-for list="{{ c.ics }}" as="ic"><svg viewBox="0 0 64 64"><use href="{{ ic.href }}"></use></svg></sc-for>{{ c.t }}</i></sc-for></div></sc-for></div>
+                    <div class="hpb"><span style="{{ u.bar.hpStyle }}"></span><u>{{ u.bar.hpTxt }}</u></div>
+                    <div class="{{ u.bar.actCls }}"><span style="{{ u.bar.actStyle }}"></span></div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ u.isBlk }}" hint-placeholder-val="{{ false }}">
+                <div class="{{ u.cls }}" style="{{ u.style }}">
+                  <div class="hd"><b class="nm">{{ u.name }}</b><i class="eb">{{ u.eln }}</i><span class="grow"></span><sc-for list="{{ u.tier }}" as="t"><i class="{{ t.cls }}" style="{{ t.style }}">{{ t.t }}</i></sc-for></div>
+                  <div class="bbody">
+                    <div class="{{ u.ptCls }}" style="{{ u.ptStyle }}">
+                      <sc-for list="{{ u.layers }}" as="l"><i class="ly" style="{{ l.style }}"></i></sc-for>
+                      <sc-for list="{{ u.glyphs }}" as="g"><i class="ring"></i><b class="{{ g.cls }}">{{ g.t }}</b></sc-for>
+                      <sc-for list="{{ u.shield }}" as="sh"><i class="sbadge"><svg viewBox="0 0 64 64"><use href="#ic-shield"></use></svg>{{ sh.t }}</i></sc-for>
+                    </div>
+                    <div class="side" style="{{ u.sideStyle }}">
+                      <div class="scs"><sc-for list="{{ u.side }}" as="ln"><div class="ln"><sc-for list="{{ ln.chips }}" as="c"><i class="{{ c.cls }}" style="{{ c.style }}"><sc-for list="{{ c.ics }}" as="ic"><svg viewBox="0 0 64 64"><use href="{{ ic.href }}"></use></svg></sc-for>{{ c.t }}</i></sc-for></div></sc-for></div>
+                      <span class="grow"></span>
+                      <div class="hpb"><span style="{{ u.bar.hpStyle }}"></span><u>{{ u.bar.hpTxt }}</u></div>
+                      <div class="{{ u.bar.actCls }}"><span style="{{ u.bar.actStyle }}"></span></div>
+                    </div>
+                  </div>
+                  <div class="scs low"><sc-for list="{{ u.low }}" as="ln"><div class="ln"><sc-for list="{{ ln.chips }}" as="c"><i class="{{ c.cls }}" style="{{ c.style }}"><sc-for list="{{ c.ics }}" as="ic"><svg viewBox="0 0 64 64"><use href="{{ ic.href }}"></use></svg></sc-for>{{ c.t }}</i></sc-for></div></sc-for></div>
+                </div>
+              </sc-if>
+            </sc-for>
+
+            <sc-for list="{{ m.sslots }}" as="s"><div class="{{ s.cls }}" style="{{ s.style }}">{{ s.t }}</div></sc-for>
+            <sc-for list="{{ m.allies }}" as="a">
+              <div class="{{ a.cls }}" style="{{ a.style }}">
+                <div class="pt" style="{{ a.ptStyle }}">{{ a.g }}</div>
+                <div class="inf" style="{{ a.infStyle }}">
+                  <div class="hd"><b class="nm">{{ a.name }}</b><i class="eb">{{ a.eln }}</i></div>
+                  <div class="scs"><sc-for list="{{ a.lines }}" as="ln"><div class="ln"><sc-for list="{{ ln.chips }}" as="c"><i class="{{ c.cls }}" style="{{ c.style }}"><sc-for list="{{ c.ics }}" as="ic"><svg viewBox="0 0 64 64"><use href="{{ ic.href }}"></use></svg></sc-for>{{ c.t }}</i></sc-for></div></sc-for></div>
+                  <div class="hpb"><span style="{{ a.bar.hpStyle }}"></span><u>{{ a.bar.hpTxt }}</u></div>
+                  <div class="{{ a.bar.actCls }}"><span style="{{ a.bar.actStyle }}"></span><u>{{ a.bar.actTxt }}</u></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="ph" style="{{ phStyle1 }}">执笔人条 · 不变</div>
+          <div class="ph" style="{{ phStyle2 }}">字库 · 不变</div>
+          <div class="ph" style="{{ phStyle3 }}">部件池 · 不变</div>
+        </div>
+        <div class="bench">拆合台 · 不变</div>
+      </div>
+    </div>
+    <div class="tag">{{ wLabel }}</div>
+  </div>
+  <div class="ctl">
+    <span class="lb">局面</span>
+    <sc-for list="{{ sBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">屏宽</span>
+    <sc-for list="{{ wBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">标注</span>
+    <sc-for list="{{ gBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  </div>
+  <div class="cap">{{ cap }}</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 506}}'>
+var BG = window.BG;
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { s: 'boss', w: 'base', g: false }; }
+  renderVals() {
+    var self = this, s = this.state, W = BG.WIDTHS[s.w], S = BG.SCENES[s.s];
+    var m = BG.model(s.w, s.s);
+    m.units.forEach(function (u) { u.isFoe = u.kind === 'foe'; u.isBlk = u.kind === 'block'; });
+    var fieldPt = BG.pt(W.field);
+    var hidden = m.audits.filter(function (a) { return a.hidden; }).map(function (a) { return a.who + ' 收 +' + a.hidden; });
+    return {
+      m: m, title: S.title, wLabel: W.label,
+      fieldCls: 'field' + (s.g ? ' show-guides' : ''),
+      devStyle: 'width:' + W.dev + 'px',
+      frameStyle: 'left:' + W.side + 'px;right:' + W.side + 'px',
+      gl: 'left:' + W.side + 'px', gr: 'right:' + W.side + 'px',
+      phStyle1: 'width:' + fieldPt + 'px;height:40px', phStyle2: 'width:' + fieldPt + 'px;height:52px', phStyle3: 'width:' + fieldPt + 'px;height:36px',
+      cap: '格宽 ' + BG.pt(m.cellW) + 'pt(' + Math.round(m.cellW * 10) / 10 + ')· 立绘不随屏宽缩 · ' + (hidden.length ? '收进「+N」:' + hidden.join('、') : '本局面全部 chip 都放得下'),
+      sBtns: Object.keys(BG.SCENES).map(function (k) { return { n: BG.SCENES[k].n, cls: k === s.s ? 'on' : '', pick: function () { self.setState({ s: k }); } }; }),
+      wBtns: Object.keys(BG.WIDTHS).map(function (k) { return { n: BG.WIDTHS[k].n, cls: k === s.w ? 'on' : '', pick: function () { self.setState({ w: k }); } }; }),
+      gBtns: [['关', false], ['开', true]].map(function (o) { return { n: o[0], cls: s.g === o[1] ? 'on' : '', pick: function () { self.setState({ g: o[1] }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

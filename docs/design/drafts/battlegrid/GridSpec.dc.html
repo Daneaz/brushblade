@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./data.js"></script>
+  <script src="./grid.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./grid.css">
+  <style>
+    .board { position: relative; width: 1320px; height: 1400px; box-sizing: border-box; padding: 24px 28px; background: var(--paper); color: var(--text-main);
+      font-family: "Noto Sans SC", "PingFang SC", sans-serif; display: grid; grid-template-columns: 1fr 1fr; gap: 22px 28px; align-content: start; }
+    h2 { grid-column: 1 / -1; margin: 0; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: var(--text-quiet); letter-spacing: 1px; }
+    .sec { display: flex; flex-direction: column; }
+    p, li { font-size: 10px; line-height: 1.65; color: var(--text-quiet); margin: 0; }
+    ul { margin: 4px 0 0; padding-left: 16px; }
+    .note { font-size: 9px; color: var(--text-warm); line-height: 1.6; margin-top: 6px; }
+    table { border-collapse: collapse; font-size: 9.5px; font-variant-numeric: tabular-nums; }
+    th { text-align: left; font-weight: 600; color: var(--text-dim); padding: 4px 7px; border-bottom: 1px solid var(--panel-border); white-space: nowrap; }
+    td { padding: 4px 7px; border-bottom: 1px solid #ECE6D9; white-space: nowrap; color: var(--text-main); }
+    tr.sep td { border-top: 1.5px solid var(--paper-dim); }
+    td.k { color: var(--text-quiet); font-weight: 600; }
+    td.w { color: var(--text-dim); }
+    b.new { color: var(--cinnabar-dark); font-weight: 700; }
+    /* 竖块解剖(× 3) */
+    .anat { position: relative; margin-top: 14px; display: flex; gap: 26px; align-items: flex-start; }
+    .ab { position: relative; flex: none; background: var(--panel-paper); outline: 1px dashed rgba(197,54,55,.5); }
+    .ab > i { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-quiet); text-align: center; line-height: 1.35; }
+    .z-hd { background: rgba(61,78,105,.10); }
+    .z-pt { background: rgba(52,134,75,.14); }
+    .z-side { background: rgba(202,157,51,.16); }
+    .z-bar { background: rgba(197,54,55,.16); }
+    .z-low { background: rgba(15,116,197,.12); }
+    .dim { position: absolute; font-size: 8.5px; color: var(--cinnabar-dark); white-space: nowrap; }
+    .tiers { display: flex; gap: 18px; align-items: center; }
+    .tiers .cell { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+    .z3 { transform: scale(2.4); transform-origin: left top; }
+    .z3wrap { position: relative; }
+    .row3 { display: flex; align-items: center; gap: 2.87px; height: 11.47px; }
+    .row3 .nm { font-family: "Noto Serif SC", serif; font-size: 9.08px; font-weight: 600; }
+    .row3 .eb { height: 9.56px; padding: 0 2.39px; border-radius: 2.39px; background: var(--glyph); color: #fff; font-size: 7.17px; display: inline-flex; align-items: center; }
+    .art { position: relative; flex: none; width: 246px; height: 246px; background: repeating-conic-gradient(#EFEADF 0 25%, #F8F4EC 0 50%) 0 0 / 16px 16px; outline: 1px solid var(--panel-border); }
+    .art .safe { position: absolute; inset: 7%; border: 1px dashed rgba(197,54,55,.55); border-radius: 4px; }
+    .art .eye { position: absolute; left: 30%; right: 30%; top: 34%; height: 12%; border: 1px dashed rgba(15,116,197,.6); }
+    .art b { position: absolute; font-family: "Noto Serif SC", serif; font-weight: 700; font-size: 104px; line-height: 1; }
+    .art .a0 { left: 10%; top: 6%; color: color-mix(in srgb, var(--ink) 85%, transparent); transform: rotate(-8deg); }
+    .art .a1 { right: 6%; bottom: 10%; color: var(--water-glyph); mix-blend-mode: multiply; transform: rotate(6deg); }
+    .art span { position: absolute; font-size: 8.5px; color: var(--cinnabar-dark); background: rgba(251,248,241,.85); padding: 0 3px; }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>战场 3 × 2 · 规格</h2>
+
+  <div class="sec" style="grid-column:1 / -1">
+    <h3>① 两档屏宽逐栏验算(逻辑单位;括号内为稿面 pt)</h3>
+    <table>
+      <tr><th>屏宽</th><th>格</th><th>格宽 × 高</th><th>pt</th><th>立绘</th><th>信息列</th><th>行数</th><th>每行纯图标</th><th>攻+甲后首行余</th><th>满状态 6 枚</th><th>重状态 8 枚</th></tr>
+      <sc-for list="{{ rows }}" as="r">
+        <tr class="{{ r.cls }}"><td class="w">{{ r.w }}</td><td class="k">{{ r.kind }}</td><td>{{ r.cell }}</td><td class="w">{{ r.cellPt }}</td><td>{{ r.port }}</td><td>{{ r.info }}</td><td>{{ r.lines }}</td><td>{{ r.perLine }}</td><td>{{ r.first }}</td><td>{{ r.full }}</td><td>{{ r.heavy }}</td></tr>
+      </sc-for>
+    </table>
+    <p class="note">
+      格宽 = (战场宽 − 17 × 2) / 3;战场宽 = min(1223, 中区 − 1),基准机 1223、16:9 无刘海 909(已扣 MissingInset 两侧各 123)。chip 宽按 Ui.ChipWidth(全角 1 字号、半角 0.55 字号):
+      纯图标 28、图标 + 1 位数 39、+ 2 位 48、+ 3 位 56,「+N」计数 21。「满状态」= 攻 210 + 甲 24 + 灼 7 + 流血 3 + 冻结 + 减速 + 破甲 + 致盲;「重状态」再加诅咒、种。
+      分数 = 显示的战况 / 全部战况(不计攻 / 甲,它俩恒显示)。Boss 示例底部流 = 蓄力预警(178)+ 削弱 + 致命 + 冰滞 + 灼 + 流血 + 致盲 + 诅咒 + 破甲。
+    </p>
+  </div>
+
+  <div class="sec">
+    <h3>② 改了什么(相对现状 4 × 2)</h3>
+    <ul>
+      <li>格宽 293 → <b class="new">396</b>(16:9:214.5 → <b class="new">292</b>)。16:9 的新格宽 ≈ 旧基准机格宽,所以<b class="new">立绘两档都不再缩</b>(删 FieldScale 对敌人立绘的缩放)。</li>
+      <li>格高不动(前 138 / 后 109;召唤 113 / 88):纵向是这块屏最紧的,整屏垂直预算不变。</li>
+      <li>前排敌人 chip <b class="new">2 → 3 行</b>(头行 24 + 3×20 + 2×3 + 血 19 + 行动 6 + 间距 4×3 = 127 ≤ 138)。后排 109 只够 2 行,召唤格 2 / 1 行沿用。</li>
+      <li>召唤格宽与敌人列对齐(原 289 × 4,略窄于敌人 293),上下两区三列竖线对齐。</li>
+      <li>召唤槽顺序:前排 中 → 左 → 右,再后排 中 → 左 → 右;解锁层 <b class="new">1 / 7 / 13 / 19 / 25 / 31</b>。</li>
+      <li>Boss / 精英 / 头领 = 一列竖块(中列),见 ③;随从 / 小怪占左右两列共 4 格。</li>
+      <li>16:9 后排召唤只放得下 攻 / 甲 + 1~2 枚,其余收「+N」(纵向只有 88,无法加行;现状 16:9 信息列 127 更紧,这一格是改善不是退步)。</li>
+    </ul>
+  </div>
+
+  <div class="sec" style="grid-column:1 / -1">
+    <h3>③ 竖块解剖(Boss / 精英 / 头领共用 · 图 × 2,左基准机 396 宽 / 右 16:9 292 宽)</h3>
+    <div class="anat">
+      <sc-for list="{{ anat }}" as="a">
+        <div class="ab" style="{{ a.box }}">
+          <i class="z-hd" style="{{ a.hd }}">头行 24:名字 + 属性徽章 ··· 档位签(右对齐)</i>
+          <i class="z-pt" style="{{ a.pt }}">立绘 172 × 172<br>(1:1,垂直贴头行下)</i>
+          <i class="z-side" style="{{ a.side }}">右栏 {{ a.sideW }}<br>攻 / 甲(ChipFlow ≤ 2 行,恒显示)</i>
+          <i class="z-bar" style="{{ a.bar }}">血条 19 + 行动条 6<br>贴立绘底</i>
+          <i class="z-low" style="{{ a.low }}">全宽 chip 流 {{ a.lowW }} · 2 行 · 战况(蓄力预警打头)</i>
+          <span class="dim" style="{{ a.dimW }}">{{ a.wTxt }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <p class="note">纵向:头行 24 + 4 + 立绘 172 + 4 + chip 2 行 43 = 247 ≤ 251(后排 109 + 排间 4 + 前排 138)。护盾 = 立绘左下金色角标(同现状,无护盾条)。
+      16:9 右栏只有 107:攻 3 位(56)+ 甲 2 位(48)+ 4 = 108,折成两行,纵向余量充足。蓄力预警 178 在底部全宽流里,两档都与削弱 / 致命同排。
+      Boss 现有讹熔立绘是 512² 方图,<b class="new">直接按 220 → 172 缩放,不需重裁</b>。</p>
+  </div>
+
+  <div class="sec">
+    <h3>④ 档位签(新元素)</h3>
+    <div class="tiers" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <sc-for list="{{ tiers }}" as="t">
+        <div class="cell" style="flex-direction:row;align-items:center;gap:10px">
+          <div class="z3wrap" style="height:30px;width:200px"><div class="z3"><div class="row3 e-Water"><b class="nm">{{ t.nm }}</b><i class="eb">水</i><i class="{{ t.cls }}" style="{{ t.style }}">{{ t.t }}</i></div></div></div>
+          <p style="font-size:9px;color:var(--text-dim)">{{ t.desc }}</p>
+        </div>
+      </sc-for>
+    </div>
+    <ul style="margin-top:8px">
+      <li>宋体粗 13 → 6.21pt,padX 8,高 18 → 8.6pt,方角 2 → 1pt,纸底 <code>panel-paper</code> + 1.5 描边(同字色)。宽:两字 34、「Boss」37。</li>
+      <li>和战况 chip 三处分开:<b>纸底描边</b>(战况一律实底、不描边)、<b>方角</b>(战况胶囊)、<b>宋体</b>(战况黑体,与名字同族 → 读作「名牌」)。</li>
+      <li>四色由轻到重:小怪 <code>text-dim</code> 5.6:1 · 头领 <code>ink-soft</code> 7.9:1 · 精英 <code>gold-deep</code> 5.0:1 · Boss <code>cinnabar-dark</code> 7.6:1(均对 panel-paper,全过 AA)。无新 token。</li>
+      <li>位置:头行末尾、靠右对齐(信息列 / 竖块右沿),六格的档位签落在同一条竖线上,扫一眼就分清。</li>
+      <li>头行验算:16:9 前排信息列 153 ≥ 最长小怪名「标点小妖」76 + 6 + 徽章 25 + 6 + 签 34 = 147;竖块 292 ≥「惊【涛】骇浪」114 + 6 + 25 + 6 + 37 = 188。</li>
+      <li>详情弹窗同一枚签放在名字后(同样式)。</li>
+    </ul>
+  </div>
+
+  <div class="sec">
+    <h3>⑤ 头领立绘画幅</h3>
+    <div style="display:flex;gap:18px;align-items:flex-start">
+      <div class="art"><b class="a0">漩</b><b class="a1">涡</b><i class="safe"></i><i class="eye"></i>
+        <span style="left:4px;top:4px">512 × 512 · 1:1</span><span style="right:4px;bottom:4px">安全区 7% 内缩</span><span style="left:31%;top:47%">眼区</span></div>
+      <ul style="margin:0">
+        <li>画幅 <b class="new">1:1 方图,512 × 512</b>(与成语 Boss 讹熔图同规格),显示 172 × 172 逻辑(82pt),两档屏宽同尺寸。</li>
+        <li>分层同 <code>InitBossRig</code>:wisp(意象)→ c0 / c1(两字白层,运行时着色)→ halo / iris / eyes。两字都染本属性字形色或一深一浅,不走 Boss 的「逐阶正字」。</li>
+        <li>两字讹熔成团、略斜错叠(上左一字、下右一字),主体留在 7% 安全区内,眼放在团块中上(约 34%–46% 高)。</li>
+        <li>竖块其实是横向偏宽的块(396 × 251 / 292 × 251),立绘区固定方形 → 不要出竖长图。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>⑥ 实现要改的常量(BattleView)</h3>
+    <ul>
+      <li><code>EnemyCellW</code> = (_fieldWidth − RowGap × 2) / 3;<code>SummonCellW</code> 同值(不再 × FieldScale)。</li>
+      <li>敌人单列立绘不再乘 <code>FieldScale</code>(126 / 96 固定)。</li>
+      <li><code>ChipMaxLines</code> 拆成 前排 3 / 后排 2;<code>BossChipMaxLines</code> 3 → 竖块底部流 2;新增竖块右栏 攻 / 甲 ChipFlow(≤ 2 行)。</li>
+      <li><code>BossPortraitSize</code> 220 → 172;竖块排布改成「头行 / 立绘 + 右栏 / 全宽流」三段。</li>
+      <li>头行加档位签:<code>Ui.Chip</code> 走描边参数(字 13 / padX 8 / padY 5 / 描边 1.5 / 圆角 2),新增 <code>TierChipFontSize</code> 等常量。文案 4 条进字符串表(小怪 / 头领 / 精英 / Boss),重跑字体子集。</li>
+      <li>召唤槽 <code>SummonCap</code> 6、顺序与解锁层见 ②;「N 关解锁」文案沿用。</li>
+    </ul>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 1400}}'>
+var BG = window.BG;
+class Component extends DCLogic {
+  renderVals() {
+    var rows = BG.specRows().map(function (r, i) { r.cls = i === 5 ? 'sep' : ''; return r; });
+    var Z = 2 / BG.K, C = BG.C;
+    function px(v) { return (v * Z).toFixed(1) + 'px'; }
+    var anat = ['base', 'narrow'].map(function (wk) {
+      var W = BG.geom(wk).cellW, side = W - C.BossPort - C.EGap, y0 = C.HeaderH + 4, yl = y0 + C.BossPort + 4;
+      var ab = function (x, y, w, h) { return 'left:' + px(x) + ';top:' + px(y) + ';width:' + px(w) + ';height:' + px(h); };
+      return { box: 'width:' + px(W) + ';height:' + px(C.BossH),
+        hd: ab(0, 0, W, C.HeaderH), pt: ab(0, y0, C.BossPort, C.BossPort),
+        side: ab(C.BossPort + C.EGap, y0, side, 43), bar: ab(C.BossPort + C.EGap, y0 + C.BossPort - 29, side, 29),
+        low: ab(0, yl, W, 43), sideW: Math.round(side), lowW: Math.round(W - 4),
+        dimW: 'left:0;top:-14px', wTxt: (wk === 'base' ? '基准机 ' : '16:9 ') + Math.round(W * 10) / 10 + ' × 251' };
+    });
+    var tiers = [['minion', '泼墨', '普通层杂兵、Boss 层随从'], ['leader', '漩涡', '双字头领(13 层起)'], ['elite', '枯木逢春', '精英层 Boss(5 / 15 / 25…)'], ['boss', '惊涛骇浪', '主题 Boss(10 / 20…)']]
+      .map(function (t) { var m = BG.tierModel(t[0])[0]; return { nm: t[1], cls: m.cls, style: m.style, t: m.t, desc: t[2] }; });
+    return { rows: rows, anat: anat, tiers: tiers };
+  }
+}
+</script>
+</body>
+</html>
