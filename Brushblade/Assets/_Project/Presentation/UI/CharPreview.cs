@@ -165,7 +165,7 @@ namespace Brushblade.Presentation
 
             if (!string.IsNullOrEmpty(def.Gloss))
             {
-                var gloss = Ui.ThemedLabel(info.transform, def.Gloss, 21, Theme.LockGray);
+                var gloss = Ui.ThemedLabel(info.transform, Ui.NoBreakSpaces(def.Gloss), 21, Theme.LockGray);
                 gloss.alignment = TextAnchor.UpperLeft;
                 gloss.horizontalOverflow = HorizontalWrapMode.Wrap;
                 Ui.Sized(gloss.gameObject, infoW, Ui.WrappedTextHeight(def.Gloss, 21, infoW));
@@ -237,7 +237,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)scroll.transform, Vector2.zero, Vector2.one,
                 new Vector2(19, 11), new Vector2(-13, -11));
             float inner = width - 32;
-            var label = Ui.ThemedLabel(content, text, 21, Theme.TextMain);
+            var label = Ui.ThemedLabel(content, Ui.NoBreakSpaces(text), 21, Theme.TextMain);
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(label.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(text, 21, inner));
@@ -367,7 +367,7 @@ namespace Brushblade.Presentation
             if (!string.IsNullOrEmpty(def.Gloss))
             {
                 int glossSize = tall ? 21 : 20;
-                var gloss = Ui.ThemedLabel(info.transform, def.Gloss, glossSize, Theme.TextWarm);
+                var gloss = Ui.ThemedLabel(info.transform, Ui.NoBreakSpaces(def.Gloss), glossSize, Theme.TextWarm);
                 gloss.alignment = TextAnchor.UpperLeft;
                 gloss.horizontalOverflow = HorizontalWrapMode.Wrap;
                 Ui.Sized(gloss.gameObject, infoW, Ui.WrappedTextHeight(def.Gloss, glossSize, infoW));
@@ -406,7 +406,7 @@ namespace Brushblade.Presentation
             if (!owned)
             {
                 string text = Strings.T("collection.side.get.chest", ("hint", ChestHint(def.Rarity)));
-                var get = Ui.ThemedLabel(lvRow.transform, text, 18, Theme.TextDim);
+                var get = Ui.ThemedLabel(lvRow.transform, Ui.NoBreakSpaces(text), 18, Theme.TextDim);
                 get.alignment = TextAnchor.LowerLeft;
                 get.horizontalOverflow = HorizontalWrapMode.Wrap;
                 Ui.Sized(get.gameObject, rest, Ui.WrappedTextHeight(text, 18, rest));
@@ -676,7 +676,7 @@ namespace Brushblade.Presentation
 
         private static void Note(Transform parent, string text, int size)
         {
-            var note = Ui.ThemedLabel(parent, text, size, Theme.TextWarm);
+            var note = Ui.ThemedLabel(parent, Ui.NoBreakSpaces(text), size, Theme.TextWarm);
             note.alignment = TextAnchor.UpperLeft;
             note.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(note.gameObject, SideW, Ui.WrappedTextHeight(text, size, SideW));
@@ -699,14 +699,14 @@ namespace Brushblade.Presentation
                     string text = Strings.T("charsheet.part.mark", ("trait", mark.Trait.Name),
                         ("effects", CharInfo.SideEffectsText(mark.Trait.Effects, source, level)),
                         ("count", mark.Remaining));
-                    var line = Ui.ThemedLabel(col, text, 20, Theme.GoldDeep);
+                    var line = Ui.ThemedLabel(col, Ui.NoBreakSpaces(text), 20, Theme.GoldDeep);
                     line.alignment = TextAnchor.UpperLeft;
                     line.horizontalOverflow = HorizontalWrapMode.Wrap;
                     Ui.Sized(line.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(text, 20, width));
                 }
             SectionTitle(col, Strings.T("charsheet.section.howto"));
             string howto = Strings.T("charsheet.solo.howto");
-            var note = Ui.ThemedLabel(col, howto, 20, Theme.TextDim);
+            var note = Ui.ThemedLabel(col, Ui.NoBreakSpaces(howto), 20, Theme.TextDim);
             note.alignment = TextAnchor.UpperLeft;
             note.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(note.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(howto, 20, width));

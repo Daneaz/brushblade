@@ -733,7 +733,7 @@ namespace Brushblade.Presentation
             var row = Ui.Row(parent, "Hero", 21);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             float metaWidth = SideW - SidePad * 2 - HeroBlock - 21;
-            string where = WhereText(def, known);
+            string where = Ui.NoBreakSpaces(WhereText(def, known));   // Wrap 正文(2026-10-18 收尾 §8)
             float whereHeight = Ui.WrappedTextHeight(where, 19, metaWidth);
             // 名字 40 + chip 区两行 62 + 出没文字 + 底部余量:chip 区按**两行**留高,
             // 一行时多出来的空白由 VStack 吃掉;按一行留则「远程 + 锁人 + 护甲」那几只会被压扁
@@ -939,7 +939,7 @@ namespace Brushblade.Presentation
             // chip 底色与战斗详情 / 怪物预览同一套(恢复类 jade、信息类 ink-soft、其余朱砂)
             Ui.Chip(head.transform, name, chipColor, Color.white, 24, iconKey: iconKey);
 
-            var label = Ui.ThemedLabel(stack.transform, text, 21, Theme.TextMain);
+            var label = Ui.ThemedLabel(stack.transform, Ui.NoBreakSpaces(text), 21, Theme.TextMain);
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(label.gameObject, width - 40, Ui.WrappedTextHeight(text, 21, width - 40));
@@ -1020,7 +1020,7 @@ namespace Brushblade.Presentation
         private static void Tip(Transform parent, string text)
         {
             float width = SideW - SidePad * 2;
-            var label = Ui.ThemedLabel(parent, text, 20, Theme.TextDim);
+            var label = Ui.ThemedLabel(parent, Ui.NoBreakSpaces(text), 20, Theme.TextDim);
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(label.gameObject, 0, Ui.WrappedTextHeight(text, 20, width), flexWidth: 1);

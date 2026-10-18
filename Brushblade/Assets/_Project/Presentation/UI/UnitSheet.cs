@@ -119,7 +119,7 @@ namespace Brushblade.Presentation
                 // RectTransform 由布局组接管,手写的 sizeDelta 下一次布局就被覆盖。实际生效的
                 // 是 Text 自己报的 preferredWidth(整句不换行的宽度),一句长点的 flavor 就
                 // 横着捅出 info 列、捅出弹窗右缘。
-                var flavor = Ui.ThemedLabel(info, detail.Flavor, 13, Theme.TextDim, align: TextAnchor.UpperLeft);
+                var flavor = Ui.ThemedLabel(info, Ui.NoBreakSpaces(detail.Flavor), 13, Theme.TextDim, align: TextAnchor.UpperLeft);
                 flavor.horizontalOverflow = HorizontalWrapMode.Wrap;
                 flavor.verticalOverflow = VerticalWrapMode.Overflow;
                 Ui.Sized(flavor.gameObject, width: InfoWidth);
@@ -285,7 +285,7 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(line.transform, value, 15, Theme.TextMain, Theme.TitleFont);
                 if (note != null)
                 {
-                    var noteLabel = Ui.ThemedLabel(item.transform, note, 10, Theme.TextDim,
+                    var noteLabel = Ui.ThemedLabel(item.transform, Ui.NoBreakSpaces(note), 10, Theme.TextDim,
                         align: TextAnchor.UpperLeft);
                     noteLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
                     noteLabel.verticalOverflow = VerticalWrapMode.Overflow;
@@ -391,7 +391,7 @@ namespace Brushblade.Presentation
 
             // 说明文字长度不受控,左列虽在 ScrollList 的 Viewport 内(有 RectMask2D)会被裁掉、
             // 不至于糊到弹窗外,但裁掉同样会丢字——开换行才是真正的修法(2026-09-01 review)。
-            var desc = Ui.ThemedLabel(textCol.transform, status.Desc, 11, status.Dimmed ? Theme.LockGray : Theme.TextDim,
+            var desc = Ui.ThemedLabel(textCol.transform, Ui.NoBreakSpaces(status.Desc), 11, status.Dimmed ? Theme.LockGray : Theme.TextDim,
                 align: TextAnchor.UpperLeft);
             desc.horizontalOverflow = HorizontalWrapMode.Wrap;
             desc.verticalOverflow = VerticalWrapMode.Overflow;
@@ -531,7 +531,7 @@ namespace Brushblade.Presentation
             }
             if (inline)
             {
-                var inlineDesc = Ui.ThemedLabel(header.transform, ability.Desc, AbilityDescFont, Theme.TextDim,
+                var inlineDesc = Ui.ThemedLabel(header.transform, Ui.NoBreakSpaces(ability.Desc), AbilityDescFont, Theme.TextDim,
                     align: TextAnchor.UpperLeft);
                 inlineDesc.horizontalOverflow = HorizontalWrapMode.Wrap;
                 inlineDesc.verticalOverflow = VerticalWrapMode.Overflow;
@@ -544,7 +544,7 @@ namespace Brushblade.Presentation
                 // 说明文字长度不受控(战斗数值随时可能拼出很长的 note),这一列从自身到 Face
                 // 全程没有 Mask/RectMask2D——不开换行会不被裁剪地溢出到卡片外甚至弹窗外
                 // (2026-09-01 review 抓到)。
-                var desc = Ui.ThemedLabel(stack.transform, ability.Desc, AbilityDescFont, Theme.TextDim,
+                var desc = Ui.ThemedLabel(stack.transform, Ui.NoBreakSpaces(ability.Desc), AbilityDescFont, Theme.TextDim,
                     align: TextAnchor.UpperLeft);
                 desc.horizontalOverflow = HorizontalWrapMode.Wrap;
                 desc.verticalOverflow = VerticalWrapMode.Overflow;
