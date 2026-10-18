@@ -57,7 +57,7 @@ namespace Brushblade.Presentation
             }
             if (def != null && MobAssets.IsLeaderRig(prefix))
             {
-                InitLeaderRig(prefix, size, def.Element);
+                InitLeaderRig(prefix, size, def);
                 return true;
             }
 
@@ -86,22 +86,45 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>双字头领骨架(2026-10-18):与 Boss 讹熔同一套分层,但只有两个字、只有一个阶段 ——
-        /// 不切阶段、不正字、不收拢。着色裁定「同系一深一亮」:上字 c0 染 GlyphColor(深)、
-        /// 下字 c1 染 ElementColor(亮),属性一眼可读,交叠处分得出是两个字;虹膜染亮色。
-        /// _chars 刻意不赋值:PlayBossPhase 见它为 null 就什么都不做。</summary>
-        private void InitLeaderRig(string prefix, float size, Element element)
+        /// 不切阶段、不正字、不收拢。_chars 刻意不赋值:PlayBossPhase 见它为 null 就什么都不做。
+        ///
+        /// 着色「同系一深一亮」(控制方裁定,五系同一推导、不新增 token):
+        /// 亮 = 本系字形色 <see cref="Theme.GlyphColor"/>,深 = 亮色向 <see cref="Theme.Ink"/> 插值
+        /// <see cref="LeaderDeepen"/>(Color.Lerp(light, Ink, 0.35))。上字 c0 染深、下字 c1 染亮;虹膜染 ElementColor。
+        /// 与 build_boss_art.leader_tints 同一口径(那边只出预览)。
+        ///
+        /// Obscure(浊浪):没被读懂前两层都染墨色(同 Boss 非当前阶段字的 <see cref="InkTint"/>),
+        /// 读懂后才露本系色 —— 判据与杂兵同一个:<see cref="MobAssets.StateAmountFor"/> 的
+        /// Obscure 分支(ApparentElement == null 即未读懂),经 <see cref="SetStateAmount"/> 传进来。</summary>
+        private void InitLeaderRig(string prefix, float size, EnemyDef def)
         {
             _wisp = AddLayer("Wisp", MobAssets.Layer(prefix, "wisp"), size);   // 配饰垫底,同 Boss
             _body = Container("Mass", size);
-            AddLayer("Char0", MobAssets.Layer(prefix, "c0"), size, out var upper, _body);
-            AddLayer("Char1", MobAssets.Layer(prefix, "c1"), size, out var lower, _body);
-            if (upper != null) upper.color = Theme.GlyphColor(element);
-            if (lower != null) lower.color = Theme.ElementColor(element);
+            _leaderChars = new Image[2];
+            AddLayer("Char0", MobAssets.Layer(prefix, "c0"), size, out _leaderChars[0], _body);
+            AddLayer("Char1", MobAssets.Layer(prefix, "c1"), size, out _leaderChars[1], _body);
+            Color light = Theme.GlyphColor(def.Element);
+            _leaderTints = new[] { Color.Lerp(light, Theme.Ink, LeaderDeepen), light };
+            _leaderObscure = def.Ability == EnemyAbility.Obscure;
             _face = Container("Eyes", size);
             AddLayer("Halo", MobAssets.Layer(prefix, "halo"), size, out _, _face);
             AddLayer("Iris", MobAssets.Layer(prefix, "iris"), size, out var iris, _face);
             AddLayer("EyeRim", MobAssets.Layer(prefix, "eyes"), size, out _, _face);
-            if (iris != null) iris.color = Theme.ElementColor(element);
+            if (iris != null) iris.color = Theme.ElementColor(def.Element);
+            ApplyLeaderTint(0f);
+        }
+
+        private const float LeaderDeepen = 0.35f;
+        private Image[] _leaderChars;
+        private Color[] _leaderTints;
+        private bool _leaderObscure;
+
+        /// <summary>hidden 0~1:1 = 未读懂(全墨),0 = 本系一深一亮;只有 Obscure 头领会收到非 0。</summary>
+        private void ApplyLeaderTint(float hidden)
+        {
+            for (int i = 0; i < _leaderChars.Length; i++)
+                if (_leaderChars[i] != null)
+                    _leaderChars[i].color = Color.Lerp(_leaderTints[i], InkTint, hidden);
         }
 
         private RectTransform Container(string name, float size)
@@ -255,6 +278,8 @@ namespace Brushblade.Presentation
         /// <summary>状态层强度 0~1(L4 绑战斗字段:缺笔妖补全进度、焦痕火芯亮度……)。</summary>
         public void SetStateAmount(float amount)
         {
+            // Obscure 头领没有 state 层:「未读懂」改由两字层的墨色表达(见 InitLeaderRig)
+            if (_leaderChars != null && _leaderObscure) ApplyLeaderTint(Mathf.Clamp01(amount));
             if (_stateImage == null) return;
             var color = _stateImage.color;
             color.a = Mathf.Clamp01(amount);

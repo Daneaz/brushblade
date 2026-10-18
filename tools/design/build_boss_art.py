@@ -294,8 +294,8 @@ def _write_meta(png: Path):
 # 画幅按 designer 战场稿(docs/design/drafts/battlegrid/ GridSpec ⑤):1:1 方图 512×512,同成语 Boss;
 # 两字略斜错叠(上左一字、下右一字),主体在 7% 安全区内,眼在团块中上(约 34%–46% 高),显示 172。
 # 层与 Boss 同名(少 c2/c3):c0 c1 halo iris eyes wisp body face,前缀 leader_<slug>。
-# 运行时着色(MobView 头领骨架):上字 c0 染 GlyphColor(深)、下字 c1 染 ElementColor(亮),
-# 同系一深一亮 —— 属性一眼可读,交叠处分得出是两个字;头领只有一个阶段,不换色。
+# 运行时着色(MobView 头领骨架):同系一深一亮,推导见 leader_tints —— 属性一眼可读,交叠处分得出
+# 是两个字;头领只有一个阶段,不换色。Obscure(浊浪)未读懂前两层都染墨色。
 # 用户要的是「大概猜得出是这两个字」的讹熔团,不是逐字清晰的构图。
 
 LEADER_W, LEADER_H = SIZE, SIZE
@@ -545,19 +545,29 @@ def build_leader(name, slug, element, layout, eyes, holes, deco):
     return layers
 
 
-# 预览用的运行时着色(与 Theme.cs 对齐):上字染 GlyphColor(深),下字染 ElementColor(亮),
-# 两层同系不同深浅,交叠处才分得出是两个字。运行时若改成别的配法,只动这里与 MobView。
-GLYPH_DEEP = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#82552A",
-              "Metal": "#6B6449", "Water": "#0A5E9E", "Heart": "#7E4190"}
+# 预览用的运行时着色(与 MobView.InitLeaderRig 同一推导,2026-10-18 控制方裁定):
+# 亮 = 本系字形色 Theme.GlyphColor;深 = 亮色向 Theme.Ink 插值 35%(Color.Lerp(light, Ink, 0.35))。
+# 五系同一规则、不新增 token;上字 c0 染深、下字 c1 染亮。运行时若改配法,只动这里与 MobView。
+GLYPH = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#82552A",
+         "Metal": "#6B6449", "Water": "#0A5E9E", "Heart": "#7E4190"}
+LEADER_DEEPEN = 0.35
 
 
-# 亮的那层 = Theme.ElementColor;它的土色 2026 年为 chip 对比度改成了 #8F7332,与上面 EL 的 #997C3C 不同
-ELEMENT_UI = {**EL, "Earth": "#8F7332"}
+def _lerp_hex(a, b, t):
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
+
+
+def leader_tints(element):
+    """(上字深, 下字亮)。"""
+    light = GLYPH[element]
+    return _lerp_hex(light, INK, LEADER_DEEPEN), light
 
 
 def leader_preview(name, element, layout, eyes, holes, deco):
     """合成预览:宣纸底 + 两字着色 + 眼 + 配饰,与运行时叠层次序一致。"""
-    tints = (GLYPH_DEEP[element], ELEMENT_UI[element])
+    tints = leader_tints(element)
     chars = "".join(_char_layer(c, i, tints[i % 2], layout) for i, c in enumerate(name))
     inner = (f'<rect width="{LEADER_W}" height="{LEADER_H}" fill="{PAPER}"/>'
              f'<g filter="url(#rs)">{deco()}</g>{_rotted(chars, holes)}'
