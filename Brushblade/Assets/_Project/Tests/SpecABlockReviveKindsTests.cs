@@ -122,8 +122,43 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Summons[1].Statuses.All.Count, Is.EqualTo(0));
         }
 
+        // ---- 复活预估(尸体标识稿:血条预演 / 复活签 / 复活全部只数)----
+
         [Test]
-        public void OnKill_SaplingFromBody_Spawns()  // 森·森生的前置核对:击杀反应里的 fromBody 幼苗能落地
+        public void EstimateCast_PickedRevive_ReportsSlotAndHp_BodyUntouched()
+        {
+            var (b, _) = TwoSprouts(new EffectDef(EffectKind.Revive, 1));
+            b.KillSummonForTest(0);
+            b.KillSummonForTest(1);
+            var est = b.EstimateCast("苏", -1, attackMode: false, allySlot: 1);
+            Assert.That(est.Error, Is.EqualTo(BattleError.None));
+            Assert.That(est.Revived.Count, Is.EqualTo(1));
+            Assert.That(est.Revived[1], Is.EqualTo(50), "Revive 0% = 半血");
+            Assert.That(b.Summons[1].Alive, Is.False, "预估不动本体");
+        }
+
+        [Test]
+        public void EstimateCast_ReviveAll_ReportsEveryCorpse()
+        {
+            var (b, _) = TwoSprouts(new EffectDef(EffectKind.Revive, 0, reviveHpPercent: 60));
+            b.KillSummonForTest(0);
+            b.KillSummonForTest(1);
+            var est = b.EstimateCast("苏", -1, attackMode: false, allySlot: 0);
+            Assert.That(est.Revived.Count, Is.EqualTo(2));
+            Assert.That(est.Revived[0], Is.EqualTo(60));
+            Assert.That(est.Revived[1], Is.EqualTo(60));
+        }
+
+        [Test]
+        public void EstimateCast_NoRevive_EmptyRevived()
+        {
+            var (b, _) = TwoSprouts(new EffectDef(EffectKind.Revive, 1));
+            var est = b.EstimateCast("灵", -1, attackMode: false);
+            Assert.That(est.Revived.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void OnKill_SaplingFromBody_Spawns() // 森·森生的前置核对:击杀反应里的 fromBody 幼苗能落地
         {
             var traits = new[] { new TraitDef(TraitSlot.Lv6, TraitFace.Attack, TraitForm.Passive, null, "森生",
                 new[] { new EffectDef(EffectKind.SummonSapling, 20, fromBody: true) }, TraitTrigger.OnKill) };

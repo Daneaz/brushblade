@@ -5777,6 +5777,7 @@ namespace Brushblade.Core
             revived.Statuses.Clear();
             // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
+            if (_estimateRevived != null) _estimateRevived[slot] = revived.Hp;   // 影子预估(尸体标识稿)
         }
 
         private int FirstDeadSummonIndex()
