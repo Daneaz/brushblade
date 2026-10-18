@@ -193,6 +193,8 @@ namespace Brushblade.Presentation
             Ui.Sized(row, width: InfoWidth);
 
             Ui.ThemedLabel(row.transform, detail.Name, 22, Theme.TextMain, Theme.TitleFont);
+            // 档位签紧跟名字(battlegrid 稿 ④:与战场头行同一枚、同样式);小怪 / 非敌人不画
+            if (detail.Tier is { } tier) EnemyInfo.TierTag(row.transform, tier);
 
             // 2026-09-01 review 修:此前靠比对 Tags 里有没有「无五行」那条文案来分辨
             // Element == null 的两种含义,脆弱且与 UnitDetail.Element 的字段注释自相矛盾——
