@@ -481,10 +481,11 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 2026-10-05(D1 Task 12,用户拍板 U2):剑 / 锥 拆两面,攻击面改单体 —— 横扫 / 贯穿
     # 字卡侧自此无载体(Lv8 横扫千军 / 锥心 才「改为横扫 / 贯穿」),断言改为「攻击面单体、
     # 五行面 = 铠」。
-    for cid in ("剑", "锥"):
+    # 2026-10-18(群攻入口 spec §1):剑 / 锥 本体改横扫 / 贯穿(范围内全额),形状字段重新落在攻击面本体。
+    for cid, shape in (("剑", "Row"), ("锥", "Column")):
         attack = by_id[cid]["attackEffects"][0]
         assert attack["kind"] == "DamageSingle", f"{cid} 攻击面是伤害"
-        assert "shape" not in attack and "shapePercent" not in attack, f"{cid} 攻击面单体(U2)"
+        assert attack.get("shape") == shape and "shapePercent" not in attack, f"{cid} 攻击面{shape}、全额"
         assert [e["kind"] for e in by_id[cid]["effects"]] == ["Morale", "Block"], f"{cid} 铠 = 战意 + 格挡"
     # 2026-09-16(土水系机制重做 Task 12):枪(唯一的召唤被动 Skewer 载体)移出字表。
     assert "枪" not in by_id, "枪 已移出字表(spec §7.1)"

@@ -2564,7 +2564,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 68,
+          "shape": "Column"
         },
         {
           "kind": "Seed",
@@ -2755,7 +2756,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 133
+          "value": 100,
+          "shape": "Row"
         },
         {
           "kind": "Seed",
@@ -2898,9 +2900,8 @@
             {
               "kind": "Reshape",
               "value": 0,
-              "shape": "Row",
-              "shapePercent": 60,
-              "hitPercent": 60
+              "shape": "All",
+              "shapePercent": 67
             },
             {
               "kind": "BurnSingle",
@@ -7080,7 +7081,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 68,
+          "shape": "Row"
         },
         {
           "kind": "Morale",
@@ -7214,8 +7216,8 @@
             {
               "kind": "Reshape",
               "value": 0,
-              "shape": "Row",
-              "shapePercent": 50
+              "shape": "All",
+              "shapePercent": 67
             },
             {
               "kind": "Morale",
@@ -7262,7 +7264,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 68,
+          "shape": "Column"
         },
         {
           "kind": "Morale",
@@ -7399,8 +7402,8 @@
             {
               "kind": "Reshape",
               "value": 0,
-              "shape": "Column",
-              "shapePercent": 70,
+              "shape": "All",
+              "shapePercent": 67,
               "armorIgnorePercent": 100
             }
           ]
@@ -8825,7 +8828,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 62
+          "value": 46,
+          "shape": "Row"
         },
         {
           "kind": "ArmorBreak",
@@ -8944,8 +8948,8 @@
             {
               "kind": "Reshape",
               "value": 0,
-              "shape": "Row",
-              "shapePercent": 50
+              "shape": "All",
+              "shapePercent": 67
             },
             {
               "kind": "ArmorBreak",
@@ -9689,7 +9693,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 68,
+          "shape": "Adjacent"
         },
         {
           "kind": "ArmorBreak",
@@ -9771,8 +9776,8 @@
             {
               "kind": "Reshape",
               "value": 0,
-              "shape": "Row",
-              "shapePercent": 50
+              "shape": "All",
+              "shapePercent": 67
             }
           ]
         },

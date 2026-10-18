@@ -203,18 +203,28 @@ namespace Brushblade.Core.Tests
                     Assert.That(e.ExecuteBelowPercent, Is.EqualTo(0), $"{d.Id}:{e.Kind} 仍带斩杀");
                     Assert.That(e.ArmorStrikePercent, Is.EqualTo(0), $"{d.Id}:{e.Kind} 仍带镇压");
                     Assert.That(e.TrueDamage, Is.False, $"{d.Id}:{e.Kind} 仍带碾");
-                    Assert.That(e.Shape == TargetArea.Single || e.Shape == TargetArea.All, Is.True,
-                        $"{d.Id}:{e.Kind} 形状 {e.Shape} 不是单体 / 全体(U2)");
+                    // 2026-10-18 群攻入口 spec §1:剑 / 锥 / 箭 / 楸 / 碎 / 垒 本体改横扫 / 贯穿 / 溅射,其余仍是 U2
+                    if (!GroupBody.ContainsKey(d.Id))
+                        Assert.That(e.Shape == TargetArea.Single || e.Shape == TargetArea.All, Is.True,
+                            $"{d.Id}:{e.Kind} 形状 {e.Shape} 不是单体 / 全体(U2)");
                 }
         }
+
+        private static readonly Dictionary<string, TargetArea> GroupBody = new()
+        {
+            ["剑"] = TargetArea.Row, ["锥"] = TargetArea.Column, ["箭"] = TargetArea.Column,
+            ["楸"] = TargetArea.Row, ["碎"] = TargetArea.Adjacent, ["垒"] = TargetArea.Row,
+        };
 
         [Test]
         public void U2_Shapes()
         {
             TargetArea AttackShape(string id) => Only(Char(id).AttackEffects, EffectKind.DamageSingle, id).Shape;
 
-            foreach (var id in new[] { "灿", "剑", "锥", "鑫", "淋", "海", "㙓" })
+            foreach (var id in new[] { "灿", "鑫", "淋", "海", "㙓" })
                 Assert.That(AttackShape(id), Is.EqualTo(TargetArea.Single), $"{id} 攻击单体(U2)");
+            foreach (var (id, shape) in GroupBody)
+                Assert.That(AttackShape(id), Is.EqualTo(shape), $"{id} 攻击群体(2026-10-18 群攻入口)");
             foreach (var id in new[] { "爆", "炸", "烈", "焚", "焱", "燚", "溃", "㵘", "崩" })
                 Assert.That(AttackShape(id), Is.EqualTo(TargetArea.All), $"{id} 攻击全体(本体列)");
 

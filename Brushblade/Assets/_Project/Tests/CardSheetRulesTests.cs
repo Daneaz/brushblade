@@ -363,12 +363,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void AreaOf_Jian_Attack_SweepAtLv8()
+        public void AreaOf_Jian_Attack_SweepFromLv1_AllAtLv8()
         {
+            // 2026-10-18 群攻入口 spec §1:剑 本体横扫(Lv1 起),Lv8 横扫千军改全体 50
             var jian = Graph.Get("剑");
-            Assert.That(CardSheetRules.AreaOf(jian, CardFace.Attack, 1), Is.EqualTo(TargetArea.Single));
-            Assert.That(CardSheetRules.AreaOf(jian, CardFace.Attack, 7), Is.EqualTo(TargetArea.Single));
-            Assert.That(CardSheetRules.AreaOf(jian, CardFace.Attack, 8), Is.EqualTo(TargetArea.Row), "横扫千军");
+            Assert.That(CardSheetRules.AreaOf(jian, CardFace.Attack, 1), Is.EqualTo(TargetArea.Row));
+            Assert.That(CardSheetRules.AreaOf(jian, CardFace.Attack, 7), Is.EqualTo(TargetArea.Row));
+            Assert.That(CardSheetRules.AreaOf(jian, CardFace.Attack, 8), Is.EqualTo(TargetArea.All), "横扫千军");
         }
 
         [Test]
