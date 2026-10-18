@@ -3527,13 +3527,11 @@ namespace Brushblade.Presentation
                     enemy.ApparentElement is { } shownElement ? Theme.GlyphColor(shownElement) : Theme.NeutralPart,
                     Color.white);
                 // 档位签(battlegrid 稿 ④):头领 / 精英 / Boss 挂、小怪不挂(用户 2026-10-18)。
-                // 竖块头行定了全宽:名字 + 属性靠左、签被弹性空位推到右沿 —— 名字因此不再吃弹性宽
-                // (仍可被压窄:压缩看 min/preferred,与 flexible 无关)。单列格(理论上不会有非小怪)跟在属性后。
-                if (crossRow)
-                {
-                    nameElement.flexibleWidth = 0f;
-                    Ui.Sized(Ui.Panel(header, "Spacer"), flexWidth: 1f);
-                }
+                // 头行一律「名字 + 属性」紧挨着靠左、签被弹性空位推到右沿 —— 名字不吃弹性宽
+                // (仍可被压窄:压缩看 min/preferred,与 flexible 无关)。小怪也这样排(用户 2026-10-18:
+                // 属性紧跟名字,与 Boss / 头领对齐;此前名字吃满弹性宽,把属性挤到了格右沿)。
+                nameElement.flexibleWidth = 0f;
+                Ui.Sized(Ui.Panel(header, "Spacer"), flexWidth: 1f);
                 EnemyInfo.TierTag(header, enemy.Def.Tier);
 
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
