@@ -68,7 +68,7 @@ namespace Brushblade.Core.Tests
 
         private static void Dump(StringBuilder sb, IReadOnlyList<BattleEvent> events)
         {
-            foreach (var e in events)
+            foreach (var e in events.Where(x => x.Kind != BattleEventKind.StatusApplied))   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                 sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source}:{e.Crit};");
         }
 

@@ -78,7 +78,7 @@ namespace Brushblade.Core.Tests
                 eachTurn(b, t, sb);
                 sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
-                foreach (var e in b.LastEvents)
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.StatusApplied))   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();

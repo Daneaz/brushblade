@@ -53,9 +53,9 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(Enumerable.Range((int)BattleEventKind.CharGranted + 1, 3)));
             // E4 Task 1 在其后追加 EndureSaved(E4CoreTests.E4EnumValues_AppendedAtEnd 守它的位置);
             // 格挡反击动效再追加 BlockUsed(BlockUsedEventTests.BlockUsed_AppendedAtEnd 守它的位置);
-            // spec C 终审修复 2 再追加 ElementChanged
+            // spec C 终审修复 2 再追加 ElementChanged;上状态动效统一再追加 StatusApplied(StatusAppliedEventTests 守它的位置)
             Assert.That((int)BattleEventKind.ElementChanged, Is.EqualTo((int)BattleEventKind.BlockUsed + 1));
-            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.ElementChanged));
+            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.StatusApplied));
             Assert.That((int)EffectSource.SkillCut, Is.EqualTo((int)EffectSource.ReturnFire + 1));
             // E4 Task 1 在其后追加 BurnGrow
             Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.BurnGrow));

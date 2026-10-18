@@ -102,7 +102,7 @@ namespace Brushblade.Core.Tests
             {
                 Arm(b);
                 b.EndTurn();
-                foreach (var e in b.LastEvents)
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.StatusApplied))   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Source};");
                 sb.Append($"|P{b.PlayerHp}");
                 foreach (var en in b.Enemies)
