@@ -79,7 +79,7 @@ namespace Brushblade.Core
         private List<string> _carriedLibrary;
         private List<string> _carriedPool;
         private int _carriedHp;
-        // 局内血量上限加成(2026-08-04):奇遇按当前有效上限的百分比复利累加。
+        // 局内血量上限加成(2026-08-04;2026-10-18 改为按基础上限线性累加,不再复利)。
         // 局外 Meta.MaxHpFor 硬顶 1480(50 级),而怪物 scale 无上限 —— 这是关内把上限顶上去的唯一手段。
         private int _maxHpBonus;
         private int _carriedNormalShield;
@@ -417,7 +417,9 @@ namespace Brushblade.Core
             {
                 bool gained = option.MaxHpChancePercent <= 0
                     || _random.Next(100) < option.MaxHpChancePercent;
-                int delta = EffectiveMaxHp * (gained ? option.MaxHpPercent : -option.MaxHpPercent) / 100;
+                // 按**基础**上限(局外养成的上限,不含局内已叠的加成)线性累加(2026-10-18):原按当前有效上限复利,
+                // 1.3^15 ≈ 51 倍 —— 一局叠到 8 万血、怪打不动;怪物缩放是线性的(每层 +10%),玩家这边也该线性。
+                int delta = Math.Max(1, _battleConfig.PlayerMaxHp) * (gained ? option.MaxHpPercent : -option.MaxHpPercent) / 100;
                 _maxHpBonus += delta;
                 if (delta > 0) _carriedHp += delta;                    // 拿到的是血也是容器
                 _carriedHp = Math.Clamp(_carriedHp, 1, EffectiveMaxHp); // 扣上限时把当前血收回来

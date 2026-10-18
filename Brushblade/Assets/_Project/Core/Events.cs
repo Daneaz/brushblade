@@ -23,7 +23,7 @@ namespace Brushblade.Core
         public int RandomComponents { get; set; }             // 随机部件个数(五行均匀掷,2026-07-19)
         public IReadOnlyList<string> GainCharChoices { get; set; } = Array.Empty<string>(); // 任选一字入库(字摊)
         public int InkChancePercent { get; set; }             // >0 = Ink 按此概率发放(赌注;成本照付)
-        // 局内血量上限增减(2026-08-04):按**当前**有效上限的百分比复利叠加,正数同步等量回血。
+        // 局内血量上限增减(2026-08-04):按**基础**上限的百分比线性叠加(2026-10-18 改,原为当前上限复利),正数同步等量回血。
         // 深层怪物 scale 无上限而 Meta.MaxHpFor 硬顶 1480(50 级),靠这个在关内把上限顶上去。
         public int MaxHpPercent { get; set; }
         // >0 = MaxHpPercent 按此概率生效,**掷空则反向扣同样百分比**(不同于 InkChancePercent 的「不中即无」)
