@@ -75,8 +75,55 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Summons[1].Shield, Is.EqualTo(0), "没被复活的不给");
         }
 
+        // ---- 复活清状态(spec 2026-10-18 木灵尸体标识 §2):阵亡前挂的状态不跟着回来 ----
+
+        private static void LoadStatuses(StatusBag bag)
+        {
+            bag.Apply(new StatusEffect { Kind = StatusKind.Block, Polarity = StatusPolarity.Buff, Magnitude = 2, CounterDamage = 30, TurnsLeft = -1 });
+            bag.Apply(new StatusEffect { Kind = StatusKind.Morale, Polarity = StatusPolarity.Buff, Magnitude = 3, TurnsLeft = -1 });
+            bag.Apply(new StatusEffect { Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff, Magnitude = 4, TurnsLeft = -1, SourceId = "炎" });
+            bag.Apply(new StatusEffect { Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = 9, TurnsLeft = -1,
+                SourceId = BattleEngine.HardenSourceId });   // 磐固
+        }
+
+        private static (BattleEngine b, CharDef su) TwoSprouts(params EffectDef[] suEffects)
+        {
+            var sprout = new CharDef("灵", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 2, summonChar: "灵") }, isComponent: false);
+            var su = new CharDef("苏", Element.Heart, effects: suEffects, isComponent: false);
+            var b = Battle(new[] { sprout, su }, 1);
+            Assert.That(b.Cast("灵", -1), Is.EqualTo(BattleError.None));
+            return (b, su);
+        }
+
         [Test]
-        public void OnKill_SaplingFromBody_Spawns()   // 森·森生的前置核对:击杀反应里的 fromBody 幼苗能落地
+        public void Revive_ClearsAllStatuses_ShieldStillGranted_OthersUntouched()
+        {
+            var (b, _) = TwoSprouts(new EffectDef(EffectKind.Revive, 0, reviveHpPercent: 60), new EffectDef(EffectKind.ReviveShield, 30));
+            LoadStatuses(b.Summons[0].Statuses);
+            LoadStatuses(b.Summons[1].Statuses);
+            b.KillSummonForTest(0);
+            Assert.That(b.Summons[0].Statuses.All.Count, Is.EqualTo(4), "清在复活那一刻,阵亡时状态还在");
+            Assert.That(b.Cast("苏", -1), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[0].Alive, Is.True);
+            Assert.That(b.Summons[0].Statuses.All.Count, Is.EqualTo(0), "格挡 / 战意 / 灼 / 磐固全清");
+            Assert.That(b.Summons[0].Shield, Is.EqualTo(30), "泽润在清空之后施加,不被清掉");
+            Assert.That(b.Summons[1].Statuses.All.Count, Is.EqualTo(4), "只清复活的那只");
+        }
+
+        [Test]
+        public void Revive_PickedCorpse_ClearsStatuses()
+        {
+            var (b, _) = TwoSprouts(new EffectDef(EffectKind.Revive, 1));
+            LoadStatuses(b.Summons[1].Statuses);
+            b.KillSummonForTest(1);
+            Assert.That(b.Cast("苏", -1, allySlot: 1), Is.EqualTo(BattleError.None));
+            Assert.That(b.Summons[1].Alive, Is.True);
+            Assert.That(b.Summons[1].Statuses.All.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void OnKill_SaplingFromBody_Spawns()  // 森·森生的前置核对:击杀反应里的 fromBody 幼苗能落地
         {
             var traits = new[] { new TraitDef(TraitSlot.Lv6, TraitFace.Attack, TraitForm.Passive, null, "森生",
                 new[] { new EffectDef(EffectKind.SummonSapling, 20, fromBody: true) }, TraitTrigger.OnKill) };
