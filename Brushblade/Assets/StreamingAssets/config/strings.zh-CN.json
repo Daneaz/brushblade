@@ -236,6 +236,7 @@
   "bestiary.empty": "这一段还没遇到过任何怪。",
   "bestiary.filter.all": "全部",
   "bestiary.filter.boss": "Boss",
+  "bestiary.filter.leader": "头领",
   "bestiary.header.stats": "已录 {unlocked}/{total}",
   "bestiary.header.unclaimed_chip": "{count} 条待领赏",
   "bestiary.side.bei": "它克 {element} 系，那一系出手 ×0.5",
