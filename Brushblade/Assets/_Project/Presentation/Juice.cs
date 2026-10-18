@@ -795,6 +795,10 @@ namespace Brushblade.Presentation
                             Theme.UpgradeText, enemyAnchor(e.TargetIndex), small: true);
                         PlayClip(_healClip, 0.5f);
                         break;
+                    // 斩首(spec 2026-10-18 §4):头领 / 精英 / Boss 阵亡,「斩首」从阵亡那一格飘出;慑走紧随其后的 StatusApplied
+                    case BattleEventKind.Behead:
+                        Popup(Strings.T("juice.popup.behead"), Theme.GoldDeep, enemyAnchor(e.TargetIndex));
+                        break;
                     case BattleEventKind.EnemyRevealed:
                         Popup(Strings.T("juice.popup.enemy_revealed"), Theme.SplitBlue, enemyAnchor(e.TargetIndex));
                         break;

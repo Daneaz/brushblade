@@ -399,6 +399,9 @@ namespace Brushblade.Core
                         // 白名单见 StatusCueRules.IsAnnounced。不发:灼(Burn / SummonBurn)、敌人加攻(EnemyBuff)、
                         // 锋芒(MoraleGain)、被拦下的施加(BuffBlocked / DebuffWarded / 冻结静默挡下)、影子引擎。
                         // 恒等指纹与 tools/trace 一律滤掉这条。
+        // ---- 斩首(spec 2026-10-18 §4;⚠ 只在末尾追加)----
+        Behead,         // 头领 / 精英 / Boss 阵亡、场上还有别的存活敌人(TargetIndex = 阵亡者下标)。表现层飘「斩首」;
+                        // 慑本身走紧随其后的 StatusApplied。发在 EnemyDied 之后、慑施加之前。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -6135,6 +6138,31 @@ namespace Brushblade.Core
             if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
+            Behead(enemyIndex);
+        }
+
+        /// <summary>斩首的慑(spec 2026-10-18 §4):量 30%、2 回合,全局同源(同批多只阵亡取最强、不叠)。</summary>
+        private const int BeheadCursePercent = 30;
+        private const int BeheadCurseTurns = 2;
+        private const string BeheadSourceId = "#behead";
+
+        /// <summary>斩首(spec 2026-10-18 §4):头领 / 精英 / Boss 阵亡 → 其余存活敌人挂慑。
+        /// 挂在 <see cref="ResolveDefeat"/>(五条死亡路径汇流点,同 <see cref="SpreadEmbers"/>);Boss 破阶不走这里。
+        /// 场上没有别的存活敌人时不施加、不播报。不摇随机数。</summary>
+        private void Behead(int enemyIndex)
+        {
+            if (_enemies[enemyIndex].Def.Tier == EnemyTier.Minion) return;
+            if (!_enemies.Any(e => e.Alive)) return;
+            _events.Add(new BattleEvent(BattleEventKind.Behead, enemyIndex, 0));
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                if (!_enemies[i].Alive) continue;
+                ApplyStatus(_enemies[i].Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                    Magnitude = BeheadCursePercent, TurnsLeft = BeheadCurseTurns, SourceId = BeheadSourceId,
+                }, UnitRef.Enemy(i), UnitRef.None);
+            }
         }
 
         /// <summary>火脉 L2「余烬」(spec 2026-09-13 §2.2):死者身上剩余的灼烧层数
