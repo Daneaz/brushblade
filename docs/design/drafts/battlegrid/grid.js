@@ -201,7 +201,8 @@ window.BG = (function () {
     }) };
   }
 
-  function tierModel(key) { var t = TIERS[key]; return [{ t: t.t, cls: 'tier ' + t.cls, style: 'width:' + pt(tierW(t.t)) + 'px' }]; }
+  // 小怪不挂签(用户 2026-10-18 拍板):只有头领 / 精英 / Boss 出
+  function tierModel(key) { if (key === 'minion') return []; var t = TIERS[key]; return [{ t: t.t, cls: 'tier ' + t.cls, style: 'width:' + pt(tierW(t.t)) + 'px' }]; }
 
   function mobLayers(art) {
     var A = window.ART || {};

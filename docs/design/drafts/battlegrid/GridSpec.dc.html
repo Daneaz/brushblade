@@ -117,9 +117,9 @@
     <ul style="margin-top:8px">
       <li>宋体粗 13 → 6.21pt,padX 8,高 18 → 8.6pt,方角 2 → 1pt,纸底 <code>panel-paper</code> + 1.5 描边(同字色)。宽:两字 34、「Boss」37。</li>
       <li>和战况 chip 三处分开:<b>纸底描边</b>(战况一律实底、不描边)、<b>方角</b>(战况胶囊)、<b>宋体</b>(战况黑体,与名字同族 → 读作「名牌」)。</li>
-      <li>四色由轻到重:小怪 <code>text-dim</code> 5.6:1 · 头领 <code>ink-soft</code> 7.9:1 · 精英 <code>gold-deep</code> 5.0:1 · Boss <code>cinnabar-dark</code> 7.6:1(均对 panel-paper,全过 AA)。无新 token。</li>
-      <li>位置:头行末尾、靠右对齐(信息列 / 竖块右沿),六格的档位签落在同一条竖线上,扫一眼就分清。</li>
-      <li>头行验算:16:9 前排信息列 153 ≥ 最长小怪名「标点小妖」76 + 6 + 徽章 25 + 6 + 签 34 = 147;竖块 292 ≥「惊【涛】骇浪」114 + 6 + 25 + 6 + 37 = 188。</li>
+      <li>三色由轻到重(小怪不挂):头领 <code>ink-soft</code> 7.9:1 · 精英 <code>gold-deep</code> 5.0:1 · Boss <code>cinnabar-dark</code> 7.6:1(均对 panel-paper,全过 AA)。无新 token。</li>
+      <li>位置:头行末尾、靠右对齐(竖块右沿)。小怪格不挂,所以「有签 = 不是杂兵」。</li>
+      <li>头行验算:竖块 292 ≥「惊【涛】骇浪」114 + 6 + 25 + 6 + 37 = 188。</li>
       <li>详情弹窗同一枚签放在名字后(同样式)。</li>
     </ul>
   </div>
@@ -145,7 +145,7 @@
       <li>敌人单列立绘不再乘 <code>FieldScale</code>(126 / 96 固定)。</li>
       <li><code>ChipMaxLines</code> 拆成 前排 3 / 后排 2;<code>BossChipMaxLines</code> 3 → 竖块底部流 2;新增竖块右栏 攻 / 甲 ChipFlow(≤ 2 行)。</li>
       <li><code>BossPortraitSize</code> 220 → 172;竖块排布改成「头行 / 立绘 + 右栏 / 全宽流」三段。</li>
-      <li>头行加档位签:<code>Ui.Chip</code> 走描边参数(字 13 / padX 8 / padY 5 / 描边 1.5 / 圆角 2),新增 <code>TierChipFontSize</code> 等常量。文案 4 条进字符串表(小怪 / 头领 / 精英 / Boss),重跑字体子集。</li>
+      <li>头行加档位签:<code>Ui.Chip</code> 走描边参数(字 13 / padX 8 / padY 5 / 描边 1.5 / 圆角 2),新增 <code>TierChipFontSize</code> 等常量。文案 3 条进字符串表(头领 / 精英 / Boss;小怪不挂),重跑字体子集。</li>
       <li>召唤槽 <code>SummonCap</code> 6、顺序与解锁层见 ②;「N 关解锁」文案沿用。</li>
     </ul>
   </div>
@@ -168,8 +168,8 @@ class Component extends DCLogic {
         low: ab(0, yl, W, 43), sideW: Math.round(side), lowW: Math.round(W - 4),
         dimW: 'left:0;top:-14px', wTxt: (wk === 'base' ? '基准机 ' : '16:9 ') + Math.round(W * 10) / 10 + ' × 251' };
     });
-    var tiers = [['minion', '泼墨', '普通层杂兵、Boss 层随从'], ['leader', '漩涡', '双字头领(13 层起)'], ['elite', '枯木逢春', '精英层 Boss(5 / 15 / 25…)'], ['boss', '惊涛骇浪', '主题 Boss(10 / 20…)']]
-      .map(function (t) { var m = BG.tierModel(t[0])[0]; return { nm: t[1], cls: m.cls, style: m.style, t: m.t, desc: t[2] }; });
+    var tiers = [['minion', '泼墨', '小怪不挂签(用户 10-18 拍板):普通层杂兵、Boss 层随从'], ['leader', '漩涡', '双字头领(13 层起)'], ['elite', '枯木逢春', '精英层 Boss(5 / 15 / 25…)'], ['boss', '惊涛骇浪', '主题 Boss(10 / 20…)']]
+      .map(function (t) { var m = BG.tierModel(t[0])[0] || { cls: 'tier', style: 'display:none', t: '' }; return { nm: t[1], cls: m.cls, style: m.style, t: m.t, desc: t[2] }; });
     return { rows: rows, anat: anat, tiers: tiers };
   }
 }

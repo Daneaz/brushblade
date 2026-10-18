@@ -23,8 +23,8 @@
 - `grid.js` 几何与示例局面;`grid.css` 样式(:root 与 traits 同源);`data.js` 图标(traits-data.js 副本);
   `art.js` 立绘(从 `Presentation/Mobs/Resources` 缩小内嵌,仅供预览);`support.js` → `../dc-runtime.js`。
 
-## 待定
-- 小怪档是否也出签:按 spec 四档都出;若嫌六格同一枚「小怪」吵,可改为小怪不出签,其余三档照旧(只删一行判断)。
+## 拍板
+- 2026-10-18 用户拍板通过。小怪**不挂**档位签,只有头领 / 精英 / Boss 挂(`grid.js` 的 `tierModel`)。
 
 ## 回填记录
 (暂无)
