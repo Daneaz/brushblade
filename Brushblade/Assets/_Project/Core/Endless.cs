@@ -251,17 +251,18 @@ namespace Brushblade.Core
             return floor;
         }
 
-        /// <summary>出头领的最少敌人数(= 头领 2 格 + 至少 1 只小怪;MinionCountFor 下即第 13 层起)。</summary>
-        public const int LeaderMinEnemies = 3;
+        /// <summary>出头领的最少敌人数(= 头领占的 2 格;MinionCountFor 下即第 7 层起)。
+        /// 2026-10-18 收尾 spec §3:3 → 2,7–12 层出头领时即头领单挑(0 只小怪)。</summary>
+        public const int LeaderMinEnemies = 2;
 
-        /// <summary>从这一层起普通层必出头领;之前(13–24 层)每层 1 / <see cref="LeaderChanceDenominator"/>。</summary>
+        /// <summary>从这一层起普通层必出头领;之前(7–24 层)每层 1 / <see cref="LeaderChanceDenominator"/>。</summary>
         public const int LeaderGuaranteedFromDepth = 25;
         public const int LeaderChanceDenominator = 3;
 
         /// <summary>本层出不出头领、出哪只(2026-10-18,spec §3);不出返回 null。
         ///
         /// 随机消耗(写在这里,trace 换基线时对得上):本段无头领池或敌人数不足 → 0 次;
-        /// 13–24 层先 <c>Next(3)</c> 一次判出不出(== 0 出),25 层起不判;出则再 <c>Next(池大小)</c> 一次选哪只。
+        /// 7–24 层先 <c>Next(3)</c> 一次判出不出(== 0 出),25 层起不判;出则再 <c>Next(池大小)</c> 一次选哪只。
         /// 都在抽小怪之前,所以出现头领的层后续小怪序列整体平移。</summary>
         public static EnemyDef LeaderFor(BandDef band, int depth, int enemyCount, GameRandom random)
         {
