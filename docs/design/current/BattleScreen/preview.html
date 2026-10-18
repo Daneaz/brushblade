@@ -211,6 +211,13 @@ html,body{margin:0;background:var(--paper)}
 .sm .atb, .pl .atb { position: relative; width: 100%; height: 7.17px; border-radius: 4.78px; background: var(--paper-dim); }
 .sm .atb > span, .pl .atb > span { display: block; height: 100%; border-radius: 4.78px; background: var(--ink-soft); }
 .sm .atb.soon > span, .pl .atb.soon > span { background: var(--jade); }
+/* 尸体格(DrawCorpseSlot,稿 drafts/corpse):立绘 LockedBg + text-faint 字;名 text-dim;属性徽章原色;「阵亡」13 → 6.21pt text-faint。
+   本卡为「字库里有复活字」的平时淡态:只画立绘 + 头行,α .5 */
+.sm.corpse .pt { background: var(--locked-bg); }
+.sm.corpse .pt b { color: var(--text-faint); text-shadow: none; }
+.sm.corpse .hd .nm { color: var(--text-dim); }
+.sm.corpse .hd .tag { font-size: 6.21px; color: var(--text-faint); letter-spacing: .5px; margin-left: 2.87px; }
+.sm.corpse.faint { opacity: .5; }
 
 /* ---------- 执笔人条(DrawPlayerStats):定高 84 → 40.13pt、定宽 1223 → 584.33pt 居中,透明底 ---------- */
 .pl { flex: none; width: 584.33px; height: 40.13px; align-self: center; display: flex; align-items: center; gap: 3.82px; }
@@ -415,7 +422,8 @@ html,body{margin:0;background:var(--paper)}
   <div class="hd"><span class="nm">楸</span><span class="sc el" style="width:11.94px;background:var(--wood-glyph)"><span class="t t0">木</span></span></div>
   <div class="scs"><span class="sc atk" style="width:22.69px;"><svg class="ic"><use href="#ic-ranged-cc"></use></svg><span class="t">48</span></span><span class="sc pas" style="width:13.38px;"><svg class="ic"><use href="#ic-burn"></use></svg></span></div>
   <div class="hpb"><span style="width:100%"></span><u>193/193</u></div>
-  <div class="atb"><span style="width:62%"></span><u>62%</u></div></div></div><div class="sm rear"></div></div>
+  <div class="atb"><span style="width:62%"></span><u>62%</u></div></div></div><div class="sm rear corpse faint"><div class="pt"><b>桤</b></div><div class="info">
+  <div class="hd"><span class="nm">桤</span><span class="sc el" style="width:11.94px;background:var(--wood-glyph)"><span class="t t0">木</span></span><span class="tag">阵亡</span></div></div></div></div>
         </div>
 
         <div class="pl"><div class="pt">墨<span class="sb" style="width:19.30px"><svg class="ic"><use href="#ic-shield-cc"></use></svg><span class="t">55</span></span></div><div class="info"><div class="hd"><span class="who">执笔人</span><span class="hpn">血 612/920</span></div><div class="hpb"><span style="width:67%"></span></div><div class="atb"><span style="width:64%"></span><u>64%</u></div></div><div class="dv"></div><div class="ap"><span class="k">AP</span><span class="pips"><i class="on"></i><i class="on"></i><i></i></span></div><div class="dv"></div><div class="stt"><span class="sc buff-gold" style="width:13.38px;"><svg class="ic"><use href="#ic-attack"></use></svg></span><span class="sc buff-gold" style="width:18.75px;"><svg class="ic"><use href="#ic-morale"></use></svg><span class="t">2</span></span><span class="sc buff-gold" style="width:13.38px;"><svg class="ic"><use href="#ic-crit"></use></svg></span><span class="sc buff-jade" style="width:13.38px;"><svg class="ic"><use href="#ic-defense"></use></svg></span></div></div>

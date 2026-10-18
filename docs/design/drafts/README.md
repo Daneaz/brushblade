@@ -18,7 +18,7 @@
 | `counterfx/` | 格挡反击动效:挡(盾印)→ 扣(chip 跳格)→ 反(反击线 + 反击数),玩家 / 木灵 × 普通 / 反击加倍、群攻与连续节拍、两档屏宽出画验算 | `已落地`(2026-10-15 出稿并拍板,同日实现,分支 `feat/counterfx`;Core 事件 `BlockUsed`、表现 `JuiceCounter.cs`;验收跳过,体验时反馈;偏差见 `counterfx/README.md` 回填记录) | 需求:session card-ability-system-redesign 转用户提出 |
 | `battlegrid/` | 战场 3 × 2:敌我加宽格(立绘不缩、前排 chip 3 行)、Boss / 精英 / 头领一列竖块(立绘 172 + 右栏攻甲 + 全宽 chip 流)、敌人头行档位签(头领 / 精英 / Boss;小怪不挂)、头领立绘 1:1 画幅、两档屏宽逐栏验算 | `已落地`(2026-10-18 用户拍板;小怪不挂档位签;同日实现,现状见 `current/BattleScreen`) | 需求:session card-ability-system-redesign;spec `2026-10-18-群攻入口与头领编组-design.md` §2 / §5 / §6 |
 | `killdrop/` | 斩获 · 掉字飞入:击杀得字从阵亡格冒出 → 停到批尾 → 弧线飞入字库落位 → 弹一下 + 光晕;折桂并入同路径;回合掉字仍右侧滑入;群攻连杀错开、上限不演、字库满划线签 + 计数闪、当拍胜利原地淡出;两档屏宽 | `已拍板 · 待实现`(2026-10-18 用户拍板) | 需求:session card-ability-system-redesign;spec `2026-10-18-群攻入口与头领编组-design.md` §7 |
-| `corpse/` | 木灵尸体标识:尸体格与活木灵同构、去色保身份(属性徽章原色 +「阵亡」),字库有复活字时常显淡态;复活点选 / 拖放血条预演 + 预估签「复活 林 · 生命 75 · 盾反」、复活全部;召唤到尸体格的覆盖提示与警示;两档屏宽验算 | `待审` | 需求:session card-ability-system-redesign(用户反馈「不知道复活的是什么」) |
+| `corpse/` | 木灵尸体标识:尸体格与活木灵同构、去色保身份(属性徽章原色 +「阵亡」),字库有复活字时常显淡态;复活点选 / 拖放血条预演 + 预估签「复活 林 · 生命 75 · 盾反」、复活全部;召唤到尸体格的覆盖提示与警示;两档屏宽验算 | `已落地` | 需求:session card-ability-system-redesign(用户反馈「不知道复活的是什么」) |
 
 画布稿直接打开即可交互(`support.js` 软链接到本目录的 `dc-runtime.js`);
 全部画板的画廊见 `../_preview/index.html`。
