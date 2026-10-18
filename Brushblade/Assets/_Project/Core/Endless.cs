@@ -187,7 +187,7 @@ namespace Brushblade.Core
                     : BuildIdiomBoss(idiomPool[pick - fixedPool.Count]);
                 // 档位按层定(2026-10-18 §5):精英层是 Elite,哪怕本段没配精英池、回落到主题池(词渊)
                 floor.Add(CampaignConfig.Scale(boss, scale, eliteDepth ? EnemyTier.Elite : EnemyTier.Boss));
-                // 随从(2026-09-05 用户拍板):第 20 层起每个 Boss 层 +1 只,直到填满 Boss
+                // 随从(2026-09-05 用户拍板;2026-10-18 起点 20 → 15,见 EscortFromDepth):第 15 层起每个 Boss 层 +1 只,直到填满 Boss
                 // 之外的格位。**Boss 恒为首项** —— 落位与表现层都靠这一条。
                 // 随从吃的是**本层的杂兵缩放**(scale 那个值),不是 Boss 自己的滞后缩放:
                 // 20 层的杂兵在 Boss 层按 1.0 出场等于白送。

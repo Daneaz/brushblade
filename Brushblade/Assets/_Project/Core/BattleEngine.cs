@@ -1910,7 +1910,11 @@ namespace Brushblade.Core
 
         /// <summary>斩获:击杀时从已解锁卡池均匀抽 KillDraws 张入库(同回合掉字的抽取范围)。
         /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;抽字走 _traitRandom,主随机序列不平移。
-        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice。</summary>
+        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice。
+        ///
+        /// 开场推进(构造函数里的速度预推进)期间的击杀同样走这里,其计数随后被首个 StartTurn 清零 ——
+        /// 即开局那一拍的击杀不占第一回合的额度,开局最多可多拿 <see cref="KillDrawPerTurnCap"/> 张。
+        /// 这是接受的口径(开场击杀本就罕见),不是漏判。</summary>
         private void GrantKillDraws()
         {
             if (_config == null || _config.KillDraws <= 0) return;

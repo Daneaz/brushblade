@@ -248,10 +248,9 @@ namespace Brushblade.Core
 
         /// <summary>该列的前排与后排是否都还有活人 —— 贯穿要打满两只的前提。
         ///
-        /// 跨排 Boss **一只就让该列同时成立**(它占前后两排),这正是它该被贯穿打满的情形 ——
-        /// 用户 2026-09-05 拍板「贯穿打满两只」对它照算,那两下都落在同一个实体上
-        /// (下标重复两次由 ExpandTargets 负责,见那边的 Hits)。
-        /// 列判定同样改成区间相交:Boss 占 2 列,只比 <c>Column ==</c> 会漏掉它的右半列。</summary>
+        /// 跨排 Boss / 头领**一只就让该列同时成立**(它占前后两排)。2026-10-18 战场改 3×2 起
+        /// 同一只敌人一记只结算一次(ExpandTargets 的形状类返回表恒不重复),不再「两下落在同一实体上」。
+        /// 列判定按区间相交写:眼下竖块只占 1 列,区间式与 <c>Column ==</c> 等价,保留是为 ColumnSpan &gt; 1 的配置。</summary>
         private static bool HasBothRowsInColumn(IReadOnlyList<EnemyState> enemies, int column)
         {
             bool front = false, back = false;

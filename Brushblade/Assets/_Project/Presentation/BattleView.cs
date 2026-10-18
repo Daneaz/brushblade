@@ -3185,6 +3185,12 @@ namespace Brushblade.Presentation
         /// 所以血条与 chip 行**不必**为它让路:它们与立绘是左右关系,不是上下之争。</summary>
         private const float BossPortraitSize = 220f;
 
+        /// <summary>竖块(跨排)信息列的最小宽度(2026-10-18 战场 3×2 防溢出):放得下「射程+攻」「甲」
+        /// 两枚 chip 并排 —— 三位数半角口径各约 56(见 portraitSize 那段注释),加 ChipSpacing 4 = 116,取 120。
+        /// 竖块只占 1 列后格宽在 16:9 约 292、扣 SafeArea inset 的机型更窄,220 的立绘会把信息列挤成负数;
+        /// 立绘因此夹到 <c>格宽 − 间距 − 本值</c>。完整排法等设计稿(spec §6),这里只防溢出。</summary>
+        private const float CrossRowMinInfoWidth = 120f;
+
         // 立绘与信息列的间距(稿 .foe { gap: 6px })。信息列自身的行距(稿 .info { gap: 2px }),
         // 头行里名字与属性徽章的间距(稿 .hd { gap: 4px })——同一套 ×2.093 换算。
         private const float EnemyBlkInfoGap = 13f;   // 6pt
@@ -3405,9 +3411,11 @@ namespace Brushblade.Presentation
                 // 字号不缩。不缩立绘的话 16:9 前排信息列只剩 214.5 − 126 − 13 ≈ 75,一枚三位数的
                 // 「射程+攻」chip(76,2026-10-18 半角口径后 56)就放不下;缩后前排 109 / 后排 131,攻 + 甲两枚分两行排得下,
                 // 其余战况收「+N」(全量在详情弹窗)。点击目标是整格(≥ 214×109),不受立绘大小影响。
-                // Boss 不缩。⚠ 2026-10-18 起 Boss 只占 1 列(竖两格):16:9 格宽 ≈ 292,扣 220 立绘只剩约 58
-                // 给信息列,chip 会挤 —— Boss 竖块的立绘 / 信息排法待设计稿(spec §6),这里只保证不崩。
-                float portraitSize = crossRow ? BossPortraitSize
+                // Boss 不随 FieldScale 缩。⚠ 2026-10-18 起 Boss / 头领只占 1 列(竖两格):16:9 格宽 ≈ 292,
+                // 220 立绘会把信息列挤到约 58 —— 立绘夹到给信息列留 CrossRowMinInfoWidth(攻 + 甲两枚 chip);
+                // 竖块的完整立绘 / 信息排法待设计稿(spec §6),这里只防溢出。
+                float portraitSize = crossRow
+                    ? Mathf.Min(BossPortraitSize, cellElement.preferredWidth - EnemyBlkInfoGap - CrossRowMinInfoWidth)
                     : (front ? EnemyPortraitFront : EnemyPortraitBack) * FieldScale;
                 float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
                 // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),

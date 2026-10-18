@@ -85,14 +85,21 @@ namespace Brushblade.CoreTests
                     Assert.That(band.EnemyPool.Any(e => e.Id == leader.Id), Is.False, $"{band.Name}:{leader.Id}");
         }
 
-        /// <summary>头领必须弱于本段 Boss(spec §3):同深度缩放下,生命 ≤ 本段**每一只** Boss
-        /// 各阶段生命合计 × 50%,攻击 ≤ 该 Boss 各阶段攻击的最大值。成语 Boss 取
-        /// <see cref="EndlessGenerator.BuildIdiomBoss"/> 的阶段值。逐层遍历全段普通层。</summary>
+        /// <summary>头领必须弱于本段 Boss(spec §3,用户硬要求「比当前层的 Boss 弱」):
+        /// 头领在它**可出场**的每个普通层 d(第 <see cref="FirstLeaderDepth"/> 层起,到本段末)按普通层
+        /// <c>ScaleFor(d)</c> 缩放;Boss 按**本段第一个 Boss 层**的滞后缩放(<c>ScaleFor</c> 对 Boss 层
+        /// = 1 + k×(层 − BossEvery),比同层杂兵低一截)—— 段内最浅的 Boss 层缩放最小,对头领最不利。
+        /// 生命 ≤ 本段**每一只** Boss 各阶段生命合计 × 50%,攻击 ≤ 该 Boss 各阶段攻击最大值。
+        /// 成语 Boss 取 <see cref="EndlessGenerator.BuildIdiomBoss"/> 的阶段值。
+        ///
+        /// 末段(词渊)不封口,按其他段同样的十层算段末:之后每十层头领与 Boss 的缩放比只会更小。
+        /// 字林(1–10 层)敌人数不足 3,头领不出场,这里自然跳过。</summary>
         [Test]
-        public void RealConfig_LeadersAreWeakerThanEveryBossOfTheirBand()
+        public void RealConfig_LeadersAreWeakerThanTheBandsFirstBossFloor()
         {
             var config = RealEndless();
             var bands = config.Bands;
+            var failures = new List<string>();
             for (int b = 0; b < bands.Count; b++)
             {
                 var band = bands[b];
@@ -101,26 +108,40 @@ namespace Brushblade.CoreTests
                     .Concat(band.EliteIdiomBossPool.Select(EndlessGenerator.BuildIdiomBoss))
                     .ToList();
                 Assert.That(bosses, Is.Not.Empty, band.Name);
-                int last = b + 1 < bands.Count ? bands[b + 1].FromDepth - 1 : band.FromDepth + 49;
-                for (int depth = band.FromDepth; depth <= last; depth++)
+                int last = b + 1 < bands.Count ? bands[b + 1].FromDepth - 1 : band.FromDepth + 9;
+                int bossDepth = band.FromDepth;
+                while (!config.IsBossDepth(bossDepth)) bossDepth++;
+                float bossScale = config.ScaleFor(bossDepth);
+                for (int depth = Math.Max(FirstLeaderDepth, band.FromDepth); depth <= last; depth++)
                 {
                     if (config.IsBossDepth(depth)) continue;
-                    float scale = config.ScaleFor(depth);
                     foreach (var leaderDef in band.LeaderPool)
                     {
-                        var leader = CampaignConfig.Scale(leaderDef, scale);
+                        var leader = CampaignConfig.Scale(leaderDef, config.ScaleFor(depth));
                         foreach (var bossDef in bosses)
                         {
-                            var boss = CampaignConfig.Scale(bossDef, scale);
+                            var boss = CampaignConfig.Scale(bossDef, bossScale);
                             int hpSum = boss.Phases.Sum(p => p.MaxHp);
                             int atkMax = boss.Phases.Max(p => p.Attack);
-                            Assert.That(leader.MaxHp * 2, Is.LessThanOrEqualTo(hpSum),
-                                $"{band.Name} {depth} 层:{leader.Id} 生命 {leader.MaxHp} > {boss.Id} 合计 {hpSum} 的一半");
-                            Assert.That(leader.Attack, Is.LessThanOrEqualTo(atkMax),
-                                $"{band.Name} {depth} 层:{leader.Id} 攻击 {leader.Attack} > {boss.Id} 最大阶段攻击 {atkMax}");
+                            if (leader.MaxHp * 2 > hpSum)
+                                failures.Add($"{band.Name} {depth} 层:{leader.Id} 生命 {leader.MaxHp} > {boss.Id}@{bossDepth} 合计 {hpSum} 的一半");
+                            if (leader.Attack > atkMax)
+                                failures.Add($"{band.Name} {depth} 层:{leader.Id} 攻击 {leader.Attack} > {boss.Id}@{bossDepth} 最大阶段攻击 {atkMax}");
                         }
                     }
                 }
+            }
+            Assert.That(failures, Is.Empty, string.Join("\n", failures.Take(20)));
+        }
+
+        /// <summary>头领最早可出场的层:敌人数第一次 ≥ <see cref="EndlessGenerator.LeaderMinEnemies"/>。</summary>
+        private static int FirstLeaderDepth
+        {
+            get
+            {
+                int d = 1;
+                while (EndlessGenerator.MinionCountFor(d) < EndlessGenerator.LeaderMinEnemies) d++;
+                return d;
             }
         }
 
