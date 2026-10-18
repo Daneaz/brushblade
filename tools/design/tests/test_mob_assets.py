@@ -56,14 +56,19 @@ def test_python_and_csharp_slug_tables_agree():
 # 待出图(2026-09-30 十层一主题新增,用户拍板「先上数值,形象后补」):这几只在真机上
 # 回落成字头像。是一笔**待补的账**,不是「不需要」—— 出完图、接进两张 slug 表后从这里删掉,
 # 下面 test_art_pending_is_really_pending 会逼你删。
-# 2026-10-18 双字头领 10 只(spec §3/§6):立绘走 build_boss_art 双字变体,样张确认后批量出;
-# 出图前 MobAssets 对它们回落字头像。
-ART_PENDING: set = {"朽木", "荆棘", "烽燧", "余烬", "碑碣", "磐石", "钟鼎", "刀笔", "漩涡", "浊浪"}
+# 2026-10-18 双字头领 10 只已出图(build_boss_art.LEADERS),从这里移出 —— 头领不走杂兵 slug 表,
+# 走 LeaderSlugs(见下方头领那组测试)。
+ART_PENDING: set = set()
+
+
+def _leader_slugs():
+    return {name: slug for name, slug, *_ in bba.LEADERS}
 
 
 def test_every_minion_in_config_has_a_slug():
     """enemies.json 里的每只杂兵都要认领一个 slug,否则真机上它回落成字牌格。"""
-    missing = [i for i in _minion_ids() if i not in rm.MINION_SLUGS and i not in ART_PENDING]
+    missing = [i for i in _minion_ids()
+               if i not in rm.MINION_SLUGS and i not in _leader_slugs() and i not in ART_PENDING]
     assert missing == [], f"这些怪没有立绘 slug:{missing}"
 
 
@@ -71,7 +76,8 @@ def test_art_pending_is_really_pending():
     """豁免名单不许过期:已经删掉的怪、或者已经接上 slug 的怪,都得从 ART_PENDING 里拿掉。"""
     ids = set(_minion_ids())
     assert sorted(ART_PENDING - ids) == [], "豁免名单里有 enemies.json 已经没有的怪"
-    assert sorted(ART_PENDING & set(rm.MINION_SLUGS)) == [], "这些怪已经有 slug 了,从 ART_PENDING 删掉"
+    assert sorted(ART_PENDING & (set(rm.MINION_SLUGS) | set(_leader_slugs()))) == [], \
+        "这些怪已经有 slug 了,从 ART_PENDING 删掉"
 
 
 def test_no_slug_points_at_a_retired_enemy():
@@ -138,6 +144,57 @@ def test_every_boss_has_every_layer(layer):
 def test_no_stale_boss_assets():
     """旧的「按阶段出图」资产(boss_<slug>_<n><字>_*)已退役,别让它们残留在包里。"""
     stale = [p.name for p in RESOURCES.glob("boss_*.png") if re.match(r"boss_[a-z]+_\d", p.name)]
+    assert stale == []
+
+
+def _leader_pool_ids():
+    """enemies.json 各层段 leaderPool 里的全部双字头领(词渊复用墨海那两只,集合去重)。"""
+    return {i for band in _config()["endless"]["bands"] for i in band.get("leaderPool", [])}
+
+
+def _csharp_leader_slugs():
+    src = CSHARP.read_text(encoding="utf-8")
+    block = re.search(r"LeaderSlugs = new\(\)\s*\{(.*?)\n        \};", src, re.S)
+    assert block, "MobAssets.cs 里找不到 LeaderSlugs 字典"
+    return dict(re.findall(r'\{\s*"([^"]+)",\s*"([^"]+)"\s*\}', block.group(1)))
+
+
+def test_leader_slug_tables_agree_and_cover_every_leader():
+    """双字头领立绘(2026-10-18,一只一张两字讹熔):build_boss_art.LEADERS 与 MobAssets.LeaderSlugs
+    是同一份事实的两个副本;每个层段 leaderPool 里的头领都要有,且不留幽灵条目。"""
+    assert _csharp_leader_slugs() == _leader_slugs()
+    assert set(_leader_slugs()) == _leader_pool_ids()
+
+
+def test_leader_elements_match_config():
+    """两字层运行时染本属性色(上深下亮),face 静态层虹膜也取它 —— 表抄错了就整只染错系。"""
+    elements = {e["id"]: e["element"] for e in _config()["enemies"]}
+    for name, _, element, *_ in bba.LEADERS:
+        assert element == elements[name], name
+
+
+def test_leader_names_are_two_characters():
+    """头领骨架只有 c0/c1 两层字;三字词进来会被静默截掉一个字。"""
+    assert [n for n, *_ in bba.LEADERS if len(n) != 2] == []
+
+
+def test_only_xiumu_has_rot_holes():
+    """虫蛀孔是「朽木」的词义,别的头领挖洞就成了通用纹理(用户 2026-10-18)。"""
+    assert [n for n, _, _, _, _, holes, _ in bba.LEADERS if holes] == ["朽木"]
+
+
+@pytest.mark.parametrize("layer", bba.LEADER_LAYER_NAMES)
+def test_every_leader_has_every_layer(layer):
+    """c0/c1 缺一层就少一个字;halo/iris/eyes 缺了没有眼睛;body/face 是单位详情页的静态三层。"""
+    missing = [slug for _, slug, *_ in bba.LEADERS
+               if not (RESOURCES / f"leader_{slug}_{layer}.png").exists()]
+    assert missing == [], f"这些头领缺 {layer} 层:{missing}"
+
+
+def test_no_stale_leader_assets():
+    """Resources 里的 leader_* 只能是 LEADERS 表里的头领 × 规定层(删头领时别留孤儿 PNG)。"""
+    allowed = {f"leader_{slug}_{layer}.png" for _, slug, *_ in bba.LEADERS for layer in bba.LEADER_LAYER_NAMES}
+    stale = sorted(p.name for p in RESOURCES.glob("leader_*.png") if p.name not in allowed)
     assert stale == []
 
 
