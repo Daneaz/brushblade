@@ -358,7 +358,7 @@ namespace Brushblade.Core.Tests
                 ("vigor_1", PerkEffect.MaxHp, 300), ("vigor_2", PerkEffect.MaxHp, 500), ("vigor_3", PerkEffect.MaxHp, 1000),
                 ("power_3", PerkEffect.AttackPercent, 15), ("edge_3", PerkEffect.CritChance, 15),
                 ("guard_3", PerkEffect.Defense, 25),
-                ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.EmptyLibraryDraws, 1),
+                ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.KillDraw, 1),
                 ("insight_1", PerkEffect.RewardOptions, 1), ("insight_2", PerkEffect.RewardRerolls, 1),
                 ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.VictoryHealPercent, 5),
             };

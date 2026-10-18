@@ -169,7 +169,10 @@ namespace Brushblade.Core
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
-        public int EmptyLibraryExtraDraws { get; set; } // 广纳/兼收(2026-10-02):回合开始字库为空时掉字数 +N
+        public int EmptyLibraryExtraDraws { get; set; } // 广纳(2026-10-18):回合开始字库 ≤ 1 张时掉字数 +N
+        /// <summary>斩获(spec 2026-10-18 §7):每击杀一名敌人掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。
+        /// 每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;满库不掉、不进 DropChoice;抽字走 _traitRandom。</summary>
+        public int KillDraws { get; set; }
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
@@ -1894,6 +1897,31 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
+        /// <summary>斩获每回合至多掉几张(spec 2026-10-18 §7)。计数在 StartTurn 清零:
+        /// 敌人回合与其前一玩家回合共用一个计数。</summary>
+        public const int KillDrawPerTurnCap = 2;
+
+        /// <summary>计数挂在 _traitUsesThisTurn 上:StartTurn 清零、随快照存读,不另开字段。</summary>
+        private const string KillDrawUseKey = "#killdraw";
+
+        /// <summary>斩获:击杀时从已解锁卡池均匀抽 KillDraws 张入库(同回合掉字的抽取范围)。
+        /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;抽字走 _traitRandom,主随机序列不平移。
+        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice。</summary>
+        private void GrantKillDraws()
+        {
+            if (_config == null || _config.KillDraws <= 0) return;
+            if (_config.UnlockedChars == null || _config.UnlockedChars.Count == 0) return;
+            var deck = new List<string>(_config.UnlockedChars);   // 同 StartTurn 的掉字口径
+            for (int n = 0; n < _config.KillDraws; n++)
+            {
+                if (_forge.Library.Count >= _config.LibraryCapacity) return;
+                if (!TryUseTrait(KillDrawUseKey, KillDrawPerTurnCap, 0)) return;
+                GrantLibraryChar(deck[_traitRandom.Next(deck.Count)]);
+                // 与回合掉字同一个动画源:表现层按落位下标飞入(敌人回合那批由 SplitOutDrawn 摘出)
+                _events.Add(new BattleEvent(BattleEventKind.CharDrawn, -1, _forge.Library.Count - 1));
+            }
+        }
+
         /// <summary>复活补给:把一个字加入当前战斗字库;满库返回 false 不入(守容量上限)。</summary>
         public bool GrantLibraryChar(string charId)
         {
@@ -3282,9 +3310,9 @@ namespace Brushblade.Core
             if (_config.UnlockedChars != null && _config.UnlockedChars.Count > 0)
             {
                 var deck = new List<string>(_config.UnlockedChars);
-                // 广纳/兼收(2026-10-02):判在掉字之前 —— 回合开始时字库为空才多掉
+                // 广纳(2026-10-18 改 ≤1):判在掉字之前 —— 回合开始时字库 ≤ 1 张才多掉
                 int drops = _config.DropsPerTurn
-                    + (_forge.Library.Count == 0 ? _config.EmptyLibraryExtraDraws : 0);
+                    + (_forge.Library.Count <= 1 ? _config.EmptyLibraryExtraDraws : 0);
                 for (int i = 0; i < drops; i++)
                 {
                     string pick = deck[_random.Next(deck.Count)];
@@ -6133,6 +6161,7 @@ namespace Brushblade.Core
             if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
+            GrantKillDraws();   // 斩获(2026-10-18):五条致死路径的汇流点,任何来源的击杀都算
         }
 
         /// <summary>火脉 L2「余烬」(spec 2026-09-13 §2.2):死者身上剩余的灼烧层数

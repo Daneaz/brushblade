@@ -116,7 +116,7 @@ namespace Brushblade.Core.Tests
                 "博闻不该动起手张数");
         }
 
-        /// <summary>「广纳」2026-10-02 起改为空库掉字 +1,不再动起手张数与字库容量。</summary>
+        /// <summary>「广纳」2026-10-18 起为字库 ≤1 张时掉字 +1,不动起手张数与字库容量。</summary>
         [Test]
         public void WideBranch_GivesEmptyLibraryDrawsOnly()
         {
@@ -129,16 +129,22 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.LibraryCapacityFor(meta), Is.EqualTo(baseCap), "广纳不该动字库容量");
         }
 
-        /// <summary>广纳+兼收合计 +2,并真的注入 BattleConfig。</summary>
+        /// <summary>广纳(≤1 张多掉)与斩获(击杀掉字)2026-10-18 起各是各的效果,分别注入 BattleConfig,不再相加。</summary>
         [Test]
-        public void WideBranch_InjectsEmptyLibraryExtraDraws()
+        public void WideBranch_InjectsEmptyLibraryExtraDrawsAndKillDraws()
         {
             var meta = new MetaState { CharacterXp = 0 };
-            Assert.That(MetaRules.BuildBattleConfig(meta, new[] { "金" }).EmptyLibraryExtraDraws, Is.EqualTo(0));
+            var c0 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
+            Assert.That(c0.EmptyLibraryExtraDraws, Is.EqualTo(0));
+            Assert.That(c0.KillDraws, Is.EqualTo(0));
             meta.UnlockedPerks.Add("wide_1");
-            Assert.That(MetaRules.BuildBattleConfig(meta, new[] { "金" }).EmptyLibraryExtraDraws, Is.EqualTo(1));
+            var c1 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
+            Assert.That(c1.EmptyLibraryExtraDraws, Is.EqualTo(1));
+            Assert.That(c1.KillDraws, Is.EqualTo(0));
             meta.UnlockedPerks.Add("wide_2");
-            Assert.That(MetaRules.BuildBattleConfig(meta, new[] { "金" }).EmptyLibraryExtraDraws, Is.EqualTo(2));
+            var c2 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
+            Assert.That(c2.EmptyLibraryExtraDraws, Is.EqualTo(1), "斩获不再叠加广纳");
+            Assert.That(c2.KillDraws, Is.EqualTo(1));
             Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize));
         }
 
