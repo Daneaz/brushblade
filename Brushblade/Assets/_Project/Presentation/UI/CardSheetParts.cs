@@ -787,7 +787,7 @@ namespace Brushblade.Presentation
 
         private static Text WrapLabel(Transform parent, string text, int font, Color color, float width, float height)
         {
-            var label = Ui.ThemedLabel(parent, text, font, color);
+            var label = Ui.ThemedLabel(parent, Ui.NoBreakSpaces(text), font, color);
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(label.gameObject, width, height);

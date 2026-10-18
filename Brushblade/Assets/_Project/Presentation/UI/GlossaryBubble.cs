@@ -75,7 +75,7 @@ namespace Brushblade.Presentation
             var aliases = terms.Select(t => GlossaryText.AliasShown(t) is { } a ? Strings.T("glossary.alias", ("alias", a)) : null).ToList();
             // 空格换成不换行空格:Unity Text 只在空格处整词折行,「Boss 被冻结时…」会把 Boss 单独留一行、
             // 整段比估算多出一行而溢出气泡(2026-10-18)。全段无断点后按字折行,与下面的估高口径一致。
-            var descs = terms.Select(t => GlossaryText.Desc(t).Replace(' ', '\u00A0')).ToList();
+            var descs = terms.Select(t => Ui.NoBreakSpaces(GlossaryText.Desc(t))).ToList();
             float NameW(int i) => Ui.EstimateWidth(names[i], NameFont)
                 + (aliases[i] != null ? 4f + Ui.EstimateWidth(aliases[i], AliasFont) : 0f);
             float nameCol = Enumerable.Range(0, terms.Count).Max(NameW);

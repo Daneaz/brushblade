@@ -175,6 +175,53 @@ namespace Brushblade.Presentation
             ? Strings.T("enemy.range.ranged.desc")
             : Strings.T("enemy.range.melee.desc");
 
+        // ============ 档位签(battlegrid 稿 ④,2026-10-18) ============
+
+        // 宋体粗 13、padX 8、高 18(= 13 + 5)、方角 2、纸底 PanelPaper + 1.5 描边同字色。
+        // 与战况 chip 三处分开:纸底描边(战况实底)、方角(战况胶囊)、宋体(战况黑体)。
+        private const int TierTagFontSize = 13;
+        private const int TierTagPadX = 8;
+        private const int TierTagPadY = 5;
+        private const int TierTagRadius = 2;
+        private const float TierTagBorder = 1.5f;
+
+        /// <summary>档位签文案:头领 / 精英 / Boss;小怪返回 null —— 不挂签(用户 2026-10-18),
+        /// 所以「有签 = 不是杂兵」。</summary>
+        public static string TierName(EnemyTier tier) => tier switch
+        {
+            EnemyTier.Leader => Strings.T("enemy.tier.leader"),
+            EnemyTier.Elite => Strings.T("enemy.tier.elite"),
+            EnemyTier.Boss => Strings.T("enemy.tier.boss"),
+            _ => null,
+        };
+
+        /// <summary>档位签字色(= 描边色),由轻到重:头领 ink-soft 7.9:1 · 精英 gold-deep 5.0:1 ·
+        /// Boss cinnabar-dark 7.6:1(均对 panel-paper,全过 AA;稿 ④,无新 token)。</summary>
+        private static Color TierColor(EnemyTier tier) => tier switch
+        {
+            EnemyTier.Leader => Theme.InkSoft,
+            EnemyTier.Elite => Theme.GoldDeep,
+            _ => Theme.CinnabarDark,
+        };
+
+        /// <summary>画一枚档位签;小怪不画、返回 null。战场头行(竖块右对齐)与详情弹窗名字后共用同一枚。
+        /// minWidth 钉成 preferred:头行挤的时候让名字(吃弹性宽)先让,签不被压扁(同 HeaderChip 的手法)。</summary>
+        public static GameObject TierTag(Transform parent, EnemyTier tier)
+        {
+            string text = TierName(tier);
+            if (text == null) return null;
+            Color color = TierColor(tier);
+            var tag = Ui.OutlinedPanel(parent, "TierTag", Theme.PanelPaper, color, TierTagRadius, TierTagBorder);
+            var label = Ui.ThemedLabel(tag.transform, text, TierTagFontSize, color, Theme.TitleFont);
+            label.fontStyle = FontStyle.Bold;
+            Ui.Stretch(label.rectTransform);
+            var element = Ui.Sized(tag.gameObject,
+                width: Ui.ChipWidth(text, TierTagFontSize, TierTagPadX),
+                height: Ui.ChipHeight(TierTagFontSize, TierTagPadY));
+            element.minWidth = element.preferredWidth;
+            return tag.gameObject;
+        }
+
         /// <summary>小怪单形态:属性血攻 + 攻击类型 + 能力 / 护甲 / 无机制(后三者互斥)。</summary>
         public static string MinionDetail(EnemyDef def)
         {
@@ -216,6 +263,7 @@ namespace Brushblade.Presentation
                 // 情形——EnemyInfo.Sheet 只服务敌人,这里恒不会遇到「执笔人没有五行」那一支。
                 ElementUnknown = enemy.ApparentElement == null,
                 Name = isBoss ? BossTitleText(def, enemy.PhaseIndex) : def.Id,
+                Tier = def.Tier,
                 Tags = BuildTags(enemy, isBoss),
                 Flavor = null, // enemies.json 没有风味文案字段,19 只怪的这句话没法凭空写
                 Hp = enemy.Hp,

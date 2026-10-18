@@ -515,6 +515,7 @@ namespace Brushblade.Core.Tests
             Assert.That(baseline, Is.EqualTo(6));
             meta.UnlockedPerks.Add("wide_1");
             meta.UnlockedPerks.Add("wide_2");
+            meta.UnlockedPerks.Add("wide_3");
             Assert.That(MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count,
                 Is.EqualTo(6), "广纳不再追加起手");
         }
@@ -528,6 +529,7 @@ namespace Brushblade.Core.Tests
             var meta = new MetaState();
             meta.UnlockedPerks.Add("wide_1");
             meta.UnlockedPerks.Add("wide_2");
+            meta.UnlockedPerks.Add("wide_3");
             Assert.That(MetaRules.LibraryCapacityFor(meta),
                 Is.GreaterThanOrEqualTo(MetaRules.StartingHandSizeFor(meta)),
                 "容量不得低于起手张数");

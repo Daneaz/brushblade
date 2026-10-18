@@ -500,6 +500,15 @@ namespace Brushblade.Presentation
                 new Vector2(0f, -tapMin / 2f), new Vector2(0f, tapMin / 2f));
         }
 
+        /// <summary>开了 Wrap 的中文正文:空格换成不换行空格 U+00A0(字体子集已含)。
+        ///
+        /// Unity <c>Text</c> 遇到空格就按「词」整段折行:「若字库只剩 1 张」会在「1」后断开、「张…」另起一行,
+        /// 实际行数比 <see cref="WrappedTextHeight"/> 的逐字估算多,正文溢出或被截(2026-10-18 词条气泡、技能详情各一次)。
+        /// 全段没有空格后按字折行,与估高口径一致。U+00A0 在 <see cref="EstimateWidth"/> 里与空格同宽(0.55 字号),估算不变。
+        ///
+        /// ⚠ 只给 Wrap 正文用,单行 chip / 名字别套(它们本来就不折行,套了只是平添一道替换)。</summary>
+        public static string NoBreakSpaces(string text) => text?.Replace(' ', '\u00A0');
+
         /// <summary>单行文字的估算宽度:全角(汉字、全角标点)按一个字号,其余(ASCII 数字字母、半角标点)按 0.55 个字号。
         /// 纯函数,口径与 <see cref="WrappedTextHeight"/> 同族(不测量、不等一帧布局)。</summary>
         public static float EstimateWidth(string text, int fontSize)

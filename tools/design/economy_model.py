@@ -75,8 +75,9 @@ def perk_total():
     src = _src("Perk.cs")
     cross = [int(x) for x in re.findall(r"inkCost:\s*(\d+)", src)]
     # 2026-10-02:五行 5 枝 = L1/L2 三段(StagedCosts)+ L3/L4 单段(WuxingCosts[2:]);
-    # 被动 4 枝 × 3 层;机制四枝统一走 MechanicCosts(一气特价随 AP 取消)
-    return 5 * (sum(map(sum, staged)) + sum(w[2:])) + 4 * sum(p) + 4 * sum(m) + sum(cross)
+    # 被动 4 枝 × 3 层;机制四枝统一走 MechanicCosts(一气特价随 AP 取消)前两层,
+    # 第 3 层只有广纳枝(2026-10-18 集腋,斩获挪到 wide_3)
+    return 5 * (sum(map(sum, staged)) + sum(w[2:])) + 4 * sum(p) + 4 * sum(m[:2]) + sum(m[2:]) + sum(cross)
 
 
 PERK_TOTAL = perk_total()
@@ -103,8 +104,8 @@ CARDS_BY_RARITY = _card_counts()
 
 # ---- 局内(镜像 EndlessRules / EndlessGenerator)----
 ESCORT_FROM, ESCORT_CAP = 15, 4   # 2026-10-18 战场 3×2:随从起点 20 → 15
-# 2026-10-18 双字头领:13 层起(敌人数 ≥ 3)每层 1/3、25 层起必出;占 2 格、击杀墨锭 ×2
-LEADER_MIN_ENEMIES, LEADER_ALWAYS_FROM, LEADER_CHANCE = 3, 25, 1 / 3
+# 2026-10-18 双字头领:7 层起(敌人数 ≥ 2,收尾 spec §3)每层 1/3、25 层起必出;占 2 格、击杀墨锭 ×2
+LEADER_MIN_ENEMIES, LEADER_ALWAYS_FROM, LEADER_CHANCE = 2, 25, 1 / 3
 
 
 def is_boss(d):
@@ -112,7 +113,12 @@ def is_boss(d):
 
 
 def floor_ink(d):
-    return (5 if is_boss(d) else 2) << ((d - 1) // 10)
+    # 2026-10-18 3×2 墨锭补偿(收尾 spec §4,镜像 EndlessRules.FloorInk):11 层起 Boss 底数 5 → 4,31 层起普通层 ×4/3
+    tier = (d - 1) // 10
+    if is_boss(d):
+        return (4 if tier >= 1 else 5) << tier
+    ink = 2 << tier
+    return ink * 4 // 3 if tier >= 3 else ink
 
 
 def kill_ink(d):

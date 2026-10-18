@@ -5,7 +5,7 @@ namespace Brushblade.Presentation
 {
     /// <summary>技能节点的文案:名称 + 一句效果描述。逐节点/逐枝显式落到字符串表的字面 key ——
     /// <see cref="StringsTableTests"/> 的对账只认字面量,`Strings.T($"...")` 这种动态 key
-    /// 会被判孤儿(见 CLAUDE.md「字符串表检查只认字面量」)。43 个节点因此是 43 个 case,
+    /// 会被判孤儿(见 CLAUDE.md「字符串表检查只认字面量」)。44 个节点因此是 44 个 case,
     /// 不是循环拼 key —— 啰嗦但每一条都过得了对账。</summary>
     public static class PerkInfo
     {
@@ -49,6 +49,7 @@ namespace Brushblade.Presentation
             "lore_2" => Strings.T("perk.node.lore_2.name"),
             "wide_1" => Strings.T("perk.node.wide_1.name"),
             "wide_2" => Strings.T("perk.node.wide_2.name"),
+            "wide_3" => Strings.T("perk.node.wide_3.name"),   // 斩获(2026-10-18 收尾 §7 由 wide_2 挪来)
             "insight_1" => Strings.T("perk.node.insight_1.name"),
             "insight_2" => Strings.T("perk.node.insight_2.name"),
             "qi_1" => Strings.T("perk.node.qi_1.name"),
@@ -58,7 +59,7 @@ namespace Brushblade.Presentation
             "cross_vigor" => Strings.T("perk.node.cross_vigor.name"),
             "cross_edge" => Strings.T("perk.node.cross_edge.name"),
             "cross_draw" => Strings.T("perk.node.cross_draw.name"),
-            _ => def.NodeKey, // 兜底:43 个 NodeKey 已穷举,理论不可达
+            _ => def.NodeKey, // 兜底:44 个 NodeKey 已穷举,理论不可达
         };
 
         /// <summary>效果描述里的 {value}:三段节点印**累计到本段**的值(第 2 段的金系暴击印 +10,
@@ -112,7 +113,8 @@ namespace Brushblade.Presentation
             "lore_1" or "lore_2" =>
                 Strings.T("perk.info.effect.library", ("value", def.Value)),
             "wide_1" => Strings.T("perk.node.wide_1.desc", ("value", def.Value)),
-            "wide_2" => Strings.T("perk.node.wide_2.desc", ("value", def.Value),
+            "wide_2" => Strings.T("perk.node.wide_2.desc", ("value", def.Value)),   // 集腋
+            "wide_3" => Strings.T("perk.node.wide_3.desc", ("value", def.Value),   // 斩获
                 ("cap", BattleEngine.KillDrawPerTurnCap)),
             "insight_1" => Strings.T("perk.node.insight_1.desc", ("value", def.Value)),
             "insight_2" => Strings.T("perk.node.insight_2.desc", ("value", def.Value)),
@@ -201,6 +203,8 @@ namespace Brushblade.Presentation
             // 机制树(2026-10-02)
             PerkEffect.EmptyLibraryDraws =>
                 Strings.T("perk.detail.empty_library_draws", ("value", def.Value)),
+            PerkEffect.LowLibraryDraws =>   // 集腋(2026-10-18 收尾 §7)
+                Strings.T("perk.detail.low_library_draws", ("value", def.Value)),
             PerkEffect.KillDraw =>   // 斩获(2026-10-18)
                 Strings.T("perk.detail.kill_draw", ("value", def.Value), ("cap", BattleEngine.KillDrawPerTurnCap)),
             PerkEffect.RewardOptions =>

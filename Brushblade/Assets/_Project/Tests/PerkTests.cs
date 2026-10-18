@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
 
@@ -100,7 +102,8 @@ namespace Brushblade.Core.Tests
             foreach (var def in PerkRules.Nodes) total += def.InkCost;
             // 2026-10-02:五行 L1/L2 三段式(600 + 1200)+ L3 1200 + L4 2400 = 5400/枝;
             // 被动 2100/枝;机制四枝统一 800/1600(一气特价随 AP 取消);跨树 3000。
-            Assert.That(total, Is.EqualTo(48000), "全树总价(spec 2026-10-02)");
+            // 2026-10-18:广纳枝补第 3 层(斩获挪到 wide_3,3200 墨)。
+            Assert.That(total, Is.EqualTo(48000 + 3200), "全树总价(spec 2026-10-02 + 2026-10-18 §7)");
         }
 
         // ---- 表的形状 ----
@@ -109,7 +112,7 @@ namespace Brushblade.Core.Tests
         public void Nodes_AreSixtyThreeStagesAcrossFourCategories()
         {
             // 2026-10-02:五行 L1/L2 改三段,每枝 3 + 3 + 1 + 1 = 8 段;面(NodeKey)仍是 43 个
-            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(63));
+            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(64), "2026-10-18 广纳枝补第 3 层");
             int wuxing = 0, passive = 0, mechanic = 0, cross = 0;
             foreach (var def in PerkRules.Nodes)
             {
@@ -120,7 +123,7 @@ namespace Brushblade.Core.Tests
             }
             Assert.That(wuxing, Is.EqualTo(40));
             Assert.That(passive, Is.EqualTo(12));
-            Assert.That(mechanic, Is.EqualTo(8));
+            Assert.That(mechanic, Is.EqualTo(9));
             Assert.That(cross, Is.EqualTo(3), "跨树节点不属于任何一棵树(spec 2026-09-08 §3.0)");
         }
 
@@ -298,8 +301,8 @@ namespace Brushblade.Core.Tests
                 Assert.That(face.Stage, Is.EqualTo(1));
                 Assert.That(keys.Add(face.NodeKey), Is.True, $"重复 {face.NodeKey}");
             }
-            // 五行 5×4 + 被动 4×3 + 机制 4×2 + 跨树 3
-            Assert.That(PerkRules.Faces.Count, Is.EqualTo(43));
+            // 五行 5×4 + 被动 4×3 + 机制 4×2 + 广纳第 3 层 1 + 跨树 3
+            Assert.That(PerkRules.Faces.Count, Is.EqualTo(44));
         }
 
         // ---- 被动树不叠加(2026-10-02 用户拍板)----
@@ -358,7 +361,8 @@ namespace Brushblade.Core.Tests
                 ("vigor_1", PerkEffect.MaxHp, 300), ("vigor_2", PerkEffect.MaxHp, 500), ("vigor_3", PerkEffect.MaxHp, 1000),
                 ("power_3", PerkEffect.AttackPercent, 15), ("edge_3", PerkEffect.CritChance, 15),
                 ("guard_3", PerkEffect.Defense, 25),
-                ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.KillDraw, 1),
+                ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.LowLibraryDraws, 1),
+                ("wide_3", PerkEffect.KillDraw, 1),
                 ("insight_1", PerkEffect.RewardOptions, 1), ("insight_2", PerkEffect.RewardRerolls, 1),
                 ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.VictoryHealPercent, 5),
             };
@@ -369,6 +373,22 @@ namespace Brushblade.Core.Tests
             }
             Assert.That(PerkRules.Get("qi_1").InkCost, Is.EqualTo(800));
             Assert.That(PerkRules.Get("qi_2").InkCost, Is.EqualTo(1600));
+        }
+
+        /// <summary>集腋(spec 2026-10-18 §7):广纳枝改 3 层,wide_2 集腋、wide_3 斩获。
+        /// 机制树第 3 层按被动树第 3 层同比定价:门槛 +6 级(被动 8 → 14 ⇒ 机制 12 → 18),
+        /// 墨价 ×2(被动 600 → 1200 ⇒ 机制 1600 → 3200)。</summary>
+        [Test]
+        public void WideBranch_HasThreeLayers_ThirdPricedLikePassiveThird()
+        {
+            Assert.That((int)PerkEffect.LowLibraryDraws, Is.EqualTo((int)PerkEffect.KillDraw + 1), "枚举只在末尾追加");
+            Assert.That(Enum.GetValues(typeof(PerkEffect)).Cast<int>().Max(), Is.EqualTo((int)PerkEffect.LowLibraryDraws));
+            var w2 = PerkRules.Get("wide_2");
+            var w3 = PerkRules.Get("wide_3");
+            Assert.That((w2.Depth, w2.UnlockLevel, w2.InkCost), Is.EqualTo((2, 12, 1600)));
+            Assert.That((w3.Depth, w3.UnlockLevel, w3.InkCost), Is.EqualTo((3, 18, 3200)));
+            Assert.That(w3.Tree, Is.EqualTo(PerkTree.Mechanic));
+            Assert.That(w3.Branch, Is.EqualTo("wide"));
         }
 
         // ---- 红点 ----

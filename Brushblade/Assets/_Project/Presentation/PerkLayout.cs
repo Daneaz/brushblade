@@ -108,6 +108,8 @@ namespace Brushblade.Presentation
             // 直接按 i/(n-1) 铺满会让首尾两枝贴到相邻扇区的边界上。
             float angle = sector.FromDeg + (sector.ToDeg - sector.FromDeg) * (i + 0.5f) / n;
 
+            // 同树同层同圈:层间按**本树**最深层均分。机制树 2026-10-18 起只有广纳枝 3 层(集腋插在中间),
+            // 其余三枝的 L2 因此落在中圈 377.5、不再贴外沿 —— 「第几层」读圈数,比「每枝末层都贴外沿」一致。
             int maxDepth = MaxDepthOf(def.Tree);
             float radius = maxDepth <= 1
                 ? sector.FirstRadius

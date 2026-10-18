@@ -37,11 +37,11 @@ namespace Brushblade.Presentation
         // 非战斗阶段那一路最高的一件是跑图结束的「结算」钮 70,这个数也装得下。
         // (2026-09-02 轮三 Task 4:奇遇选项钮 92 已随整块内容搬进 _eventBody,不再进这条带。)
         private const float HandBandH = 117f;  // 稿 56pt
-        // 战场网格的实际内容宽:一排 4 格 × 293 + 3 个间距 × 17(稿 4×140 + 3×8 = 584pt)。
+        // 战场网格的实际内容宽 1223(稿 584pt;原为一排 4 格 × 293 + 3 × 17,2026-10-18 起 3 格 × 396.3 + 2 × 17,总宽不变)。
         // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
         // 1260,比上方的战场网格两边各宽出一圈,竖着看边缘不齐(2026-09-01 用户拍板收窄对齐)。
         // ⚠ 这是**上限**(基准机的宽),不是实际宽 —— 实际宽读 _fieldWidth,见 FrameWidth 的账。
-        private const float FieldContentWidth = EnemyCellWidth * 4 + RowGap * 3;
+        private const float FieldContentWidth = 1223f;
         // 触控下限:tokens.json tap-min 44pt × 2.093。牌按屏宽缩小后视觉高度可能跌破它,
         // 由 PadTapHeight 垫透明命中区补足(与「?」钮 CoachBtnTapH 同一手法)。
         private const float TapMin = 92f;
@@ -346,14 +346,10 @@ namespace Brushblade.Presentation
         /// 2026-10-18 战场改 3×2:战场总宽不变、4 格 → 3 格,每格加宽(基准机 ≈ 396,原 293)。</summary>
         private float EnemyCellW => (_fieldWidth - RowGap * (Targeting.RowCapacity - 1)) / Targeting.RowCapacity;
 
-        /// <summary>战场格的缩放比(≤1):单列敌人立绘跟着它等比缩,字号不缩。
-        /// ⚠ 2026-10-18 起仍按**旧 4 列格宽**算 —— 3×2 加宽后立绘尺寸 / 字号待设计稿(spec §6)定,
-        /// 在那之前保持立绘与改前同大,加出来的宽度只给信息列。</summary>
-        private float FieldScale => (_fieldWidth - RowGap * 3f) / 4f / EnemyCellWidth;
-
-        /// <summary>召唤格宽:与敌人格同比(基准机 289:293,稿 138pt),随 3×2 一起加宽。立绘**不缩** ——
-        /// 召唤物的点击目标就是立绘那颗钮(后排 75 已低于 tap-min,不能再小),变的只是信息列。</summary>
-        private float SummonCellW => SummonCellWidth * EnemyCellW / EnemyCellWidth;
+        /// <summary>召唤格宽 = 敌人格宽(battlegrid 稿 2026-10-18:上下两区三列竖线对齐;原 289 略窄于敌人 293)。
+        /// 立绘不缩 —— 召唤物的点击目标就是立绘那颗钮,变的只是信息列。
+        /// (原 FieldScale:16:9 上单列敌人立绘 × 0.73。3×2 后 16:9 格宽 292 ≈ 旧基准机格宽,稿删掉了这条缩放。)</summary>
+        private float SummonCellW => EnemyCellW;
 
         /// <summary>视觉高度不足 <see cref="TapMin"/> 的可点牌:垫一层透明子节点把触控高度撑到
         /// TapMin(竖向居中、横向与牌同宽)。点击/拖拽/长按都会从命中的子节点冒泡到牌本身的
@@ -2426,8 +2422,7 @@ namespace Brushblade.Presentation
 
         // 召唤格尺寸(2026-08-31 横排改造,与敌人格同构)。之前挤在 34/28 的小方块里,
         // 横排后立绘反而放大到 48/36(稿写明了这条收益)。尺寸 = 稿 pt × 2.093,与
-        // 敌人格(EnemyCellWidth 一带)同一套换算。
-        private const float SummonCellWidth = 289f;         // 稿 .ally.front/.rear { width: 138pt }
+        // 敌人格(EnemyCellHeightFront 一带)同一套换算。格宽不设常量:与敌人格同宽,见 SummonCellW。
         private const float SummonCellHeightFront = 113f;   // 稿 .slotfree.front { height: 54pt }
         private const float SummonCellHeightBack = 88f;     // 稿 .slotfree.rear { height: 42pt }
         private const float SummonPortraitFront = 100f;     // 稿 .ally.front .blk { 48×48 }
@@ -2488,9 +2483,9 @@ namespace Brushblade.Presentation
                 cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
                 _summonCellByCore[i] = (RectTransform)cell.transform;
 
-                // 格宽随屏宽缩(SummonCellW:2026-10-18 起 3 格一排,基准机 ≈ 391,16:9 ≈ 288;原 289 / 212),立绘不缩(它就是点击目标),
-                // 缩的是信息列:16:9 前排 212 − 100 − 10 ≈ 102、后排 ≈ 127。账:头行 名字 19 + 6 +
-                // 属性徽章 25 = 50;三位数「射程+攻」chip 76;血值叠字「1234/1234」13 号约 64 —— 都装得下。
+                // 格宽 = 敌人格宽(SummonCellW,battlegrid 稿:基准机 ≈ 396,16:9 ≈ 292),立绘不缩(它就是点击目标),
+                // 信息列 基准机 前 286 / 后 311、16:9 前 182 / 后 207。账:头行 名字 19 + 6 + 属性徽章 25 = 50;
+                // 三位数「射程+攻」chip 56;血值叠字「1234/1234」13 号约 64 —— 都装得下。
                 float portraitSize = front ? SummonPortraitFront : SummonPortraitBack;
                 float infoWidth = SummonCellW - portraitSize - SummonBlkInfoGap;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
@@ -2585,7 +2580,7 @@ namespace Brushblade.Presentation
                 if (burn > 0) chipSpecs.Add(new($"{burn}", BattleChipColor(StatusKind.Burn), Color.white, "burn"));
                 AddSummonStatusChips(chipSpecs, i, summon, RetaliateChip());
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
-                    front ? ChipMaxLines : SummonBackChipMaxLines,
+                    front ? SummonFrontChipMaxLines : SummonBackChipMaxLines,
                     UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 血条:走与敌方同一个 HpBar helper —— 血/上限叠在条内(2026-09-05 用户拍板
@@ -2965,11 +2960,11 @@ namespace Brushblade.Presentation
         /// <summary>头行的名字:吃弹性宽、可被压窄。挤不下时先让它 —— 名字在别处还有兜底
         /// (敌人的立绘就是它的形象、召唤物的字直接印在立绘上,全名都在详情弹窗里),
         /// 而属性/攻/甲是读战况的硬信息,少一样就得点开弹窗才知道。</summary>
-        private static void HeaderName(Transform parent, string text, int fontSize)
+        private static LayoutElement HeaderName(Transform parent, string text, int fontSize)
         {
             var label = Ui.ThemedLabel(parent, text, fontSize, Theme.TextMain, Theme.TitleFont,
                 TextAnchor.MiddleLeft);
-            Ui.Sized(label.gameObject, flexWidth: 1); // preferredWidth 留 −1:仍报整句宽,只是可被压
+            return Ui.Sized(label.gameObject, flexWidth: 1); // preferredWidth 留 −1:仍报整句宽,只是可被压
         }
 
         /// <summary>射程图标的 key。近战与远程**都有图标**(2026-09-04 用户拍板,同时补了
@@ -3170,26 +3165,23 @@ namespace Brushblade.Presentation
         // 稿(Battle.dc.html .foe/.foeslot)写明了理由:横排后格高由立绘单独决定
         // (信息列 36 < 立绘 60),纵向反而比竖排省 24px/排,省下的全给敌我之间的留白。
         // 尺寸 = 稿 pt × 2.093(逻辑单位换算,与骨架其余常量同一套换算)。
-        private const float EnemyCellWidth = 293f;        // 稿 140pt
         private const float EnemyCellHeightFront = 138f;  // 稿 66pt
         private const float EnemyCellHeightBack = 109f;   // 稿 52pt
         private const float EnemyPortraitFront = 126f;    // 稿 60pt
         private const float EnemyPortraitBack = 96f;      // 稿 46pt
 
-        /// <summary>跨排 Boss 的立绘(2026-09-05 用户拍板「放大一点加强压迫感」)。
-        ///
-        /// 上限是它那块可视区的**高度**:后排格 109 + 排间距 4 + 前排格 138 = 251,
-        /// 220 之后上下各留约 15 的余量(Ui.UnitBlock 的 Row 是 MiddleLeft,立绘垂直居中)。
-        /// 横向不构成约束 —— Boss 跨两列,块宽 293×2 + 17 = 603,扣掉立绘与间距仍有 370
-        /// 留给信息列,而头行那四样属性最紧只需要 154(见 EnemyHeaderSpacing 那段预算)。
-        /// 所以血条与 chip 行**不必**为它让路:它们与立绘是左右关系,不是上下之争。</summary>
-        private const float BossPortraitSize = 220f;
+        /// <summary>竖块(Boss / 精英 / 头领,一列 × 两排)的立绘,battlegrid 稿 2026-10-18:220 → 172(82pt),
+        /// 两档屏宽同尺寸。块高 251 = 后排 109 + 排间 4 + 前排 138,纵向分给 头行 24 / 立绘 172 / 底部 chip 流 2 行
+        /// (见 DrawEnemies 竖块那段的账);Boss 讹熔图是 512² 方图,直接缩放,不需重裁。</summary>
+        private const float BossPortraitSize = 172f;
 
-        /// <summary>竖块(跨排)信息列的最小宽度(2026-10-18 战场 3×2 防溢出):放得下「射程+攻」「甲」
-        /// 两枚 chip 并排 —— 三位数半角口径各约 56(见 portraitSize 那段注释),加 ChipSpacing 4 = 116,取 120。
-        /// 竖块只占 1 列后格宽在 16:9 约 292、扣 SafeArea inset 的机型更窄,220 的立绘会把信息列挤成负数;
-        /// 立绘因此夹到 <c>格宽 − 间距 − 本值</c>。完整排法等设计稿(spec §6),这里只防溢出。</summary>
-        private const float CrossRowMinInfoWidth = 120f;
+        /// <summary>竖块右栏的最小宽度(兜底夹值,2026-10-18):右栏只放攻 / 甲(ChipFlow ≤ 2 行,一行一枚也行),
+        /// 最宽的一枚是四位数「射程+攻」≈ 33 + 10 + 21 = 64,加 ChipFlow 两侧各 2 = 68。
+        /// 两档目标屏上不触发(16:9 战场 909 → 右栏 ≈ 107);只在更窄的屏上把立绘从 172 往下夹。</summary>
+        private const float CrossRowMinInfoWidth = 68f;
+
+        /// <summary>竖块头行高(稿 .hd 11.47pt ≈ 24):名字 19 号、属性徽章 20、档位签 18 都装得下。</summary>
+        private const float BossHeaderHeight = 24f;
 
         // 立绘与信息列的间距(稿 .foe { gap: 6px })。信息列自身的行距(稿 .info { gap: 2px }),
         // 头行里名字与属性徽章的间距(稿 .hd { gap: 4px })——同一套 ×2.093 换算。
@@ -3249,11 +3241,17 @@ namespace Brushblade.Presentation
         // 2026-09-19:字号与内边距统一换成 UnitChipFontSize/UnitChipPadX/UnitChipPadY,这里只剩间距与行数。
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
-        private const int ChipMaxLines = 2;
-        // 跨排 Boss 格(E3,StatusChipsWaterEarth 拍板):块高 251,头行 24 + chip 3×20+2×3 + 血条 19 + 行动条 6 + 间距 4×3 ≈ 127
-        private const int BossChipMaxLines = 3;
+        // 行数按格高定(battlegrid 稿 2026-10-18):
+        //   敌前排 138:头行 24 + chip 3×20 + 2×3 + 血条 19 + 行动条 6 + 间距 4×3 = 127 ≤ 138 → 3 行(原 2);
+        //   敌后排 109:2 行(≈ 104);召唤前排 113:2 行(111);召唤后排 88:1 行(正好装满)。
+        private const int EnemyFrontChipMaxLines = 3;
+        private const int EnemyBackChipMaxLines = 2;
+        private const int SummonFrontChipMaxLines = 2;
         // 后排召唤格只有 88 高,两行 chip 装不下(见头行拆两行那段的纵向预算)
         private const int SummonBackChipMaxLines = 1;
+        // 竖块(Boss / 精英 / 头领):底部全宽 chip 流 2 行(原跨两列时信息列 3 行),右栏攻 / 甲 ≤ 2 行
+        private const int BossChipMaxLines = 2;
+        private const int BossSideChipMaxLines = 2;
 
         // 拖字打人悬停预览(2026-08-22):主目标复用「选目标态整格微亮」的既有强度(0.07f,
         // 见 DrawEnemies 的 hitArea.color),被形状溅到的用更淡一档,与主目标拉开区分。
@@ -3407,22 +3405,51 @@ namespace Brushblade.Presentation
                 // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
                 // (span-1) 个 RowGap
                 cellElement.preferredWidth = EnemyCellW * span + RowGap * (span - 1);
-                // 单列格的立绘随格宽同比缩(FieldScale,基准机 = 1;16:9 ≈ 0.73 → 前排 92 / 后排 70),
-                // 字号不缩。不缩立绘的话 16:9 前排信息列只剩 214.5 − 126 − 13 ≈ 75,一枚三位数的
-                // 「射程+攻」chip(76,2026-10-18 半角口径后 56)就放不下;缩后前排 109 / 后排 131,攻 + 甲两枚分两行排得下,
-                // 其余战况收「+N」(全量在详情弹窗)。点击目标是整格(≥ 214×109),不受立绘大小影响。
-                // Boss 不随 FieldScale 缩。⚠ 2026-10-18 起 Boss / 头领只占 1 列(竖两格):16:9 格宽 ≈ 292,
-                // 220 立绘会把信息列挤到约 58 —— 立绘夹到给信息列留 CrossRowMinInfoWidth(攻 + 甲两枚 chip);
-                // 竖块的完整立绘 / 信息排法待设计稿(spec §6),这里只防溢出。
+                // 立绘两档屏宽都不缩(battlegrid 稿 2026-10-18):3×2 后 16:9 格宽 292 ≈ 旧基准机格宽,
+                // 单列格固定 前排 126 / 后排 96,信息列 基准机 257 / 287、16:9 153 / 183。
+                // 竖块(Boss / 精英 / 头领,跨两排)立绘 172;夹值只是兜底:比 16:9(909 战场)还窄的屏上
+                // 给右栏留 CrossRowMinInfoWidth,两档目标屏上不触发(16:9 右栏 = 291.7 − 172 − 13 ≈ 107)。
+                float cellWidth = cellElement.preferredWidth;
                 float portraitSize = crossRow
-                    ? Mathf.Min(BossPortraitSize, cellElement.preferredWidth - EnemyBlkInfoGap - CrossRowMinInfoWidth)
-                    : (front ? EnemyPortraitFront : EnemyPortraitBack) * FieldScale;
-                float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
-                // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),
-                // 2026-08-31 收口成 Ui.UnitBlock,与召唤格/玩家条同一套写法。
-                Ui.UnitBlock(box, "Block", portraitSize, infoWidth, EnemyBlkInfoGap,
-                    out var portraitMount, out var info);
-                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                    ? Mathf.Min(BossPortraitSize, cellWidth - EnemyBlkInfoGap - CrossRowMinInfoWidth)
+                    : (front ? EnemyPortraitFront : EnemyPortraitBack);
+                // infoWidth:单列格 = 信息列宽;竖块 = 右栏宽(攻 / 甲 + 血条 + 行动条)
+                float infoWidth = cellWidth - portraitSize - EnemyBlkInfoGap;
+                Transform portraitMount, info;
+                Transform headerParent; // 头行挂在哪:单列格在信息列里,竖块在整块顶上(全宽)
+                Transform blockShell = null; // 竖块的三段竖排外壳;底部全宽 chip 流挂这里
+                if (crossRow)
+                {
+                    // 竖块三段(稿 GridSpec ③):头行全宽 24 → 立绘 172 + 右栏 → 全宽 chip 流 2 行。
+                    // 纵向账:24 + 4 + 172 + 4 + (20×2 + 3) = 247 ≤ 251(后排 109 + 排间 4 + 前排 138)。
+                    var shell = Ui.VStack(box, "Block", EnemyInfoSpacing);
+                    Ui.Stretch((RectTransform)shell.transform);
+                    shell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                    blockShell = shell.transform;
+                    var head = Ui.Row(shell.transform, "Header", EnemyHeaderSpacing);
+                    Ui.Sized(head, width: cellWidth, height: BossHeaderHeight);
+                    head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                    headerParent = head.transform;
+                    var body = Ui.Row(shell.transform, "Body", EnemyBlkInfoGap);
+                    body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                    var mount = Ui.Panel(body.transform, "Portrait");
+                    Ui.Sized(mount, width: portraitSize, height: portraitSize);
+                    portraitMount = mount.transform;
+                    // 右栏与立绘同高:攻 / 甲在上,血条 / 行动条由弹性空位推到底、贴立绘底沿
+                    var side = Ui.VStack(body.transform, "Info");
+                    Ui.Sized(side, width: infoWidth, height: portraitSize);
+                    side.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                    info = side.transform;
+                }
+                else
+                {
+                    // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),
+                    // 2026-08-31 收口成 Ui.UnitBlock,与召唤格/玩家条同一套写法。
+                    Ui.UnitBlock(box, "Block", portraitSize, infoWidth, EnemyBlkInfoGap,
+                        out portraitMount, out info);
+                    info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                    headerParent = Ui.Row(info, "Header", EnemyHeaderSpacing).transform;
+                }
 
                 // 有形象就用分层字怪(Boss 按当前阶段取图),否则回落圆形字头像
                 MobView mob = null;
@@ -3484,8 +3511,8 @@ namespace Brushblade.Presentation
 
                 // 头行:名字 + 五行属性徽章(稿 .hd/.els)。元素徽章从 chip 行搬到这里——
                 // 与名字一起才是「这是谁」,不该跟灼烧/致盲那些战况 chip 混排。
-                var header = Ui.Row(info.transform, "Header", EnemyHeaderSpacing);
-                HeaderName(header.transform, BossTitle(enemy), HeaderNameFontSize);
+                var header = headerParent; // 头行 Row 已在上面按单列 / 竖块各自建好
+                var nameElement = HeaderName(header.transform, BossTitle(enemy), HeaderNameFontSize);
                 // 显示用的元素名走 CharInfo.ElementName(查表)。
                 string elementName = enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?";
                 // 底色用字形色(2026-09-19):属性原色压白字金 2.5:1、土 4.0:1,字形色六系都 ≥4.5:1。
@@ -3493,6 +3520,15 @@ namespace Brushblade.Presentation
                 HeaderChip(header.transform, elementName,
                     enemy.ApparentElement is { } shownElement ? Theme.GlyphColor(shownElement) : Theme.NeutralPart,
                     Color.white);
+                // 档位签(battlegrid 稿 ④):头领 / 精英 / Boss 挂、小怪不挂(用户 2026-10-18)。
+                // 竖块头行定了全宽:名字 + 属性靠左、签被弹性空位推到右沿 —— 名字因此不再吃弹性宽
+                // (仍可被压窄:压缩看 min/preferred,与 flexible 无关)。单列格(理论上不会有非小怪)跟在属性后。
+                if (crossRow)
+                {
+                    nameElement.flexibleWidth = 0f;
+                    Ui.Sized(Ui.Panel(header, "Spacer"), flexWidth: 1f);
+                }
+                EnemyInfo.TierTag(header, enemy.Def.Tier);
 
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
                 // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
@@ -3626,10 +3662,23 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new("", BattleChipColor(StatusKind.FrostResist), Theme.GlyphColor(Element.Water), "frostguard",
                         Theme.GlyphColor(Element.Water)));
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
-                // 跨排 Boss 放到 3 行(StatusChipsWaterEarth 拍板):16:9 下蓄力预警 + 削弱 / 灼在 2 行里会把预警本身收进「+N」。
-                // 按跨排判断而不是 IsBoss —— 纵向余量来自跨排的块高 251(信息列 3 行 ≈127)
-                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
-                    crossRow ? BossChipMaxLines : ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
+                if (crossRow)
+                {
+                    // 竖块(battlegrid 稿 ③):攻 / 甲进右栏(≤2 行,16:9 右栏 107 放不下两枚三位数就折两行),
+                    // 战况走底部全宽流 2 行(蓄力预警打头,两档都与削弱 / 致命同排)。
+                    // 按跨排判断而不是 IsBoss —— 头领、精英同一套竖块。
+                    int lead = shownDefense > 0 ? 2 : 1;
+                    Ui.ChipFlow(info, "Chips", chipSpecs.GetRange(0, lead), infoWidth - 4f, UnitChipFontSize,
+                        BossSideChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
+                    Ui.Sized(Ui.Panel(info, "Push"), flexHeight: 1f);
+                    Ui.ChipFlow(blockShell, "StatusChips", chipSpecs.GetRange(lead, chipSpecs.Count - lead),
+                        cellWidth - 4f, UnitChipFontSize, BossChipMaxLines,
+                        UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
+                }
+                else
+                    Ui.ChipFlow(info, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
+                        front ? EnemyFrontChipMaxLines : EnemyBackChipMaxLines,
+                        UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。

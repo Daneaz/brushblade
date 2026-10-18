@@ -75,8 +75,29 @@ namespace Brushblade.Presentation
             { "惊涛骇浪", "jingtaohailang" },
         };
 
+        /// <summary>双字头领立绘(2026-10-18):一只一张两字「讹熔」,两个字各是一层(c0/c1),
+        /// 运行时上字染深、下字染亮(见 MobView 的头领骨架)。头领在 enemies.json 里没有 phases,
+        /// 按 id 查这张表,与档位无关 —— 战斗里是 Leader 档,图鉴里拿到的是未缩放的原始定义。
+        /// 与 tools/design/build_boss_art.py 的 LEADERS 表逐条相同(test_mob_assets.py 守着)。</summary>
+        private static readonly Dictionary<string, string> LeaderSlugs = new()
+        {
+            { "朽木", "xiumu" },
+            { "荆棘", "jingji" },
+            { "烽燧", "fengsui" },
+            { "余烬", "yujin" },
+            { "碑碣", "beijie" },
+            { "磐石", "panshi" },
+            { "钟鼎", "zhongding" },
+            { "刀笔", "daobi" },
+            { "漩涡", "xuanwo" },
+            { "浊浪", "zhuolang" },
+        };
+
         /// <summary>这套资产是不是 Boss 骨架(四个字各一层)。静态场合(单位详情页)照旧叠 body/face/wisp。</summary>
         public static bool IsBossRig(string prefix) => Layer(prefix, "c0") != null;
+
+        /// <summary>这套资产是不是双字头领骨架(两个字各一层,有 c0 而没有 c2)。</summary>
+        public static bool IsLeaderRig(string prefix) => IsBossRig(prefix) && Layer(prefix, "c2") == null;
 
         /// <summary>该怪的资产前缀;没有对应形象返回 null —— 调用方回落到字牌格。
         /// phaseIndex 自 2026-09-30 起不再影响前缀(Boss 一只一张图),参数留着给调用方同一个签名。</summary>
@@ -85,7 +106,8 @@ namespace Brushblade.Presentation
             if (def == null) return null;
             if (def.Phases.Count > 0)
                 return BossSlugs.TryGetValue(def.Id, out var bossSlug) ? "boss_" + bossSlug : null;
-            return MinionSlugs.TryGetValue(def.Id, out var slug) ? "enemy_" + slug : null;
+            if (MinionSlugs.TryGetValue(def.Id, out var slug)) return "enemy_" + slug;
+            return LeaderSlugs.TryGetValue(def.Id, out var leaderSlug) ? "leader_" + leaderSlug : null;
         }
 
         private static readonly Dictionary<string, Sprite> Cache = new();

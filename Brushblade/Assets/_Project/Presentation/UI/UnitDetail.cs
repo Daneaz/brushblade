@@ -63,6 +63,7 @@ namespace Brushblade.Presentation
         public bool ElementUnknown; // true = 生僻字未读懂(画「?」徽章);
                                      // Element == null 且此项为 false = 执笔人没有五行(不画徽章)
         public string Name;
+        public EnemyTier? Tier;         // 档位签(名字后);null = 不是敌人。小怪不挂签由 EnemyInfo.TierTag 自己判
         public string[] Tags;           // 「前排 · 近战」/「文山 ×3.0」
         public string Flavor;           // 一句风味描述;null = 不画
         public int Hp, MaxHp, Shield, ActionMeter;
