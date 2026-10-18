@@ -7,12 +7,12 @@ namespace Brushblade.Core.Tests
 {
     /// <summary>召唤槽位按层解锁(2026-08-27 用户拍板;2026-09-30 改为每档一格;
     /// 2026-10-18 战场改 3×2,8 格 → 6 格)。解锁的是**位置**,不是「前 N 格」——
-    /// 按列居中往外(列序 1、0、2),每列先前排后后排:
+    /// 先开满前排、再开后排,每排居中往外(中 → 左 → 右;2026-10-18 对齐 designer 战场稿):
     ///
     /// <code>
     ///   槽位   0    1    2        3    4    5
     ///   位置  前左 前中 前右      后左 后中 后右
-    ///   层数   13    1   25       19    7   31
+    ///   层数    7    1   13       25   19   31
     /// </code>
     ///
     /// 2026-09-30 用户拍板:召唤物不超过本层敌人总数(Boss 按占格算 2 只)。档位线
@@ -152,18 +152,27 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void OpeningDepths_FillTheMiddleColumn()
+        public void OpeningDepth_FillsTheMiddleFrontSlot()
         {
-            // 开放集合不是连续前缀:第 7 层开的是槽 1、4(中列前后两格),槽 0 是锁着的。
+            // 开放集合不是连续前缀:第 1 层开的是槽 1(前中),槽 0 是锁着的。
             // 「找最小空槽」若按下标从 0 起扫,第一只就会落进锁着的槽 0。
+            var engine = AtDepth(1, "兵");
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons[0], Is.Null, "前左第 7 层才开");
+            Assert.That(engine.Summons[1], Is.Not.Null);
+        }
+
+        [Test]
+        public void DepthSeven_FillsFrontMiddleAndFrontLeft()
+        {
+            // 2026-10-18:先开满前排(中 → 左 → 右),第 7 层的第二格是前左,不是后中
             var engine = AtDepth(7, "兵", "兵");
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.Summons[0], Is.Null, "前左第 13 层才开");
+            Assert.That(engine.Summons[0], Is.Not.Null);
             Assert.That(engine.Summons[1], Is.Not.Null);
-            Assert.That(engine.Summons[2], Is.Null, "前右第 25 层才开");
-            Assert.That(engine.Summons[3], Is.Null, "后左第 19 层才开");
-            Assert.That(engine.Summons[4], Is.Not.Null);
+            Assert.That(engine.Summons[2], Is.Null, "前右第 13 层才开");
+            Assert.That(engine.Summons[4], Is.Null, "后中第 19 层才开");
         }
 
         [Test]
@@ -192,21 +201,21 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlanSummonSlots_WalksOnlyOpenSlots()
         {
-            // 落位环只能踩开着的格。19 层开放 {0,1,3,4},从 1 起顺延 3 只 = 1 → 3 → 4
+            // 落位环只能踩开着的格。19 层开放 {0,1,2,4},从 1 起顺延 3 只 = 1 → 2 → 4
             var engine = AtDepth(19, "兵");
-            Assert.That(engine.PlanSummonSlots(1, 3), Is.EqualTo(new[] { 1, 3, 4 }));
+            Assert.That(engine.PlanSummonSlots(1, 3), Is.EqualTo(new[] { 1, 2, 4 }));
             Assert.That(engine.PlanSummonSlots(4, 3), Is.EqualTo(new[] { 4, 0, 1 }), "环回到最小的开放格");
-            Assert.That(engine.PlanSummonSlots(2, 2), Is.EqualTo(new[] { 3, 4 }),
+            Assert.That(engine.PlanSummonSlots(3, 2), Is.EqualTo(new[] { 4, 0 }),
                 "起始格本身锁着时,从它往后找第一个开着的");
         }
 
         // ---- 每一格是第几层解锁 ----
 
-        [TestCase(0, 13)]   // 前左
+        [TestCase(0, 7)]    // 前左
         [TestCase(1, 1)]    // 前中 —— 开局就有
-        [TestCase(2, 25)]   // 前右
-        [TestCase(3, 19)]   // 后左
-        [TestCase(4, 7)]    // 后中
+        [TestCase(2, 13)]   // 前右
+        [TestCase(3, 25)]   // 后左
+        [TestCase(4, 19)]   // 后中
         [TestCase(5, 31)]   // 后右
         public void UnlockDepthForSlot_MatchesTheBands(int slot, int depth)
         {
@@ -214,13 +223,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void UnlockedSlots_OpenFromTheMiddleOutwards()
+        public void UnlockedSlots_FillFrontRowFirst_MiddleOutwards()
         {
             Assert.That(Open(1), Is.EquivalentTo(new[] { 1 }), "开局:前排中间一格");
             Assert.That(Open(6), Is.EquivalentTo(new[] { 1 }), "第 6 层还没到线");
-            Assert.That(Open(7), Is.EquivalentTo(new[] { 1, 4 }), "7 层补后排中间,中列齐");
-            Assert.That(Open(19), Is.EquivalentTo(new[] { 0, 1, 3, 4 }), "13/19 层补左列前后");
-            Assert.That(Open(31), Is.EquivalentTo(new[] { 0, 1, 2, 3, 4, 5 }), "25/31 层补右列前后");
+            Assert.That(Open(7), Is.EquivalentTo(new[] { 0, 1 }), "7 层补前左");
+            Assert.That(Open(13), Is.EquivalentTo(new[] { 0, 1, 2 }), "13 层补前右,前排齐");
+            Assert.That(Open(19), Is.EquivalentTo(new[] { 0, 1, 2, 4 }), "19 层开后排中间");
+            Assert.That(Open(25), Is.EquivalentTo(new[] { 0, 1, 2, 3, 4 }), "25 层补后左");
+            Assert.That(Open(31), Is.EquivalentTo(new[] { 0, 1, 2, 3, 4, 5 }), "31 层补后右");
         }
 
         [Test]
@@ -296,7 +307,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = AtDepth(25, "兵");
             Assert.That(engine.SummonCapacity, Is.EqualTo(5));
-            Assert.That(engine.IsSlotOpen(2), Is.True);   // 前右
+            Assert.That(engine.IsSlotOpen(3), Is.True);   // 后左 25 层开
             Assert.That(engine.IsSlotOpen(5), Is.False);  // 后右 31 层才开
             Assert.That(engine.IsSlotOpen(6), Is.False);  // 越界:硬上限 6 格
         }
