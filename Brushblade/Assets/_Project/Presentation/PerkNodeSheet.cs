@@ -177,6 +177,7 @@ namespace Brushblade.Presentation
 
         private static void BuildParagraph(Transform parent, string text, int fontSize, Color color)
         {
+            text = Ui.NoBreakSpaces(text);   // 「若字库只剩 1 张」别在空格处整词折行(2026-10-18 收尾 §8)
             var label = Ui.ThemedLabel(parent, text, fontSize, color);
             label.alignment = TextAnchor.UpperLeft;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;

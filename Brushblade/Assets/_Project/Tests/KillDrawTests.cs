@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>斩获(wide_2,spec 2026-10-18 §7):击杀敌人时掉 1 张字进字库,每回合至多
+    /// <summary>斩获(wide_3;2026-10-18 收尾 §7 由 wide_2 挪来,spec 2026-10-18 §7):击杀敌人时掉 1 张字进字库,每回合至多
     /// <see cref="BattleEngine.KillDrawPerTurnCap"/> 张;满库不掉(不进 DropChoice);任何来源的击杀都算;
     /// 抽字走 _traitRandom,主随机序列不平移。计数在玩家回合开始(StartTurn)清零,
     /// 敌人回合与其前一玩家回合共用一个计数。</summary>

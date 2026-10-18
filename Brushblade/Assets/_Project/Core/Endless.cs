@@ -251,17 +251,18 @@ namespace Brushblade.Core
             return floor;
         }
 
-        /// <summary>出头领的最少敌人数(= 头领 2 格 + 至少 1 只小怪;MinionCountFor 下即第 13 层起)。</summary>
-        public const int LeaderMinEnemies = 3;
+        /// <summary>出头领的最少敌人数(= 头领占的 2 格;MinionCountFor 下即第 7 层起)。
+        /// 2026-10-18 收尾 spec §3:3 → 2,7–12 层出头领时即头领单挑(0 只小怪)。</summary>
+        public const int LeaderMinEnemies = 2;
 
-        /// <summary>从这一层起普通层必出头领;之前(13–24 层)每层 1 / <see cref="LeaderChanceDenominator"/>。</summary>
+        /// <summary>从这一层起普通层必出头领;之前(7–24 层)每层 1 / <see cref="LeaderChanceDenominator"/>。</summary>
         public const int LeaderGuaranteedFromDepth = 25;
         public const int LeaderChanceDenominator = 3;
 
         /// <summary>本层出不出头领、出哪只(2026-10-18,spec §3);不出返回 null。
         ///
         /// 随机消耗(写在这里,trace 换基线时对得上):本段无头领池或敌人数不足 → 0 次;
-        /// 13–24 层先 <c>Next(3)</c> 一次判出不出(== 0 出),25 层起不判;出则再 <c>Next(池大小)</c> 一次选哪只。
+        /// 7–24 层先 <c>Next(3)</c> 一次判出不出(== 0 出),25 层起不判;出则再 <c>Next(池大小)</c> 一次选哪只。
         /// 都在抽小怪之前,所以出现头领的层后续小怪序列整体平移。</summary>
         public static EnemyDef LeaderFor(BandDef band, int depth, int enemyCount, GameRandom random)
         {
@@ -453,12 +454,19 @@ namespace Brushblade.Core
 
         /// <summary>层清算墨锭(2026-07-21):普通层 2、Boss 层 5,每 10 层翻倍。
         /// 2026-08-30 起**赚到即入账**(走 RunEngine.AddInk 进本段账目,由外层即时结进账户),
-        /// 不再攒成滚存等塔结算 —— 那条通道存在的唯一理由是阵亡减半,减半已取消。</summary>
+        /// 不再攒成滚存等塔结算 —— 那条通道存在的唯一理由是阵亡减半,减半已取消。
+        ///
+        /// 3×2 改版补偿(2026-10-18 收尾 spec §4,只动层墨锭、不动击杀单价):改版让 Boss 随从提前到 15 层
+        /// (击杀墨锭多)、普通层满员 8 → 6(37 层起击杀墨锭少)。对应两刀:11 层起 Boss 层底数 5 → 4,
+        /// 31 层起普通层 ×4/3(向下取整)。整趟墨锭(层清算 + 击杀 + 奇遇)对改版前:30 层 ±0%、
+        /// 50 层 −0.5%、60 层 −0.1%(tools/design/economy_model.py 镜像同一公式;70 层起渐偏多,100 层约 +8%)。</summary>
         public static int FloorInk(EndlessConfig config, int depth)
         {
             int tier = (depth - 1) / 10;                  // 1~10 档 0,11~20 档 1……
-            int baseInk = config.IsBossDepth(depth) ? 5 : 2;
-            return baseInk << tier;
+            if (config.IsBossDepth(depth))
+                return (tier >= 1 ? 4 : 5) << tier;
+            int ink = 2 << tier;
+            return tier >= 3 ? ink * 4 / 3 : ink;
         }
 
         /// <summary>主题 Boss 层(2026-09-30,十层一主题):第 10/20/30… 层 —— 从 1 数起的第偶数个

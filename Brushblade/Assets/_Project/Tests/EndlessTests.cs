@@ -354,11 +354,27 @@ namespace Brushblade.Core.Tests
             Assert.That(EndlessRules.FloorInk(config, 10), Is.EqualTo(5));  // Boss,仍是第一档
             // 11~20 层:翻倍
             Assert.That(EndlessRules.FloorInk(config, 11), Is.EqualTo(4));
-            Assert.That(EndlessRules.FloorInk(config, 15), Is.EqualTo(10)); // Boss
-            Assert.That(EndlessRules.FloorInk(config, 20), Is.EqualTo(10)); // Boss,仍是第二档
+            Assert.That(EndlessRules.FloorInk(config, 19), Is.EqualTo(4));  // 普通层,仍是第二档(Boss 层见下一条)
             // 21~30 层:再翻倍
             Assert.That(EndlessRules.FloorInk(config, 21), Is.EqualTo(8));
-            Assert.That(EndlessRules.FloorInk(config, 25), Is.EqualTo(20)); // Boss
+        }
+
+        /// <summary>3×2 改版墨锭补偿(2026-10-18 收尾 spec §4):11 层起 Boss 层底数 5 → 4
+        /// (抵随从提前到 15 层多出的击杀墨锭),31 层起普通层 ×4/3(抵满员 8 → 6 少掉的击杀墨锭)。</summary>
+        [Test]
+        public void FloorInk_Compensated_For3x2Battlefield()
+        {
+            var config = Config();
+            Assert.That(EndlessRules.FloorInk(config, 10), Is.EqualTo(5), "1~10 层 Boss 不变(那里没有随从)");
+            Assert.That(EndlessRules.FloorInk(config, 15), Is.EqualTo(8), "Boss 4 << 1");
+            Assert.That(EndlessRules.FloorInk(config, 20), Is.EqualTo(8));
+            Assert.That(EndlessRules.FloorInk(config, 25), Is.EqualTo(16), "Boss 4 << 2");
+            Assert.That(EndlessRules.FloorInk(config, 30), Is.EqualTo(16));
+            Assert.That(EndlessRules.FloorInk(config, 29), Is.EqualTo(8), "30 层前普通层不变");
+            Assert.That(EndlessRules.FloorInk(config, 31), Is.EqualTo(21), "16 × 4/3 向下取整");
+            Assert.That(EndlessRules.FloorInk(config, 40), Is.EqualTo(32), "Boss 4 << 3");
+            Assert.That(EndlessRules.FloorInk(config, 41), Is.EqualTo(42), "32 × 4/3");
+            Assert.That(EndlessRules.FloorInk(config, 51), Is.EqualTo(85), "64 × 4/3");
         }
 
         // ---- 成语 Boss 生成(20.7) ----
