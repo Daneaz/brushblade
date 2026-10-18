@@ -170,6 +170,7 @@ namespace Brushblade.Core
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
         public int EmptyLibraryExtraDraws { get; set; } // 广纳(2026-10-18):回合开始字库 ≤ 1 张时掉字数 +N
+        public int LowLibraryExtraDraws { get; set; }   // 集腋(2026-10-18 收尾 §7):回合开始字库 ≤ 2 张时掉字数 +N,与广纳叠加
         /// <summary>斩获(spec 2026-10-18 §7):每击杀一名敌人掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。
         /// 每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;满库不掉、不进 DropChoice;抽字走 _traitRandom。</summary>
         public int KillDraws { get; set; }
@@ -3318,9 +3319,10 @@ namespace Brushblade.Core
             if (_config.UnlockedChars != null && _config.UnlockedChars.Count > 0)
             {
                 var deck = new List<string>(_config.UnlockedChars);
-                // 广纳(2026-10-18 改 ≤1):判在掉字之前 —— 回合开始时字库 ≤ 1 张才多掉
+                // 广纳(2026-10-18 改 ≤1)/ 集腋(≤2):判在掉字之前 —— 按回合开始时的字库张数,两者叠加
                 int drops = _config.DropsPerTurn
-                    + (_forge.Library.Count <= 1 ? _config.EmptyLibraryExtraDraws : 0);
+                    + (_forge.Library.Count <= 1 ? _config.EmptyLibraryExtraDraws : 0)
+                    + (_forge.Library.Count <= 2 ? _config.LowLibraryExtraDraws : 0);
                 for (int i = 0; i < drops; i++)
                 {
                     string pick = deck[_random.Next(deck.Count)];

@@ -141,10 +141,17 @@ namespace Brushblade.Core.Tests
             var c1 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
             Assert.That(c1.EmptyLibraryExtraDraws, Is.EqualTo(1));
             Assert.That(c1.KillDraws, Is.EqualTo(0));
+            Assert.That(c1.LowLibraryExtraDraws, Is.EqualTo(0));
             meta.UnlockedPerks.Add("wide_2");
             var c2 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
-            Assert.That(c2.EmptyLibraryExtraDraws, Is.EqualTo(1), "斩获不再叠加广纳");
-            Assert.That(c2.KillDraws, Is.EqualTo(1));
+            Assert.That(c2.EmptyLibraryExtraDraws, Is.EqualTo(1), "集腋不叠进广纳的字段");
+            Assert.That(c2.LowLibraryExtraDraws, Is.EqualTo(1), "集腋(wide_2)");
+            Assert.That(c2.KillDraws, Is.EqualTo(0));
+            meta.UnlockedPerks.Add("wide_3");
+            var c3 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
+            Assert.That(c3.EmptyLibraryExtraDraws, Is.EqualTo(1));
+            Assert.That(c3.LowLibraryExtraDraws, Is.EqualTo(1));
+            Assert.That(c3.KillDraws, Is.EqualTo(1), "斩获挪到 wide_3");
             Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize));
         }
 
