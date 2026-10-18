@@ -103,6 +103,8 @@ CARDS_BY_RARITY = _card_counts()
 
 # ---- 局内(镜像 EndlessRules / EndlessGenerator)----
 ESCORT_FROM, ESCORT_CAP = 15, 4   # 2026-10-18 战场 3×2:随从起点 20 → 15
+# 2026-10-18 双字头领:13 层起(敌人数 ≥ 3)每层 1/3、25 层起必出;占 2 格、击杀墨锭 ×2
+LEADER_MIN_ENEMIES, LEADER_ALWAYS_FROM, LEADER_CHANCE = 3, 25, 1 / 3
 
 
 def is_boss(d):
@@ -118,7 +120,10 @@ def kill_ink(d):
     if is_boss(d):
         escorts = 0 if d < ESCORT_FROM else min(ESCORT_CAP, (d - ESCORT_FROM) // BOSS_EVERY + 1)
         return 5 * per + escorts * per
-    return (1 + min(5, (d - 1) // 6)) * per   # 2026-10-18 战场 3×2:上限 8 → 6
+    n = 1 + min(5, (d - 1) // 6)   # 2026-10-18 战场 3×2:上限 8 → 6
+    p = 0 if n < LEADER_MIN_ENEMIES else (1 if d >= LEADER_ALWAYS_FROM else LEADER_CHANCE)
+    # 出头领的层 = 1 头领(×2)+ (n − 2) 小怪,击杀墨锭总额与不出时相同
+    return ((1 - p) * n + p * (2 + (n - 2))) * per
 
 
 # 奇遇墨锭期望(12 个奇遇均匀抽):宝库必取 +80(换 200 HP);书院抄书 +20、赌书押 30

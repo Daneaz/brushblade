@@ -56,7 +56,9 @@ def test_python_and_csharp_slug_tables_agree():
 # 待出图(2026-09-30 十层一主题新增,用户拍板「先上数值,形象后补」):这几只在真机上
 # 回落成字头像。是一笔**待补的账**,不是「不需要」—— 出完图、接进两张 slug 表后从这里删掉,
 # 下面 test_art_pending_is_really_pending 会逼你删。
-ART_PENDING: set = set()   # 2026-09-30 那七只已出图(build_mob_drafts.py),清空
+# 2026-10-18 双字头领 10 只(spec §3/§6):立绘走 build_boss_art 双字变体,样张确认后批量出;
+# 出图前 MobAssets 对它们回落字头像。
+ART_PENDING: set = {"朽木", "荆棘", "烽燧", "余烬", "碑碣", "磐石", "钟鼎", "刀笔", "漩涡", "浊浪"}
 
 
 def test_every_minion_in_config_has_a_slug():

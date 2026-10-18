@@ -18,6 +18,10 @@ namespace Brushblade.Core
         public IReadOnlyList<EnemyDef> EliteBossPool { get; set; } = System.Array.Empty<EnemyDef>();
         public IReadOnlyList<IdiomBossDef> EliteIdiomBossPool { get; set; } = System.Array.Empty<IdiomBossDef>();
 
+        /// <summary>双字头领池(2026-10-18,spec §3):普通层敌人数 ≥ 3 时按
+        /// <see cref="EndlessGenerator.LeaderFor"/> 的口径出一只,占 1 列 × 2 排。空 = 本段不出头领。</summary>
+        public IReadOnlyList<EnemyDef> LeaderPool { get; set; } = System.Array.Empty<EnemyDef>();
+
         /// <summary>层段字奖励池。⚠️ enemies.json 里**不再配这一项**(2026-08-05 清掉死配置):
         /// 战利品只出自已解锁卡池(2026-09-06,原「出阵表」),GameRoot 接线时无条件覆盖为
         /// meta.OwnedCards,
@@ -122,7 +126,7 @@ namespace Brushblade.Core
                 first.MaxHp <= TutorialFloorOneMaxHp ? first
                     : new EnemyDef(first.Id, first.Element, TutorialFloorOneMaxHp, first.Attack, first.Ability,
                         first.Phases, first.Defense, first.Speed, first.Row, first.Range, first.Focus,
-                        first.ColumnSpan, first.MinDepth, first.RowSpan),
+                        first.ColumnSpan, first.MinDepth, first.RowSpan, first.Tier),
             };
             scripted[1] = Scaled(config, 2, lead, lead);
             scripted[2] = Scaled(config, 3, pool[1 % pool.Count], pool[2 % pool.Count]);
@@ -181,7 +185,8 @@ namespace Brushblade.Core
                 var boss = pick < fixedPool.Count
                     ? fixedPool[pick]
                     : BuildIdiomBoss(idiomPool[pick - fixedPool.Count]);
-                floor.Add(CampaignConfig.Scale(boss, scale));
+                // 档位按层定(2026-10-18 §5):精英层是 Elite,哪怕本段没配精英池、回落到主题池(词渊)
+                floor.Add(CampaignConfig.Scale(boss, scale, eliteDepth ? EnemyTier.Elite : EnemyTier.Boss));
                 // 随从(2026-09-05 用户拍板):第 20 层起每个 Boss 层 +1 只,直到填满 Boss
                 // 之外的格位。**Boss 恒为首项** —— 落位与表现层都靠这一条。
                 // 随从吃的是**本层的杂兵缩放**(scale 那个值),不是 Boss 自己的滞后缩放:
@@ -232,8 +237,37 @@ namespace Brushblade.Core
                     frontOpeners.Add(enemy);
 
             int count = MinionCountFor(depth);
-            DrawMinions(floor, depthPool, nonSupport, frontOpeners, count, scale, random);
+            // 双字头领(2026-10-18,spec §3):恒为首项(与 Boss 同口径 —— 落位按顺序分,先占中列两排),
+            // 占 ColumnSpan × RowSpan = 2 格,小怪相应少 2 只,总占格仍 = MinionCountFor。
+            var leader = LeaderFor(band, depth, count, random);
+            bool armored = false;
+            if (leader != null)
+            {
+                floor.Add(CampaignConfig.Scale(leader, scale, EnemyTier.Leader));
+                count -= leader.ColumnSpan * leader.RowSpan;
+                armored = leader.Defense > 0;   // 带甲每场最多 1 只,头领也算
+            }
+            DrawMinions(floor, depthPool, nonSupport, frontOpeners, count, scale, random, armored);
             return floor;
+        }
+
+        /// <summary>出头领的最少敌人数(= 头领 2 格 + 至少 1 只小怪;MinionCountFor 下即第 13 层起)。</summary>
+        public const int LeaderMinEnemies = 3;
+
+        /// <summary>从这一层起普通层必出头领;之前(13–24 层)每层 1 / <see cref="LeaderChanceDenominator"/>。</summary>
+        public const int LeaderGuaranteedFromDepth = 25;
+        public const int LeaderChanceDenominator = 3;
+
+        /// <summary>本层出不出头领、出哪只(2026-10-18,spec §3);不出返回 null。
+        ///
+        /// 随机消耗(写在这里,trace 换基线时对得上):本段无头领池或敌人数不足 → 0 次;
+        /// 13–24 层先 <c>Next(3)</c> 一次判出不出(== 0 出),25 层起不判;出则再 <c>Next(池大小)</c> 一次选哪只。
+        /// 都在抽小怪之前,所以出现头领的层后续小怪序列整体平移。</summary>
+        public static EnemyDef LeaderFor(BandDef band, int depth, int enemyCount, GameRandom random)
+        {
+            if (band.LeaderPool.Count == 0 || enemyCount < LeaderMinEnemies) return null;
+            if (depth < LeaderGuaranteedFromDepth && random.Next(LeaderChanceDenominator) != 0) return null;
+            return band.LeaderPool[random.Next(band.LeaderPool.Count)];
         }
 
         /// <summary>普通层的敌人数。上限 6(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4;
@@ -298,10 +332,9 @@ namespace Brushblade.Core
         /// 我方单体直伤立刻全场可点,排位规则整场失效。</summary>
         private static void DrawMinions(List<EnemyDef> floor, IReadOnlyList<EnemyDef> depthPool,
             IReadOnlyList<EnemyDef> nonSupport, IReadOnlyList<EnemyDef> frontOpeners,
-            int count, float scale, GameRandom random)
+            int count, float scale, GameRandom random, bool hasArmored = false)
         {
             bool hasSupport = false;
-            bool hasArmored = false;
             for (int i = 0; i < count; i++)
             {
                 IReadOnlyList<EnemyDef> pool;
@@ -314,7 +347,7 @@ namespace Brushblade.Core
                     hasSupport = true;
                 if (pick.Defense > 0)
                     hasArmored = true;
-                floor.Add(CampaignConfig.Scale(pick, scale));
+                floor.Add(CampaignConfig.Scale(pick, scale, EnemyTier.Minion));
             }
         }
 
@@ -434,8 +467,10 @@ namespace Brushblade.Core
             config.IsBossDepth(depth) && (depth / config.BossEvery) % 2 == 0;
 
         /// <summary>击杀墨锭(2026-09-30):每只 1 + ⌊层/10⌋,Boss 一只顶五只 ——
-        /// 1 层 1、10 层 2、50 层 6;Boss 5/10/30。逐十层线性涨,与层墨锭(每十层翻倍)叠加。</summary>
-        public static int KillInk(int depth, bool isBoss) => (isBoss ? 5 : 1) * (1 + depth / 10);
+        /// 1 层 1、10 层 2、50 层 6;Boss 5/10/30。逐十层线性涨,与层墨锭(每十层翻倍)叠加。
+        /// 双字头领(2026-10-18)一只顶两只 —— 与它占的格数相当,出头领的层击杀墨锭总额不变。</summary>
+        public static int KillInk(int depth, bool isBoss, bool isLeader = false) =>
+            (isBoss ? 5 : isLeader ? 2 : 1) * (1 + depth / 10);
 
         /// <summary>角色经验(20.8):每层 10,Boss 层 50。</summary>
         public static int XpFor(EndlessConfig config, int depth) =>

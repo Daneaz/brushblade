@@ -346,7 +346,8 @@ namespace Brushblade.Core
         public int KillInkFor(int enemyIndex) =>
             !_runConfig.KillInkDrops || Battle == null || enemyIndex < 0 || enemyIndex >= Battle.Enemies.Count
                 ? 0
-                : EndlessRules.KillInk(CurrentDepth, Battle.Enemies[enemyIndex].IsBoss);
+                : EndlessRules.KillInk(CurrentDepth, Battle.Enemies[enemyIndex].IsBoss,
+                    Battle.Enemies[enemyIndex].Def.Tier == EnemyTier.Leader);
 
         /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
         /// 消费付不起时返回 false,停留在事件中。部件抵价(ComponentCost)须由玩家指定
