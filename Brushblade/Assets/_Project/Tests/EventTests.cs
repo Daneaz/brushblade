@@ -790,7 +790,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void MaxHpPercent_Compounds() // 复利:第二次踩在已提升的上限上
+        public void MaxHpPercent_AddsLinearlyOnBaseCap() // 线性:每次都按基础上限算(2026-10-18 改,原复利叠到 8 万血)
         {
             var run = MaxHpRun();
             WinAndSkipReward(run);
@@ -800,7 +800,7 @@ namespace Brushblade.Core.Tests
             run.SkipReward();
             Assert.That(ChooseAndAdvance(run, 0), Is.True);
 
-            Assert.That(run.Battle.MaxHp, Is.EqualTo(169)); // 130 + floor(130×0.3)=39
+            Assert.That(run.Battle.MaxHp, Is.EqualTo(160)); // 130 + 100×0.3 = 30(不再按已提升的 130 复利)
         }
 
         [Test]
