@@ -811,8 +811,17 @@ namespace Brushblade.Presentation
                         TraitCueAt(NatureCueOf?.Invoke(p => p.DeathPart), summonAnchor?.Invoke(e.TargetIndex));
                         onImpact?.Invoke(e);
                         break;
-                    case BattleEventKind.CharGranted:     // 折桂:特性名从被杀的敌人格飘出;字库那张新字由 BattleView 记成新到手(光晕)
-                        TraitCueAt(EffectCueOf?.Invoke(EffectKind.GrantChar), lastDiedEnemy >= 0 ? enemyAnchor(lastDiedEnemy) : null);
+                    // 击杀得字(斩获 / 折桂,drafts/killdrop):名签 + token 从阵亡格冒出、停着;批尾由 BattleView 飞进字库(JuiceKillDrop)。
+                    // 斩获带阵亡下标;折桂 TargetIndex = −1,取最近一只阵亡的
+                    case BattleEventKind.CharGranted:
+                    {
+                        int grantFrom = e.TargetIndex >= 0 ? e.TargetIndex : lastDiedEnemy;
+                        PlayCharGranted(e, grantFrom >= 0 ? enemyAnchor(grantFrom) : null);
+                        onImpact?.Invoke(e);
+                        break;
+                    }
+                    case BattleEventKind.CharGrantBlocked:   // 斩获被字库满挡下(每回合首次):划线签;字库计数闪由 BattleView 批尾播
+                        PlayGrantBlocked(e, enemyAnchor(e.TargetIndex));
                         onImpact?.Invoke(e);
                         break;
                     // 保命(Plan E4,B-Qb1):紧跟 SummonHit / SummonBurnTick
@@ -1875,8 +1884,17 @@ namespace Brushblade.Presentation
         /// duration / easeOut 两个可选参数给抽卡动画用(BattleView.DealRoutine),缺省值就是
         /// 出字那一记的原样 —— 加参数而不是改常量:两种动作的手感刻意不同,
         /// 出字要「砸」(ease-in,越飞越快),抽卡要「滑」(ease-out,快进慢停)。</summary>
+        /// <param name="arc">弧高(逻辑单位,往上鼓;drafts/killdrop ③)。缺省 0 = 现状直线;&gt; 0 走二次贝塞尔弧、
+        /// ease-in-out cubic、途中 1 → 1.12 → 1,时长走 _rate(击杀得字飞入字库,见 JuiceKillDrop)。</param>
         public void FlyGlyph(string glyph, Color color, Vector3 from, Vector3 to, Action onArrive = null,
-            float duration = CastFlyDuration, bool easeOut = false)
+            float duration = CastFlyDuration, bool easeOut = false, float arc = 0f)
+        {
+            var rect = GlyphToken(glyph, color, from);
+            SafeRun(FlyRoutine(rect, from, to, duration, easeOut, color, arc), onArrive);   // 到达回调走兜底:外层出字等它解锁
+        }
+
+        /// <summary>飞牌那枚 token 本体(56 见方、五行原色底、白字宋体 26 粗),挂震屏层。击杀得字冒出 / 停着的也是它(JuiceKillDrop)。</summary>
+        private RectTransform GlyphToken(string glyph, Color color, Vector3 from)
         {
             var go = new GameObject("FlyGlyph", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
@@ -1902,8 +1920,7 @@ namespace Brushblade.Presentation
             label.verticalOverflow = VerticalWrapMode.Overflow;
             label.raycastTarget = false;
             Ui.Stretch(label.rectTransform);
-
-            SafeRun(FlyRoutine(rect, from, to, duration, easeOut, color), onArrive);   // 到达回调走兜底:外层出字等它解锁
+            return rect;
         }
 
         // 拖尾:每隔这么久落一片残影。0.03 ≈ 每两帧一片(60fps),0.22s 的一记出字大约留 7 片,
@@ -1911,18 +1928,38 @@ namespace Brushblade.Presentation
         private const float TrailInterval = 0.03f;
 
         private IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to,
-            float duration, bool easeOut, Color color)
+            float duration, bool easeOut, Color color, float arc = 0f)
         {
             float t = 0f;
             float nextTrail = 0f;
             if (duration <= 0f) duration = CastFlyDuration; // 防 0 除:传 0 会让 k 变 NaN,牌卡在起点
+            bool arced = arc > 0f;
             // 沿飞行方向的倾角:朝目标「低头」扎过去,而不是端端正正地平移。
-            // 只给出字那一记(ease-in = 砸);抽卡是滑进来的,滑着还歪就成了打滑
-            float lean = easeOut ? 0f : Mathf.Clamp(Vector3.Distance(from, to) * 0.02f, 6f, 16f);
+            // 只给出字那一记(ease-in = 砸);抽卡是滑进来的,滑着还歪就成了打滑;弧线飞入同样不歪
+            float lean = easeOut || arced ? 0f : Mathf.Clamp(Vector3.Distance(from, to) * 0.02f, 6f, 16f);
+            // 弧线的控制点(稿 kd ctrl):x 取中点,y = 两端较高者 + 弧高 − 向下行程 × 0.35(世界坐标,弧高按震屏层缩放换算)
+            var ctrl = Vector3.zero;
+            if (arced)
+            {
+                float unit = _shakeTarget != null ? _shakeTarget.lossyScale.y : 1f;
+                ctrl = new Vector3((from.x + to.x) / 2f,
+                    Mathf.Max(from.y, to.y) + arc * unit - Mathf.Max(0f, from.y - to.y) * 0.35f, (from.z + to.z) / 2f);
+            }
             while (t < duration && rect != null)
             {
-                t += UnityEngine.Time.unscaledDeltaTime;
+                // 弧线飞入按稿 ÷ 倍率(走 Dt);直线两种保持现状(真实时间)
+                t += arced ? Dt : UnityEngine.Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(t / duration);
+                if (arced)
+                {
+                    float e = k < 0.5f ? 4f * k * k * k : 1f - Mathf.Pow(-2f * k + 2f, 3f) / 2f;   // ease-in-out cubic
+                    float u = 1f - e;
+                    rect.position = u * u * from + 2f * u * e * ctrl + e * e * to;
+                    rect.localScale = Vector3.one * (1f + 0.12f * Mathf.Sin(k * Mathf.PI));
+                    if (t >= nextTrail) { nextTrail = t + TrailInterval; Trail(rect, color); }   // 拖尾沿用每 0.03s 一片
+                    yield return null;
+                    continue;
+                }
                 // ease-in(k²)= 蓄力后加速砸向目标,出字用;
                 // ease-out(1−(1−k)²)= 起步就有速度、临到位收住,抽卡滑入用
                 float eased = easeOut ? 1f - (1f - k) * (1f - k) : k * k;

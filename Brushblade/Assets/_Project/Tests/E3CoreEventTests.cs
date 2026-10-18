@@ -56,10 +56,11 @@ namespace Brushblade.Core.Tests
             // spec C 终审修复 2 再追加 ElementChanged;上状态动效统一再追加 StatusApplied(StatusAppliedEventTests 守它的位置);
             // 斩首再追加 Behead(BeheadTests 守它的位置)
             Assert.That((int)BattleEventKind.ElementChanged, Is.EqualTo((int)BattleEventKind.BlockUsed + 1));
-            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.Behead));
+            // 斩获掉字再追加 CharGrantBlocked(KillDrawTests 守它的位置)
+            Assert.That((int)BattleEventKind.Behead, Is.EqualTo((int)BattleEventKind.StatusApplied + 1));
             Assert.That((int)EffectSource.SkillCut, Is.EqualTo((int)EffectSource.ReturnFire + 1));
             // E4 Task 1 在其后追加 BurnGrow
-            Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.BurnGrow));
+            // 斩获掉字再追加 KillDraw(KillDrawTests 守它的位置)
         }
 
         // ================= DebuffWarded =================

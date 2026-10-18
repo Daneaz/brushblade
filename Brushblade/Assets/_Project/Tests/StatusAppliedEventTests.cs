@@ -56,7 +56,7 @@ namespace Brushblade.Core.Tests
         {
             Assert.That((int)BattleEventKind.StatusApplied, Is.EqualTo((int)BattleEventKind.ElementChanged + 1));
             // 斩首再追加 Behead(BeheadTests 守它的位置)
-            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.Behead));
+            Assert.That((int)BattleEventKind.Behead, Is.EqualTo((int)BattleEventKind.StatusApplied + 1));
         }
 
         // ---------------- 敌人身上的减益 ----------------

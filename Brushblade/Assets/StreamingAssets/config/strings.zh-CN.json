@@ -652,6 +652,7 @@
   "juice.popup.enemy_split": "分裂!",
   "juice.popup.immune": "免",
   "juice.popup.behead": "斩首",
+  "juice.popup.kill_draw_full": "字库满",
   "juice.popup.ke_crit_damage": "暴克 {amount}",
   "juice.popup.ke_damage": "克 {amount}",
   "juice.popup.kill_ink": "墨+{amount}",

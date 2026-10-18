@@ -212,14 +212,15 @@ namespace Brushblade.Presentation
 
         /// <summary>稿 @keyframes lb(1.3s):0% 透明 · scale .7 · 低 0.2 签高 → 14% 不透明 · 1.08 · 就位 → 24% scale 1
         /// → 78% 仍不透明、上浮 0.3 签高 → 100% 淡出、上浮 0.5 签高。CanvasGroup 统一淡出(签是复合体)。</summary>
-        private static IEnumerator FloatTag(RectTransform rect, CanvasGroup group, float baseAlpha, float scale = 1f)
+        /// <param name="paced">true = 走 _rate(按住加速一起快;掉字飞入的名签,drafts/killdrop「加速」条)。缺省真实时间(现状)。</param>
+        private IEnumerator FloatTag(RectTransform rect, CanvasGroup group, float baseAlpha, float scale = 1f, bool paced = false)
         {
             float h = rect.sizeDelta.y;
             Vector2 home = rect.anchoredPosition;
             float t = 0f;
             while (t < TagDuration && rect != null)
             {
-                t += UnityEngine.Time.unscaledDeltaTime;
+                t += paced ? Dt : UnityEngine.Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(t / TagDuration);
                 float y, s, a;
                 if (k < 0.14f)

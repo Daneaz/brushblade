@@ -63,7 +63,7 @@ namespace Brushblade.Core.Tests
             Assert.That(e.Enemies[0].Alive, Is.False);
             Assert.That(e.Library.Count, Is.EqualTo(before), "打出 1 张、斩获补 1 张");
             Assert.That(Owned.Contains(e.Library[e.Library.Count - 1]), Is.True);
-            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharDrawn), Is.True, "斩获入库发 CharDrawn(抽卡动画源)");
+            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharDrawn), Is.False, "斩获不再发 CharDrawn(那是回合掉字的动画源)");
         }
 
         [Test]
@@ -131,7 +131,7 @@ namespace Brushblade.Core.Tests
             e.Cast("刀", 0);
             Assert.That(e.Enemies[0].Alive, Is.False);
             Assert.That(e.Library.Count, Is.EqualTo(before - 1), "未中不掉");
-            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharDrawn), Is.False, "未中不发事件");
+            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharGranted || ev.Kind == BattleEventKind.CharGrantBlocked), Is.False, "未中不发事件");
         }
 
         [Test]
@@ -156,7 +156,7 @@ namespace Brushblade.Core.Tests
             int before = e.Library.Count;
             e.Cast("刀", 0);
             Assert.That(e.Library.Count, Is.EqualTo(before - 1 + 2), "二级一次掉 2 张");
-            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharDrawn), Is.EqualTo(2));
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharGranted), Is.EqualTo(2));
             e.Cast("刀", FirstAlive(e));
             Assert.That(e.Enemies[1].Alive, Is.False);
             Assert.That(e.Library.Count, Is.EqualTo(before - 2 + 2), "一次掉 2 张就到顶,本回合不再掉");
@@ -177,7 +177,7 @@ namespace Brushblade.Core.Tests
             e.Cast("刀", 1);
             Assert.That(e.Enemies[1].Alive, Is.False);
             Assert.That(e.Library.Count, Is.EqualTo(3 + 1), "上限 2 截断:本回合已掉 1 张,只再掉 1 张");
-            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharDrawn), Is.EqualTo(1));
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharGranted), Is.EqualTo(1));
         }
 
         [Test]
@@ -198,6 +198,99 @@ namespace Brushblade.Core.Tests
                 return seq;
             }
             Assert.That(Drops(2), Is.EqualTo(Drops(0)));
+        }
+
+        // ---------------- 掉字飞入的事件口径(spec 2026-10-18 §2,killdrop 稿)----------------
+
+        /// <summary>群攻字:一次出字连杀多只(字库满 / 上限到顶的情形要靠它在同一次出字里凑出来)。</summary>
+        private static BattleEngine SweepEngine(int killDraws, int weak, int capacity, int chance = 100) =>
+            new(new RecipeGraph(Owned.Select(id => new CharDef(id, Element.Metal, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }))
+                    .Append(new CharDef("扫", Element.Metal, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) }))),
+                new BattleConfig
+                {
+                    PlayerMaxHp = 5000, PlayerAttack = 100, ApPerTurn = 20, LibraryCapacity = capacity,
+                    UnlockedChars = Owned, DropsPerTurn = 0, KillDraws = killDraws, KillDrawChancePercent = chance,
+                },
+                Enumerable.Repeat("扫", 6).ToArray(), Array.Empty<string>(),
+                Enumerable.Range(0, weak).Select(_ => Weak()).Append(Tank()).ToArray(), seed: 1);
+
+        [Test]
+        public void Kill_EmitsCharGranted_WithLibraryIndexAndDeadEnemy()
+        {
+            var e = Engine(1, new[] { Tank(), Weak() });
+            e.Cast("刀", 1);
+            Assert.That(e.Enemies[1].Alive, Is.False);
+            var granted = e.LastEvents.Where(ev => ev.Kind == BattleEventKind.CharGranted).ToList();
+            Assert.That(granted.Count, Is.EqualTo(1));
+            Assert.That(granted[0].TargetIndex, Is.EqualTo(1), "TargetIndex = 阵亡敌人下标(token 从这一格冒出)");
+            Assert.That(granted[0].Amount, Is.EqualTo(e.Library.Count - 1), "Amount = 落位的字库下标");
+            Assert.That(granted[0].Source, Is.EqualTo(EffectSource.KillDraw), "Source 标斩获,与折桂区分名签");
+            int died = e.LastEvents.ToList().FindIndex(ev => ev.Kind == BattleEventKind.EnemyDied);
+            int grant = e.LastEvents.ToList().FindIndex(ev => ev.Kind == BattleEventKind.CharGranted);
+            Assert.That(died, Is.LessThan(grant), "先阵亡、后得字");
+        }
+
+        [Test]
+        public void EnemyTurnKill_EmitsCharGranted_NotCharDrawn()
+        {
+            var e = Engine(1, new[] { Weak(), Tank() }, summons: new[] { Striker(0) });
+            e.EndTurn();
+            Assert.That(e.Enemies[0].Alive, Is.False);
+            var granted = e.LastEvents.Where(ev => ev.Kind == BattleEventKind.CharGranted).ToList();
+            Assert.That(granted.Count, Is.EqualTo(1), "敌人回合的击杀同样发 CharGranted");
+            Assert.That(granted[0].TargetIndex, Is.EqualTo(0));
+            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharDrawn), Is.False, "不再并进回合掉字的 CharDrawn");
+        }
+
+        [Test]
+        public void FullLibrary_EmitsCharGrantBlocked_OncePerTurn()
+        {
+            // 字库 6/6:扫出 1 张 → 5;第一杀补 1 → 满;第二杀被满库挡下 → 发 Blocked;第三杀本回合已提示过 → 不再发
+            var e = SweepEngine(1, weak: 3, capacity: 6);
+            e.Cast("扫", 0);
+            Assert.That(e.Enemies.Count(x => !x.Alive), Is.EqualTo(3));
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharGranted), Is.EqualTo(1));
+            var blocked = e.LastEvents.Where(ev => ev.Kind == BattleEventKind.CharGrantBlocked).ToList();
+            Assert.That(blocked.Count, Is.EqualTo(1), "每回合只提示一次");
+            Assert.That(blocked[0].TargetIndex, Is.EqualTo(1), "TargetIndex = 被挡下的那只阵亡敌人");
+        }
+
+        [Test]
+        public void FullLibrary_PreRoll_EmitsBlocked_WithoutRolling()
+        {
+            // 满库时不掷概率(chance 0 也照样提示:满库是规则不是运气)
+            var e = Engine(1, new[] { Weak(), Tank() }, capacity: 6, summons: new[] { Striker(0) }, chance: 0);
+            e.EndTurn();
+            Assert.That(e.Enemies[0].Alive, Is.False);
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharGrantBlocked), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CapReached_ThenFull_EmitsNothing()
+        {
+            // 字库 6/7:扫出 1 → 5;两杀补满 2 张(→ 7 满、上限到顶);第三、四杀上限优先 → 不发任何事件
+            var e = SweepEngine(1, weak: 4, capacity: 7);
+            e.Cast("扫", 0);
+            Assert.That(e.Enemies.Count(x => !x.Alive), Is.EqualTo(4));
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharGranted), Is.EqualTo(2));
+            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharGrantBlocked), Is.False, "上限到顶不提示");
+        }
+
+        [Test]
+        public void Off_FullLibrary_EmitsNoBlocked()
+        {
+            var e = Engine(0, new[] { Weak(), Tank() }, capacity: 6, summons: new[] { Striker(0) });
+            e.EndTurn();
+            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharGrantBlocked), Is.False, "没点斩获不提示");
+        }
+
+        [Test]
+        public void NewEnumValues_AppendedAtEnd()
+        {
+            Assert.That((int)BattleEventKind.CharGrantBlocked, Is.EqualTo((int)BattleEventKind.Behead + 1));
+            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.CharGrantBlocked));
+            Assert.That((int)EffectSource.KillDraw, Is.EqualTo((int)EffectSource.BurnGrow + 1));
+            Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.KillDraw));
         }
     }
 }
