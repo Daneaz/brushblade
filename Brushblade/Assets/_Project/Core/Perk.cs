@@ -26,7 +26,7 @@ namespace Brushblade.Core
         // 机制树(全局)
         LibraryCapacity,            // 博闻:字库容量 +N
         DrawRolls,                  // 起手每格抽取次数 +N(2026-10-02 起只剩跨树博采在用)
-        EmptyLibraryDraws,          // 广纳/兼收:回合开始掉字时字库为空,本回合掉字 +N
+        EmptyLibraryDraws,          // 广纳:回合开始掉字时字库 ≤ 1 张,本回合掉字 +N(2026-10-18 由「为空」放宽)
         RewardOptions,              // 慧眼:战利品候选 +N
         RewardRerolls,              // 明察:每轮选字可整组重抽 N 次
         VictoryHealPercent,         // 调息/吐纳:每场战斗胜利后回复最大生命 N%
@@ -50,6 +50,8 @@ namespace Brushblade.Core
         WellspringSpendPercent,     // 水 涌泉:释放泉的威力 +N%,返还所耗层数 50%
         BurnSpreadAdjacent,         // 火 燎原:灼烧结算后仍有层数则向上下左右扩散(开关)
         HeftSpendPercent,           // 土 积土:释放厚的威力 +N%,返还所耗层数 50%
+        // 机制树(2026-10-18 追加,枚举只在末尾追加)
+        KillDraw,                   // 斩获:击杀敌人时掉 N 张字进字库(每回合上限见 BattleEngine.KillDrawPerTurnCap)
     }
 
     /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 60 个普通段)。
@@ -207,7 +209,11 @@ namespace Brushblade.Core
 
             // ---- 机制树:4 枝 × 2 层 ----
             AddMechanic(list, "lore",    PerkEffect.LibraryCapacity,   1, 1); // 容量 7→9
-            AddMechanic(list, "wide",    PerkEffect.EmptyLibraryDraws, 1, 1); // 广纳/兼收:空库掉字 +1/+2
+            // 广纳 / 斩获(spec 2026-10-18 §7):两层是**不同**效果(原兼收 = 广纳再 +1,已换掉;节点 id 不变)。
+            list.Add(new PerkNodeDef("wide_1", PerkTree.Mechanic, "wide", null,
+                1, MechanicGates[0], MechanicCosts[0], PerkEffect.EmptyLibraryDraws, 1)); // 广纳:字库 ≤1 时掉字 +1
+            list.Add(new PerkNodeDef("wide_2", PerkTree.Mechanic, "wide", null,
+                2, MechanicGates[1], MechanicCosts[1], PerkEffect.KillDraw, 1));          // 斩获:击杀掉 1 张
             // 慧眼:L1 战利品候选 +1(5→6),L2 明察每轮整组重抽 1 次 —— 两层是**不同**效果。
             list.Add(new PerkNodeDef("insight_1", PerkTree.Mechanic, "insight", null,
                 1, MechanicGates[0], MechanicCosts[0], PerkEffect.RewardOptions, 1));
