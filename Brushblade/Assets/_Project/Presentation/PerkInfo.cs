@@ -49,16 +49,16 @@ namespace Brushblade.Presentation
             "lore_2" => Strings.T("perk.node.lore_2.name"),
             "wide_1" => Strings.T("perk.node.wide_1.name"),
             "wide_2" => Strings.T("perk.node.wide_2.name"),
-            "wide_3" => Strings.T("perk.node.wide_3.name"),   // 斩获(2026-10-18 收尾 §7 由 wide_2 挪来)
             "insight_1" => Strings.T("perk.node.insight_1.name"),
             "insight_2" => Strings.T("perk.node.insight_2.name"),
             "qi_1" => Strings.T("perk.node.qi_1.name"),
             "qi_2" => Strings.T("perk.node.qi_2.name"),
-            // 跨树三个(2026-09-08)。少了这三条不是编译错,是节点面与详情弹窗标题
-            // 直接印出英文 id「cross_vigor」——兜底那一支本来就是给「理论不可达」留的。
+            // 跨树(2026-09-08;融会 2026-10-18 删除、斩获终极技两级接替)。少了这几条不是编译错,
+            // 是节点面与详情弹窗标题直接印出英文 id「cross_vigor」——兜底那一支本来就是给「理论不可达」留的。
             "cross_vigor" => Strings.T("perk.node.cross_vigor.name"),
-            "cross_edge" => Strings.T("perk.node.cross_edge.name"),
             "cross_draw" => Strings.T("perk.node.cross_draw.name"),
+            "ult_killdraw_1" => Strings.T("perk.node.ult_killdraw_1.name"),
+            "ult_killdraw_2" => Strings.T("perk.node.ult_killdraw_2.name"),
             _ => def.NodeKey, // 兜底:44 个 NodeKey 已穷举,理论不可达
         };
 
@@ -114,8 +114,6 @@ namespace Brushblade.Presentation
                 Strings.T("perk.info.effect.library", ("value", def.Value)),
             "wide_1" => Strings.T("perk.node.wide_1.desc", ("value", def.Value)),
             "wide_2" => Strings.T("perk.node.wide_2.desc", ("value", def.Value)),   // 集腋
-            "wide_3" => Strings.T("perk.node.wide_3.desc", ("value", def.Value),   // 斩获
-                ("cap", BattleEngine.KillDrawPerTurnCap)),
             "insight_1" => Strings.T("perk.node.insight_1.desc", ("value", def.Value)),
             "insight_2" => Strings.T("perk.node.insight_2.desc", ("value", def.Value)),
             "qi_1" => Strings.T("perk.node.qi_1.desc", ("value", def.Value)),
@@ -125,10 +123,12 @@ namespace Brushblade.Presentation
             // 印上去 —— 合计随存档变,拆开的这两个数才是节点自身的定义(spec §5.1)。
             "cross_vigor" => Strings.T("perk.node.cross_vigor.desc",
                 ("base", def.BaseValue), ("value", def.Value)),
-            "cross_edge" => Strings.T("perk.node.cross_edge.desc",
-                ("base", def.BaseValue), ("value", def.Value)),
             "cross_draw" => Strings.T("perk.node.cross_draw.desc",
                 ("base", def.BaseValue), ("value", def.Value)),
+            // 斩获终极技两级同构(概率 / 张数不同),共用一条模板
+            "ult_killdraw_1" or "ult_killdraw_2" => Strings.T("perk.node.ult_killdraw.desc",
+                ("chance", PerkRules.KillDrawChancePercent(def)), ("value", def.Value),
+                ("cap", BattleEngine.KillDrawPerTurnCap)),
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
         };
 
@@ -143,8 +143,8 @@ namespace Brushblade.Presentation
         /// 用 {element} 占位符填该系名词;五行 L1、L3、L4 五枝各不相同,
         /// 各占一条 PerkEffect,不共用模板(2026-10-02 层序)。
         ///
-        /// ⚠ 跨树三条**按 id 取词、不走 <see cref="PerkEffect"/>**:它们复用了普通节点的效果类型
-        /// (相济 = AttackPercent、融会 = CritChance、博采 = DrawRolls),按效果取会拿到被动树
+        /// ⚠ 跨树节点**按 id 取词、不走 <see cref="PerkEffect"/>**:相济 / 博采复用了普通节点的效果类型
+        /// (相济 = AttackPercent、博采 = DrawRolls),按效果取会拿到被动树
         /// 那三条说明 —— 讲的是「固定百分比加成」,而跨树节点讲的是「按你已投资量放大」,
         /// 两件事。逐条字面 key,不拼 $"perk.detail.{def.Id}"(拼出来的 key 会被
         /// StringsTableTests 判成孤儿)。</summary>
@@ -154,9 +154,11 @@ namespace Brushblade.Presentation
         private static string CrossDetailText(PerkNodeDef def) => def.Id switch
         {
             "cross_vigor" => Strings.T("perk.detail.cross_vigor"),
-            "cross_edge" => Strings.T("perk.detail.cross_edge"),
             "cross_draw" => Strings.T("perk.detail.cross_draw"),
-            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(表里只有这三条跨树)
+            "ult_killdraw_1" or "ult_killdraw_2" => Strings.T("perk.detail.kill_draw",   // 斩获终极技(2026-10-18)
+                ("chance", PerkRules.KillDrawChancePercent(def)), ("value", def.Value),
+                ("cap", BattleEngine.KillDrawPerTurnCap)),
+            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(表里只有这四条跨树)
         };
 
         private static string EffectDetailText(PerkNodeDef def) => def.Effect switch
@@ -205,15 +207,13 @@ namespace Brushblade.Presentation
                 Strings.T("perk.detail.empty_library_draws", ("value", def.Value)),
             PerkEffect.LowLibraryDraws =>   // 集腋(2026-10-18 收尾 §7)
                 Strings.T("perk.detail.low_library_draws", ("value", def.Value)),
-            PerkEffect.KillDraw =>   // 斩获(2026-10-18)
-                Strings.T("perk.detail.kill_draw", ("value", def.Value), ("cap", BattleEngine.KillDrawPerTurnCap)),
             PerkEffect.RewardOptions =>
                 Strings.T("perk.detail.reward_options", ("value", def.Value)),
             PerkEffect.RewardRerolls =>
                 Strings.T("perk.detail.reward_rerolls", ("value", def.Value)),
             PerkEffect.VictoryHealPercent =>
                 Strings.T("perk.detail.victory_heal", ("value", def.Value)),
-            // DrawRolls 只剩跨树博采在用,它走 CrossDetailText,到不了这里
+            // DrawRolls 只剩跨树博采在用、KillDraw 只有斩获终极技在用,都走 CrossDetailText,到不了这里
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
         };
 

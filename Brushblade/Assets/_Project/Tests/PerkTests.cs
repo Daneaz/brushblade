@@ -102,8 +102,8 @@ namespace Brushblade.Core.Tests
             foreach (var def in PerkRules.Nodes) total += def.InkCost;
             // 2026-10-02:五行 L1/L2 三段式(600 + 1200)+ L3 1200 + L4 2400 = 5400/枝;
             // 被动 2100/枝;机制四枝统一 800/1600(一气特价随 AP 取消);跨树 3000。
-            // 2026-10-18:广纳枝补第 3 层(斩获挪到 wide_3,3200 墨)。
-            Assert.That(total, Is.EqualTo(48000 + 3200), "全树总价(spec 2026-10-02 + 2026-10-18 §7)");
+            // 2026-10-18 终极技:融会(900)删除、广纳枝回到 2 层;斩获终极技两级 900 + 1800。
+            Assert.That(total, Is.EqualTo(48000 - 900 + 900 + 1800), "全树总价(spec 2026-10-02 + 2026-10-18 终极技 §1)");
         }
 
         // ---- 表的形状 ----
@@ -112,7 +112,7 @@ namespace Brushblade.Core.Tests
         public void Nodes_AreSixtyThreeStagesAcrossFourCategories()
         {
             // 2026-10-02:五行 L1/L2 改三段,每枝 3 + 3 + 1 + 1 = 8 段;面(NodeKey)仍是 43 个
-            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(64), "2026-10-18 广纳枝补第 3 层");
+            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(64), "2026-10-18 终极技:−斩获(wide_3) −融会 +终极技两级");
             int wuxing = 0, passive = 0, mechanic = 0, cross = 0;
             foreach (var def in PerkRules.Nodes)
             {
@@ -123,8 +123,8 @@ namespace Brushblade.Core.Tests
             }
             Assert.That(wuxing, Is.EqualTo(40));
             Assert.That(passive, Is.EqualTo(12));
-            Assert.That(mechanic, Is.EqualTo(9));
-            Assert.That(cross, Is.EqualTo(3), "跨树节点不属于任何一棵树(spec 2026-09-08 §3.0)");
+            Assert.That(mechanic, Is.EqualTo(8));
+            Assert.That(cross, Is.EqualTo(4), "跨树相济/博采 + 斩获终极技两级,都不属于任何一棵树(spec 2026-09-08 §3.0)");
         }
 
         /// <summary>五行树每一枝都要绑一个元素,其余两棵树都不许绑 ——
@@ -328,13 +328,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PassiveMax_StillAddsCrossNodeOnTop()
         {
-            // 融会(cross_edge)给暴击,不属于被动树 → 与锋枝最高档相加
+            // 相济(cross_vigor)给攻击,不属于被动树 → 与力枝最高档相加
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("edge_1");
-            meta.UnlockedPerks.Add("edge_2");
-            meta.UnlockedPerks.Add("lore_1");          // 融会按机制节点数缩放:1 个
-            meta.UnlockedPerks.Add("cross_edge");       // 6 + 3×1 = 9
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.CritChance), Is.EqualTo(10 + 9));
+            meta.UnlockedPerks.Add("power_1");
+            meta.UnlockedPerks.Add("power_2");
+            meta.UnlockedPerks.Add("metal_3");          // 相济按五行深层节点数缩放:1 个
+            meta.UnlockedPerks.Add("cross_vigor");      // 8 + 3×1 = 11
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(10 + 11));
         }
 
         [Test]
@@ -362,7 +362,7 @@ namespace Brushblade.Core.Tests
                 ("power_3", PerkEffect.AttackPercent, 15), ("edge_3", PerkEffect.CritChance, 15),
                 ("guard_3", PerkEffect.Defense, 25),
                 ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.LowLibraryDraws, 1),
-                ("wide_3", PerkEffect.KillDraw, 1),
+                ("ult_killdraw_1", PerkEffect.KillDraw, 1), ("ult_killdraw_2", PerkEffect.KillDraw, 2),
                 ("insight_1", PerkEffect.RewardOptions, 1), ("insight_2", PerkEffect.RewardRerolls, 1),
                 ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.VictoryHealPercent, 5),
             };
@@ -375,20 +375,18 @@ namespace Brushblade.Core.Tests
             Assert.That(PerkRules.Get("qi_2").InkCost, Is.EqualTo(1600));
         }
 
-        /// <summary>集腋(spec 2026-10-18 §7):广纳枝改 3 层,wide_2 集腋、wide_3 斩获。
-        /// 机制树第 3 层按被动树第 3 层同比定价:门槛 +6 级(被动 8 → 14 ⇒ 机制 12 → 18),
-        /// 墨价 ×2(被动 600 → 1200 ⇒ 机制 1600 → 3200)。</summary>
+        /// <summary>2026-10-18 终极技 §1:斩获移出广纳枝,广纳枝回到 2 层(广纳 → 集腋)。</summary>
         [Test]
-        public void WideBranch_HasThreeLayers_ThirdPricedLikePassiveThird()
+        public void WideBranch_HasTwoLayers()
         {
             Assert.That((int)PerkEffect.LowLibraryDraws, Is.EqualTo((int)PerkEffect.KillDraw + 1), "枚举只在末尾追加");
             Assert.That(Enum.GetValues(typeof(PerkEffect)).Cast<int>().Max(), Is.EqualTo((int)PerkEffect.LowLibraryDraws));
+            Assert.That(PerkRules.StagesOf("wide_3").Count, Is.EqualTo(0), "wide_3 已删");
             var w2 = PerkRules.Get("wide_2");
-            var w3 = PerkRules.Get("wide_3");
             Assert.That((w2.Depth, w2.UnlockLevel, w2.InkCost), Is.EqualTo((2, 12, 1600)));
-            Assert.That((w3.Depth, w3.UnlockLevel, w3.InkCost), Is.EqualTo((3, 18, 3200)));
-            Assert.That(w3.Tree, Is.EqualTo(PerkTree.Mechanic));
-            Assert.That(w3.Branch, Is.EqualTo("wide"));
+            foreach (var def in PerkRules.Nodes)
+                if (def.Tree == PerkTree.Mechanic)
+                    Assert.That(def.Depth, Is.LessThanOrEqualTo(2), $"{def.Id}:机制树每枝都是 2 层");
         }
 
         // ---- 红点 ----

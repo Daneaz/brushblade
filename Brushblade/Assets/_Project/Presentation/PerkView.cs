@@ -673,8 +673,8 @@ namespace Brushblade.Presentation
             "qi" => Strings.T("perk.branch.qi"),
             // 跨树三枝(2026-09-08)。不补这三条,详情弹窗的面包屑会印出英文 branch 名。
             "xvigor" => Strings.T("perk.branch.xvigor"),
-            "xedge" => Strings.T("perk.branch.xedge"),
             "xdraw" => Strings.T("perk.branch.xdraw"),
+            "ult_killdraw" => Strings.T("perk.branch.ult_killdraw"),   // 斩获终极技(2026-10-18)
             _ => branch,
         };
 

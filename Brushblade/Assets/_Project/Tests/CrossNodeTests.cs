@@ -3,7 +3,8 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>三个跨树节点(spec 2026-09-08 §3)。
+    /// <summary>跨树节点(spec 2026-09-08 §3):相济、博采两个缩放器(融会 2026-10-18 删除),
+    /// 加上占了融会位置的斩获终极技两级(spec 2026-10-18「斩获终极技」§1)。
     ///
     /// 与 PerkScalingTests 的分工:那边测**求值公式**(自造 def),这边测**表里配的数值**
     /// 与**前置谓词**。出问题时一眼分得清是公式错了还是数配错了。</summary>
@@ -23,9 +24,9 @@ namespace Brushblade.Core.Tests
         // ---- 表的形状 ----
 
         [Test]
-        public void ThreeCrossNodes_AreInTheTable()
+        public void ScalingCrossNodes_AreInTheTable()
         {
-            foreach (var id in new[] { "cross_vigor", "cross_edge", "cross_draw" })
+            foreach (var id in new[] { "cross_vigor", "cross_draw" })
             {
                 var def = PerkRules.Get(id);
                 Assert.That(def.Tree, Is.EqualTo(PerkTree.Cross), $"{id} 该属于 Cross");
@@ -47,14 +48,6 @@ namespace Brushblade.Core.Tests
             Assert.That(vigor.Scaling, Is.EqualTo(PerkScaling.PerDeepWuxingNode));
             Assert.That(vigor.UnlockLevel, Is.EqualTo(16));
             Assert.That(vigor.InkCost, Is.EqualTo(1200));
-
-            var edge = PerkRules.Get("cross_edge");
-            Assert.That(edge.Effect, Is.EqualTo(PerkEffect.CritChance));
-            Assert.That(edge.BaseValue, Is.EqualTo(6));
-            Assert.That(edge.Value, Is.EqualTo(3));
-            Assert.That(edge.Scaling, Is.EqualTo(PerkScaling.PerMechanicNode));
-            Assert.That(edge.UnlockLevel, Is.EqualTo(8));
-            Assert.That(edge.InkCost, Is.EqualTo(900));
 
             var draw = PerkRules.Get("cross_draw");
             Assert.That(draw.Effect, Is.EqualTo(PerkEffect.DrawRolls));
@@ -91,17 +84,6 @@ namespace Brushblade.Core.Tests
             Assert.That(PerkRules.PrereqMet(viaMetal, def), Is.True);
             Assert.That(PerkRules.PrereqMet(viaFire, def), Is.True,
                 "「五行任一 L3」不是「金脉 L3」;被动侧同理");
-        }
-
-        [Test]
-        public void Xedge_NeedsPassiveDepthTwoAndAnyMechanic()
-        {
-            var def = PerkRules.Get("cross_edge");
-            Assert.That(PerkRules.PrereqMet(MetaWith("edge_1", "lore_1"), def), Is.False,
-                "被动只到 L1 不够");
-            Assert.That(PerkRules.PrereqMet(MetaWith("edge_1", "edge_2"), def), Is.False,
-                "缺机制侧");
-            Assert.That(PerkRules.PrereqMet(MetaWith("edge_1", "edge_2", "lore_1"), def), Is.True);
         }
 
         [Test]
@@ -150,20 +132,12 @@ namespace Brushblade.Core.Tests
                 "8 + 3×2 = 14,不是 (8+3)×2 = 22");
         }
 
-        [Test]
-        public void Xedge_ScalesWithMechanicNodes()
-        {
-            var meta = MetaWith("edge_1", "edge_2", "lore_1", "lore_2", "qi_1", "cross_edge");
-            // 锋 L1+L2 不叠加取最高档 = 10(2026-10-02);融会 = 6 + 3×3 = 15
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.CritChance), Is.EqualTo(25));
-        }
-
         // ---- 与既有守卫的衔接 ----
 
         [Test]
         public void CrossNodes_UnlockByLevelTwentyTwo()
         {
-            foreach (var id in new[] { "cross_vigor", "cross_edge", "cross_draw" })
+            foreach (var id in new[] { "cross_vigor", "cross_draw", "ult_killdraw_1", "ult_killdraw_2" })
                 Assert.That(PerkRules.Get(id).UnlockLevel, Is.LessThanOrEqualTo(22),
                     $"{id} 的门槛不该超过全开等级");
         }
@@ -174,8 +148,8 @@ namespace Brushblade.Core.Tests
         /// 这里依然是 True。跨树节点 Depth 恒为 1、Stage 恒为 1,Prereq 一旦变 null,
         /// <c>PrereqMet</c> 的隐式分支会因 <c>Depth &lt;= 1</c> 直接返回 true —— 后果是前置被整个绕过、
         /// 节点随时可点(过度放行),而不是永远点不亮。真正兜住这个回归的是断了 False 分支的
-        /// <see cref="Xvigor_NeedsBothSides"/>、<see cref="Xedge_NeedsPassiveDepthTwoAndAnyMechanic"/>、
-        /// <see cref="Xdraw_NeedsMechanicL1AndWuxingL2"/> 那三条 —— 改表时别把它们删了只留这条当哨兵。</summary>
+        /// <see cref="Xvigor_NeedsBothSides"/>、<see cref="Xdraw_NeedsMechanicL1AndWuxingL2"/>、
+        /// <see cref="KillDrawUlt_NeedsEveryMechanicNode"/> 那几条 —— 改表时别把它们删了只留这条当哨兵。</summary>
         [Test]
         public void CrossNodes_AreReachableAtAll()
         {
@@ -185,8 +159,78 @@ namespace Brushblade.Core.Tests
                 "lore_1",
                 "water_1_s1", "water_2_s1");
             Assert.That(PerkRules.CanUnlock(meta, "cross_vigor"), Is.True);
-            Assert.That(PerkRules.CanUnlock(meta, "cross_edge"), Is.True);
             Assert.That(PerkRules.CanUnlock(meta, "cross_draw"), Is.True);
+        }
+
+        // ---- 斩获终极技(spec 2026-10-18 终极技 §1) ----
+
+        private static string[] AllMechanicIds()
+        {
+            var ids = new System.Collections.Generic.List<string>();
+            foreach (var def in PerkRules.Nodes) if (def.Tree == PerkTree.Mechanic) ids.Add(def.Id);
+            return ids.ToArray();
+        }
+
+        [Test]
+        public void Cross_EdgeIsGone()
+        {
+            foreach (var def in PerkRules.Nodes)
+            {
+                Assert.That(def.Id, Is.Not.EqualTo("cross_edge"), "融会已删除");
+                Assert.That(def.Id, Is.Not.EqualTo("wide_3"), "斩获已移出广纳枝");
+            }
+        }
+
+        [Test]
+        public void KillDrawUlt_CarriesTheSpecValues()
+        {
+            var u1 = PerkRules.Get("ult_killdraw_1");
+            var u2 = PerkRules.Get("ult_killdraw_2");
+            foreach (var u in new[] { u1, u2 })
+            {
+                Assert.That(u.Tree, Is.EqualTo(PerkTree.Cross), $"{u.Id}:节点样式走跨树那套");
+                Assert.That(u.Effect, Is.EqualTo(PerkEffect.KillDraw));
+                Assert.That(u.Scaling, Is.EqualTo(PerkScaling.None));
+                Assert.That(u.Element.HasValue, Is.False);
+            }
+            Assert.That((u1.Value, PerkRules.KillDrawChancePercent(u1)), Is.EqualTo((1, 50)));
+            Assert.That((u2.Value, PerkRules.KillDrawChancePercent(u2)), Is.EqualTo((2, 70)));
+            // 一级取融会原值 Lv8 / 900;二级按被动树同比(L1→L2 门槛 +6、墨价 ×2)
+            Assert.That((u1.UnlockLevel, u1.InkCost), Is.EqualTo((8, 900)));
+            Assert.That((u2.UnlockLevel, u2.InkCost), Is.EqualTo((14, 1800)));
+        }
+
+        [Test]
+        public void KillDrawUlt_NeedsEveryMechanicNode()
+        {
+            var def = PerkRules.Get("ult_killdraw_1");
+            var all = AllMechanicIds();
+            Assert.That(all.Length, Is.EqualTo(8), "机制树 4 枝 × 2 层");
+            Assert.That(PerkRules.PrereqMet(MetaWith(all), def), Is.True, "机制树全部点亮即可");
+            foreach (var missing in all)
+            {
+                var ids = System.Array.FindAll(all, id => id != missing);
+                Assert.That(PerkRules.PrereqMet(MetaWith(ids), def), Is.False, $"缺 {missing} 就该锁");
+            }
+        }
+
+        [Test]
+        public void KillDrawUltTwo_NeedsTierOne()
+        {
+            var def = PerkRules.Get("ult_killdraw_2");
+            var all = AllMechanicIds();
+            Assert.That(PerkRules.PrereqMet(MetaWith(all), def), Is.False, "机制树点满但没点一级");
+            var withOne = new System.Collections.Generic.List<string>(all) { "ult_killdraw_1" };
+            Assert.That(PerkRules.PrereqMet(MetaWith(withOne.ToArray()), def), Is.True);
+            Assert.That(PerkRules.CanUnlock(MetaWith(withOne.ToArray()), "ult_killdraw_2"), Is.True);
+        }
+
+        [Test]
+        public void KillDrawTier_IsTheDeepestOwnedNotTheSum()
+        {
+            Assert.That(PerkRules.KillDrawTier(MetaWith()), Is.Null);
+            Assert.That(PerkRules.KillDrawTier(MetaWith("ult_killdraw_1")).Id, Is.EqualTo("ult_killdraw_1"));
+            Assert.That(PerkRules.KillDrawTier(MetaWith("ult_killdraw_2", "ult_killdraw_1")).Id, Is.EqualTo("ult_killdraw_2"));
         }
     }
 }

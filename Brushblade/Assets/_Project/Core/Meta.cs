@@ -347,7 +347,10 @@ namespace Brushblade.Core
                 ApPerTurn = BaseApPerTurn, // 一气(AP)2026-10-02 取消
                 EmptyLibraryExtraDraws = PerkRules.Bonus(meta, PerkEffect.EmptyLibraryDraws), // 广纳
                 LowLibraryExtraDraws = PerkRules.Bonus(meta, PerkEffect.LowLibraryDraws),     // 集腋
-                KillDraws = PerkRules.Bonus(meta, PerkEffect.KillDraw),                       // 斩获
+                // 斩获终极技(2026-10-18):两级不叠加,取已点的最深一级(一级 50% 掉 1、二级 70% 掉 2)
+                KillDraws = PerkRules.KillDrawTier(meta)?.Value ?? 0,
+                KillDrawChancePercent = PerkRules.KillDrawTier(meta) is { } killDraw
+                    ? PerkRules.KillDrawChancePercent(killDraw) : 0,
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
                 ElementEffectPercent = ElementEffectTable(meta), // 五行 L2(三段,spec 2026-10-02)
                 // 木脉 L4「择伐」:节点在木枝上、按木系读,但读出的值当**全局开关**用

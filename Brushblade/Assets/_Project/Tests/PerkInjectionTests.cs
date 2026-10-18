@@ -129,9 +129,10 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.LibraryCapacityFor(meta), Is.EqualTo(baseCap), "广纳不该动字库容量");
         }
 
-        /// <summary>广纳(≤1 张多掉)与斩获(击杀掉字)2026-10-18 起各是各的效果,分别注入 BattleConfig,不再相加。</summary>
+        /// <summary>广纳 / 集腋(回合开始补字)与斩获终极技(击杀掉字)各是各的效果,分别注入 BattleConfig。
+        /// 终极技两级不叠加:二级替换一级(70% 掉 2,而不是 1 + 2 张)。</summary>
         [Test]
-        public void WideBranch_InjectsEmptyLibraryExtraDrawsAndKillDraws()
+        public void WideBranchAndKillDrawUltimate_InjectSeparately()
         {
             var meta = new MetaState { CharacterXp = 0 };
             var c0 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
@@ -147,11 +148,14 @@ namespace Brushblade.Core.Tests
             Assert.That(c2.EmptyLibraryExtraDraws, Is.EqualTo(1), "集腋不叠进广纳的字段");
             Assert.That(c2.LowLibraryExtraDraws, Is.EqualTo(1), "集腋(wide_2)");
             Assert.That(c2.KillDraws, Is.EqualTo(0));
-            meta.UnlockedPerks.Add("wide_3");
+            meta.UnlockedPerks.Add("ult_killdraw_1");
             var c3 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
             Assert.That(c3.EmptyLibraryExtraDraws, Is.EqualTo(1));
             Assert.That(c3.LowLibraryExtraDraws, Is.EqualTo(1));
-            Assert.That(c3.KillDraws, Is.EqualTo(1), "斩获挪到 wide_3");
+            Assert.That((c3.KillDraws, c3.KillDrawChancePercent), Is.EqualTo((1, 50)), "终极技一级:50% 掉 1");
+            meta.UnlockedPerks.Add("ult_killdraw_2");
+            var c4 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
+            Assert.That((c4.KillDraws, c4.KillDrawChancePercent), Is.EqualTo((2, 70)), "终极技二级:70% 掉 2,不与一级叠加");
             Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize));
         }
 

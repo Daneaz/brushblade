@@ -90,14 +90,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PerMechanicNode_CountsEveryMechanicNode()
-        {
-            var meta = MetaWith("lore_1", "lore_2", "qi_1");
-            var def = Scaler(PerkEffect.CritChance, PerkScaling.PerMechanicNode, 6, 3);
-            Assert.That(PerkRules.ScaleCountOf(meta, def), Is.EqualTo(3), "机制树只有两层,全算");
-        }
-
-        [Test]
         public void ScaleCountOf_IsOneForNonScalingNodes()
         {
             var meta = MetaWith("power_1");

@@ -171,9 +171,12 @@ namespace Brushblade.Core
         public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
         public int EmptyLibraryExtraDraws { get; set; } // 广纳(2026-10-18):回合开始字库 ≤ 1 张时掉字数 +N
         public int LowLibraryExtraDraws { get; set; }   // 集腋(2026-10-18 收尾 §7):回合开始字库 ≤ 2 张时掉字数 +N,与广纳叠加
-        /// <summary>斩获(spec 2026-10-18 §7):每击杀一名敌人掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。
-        /// 每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;满库不掉、不进 DropChoice;抽字走 _traitRandom。</summary>
+        /// <summary>斩获终极技(spec 2026-10-18 终极技 §1):每击杀一名敌人,按 <see cref="KillDrawChancePercent"/>
+        /// 掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;
+        /// 满库不掉、不进 DropChoice;概率与抽字都走 _traitRandom。</summary>
         public int KillDraws { get; set; }
+        /// <summary>斩获每次击杀的掉字概率(百分比;Meta 注入一级 50 / 二级 70)。缺省 100 = 必掉。</summary>
+        public int KillDrawChancePercent { get; set; } = 100;
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
@@ -1902,16 +1905,17 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
-        /// <summary>斩获每回合至多掉几张(spec 2026-10-18 §7)。计数在 StartTurn 清零:
+        /// <summary>斩获每回合至多掉几张(两级都是 2,spec 2026-10-18 终极技 §1)。计数在 StartTurn 清零:
         /// 敌人回合与其前一玩家回合共用一个计数。</summary>
         public const int KillDrawPerTurnCap = 2;
 
         /// <summary>计数挂在 _traitUsesThisTurn 上:StartTurn 清零、随快照存读,不另开字段。</summary>
         private const string KillDrawUseKey = "#killdraw";
 
-        /// <summary>斩获:击杀时从已解锁卡池均匀抽 KillDraws 张入库(同回合掉字的抽取范围)。
-        /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;抽字走 _traitRandom,主随机序列不平移。
-        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice。
+        /// <summary>斩获:击杀时先按 KillDrawChancePercent 掷一次,命中则从已解锁卡池均匀抽 KillDraws 张入库
+        /// (同回合掉字的抽取范围),逐张受满库与每回合上限截断(二级掉 2 张、本回合已掉 1 张 → 只掉 1)。
+        /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;概率与抽字都走 _traitRandom,主随机序列不平移。
+        /// 未中直接返回,不发任何事件。满库直接不掉,不挂 _pendingDrop、不进 DropChoice。
         ///
         /// 开场推进(构造函数里的速度预推进)期间的击杀同样走这里,其计数随后被首个 StartTurn 清零 ——
         /// 即开局那一拍的击杀不占第一回合的额度,开局最多可多拿 <see cref="KillDrawPerTurnCap"/> 张。
@@ -1920,6 +1924,10 @@ namespace Brushblade.Core
         {
             if (_config == null || _config.KillDraws <= 0) return;
             if (_config.UnlockedChars == null || _config.UnlockedChars.Count == 0) return;
+            if (_forge.Library.Count >= _config.LibraryCapacity) return;
+            _traitUsesThisTurn.TryGetValue(KillDrawUseKey, out int usedThisTurn);
+            if (usedThisTurn >= KillDrawPerTurnCap) return;
+            if (_traitRandom.Next(100) >= _config.KillDrawChancePercent) return;   // 未中:不掉、不发事件
             var deck = new List<string>(_config.UnlockedChars);   // 同 StartTurn 的掉字口径
             for (int n = 0; n < _config.KillDraws; n++)
             {

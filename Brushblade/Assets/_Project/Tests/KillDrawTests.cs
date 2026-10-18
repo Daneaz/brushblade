@@ -6,9 +6,10 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>斩获(wide_3;2026-10-18 收尾 §7 由 wide_2 挪来,spec 2026-10-18 §7):击杀敌人时掉 1 张字进字库,每回合至多
-    /// <see cref="BattleEngine.KillDrawPerTurnCap"/> 张;满库不掉(不进 DropChoice);任何来源的击杀都算;
-    /// 抽字走 _traitRandom,主随机序列不平移。计数在玩家回合开始(StartTurn)清零,
+    /// <summary>斩获终极技(ult_killdraw_1/2,spec 2026-10-18「斩获终极技」§1):每击杀一名敌人按概率掉 N 张字进字库
+    /// (一级 50% 掉 1、二级 70% 掉 2),两级每回合都至多 <see cref="BattleEngine.KillDrawPerTurnCap"/> 张;
+    /// 满库不掉(不进 DropChoice);任何来源的击杀都算;概率与抽字都走 _traitRandom,主随机序列不平移;
+    /// 未中不发任何事件。计数在玩家回合开始(StartTurn)清零,
     /// 敌人回合与其前一玩家回合共用一个计数。</summary>
     public class KillDrawTests
     {
@@ -21,11 +22,12 @@ namespace Brushblade.Core.Tests
         private static EnemyDef Tank() => new("坚", Element.Heart, 900000, 0);
 
         private static BattleEngine Engine(int killDraws, EnemyDef[] enemies, int capacity = 20, int drops = 0,
-            string[] library = null, IReadOnlyList<SummonSnapshot> summons = null, int seed = 1) =>
+            string[] library = null, IReadOnlyList<SummonSnapshot> summons = null, int seed = 1, int chance = 100) =>
             new(Graph(), new BattleConfig
                 {
                     PlayerMaxHp = 5000, PlayerAttack = 100, ApPerTurn = 20, LibraryCapacity = capacity,
                     UnlockedChars = Owned, DropsPerTurn = drops, KillDraws = killDraws,
+                    KillDrawChancePercent = chance,
                 },
                 library ?? Enumerable.Repeat("刀", 6).ToArray(), Array.Empty<string>(),
                 enemies, seed: seed, startingSummons: summons);
@@ -122,12 +124,69 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Miss_GrantsNothingAndEmitsNoEvent()
+        {
+            var e = Engine(1, new[] { Weak(), Tank() }, chance: 0);
+            int before = e.Library.Count;
+            e.Cast("刀", 0);
+            Assert.That(e.Enemies[0].Alive, Is.False);
+            Assert.That(e.Library.Count, Is.EqualTo(before - 1), "未中不掉");
+            Assert.That(e.LastEvents.Any(ev => ev.Kind == BattleEventKind.CharDrawn), Is.False, "未中不发事件");
+        }
+
+        [Test]
+        public void HalfChance_HitsRoughlyHalfTheKills()
+        {
+            int hits = 0;
+            for (int seed = 1; seed <= 200; seed++)
+            {
+                var e = Engine(1, new[] { Weak(), Tank() }, seed: seed, chance: 50);
+                int before = e.Library.Count;
+                e.Cast("刀", 0);
+                if (e.Library.Count == before) hits++;
+                else Assert.That(e.Library.Count, Is.EqualTo(before - 1), $"seed {seed}:要么掉 1 要么不掉");
+            }
+            Assert.That(hits, Is.InRange(70, 130), $"200 次击杀命中 {hits} 次,不像 50%");
+        }
+
+        [Test]
+        public void LevelTwo_DropsTwoAtOnce_ThenCapped()
+        {
+            var e = Engine(2, new[] { Weak(), Weak(), Tank() });
+            int before = e.Library.Count;
+            e.Cast("刀", 0);
+            Assert.That(e.Library.Count, Is.EqualTo(before - 1 + 2), "二级一次掉 2 张");
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharDrawn), Is.EqualTo(2));
+            e.Cast("刀", FirstAlive(e));
+            Assert.That(e.Enemies[1].Alive, Is.False);
+            Assert.That(e.Library.Count, Is.EqualTo(before - 2 + 2), "一次掉 2 张就到顶,本回合不再掉");
+        }
+
+        [Test]
+        public void LevelTwo_TruncatedByCap_WhenOneAlreadyDropped()
+        {
+            // 满库起手:第一杀打出 1 张、只有 1 格空 → 只掉 1(计数 1);再打两张进坦克腾出 2 格,
+            // 第二杀二级想掉 2,但本回合只剩 1 张额度 → 只掉 1
+            var e = Engine(2, new[] { Weak(), Weak(), Tank() }, capacity: 6);
+            int tank = 2;
+            e.Cast("刀", 0);
+            Assert.That(e.Library.Count, Is.EqualTo(6), "第一杀被满库截成 1 张");
+            e.Cast("刀", tank);
+            e.Cast("刀", tank);
+            Assert.That(e.Library.Count, Is.EqualTo(4));
+            e.Cast("刀", 1);
+            Assert.That(e.Enemies[1].Alive, Is.False);
+            Assert.That(e.Library.Count, Is.EqualTo(3 + 1), "上限 2 截断:本回合已掉 1 张,只再掉 1 张");
+            Assert.That(e.LastEvents.Count(ev => ev.Kind == BattleEventKind.CharDrawn), Is.EqualTo(1));
+        }
+
+        [Test]
         public void MainRandomSequence_Unshifted()
         {
-            // 两场同种子:一场开斩获一场不开,回合掉字(主随机 _random)抽到的字序列必须一致
+            // 两场同种子:一场开斩获(二级 70% 掉 2)一场不开,回合掉字(主随机 _random)抽到的字序列必须一致
             List<string> Drops(int killDraws)
             {
-                var e = Engine(killDraws, new[] { Weak(), Weak(), Weak(), Weak(), Tank() }, capacity: 99, drops: 1, seed: 7);
+                var e = Engine(killDraws, new[] { Weak(), Weak(), Weak(), Weak(), Tank() }, capacity: 99, drops: 1, seed: 7, chance: 70);
                 var seq = new List<string>();
                 for (int t = 0; t < 4; t++)
                 {
@@ -138,7 +197,7 @@ namespace Brushblade.Core.Tests
                 }
                 return seq;
             }
-            Assert.That(Drops(1), Is.EqualTo(Drops(0)));
+            Assert.That(Drops(2), Is.EqualTo(Drops(0)));
         }
     }
 }

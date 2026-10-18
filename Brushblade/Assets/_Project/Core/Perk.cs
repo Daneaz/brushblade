@@ -7,8 +7,9 @@ namespace Brushblade.Core
     /// ⚠ 「机制树」= 改玩法交互逻辑(字库/掉字/战利品/胜利回血,2026-10-02),「被动树」= 被动数值强化
     /// (生命/攻击/暴击/护甲)。用户 2026-09-07 明确对调过一次命名,勿按字面直觉互换。
     ///
-    /// Cross 不是第四棵树,是**不属于任何一棵树**的三个咬合节点。它们的 Depth 恒为 1、
-    /// Branch 各自独立,前置走 PerkNodeDef.Prereq 的显式谓词而不是同枝推导。</summary>
+    /// Cross 不是第四棵树,是**不属于任何一棵树**的节点:相济 / 博采两个咬合节点,与斩获终极技两级
+    /// (2026-10-18 占了融会的位置)。相济 / 博采与终极技一级的 Depth 为 1、前置走 PerkNodeDef.Prereq
+    /// 的显式谓词;终极技二级是同枝(ult_killdraw)第 2 层,走隐式同枝推导(要一级)。</summary>
     public enum PerkTree { Wuxing, Passive, Mechanic, Cross }
 
     /// <summary>节点效果类别。被动树四条落在既有 BattleConfig 字段上;五行树各条按元素筛选
@@ -51,12 +52,12 @@ namespace Brushblade.Core
         BurnSpreadAdjacent,         // 火 燎原:灼烧结算后仍有层数则向上下左右扩散(开关)
         HeftSpendPercent,           // 土 积土:释放厚的威力 +N%,返还所耗层数 50%
         // 机制树(2026-10-18 追加,枚举只在末尾追加)
-        KillDraw,                   // 斩获:击杀敌人时掉 N 张字进字库(每回合上限见 BattleEngine.KillDrawPerTurnCap)
+        KillDraw,                   // 斩获终极技:击杀敌人时按概率掉 N 张字进字库(概率见 PerkRules.KillDrawChancePercent,每回合上限见 BattleEngine.KillDrawPerTurnCap)
         LowLibraryDraws,            // 集腋(2026-10-18 收尾 §7):回合开始掉字时字库不足 3 张,本回合掉字 +N(与广纳叠加)
     }
 
     /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 60 个普通段)。
-    /// 其余三种:值 = BaseValue + Value × 计数,计数由本枚举决定。
+    /// 其余两种:值 = BaseValue + Value × 计数,计数由本枚举决定。
     ///
     /// ⚠ PerDeepWuxingNode 数**节点**,PerDeepElement 数**系** —— 两者都叫 "deep" 但口径不同:
     /// 一系点满 4 层,前者算 2(L3、L4 各一个),后者算 1。Node / Element 这对后缀是刻意的,
@@ -65,7 +66,6 @@ namespace Brushblade.Core
     {
         None,
         PerDeepWuxingNode,
-        PerMechanicNode,
         PerDeepElement,
     }
 
@@ -158,16 +158,13 @@ namespace Brushblade.Core
         // WuxingGates/WuxingCosts 只用下标 2/3(L3/L4)。
         private static readonly int[] WuxingGates = { 4, 10, 16, 22 };
         private static readonly int[] PassiveGates = { 2, 8, 14 };
-        // 第 3 层(2026-10-18 收尾 spec §7,目前只有广纳枝用):按被动树第 3 层同比 —— 被动 L2→L3 门槛 +6 级(8 → 14),
-        // 机制 12 → 18。
-        private static readonly int[] MechanicGates = { 6, 12, 18 };
+        private static readonly int[] MechanicGates = { 6, 12 };
 
         // 定价:按层深翻倍。机制树单价是同层的 2.7 倍 —— 它层数最少但每个节点的边际影响
         // 最大(起手 +1 张 ≈ 白拿一张字),用价格而不是层数承载分量。
         private static readonly int[] WuxingCosts = { 300, 600, 1200, 2400 };
         private static readonly int[] PassiveCosts = { 300, 600, 1200 };
-        // 第 3 层同上按被动树同比:被动 L2→L3 墨价 ×2(600 → 1200),机制 1600 → 3200。
-        private static readonly int[] MechanicCosts = { 800, 1600, 3200 };
+        private static readonly int[] MechanicCosts = { 800, 1600 };
 
         // 五行 L1/L2 三段:L1 Lv4/6/8、墨 100/200/300;L2 Lv10/12/14、墨 200/400/600(spec 2026-10-02 §2)
         private static readonly int[][] StagedGates = { new[] { 4, 6, 8 }, new[] { 10, 12, 14 } };
@@ -211,16 +208,14 @@ namespace Brushblade.Core
             AddPassive(list, "edge",  PerkEffect.CritChance,      5,  10,  15); // 不叠加,取最高档 15 百分点
             AddPassive(list, "guard", PerkEffect.Defense,        10,  15,  25); // 不叠加,取最高档 25 点
 
-            // ---- 机制树:4 枝 × 2 层(广纳枝 3 层,2026-10-18)----
+            // ---- 机制树:4 枝 × 2 层 ----
             AddMechanic(list, "lore",    PerkEffect.LibraryCapacity,   1, 1); // 容量 7→9
-            // 广纳 / 集腋 / 斩获(spec 2026-10-18 §7 + 收尾 §7):三层是**不同**效果。广纳与集腋叠加:
-            // 字库 0/1 张 +2、2 张 +1。斩获由 wide_2 挪到 wide_3(存档不需兼容)。
+            // 广纳 / 集腋(spec 2026-10-18 §7 + 收尾 §7):两层是**不同**效果,叠加:字库 0/1 张 +2、2 张 +1。
+            // 斩获 2026-10-18 移出本枝,升为终极技(见跨树节点段)。
             list.Add(new PerkNodeDef("wide_1", PerkTree.Mechanic, "wide", null,
                 1, MechanicGates[0], MechanicCosts[0], PerkEffect.EmptyLibraryDraws, 1)); // 广纳:字库 ≤1 时掉字 +1
             list.Add(new PerkNodeDef("wide_2", PerkTree.Mechanic, "wide", null,
                 2, MechanicGates[1], MechanicCosts[1], PerkEffect.LowLibraryDraws, 1));   // 集腋:字库 ≤2 时掉字 +1
-            list.Add(new PerkNodeDef("wide_3", PerkTree.Mechanic, "wide", null,
-                3, MechanicGates[2], MechanicCosts[2], PerkEffect.KillDraw, 1));          // 斩获:击杀掉 1 张
             // 慧眼:L1 战利品候选 +1(5→6),L2 明察每轮整组重抽 1 次 —— 两层是**不同**效果。
             list.Add(new PerkNodeDef("insight_1", PerkTree.Mechanic, "insight", null,
                 1, MechanicGates[0], MechanicCosts[0], PerkEffect.RewardOptions, 1));
@@ -228,7 +223,11 @@ namespace Brushblade.Core
                 2, MechanicGates[1], MechanicCosts[1], PerkEffect.RewardRerolls, 1));
             AddMechanic(list, "qi",      PerkEffect.VictoryHealPercent, 5, 5); // 调息/吐纳:胜利回血 5%/10%
 
-            // ---- 跨树节点:3 个(spec 2026-09-08 §3)----
+            // 机制树节点总数:终极技一级的前置「机制树全部节点已解锁」按它计数(表变了自动跟着变)
+            int mechanicNodes = 0;
+            foreach (var n in list) if (n.Tree == PerkTree.Mechanic) mechanicNodes++;
+
+            // ---- 跨树节点:相济 / 博采(spec 2026-09-08 §3;融会 2026-10-18 删除)----
             // 各在两棵树的扇区交界上,要两侧各一个前置才开。效果是**缩放器**:
             // 值 = BaseValue + Value × 已投资量。它放大你已有的投资,而不要求特定组合 ——
             // 写死「金脉 L3 + 锋枝 L2 = 某个具体加成」会把它变成第四棵树的固定路径。
@@ -245,15 +244,6 @@ namespace Brushblade.Core
                     new PerkRequirement(PerkTree.Wuxing, minDepth: 3),
                     new PerkRequirement(PerkTree.Passive, minDepth: 2),
                 }));
-            list.Add(new PerkNodeDef("cross_edge", PerkTree.Cross, "xedge", null,
-                depth: 1, unlockLevel: 8, inkCost: 900,
-                effect: PerkEffect.CritChance, value: 3,
-                baseValue: 6, scaling: PerkScaling.PerMechanicNode,
-                prereq: new[]
-                {
-                    new PerkRequirement(PerkTree.Passive, minDepth: 2),
-                    new PerkRequirement(PerkTree.Mechanic, minDepth: 1),
-                }));
             // ⚠ 前置只要五行 L2,缩放却数 L3 —— 这个错位是刻意的(spec §3.4):
             // L2 口径下 1,800 墨就能吃满 +3 起手抽取,会变成预算内的标配;
             // 而前置若也提到 L3,门槛就撞上相济的 Lv16,三个跨树节点的等级梯度塌掉。
@@ -267,6 +257,22 @@ namespace Brushblade.Core
                     new PerkRequirement(PerkTree.Mechanic, minDepth: 1),
                     new PerkRequirement(PerkTree.Wuxing, minDepth: 2),
                 }));
+
+            // ---- 斩获终极技:2 级(spec 2026-10-18「斩获终极技」§1,占原融会的位置)----
+            // 一级:前置 = 机制树**全部**节点已解锁;击杀 50% 掉 1 张。门槛 / 墨价取融会原值 Lv8 / 900
+            //   (机制树 L2 本身要 Lv12,所以实际最早 Lv12 才点得到)。
+            // 二级:前置 = 一级(同枝第 2 层,走隐式同枝推导);击杀 70% 掉 2 张。门槛 / 墨价按被动树
+            //   L1→L2 同比递增:门槛 +6 级(被动 2 → 8 ⇒ 8 → 14),墨价 ×2(被动 300 → 600 ⇒ 900 → 1800)。
+            // Value = 每次命中掉几张;概率见 KillDrawChancePercent。两级不叠加,见 KillDrawTier。
+            list.Add(new PerkNodeDef("ult_killdraw_1", PerkTree.Cross, "ult_killdraw", null,
+                depth: 1, unlockLevel: 8, inkCost: 900,
+                effect: PerkEffect.KillDraw, value: 1,
+                baseValue: 0, scaling: PerkScaling.None,
+                prereq: new[] { new PerkRequirement(PerkTree.Mechanic, minDepth: 1, count: mechanicNodes) }));
+            list.Add(new PerkNodeDef("ult_killdraw_2", PerkTree.Cross, "ult_killdraw", null,
+                depth: 2, unlockLevel: 14, inkCost: 1800,
+                effect: PerkEffect.KillDraw, value: 2,
+                baseValue: 0, scaling: PerkScaling.None, prereq: null));
 
             return list;
         }
@@ -329,6 +335,32 @@ namespace Brushblade.Core
         public static PerkNodeDef Get(string id) => ById[id];
 
         public static bool IsUnlocked(MetaState meta, string id) => meta.UnlockedPerks.Contains(id);
+
+        /// <summary>该树 Depth ≥ minDepth 的段数(不论是否点亮)。终极技一级前置「机制树全部节点」的分母,
+        /// 详情面板据此判断一条前置是不是「全部」。</summary>
+        public static int TreeNodeCount(PerkTree tree, int minDepth)
+        {
+            int n = 0;
+            foreach (var def in Nodes) if (def.Tree == tree && def.Depth >= minDepth) n++;
+            return n;
+        }
+
+        private static readonly int[] KillDrawChances = { 50, 70 };   // 一级 / 二级(spec 2026-10-18 终极技 §1)
+
+        /// <summary>斩获终极技某一级的击杀掉字概率(百分比)。</summary>
+        public static int KillDrawChancePercent(PerkNodeDef def) => KillDrawChances[def.Depth - 1];
+
+        /// <summary>斩获终极技当前生效的一级:已点亮的最深一级;一级都没点返回 null。
+        /// 两级**不叠加**(二级 = 70% 掉 2,不是 1 + 2 张),所以不走 <see cref="Bonus"/> 求和。</summary>
+        public static PerkNodeDef KillDrawTier(MetaState meta)
+        {
+            PerkNodeDef best = null;
+            foreach (var def in Nodes)
+                if (def.Effect == PerkEffect.KillDraw && IsUnlocked(meta, def.Id)
+                    && (best == null || def.Depth > best.Depth))
+                    best = def;
+            return best;
+        }
 
         /// <summary>每个 NodeKey 一个「面」(取 Stage == 1 那段),顺序同 <see cref="Nodes"/>。
         /// 画布/计数这类按「节点」而不是按「段」看的地方用它。</summary>
@@ -456,7 +488,7 @@ namespace Brushblade.Core
         /// <summary>已点节点里该效果的值之和(不分元素)。
         ///
         /// 被动树不叠加(2026-10-02 用户拍板):每枝只取已点亮的最高一档,再与其余节点
-        /// (含跨树相济/融会)之和相加。其余节点 Scaling == None 那一支仍是 sum += def.Value。</summary>
+        /// (含跨树相济)之和相加。⚠ 斩获终极技两级不叠加,不走这里,读 <see cref="KillDrawTier"/>。其余节点 Scaling == None 那一支仍是 sum += def.Value。</summary>
         public static int Bonus(MetaState meta, PerkEffect effect)
         {
             int sum = 0;
@@ -488,8 +520,6 @@ namespace Brushblade.Core
         {
             // 已点亮的五行 L3/L4 **节点**个数(只数深层;L3/L4 都是单段,按段数即按节点数)
             PerkScaling.PerDeepWuxingNode => CountOwned(meta, PerkTree.Wuxing, 3),
-            // 已点亮的机制树节点个数(全算,含广纳枝第 3 层)
-            PerkScaling.PerMechanicNode => CountOwned(meta, PerkTree.Mechanic, 1),
             // 点到 L3 或更深的五行**系**数,夹上限 2。
             // ⚠ 上限夹在这里而不是调用点(2026-10-02 起起手抽取次数只剩基础 1 + 博采)。
             PerkScaling.PerDeepElement => System.Math.Min(2, CountDeepElements(meta)),

@@ -24,7 +24,7 @@ namespace Brushblade.Presentation
                 return def.Branch switch
                 {
                     "xvigor" => "attack",
-                    "xedge" => "crit",
+                    "ult_killdraw" => "perk_hand",   // 斩获终极技:沿用它在广纳枝时的掉字图标
                     "xdraw" => "perk_draw",
                     _ => "perk_amplify",
                 };
