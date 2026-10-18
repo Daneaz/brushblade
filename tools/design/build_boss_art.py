@@ -6,6 +6,7 @@
 正字者每破一个阶段就把一个字从它身上「正」出来,Boss 随之缩小一圈(MobView 的 Boss 骨架负责)。
 
 用法: python3 tools/design/build_boss_art.py
+      python3 tools/design/build_boss_art.py --leader-sample   # 只出双字头领样张(见文末 LEADERS)
 前置: rsvg-convert(macOS: brew install librsvg)、tools/fonts/raw/NotoSerifSC[wght].ttf。
 
 每只 Boss 出这些层(前缀 boss_<slug>),都是 512×512、同一画布坐标:
@@ -205,8 +206,8 @@ FILTERS = '''<filter id="rg" x="-8%" y="-8%" width="116%" height="116%"><feTurbu
 <mask id="sm"><rect width="512" height="512" fill="#c8c8c8"/><rect width="512" height="512" filter="url(#pa)"/></mask>'''
 
 
-def _svg(title, inner):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" viewBox="0 0 {SIZE} {SIZE}">'
+def _svg(title, inner, w=SIZE, h=SIZE):
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
             f'<title>{title}</title><defs>{FILTERS}</defs>{inner}</svg>\n')
 
 
@@ -214,37 +215,40 @@ def _glyph(char):
     return re.search(r' d="([^"]+)"', glyph_refs.render_svg(char, glyph_refs.BOSS_WEIGHT)).group(1)
 
 
-def _placed(char, i, fill):
-    x, y, s, r = LAYOUT[i]
+def _placed(char, i, fill, layout=LAYOUT):
+    x, y, s, r = layout[i]
     return (f'<g transform="translate({x} {y}) rotate({r}) scale({s}) translate(-256 -256)">'
             f'<path d="{_glyph(char)}" fill="{fill}"/></g>')
 
 
-def _char_layer(char, i):
-    """白色墨字:位移滤镜毛边 + 噪声遮罩的浓淡 —— 运行时整层染色,浓淡跟着保留。"""
-    return f'<g filter="url(#rg)"><g mask="url(#sm)">{_placed(char, i, "#FFFFFF")}</g></g>'
+def _char_layer(char, i, fill="#FFFFFF", layout=LAYOUT):
+    """白色墨字:位移滤镜毛边 + 噪声遮罩的浓淡 —— 运行时整层染色,浓淡跟着保留。
+    fill 换成具体颜色 = 预览里模拟运行时着色(白层 × 染色 ≡ 直接填该色)。"""
+    return f'<g filter="url(#rg)"><g mask="url(#sm)">{_placed(char, i, fill, layout)}</g></g>'
 
 
-def _eye_positions():
+def _eye_positions(eyes=None):
     # 眼要比字怪的大一号:熔团墨色太浓,小眼睛会淹在里面(2026-09-30 预览实测)
+    if eyes is not None:
+        return eyes
     x, y = EYES
     return ((x - 44, y, 1.5), (x + 44, y, 1.38))
 
 
-def _iris():
-    return "".join(f'<circle cx="{_f(x + .5)}" cy="{_f(y + .5)}" r="{_f(10 * s)}" fill="#FFFFFF"/>'
-                   for x, y, s in _eye_positions())
+def _iris(eyes=None, fill="#FFFFFF"):
+    return "".join(f'<circle cx="{_f(x + .5)}" cy="{_f(y + .5)}" r="{_f(10 * s)}" fill="{fill}"/>'
+                   for x, y, s in _eye_positions(eyes))
 
 
-def _halo():
+def _halo(eyes=None):
     """纸色眼晕:垫在虹膜之下,让眼睛从浓墨团里跳出来。单独一层 —— 画进 eyes 会盖住虹膜。"""
     return "".join(f'<ellipse cx="{_f(x)}" cy="{_f(y)}" rx="{_f(24 * s)}" ry="{_f(20 * s)}" fill="{PAPER}" opacity=".78"/>'
-                   for x, y, s in _eye_positions())
+                   for x, y, s in _eye_positions(eyes))
 
 
-def _eyes(with_iris=None):
-    out = [_halo()] if with_iris else []
-    for x, y, s in _eye_positions():
+def _eyes(with_iris=None, eyes=None):
+    out = [_halo(eyes)] if with_iris else []
+    for x, y, s in _eye_positions(eyes):
         rx, ry, ir = 17 * s, 15 * s, 10 * s
         # 眶:外椭圆减去虹膜圆(evenodd 挖空),运行时虹膜层从洞里透出属性色
         ring = (f'M{_f(x - rx)} {y} A {_f(rx)} {_f(ry)} 0 1 0 {_f(x + rx)} {y} A {_f(rx)} {_f(ry)} 0 1 0 {_f(x - rx)} {y} Z '
@@ -283,10 +287,116 @@ def _write_meta(png: Path):
     meta.write_text(re.sub(r"guid: [0-9a-f]{32}", f"guid: {uuid.uuid4().hex}", template, count=1), encoding="utf-8")
 
 
+# ---------------------------------------------------------------- 双字头领(样张,spec 2026-10-18 §3/§6)
+#
+# 头领 = 两字词语讹熔:与 Boss 同一套笔法(白色墨字层 + 眼 + 意象配饰),只是两个字。
+# 画幅按 designer 战场稿(docs/design/drafts/battlegrid/ GridSpec ⑤):1:1 方图 512×512,同成语 Boss;
+# 两字略斜错叠(上左一字、下右一字),主体在 7% 安全区内,眼在团块中上(约 34%–46% 高)。
+# 层与 Boss 同名(少 c2/c3):c0 c1 halo iris eyes wisp body face。
+# 现阶段只出样张到 tools/design/leaders/_sample/,不进 Resources、不接入游戏。
+
+LEADER_W, LEADER_H = SIZE, SIZE
+LEADER_DIR = Path(__file__).parent / "leaders/_sample"
+
+
+def fungus(x, y, w, flip=False, color="#8A6A3A", rim="#C9A36A"):
+    """木耳状层孔菌:贴在朽木上的半月形菌盖,带几道菌褶。flip=True 朝左长。"""
+    d = -1 if flip else 1
+    tip = x + d * w
+    shelf = (f'<path d="M{x} {y - w * .35} Q {_f(tip + d * w * .15)} {_f(y - w * .3)} {_f(tip)} {y} '
+             f'Q {_f(x + d * w * .5)} {_f(y + w * .22)} {x} {_f(y + w * .12)} Z" fill="{color}" opacity=".78"/>')
+    edge = (f'<path d="M{_f(tip)} {y} Q {_f(x + d * w * .5)} {_f(y + w * .22)} {x} {_f(y + w * .12)}" '
+            f'fill="none" stroke="{rim}" stroke-width="3" stroke-linecap="round" opacity=".9"/>')
+    gills = "".join(f'<path d="M{x} {_f(y - w * .05)} L{_f(x + d * w * k)} {_f(y + w * .08)}" stroke="{INK}" '
+                    f'stroke-width="1.5" opacity=".35"/>' for k in (.35, .6, .82))
+    return shelf + edge + gills
+
+
+def snag(x0, y0, x1, y1, color="#5C4A22", width=7):
+    """枯枝断头:一根没有花叶的枝,末端是参差的断茬。"""
+    jag = (f'<path d="M{_f(x1 - 6)} {_f(y1 + 4)} L{_f(x1 - 2)} {_f(y1 - 8)} L{_f(x1 + 2)} {_f(y1 - 1)} '
+           f'L{_f(x1 + 6)} {_f(y1 - 10)} L{_f(x1 + 7)} {_f(y1 + 5)} Z" fill="{color}" opacity=".8"/>')
+    return branch(x0, y0, x1, y1, color=color, width=width) + jag
+
+
+LEADERS = [
+    # (词, slug, 属性, 两字摆位 [中心 x, 中心 y, 缩放, 旋转°], 眼 [(x, y, 缩放)…],
+    #  蚀孔 [(x, y, rx, ry)…] —— 从两字层上挖掉的洞(可空),意象配饰)
+    # 朽木:字身被蛀空、长出层孔菌、上头支棱着断枝、底下掉木屑。
+    ("朽木", "xiumu", "Wood",
+     [(204, 206, .66, -8), (306, 296, .68, 7)],
+     ((216, 206, 1.3), (300, 210, 1.2)),
+     [(130, 140, 8, 10), (138, 300, 7, 9), (296, 330, 10, 8), (292, 404, 7, 6), (226, 304, 6, 5), (372, 352, 8, 7)],
+     lambda: snag(296, 104, 372, 42) + snag(318, 100, 432, 84, width=5)
+     + fungus(70, 300, 40, flip=True) + fungus(64, 344, 30, flip=True) + fungus(446, 250, 34) + fungus(452, 394, 28)
+     + dots([(84, 420), (110, 446), (132, 418), (150, 458), (98, 474), (168, 432), (124, 482), (72, 452)], 4, "#A8865A", .7)),
+]
+
+
+def _rot_mask(holes):
+    """蚀孔遮罩:白底挖黑洞,毛边走同一套位移滤镜 —— 字像被虫蛀过。无洞时返回空串。"""
+    if not holes:
+        return ""
+    cut = "".join(f'<ellipse cx="{x}" cy="{y}" rx="{rx}" ry="{ry}" fill="#000"/>' for x, y, rx, ry in holes)
+    return (f'<defs><mask id="rot"><rect width="{LEADER_W}" height="{LEADER_H}" fill="#fff"/>'
+            f'<g filter="url(#rs)">{cut}</g></mask></defs>')
+
+
+def _rotted(inner, holes):
+    return f'{_rot_mask(holes)}<g mask="url(#rot)">{inner}</g>' if holes else inner
+
+
+def build_leader(name, slug, element, layout, eyes, holes, deco):
+    w, h = LEADER_W, LEADER_H
+    layers = {f"c{i}": _svg(f"{name} {c}", _rotted(_char_layer(c, i, layout=layout), holes), w, h)
+              for i, c in enumerate(name)}
+    layers["halo"] = _svg(f"{name} halo", f'<g filter="url(#rs)">{_halo(eyes)}</g>', w, h)
+    layers["iris"] = _svg(f"{name} iris", f'<g filter="url(#rs)">{_iris(eyes)}</g>', w, h)
+    layers["eyes"] = _svg(f"{name} eyes", _eyes(eyes=eyes), w, h)
+    layers["wisp"] = _svg(f"{name} 意象", f'<g filter="url(#rs)">{deco()}</g>', w, h)
+    body = "".join(_char_layer(c, i, INK, layout) for i, c in enumerate(name))
+    layers["body"] = _svg(f"{name} body", _rotted(f'<g opacity=".92">{body}</g>', holes), w, h)
+    layers["face"] = _svg(f"{name} face", _eyes(with_iris=EL[element], eyes=eyes), w, h)
+    return layers
+
+
+# 预览用的运行时着色(与 Theme.cs 对齐):上字染 GlyphColor(深),下字染 ElementColor(亮),
+# 两层同系不同深浅,交叠处才分得出是两个字。运行时若改成别的配法,只动这里与 MobView。
+GLYPH_DEEP = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#82552A",
+              "Metal": "#6B6449", "Water": "#0A5E9E", "Heart": "#7E4190"}
+
+
+def leader_preview(name, element, layout, eyes, holes, deco):
+    """合成预览:宣纸底 + 两字着色 + 眼 + 配饰,与运行时叠层次序一致。"""
+    tints = (GLYPH_DEEP[element], EL[element])
+    chars = "".join(_char_layer(c, i, tints[i % 2], layout) for i, c in enumerate(name))
+    inner = (f'<rect width="{LEADER_W}" height="{LEADER_H}" fill="{PAPER}"/>'
+             f'<g filter="url(#rs)">{deco()}</g>{_rotted(chars, holes)}'
+             f'<g filter="url(#rs)">{_halo(eyes)}{_iris(eyes, EL[element])}</g>{_eyes(eyes=eyes)}')
+    return _svg(f"{name} 预览", inner, LEADER_W, LEADER_H)
+
+
+def leader_sample():
+    LEADER_DIR.mkdir(parents=True, exist_ok=True)
+    for name, slug, element, layout, eyes, holes, deco in LEADERS:
+        jobs = {f"leader_{slug}_{k}": v for k, v in build_leader(name, slug, element, layout, eyes, holes, deco).items()}
+        jobs[f"leader_{slug}_preview"] = leader_preview(name, element, layout, eyes, holes, deco)
+        for key, svg in jobs.items():
+            (LEADER_DIR / f"{key}.svg").write_text(svg, encoding="utf-8")
+        # 预览出原尺寸合成图,方便直接看;各层 PNG 等批量接入时再出
+        src = LEADER_DIR / f"leader_{slug}_preview.svg"
+        subprocess.run(["rsvg-convert", "-w", str(LEADER_W), "-h", str(LEADER_H), str(src),
+                        "-o", str(src.with_suffix(".png"))], check=True)
+    print(f"头领样张 {len(LEADERS)} 只 → {LEADER_DIR.relative_to(ROOT)}")
+    return 0
+
+
 def main():
     if shutil.which("rsvg-convert") is None:
         print("缺 rsvg-convert(brew install librsvg)", file=sys.stderr)
         return 1
+    if "--leader-sample" in sys.argv[1:]:
+        return leader_sample()
     SVG_DIR.mkdir(parents=True, exist_ok=True)
     jobs = {"fx_boss_ring": ring_fx()}
     for name, slug, elements, deco in BOSSES:
