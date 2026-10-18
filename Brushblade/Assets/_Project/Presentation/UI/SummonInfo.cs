@@ -169,6 +169,31 @@ namespace Brushblade.Presentation
             // ③ 本命
             var p = summon.Passive;
             if (p == null) return list;
+            var natures = NatureLines(p, graph);
+
+            // 第一条 = 战场上那枚 chip(有图标才算):与战场同一个优先级函数,两处对得上
+            string chipIcon = NatureChipIcon(p);
+            for (int i = 0; i < natures.Count; i++)
+            {
+                var (name, line) = natures[i];
+                bool lead = i == 0 && chipIcon != null;
+                list.Add(new AbilityEntry
+                {
+                    IconKey = lead ? chipIcon : null,
+                    ChipColor = Theme.Cinnabar,   // 本命 = 朱砂(与战场本命 chip 同色)
+                    Name = name ?? line,
+                    Desc = name != null ? line : null,
+                    Lead = lead,
+                    Inline = !lead,
+                });
+            }
+            return list;
+        }
+
+        /// <summary>本命条目(名, 说明句),按战场 chip 优先级排(抽自 <see cref="BuildAbilities"/>,尸体格的复活签 / 详情共用)。
+        /// 旧被动 Name 为 null(整句已带现名)。</summary>
+        private static List<(string Name, string Line)> NatureLines(SummonPassive p, RecipeGraph graph)
+        {
             var natures = new List<(string Name, string Line)>();
             void Old(string sentence) => natures.Add((null, sentence));   // 旧被动:整句已带现名(盾反、附灼…)
             void Named(Func<SummonPassive, bool> has, string line) => natures.Add((CharInfo.NatureTraitName(graph, has), line));
@@ -219,24 +244,33 @@ namespace Brushblade.Presentation
             if (p.Armor > 0) Named(x => x.Armor > 0, Strings.T("char.passive.armor", ("value", p.Armor)));
             // 本命嘲讽(柘,稿例「… › 坚木 › 嘲讽」):复用卡面那句(句子自带「嘲讽:」现名)
             if (p.Taunt) Old(Strings.T("char.passive.taunt"));
+            return natures;
+        }
 
-            // 第一条 = 战场上那枚 chip(有图标才算):与战场同一个优先级函数,两处对得上
-            string chipIcon = NatureChipIcon(p);
-            for (int i = 0; i < natures.Count; i++)
-            {
-                var (name, line) = natures[i];
-                bool lead = i == 0 && chipIcon != null;
-                list.Add(new AbilityEntry
-                {
-                    IconKey = lead ? chipIcon : null,
-                    ChipColor = Theme.Cinnabar,   // 本命 = 朱砂(与战场本命 chip 同色)
-                    Name = name ?? line,
-                    Desc = name != null ? line : null,
-                    Lead = lead,
-                    Inline = !lead,
-                });
-            }
-            return list;
+        /// <summary>排第一的本命的短名(尸体标识稿:复活签第二段「· 盾反」、详情「本命盾反照旧」)。有特性名用特性名;
+        /// 旧被动取整句冒号前的现名并去掉尾部数值(「盾反30%」→「盾反」)。没有本命返回 null。</summary>
+        public static string LeadNatureName(SummonPassive passive, RecipeGraph graph)
+        {
+            if (passive == null) return null;
+            var natures = NatureLines(passive, graph);
+            if (natures.Count == 0) return null;
+            var (name, line) = natures[0];
+            if (name != null) return name;
+            int colon = line.IndexOfAny(new[] { ':', '：' });
+            string head = colon > 0 ? line.Substring(0, colon) : line;
+            return head.TrimEnd('%', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+        }
+
+        /// <summary>尸体的详情(尸体标识稿,长按尸体):同活木灵那张,风味行换成「复活后:生命 n/上限,本命 X 照旧;状态、护盾与行动条清零」。
+        /// <paramref name="reviveHp"/> 由调用方按字库里的复活字试算(<see cref="CastEstimate.Revived"/>)。</summary>
+        public static UnitDetail CorpseSheet(BattleEngine battle, int slot, int reviveHp, RecipeGraph graph = null,
+            Func<string, int> cardLevelOf = null)
+        {
+            var summon = battle.Summons[slot];
+            var detail = Sheet(battle, slot, graph, cardLevelOf);
+            detail.Flavor = Strings.T("summon.detail.corpse_revive", ("hp", reviveHp), ("max", summon.MaxHp),
+                ("nature", LeadNatureName(summon.Passive, graph) ?? ""));
+            return detail;
         }
 
         /// <summary>战场木灵格上那一枚本命 chip 的图标(StatusChipsWood 稿,2026-10-11 拍板):一格只出一枚,

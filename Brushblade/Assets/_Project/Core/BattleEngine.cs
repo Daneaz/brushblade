@@ -5772,8 +5772,12 @@ namespace Brushblade.Core
             // 「溢流」对它天然不涉及 —— 不是漏接(2026-09-13)。
             revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
             revived.Shield = 0;                   // 盾不跟着复活
+            // 状态也不跟着复活(spec 2026-10-18 §2):格挡 / 战意 / 灼 / 磐固…全清。清在复活这一刻而非阵亡时,
+            // 阵亡挂点仍读得到身上状态;泽润等「复活时」的施加排在本函数之后,不被清掉
+            revived.Statuses.Clear();
             // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
+            if (_estimateRevived != null) _estimateRevived[slot] = revived.Hp;   // 影子预估(尸体标识稿)
         }
 
         private int FirstDeadSummonIndex()

@@ -26,6 +26,9 @@ namespace Brushblade.Core
         public IReadOnlyList<EffectDef> Effects = Array.Empty<EffectDef>();
         /// <summary>本面已解锁、MaxPerBattle &gt; 0、本场已用尽的特性(含 OnKill 的折桂),按槽位升序。</summary>
         public IReadOnlyList<TraitDef> SpentTraits = Array.Empty<TraitDef>();
+        /// <summary>这一下复活的木灵:槽位 → 复活那一刻的生命(含点名那一具与复活全部的顺延,已受存活上限截断)。
+        /// 尸体标识稿的血条预演 / 复活签 / 「复活全部 · n 只」读它。</summary>
+        public IReadOnlyDictionary<int, int> Revived = new Dictionary<int, int>();
     }
 
     /// <summary>预估里一只敌人身上的结果。</summary>
@@ -67,6 +70,9 @@ namespace Brushblade.Core
         /// <summary>影子出字前每只敌人的表象属性(EstimateCast 冻结)。多段伤害打完首段会现形(RevealDisguise / 生僻字读懂),
         /// 不冻结的话第 2 段起按真身算,签就泄露了(A-Q2)。本体恒 null。</summary>
         private Dictionary<EnemyState, Element?> _estimateApparent;
+
+        /// <summary>影子里 <see cref="ReviveAt"/> 救回的槽位 → 复活那一刻的生命(EstimateCast 读成 <see cref="CastEstimate.Revived"/>)。本体恒 null。</summary>
+        private Dictionary<int, int> _estimateRevived;
 
         /// <summary>生克计算用的守方属性。本体 = 真身 <see cref="EnemyState.Element"/>(与改前一致);
         /// 影子 = 出字前的表象属性,未现形 = 中立(心)、伪装 = 假身(A-Q2「一律按 ApparentElement」)。
@@ -122,13 +128,15 @@ namespace Brushblade.Core
             foreach (var e in _enemies) enemyDefs[e.Def.Id] = e.Def;
             var shadow = Restore(Capture(), _graph, _config.ForEstimate(), _cardLevels, enemyDefs);
             shadow._estimate = true;
+            shadow._estimateRevived = new Dictionary<int, int>();
             shadow._estimateApparent = new Dictionary<EnemyState, Element?>();
             foreach (var e in shadow._enemies) shadow._estimateApparent[e] = e.ApparentElement;
             shadow.Ap = Math.Max(shadow.Ap, def.ApCost);
             int moraleBefore = shadow._playerStatuses.TotalMagnitude(StatusKind.Morale);
 
             var error = shadow.CastCore(charId, targetIndex, replaceSummon: true, attackMode, libraryIndex, null, allySlot, dropMode);
-            var result = new CastEstimate { Error = error, AllEnemies = all, Effects = effects, SpentTraits = spent };
+            var result = new CastEstimate { Error = error, AllEnemies = all, Effects = effects, SpentTraits = spent,
+                Revived = shadow._estimateRevived };
             if (error != BattleError.None) return result;
 
             var events = shadow._events;

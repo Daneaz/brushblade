@@ -2540,9 +2540,7 @@ namespace Brushblade.Presentation
                 // 而玩家真正要认的是「我出的哪张牌变成了它」:一排里两只「木」可能一只是
                 // 「林」召的、一只是别的字召的(2026-09-05 用户拍板)。
                 // 小藻头行写「小藻」(WoodCues 稿 W10:藻灵与小藻靠格子大小与血量区分,名字点明)
-                HeaderName(header.transform, IsSproutling(summon)
-                    ? Strings.T("battle.summon.sprout_name", ("char", summon.SourceChar))
-                    : summon.SourceChar, SummonHeaderNameFontSize);
+                HeaderName(header.transform, SummonHeaderName(summon), SummonHeaderNameFontSize);
                 // 底色用字形色(2026-09-19),理由同敌人格
                 HeaderChip(header.transform, CharInfo.ElementName(summon.Element),
                     Theme.GlyphColor(summon.Element), Color.white);
@@ -2705,45 +2703,218 @@ namespace Brushblade.Presentation
             // 玩家因此看得出召唤物落下来会长在哪儿、多大。
             //
             // 平时什么都不画也不会让布局跳动 —— 撑住格子的是上面那个 LayoutElement,不是这块图。
-            // 复活选尸体(2026-09-27,沐):带复活的那一面在友方选目标态下,尸体也画出来并可点 ——
-            // 此前尸体平时什么都不画,沐 的复活根本没有落点可选。
-            bool revivePick = corpse != null && CanPickCorpse(slot);
-            if (_slotPicking || revivePick)
+            // 尸体格(木灵尸体标识稿,2026-10-18):与活木灵同构,另见 DrawCorpseSlot
+            if (corpse != null) { DrawCorpseSlot(cell, slot, front, corpse); return; }
+            if (_slotPicking)
             {
                 float glyphSize = front ? SummonPortraitFront : SummonPortraitBack;
-                bool showCorpse = corpse != null;
-                var ghost = Ui.Panel(cell.transform, showCorpse ? "Corpse" : "Ghost");
+                var ghost = Ui.Panel(cell.transform, "Ghost");
                 var image = ghost.AddComponent<Image>();
                 image.sprite = Theme.Rounded(12);
                 image.type = Image.Type.Sliced;
-                // 尸体槽用实色 LockedBg 压住,空槽用淡墨 —— 点它们的后果一样(直接落位、
-                // 不弹确认),但玩家得看得出这一格是空的还是躺着一具尸体。
-                image.color = showCorpse
-                    ? Theme.LockedBg
-                    : new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
+                image.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
                 image.raycastTarget = false; // 不吃点击:让点击落到 AttachSlotPicker 那一层上
                 // 与实格的字块对齐:实格是 VStack 从顶排下来,字块贴格顶
                 Ui.Anchor((RectTransform)ghost.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                     new Vector2(-glyphSize / 2f, -glyphSize), new Vector2(glyphSize / 2f, 0f));
-                if (showCorpse)
-                {
-                    var corpseGlyph = Ui.ThemedLabel(ghost.transform, corpse.Char,
-                        Mathf.RoundToInt(glyphSize * 0.46f), Theme.LockGray, Theme.TitleFont);
-                    Ui.Stretch(corpseGlyph.rectTransform);
-                }
-                if (_slotPicking) AttachSlotPicker(cell.transform, slot);
-                else AttachAllyTargetPicker(cell.transform, slot);   // 点尸体 = 复活它
+                AttachSlotPicker(cell.transform, slot);
             }
-            // 拖带复活的那一面(沐「苏」)落尸体 = 复活它(2026-10-18 修:此前拖放只给活木灵画落点,
-            // 尸体只在点选态可点,拖过去没有落点)。判据与点选的 CanPickCorpse、Cast 的 CanReviveSlot 同源。
-            else if (FaceDragging && corpse != null && (_faceDragLanding & FaceLanding.Summons) != 0
-                && BattleEngine.HasRevive(_faceDragDef, _faceDragFace == CardFace.Attack) && Battle.CanReviveSlot(slot))
-                AddFaceMark(cell.transform, (RectTransform)cell.transform, FaceMarkKind.Summon, slot,
-                    Strings.T("battle.landing.revive"));
-            // 拖两面字的生面(Plan E1):空位 = 召唤到这里。尸体格也是空位(与点击路径、Core 一致,Ruling 4),
-            // 只有活木灵格是嫁接
+            // 拖两面字的生面(Plan E1):空位 = 召唤到这里
             else if (FaceDragging && (_faceDragLanding & FaceLanding.EmptySlot) != 0)
                 AddFaceMark(cell.transform, (RectTransform)cell.transform, FaceMarkKind.EmptySlot, slot, null);
+        }
+
+        // 尸体格(Corpse / CorpseSpec 稿,pt × 2.093)
+        private const float CorpseFaintAlpha = 0.5f;          // .corpse.faint { opacity: .5 }
+        private const float CorpsePickTint = 0.10f;           // .tint.jade 翠玉 10%
+        private const int CorpseHintFontSize = 16;            // .hint 7.5pt
+        private const int CorpseTagFontSize = 13;             // .hd .tag 6.21pt
+        private const float CorpseRevivePreviewAlpha = 0.42f; // .hpb .prev 斜纹 rgba(52,134,75,.42)
+
+        /// <summary>尸体格(木灵尸体标识稿,2026-10-18 拍板):结构同活木灵 —— 立绘(LockedBg + 灰字)、头行(名 TextDim + 属性徽章原色 +「阵亡」)、
+        /// chip 行(攻 + 本命,压 LockedBg / TextDim)、空血条「0/上限」、行动条位留白。
+        ///
+        /// 什么时候画:复活点选 / 复活拖放 / 召唤选位 / 拖生面 → 全量;否则字库里有带复活的面时常显淡态(立绘 + 头行,α .5),
+        /// 没有就什么都不画(同改前)。四种落点的判据分别与 CanPickCorpse(点选)、CanReviveSlot(拖放复活,与 Cast 同源)、
+        /// _slotPicking / FaceLanding.EmptySlot(召唤,尸体格也是空位,Ruling 4)同源。</summary>
+        private void DrawCorpseSlot(GameObject cell, int slot, bool front, SummonState corpse)
+        {
+            bool revivePick = CanPickCorpse(slot);
+            bool reviveDrag = FaceDragging && (_faceDragLanding & FaceLanding.Summons) != 0
+                && BattleEngine.HasRevive(_faceDragDef, _faceDragFace == CardFace.Attack) && Battle.CanReviveSlot(slot);
+            bool summonPick = _slotPicking;
+            bool summonDrag = !reviveDrag && FaceDragging && (_faceDragLanding & FaceLanding.EmptySlot) != 0;
+            bool full = revivePick || reviveDrag || summonPick || summonDrag;
+            bool reviveInLibrary = LibraryHasRevive();
+            if (!full && !reviveInLibrary) return;   // 平时、没有复活手段:只占槽
+
+            float portraitSize = front ? SummonPortraitFront : SummonPortraitBack;
+            float infoWidth = SummonCellW - portraitSize - SummonBlkInfoGap;
+            var block = Ui.UnitBlock(cell.transform, "Block", portraitSize, infoWidth, SummonBlkInfoGap,
+                out var portraitMount, out var info);
+            info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            info.GetComponent<VerticalLayoutGroup>().spacing = SummonInfoSpacing;
+
+            var plate = Ui.Panel(portraitMount, "Corpse");
+            var plateImage = plate.AddComponent<Image>();
+            plateImage.sprite = Theme.Rounded(12);
+            plateImage.type = Image.Type.Sliced;
+            plateImage.color = Theme.LockedBg;
+            Ui.Stretch((RectTransform)plate.transform);
+            var glyph = Ui.ThemedLabel(plate.transform, SummonFace(corpse), Mathf.RoundToInt(portraitSize * 0.46f),
+                Theme.LockGray, Theme.TitleFont);
+            glyph.raycastTarget = false;
+            Ui.Stretch(glyph.rectTransform);
+
+            // 头行:名(TextDim)+ 属性徽章原色(身份;嫁接换过属性就是换后的)+「阵亡」
+            var header = Ui.Row(info, "Header", EnemyHeaderSpacing);
+            Ui.Sized(header, width: infoWidth, height: SummonHeaderHeight);
+            header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            HeaderName(header.transform, SummonHeaderName(corpse), SummonHeaderNameFontSize)
+                .GetComponent<Text>().color = Theme.TextDim;
+            HeaderChip(header.transform, CharInfo.ElementName(corpse.Element),
+                Theme.GlyphColor(corpse.Element), Color.white);
+            Ui.ThemedLabel(header.transform, Strings.T("battle.corpse.tag"), CorpseTagFontSize, Theme.LockGray);
+
+            if (!full)
+            {
+                // 淡态:只画立绘 + 头行;点 / 长按看详情(复活后回来什么)
+                block.AddComponent<CanvasGroup>().alpha = CorpseFaintAlpha;
+                var button = plate.AddComponent<Button>();
+                button.transition = Selectable.Transition.None;
+                button.targetGraphic = plateImage;
+                button.onClick.AddListener(() => ShowCorpseDetail(slot));
+                return;
+            }
+
+            // chip 行:召唤态换一句覆盖提示(字库有复活字时朱砂警告);否则攻 + 本命,一律压灰
+            if (summonPick || summonDrag)
+            {
+                var hint = Ui.ThemedLabel(info, reviveInLibrary ? Strings.T("battle.corpse.overwrite_warn") : Strings.T("battle.corpse.overwrite"),
+                    CorpseHintFontSize, reviveInLibrary ? Theme.CinnabarDark : Theme.ElementSoftFg(Element.Wood),
+                    align: TextAnchor.MiddleLeft);
+                hint.raycastTarget = false;
+                Ui.Sized(hint.gameObject, width: infoWidth, height: Ui.ChipHeight(UnitChipFontSize, UnitChipPadY));
+            }
+            else
+            {
+                var chips = new List<Ui.ChipSpec>
+                {
+                    new($"{corpse.EffectiveAttack}", Theme.LockedBg, Theme.TextDim, RangeIcon(corpse.Passive?.Ranged ?? false)),
+                };
+                string natureIcon = SummonInfo.NatureChipIcon(corpse.Passive);
+                if (natureIcon != null) chips.Add(new("", Theme.LockedBg, Theme.TextDim, natureIcon));
+                Ui.ChipFlow(info, "Chips", chips, infoWidth - 4f, UnitChipFontSize, 1,
+                    UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
+            }
+
+            // 血条:空轨「0/上限」;复活态预演 ⌈上限 × N%⌉(翠玉斜纹 +「→ n/上限」),数取 Core 影子出字
+            int reviveHp = 0, reviveCount = 0;
+            if (revivePick || reviveDrag)
+            {
+                bool attackMode = reviveDrag ? _faceDragFace == CardFace.Attack : AllyFaceAttackMode;
+                string charId = reviveDrag ? _faceDragDef.Id : _selectedChar;
+                int libraryIndex = reviveDrag ? _faceDragIndex : _selectedIndex;
+                var est = EstimateSafe(charId, -1, attackMode, libraryIndex, slot);
+                if (est != null && est.Revived.TryGetValue(slot, out var hp)) reviveHp = hp;
+                reviveCount = est?.Revived.Count ?? 0;
+            }
+            var bar = HpBar(info, 0, corpse.MaxHp, new Vector2(infoWidth, SummonHpBarHeight), Theme.Success, UnitBarLabelFontSize);
+            if (reviveHp > 0)
+            {
+                var preview = Ui.Panel(bar.fill.parent, "RevivePreview");
+                var image = preview.AddComponent<Image>();
+                image.sprite = Theme.Hatch();
+                image.type = Image.Type.Tiled;
+                image.color = new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, CorpseRevivePreviewAlpha);
+                image.raycastTarget = false;
+                Ui.Anchor((RectTransform)preview.transform, Vector2.zero,
+                    new Vector2(Mathf.Clamp01(reviveHp / (float)corpse.MaxHp), 1f), Vector2.zero, Vector2.zero);
+                bar.label.transform.SetAsLastSibling();   // 叠字压在斜纹之上
+                bar.label.text = Strings.T("battle.corpse.revive_hp", ("hp", reviveHp), ("max", corpse.MaxHp));
+                bar.label.color = Theme.TextMain;
+                bar.label.fontStyle = FontStyle.Bold;
+            }
+            else
+                bar.label.color = Theme.LockGray;
+            Object.Destroy(bar.label.GetComponent<Outline>());   // .hpb.dead > u:无描边
+            // 行动条位留白:格高不跳
+            Ui.Sized(Ui.Panel(info, "ActionGap"), width: infoWidth, height: SummonActionBarHeight);
+
+            var rect = (RectTransform)cell.transform;
+            if (summonPick) AttachSlotPicker(cell.transform, slot);
+            else if (revivePick)
+            {
+                AttachAllyTargetPicker(cell.transform, slot, CorpsePickTint);   // 点尸体 = 复活它
+                AddLandingRing(cell.transform, Theme.Jade, FaceMarkRadius);
+            }
+            else if (reviveDrag)
+            {
+                // 拖带复活的那一面(沐「苏」)落尸体 = 复活它。签:「复活 林 · 生命 75」+ 压浅「 · 盾反」;
+                // 复活全部(㵘,一次救不止一只)签写「复活全部 · n 只」(已受存活上限截断),悬停任一具全体加深
+                bool all = reviveCount > 1;
+                string nature = SummonInfo.LeadNatureName(corpse.Passive, _graph);
+                string main = all
+                    ? Strings.T("battle.estimate.revive_all", ("n", reviveCount))
+                    : Strings.T("battle.estimate.revive", ("name", SummonHeaderName(corpse)), ("n", reviveHp));
+                string dim = !all && nature != null ? Strings.T("battle.landing.sep") + nature : null;
+                AddFaceMark(cell.transform, rect, FaceMarkKind.Summon, slot, main, dim, corpse: true, reviveAll: all);
+            }
+            else
+            {
+                // 拖生面落尸体 = 覆盖它(与点击落位、Core 一致);字库有复活字时签接「 · 无法再复活」
+                AddFaceMark(cell.transform, rect, FaceMarkKind.EmptySlot, slot,
+                    Strings.T("battle.landing.overwrite", ("name", SummonHeaderName(corpse))),
+                    reviveInLibrary ? Strings.T("battle.landing.sep") + Strings.T("battle.landing.overwrite_warn") : null,
+                    corpse: true);
+            }
+            if (revivePick || summonPick)
+            {
+                // 长按看详情(只看不出手:弹窗遮罩接住抬起,不补发这一格的点击)
+                var picker = cell.transform.Find(summonPick ? "SlotPick" : "AllyPick");
+                if (picker != null) HoldToPreview.Attach(picker.gameObject, () => ShowCorpseDetail(slot));
+            }
+        }
+
+        /// <summary>木灵头行的名字:召它的那张字卡(SourceChar);小藻写「小藻」。活格与尸体格、复活 / 覆盖签共用。</summary>
+        private string SummonHeaderName(SummonState summon) => IsSproutling(summon)
+            ? Strings.T("battle.summon.sprout_name", ("char", summon.SourceChar))
+            : summon.SourceChar;
+
+        /// <summary>字库里有没有带复活的面(两面都看):有才常显尸体淡态、召唤到尸体格才警告「覆盖后无法复活」。</summary>
+        private bool LibraryHasRevive() => FirstLibraryRevive(out _, out _);
+
+        private bool FirstLibraryRevive(out int libraryIndex, out bool attackMode)
+        {
+            for (int i = 0; i < Battle.Library.Count; i++)
+                if (_graph.TryGet(Battle.Library[i], out var def))
+                {
+                    if (BattleEngine.HasRevive(def, false)) { libraryIndex = i; attackMode = false; return true; }
+                    if (BattleEngine.HasRevive(def, true)) { libraryIndex = i; attackMode = true; return true; }
+                }
+            libraryIndex = -1;
+            attackMode = false;
+            return false;
+        }
+
+        /// <summary>尸体详情:同活木灵那张,风味行写「复活后:生命 n/上限,本命 X 照旧;状态、护盾与行动条清零」。
+        /// n 按字库里第一张带复活的面试算(试算落不了时退回半血,与 Core 缺省同口径)。</summary>
+        private void ShowCorpseDetail(int slot)
+        {
+            if (_modal != null) Object.Destroy(_modal);
+            _unitSheetSource = () =>
+            {
+                var s = Battle.Summons[slot];
+                if (s == null || s.Alive) return null;
+                int hp = (s.MaxHp + 1) / 2;
+                if (FirstLibraryRevive(out int index, out bool attackMode))
+                {
+                    var est = EstimateSafe(Battle.Library[index], -1, attackMode, index, slot);
+                    if (est != null && est.Revived.TryGetValue(slot, out var n)) hp = n;
+                }
+                return SummonInfo.CorpseSheet(Battle, slot, hp, _graph, _run.CardLevel);
+            };
+            _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
         /// <summary>友方选目标态里「友方那一面」走哪套效果(2026-09-27 抽出)。双向态(敌我同时点亮)
@@ -2790,14 +2961,14 @@ namespace Brushblade.Presentation
         /// 盖满一格吃下点击,而不是只挂在字块/血条这类小面积上——移动端手指落点粗。
         /// <paramref name="cell"/> 在召唤物是格子的 VStack,在玩家是 <c>Hp</c> 那个 VStack,
         /// 两处都要 <c>ignoreLayout</c>,否则这层覆盖会被当成一行排进布局,把整格挤变形。</summary>
-        private void AttachAllyTargetPicker(Transform cell, int slot)
+        private void AttachAllyTargetPicker(Transform cell, int slot, float alpha = 0.14f)
         {
             var overlay = Ui.Panel(cell, "AllyPick");
             overlay.AddComponent<LayoutElement>().ignoreLayout = true;
             var image = overlay.AddComponent<Image>();
             image.sprite = Theme.Rounded(12);
             image.type = Image.Type.Sliced;
-            image.color = new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, 0.14f);
+            image.color = new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, alpha);
             Ui.Stretch((RectTransform)overlay.transform);
             var button = overlay.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
@@ -4092,6 +4263,7 @@ namespace Brushblade.Presentation
             public Image Ring;
             public Image Tint;
             public GameObject Label;       // 悬停才显示的预估签;没有为 null
+            public bool ReviveAll;         // 复活全部落尸体(㵘):悬停任一具,所有这类标记一起加深
         }
 
         // 正在拖的两面字:起拖时定下面与落点,松手 / 全量重画时清。null = 没在拖两面字
@@ -4246,9 +4418,11 @@ namespace Brushblade.Presentation
             if (hit == _faceHover) return;
             _faceHover = hit;
             bool allEnemies = hit != null && hit.Kind == FaceMarkKind.Enemy && _faceDragHitsAll;
-            // R1:全体面悬停任一只 → 全排描环加深,但签只亮悬停那只(FlipSpec「预估签只挂悬停那只」)
+            bool allCorpses = hit != null && hit.ReviveAll;
+            // R1:全体面悬停任一只 → 全排描环加深,但签只亮悬停那只(FlipSpec「预估签只挂悬停那只」);复活全部同理(尸体标识稿)
             foreach (var mark in _faceMarks)
-                SetFaceMarkHover(mark, mark == hit || (allEnemies && mark.Kind == FaceMarkKind.Enemy), mark == hit);
+                SetFaceMarkHover(mark, mark == hit || (allEnemies && mark.Kind == FaceMarkKind.Enemy)
+                    || (allCorpses && mark.ReviveAll), mark == hit);
         }
 
         /// <summary><paramref name="hover"/> 管描环粗细与底色深浅,<paramref name="showLabel"/> 管预估签显隐 ——
@@ -4264,10 +4438,12 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>给一格挂落点标记。底色垫在格内容之下、描环压在最上;都不吃射线。</summary>
+        /// <param name="corpse">落在尸体格:不印「召唤到这里」(尸体格自己写覆盖提示)。</param>
+        /// <param name="reviveAll">复活全部落尸体:悬停连带加深(<see cref="FaceMark.ReviveAll"/>)。</param>
         private void AddFaceMark(Transform host, RectTransform hitRect, FaceMarkKind kind, int index, string hoverLabel,
-            string dimLabel = null)
+            string dimLabel = null, bool corpse = false, bool reviveAll = false)
         {
-            var mark = new FaceMark { Kind = kind, Index = index, Rect = hitRect };
+            var mark = new FaceMark { Kind = kind, Index = index, Rect = hitRect, ReviveAll = reviveAll };
 
             var tintGo = Ui.Panel(host, "LandTint");
             tintGo.AddComponent<LayoutElement>().ignoreLayout = true;
@@ -4278,7 +4454,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)tintGo.transform);
             tintGo.transform.SetAsFirstSibling();
 
-            if (kind == FaceMarkKind.EmptySlot)
+            if (kind == FaceMarkKind.EmptySlot && !corpse)
             {
                 var ghost = Ui.ThemedLabel(host, Strings.T("battle.landing.summon_here"), FaceGhostLabelFontSize,
                     Theme.ElementSoftFg(Element.Wood));
