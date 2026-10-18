@@ -195,6 +195,53 @@ namespace Brushblade.Core.Tests
             Assert.That(Rows(b).Contains((-1, 1, StatusKind.Seal, 1)), Is.True, string.Join(",", Rows(b)));
         }
 
+        // ---------------- Fresh:首次上身 vs 叠层 / 刷新(Magnitude 恒 0 的状态靠它分) ----------------
+
+        private static List<(StatusKind kind, bool fresh)> FreshRows(BattleEngine b) =>
+            Applied(b).Select(e => ((StatusKind)e.Amount, e.Fresh)).ToList();
+
+        [Test]
+        public void Fresh_SummonTaunt_FirstTrueThenFalse()
+        {
+            var def = RebalanceFixture.Char("柘", new EffectDef(EffectKind.Taunt, 2, pick: EffectPick.AllSummons));
+            var b = Battle(new[] { def }, Array.Empty<EnemyDef>(), summons: new[] { Wood(0) });
+            Cast(b, "柘");
+            Assert.That(FreshRows(b), Is.EqualTo(new[] { (StatusKind.Taunt, true) }), "首次嘲讽");
+            Cast(b, "柘");
+            Assert.That(FreshRows(b), Is.EqualTo(new[] { (StatusKind.Taunt, false) }), "再嘲讽 = 刷新");
+        }
+
+        [Test]
+        public void Fresh_Slow_FirstTrueThenRefreshFalse()
+        {
+            var def = RebalanceFixture.Char("缓", new EffectDef(EffectKind.Slow, 2));
+            var b = Battle(def);
+            Cast(b, "缓", 0);
+            Assert.That(FreshRows(b), Is.EqualTo(new[] { (StatusKind.SpeedModifier, true) }));
+            Cast(b, "缓", 0);
+            Assert.That(FreshRows(b), Is.EqualTo(new[] { (StatusKind.SpeedModifier, false) }));
+        }
+
+        [Test]
+        public void Fresh_MoraleStacked_False()
+        {
+            var def = RebalanceFixture.Char("战", new EffectDef(EffectKind.Morale, 2));
+            var b = Battle(def);
+            Cast(b, "战");
+            Assert.That(FreshRows(b).Where(r => r.kind == StatusKind.Morale), Is.EqualTo(new[] { (StatusKind.Morale, true) }));
+            Cast(b, "战");
+            Assert.That(FreshRows(b).Where(r => r.kind == StatusKind.Morale), Is.EqualTo(new[] { (StatusKind.Morale, false) }));
+        }
+
+        [Test]
+        public void Fresh_OtherEvents_AlwaysFalse()
+        {
+            var def = RebalanceFixture.Char("缓", new EffectDef(EffectKind.Slow, 2), new EffectDef(EffectKind.DamageSingle, 100));
+            var b = Battle(def);
+            Cast(b, "缓", 0);
+            Assert.That(b.LastEvents.Where(e => e.Kind != BattleEventKind.StatusApplied).All(e => !e.Fresh), Is.True);
+        }
+
         // ---------------- 木灵光环 ----------------
 
         [Test]
@@ -323,7 +370,7 @@ namespace Brushblade.Core.Tests
         // ---------------- 白名单对账 ----------------
 
         /// <summary>审计 §5:StatusText.Of 没有 case 的 kind(Presentation 侧无名、无 chip)。写死,
-        /// 新增 StatusKind 时由下面的对账逼着决定它属于哪边。</summary>
+        /// 新增 StatusKind 时由下面的对账逼着决定它属于哪边。⚠ 改 Presentation 的 StatusText.Of(增删 case)要同步这里与 StatusCueRules。</summary>
         private static readonly StatusKind[] Hidden =
         {
             StatusKind.ObsoleteDamageReduction, StatusKind.TraitRider, StatusKind.ShieldRecoil,

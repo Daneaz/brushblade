@@ -145,29 +145,22 @@ namespace Brushblade.Presentation
         // 这几格(_mergeGhosts)按出手前的实例照画,动画落幕清掉
         private readonly System.Collections.Generic.Dictionary<int, SummonState> _summonAnimRef = new();
         private readonly System.Collections.Generic.HashSet<int> _mergeGhosts = new();
-        // 重绘后再演的提示(WoodCues 稿起,Plan E4 起通用):这一段里才挂上、要等重绘才出现的 chip(光环、披荆的流血、
-        // 藻荇的减速、绿潮的嘲讽)闪一下,外加光环挂上时只飘一次的特性名签、状态挂上时的状态名签(B-Qa2)—— 重绘后逐条演(FlushChipCues)
+        // 重绘后再闪的 chip(WoodCues 稿起):敌人行动拍是先播后重绘,这一拍里才挂上的状态 chip 播放时还不在格上 ——
+        // Juice 的上状态(spec 2026-10-18 §2)把 chip 闪经 ChipCue 记到这里,重绘后逐条闪(FlushChipCues);名签当场飘
         private readonly System.Collections.Generic.List<ChipCueEntry> _chipCues = new();
 
-        /// <summary>一条重绘后再演的提示:落点(种类 + 下标)、要闪的 chip 图标(可空)、要飘的特性名签或状态名签(可空)。</summary>
+        /// <summary>一条重绘后再闪的 chip:落点(种类 + 下标)、图标。</summary>
         private readonly struct ChipCueEntry
         {
             public readonly Juice.CueOn On;
             public readonly int Index;
             public readonly string Icon;
-            public readonly TraitCue? Trait;
-            public readonly StatusKind? Status;
-            public readonly int Magnitude;
 
-            public ChipCueEntry(Juice.CueOn on, int index, string icon, TraitCue? trait = null,
-                StatusKind? status = null, int magnitude = 0)
+            public ChipCueEntry(Juice.CueOn on, int index, string icon)
             {
                 On = on;
                 Index = index;
                 Icon = icon;
-                Trait = trait;
-                Status = status;
-                Magnitude = magnitude;
             }
         }
         // 敌人格(chip 所在的那一块,跨排 Boss 是溢出的可视块),按敌人下标;木系提示找 chip 用
@@ -455,6 +448,9 @@ namespace Brushblade.Presentation
             _juice.SummonCellAt = slot => _summonCellByCore.TryGetValue(slot, out var cell) ? cell : null;
             _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
             _juice.ChipCue = (on, index, icon) => _chipCues.Add(new ChipCueEntry(on, index, icon));
+            _juice.StatusMagnitudeAt = StatusMagnitudeAt;   // 上状态(spec 2026-10-18 §2):名签取名 / 底色,阵亡不播
+            _juice.EnemyActionBarAt = i => i >= 0 && i < _enemyActionBars.Count && _enemyActionBars[i].fill != null
+                ? (RectTransform)_enemyActionBars[i].fill.parent : null;   // 冰滞结霜
             _juice.PlayerCell = _bottomRow;   // 水土提示(E3 Task 5):玩家的免疫 chip 与护盾角标都在底栏里
             // 格挡反击(counterfx):盾印压在玩家立绘块上;加倍按玩家身上的 CounterBoost(木灵的格挡也吃它)
             _juice.PlayerPortraitAt = () => _playerPortrait;
@@ -7049,8 +7045,6 @@ namespace Brushblade.Presentation
         {
             bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var aurasBefore = AuraKeys();   // 光环挂上(W1):出字前后比对,新挂上的那几条重绘后闪
-            var statusesBefore = AnnounceSnapshot();   // 状态挂上飘名(B-Qa2):同一套前后比对
             var castTraits = CastTraitCues(charId, attackMode);   // 主动特性出字飘名(B-Qa1):「本场未用尽」须在出字前判
             var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot, dropMode);
             if (error == BattleError.SummonCapFull) // 顶替强阻断:AP/字都没动,确认了才重出
@@ -7091,8 +7085,6 @@ namespace Brushblade.Presentation
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             if (error == BattleError.None) DropReplacedSummonSnapshots(); // 被顶替的槽位:改画新召唤物,别停在旧血量
             if (error == BattleError.None) CollectMergeGhosts();         // 绿潮:被并入的小藻动画期间照画,藻灵血条从并入前起涨
-            if (error == BattleError.None) CueNewAuras(aurasBefore);     // 光环挂上:重绘后受益木灵的 chip 闪、特性名飘一次
-            if (error == BattleError.None) CueNewStatuses(statusesBefore);   // 状态挂上:重绘后 chip 闪 + 状态名签
             if (error != BattleError.None)
             {
                 CancelSelection();
@@ -7174,40 +7166,7 @@ namespace Brushblade.Presentation
                     _summonAnimHp[pair.Key] = System.Math.Max(1, receiver.Hp - pair.Value);
         }
 
-        /// <summary>玩家袋里木灵光环条目的指纹(种类, 来源, 槽位, 剩余回合):出字前后比对,找出这次新挂上 / 刷新的。</summary>
-        private System.Collections.Generic.HashSet<(StatusKind, string, int, int)> AuraKeys()
-        {
-            var keys = new System.Collections.Generic.HashSet<(StatusKind, string, int, int)>();
-            foreach (var st in Battle.PlayerStatuses.All)
-                if (st.Kind == StatusKind.SummonEmpower || st.Kind == StatusKind.SummonThorns || st.Kind == StatusKind.SummonRanged)
-                    keys.Add((st.Kind, st.SourceId, st.TargetSlot, st.TurnsLeft));
-            return keys;
-        }
-
-        /// <summary>光环挂上(WoodCues 稿 W1):受益的每只木灵,新出现的那枚 chip 同时闪一下(攻击光环闪 attack、荆棘光环闪 thorns、
-        /// 远程光环闪攻 chip 的射程图标);特性名只飘一次,从第一只受益木灵飘出(没有木灵时不飘)。</summary>
-        private void CueNewAuras(System.Collections.Generic.HashSet<(StatusKind, string, int, int)> before)
-        {
-            foreach (var key in AuraKeys())
-            {
-                if (before.Contains(key)) continue;
-                var (kind, source, slot, _) = key;
-                string icon = kind == StatusKind.SummonEmpower ? "attack" : kind == StatusKind.SummonThorns ? "thorns" : "ranged";
-                var effectKind = kind == StatusKind.SummonEmpower ? EffectKind.SummonEmpower
-                    : kind == StatusKind.SummonThorns ? EffectKind.SummonThorns : EffectKind.SummonRanged;
-                var cue = CharInfo.TraitCueOf(_graph, source, e => e.Kind == effectKind);
-                bool named = false;
-                for (int s = 0; s < Battle.Summons.Count; s++)
-                {
-                    if (Battle.Summons[s] is not { Alive: true } || (slot >= 0 && slot != s)) continue;
-                    _chipCues.Add(new ChipCueEntry(Juice.CueOn.Summon, s, icon, named ? null : cue));
-                    named = true;
-                }
-            }
-        }
-
-        /// <summary>重绘后演提示:chip 闪 + 特性名签(只给带名的那一条,从 chip 飘、chip 不在退回立绘)+ 状态名签(从单位立绘飘,
-        /// 玩家 = 屏幕中下;冰滞另给行动条一道结霜描边)。落点在这一次重绘里重新取 —— 旧引用已随重绘销毁。</summary>
+        /// <summary>重绘后闪 chip(<see cref="_chipCues"/>)。落点在这一次重绘里重新取 —— 旧引用已随重绘销毁。</summary>
         private void FlushChipCues()
         {
             if (_chipCues.Count == 0) return;
@@ -7220,56 +7179,33 @@ namespace Brushblade.Presentation
                     Juice.CueOn.Summon => _summonCellByCore.TryGetValue(cue.Index, out var cell) ? cell : null,
                     _ => (RectTransform)_bottomRow,
                 };
-                RectTransform portrait = cue.On switch
-                {
-                    Juice.CueOn.Enemy => EnemyAnchor(cue.Index),
-                    Juice.CueOn.Summon => SummonAnchor(cue.Index),
-                    _ => null,
-                };
-                var chip = cue.Icon != null ? _juice.FlashIcon(root, cue.Icon) : null;
-                if (cue.Trait != null) _juice.TraitCueAt(cue.Trait, chip != null ? chip : portrait);
-                if (cue.Status is { } kind)
-                {
-                    _juice.StatusLabel(kind, cue.Magnitude, false, portrait, isPlayer: cue.On == Juice.CueOn.Player);
-                    if (kind == StatusKind.IceStall && cue.On == Juice.CueOn.Enemy && cue.Index < _enemyActionBars.Count
-                        && _enemyActionBars[cue.Index].fill != null)
-                        _juice.FrostSnap((RectTransform)_enemyActionBars[cue.Index].fill.parent);
-                }
+                _juice.FlashIcon(root, cue.Icon);
             }
             _chipCues.Clear();
         }
 
-        /// <summary>状态挂上飘名(B-Qa2)的前后比对:每个存活单位此刻挂着、在播报范围内的 kind(<see cref="TraitCueRules.AnnounceableKinds"/>)。</summary>
-        private System.Collections.Generic.Dictionary<(Juice.CueOn, int), System.Collections.Generic.HashSet<StatusKind>> AnnounceSnapshot()
+        /// <summary>上状态动效(spec 2026-10-18 §2)的读口:单位此刻身上该状态的量(取名 / 底色 / 速度正负用)。
+        /// 木灵的光环(攻击 / 荆棘 / 远程)挂在玩家袋里,取落到这一格的份额(<see cref="BattleEngine.SummonAurasAt"/>)。
+        /// 单位已阵亡 / 不在了返回 null = 不播。</summary>
+        private int? StatusMagnitudeAt(Juice.CueOn on, int index, StatusKind kind)
         {
-            var map = new System.Collections.Generic.Dictionary<(Juice.CueOn, int), System.Collections.Generic.HashSet<StatusKind>>
+            switch (on)
             {
-                [(Juice.CueOn.Player, -1)] = TraitCueRules.AnnounceableKinds(Battle.PlayerStatuses),
-            };
-            for (int s = 0; s < Battle.Summons.Count; s++)
-                if (Battle.Summons[s] is { Alive: true } summon)
-                    map[(Juice.CueOn.Summon, s)] = TraitCueRules.AnnounceableKinds(summon.Statuses);
-            for (int i = 0; i < Battle.Enemies.Count; i++)
-                if (Battle.Enemies[i].Alive)
-                    map[(Juice.CueOn.Enemy, i)] = TraitCueRules.AnnounceableKinds(Battle.Enemies[i].Statuses);
-            return map;
-        }
-
-        /// <summary>动作后比对:每个单位至多一条新出现的控制类 kind → 记一条重绘后的「chip 闪 + 状态名签」(同一单位同一动作最多 1 条)。
-        /// 只看存活单位;动作前不在场的(新召出 / 分裂出的)按空集比。</summary>
-        private void CueNewStatuses(System.Collections.Generic.Dictionary<(Juice.CueOn, int), System.Collections.Generic.HashSet<StatusKind>> before)
-        {
-            foreach (var pair in AnnounceSnapshot())
-            {
-                before.TryGetValue(pair.Key, out var was);
-                if (TraitCueRules.NewlyApplied(was, pair.Value) is not { } kind) continue;
-                var (on, index) = pair.Key;
-                var bag = on == Juice.CueOn.Player ? Battle.PlayerStatuses
-                    : on == Juice.CueOn.Summon ? Battle.Summons[index].Statuses
-                    : Battle.Enemies[index].Statuses;
-                int magnitude = kind == StatusKind.SpeedModifier ? bag.TotalMagnitude(kind) : 1;
-                string icon = StatusText.Of(kind, magnitude, 0, isPlayer: on == Juice.CueOn.Player).IconKey;
-                _chipCues.Add(new ChipCueEntry(on, index, icon, status: kind, magnitude: magnitude));
+                case Juice.CueOn.Enemy:
+                    return index >= 0 && index < Battle.Enemies.Count && Battle.Enemies[index].Alive
+                        ? Battle.Enemies[index].Statuses.TotalMagnitude(kind) : null;
+                case Juice.CueOn.Summon:
+                    if (index < 0 || index >= Battle.Summons.Count || Battle.Summons[index] is not { Alive: true } summon) return null;
+                    if (kind == StatusKind.SummonEmpower || kind == StatusKind.SummonThorns || kind == StatusKind.SummonRanged)
+                    {
+                        int aura = 0;
+                        foreach (var st in Battle.SummonAurasAt(index))
+                            if (st.Kind == kind) aura += st.Magnitude;
+                        return aura;
+                    }
+                    return summon.Statuses.TotalMagnitude(kind);
+                default:
+                    return Battle.PlayerStatuses.TotalMagnitude(kind);
             }
         }
 
@@ -7418,8 +7354,6 @@ namespace Brushblade.Presentation
             bool hasFrom = TryGetTilePos(charId, out var fromPos);
             var recipe = _graph.Get(charId).Recipe;
             SnapshotPreHp();   // 字形特性(双木召幼苗等)的结算要从拆前的血量演起;只在动画锁里被读
-            var aurasBefore = AuraKeys();   // 光环挂上(W1):与出字同一套前后比对(E4,现有字形特性不挂光环,防御性对称)
-            var statusesBefore = AnnounceSnapshot();   // 状态挂上飘名(B-Qa2):字形特性也可能挂控制类状态
             var error = Battle.Dismantle(charId);
             var forgeEvents = BeginForgeCue(error);   // 须在下面那次重绘之前:死怪着色 / 顶替槽要先登记
             if (error == BattleError.None)
@@ -7434,8 +7368,6 @@ namespace Brushblade.Presentation
             else
                 MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? Strings.T("battle.msg.dismantle_success", ("charId", charId)) : Describe(error);
-            if (error == BattleError.None) CueNewAuras(aurasBefore);
-            if (error == BattleError.None) CueNewStatuses(statusesBefore);
             // 有事件:上锁 → 重绘 → 播;结果格 = 拆出来的部件(同名取最后一张,即新进池的那张),重绘后已登记
             RedrawForForge(forgeEvents, charId, () =>
                 recipe.Count > 0 && _tileRects.TryGetValue(recipe[recipe.Count - 1], out var newPart) ? newPart : null);
@@ -7461,8 +7393,6 @@ namespace Brushblade.Presentation
                 if (TryGetTilePos(part, out var pos))
                     partsFrom.Add((part, pos));
             SnapshotPreHp();   // 同 OnDismantle:三焰 / 三木 / 三土的结算从合前的血量演起
-            var aurasBefore = AuraKeys();   // 同 OnDismantle
-            var statusesBefore = AnnounceSnapshot();
             var error = Battle.Compose(charId);
             var forgeEvents = BeginForgeCue(error);
             if (error == BattleError.None)
@@ -7475,8 +7405,6 @@ namespace Brushblade.Presentation
             else
                 MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? Strings.T("battle.msg.compose_success", ("charId", charId)) : Describe(error);
-            if (error == BattleError.None) CueNewAuras(aurasBefore);
-            if (error == BattleError.None) CueNewStatuses(statusesBefore);
             RedrawForForge(forgeEvents, charId, () => _tileRects.TryGetValue(charId, out var resultRect) ? resultRect : null);
             if (error == BattleError.None)
             {
@@ -7515,7 +7443,7 @@ namespace Brushblade.Presentation
             if (events == null)
             {
                 CancelSelection();
-                if (!Animating) FlushChipCues();   // 现有数据下光环必伴字形特性事件,此支只是防御(不让 _chipCues 滞留到下一次)
+                if (!Animating) FlushChipCues();   // 防御:不让 _chipCues 滞留到下一次(没有事件时不会有 chip 闪入队)
                 return;
             }
             var deaths = DeathsOf(events);
@@ -7659,9 +7587,7 @@ namespace Brushblade.Presentation
             {
                 SnapshotPreHp();       // 每个行动者出手前的血量:动画逐记扣
                 var preMeters = MeterSnapshot();   // 推进前的计量器:条从这里起步
-                var statusesBefore = AnnounceSnapshot();   // 状态挂上飘名(B-Qa2):这一拍前后比对
                 bool more = Battle.AdvanceOnce();
-                CueNewStatuses(statusesBefore);
                 var postMeters = MeterSnapshot();  // 推进后:条的终点
                 var events = SplitOutDrawn(Battle.LastEvents, drawnIndices);
                 var deaths = DeathsThisAction();
@@ -7678,14 +7604,15 @@ namespace Brushblade.Presentation
                 if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
+                    // chipsDrawn: false —— 这一拍先播后重绘,新挂上的状态 chip 还不在格上:上状态的 chip 闪记进 _chipCues,重绘后再闪
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt,
-                        EnemyElement, EnemyRanged);
+                        EnemyElement, EnemyRanged, chipsDrawn: false);
                     while (!done) yield return null;
                     yield return _juice.Wait(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap);走 Juice 的节拍才吃快进
                 }
                 DropActingBar(Battle.LastActor, postMeters); // 动作播完,行动者的条回落到余额
                 Refresh();
-                FlushChipCues();   // 这一拍里挂上的流血 / 减速(披荆 / 藻荇)重绘后闪
+                FlushChipCues();   // 这一拍里挂上的状态(上状态的 chip 闪)重绘后闪
                 if (!more) break;
                 if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
             }

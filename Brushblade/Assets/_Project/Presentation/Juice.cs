@@ -182,10 +182,10 @@ namespace Brushblade.Presentation
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null,
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
-            Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph)
+            Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph, bool chipsDrawn = true)
         {
             SafeRun(PlayRoutine(events, enemyAnchor, summonAnchor, onImpact,
-                summonInfo, enemyElement, enemyRanged, castStyle), onComplete);
+                summonInfo, enemyElement, enemyRanged, castStyle, chipsDrawn), onComplete);
         }
 
         /// <summary>带兜底地起一段**有收尾回调**的演出协程(Plan E4 Task 2)。onDone 恰好调一次:
@@ -207,7 +207,7 @@ namespace Brushblade.Presentation
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
             Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement, Func<int, bool> enemyRanged,
-            CastStyle castStyle)
+            CastStyle castStyle, bool chipsDrawn)
         {
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
@@ -228,7 +228,7 @@ namespace Brushblade.Presentation
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
             yield return PlayCastTraits();   // 主动特性出字飘名(B-Qa1):目标敌人格先飘名,停一拍再落效果
-            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged, castStyle);
+            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged, castStyle, chipsDrawn);
             if (castStyle != CastStyle.Glyph) yield return CastFinisher(castStyle); // 奥义 / 绝技的收尾(JuiceAttacks)
             ResetCastTier();
 
@@ -242,7 +242,7 @@ namespace Brushblade.Presentation
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
-            Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph)
+            Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph, bool chipsDrawn = true)
         {
             // 敌人出手的统一入口(2026-09-30,JuiceEnemies):小妖按家族、首领加前摇残影顿帧;
             // 刚放完大招的首领,同批后续受击不再冲脸(大招已经演过「打过去」)
@@ -268,6 +268,8 @@ namespace Brushblade.Presentation
             // 五行 L2 里会发生在群攻**中途**的两条(余烬、锋芒)挪到这批演完之后再播(2026-09-18):
             // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
             var deferred = new List<BattleEvent>();
+            // 上状态(spec 2026-10-18 §2):同单位同状态合并,在第一条的位置播(JuiceTriggerFx.PlayStatusCue)
+            var statusCues = CollectStatusCues(events);
             bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
             // 格挡反击(counterfx,JuiceCounter):这次格挡的 ③ 拍上下文;反击为 0 / 攻击者已死时为 null(只演 ①②)。
             // 带反击的这一步不加时长:下一步起点 = max(StepGap, 末次反击命中 + CounterTail),从格挡那一刻起算
@@ -342,7 +344,7 @@ namespace Brushblade.Presentation
                         // 良弓(D2-木 W9):同一条「从挨打的木灵打回攻击者」的回弹波,飘字带特性名(DamageText)
                         if ((e.Source == EffectSource.Thorns || e.Source == EffectSource.ReturnFire) && lastTank != null)
                             yield return ThornsFly(lastTank, enemyAnchor(e.TargetIndex));
-                        // 披荆(W9):盾反真弹出去了、这只本命带披荆 → 特性名从它飘出,攻击者的流血 chip 重绘后闪
+                        // 披荆(W9):盾反真弹出去了、这只本命带披荆 → 特性名从它飘出;攻击者的流血由随后的 StatusApplied 播
                         // 与 Core ThornsBleed 同判据:本命荆棘 > 0、本命披荆 > 0、攻击者没被这一下打死
                         if (e.Source == EffectSource.Thorns && lastTank != null && !kills
                             && summonInfo?.Invoke(lastTankSlot)?.Passive is { Thorns: > 0, ThornsBleed: > 0 })
@@ -350,7 +352,6 @@ namespace Brushblade.Presentation
                             // 载体 = 这只木灵的本命 chip(荆棘那一枚,盾反与披荆同一枚);chip 不在退回立绘
                             var thornsChip = FlashIcon(SummonCellAt?.Invoke(lastTankSlot), "thorns");
                             TraitCueAt(NatureCueOf?.Invoke(p => p.ThornsBleed > 0), thornsChip != null ? thornsChip : lastTank);
-                            ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "bleed");
                         }
                         if (e.Source == EffectSource.Overheal)
                         {
@@ -606,14 +607,13 @@ namespace Brushblade.Presentation
                         }
                         onImpact?.Invoke(e); // 触达才扣召唤血
                         // 藻荇(D2-木 W9):这一下打死的是记着母体的小藻、母体那一格的本命带藻荇 → 特性名从阵亡那一格飘出,
-                        // 攻击者的减速 chip 重绘后闪(减速在这一拍收尾才挂上,Core 推迟到拍尾)
+                        // 攻击者的减速由拍尾的 StatusApplied 播(减速在这一拍收尾才挂上,Core 推迟到拍尾)
                         // 按这一击判:小藻终局已阵亡,且这是它在这一批里挨的最后一下(之后没有再扣它血的事件)
                         if (tankState != null && !tankState.Alive && tankState.SproutParentSlot >= 0
                             && LastHitOnSummon(events, idx, e.SecondIndex)
                             && (summonInfo?.Invoke(tankState.SproutParentSlot)?.Passive?.SproutDeathSlow ?? 0) > 0)
                         {
                             TraitCueAt(NatureCueOf?.Invoke(p => p.SproutDeathSlow > 0), tank);   // 载体 = 阵亡那一格
-                            ChipCue?.Invoke(CueOn.Enemy, e.TargetIndex, "slow");
                         }
                         serialPending = true;
                         break;
@@ -657,20 +657,24 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e); // 触达才扣玩家血
                         serialPending = true;
                         break;
+                    // 上状态(spec 2026-10-18 §2):灼(Burn / SummonBurn)、敌人加攻(EnemyBuff)与 StatusApplied 同一套 ——
+                    // 目标 chip 闪 + 状态名签;同批同单位同状态已合并,只在第一条处播
+                    case BattleEventKind.StatusApplied:
+                        if (statusCues.TryGetValue(idx, out var applied))
+                            PlayStatusCue(applied, enemyAnchor, summonAnchor, enemyRanged, chipsDrawn);
+                        break;
                     case BattleEventKind.Burn:
                         if (e.Source == EffectSource.Embers) { deferred.Add(e); break; }
-                        // 上炎(TriggerFx D,B-Qa3):灼 chip 闪,「上炎」从它飘出,再飘「灼 +N」(行动开始时,chip 还在格上)
+                        // 上炎(TriggerFx D,B-Qa3):灼 chip 闪,「上炎」从它飘出,再播上状态(行动开始时,chip 还在格上)
                         if (e.Source == EffectSource.BurnGrow)
                             EnemyChipTrait(e.TargetIndex, "burn", EffectKind.BurnGrow, enemyAnchor(e.TargetIndex));
-                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)),
-                            Theme.GlyphColor(Element.Fire), enemyAnchor(e.TargetIndex), small: true);
+                        if (statusCues.TryGetValue(idx, out var burnCue))
+                            PlayStatusCue(burnCue, enemyAnchor, summonAnchor, enemyRanged, chipsDrawn);
                         break;
-                    // 召唤物被点燃 / 自身灼烧结算(2026-08-26,灯花「打谁烧谁」)。与上面敌人侧的
-                    // Burn / BurnTick 同款演出,只是锚点换成 summonAnchor —— 这两个 Kind 的
-                    // TargetIndex 是**召唤物槽位**,喂给 enemyAnchor 会锚到编号相同的那只怪身上。
+                    // 召唤物被点燃(2026-08-26,灯花「打谁烧谁」):TargetIndex 是**召唤物槽位**
                     case BattleEventKind.SummonBurn:
-                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)),
-                            Theme.GlyphColor(Element.Fire), summonAnchor?.Invoke(e.TargetIndex), small: true);
+                        if (statusCues.TryGetValue(idx, out var summonBurnCue))
+                            PlayStatusCue(summonBurnCue, enemyAnchor, summonAnchor, enemyRanged, chipsDrawn);
                         break;
                     case BattleEventKind.SummonBurnTick:
                         if (serialPending) yield return Beat(StepGap);
@@ -780,10 +784,9 @@ namespace Brushblade.Presentation
                         PlayClip(_thudClip, 1f);
                         yield return Beat(BossPhaseBeat);
                         break;
-                    case BattleEventKind.EnemyBuff:
-                        // Amount 是百分点(2026-08-12 敌我 AttackBuff 单位统一),飘「攻+50%」
-                        // 而不是「攻+50」—— 后者会被读成加了 50 点攻击。
-                        Popup(Strings.T("juice.popup.enemy_buff", ("amount", e.Amount)), Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
+                    case BattleEventKind.EnemyBuff:   // 敌人加攻:上状态同一套(见 StatusApplied)
+                        if (statusCues.TryGetValue(idx, out var buffCue))
+                            PlayStatusCue(buffCue, enemyAnchor, summonAnchor, enemyRanged, chipsDrawn);
                         break;
                     // 涂改给同伴回血(2026-08-29):飘在**被治疗的那只**头上,不是治疗者头上 ——
                     // 玩家要看见的是「谁被奶回去了」,才知道该先打谁
@@ -848,11 +851,11 @@ namespace Brushblade.Presentation
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
                 yield return Beat(StepWait());   // 带格挡反击的一步:反击已在步内演过,只补到 StepGap(至少末次命中 + 0.10)
             foreach (var d in deferred)
-                yield return PlayDeferredProc(d, enemyAnchor);
+                yield return PlayDeferredProc(d, enemyAnchor, chipsDrawn);
         }
 
         /// <summary>批末回放余烬/锋芒(2026-09-18)。各自一拍:飞过去 → 落地表现 → 停一拍。</summary>
-        private IEnumerator PlayDeferredProc(BattleEvent e, Func<int, RectTransform> enemyAnchor)
+        private IEnumerator PlayDeferredProc(BattleEvent e, Func<int, RectTransform> enemyAnchor, bool chipsDrawn)
         {
             if (e.Source == EffectSource.Embers)
             {
@@ -872,13 +875,16 @@ namespace Brushblade.Presentation
             }
             else if (e.Source == EffectSource.CritMorale)
             {
-                // 锋芒:暴击落点迸出一道金光飞回玩家,在玩家处炸一圈金花 —— 读成「这一刀磨快了下一刀」
+                // 锋芒:暴击落点迸出一道金光飞回玩家,在玩家处炸一圈金花 —— 读成「这一刀磨快了下一刀」。
+                // 落点那一下(spec 2026-10-18 §2):特性名「锋芒」照旧飘,战意走上状态同一套(chip 闪 + 名签「战意 +N」);
+                // 锋芒这条 Core 不另发 StatusApplied(MoraleGain 就是它),所以这里自己播
                 var struck = enemyAnchor(e.TargetIndex);
                 var player = AnchorPoint(null);
                 FlyOrb(AnchorPoint(struck), player, Theme.GoldBorder, SparkPalette[0], 22f);
                 yield return Beat(ProcFlyDuration);
-                Popup(Strings.T("juice.popup.source.crit_morale", ("amount", e.Amount)),
-                    Theme.GlyphColor(Element.Metal), null);
+                Popup(Strings.T("juice.popup.source.crit_morale"), Theme.GlyphColor(Element.Metal), null);
+                PlayStatusCue(new StatusCue { On = CueOn.Player, Index = -1, Kind = StatusKind.Morale, Delta = e.Amount },
+                    enemyAnchor, null, null, chipsDrawn);
                 RingAt(player, Theme.GoldBorder);
                 Sparks(player);
                 PlayClip(_hitClip, 0.45f, 1.6f); // 金属的「叮」:高而短

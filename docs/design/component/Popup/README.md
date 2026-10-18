@@ -31,9 +31,8 @@
 | 反弹（镜 / 壁 / 圭 / 塔 挂的反弹状态） | `反弹 N` | `heart-glyph` |
 | 镇压 | `镇压 N` | `heart-glyph` |
 | 余烬（火脉 L3） | `余烬 灼+N` | `fire-glyph` |
-| 锋芒（金脉 L3） | `锋芒 战意+N` | `metal-glyph` |
+| 锋芒（金脉 L3） | `锋芒`（战意走状态名签「战意 +N」，2026-10-18 上状态统一） | `metal-glyph` |
 | 归根（木脉 L3） | `归根 +N`；回血 0 时只飘 `归根` | `wood-glyph` |
-| 叠灼烧（敌人 / 召唤物） | `灼+N`（small） | `fire-glyph` |
 | 灼烧结算 | `-N`（相克 `克 N`、被克 `抗 N`） | 出手方色，通常是 `fire-glyph` |
 | 召唤物灼烧结算 | `-N` | `fire-glyph` |
 | 流血结算 | `-N` | `cinnabar` |
@@ -47,7 +46,6 @@
 | 涂改回复同伴 | `涂改 +N`（small） | `upgrade-text` |
 | 缺笔补全 | `补全 i/3`、`补全 i/3 +N`（small）；补满 `补全!`、`补全! +N`（常规） | `upgrade-text` |
 | 打空 | `空` | `ink-soft` |
-| 敌方增益 | `攻+N%`（small） | `ink-soft` |
 | Boss 换相 | `「{char}」已正 · {from}→{to}`；同属性换相 `「{char}」已正 · 仍是{element}相`；查不到相时兜底 `破阶!` | `gold-deep` |
 | 现形 | `现形!` | `split-blue` |
 | 击杀 | `正!` | `ink` |

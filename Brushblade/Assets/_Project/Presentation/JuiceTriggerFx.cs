@@ -107,14 +107,17 @@ namespace Brushblade.Presentation
 
         /// <summary>状态名签(稿 .lbl.status):战场 chip 色实底(<see cref="BattleView.BattleChipColor"/>,与 chip 列表同一出处)、
         /// 全圆角、图标 21 + 白字黑体 19 粗。<paramref name="struck"/> = 被挡下(拦截):整体 60%、压一条白横线。
-        /// 名取不到(StatusText 对隐藏载体返回空)不飘、返回 null。</summary>
-        public RectTransform StatusLabel(StatusKind kind, int mag, bool struck, RectTransform carrier, bool isPlayer = false)
+        /// 名取不到(StatusText 对隐藏载体返回空)不飘、返回 null。
+        /// <paramref name="suffix"/> 接在名后(上状态的「 +N」,spec 2026-10-18 §2);<paramref name="scale"/> &lt; 1 = 叠层 / 刷新的小一档(同款、整体缩小)。</summary>
+        public RectTransform StatusLabel(StatusKind kind, int mag, bool struck, RectTransform carrier, bool isPlayer = false,
+            string suffix = null, float scale = 1f)
         {
             var info = StatusText.Of(kind, mag, 0, isPlayer);
             if (string.IsNullOrEmpty(info.Name)) return null;
+            string name = info.Name + suffix;
             bool hasIcon = info.IconKey != null;
             float textLeft = StatusPadLeft + (hasIcon ? StatusIcon + TagGap : 0f);
-            float textWidth = Ui.EstimateWidth(info.Name, StatusFontSize);
+            float textWidth = Ui.EstimateWidth(name, StatusFontSize);
             float width = textLeft + textWidth + TagPadRight;
             var root = TagRoot("StatusTag", width, StatusTagHeight, carrier, out var group);
 
@@ -142,7 +145,7 @@ namespace Brushblade.Presentation
                     new Vector2(StatusPadLeft, -StatusIcon / 2f), new Vector2(StatusPadLeft + StatusIcon, StatusIcon / 2f));
             }
 
-            var label = Ui.ThemedLabel(root, info.Name, StatusFontSize, Color.white, Theme.BodyFont, TextAnchor.MiddleLeft);
+            var label = Ui.ThemedLabel(root, name, StatusFontSize, Color.white, Theme.BodyFont, TextAnchor.MiddleLeft);
             label.fontStyle = FontStyle.Bold;
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
             label.raycastTarget = false;
@@ -158,7 +161,7 @@ namespace Brushblade.Presentation
                     new Vector2(StatusPadLeft - 2f, -1f), new Vector2(textLeft + textWidth + 2f, 1f));
             }
 
-            StartCoroutine(FloatTag(root, group, struck ? StruckTagAlpha : 1f));
+            StartCoroutine(FloatTag(root, group, struck ? StruckTagAlpha : 1f, scale));
             return root;
         }
 
@@ -209,7 +212,7 @@ namespace Brushblade.Presentation
 
         /// <summary>稿 @keyframes lb(1.3s):0% 透明 · scale .7 · 低 0.2 签高 → 14% 不透明 · 1.08 · 就位 → 24% scale 1
         /// → 78% 仍不透明、上浮 0.3 签高 → 100% 淡出、上浮 0.5 签高。CanvasGroup 统一淡出(签是复合体)。</summary>
-        private static IEnumerator FloatTag(RectTransform rect, CanvasGroup group, float baseAlpha)
+        private static IEnumerator FloatTag(RectTransform rect, CanvasGroup group, float baseAlpha, float scale = 1f)
         {
             float h = rect.sizeDelta.y;
             Vector2 home = rect.anchoredPosition;
@@ -240,7 +243,7 @@ namespace Brushblade.Presentation
                     a = 1f - u;
                 }
                 rect.anchoredPosition = home + new Vector2(0f, y);
-                rect.localScale = new Vector3(s, s, 1f);
+                rect.localScale = new Vector3(s * scale, s * scale, 1f);
                 if (group != null) group.alpha = a * baseAlpha;
                 yield return null;
             }
@@ -373,6 +376,125 @@ namespace Brushblade.Presentation
             Ui.Anchor(image.rectTransform, Vector2.zero, Vector2.one,
                 new Vector2(-outset, -outset), new Vector2(outset, outset));
             return image;
+        }
+
+        // ---- 上状态(spec 2026-10-18 §2):chip 闪 + 状态名签,凡可见状态新增 / 增加都走这一套 ----
+
+        /// <summary>叠层 / 刷新的名签比首次上身小一档(同款、整体缩小)。</summary>
+        private const float RestackTagScale = 0.8f;
+
+        /// <summary>单位此刻身上该状态的量(取名 / 底色 / 速度正负用;木灵的光环取挂在玩家袋里、落到这一格的份额)。
+        /// 单位已阵亡 / 不在了返回 null = 不播。由 BattleView 接。</summary>
+        public Func<CueOn, int, StatusKind, int?> StatusMagnitudeAt { get; set; }
+
+        /// <summary>第 i 只敌人的行动条(冰滞结霜描边用);取不到 null。</summary>
+        public Func<int, RectTransform> EnemyActionBarAt { get; set; }
+
+        /// <summary>同一批里合并后的一条上状态:落点、种类、增量合计、是否首次上身(null = 事件不带,按量推断)。</summary>
+        private sealed class StatusCue
+        {
+            public CueOn On;
+            public int Index;
+            public StatusKind Kind;
+            public int Delta;
+            public bool? Fresh;
+        }
+
+        /// <summary>这一条事件对应的上状态落点:StatusApplied 本身,加上灼(Burn / SummonBurn,余烬除外 —— 它批末另演)
+        /// 与敌人加攻(EnemyBuff)这两种自带事件的。不是上状态返回 false。</summary>
+        private static bool StatusCueKey(BattleEvent e, out (CueOn on, int index, StatusKind kind) key, out int delta, out bool? fresh)
+        {
+            key = default;
+            delta = 0;
+            fresh = null;
+            switch (e.Kind)
+            {
+                case BattleEventKind.StatusApplied:
+                    key = (e.SecondIndex == 0 ? CueOn.Enemy : e.SecondIndex == 2 ? CueOn.Summon : CueOn.Player, e.TargetIndex, (StatusKind)e.Amount);
+                    delta = e.Absorbed;
+                    fresh = e.Fresh;
+                    return true;
+                case BattleEventKind.Burn when e.Source != EffectSource.Embers:
+                    key = (e.TargetIndex < 0 ? CueOn.Player : CueOn.Enemy, e.TargetIndex, StatusKind.Burn);
+                    delta = e.Amount;
+                    return true;
+                case BattleEventKind.SummonBurn:
+                    key = (CueOn.Summon, e.TargetIndex, StatusKind.Burn);
+                    delta = e.Amount;
+                    return true;
+                case BattleEventKind.EnemyBuff:   // Amount 是百分点(敌我 AttackBuff 单位统一)
+                    key = (CueOn.Enemy, e.TargetIndex, StatusKind.AttackBuff);
+                    delta = e.Amount;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>同一批里同单位同状态的多条合并成一条(增量相加;任一条首次上身即算首次),在第一条出现的位置播。
+        /// 返回 事件下标 → 合并后的那一条。</summary>
+        private static Dictionary<int, StatusCue> CollectStatusCues(IReadOnlyList<BattleEvent> events)
+        {
+            var at = new Dictionary<int, StatusCue>();
+            var byKey = new Dictionary<(CueOn, int, StatusKind), StatusCue>();
+            for (int i = 0; i < events.Count; i++)
+            {
+                if (!StatusCueKey(events[i], out var key, out int delta, out bool? fresh)) continue;
+                if (byKey.TryGetValue(key, out var cue))
+                {
+                    cue.Delta += delta;
+                    if (fresh.HasValue) cue.Fresh = (cue.Fresh ?? false) || fresh.Value;
+                    continue;
+                }
+                cue = new StatusCue { On = key.Item1, Index = key.Item2, Kind = key.Item3, Delta = delta, Fresh = fresh };
+                byKey[key] = cue;
+                at[i] = cue;
+            }
+            return at;
+        }
+
+        /// <summary>带数字的状态 chip(以 BattleView 三处 chip 行为准):只有它们的名签接「 +N」。</summary>
+        private static bool HasNumberChip(CueOn on, StatusKind kind) => on switch
+        {
+            CueOn.Enemy => kind == StatusKind.Burn || kind == StatusKind.Bleed,
+            CueOn.Summon => kind == StatusKind.Burn || kind == StatusKind.Bleed || kind == StatusKind.Block
+                || kind == StatusKind.Morale || kind == StatusKind.HealOverTime,
+            _ => kind == StatusKind.Burn || kind == StatusKind.Block || kind == StatusKind.Morale
+                || kind == StatusKind.Heft || kind == StatusKind.Wellspring,
+        };
+
+        /// <summary>播一条上状态:目标 chip 闪 + 头顶状态名签(首次上身正常档,叠层 / 刷新小一档;带数字 chip 的接「 +N」,N = 0 不接);
+        /// 冰滞另给行动条结霜。<paramref name="chipsDrawn"/> = false(敌人行动拍:先播后重绘,新 chip 还没画出来)时
+        /// chip 闪交给 <see cref="ChipCue"/>,BattleView 重绘后再闪;名签照常当场飘(锚在立绘上)。目标已阵亡 / 不在了不播。</summary>
+        private void PlayStatusCue(StatusCue cue, Func<int, RectTransform> enemyAnchor, Func<int, RectTransform> summonAnchor,
+            Func<int, bool> enemyRanged, bool chipsDrawn)
+        {
+            if (StatusMagnitudeAt?.Invoke(cue.On, cue.Index, cue.Kind) is not { } mag) return;
+            bool fresh = cue.Fresh ?? Math.Abs(mag) <= cue.Delta;   // 灼 / 敌人加攻的事件不带 Fresh:量没超过这次增量 = 之前没有
+            bool isPlayer = cue.On == CueOn.Player;
+            // 敌人没有加攻 chip:加攻改的是头一枚「射程 + 攻」的数字,闪那一枚
+            string icon = cue.On == CueOn.Enemy && cue.Kind == StatusKind.AttackBuff
+                ? ((enemyRanged?.Invoke(cue.Index) ?? false) ? "ranged" : "melee")
+                : StatusText.Of(cue.Kind, mag, 0, isPlayer).IconKey;
+            if (icon != null)
+            {
+                if (!chipsDrawn) ChipCue?.Invoke(cue.On, cue.Index, icon);
+                else FlashIcon(cue.On switch
+                {
+                    CueOn.Enemy => EnemyCellAt?.Invoke(cue.Index),
+                    CueOn.Summon => SummonCellAt?.Invoke(cue.Index),
+                    _ => PlayerCell,
+                }, icon);
+            }
+            var carrier = cue.On switch
+            {
+                CueOn.Enemy => enemyAnchor(cue.Index),
+                CueOn.Summon => summonAnchor?.Invoke(cue.Index),
+                _ => null,
+            };
+            string suffix = cue.Delta > 0 && HasNumberChip(cue.On, cue.Kind) ? $" +{cue.Delta}" : null;
+            StatusLabel(cue.Kind, mag, false, carrier, isPlayer, suffix, fresh ? 1f : RestackTagScale);
+            if (cue.Kind == StatusKind.IceStall && cue.On == CueOn.Enemy) FrostSnap(EnemyActionBarAt?.Invoke(cue.Index));
         }
     }
 }

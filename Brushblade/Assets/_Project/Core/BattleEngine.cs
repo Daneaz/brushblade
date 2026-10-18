@@ -513,10 +513,15 @@ namespace Brushblade.Core
         /// 只在溢流**真的打出伤害**时填,未点亮/没溢出/没活着的敌人一律 0 —— 与改前事件逐条相同。</summary>
         public int Overflow { get; }
 
+        /// <summary><see cref="BattleEventKind.StatusApplied"/> 专用:本次之前目标身上没有该状态(同 Kind、同 TargetSlot;
+        /// 速度只认同号)= true,即「首次上身」;叠层 / 刷新 = false。Magnitude 恒 0 的状态(嘲讽、禁增益、霜抗…)
+        /// 首次挂上时 Absorbed 也是 0,只能靠它与刷新分开。其余事件恒 false。</summary>
+        public bool Fresh { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
             int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
             bool countered = false, bool sameSwing = false, EffectSource source = EffectSource.None,
-            int overflow = 0)
+            int overflow = 0, bool fresh = false)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -530,6 +535,7 @@ namespace Brushblade.Core
             SameSwing = sameSwing;
             Source = source;
             Overflow = overflow;
+            Fresh = fresh;
         }
     }
 
@@ -3982,7 +3988,7 @@ namespace Brushblade.Core
                         if (held != null)
                         {
                             held.Magnitude += value;
-                            EmitStatusGain(UnitRef.Player, StatusKind.Block, value);   // 旁路(spec 2026-10-18 §1)
+                            EmitStatusGain(UnitRef.Player, StatusKind.Block, value, fresh: false);   // 旁路(spec 2026-10-18 §1)
                             break;
                         }
                         if (!_graph.TryGet(def.Id, out var real)) real = def;
@@ -4848,7 +4854,7 @@ namespace Brushblade.Core
                 if (existing.Magnitude != before)
                     Raise(HookKind.StatusApplied, UnitRef.Player, UnitRef.Player, existing.Magnitude, status: kind);
                 // 上状态事件(spec 2026-10-18 §1):叠层也发,顶到上限没涨照发(增量 0 = 刷新)
-                if (announce) EmitStatusGain(UnitRef.Player, kind, existing.Magnitude - before);
+                if (announce) EmitStatusGain(UnitRef.Player, kind, existing.Magnitude - before, fresh: false);
                 return;
             }
             ApplyStatus(_playerStatuses, new StatusEffect
@@ -5138,6 +5144,7 @@ namespace Brushblade.Core
 
             // 上状态事件的增量基准:取在合并段之前(减速合并会先删旧条目)。冻结 → 冰滞换 kind 时两者此前都为 0(否则下面已拦下)
             int cueBefore = CueMagnitude(bag, effect);
+            bool cueFresh = !CueHas(bag, effect);
             if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
             {
                 if (bag.Has(StatusKind.Freeze) || bag.Has(StatusKind.FrostResist) || bag.Has(StatusKind.IceStall))
@@ -5209,7 +5216,7 @@ namespace Brushblade.Core
             if (raiseHook) Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);
             // 灼另有 Burn / SummonBurn 事件(spec 2026-10-18 §1),不重复发
             if (raiseHook && announce && effect.Kind != StatusKind.Burn)
-                EmitStatusGain(target, effect.Kind, CueMagnitude(bag, effect) - cueBefore, effect.TargetSlot);
+                EmitStatusGain(target, effect.Kind, CueMagnitude(bag, effect) - cueBefore, cueFresh, effect.TargetSlot);
             return true;
         }
 
@@ -5219,19 +5226,27 @@ namespace Brushblade.Core
         {
             int sum = 0;
             foreach (var s in bag.All)
-            {
-                if (s.Kind != effect.Kind || s.TargetSlot != effect.TargetSlot) continue;
-                if (effect.Kind == StatusKind.SpeedModifier && Math.Sign(s.Magnitude) != Math.Sign(effect.Magnitude)) continue;
-                sum += s.Magnitude;
-            }
+                if (CueSame(s, effect)) sum += s.Magnitude;
             return Math.Abs(sum);
         }
+
+        /// <summary>袋里有没有与 <paramref name="effect"/> 同 Kind、同 TargetSlot(速度同号)的条目 —— 上状态事件的 Fresh 判据。</summary>
+        private static bool CueHas(StatusBag bag, StatusEffect effect)
+        {
+            foreach (var s in bag.All)
+                if (CueSame(s, effect)) return true;
+            return false;
+        }
+
+        private static bool CueSame(StatusEffect s, StatusEffect effect) =>
+            s.Kind == effect.Kind && s.TargetSlot == effect.TargetSlot
+            && (effect.Kind != StatusKind.SpeedModifier || Math.Sign(s.Magnitude) == Math.Sign(effect.Magnitude));
 
         /// <summary>发 <see cref="BattleEventKind.StatusApplied"/>(spec 2026-10-18 §1)。ApplyStatus 成功分支与四处旁路
         /// (AddPlayerCounter 已有条目、金汇加次数、磐固、杜门不出)共用。过白名单 <see cref="StatusCueRules.IsAnnounced"/>;
         /// 影子引擎不发;增量 &lt; 0(同源覆盖成更小值)按 0 记。木灵光环(玩家袋、TargetSlot 指向木灵)按槽位发到木灵:
-        /// −1 = 每只存活木灵各一条。</summary>
-        private void EmitStatusGain(UnitRef target, StatusKind kind, int delta, int targetSlot = -1)
+        /// −1 = 每只存活木灵各一条。<paramref name="fresh"/> = 施加前目标身上没有该状态(<see cref="BattleEvent.Fresh"/>),光环展开的每条同值。</summary>
+        private void EmitStatusGain(UnitRef target, StatusKind kind, int delta, bool fresh, int targetSlot = -1)
         {
             if (_estimate || !StatusCueRules.IsAnnounced(kind)) return;
             delta = Math.Max(0, delta);
@@ -5240,12 +5255,12 @@ namespace Brushblade.Core
             {
                 for (int slot = 0; slot < _summons.Length; slot++)
                     if ((targetSlot < 0 || targetSlot == slot) && _summons[slot] != null && _summons[slot].Alive)
-                        _events.Add(new BattleEvent(BattleEventKind.StatusApplied, slot, (int)kind, secondIndex: 2, absorbed: delta));
+                        _events.Add(new BattleEvent(BattleEventKind.StatusApplied, slot, (int)kind, secondIndex: 2, absorbed: delta, fresh: fresh));
                 return;
             }
             int side = target.Side == UnitSide.Enemy ? 0 : target.Side == UnitSide.Summon ? 2 : 1;
             int index = target.Side == UnitSide.Player ? Targeting.PlayerTarget : target.Index;
-            _events.Add(new BattleEvent(BattleEventKind.StatusApplied, index, (int)kind, secondIndex: side, absorbed: delta));
+            _events.Add(new BattleEvent(BattleEventKind.StatusApplied, index, (int)kind, secondIndex: side, absorbed: delta, fresh: fresh));
         }
 
         // ── 战斗钩子总线(spec v6 §5 / §10 R4 R5 / §11.4) ──
@@ -6013,7 +6028,7 @@ namespace Brushblade.Core
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = ScorchGain, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex), announce: false))   // 被洗尽铅华(D2-水 W3)拦下时不发 EnemyBuff;另发 EnemyBuff
+                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex), announce: false))   // announce:false:成功时另发 EnemyBuff(被洗尽铅华 D2-水 W3 拦下时不发)
                     _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
@@ -6509,8 +6524,9 @@ namespace Brushblade.Core
             // 良弓(D2-木 M4,Q10):60% 预算的最后一段,荆棘 → 反弹 → 格挡反击 → 良弓;没有字段时一次判断即返回
             ReturnFire(enemyIndex, summonIndex, summon,
                 preCut * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
+            bool hardFresh = !summon.Statuses.Has(StatusKind.DefenseBuff);   // 上状态事件的 Fresh:磐固首层之前没有护甲增益
             int hardened = Harden(summon);   // 磐固(spec 2026-10-16 §3):本击全部结算完才加层(本击不吃本次加成);阵亡不加;没有字段时一次判断即返回
-            if (hardened > 0) EmitStatusGain(UnitRef.Summon(summonIndex), StatusKind.DefenseBuff, hardened);   // 封顶没涨不发(spec 2026-10-18 §1)
+            if (hardened > 0) EmitStatusGain(UnitRef.Summon(summonIndex), StatusKind.DefenseBuff, hardened, hardFresh);   // 封顶没涨不发(spec 2026-10-18 §1)
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。
