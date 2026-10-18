@@ -470,6 +470,8 @@ namespace Brushblade.Presentation
             Func<int, bool> enemyRanged, bool chipsDrawn)
         {
             if (StatusMagnitudeAt?.Invoke(cue.On, cue.Index, cue.Kind) is not { } mag) return;
+            // 同批里已被消耗 / 驱散(播放时量为 0)且不是首次上身:不飘一个已经不在的状态
+            if (mag == 0 && cue.Fresh != true && cue.Delta > 0) return;
             bool fresh = cue.Fresh ?? Math.Abs(mag) <= cue.Delta;   // 灼 / 敌人加攻的事件不带 Fresh:量没超过这次增量 = 之前没有
             bool isPlayer = cue.On == CueOn.Player;
             // 敌人没有加攻 chip:加攻改的是头一枚「射程 + 攻」的数字,闪那一枚
@@ -492,7 +494,10 @@ namespace Brushblade.Presentation
                 CueOn.Summon => summonAnchor?.Invoke(cue.Index),
                 _ => null,
             };
-            string suffix = cue.Delta > 0 && HasNumberChip(cue.On, cue.Kind) ? $" +{cue.Delta}" : null;
+            // 敌人加攻没有自己的 chip,百分比只在名签上(原「攻+N%」飘字的信息不能丢)
+            string suffix = cue.Delta <= 0 ? null
+                : cue.On == CueOn.Enemy && cue.Kind == StatusKind.AttackBuff ? $" +{cue.Delta}%"
+                : HasNumberChip(cue.On, cue.Kind) ? $" +{cue.Delta}" : null;
             StatusLabel(cue.Kind, mag, false, carrier, isPlayer, suffix, fresh ? 1f : RestackTagScale);
             if (cue.Kind == StatusKind.IceStall && cue.On == CueOn.Enemy) FrostSnap(EnemyActionBarAt?.Invoke(cue.Index));
         }
