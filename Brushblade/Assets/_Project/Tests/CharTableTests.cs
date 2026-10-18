@@ -230,8 +230,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_CardSideSkewerHasNoCarrier()
+        public void RealConfig_CardSideSkewerCarriers_AreZhuiAndJian()
         {
+            // ⚠ 2026-10-18 方法名再反转(原 RealConfig_CardSideSkewerHasNoCarrier):群攻入口 spec §1
+            // 锥 / 箭 本体改贯穿,字卡侧 Column 载体 = 这两个字。下面是之前几轮的记录。
             // ⚠ 2026-10-05(D1 Task 12)方法名再反转回「无载体」(原 RealConfig_CardSideSkewerCarrier):
             // 用户拍板 U2 —— spec §9「本体」列写「—」的字一律单体,锥 的贯穿随之去掉(Lv8 锥心才「改为贯穿」)。
             // 字卡侧 Column 从此又是空集;下面是上一轮反转时的记录。
@@ -244,7 +246,7 @@ namespace Brushblade.Core.Tests
                     .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
                     .Where(e => e.Shape == TargetArea.Column).Select(e => c.Id))
                 .ToList();
-            Assert.That(carriers, Is.Empty, "字卡侧贯穿(Column)当前应无载体(U2:锥 本体单体)");
+            Assert.That(carriers.OrderBy(x => x), Is.EqualTo(new[] { "箭", "锥" }.OrderBy(x => x)), "字卡侧贯穿(Column)载体");
         }
 
         [Test]

@@ -33,7 +33,7 @@ namespace Brushblade.Core.Tests
             foreach (var d in Playable())
             {
                 var dmg = d.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle);
-                int want = Lv1(d.Rarity, dmg.Shape == TargetArea.All ? 50 : 100);
+                int want = Lv1(d.Rarity, AreaPercent(dmg.Shape));
                 if (dmg.Value != want || dmg.HitCount > 1) bad.Add($"{d.Id}:{dmg.Value}≠{want}");
             }
             Assert.That(bad, Is.Empty, string.Join(",", bad));
@@ -69,6 +69,36 @@ namespace Brushblade.Core.Tests
                 }
             }
             Assert.That(bad, Is.Empty, string.Join(",", bad));
+        }
+
+        /// <summary>spec A §2 范围系数:全体 0.5 / 群体(横扫、贯穿、溅射)0.75 / 其余 1.0。</summary>
+        private static int AreaPercent(TargetArea shape) => shape switch
+        {
+            TargetArea.All => 50,
+            TargetArea.Row or TargetArea.Column or TargetArea.Adjacent => 75,
+            _ => 100,
+        };
+
+        // 2026-10-18 群攻入口 spec §1:金木土各两字本体改群体范围,原同范围特性改「全体 50」
+        [TestCase("剑", TargetArea.Row, "Lv8", "横扫千军")]
+        [TestCase("锥", TargetArea.Column, "Lv8", "锥心")]
+        [TestCase("箭", TargetArea.Column, null, null)]
+        [TestCase("楸", TargetArea.Row, "Lv8", "秋风扫叶")]
+        [TestCase("碎", TargetArea.Adjacent, "Lv5", "碎石")]
+        [TestCase("垒", TargetArea.Row, "Lv8", "劈山")]
+        public void GroupAttackEntry_BodyIsGroupAtThreeQuarters_TraitBecomesAllFifty(string id, TargetArea shape, string slot, string trait)
+        {
+            var d = CharTableTests.RealGraph().Get(id);
+            var dmg = d.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That(dmg.Shape, Is.EqualTo(shape), id);
+            Assert.That(dmg.ShapePercent, Is.EqualTo(100), "范围内全额");
+            Assert.That(dmg.Value, Is.EqualTo(Lv1(d.Rarity, 75)), id);
+            if (slot == null) return;
+            var t = d.Traits.Single(x => x.Slot == (TraitSlot)System.Enum.Parse(typeof(TraitSlot), slot) && x.Face == TraitFace.Attack);
+            Assert.That(t.Name, Is.EqualTo(trait));
+            var reshape = t.Effects.First(e => e.Kind == EffectKind.Reshape);
+            Assert.That(reshape.Shape, Is.EqualTo(TargetArea.All), id);
+            Assert.That(reshape.ShapePercent, Is.EqualTo(50), id);
         }
 
         [TestCase("爆")] [TestCase("炸")] [TestCase("烈")] [TestCase("焚")] [TestCase("焱")] [TestCase("燚")]

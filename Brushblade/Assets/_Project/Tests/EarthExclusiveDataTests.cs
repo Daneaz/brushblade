@@ -97,6 +97,7 @@ namespace Brushblade.Core.Tests
         {
             ("碉", L8, Ftr, "碉楼", "ShieldSummons 50 ofShield"),
             ("垒", L8, Ftr, "积土成山", "Amplify 30 scope Shield|TurnPulse 0 turns 3 perHit[Shield 16]"),
+            ("垒", L8, Atk, "劈山", "Reshape 0 shape All shapePct 50|ArmorBreak 18 turns 2 pick HitTargets"),   // 2026-10-18 群攻入口:池引用 → 专属全体 50
             ("壁", L8, Ftr, "铜墙铁壁", "HitCap 10"),
             ("堡", L5, Atk, "据守反击", "Reshape 0 shieldStrike 30"),
             ("堡", L8, Ftr, "堡垒", "HurtShield 44 turns 2"),
@@ -105,6 +106,7 @@ namespace Brushblade.Core.Tests
             ("崩", L6, Atk, "崩裂", "ArmorBreak 2 turns 2 pick All per Spent"),
             ("崩", L8, Atk, "山崩", "Amplify 100 scope Spend minSpent 8"),   // spec C §6:≥8 层翻倍
             ("碎", L5, Ftr, "碎玉", "ShieldShatter 50"),
+            ("碎", L5, Atk, "碎石", "Reshape 0 shape All shapePct 50"),   // 2026-10-18 群攻入口:池引用 → 专属全体 50
             ("碎", L8, Atk, "粉身碎骨", "OverkillSplash 100"),
             ("塔", L4, Atk, "塔基", "Reshape 0 armorStrike 300"),
             ("塔", L4, Ftr, "塔基", "Reshape 0 armorShield 300"),
@@ -143,8 +145,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryExclusiveTrait_LoadsAtItsSlotAndFace_WithTheTableEffects()
         {
-            Assert.That(Table.Length, Is.EqualTo(43), "35 格,塔基 / 深厚拆成两行(V4);spec A 增 Lv6 攻面专属 4 行;spec C 增 崩 聚土 / 崩裂(地裂 → 山崩 同格)");
-            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(41));
+            Assert.That(Table.Length, Is.EqualTo(45), "35 格,塔基 / 深厚拆成两行(V4);spec A 增 Lv6 攻面专属 4 行;spec C 增 崩 聚土 / 崩裂(地裂 → 山崩 同格);群攻入口 增 碎 碎石 / 垒 劈山");
+            Assert.That(Table.Select(r => (r.Ch, r.Slot, r.Name)).Distinct().Count(), Is.EqualTo(43));
             foreach (var (ch, slot, face, name, sigs) in Table)
             {
                 var t = Graph.Get(ch).Traits.SingleOrDefault(x => x.Slot == slot && x.Face == face && x.Name == name);
@@ -373,7 +375,7 @@ namespace Brushblade.Core.Tests
             Assert.That(splash.Select(e => e.TargetIndex).OrderBy(i => i).ToList(), Is.EqualTo(new[] { 1, 2 }), "其余两只各一份");
             Assert.That(splash.Select(e => e.Amount).ToList(), Is.EqualTo(new[] { (blow - 10) / 2, (blow - 10) / 2 }));
             Assert.That(splash.All(e => !e.Crit), Is.True, "不暴击");
-            Assert.That(blow, Is.EqualTo(128), "钉值:spec A 本体 90 按 Lv8;每份 (128 − 10) / 2 = 59");
+            Assert.That(blow, Is.EqualTo(48), "钉值:群攻入口 本体 68(溅射)按 Lv8,Lv5 碎石改全体 50 → 主目标也吃 50%;每份 (48 − 10) / 2 = 19");
         }
 
         // ================= 杜塞:杂兵封禁 2 回合;Boss 下一次大招伤害 −50%(Q3) =================
