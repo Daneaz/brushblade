@@ -15,8 +15,8 @@ namespace Brushblade.Presentation
     /// 特性名是游戏数据,不进字符串表 —— 由 BattleView 接到图谱(<see cref="NatureCueOf"/> / <see cref="EffectCueOf"/>),
     /// 取不到时不飘名字。飘字样式 = TriggerFx 特性名签(纸底 + 面印,JuiceTriggerFx,Plan E4)。
     ///
-    /// 「chip 闪」分两种时机:当场就在格子上的直接闪;这一批事件里才挂上、要等重绘才出现的
-    /// (披荆的流血、藻荇的减速、绿潮的嘲讽、光环挂上)经 <see cref="ChipCue"/> 交给 BattleView,重绘后再闪。</summary>
+    /// 「chip 闪」分两种时机:当场就在格子上的直接闪;敌人行动拍里才挂上、要等重绘才出现的
+    /// (上状态,JuiceTriggerFx.PlayStatusCue)经 <see cref="ChipCue"/> 交给 BattleView,重绘后再闪。</summary>
     public sealed partial class Juice
     {
         /// <summary>chip 闪的落点种类。</summary>
@@ -34,7 +34,8 @@ namespace Brushblade.Presentation
         /// <summary>第 i 只敌人的整格(chip 在格里):攀附那一下被缠 chip 当场闪。</summary>
         public Func<int, RectTransform> EnemyCellAt { get; set; }
 
-        /// <summary>重绘后再闪的 chip:(落点种类, 下标, 图标)。BattleView 记下,重绘完逐条闪。</summary>
+        /// <summary>重绘后再闪的 chip:(落点种类, 下标, 图标)。BattleView 记下,重绘完逐条闪。
+        /// 只在 chip 还没画出来的播放(敌人行动拍,<c>Play(chipsDrawn: false)</c>)里用。</summary>
         public Action<CueOn, int, string> ChipCue { get; set; }
 
         /// <summary>绿潮:小藻依次缩小飞进藻灵的间隔(稿 0.12s)。</summary>
@@ -75,7 +76,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>绿潮(W10):这一组 SummonMerged 依次(间隔 0.12s)把小藻缩小飞进藻灵,每进一只藻灵血条长一截(onImpact);
-        /// 全部进完「绿潮」从藻灵飘出,嘲讽 chip 等重绘后闪。只用位移 + 缩放。</summary>
+        /// 全部进完「绿潮」从藻灵飘出;藻灵的嘲讽由 StatusApplied 播(上状态同一套)。只用位移 + 缩放。</summary>
         private IEnumerator PlayMerge(List<BattleEvent> group, Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact)
         {
             if (group.Count == 0) yield break;
@@ -92,7 +93,6 @@ namespace Brushblade.Presentation
             yield return Beat(MergeFly);
             FlashPortrait(to);   // 载体是藻灵立绘(稿 .pt.flash):不缩放,加亮 + 赭金发光
             TraitCueAt(EffectCueOf?.Invoke(EffectKind.SummonMerge), to);
-            ChipCue?.Invoke(CueOn.Summon, receiver, "taunt");
         }
 
         private IEnumerator MergeLand(BattleEvent e, RectTransform to, Action<BattleEvent> onImpact)

@@ -43,7 +43,7 @@ namespace Brushblade.Core.Tests
         {
             sb.Append($"#{id}{target}/{allySlot}{(attack ? "A" : "")}={b.Cast(id, target, replaceSummon: replace, attackMode: attack, allySlot: allySlot)};");
             // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
-            foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
+            foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed && x.Kind != BattleEventKind.StatusApplied))   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                 sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source}:{e.Crit};");
         }
 
@@ -83,7 +83,7 @@ namespace Brushblade.Core.Tests
                 sb.Append($"|C{b.Ap}/S{b.ShieldNormal}+0");
                 b.EndTurn();
                 // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
-                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed && x.Kind != BattleEventKind.StatusApplied))   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                     sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Absorbed}:{e.Source}:{e.Crit};");
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
@@ -191,7 +191,7 @@ namespace Brushblade.Core.Tests
             {
                 b.EndTurn();
                 // BlockUsed(格挡反击动效,2026-10-15)是纯追加的表现事件,不进恒等指纹 —— 其余事件流仍逐位对照
-                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed))
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.BlockUsed && x.Kind != BattleEventKind.StatusApplied))   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                     all.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Crit};");
                 AppendState(all, b);
                 Assert.That(b.Capture().RandomState, Is.EqualTo(before), $"第 {t} 拍木灵出手摇了 _random");

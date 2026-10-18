@@ -315,7 +315,8 @@ namespace Brushblade.Core.Tests
                 attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) });
             var b = Battle(def, 5);
             b.Cast("试", -1);
-            string events = string.Join(";", b.LastEvents.Select(e => $"{e.Kind}/{e.TargetIndex}/{e.Amount}"));
+            string events = string.Join(";", b.LastEvents.Where(e => e.Kind != BattleEventKind.StatusApplied)   // 上状态事件不进指纹(spec 2026-10-18 §1)
+                .Select(e => $"{e.Kind}/{e.TargetIndex}/{e.Amount}"));
             string statuses = string.Join(";", b.PlayerStatuses.All.Select(s => $"{s.Kind}/{s.Magnitude}/{s.CounterDamage}"));
             Assert.That(events + " | " + statuses, Is.EqualTo(PlainBlockFingerprint));
         }

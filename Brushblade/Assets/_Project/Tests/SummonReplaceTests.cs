@@ -49,7 +49,7 @@ namespace Brushblade.Core.Tests
         {
             var sb = new StringBuilder();
             sb.Append($"AP{b.Ap}/L{b.Library.Count};");
-            foreach (var e in b.LastEvents) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex};");
+            foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.StatusApplied)) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex};");   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
             foreach (var s in b.Summons)
                 sb.Append(s == null ? "_," : $"{s.Char}:{s.Hp}/{s.MaxHp}/{s.Attack}/{s.Passive?.OnHitFreezeChance}/{s.Passive?.Thorns},");
             var snap = b.Capture();
@@ -233,7 +233,7 @@ namespace Brushblade.Core.Tests
                 var est = b.EstimateCast(id, target, attack, allySlot: ally);
                 sb.Append($"~{est.Error}/{est.ShieldGranted}/{est.HealAmount}/{est.Enemies?.Count};");
                 sb.Append($"#{id}{target}/{ally}={b.Cast(id, target, replace, attack, summonSlots: slots, allySlot: ally)};");
-                foreach (var e in b.LastEvents) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Source};");
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.StatusApplied)) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Source};");   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
             }
             for (int t = 0; t < 8 && b.Phase == BattlePhase.PlayerTurn; t++)
             {
@@ -246,7 +246,7 @@ namespace Brushblade.Core.Tests
                 if (t == 6) Do("荆", -1, slots: new[] { 1 }, replace: true); // 指定槽顶替
                 Do("锐", t % 2);
                 b.EndTurn();
-                foreach (var e in b.LastEvents) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Source};");
+                foreach (var e in b.LastEvents.Where(x => x.Kind != BattleEventKind.StatusApplied)) sb.Append($"{e.Kind}:{e.TargetIndex}:{e.Amount}:{e.SecondIndex}:{e.Source};");   // 上状态事件不进恒等指纹(spec 2026-10-18 §1)
                 sb.Append("|H").Append(log.Sb);
                 log.Sb.Clear();
                 sb.Append('|').Append(Snapshot(b)).Append('\n');

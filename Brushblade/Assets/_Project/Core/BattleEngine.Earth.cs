@@ -180,11 +180,14 @@ namespace Brushblade.Core
         private void ApplyApCost(EffectDef effect, string sourceId)
         {
             if (effect.Value <= 0) return;
+            int before = _playerStatuses.TotalMagnitude(StatusKind.Seal);
+            bool fresh = !_playerStatuses.Has(StatusKind.Seal);   // 上状态事件的 Fresh:施加前袋里有无封字
             _playerStatuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.Seal, Polarity = StatusPolarity.Buff,
                 Magnitude = effect.Value, TurnsLeft = 2, SourceId = sourceId, TraitKey = effect.TraitKey,
             });
+            EmitStatusGain(UnitRef.Player, StatusKind.Seal, _playerStatuses.TotalMagnitude(StatusKind.Seal) - before, fresh);   // 旁路(spec 2026-10-18 §1)
         }
     }
 }

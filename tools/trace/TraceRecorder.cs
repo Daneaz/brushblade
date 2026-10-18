@@ -72,6 +72,8 @@ namespace Brushblade.Trace
 
         public void Event(int seed, int depth, int battleIndex, int turn, BattleEvent e)
         {
+            // 上状态事件(spec 2026-10-18 §1)只驱动表现层,不改结算:不进 trace,旧 baseline 不动
+            if (e.Kind == BattleEventKind.StatusApplied) return;
             EventCount++;
             Write($"E {seed} {depth} {battleIndex} {turn} {e.Kind} {e.TargetIndex} {e.SecondIndex} " +
                   $"{(e.Crit ? 1 : 0)} {Num(e.Amount)} {Num(e.Absorbed)}");

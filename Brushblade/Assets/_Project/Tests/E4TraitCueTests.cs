@@ -5,8 +5,8 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>Plan E4 Task 3:TriggerFx 的两条纯决策规则 —— 出字时飘哪几条主动特性名(B-Qa1)、
-    /// 状态挂上时飘哪一个状态名(B-Qa2,前后 diff)。Presentation 只负责取集合与画。</summary>
+    /// <summary>Plan E4 Task 3:TriggerFx 的纯决策规则 —— 出字时飘哪几条主动特性名(B-Qa1)。
+    /// 状态挂上时的状态名签(B-Qa2)已改由 Core 的 StatusApplied 事件驱动(spec 2026-10-18,见 StatusAppliedEventTests)。</summary>
     public class E4TraitCueTests
     {
         private static TraitDef T(TraitSlot slot, TraitFace face, string name, TraitForm form = TraitForm.Active,
@@ -67,72 +67,6 @@ namespace Brushblade.Core.Tests
         public void CastAnnounced_NoTraits_Empty()
         {
             Assert.That(TraitCueRules.CastAnnounced(Def(), CardFace.Attack, 8, null), Is.Empty);
-        }
-
-        // ================= AnnounceableKinds / NewlyApplied(B-Qa2) =================
-
-        private static StatusEffect S(StatusKind kind, int magnitude = 1) =>
-            new StatusEffect { Kind = kind, Polarity = StatusPolarity.Debuff, Magnitude = magnitude, TurnsLeft = 2 };
-
-        private static StatusBag Bag(params StatusEffect[] effects)
-        {
-            var bag = new StatusBag();
-            foreach (var e in effects) bag.Apply(e);
-            return bag;
-        }
-
-        [Test]
-        public void AnnounceableKinds_OnlyControlFamily_SlowOnlyWhenNegative()
-        {
-            var kinds = TraitCueRules.AnnounceableKinds(Bag(S(StatusKind.Burn, 3), S(StatusKind.Freeze),
-                S(StatusKind.SpeedModifier, 2), S(StatusKind.AttackBuff, 20), S(StatusKind.Vulnerable, 20)));
-            Assert.That(kinds.Contains(StatusKind.Freeze), Is.True);
-            Assert.That(kinds.Contains(StatusKind.Vulnerable), Is.True);
-            Assert.That(kinds.Contains(StatusKind.Burn), Is.False, "灼有数字飘字,不飘名");
-            Assert.That(kinds.Contains(StatusKind.AttackBuff), Is.False);
-            Assert.That(kinds.Contains(StatusKind.SpeedModifier), Is.False, "加速不是减速");
-            kinds = TraitCueRules.AnnounceableKinds(Bag(S(StatusKind.SpeedModifier, -2)));
-            Assert.That(kinds.Contains(StatusKind.SpeedModifier), Is.True, "减速");
-        }
-
-        [Test]
-        public void AnnounceableKinds_AllTwelve()
-        {
-            var all = new[]
-            {
-                StatusKind.IceStall, StatusKind.Freeze, StatusKind.Silence, StatusKind.Blind, StatusKind.Charm,
-                StatusKind.Taunt, StatusKind.BuffBlock, StatusKind.HealBlock, StatusKind.Bind, StatusKind.Vulnerable,
-                StatusKind.Doom,
-            };
-            var kinds = TraitCueRules.AnnounceableKinds(Bag(all.Select(k => S(k, 10)).Append(S(StatusKind.SpeedModifier, -1)).ToArray()));
-            Assert.That(kinds.Count, Is.EqualTo(12));
-            Assert.That(TraitCueRules.AnnouncedKinds.Count, Is.EqualTo(12));
-        }
-
-        [Test]
-        public void AnnounceableKinds_NullBag_Empty()
-        {
-            Assert.That(TraitCueRules.AnnounceableKinds(null).Count, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void NewlyApplied_FirstNewInPriorityOrder_AtMostOne()
-        {
-            var before = new HashSet<StatusKind> { StatusKind.Freeze };
-            var after = new HashSet<StatusKind> { StatusKind.Freeze, StatusKind.Doom, StatusKind.SpeedModifier };
-            Assert.That(TraitCueRules.NewlyApplied(before, after), Is.EqualTo(StatusKind.SpeedModifier),
-                "按 冰滞 / 冻结 / 减速 … 致命 的顺序取第一条新出现的");
-            Assert.That(TraitCueRules.NewlyApplied(after, after), Is.Null, "没有新出现");
-            Assert.That(TraitCueRules.NewlyApplied(after, before), Is.Null, "只消失不飘");
-            Assert.That(TraitCueRules.NewlyApplied(null, new HashSet<StatusKind> { StatusKind.IceStall }),
-                Is.EqualTo(StatusKind.IceStall), "之前没记录 = 空集");
-        }
-
-        [Test]
-        public void NewlyApplied_IgnoresNonAnnouncedKinds()
-        {
-            Assert.That(TraitCueRules.NewlyApplied(new HashSet<StatusKind>(),
-                new HashSet<StatusKind> { StatusKind.Burn, StatusKind.Morale }), Is.Null);
         }
     }
 }

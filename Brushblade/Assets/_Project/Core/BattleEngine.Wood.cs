@@ -294,22 +294,24 @@ namespace Brushblade.Core
         internal const string HardenSourceId = "#harden";
 
         /// <summary>磐固:本木灵被挥击命中(DamageSummon 走到末段 = 没打空、没被免疫抵消)后护甲 +Harden,本场累计至多 HardenMax。
-        /// 落在 DefenseBuff 上,SummonDefense(受击减伤、良弓、柘弓 byArmor)都读得到;本击已结算完,不吃本次加成。阵亡不加。</summary>
-        private static void Harden(SummonState summon)
+        /// 落在 DefenseBuff 上,SummonDefense(受击减伤、良弓、柘弓 byArmor)都读得到;本击已结算完,不吃本次加成。阵亡不加。
+        /// 返回实际加了多少(0 = 没加,含封顶),调用方据此发上状态事件。</summary>
+        private static int Harden(SummonState summon)
         {
             int step = summon.Passive?.Harden ?? 0;
-            if (step <= 0 || !summon.Alive) return;
+            if (step <= 0 || !summon.Alive) return 0;
             int now = 0;
             foreach (var st in summon.Statuses.All)
                 if (st.Kind == StatusKind.DefenseBuff && st.SourceId == HardenSourceId) now = st.Magnitude;
             int cap = summon.Passive.HardenMax;
             int next = cap > 0 ? Math.Min(cap, now + step) : now + step;
-            if (next == now) return;
+            if (next == now) return 0;
             summon.Statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff, Magnitude = next, TurnsLeft = -1,
                 SourceId = HardenSourceId,
             });
+            return next - now;
         }
 
         // ---- M6 荆刺(Task 3)----
