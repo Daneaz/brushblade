@@ -68,6 +68,7 @@ namespace Brushblade.Presentation
         private readonly Dictionary<string, int> _band = new();   // 怪 id → 首现层段下标
         private readonly Dictionary<string, int> _depth = new();  // 怪 id → 首现层号
         private readonly Dictionary<string, int> _order = new();  // 怪 id → 配置顺序(排序兜底)
+        private readonly HashSet<string> _leaders = new();         // 双字头领 id(配置里的 Tier 是缺省 Minion,档位在生成处写,这里按池认)
 
         private int _filter = FilterAll;
         private string _selected;
@@ -93,7 +94,7 @@ namespace Brushblade.Presentation
             Rebuild();
         }
 
-        /// <summary>图鉴全集 = 各层段的杂兵池 + Boss 池 + 成语 Boss(按 id 去重,保持配置顺序)。</summary>
+        /// <summary>图鉴全集 = 各层段的杂兵池 + 头领池(2026-10-18 收尾 §6)+ Boss 池 + 成语 Boss(按 id 去重,保持配置顺序)。</summary>
         internal static List<EnemyDef> CollectEnemies(CampaignConfig campaign)
         {
             var all = new List<EnemyDef>();
@@ -107,6 +108,7 @@ namespace Brushblade.Presentation
                 foreach (var band in campaign.Endless.Bands)
                 {
                     foreach (var enemy in band.EnemyPool) Add(enemy);
+                    foreach (var leader in band.LeaderPool) Add(leader);   // 头领(2026-10-18 收尾 §6)
                     foreach (var boss in band.EliteBossPool) Add(boss);   // 精英(2026-09-30)
                     foreach (var idiom in band.EliteIdiomBossPool)
                         Add(EndlessGenerator.BuildIdiomBoss(idiom));
@@ -126,6 +128,7 @@ namespace Brushblade.Presentation
             _band.Clear();
             _depth.Clear();
             _order.Clear();
+            _leaders.Clear();
             for (int i = 0; i < _all.Count; i++) _order[_all[i].Id] = i;
             if (campaign.Endless?.Bands == null) return;
 
@@ -135,6 +138,12 @@ namespace Brushblade.Presentation
                 var band = bands[b];
                 foreach (var enemy in band.EnemyPool)
                     Note(enemy.Id, b, Mathf.Max(band.FromDepth, enemy.MinDepth));
+                // 头领:本段首个敌人数够占两格的层起(字林第 7 层;其余段即段首)
+                foreach (var leader in band.LeaderPool)
+                {
+                    _leaders.Add(leader.Id);
+                    Note(leader.Id, b, Mathf.Max(band.FromDepth, FirstLeaderDepth()));
+                }
                 int bossDepth = FirstBossDepth(band.FromDepth);
                 // 十层一主题(2026-09-30):精英占段内第一个 Boss 层,主题 Boss 顺延到下一个
                 bool hasElite = band.EliteBossPool.Count + band.EliteIdiomBossPool.Count > 0;
@@ -154,6 +163,16 @@ namespace Brushblade.Presentation
         }
 
         private int BandCount => _endless?.Bands?.Count ?? 0;
+
+        /// <summary>头领最早可出场的层:敌人数第一次 ≥ <see cref="EndlessGenerator.LeaderMinEnemies"/>(第 7 层)。</summary>
+        private static int FirstLeaderDepth()
+        {
+            int d = 1;
+            while (EndlessGenerator.MinionCountFor(d) < EndlessGenerator.LeaderMinEnemies) d++;
+            return d;
+        }
+
+        private bool IsLeader(EnemyDef def) => _leaders.Contains(def.Id);
 
         /// <summary>该层段内第一个 Boss 层(层号是 BossEvery 的倍数)。</summary>
         private int FirstBossDepth(int fromDepth)
@@ -497,6 +516,12 @@ namespace Brushblade.Presentation
                     Theme.Ink, Theme.RarityGold,
                     claimable ? new Vector2(1, 0) : Vector2.one,
                     claimable ? new Vector2(-8, 8) : new Vector2(-8, -8));
+            // 头领档位标(2026-10-18 收尾 §6):与四相标同一槽位(头领不会是 Boss,两者互斥)
+            if (known && IsLeader(def))
+                Corner(block.transform, "Leader", Strings.T("bestiary.card.leader_badge"), 16,
+                    Theme.Ink, Color.white,
+                    claimable ? new Vector2(1, 0) : Vector2.one,
+                    claimable ? new Vector2(-8, 8) : new Vector2(-8, -8));
             return block;
         }
 
@@ -762,9 +787,11 @@ namespace Brushblade.Presentation
                     + Strings.T("bestiary.side.where_note_boss");
             // 两支各写各的 Strings.T(字面量 key):StringsTableTests 只认紧跟在 T( 后面的
             // 字符串字面量,key 从三元表达式传进去会被判成孤儿(EnemyInfo 那里有同一条注释)
-            string note = known
-                ? Strings.T("bestiary.side.where_note_minion")
-                : Strings.T("bestiary.side.where_note_locked");
+            string note = !known
+                ? Strings.T("bestiary.side.where_note_locked")
+                : IsLeader(def)
+                    ? Strings.T("bestiary.side.where_note_leader")
+                    : Strings.T("bestiary.side.where_note_minion");
             return Strings.T("bestiary.side.where_from", ("band", name), ("depth", _depth[def.Id]))
                 + "\n" + note;
         }
