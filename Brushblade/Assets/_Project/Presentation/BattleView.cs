@@ -2347,9 +2347,9 @@ namespace Brushblade.Presentation
             // 层数直接决定攻击乘区,玩家要看「叠到几层了」—— 和旁边那排平量增益不同。
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             if (morale > 0) statusChips.Add(new($"{morale}", BattleChipColor(StatusKind.Morale), Theme.GoldText, "morale"));
-            // 暴击(2026-08-12,锋):判据仍读 EffectiveCrit(已钳到 100)而不是状态总量 ——
-            // 数字虽然不显示了,但「叠满没叠满」的口径要与详情一致
-            if (Battle.EffectiveCrit > 0)
+            // 暴击(2026-08-12,锋):只看局内加成(锋 / 蟾宫)。养成被动给的基础暴击长期生效,不出 chip
+            // (2026-10-18;此前读 EffectiveCrit,点了暴击被动就常驻一枚)。数值在详情(PlayerInfo 仍读 EffectiveCrit)
+            if (Battle.PlayerCritBonus > 0)
                 statusChips.Add(new("", BattleChipColor(StatusKind.CritBuff), Theme.GoldText, "crit"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff) > 0)
                 statusChips.Add(new("", BattleChipColor(StatusKind.PierceBuff), Theme.GoldText, "pierce"));
@@ -3066,7 +3066,7 @@ namespace Brushblade.Presentation
         /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
         /// 「锐」给召唤物加的穿透、「壁」加的护甲,在格子上都只是那个 2 里的一份,
         /// 玩家看不出自己那几张字打出去到底生效了没有。改成逐条出图标,与玩家状态栏同一套
-        /// 图标与配色(玩家条那份是内联写的,含两处只有玩家才有的特例:暴击读 EffectiveCrit
+        /// 图标与配色(玩家条那份是内联写的,含两处只有玩家才有的特例:暴击读 PlayerCritBonus
         /// 而非状态总量、AP 加成不出格因为 AP 格子数本身就是它的反馈 —— 所以没有合并成一个函数)。
         ///
         /// 顺序即优先级:<see cref="Ui.ChipFlow"/> 装不下时从**尾部**丢弃。先负面后正面 ——

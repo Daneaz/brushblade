@@ -1003,6 +1003,10 @@ namespace Brushblade.Core
             Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff)
                 + SummonCritAura(), 0, 100);   // 蟾宫(D2-木 M2,Q23):存活木灵本命 CritAura 取最大,没有 = 0
 
+        /// <summary>局内暴击加成(百分点)= 局内增益(锋)+ 蟾宫光环,不含角色属性 / 养成被动的基础暴击(长期生效,不算「状态」)。
+        /// 状态栏暴击 chip 读它(2026-10-18:点了暴击被动后状态栏常驻暴击图标)。</summary>
+        public int PlayerCritBonus => _playerStatuses.TotalMagnitude(StatusKind.CritBuff) + SummonCritAura();
+
         /// <summary>规划副本开关(Plan F1 仿真机器人,2026-10-14):true 时玩家侧暴击判定(<see cref="RollCrit"/>)
         /// 不摇号、按不暴击算,必暴(ForceCrit)照常 —— 与 <see cref="EstimateCast"/> 的暴击口径一致,
         /// 但**不**带影子引擎的其它副作用(反应链照常兑现、生克照真身)。召唤物暴击不受影响。
