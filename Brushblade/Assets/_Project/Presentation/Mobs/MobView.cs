@@ -38,7 +38,8 @@ namespace Brushblade.Presentation
         private Coroutine _phaseRoutine;
 
         /// <summary>装配一只怪。prefix 由 MobAssets.PrefixFor 给;返回是否装上了(无资产则 false)。
-        /// def/phaseIndex 只有成语 Boss 用得到:它的立绘按阶段决定哪个字亮、哪些已被正走。</summary>
+        /// def/phaseIndex 只有成语 Boss 用得到:它的立绘按阶段决定哪个字亮、哪些已被正走;
+        /// 双字头领只用 def 的属性给两个字层着色。</summary>
         public bool Init(string prefix, float size, EnemyDef def = null, int phaseIndex = 0)
         {
             var bodySprite = MobAssets.Layer(prefix, "body");
@@ -52,6 +53,11 @@ namespace Brushblade.Presentation
             if (def != null && def.Phases.Count > 0 && MobAssets.IsBossRig(prefix))
             {
                 InitBossRig(prefix, size, def, phaseIndex);
+                return true;
+            }
+            if (def != null && MobAssets.IsLeaderRig(prefix))
+            {
+                InitLeaderRig(prefix, size, def.Element);
                 return true;
             }
 
@@ -77,6 +83,25 @@ namespace Brushblade.Presentation
             AddLayer("Iris", MobAssets.Layer(prefix, "iris"), size, out _iris, _face);
             AddLayer("EyeRim", MobAssets.Layer(prefix, "eyes"), size, out _, _face);
             ApplyBossPhase(phaseIndex);
+        }
+
+        /// <summary>双字头领骨架(2026-10-18):与 Boss 讹熔同一套分层,但只有两个字、只有一个阶段 ——
+        /// 不切阶段、不正字、不收拢。着色裁定「同系一深一亮」:上字 c0 染 GlyphColor(深)、
+        /// 下字 c1 染 ElementColor(亮),属性一眼可读,交叠处分得出是两个字;虹膜染亮色。
+        /// _chars 刻意不赋值:PlayBossPhase 见它为 null 就什么都不做。</summary>
+        private void InitLeaderRig(string prefix, float size, Element element)
+        {
+            _wisp = AddLayer("Wisp", MobAssets.Layer(prefix, "wisp"), size);   // 配饰垫底,同 Boss
+            _body = Container("Mass", size);
+            AddLayer("Char0", MobAssets.Layer(prefix, "c0"), size, out var upper, _body);
+            AddLayer("Char1", MobAssets.Layer(prefix, "c1"), size, out var lower, _body);
+            if (upper != null) upper.color = Theme.GlyphColor(element);
+            if (lower != null) lower.color = Theme.ElementColor(element);
+            _face = Container("Eyes", size);
+            AddLayer("Halo", MobAssets.Layer(prefix, "halo"), size, out _, _face);
+            AddLayer("Iris", MobAssets.Layer(prefix, "iris"), size, out var iris, _face);
+            AddLayer("EyeRim", MobAssets.Layer(prefix, "eyes"), size, out _, _face);
+            if (iris != null) iris.color = Theme.ElementColor(element);
         }
 
         private RectTransform Container(string name, float size)

@@ -6,7 +6,8 @@
 正字者每破一个阶段就把一个字从它身上「正」出来,Boss 随之缩小一圈(MobView 的 Boss 骨架负责)。
 
 用法: python3 tools/design/build_boss_art.py
-      python3 tools/design/build_boss_art.py --leader-sample   # 只出双字头领样张(见文末 LEADERS)
+      python3 tools/design/build_boss_art.py --leader-sample   # 只出双字头领合成预览(见文末 LEADERS)
+同一次全量也出十只双字头领(前缀 leader_<slug>,两字层 c0/c1,其余同 Boss,见文末 LEADERS)。
 前置: rsvg-convert(macOS: brew install librsvg)、tools/fonts/raw/NotoSerifSC[wght].ttf。
 
 每只 Boss 出这些层(前缀 boss_<slug>),都是 512×512、同一画布坐标:
@@ -287,16 +288,20 @@ def _write_meta(png: Path):
     meta.write_text(re.sub(r"guid: [0-9a-f]{32}", f"guid: {uuid.uuid4().hex}", template, count=1), encoding="utf-8")
 
 
-# ---------------------------------------------------------------- 双字头领(样张,spec 2026-10-18 §3/§6)
+# ---------------------------------------------------------------- 双字头领(spec 2026-10-18 §2)
 #
 # 头领 = 两字词语讹熔:与 Boss 同一套笔法(白色墨字层 + 眼 + 意象配饰),只是两个字。
 # 画幅按 designer 战场稿(docs/design/drafts/battlegrid/ GridSpec ⑤):1:1 方图 512×512,同成语 Boss;
-# 两字略斜错叠(上左一字、下右一字),主体在 7% 安全区内,眼在团块中上(约 34%–46% 高)。
-# 层与 Boss 同名(少 c2/c3):c0 c1 halo iris eyes wisp body face。
-# 现阶段只出样张到 tools/design/leaders/_sample/,不进 Resources、不接入游戏。
+# 两字略斜错叠(上左一字、下右一字),主体在 7% 安全区内,眼在团块中上(约 34%–46% 高),显示 172。
+# 层与 Boss 同名(少 c2/c3):c0 c1 halo iris eyes wisp body face,前缀 leader_<slug>。
+# 运行时着色(MobView 头领骨架):上字 c0 染 GlyphColor(深)、下字 c1 染 ElementColor(亮),
+# 同系一深一亮 —— 属性一眼可读,交叠处分得出是两个字;头领只有一个阶段,不换色。
+# 用户要的是「大概猜得出是这两个字」的讹熔团,不是逐字清晰的构图。
 
 LEADER_W, LEADER_H = SIZE, SIZE
-LEADER_DIR = Path(__file__).parent / "leaders/_sample"
+LEADER_SVG_DIR = Path(__file__).parent / "leaders/svg"
+LEADER_DIR = Path(__file__).parent / "leaders/_sample"   # 合成预览(宣纸底 + 运行时着色),只供人看
+LEADER_LAYER_NAMES = ("c0", "c1", "halo", "iris", "eyes", "wisp", "body", "face")
 
 
 def fungus(x, y, w, flip=False, color="#8A6A3A", rim="#C9A36A"):
@@ -319,9 +324,122 @@ def snag(x0, y0, x1, y1, color="#5C4A22", width=7):
     return branch(x0, y0, x1, y1, color=color, width=width) + jag
 
 
+def thorn_vine(x0, y0, cx, cy, x1, y1, color="#3E5A2A", width=6, thorns=7):
+    """荆条:一根弯藤,沿线两侧交替生出三角硬刺。"""
+    out = [f'<path d="M{x0} {y0} Q {cx} {cy} {x1} {y1}" fill="none" stroke="{color}" stroke-width="{width}" '
+           f'stroke-linecap="round" opacity=".8"/>']
+    for k in range(1, thorns + 1):
+        t = k / (thorns + 1)
+        px = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1
+        py = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1
+        tx = 2 * (1 - t) * (cx - x0) + 2 * t * (x1 - cx)
+        ty = 2 * (1 - t) * (cy - y0) + 2 * t * (y1 - cy)
+        n = math.hypot(tx, ty) or 1
+        ux, uy = tx / n, ty / n
+        side = 1 if k % 2 else -1
+        nx, ny = -uy * side, ux * side
+        tip = (px + nx * 16 + ux * 6, py + ny * 16 + uy * 6)
+        out.append(f'<path d="M{_f(px - ux * 6)} {_f(py - uy * 6)} L{_f(tip[0])} {_f(tip[1])} '
+                   f'L{_f(px + ux * 6)} {_f(py + uy * 6)} Z" fill="{color}" opacity=".85"/>')
+    return "".join(out)
+
+
+def smoke(x, y, h=150, color="#8C8676", width=10):
+    """烽烟:一股从火头直上的狼烟,左右摆两摆再散开。"""
+    d = (f"M{x} {y} C {x - 26} {y - h * .25}, {x + 26} {y - h * .45}, {x} {_f(y - h * .6)} "
+         f"S {x - 22} {_f(y - h * .9)}, {x + 12} {y - h}")
+    return (f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="round" opacity=".42"/>'
+            f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width * 2.2}" stroke-linecap="round" '
+            f'opacity=".14" transform="translate(8 -6)"/>')
+
+
+def beacon(x, y, w=46, color="#7A6A50"):
+    """烽燧台:一座收分的夯土墩,台顶燃火、冒烟。"""
+    tower = (f'<path d="M{x - w / 2} {y} L{x - w * .34} {y - w * 1.3} L{x + w * .34} {y - w * 1.3} L{x + w / 2} {y} Z" '
+             f'fill="{color}" opacity=".55"/>'
+             + "".join(f'<path d="M{_f(x - w * .42 + w * .04 * k)} {_f(y - w * .3 * k)} L{_f(x + w * .42 - w * .04 * k)} '
+                       f'{_f(y - w * .3 * k)}" stroke="{INK}" stroke-width="1.5" opacity=".3"/>' for k in (1, 2, 3)))
+    top = y - w * 1.3
+    return smoke(x, top - 18, h=170) + tower + flame(x, top + 4, .8)
+
+
+def ash(points, color="#8C8676"):
+    """飘灰:灰白的薄片,各斜一个角度。"""
+    return "".join(f'<rect x="{x - 5}" y="{y - 2}" width="10" height="4" rx="1.5" fill="{color}" opacity=".55" '
+                   f'transform="rotate({(x * 7 + y * 3) % 90 - 45} {x} {y})"/>' for x, y in points)
+
+
+def stele(color="#8C8676"):
+    """碑碣:身后立一通圆首石碑,碑面刻着竖行,底下压一方碑座。"""
+    body = (f'<path d="M110 444 L110 120 Q 110 52 256 52 Q 402 52 402 120 L402 444 Z" fill="{color}" opacity=".22"/>'
+            f'<path d="M110 444 L110 120 Q 110 52 256 52 Q 402 52 402 120 L402 444" fill="none" stroke="{color}" '
+            f'stroke-width="5" opacity=".5"/>')
+    lines = "".join(f'<path d="M{x} 140 L{x} 420" stroke="{color}" stroke-width="2.5" opacity=".35" '
+                    f'stroke-dasharray="14 9"/>' for x in (150, 186, 326, 362))
+    base = f'<rect x="78" y="440" width="356" height="34" rx="4" fill="{color}" opacity=".5"/>'
+    return body + lines + base
+
+
+def bell(x, y, s=1.0, color="#6E8C7A"):
+    """编钟:一口铜钟挂在钮上,钟身铸着乳钉,旁边荡开两道声纹。"""
+    w, h = 44 * s, 70 * s
+    shell = (f'<path d="M{_f(x - w * .6)} {y} L{_f(x - w)} {_f(y + h)} Q {x} {_f(y + h * .86)} {_f(x + w)} {_f(y + h)} '
+             f'L{_f(x + w * .6)} {y} Z" fill="{color}" opacity=".7"/>'
+             f'<path d="M{_f(x - 8 * s)} {y} L{_f(x - 8 * s)} {_f(y - 14 * s)} L{_f(x + 8 * s)} {_f(y - 14 * s)} '
+             f'L{_f(x + 8 * s)} {y}" fill="none" stroke="{color}" stroke-width="{_f(4 * s)}" opacity=".8"/>')
+    studs = dots([(_f(x + dx * w), _f(y + dy * h)) for dx in (-.5, 0, .5) for dy in (.3, .55)], _f(3.5 * s), "#B3A382", .8)
+    rings = "".join(f'<path d="M{_f(x + w + r)} {_f(y + h * .2)} Q {_f(x + w + r + 12 * s)} {_f(y + h * .55)} '
+                    f'{_f(x + w + r)} {_f(y + h * .9)}" fill="none" stroke="{color}" stroke-width="3" opacity=".45" '
+                    f'stroke-linecap="round"/>' for r in (14 * s, 30 * s))
+    return shell + studs + rings
+
+
+def ding(x, y, s=1.0, color="#6E8C7A"):
+    """三足鼎:圆腹、双立耳、三根蹄足。"""
+    w = 52 * s
+    return (f'<path d="M{_f(x - w)} {y} Q {x} {_f(y + w * 1.4)} {_f(x + w)} {y} Z" fill="{color}" opacity=".7"/>'
+            f'<rect x="{_f(x - w * 1.08)}" y="{_f(y - 6 * s)}" width="{_f(w * 2.16)}" height="{_f(8 * s)}" rx="2" fill="{color}" opacity=".8"/>'
+            + "".join(f'<path d="M{_f(x + dx * w)} {_f(y - 6 * s)} L{_f(x + dx * w)} {_f(y - 24 * s)} L{_f(x + dx * w * .7)} {_f(y - 24 * s)}" '
+                      f'fill="none" stroke="{color}" stroke-width="{_f(5 * s)}" opacity=".8"/>' for dx in (-.7, .7))
+            + "".join(f'<path d="M{_f(x + dx * w)} {_f(y + w * .5)} L{_f(x + dx * w * 1.15)} {_f(y + w * 1.15)}" '
+                      f'stroke="{color}" stroke-width="{_f(7 * s)}" stroke-linecap="round" opacity=".75"/>' for dx in (-.55, 0, .55)))
+
+
+def slips(x, y, n=6, color="#B08A4E"):
+    """竹简:一排竹片,两道编绳;刀笔就是在上面削改字的那把刀。"""
+    strips = "".join(f'<rect x="{x + i * 17}" y="{y + (i % 2) * 4}" width="13" height="128" rx="3" fill="{color}" opacity=".55"/>'
+                     for i in range(n))
+    cords = "".join(f'<path d="M{x - 4} {y + dy} L{x + n * 17} {y + dy + 4}" stroke="#5C4A22" stroke-width="2.5" opacity=".6"/>'
+                    for dy in (30, 96))
+    return strips + cords
+
+
+def book_knife(x, y, color="#6B6449"):
+    """书刀:削竹简改字的窄刃刀,斜插在右上 —— 刃比 Boss 的 blade 宽且深,免得淡成一根线。"""
+    return (f'<g transform="rotate(30 {x} {y + 70})">'
+            f'<path d="M{x - 13} {y + 120} L{x - 4} {y} Q {x + 14} {y + 30} {x + 13} {y + 120} Z" fill="{color}" opacity=".8"/>'
+            f'<path d="M{x + 2} {y + 18} L{x + 4} {y + 112}" stroke="{PAPER}" stroke-width="2" opacity=".6"/>'
+            f'<rect x="{x - 16}" y="{y + 120}" width="32" height="10" rx="3" fill="#5C4A22" opacity=".85"/>'
+            f'<rect x="{x - 9}" y="{y + 130}" width="18" height="52" rx="5" fill="#5C4A22" opacity=".7"/></g>')
+
+
+def spiral(cx, cy, r0=40, r1=236, turns=2.6, color=EL["Water"], width=6, opacity=.38):
+    """漩涡:从团心往外甩的一道螺旋(阿基米德螺线,折线近似)。"""
+    pts = []
+    steps = 120
+    for k in range(steps + 1):
+        t = k / steps
+        a = t * turns * 2 * math.pi
+        r = r0 + (r1 - r0) * t
+        pts.append(f"{_f(cx + r * math.cos(a))} {_f(cy + r * .62 * math.sin(a))}")
+    return (f'<path d="M{" L".join(pts)}" fill="none" stroke="{color}" stroke-width="{width}" '
+            f'stroke-linecap="round" stroke-linejoin="round" opacity="{opacity}"/>')
+
+
 LEADERS = [
     # (词, slug, 属性, 两字摆位 [中心 x, 中心 y, 缩放, 旋转°], 眼 [(x, y, 缩放)…],
-    #  蚀孔 [(x, y, rx, ry)…] —— 从两字层上挖掉的洞(可空),意象配饰)
+    #  蚀孔 [(x, y, rx, ry)…] —— 从两字层上挖掉的洞(只给朽木),意象配饰)
+    # 字林(木)
     # 朽木:字身被蛀空、长出层孔菌、上头支棱着断枝、底下掉木屑。
     ("朽木", "xiumu", "Wood",
      [(204, 206, .66, -8), (306, 296, .68, 7)],
@@ -330,6 +448,73 @@ LEADERS = [
      lambda: snag(296, 104, 372, 42) + snag(318, 100, 432, 84, width=5)
      + fungus(70, 300, 40, flip=True) + fungus(64, 344, 30, flip=True) + fungus(446, 250, 34) + fungus(452, 394, 28)
      + dots([(84, 420), (110, 446), (132, 418), (150, 458), (98, 474), (168, 432), (124, 482), (72, 452)], 4, "#A8865A", .7)),
+    # 荆棘:一身反噬 —— 荆条从四角缠上来,刺朝外。
+    ("荆棘", "jingji", "Wood",
+     [(206, 204, .64, -9), (306, 300, .66, 6)],
+     ((214, 204, 1.3), (300, 208, 1.2)),
+     [],
+     lambda: thorn_vine(40, 470, 60, 300, 120, 120) + thorn_vine(472, 460, 470, 300, 400, 90)
+     + thorn_vine(150, 488, 260, 430, 380, 486, thorns=6) + thorn_vine(150, 52, 260, 18, 362, 60, width=5, thorns=5)),
+    # 朱砂(火)
+    # 烽燧:身后一座烽火台,台顶燃火、狼烟直上。
+    ("烽燧", "fengsui", "Fire",
+     [(206, 208, .64, -8), (308, 298, .66, 7)],
+     ((214, 206, 1.3), (300, 210, 1.2)),
+     [],
+     lambda: beacon(424, 300, 50) + beacon(82, 470, 34) + dots([(140, 70), (380, 60), (460, 120)], 4, "#F2B45A", .7)),
+    # 余烬:烧剩的炭团,火星往上飘、灰片四散,底下压着几簇暗火。
+    ("余烬", "yujin", "Fire",
+     [(204, 208, .64, -7), (306, 300, .66, 8)],
+     ((214, 206, 1.3), (300, 210, 1.2)),
+     [],
+     lambda: "".join(flame(x, y, s, "#8E2A20") for x, y, s in ((96, 486, .7), (210, 494, .5), (340, 492, .6), (440, 484, .75)))
+     + dots([(70, 140), (110, 90), (420, 70), (460, 150), (380, 40), (150, 40), (60, 260), (470, 260)], 5, "#F2B45A", .85)
+     + dots([(96, 196), (440, 210), (250, 30)], 3, EL["Fire"], .8)
+     + ash([(52, 360), (88, 400), (452, 330), (470, 400), (420, 440), (130, 120), (400, 110)])),
+    # 文山(土)
+    # 碑碣:身后立一通圆首石碑,字像是从碑面上挣出来的。
+    ("碑碣", "beijie", "Earth",
+     [(206, 206, .62, -7), (306, 298, .64, 6)],
+     ((214, 204, 1.3), (300, 208, 1.2)),
+     [],
+     lambda: stele()),
+    # 磐石:脚下压着大石,周围滚着碎石块。
+    ("磐石", "panshi", "Earth",
+     [(206, 204, .64, -8), (306, 296, .66, 7)],
+     ((216, 204, 1.3), (300, 208, 1.2)),
+     [],
+     lambda: rock(120, 430, 62) + rock(384, 432, 68) + rock(252, 452, 34)
+     + rock(70, 120, 18) + rock(450, 100, 22) + rock(470, 260, 14) + rock(48, 300, 12)),
+    # 金石(金)
+    # 钟鼎:右上悬一口编钟、声纹荡开,左下蹲一只三足鼎。
+    ("钟鼎", "zhongding", "Metal",
+     [(206, 208, .64, -8), (306, 298, .66, 7)],
+     ((214, 206, 1.3), (300, 210, 1.2)),
+     [],
+     lambda: '<path d="M330 40 L470 40" stroke="#5C4A22" stroke-width="5" stroke-linecap="round" opacity=".6"/>'
+     + bell(400, 60, 1.1) + ding(100, 390, 1.15)),
+    # 刀笔:左下一札竹简,右上斜插一把削字的书刀。
+    ("刀笔", "daobi", "Metal",
+     [(204, 206, .64, -9), (306, 298, .66, 6)],
+     ((214, 204, 1.3), (300, 208, 1.2)),
+     [],
+     lambda: slips(40, 330) + book_knife(424, 52)
+     + '<path d="M150 470 Q 200 440 250 466" fill="none" stroke="#B08A4E" stroke-width="3" opacity=".6" stroke-linecap="round"/>'),
+    # 墨海(水)
+    # 漩涡:整团字被一道螺旋往团心卷。
+    ("漩涡", "xuanwo", "Water",
+     [(208, 206, .64, -10), (304, 298, .66, 9)],
+     ((214, 206, 1.3), (300, 210, 1.2)),
+     [],
+     lambda: spiral(256, 262, 60, 236) + spiral(256, 262, 90, 220, turns=2.2, width=3, opacity=.22)
+     + dots([(60, 110), (452, 420), (470, 130), (70, 420)], 6, EL["Water"], .5)),
+    # 浊浪:泥沙翻上来的浑浪,浪头浊黄、底下泥点。
+    ("浊浪", "zhuolang", "Water",
+     [(206, 206, .64, -8), (306, 298, .66, 7)],
+     ((214, 204, 1.3), (300, 208, 1.2)),
+     [],
+     lambda: wave(456, 22, "#6B5A3A", 8, .45) + wave(480, 16, EL["Water"], 6, .4) + wave(70, 14, "#6B5A3A", 5, .3)
+     + dots([(60, 330), (94, 380), (440, 340), (470, 390), (420, 400), (130, 420)], 7, "#7A6A50", .55)),
 ]
 
 
@@ -366,9 +551,13 @@ GLYPH_DEEP = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#82552A",
               "Metal": "#6B6449", "Water": "#0A5E9E", "Heart": "#7E4190"}
 
 
+# 亮的那层 = Theme.ElementColor;它的土色 2026 年为 chip 对比度改成了 #8F7332,与上面 EL 的 #997C3C 不同
+ELEMENT_UI = {**EL, "Earth": "#8F7332"}
+
+
 def leader_preview(name, element, layout, eyes, holes, deco):
     """合成预览:宣纸底 + 两字着色 + 眼 + 配饰,与运行时叠层次序一致。"""
-    tints = (GLYPH_DEEP[element], EL[element])
+    tints = (GLYPH_DEEP[element], ELEMENT_UI[element])
     chars = "".join(_char_layer(c, i, tints[i % 2], layout) for i, c in enumerate(name))
     inner = (f'<rect width="{LEADER_W}" height="{LEADER_H}" fill="{PAPER}"/>'
              f'<g filter="url(#rs)">{deco()}</g>{_rotted(chars, holes)}'
@@ -377,17 +566,14 @@ def leader_preview(name, element, layout, eyes, holes, deco):
 
 
 def leader_sample():
+    """十只头领的合成预览(宣纸底 + 运行时着色)→ leaders/_sample/,只供人看,不进 Resources。"""
     LEADER_DIR.mkdir(parents=True, exist_ok=True)
     for name, slug, element, layout, eyes, holes, deco in LEADERS:
-        jobs = {f"leader_{slug}_{k}": v for k, v in build_leader(name, slug, element, layout, eyes, holes, deco).items()}
-        jobs[f"leader_{slug}_preview"] = leader_preview(name, element, layout, eyes, holes, deco)
-        for key, svg in jobs.items():
-            (LEADER_DIR / f"{key}.svg").write_text(svg, encoding="utf-8")
-        # 预览出原尺寸合成图,方便直接看;各层 PNG 等批量接入时再出
         src = LEADER_DIR / f"leader_{slug}_preview.svg"
+        src.write_text(leader_preview(name, element, layout, eyes, holes, deco), encoding="utf-8")
         subprocess.run(["rsvg-convert", "-w", str(LEADER_W), "-h", str(LEADER_H), str(src),
                         "-o", str(src.with_suffix(".png"))], check=True)
-    print(f"头领样张 {len(LEADERS)} 只 → {LEADER_DIR.relative_to(ROOT)}")
+    print(f"头领预览 {len(LEADERS)} 只 → {LEADER_DIR.relative_to(ROOT)}")
     return 0
 
 
@@ -402,13 +588,20 @@ def main():
     for name, slug, elements, deco in BOSSES:
         for layer, svg in build(name, slug, elements, deco).items():
             jobs[f"boss_{slug}_{layer}"] = svg
-    for key, svg in jobs.items():
-        src = SVG_DIR / f"{key}.svg"
-        src.write_text(svg, encoding="utf-8")
-        png = OUT_DIR / f"{key}.png"
-        subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), str(src), "-o", str(png)], check=True)
-        _write_meta(png)
-    print(f"成语 Boss {len(BOSSES)} 只 / {len(jobs)} 张 → {OUT_DIR.relative_to(ROOT)}")
+    leader_jobs = {}
+    for name, slug, element, layout, eyes, holes, deco in LEADERS:
+        for layer, svg in build_leader(name, slug, element, layout, eyes, holes, deco).items():
+            leader_jobs[f"leader_{slug}_{layer}"] = svg
+    LEADER_SVG_DIR.mkdir(parents=True, exist_ok=True)
+    for svg_dir, batch in ((SVG_DIR, jobs), (LEADER_SVG_DIR, leader_jobs)):
+        for key, svg in batch.items():
+            src = svg_dir / f"{key}.svg"
+            src.write_text(svg, encoding="utf-8")
+            png = OUT_DIR / f"{key}.png"
+            subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), str(src), "-o", str(png)], check=True)
+            _write_meta(png)
+    print(f"成语 Boss {len(BOSSES)} 只 / {len(jobs)} 张、双字头领 {len(LEADERS)} 只 / {len(leader_jobs)} 张"
+          f" → {OUT_DIR.relative_to(ROOT)}")
     return 0
 
 
