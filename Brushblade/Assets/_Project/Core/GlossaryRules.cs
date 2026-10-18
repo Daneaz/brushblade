@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Brushblade.Core
 {
     /// <summary>词条表的术语(spec 2026-10-03 §3,2026-10-15 spec B 追加涓 / 涌 / 苏 / 速度、同日厚积薄发 / 涌泉相报单列后共 48 条(关键词 38 / 范围 7 / 存续 3),按 §3.1 关键词 → §3.2 范围 → §3.3 存续的顺序)。
@@ -106,6 +108,22 @@ namespace Brushblade.Core
             FaceStatKind.Heal when stat.Source == EffectKind.HealSelf || stat.Source == EffectKind.HealAll => GlossaryTerm.Surge,
             _ => TermOf(stat.Kind),
         };
+
+        /// <summary>连带词条:冻结的说明写了「Boss 改为冰滞」,气泡里有冻结、没有冰滞时把冰滞补在冻结紧后(2026-10-18 体验反馈)。
+        /// 不做通用的「说明里提到谁就补谁」:润泽 / 泉 等说明会连带出一串,气泡反而难读。</summary>
+        public static IReadOnlyList<GlossaryTerm> WithCompanions(IReadOnlyList<GlossaryTerm> terms)
+        {
+            int freeze = -1;
+            for (int i = 0; i < terms.Count; i++)
+            {
+                if (terms[i] == GlossaryTerm.IceStall) return terms;
+                if (terms[i] == GlossaryTerm.Freeze && freeze < 0) freeze = i;
+            }
+            if (freeze < 0) return terms;
+            var result = new List<GlossaryTerm>(terms);
+            result.Insert(freeze + 1, GlossaryTerm.IceStall);
+            return result;
+        }
 
         /// <summary>词条的图标 chip(spec B §1.5 / §3):= 战场上那枚状态 chip 的图标与底色分组;没有图标 = null(行头 / 气泡不画 chip)。
         /// 图标 id 是 tools/icons 管线产物的 key(icon_&lt;id&gt;.png),这里只引用现有的(执行期决定 D1)。</summary>

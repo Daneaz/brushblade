@@ -47,6 +47,7 @@ namespace Brushblade.Presentation
         {
             Close();
             if (host == null || target == null || terms == null || terms.Count == 0) return;
+            terms = GlossaryRules.WithCompanions(terms);
 
             // 选中描环:挂在行上(随行滚动 / 裁剪),不参与布局
             _ring = Ui.Panel(target, "GlossaryRing");
@@ -72,14 +73,16 @@ namespace Brushblade.Presentation
             // ---- 先算高(纯函数),再摆位 ----
             var names = terms.Select(GlossaryText.Name).ToList();
             var aliases = terms.Select(t => GlossaryText.AliasShown(t) is { } a ? Strings.T("glossary.alias", ("alias", a)) : null).ToList();
-            var descs = terms.Select(GlossaryText.Desc).ToList();
+            // 空格换成不换行空格:Unity Text 只在空格处整词折行,「Boss 被冻结时…」会把 Boss 单独留一行、
+            // 整段比估算多出一行而溢出气泡(2026-10-18)。全段无断点后按字折行,与下面的估高口径一致。
+            var descs = terms.Select(t => GlossaryText.Desc(t).Replace(' ', '\u00A0')).ToList();
             float NameW(int i) => Ui.EstimateWidth(names[i], NameFont)
                 + (aliases[i] != null ? 4f + Ui.EstimateWidth(aliases[i], AliasFont) : 0f);
             float nameCol = Enumerable.Range(0, terms.Count).Max(NameW);
             float descW = Width - 2f * PadH - ChipSize - ChipGap - nameCol - ChipGap;
             float nameLineH = Mathf.Ceil(NameFont * 1.35f);
             float titleH = Mathf.Ceil(TitleFont * 1.35f);
-            var rowHs = descs.Select(d => Mathf.Max(nameLineH, Ui.WrappedTextHeight(d, DescFont, descW))).ToList();
+            var rowHs = descs.Select(d => Mathf.Max(nameLineH, DescHeight(d, descW))).ToList();
             float height = 2f * PadV + titleH + rowHs.Sum() + Gap * terms.Count;
 
             var hostRect = host.rect;
@@ -157,6 +160,17 @@ namespace Brushblade.Presentation
             if (_ring != null) Object.Destroy(_ring);
             _root = null;
             _ring = null;
+        }
+
+        /// <summary>说明的估高:按估算宽(半角 0.55 字号)逐字折行。<see cref="Ui.WrappedTextHeight"/> 把半角也按全角数,
+        /// 「…；Boss 改为冰滞」一行放得下却估成两行,下面空出一截。每行扣一个字号的余量:逐字折行时行尾放不下的那个字会整个挪到下一行。</summary>
+        private static float DescHeight(string text, float width)
+        {
+            float perLine = Mathf.Max(DescFont, width - DescFont);
+            int lines = 0;
+            foreach (var segment in text.Split('\n'))
+                lines += Mathf.Max(1, Mathf.CeilToInt(Ui.EstimateWidth(segment, DescFont) / perLine));
+            return lines * DescFont * 1.35f;
         }
 
         private static void Arrow(Transform parent, string name, Vector2 center, float size, Color color)
