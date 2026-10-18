@@ -82,22 +82,23 @@ namespace Brushblade.Presentation
         /// 分组依据是「它数的是谁」:
         ///   相济(每个五行 L3/L4)与博采(每个点到 L3 的五行系)都数五行 → 并排摆在五行正上方
         ///     (五行占 180°~360° 的上半,正上是 270°),对称错开 ±8°,中心距 152。
-        ///   融会数的是机制节点 → 摆在机制扇区(108°~180°,左下)的中线 144° 外沿。
+        ///   斩获终极技(2026-10-18 接替融会的位置)要机制树全部点满 → 两级并排在机制扇区
+        ///     (108°~180°,左下)中线 144° 外沿,±8° 错开(同相济/博采那对)。
         ///
         /// 前置关系不靠连线表达,靠详情面板的「跨树前置」两栏 —— 它本来就是谓词
         /// (「五行任一 L3」),连到某个具体节点反而是撒谎(spec §3.1)。</summary>
-        private static float CrossAngle(string branch) => branch switch
+        private static float CrossAngle(PerkNodeDef def) => def.Branch switch
         {
             "xvigor" => 262f,   // 相济:五行正上方偏左
             "xdraw" => 278f,    // 博采:五行正上方偏右
-            "xedge" => 144f,    // 融会:机制扇区中线
+            "ult_killdraw" => def.Depth <= 1 ? 136f : 152f,   // 斩获终极技一级 / 二级:机制扇区中线两侧
             _ => 270f,
         };
 
         public static Vector2 Place(PerkNodeDef def)
         {
             if (def.Tree == PerkTree.Cross)
-                return Polar(CrossAngle(def.Branch), CrossRadius);
+                return Polar(CrossAngle(def), CrossRadius);
 
             var sector = SectorOf(def.Tree);
             var branches = BranchesOf(def.Tree);

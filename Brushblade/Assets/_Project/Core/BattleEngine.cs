@@ -171,9 +171,12 @@ namespace Brushblade.Core
         public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
         public int EmptyLibraryExtraDraws { get; set; } // 广纳(2026-10-18):回合开始字库 ≤ 1 张时掉字数 +N
         public int LowLibraryExtraDraws { get; set; }   // 集腋(2026-10-18 收尾 §7):回合开始字库 ≤ 2 张时掉字数 +N,与广纳叠加
-        /// <summary>斩获(spec 2026-10-18 §7):每击杀一名敌人掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。
-        /// 每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;满库不掉、不进 DropChoice;抽字走 _traitRandom。</summary>
+        /// <summary>斩获终极技(spec 2026-10-18 终极技 §1):每击杀一名敌人,按 <see cref="KillDrawChancePercent"/>
+        /// 掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;
+        /// 满库不掉、不进 DropChoice;概率与抽字都走 _traitRandom。</summary>
         public int KillDraws { get; set; }
+        /// <summary>斩获每次击杀的掉字概率(百分比;Meta 注入一级 50 / 二级 70)。缺省 100 = 必掉。</summary>
+        public int KillDrawChancePercent { get; set; } = 100;
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
@@ -377,8 +380,10 @@ namespace Brushblade.Core
         // ---- D2-木 Task 4(⚠ 只在末尾追加)----
         SummonMerged,  // 绿潮(M8,Q18):一只小藻并入藻灵(TargetIndex = 被并入的小藻槽位,已置空;SecondIndex = 接收的藻灵槽位,
                        // Amount = 并入的生命)。不算阵亡,不发 SummonDied;表现层归 Plan D2-木 Task 5。
-        CharGranted,   // 折桂(M10,Q16):本场字库 +1 张(Amount = 入库后的字库下标,同 CharDrawn 口径);满库不入不发。
-                       // 不复用 CharDrawn:那条是回合掉字的动画源,语义不同;表现层归 Task 5。
+        CharGranted,   // 击杀得字入库(Amount = 入库后的字库下标,同 CharDrawn 口径);满库不入不发。两个来源同一事件、同一处消费:
+                       //   折桂(M10,Q16):TargetIndex = −1(表现层取最近阵亡的敌人格),Source None;
+                       //   斩获(2026-10-18 §2):TargetIndex = 阵亡敌人下标,Source = KillDraw;敌人回合的击杀也发它。
+                       // 不复用 CharDrawn:那条是回合开始掉字的动画源(右侧滑入),击杀得字从阵亡格飞来(drafts/killdrop)。
         // ---- Plan E3 Task 1(⚠ 只在末尾追加)----
         DebuffWarded,  // 免疫减益拦下一条减益(濯身 / 浇熄 / 杜绝;TargetIndex = −1 玩家 / 木灵槽位;Amount = (int)被挡的 StatusKind;
                        // SecondIndex = (int)拦它的那条 WardOf,全量免疫为 −1;Absorbed = 挡下的层数(灼按增量)/ 条数 1)。
@@ -406,6 +411,9 @@ namespace Brushblade.Core
         // ---- 斩首(spec 2026-10-18 §4;⚠ 只在末尾追加)----
         Behead,         // 头领 / 精英 / Boss 阵亡、场上还有别的存活敌人(TargetIndex = 阵亡者下标)。表现层飘「斩首」;
                         // 慑本身走紧随其后的 StatusApplied。发在 EnemyDied 之后、慑施加之前。
+        // ---- 掉字飞入(spec 2026-10-18 斩获终极技 §2,drafts/killdrop;⚠ 只在末尾追加)----
+        CharGrantBlocked, // 斩获该掉字时字库已满、一张没进(TargetIndex = 阵亡敌人下标)。**每回合只发首次**(计数同斩获,StartTurn 清零);
+                          // 本回合额度已到顶、概率未中都不发。表现层飘划线的「斩获 · 字库满」+ 批尾字库计数闪。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -446,6 +454,8 @@ namespace Brushblade.Core
         SkillCut,      // BossSkillCast 的 Source:这次大招吃了杜塞(伤害已按 SkillCut 削减)
         // ---- Plan E4 Task 1:只当事件标签。⚠ 只在末尾追加 ----
         BurnGrow,      // Burn 的 Source:上炎在敌人行动开始时加的那几层(GrowBurnOn)
+        // ---- 掉字飞入(spec 2026-10-18 §2):只当事件标签。⚠ 只在末尾追加 ----
+        KillDraw,      // CharGranted 的 Source:斩获掉的字(折桂为 None),表现层据此印「斩获」名签
     }
 
     public readonly struct BattleEvent
@@ -1902,33 +1912,50 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
-        /// <summary>斩获每回合至多掉几张(spec 2026-10-18 §7)。计数在 StartTurn 清零:
+        /// <summary>斩获每回合至多掉几张(两级都是 2,spec 2026-10-18 终极技 §1)。计数在 StartTurn 清零:
         /// 敌人回合与其前一玩家回合共用一个计数。</summary>
         public const int KillDrawPerTurnCap = 2;
 
         /// <summary>计数挂在 _traitUsesThisTurn 上:StartTurn 清零、随快照存读,不另开字段。</summary>
         private const string KillDrawUseKey = "#killdraw";
 
-        /// <summary>斩获:击杀时从已解锁卡池均匀抽 KillDraws 张入库(同回合掉字的抽取范围)。
-        /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;抽字走 _traitRandom,主随机序列不平移。
-        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice。
+        /// <summary>斩获:击杀时先按 KillDrawChancePercent 掷一次,命中则从已解锁卡池均匀抽 KillDraws 张入库
+        /// (同回合掉字的抽取范围),逐张受满库与每回合上限截断(二级掉 2 张、本回合已掉 1 张 → 只掉 1)。
+        /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;概率与抽字都走 _traitRandom,主随机序列不平移。
+        /// 每入库一张发一条 CharGranted(TargetIndex = 阵亡敌人,Source = KillDraw);未中、额度到顶不发任何事件。
+        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice;本回合首次被满库挡下时发一条 CharGrantBlocked
+        /// (掷前已满、或二级第 2 张时满,两种都算)。额度到顶先于满库判 —— 到顶就不再提示满库。
         ///
         /// 开场推进(构造函数里的速度预推进)期间的击杀同样走这里,其计数随后被首个 StartTurn 清零 ——
         /// 即开局那一拍的击杀不占第一回合的额度,开局最多可多拿 <see cref="KillDrawPerTurnCap"/> 张。
         /// 这是接受的口径(开场击杀本就罕见),不是漏判。</summary>
-        private void GrantKillDraws()
+        private void GrantKillDraws(int enemyIndex)
         {
             if (_config == null || _config.KillDraws <= 0) return;
             if (_config.UnlockedChars == null || _config.UnlockedChars.Count == 0) return;
+            _traitUsesThisTurn.TryGetValue(KillDrawUseKey, out int usedThisTurn);
+            if (usedThisTurn >= KillDrawPerTurnCap) return;   // 上限到顶:规则,不提示(先于满库判)
+            if (_forge.Library.Count >= _config.LibraryCapacity) { KillDrawBlocked(enemyIndex); return; }
+            if (_traitRandom.Next(100) >= _config.KillDrawChancePercent) return;   // 未中:不掉、不发事件
             var deck = new List<string>(_config.UnlockedChars);   // 同 StartTurn 的掉字口径
             for (int n = 0; n < _config.KillDraws; n++)
             {
-                if (_forge.Library.Count >= _config.LibraryCapacity) return;
+                if (_forge.Library.Count >= _config.LibraryCapacity) { KillDrawBlocked(enemyIndex); return; }
                 if (!TryUseTrait(KillDrawUseKey, KillDrawPerTurnCap, 0)) return;
                 GrantLibraryChar(deck[_traitRandom.Next(deck.Count)]);
-                // 与回合掉字同一个动画源:表现层按落位下标飞入(敌人回合那批由 SplitOutDrawn 摘出)
-                _events.Add(new BattleEvent(BattleEventKind.CharDrawn, -1, _forge.Library.Count - 1));
+                // 击杀得字(drafts/killdrop):表现层从阵亡格冒 token、批尾飞到这个字库下标
+                _events.Add(new BattleEvent(BattleEventKind.CharGranted, enemyIndex, _forge.Library.Count - 1,
+                    source: EffectSource.KillDraw));
             }
+        }
+
+        /// <summary>字库满挡下斩获的提示键:同 <see cref="KillDrawUseKey"/> 挂在 _traitUsesThisTurn 上,StartTurn 清零 → 每回合首次。</summary>
+        private const string KillDrawBlockedKey = "#killdraw-full";
+
+        private void KillDrawBlocked(int enemyIndex)
+        {
+            if (TryUseTrait(KillDrawBlockedKey, 1, 0))
+                _events.Add(new BattleEvent(BattleEventKind.CharGrantBlocked, enemyIndex, 0));
         }
 
         /// <summary>复活补给:把一个字加入当前战斗字库;满库返回 false 不入(守容量上限)。</summary>
@@ -6177,7 +6204,7 @@ namespace Brushblade.Core
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
             Behead(enemyIndex);
-            GrantKillDraws();   // 斩获(2026-10-18):五条致死路径的汇流点,任何来源的击杀都算
+            GrantKillDraws(enemyIndex);   // 斩获(2026-10-18):五条致死路径的汇流点,任何来源的击杀都算
         }
 
         /// <summary>斩首的慑(spec 2026-10-18 §4):量 30%、2 回合,全局同源(同批多只阵亡取最强、不叠)。</summary>

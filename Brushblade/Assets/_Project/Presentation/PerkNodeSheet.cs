@@ -188,7 +188,7 @@ namespace Brushblade.Presentation
         // ================= 数值构成 =================
 
         /// <summary>数值构成:把「基础 + 计数 × 增量」拆成三行(spec 2026-09-08 §5.1)。
-        /// 只对缩放节点(三个跨树节点)显示,普通节点整段不出现。
+        /// 只对缩放节点(跨树相济 / 博采)显示,普通节点与斩获终极技整段不出现。
         ///
         /// 不能只印合计值 —— 玩家看到「攻击 +14%」无从判断该不该再投。
         ///
@@ -223,7 +223,7 @@ namespace Brushblade.Presentation
         /// 而紧接着的三行若印「基础 +8 / → +6 / 合计 +14」,玩家读不出 14 是 14% 还是 14 点。
         ///
         /// 判据是**效果**而不是缩放方式:单位说的是「这个数是什么」,与「数的是什么」无关
-        /// (融会数机制节点、博采数系,但两者的值都是点数/次数,不带单位)。
+        /// (博采数系,但值是次数,不带单位)。
         /// ⚠ 两条都走字符串表(空串也占一个 key):StringsTableTests 要求每个 key 都有
         /// 字面量调用点,同时也不许 Presentation 里出现玩家可见的硬编码文案。</summary>
         private static string UnitOf(PerkNodeDef def) => def.Effect == PerkEffect.AttackPercent
@@ -236,9 +236,6 @@ namespace Brushblade.Presentation
         private static string CountLine(PerkScaling scaling, int count, int scaled, string unit) =>
             scaling switch
             {
-                PerkScaling.PerMechanicNode =>
-                    Strings.T("perk.detail.scaling.count.mechanic",
-                        ("count", count), ("value", scaled), ("unit", unit)),
                 PerkScaling.PerDeepElement =>
                     Strings.T("perk.detail.scaling.count.deep_element",
                         ("count", count), ("value", scaled), ("unit", unit)),
@@ -250,7 +247,6 @@ namespace Brushblade.Presentation
         /// 缩放却数 L3(spec §3.4)。印「+0」会被当成 bug,要说清「再深一层就涨」。</summary>
         private static string CountHint(PerkScaling scaling) => scaling switch
         {
-            PerkScaling.PerMechanicNode => Strings.T("perk.detail.scaling.hint.mechanic"),
             PerkScaling.PerDeepElement => Strings.T("perk.detail.scaling.hint.deep_element"),
             _ => Strings.T("perk.detail.scaling.hint.deep_wuxing"),
         };
@@ -263,7 +259,8 @@ namespace Brushblade.Presentation
         {
             // 跨树节点的前置是「任一五行 L3 + 任一被动 L2」这样的谓词,不是同枝直链 ——
             // 这里的逐层圆点画法表达不了它,换一套画法、换一条分区标题。
-            if (def.Tree == PerkTree.Cross) { BuildCrossPrereq(parent, meta, def); return; }
+            // 斩获终极技二级(Prereq == null)是同枝第 2 层,走下面的直链画法(一级 → 二级)。
+            if (def.Tree == PerkTree.Cross && def.Prereq != null) { BuildCrossPrereq(parent, meta, def); return; }
 
             SectionLabel(parent, Strings.T("perk.detail.section.chain"));
 
@@ -360,6 +357,9 @@ namespace Brushblade.Presentation
         /// 落到兜底那一支:跨树节点的前置里不会再出现跨树本身。</summary>
         private static string CrossReqLabel(PerkRequirement req) => req.Tree switch
         {
+            // 斩获终极技一级:机制树全部节点(Count 恰为该树总段数时才印「全部」,别的谓词仍是「任一枝」)
+            PerkTree.Mechanic when req.Count == PerkRules.TreeNodeCount(PerkTree.Mechanic, req.MinDepth) =>
+                Strings.T("perk.detail.cross_req.mechanic_all"),
             PerkTree.Passive => Strings.T("perk.detail.cross_req.passive", ("depth", req.MinDepth)),
             PerkTree.Mechanic => Strings.T("perk.detail.cross_req.mechanic", ("depth", req.MinDepth)),
             _ => Strings.T("perk.detail.cross_req.wuxing", ("depth", req.MinDepth)),
@@ -472,9 +472,14 @@ namespace Brushblade.Presentation
             PerkView.NodeState.CanUnlock or PerkView.NodeState.PoorInk =>
                 Strings.T("perk.view.unlock_button", ("cost", Ui.InkText(def.InkCost))),
             // 「需先点上一层」对跨树节点是错的 —— 它不在任何一条直链上,卡住它的是两侧谓词。
-            PerkView.NodeState.GatedPrereq => def.Tree == PerkTree.Cross
-                ? Strings.T("perk.node.badge.gated_cross")
-                : Strings.T("perk.node.badge.gated_prereq"),
+            // 斩获终极技:一级卡在「机制树全部点亮」,二级(同枝第 2 层)卡在上一层。
+            PerkView.NodeState.GatedPrereq => def.Branch == "ult_killdraw"
+                ? (def.Prereq != null
+                    ? Strings.T("perk.node.badge.gated_ult")
+                    : Strings.T("perk.node.badge.gated_prereq"))
+                : def.Tree == PerkTree.Cross
+                    ? Strings.T("perk.node.badge.gated_cross")
+                    : Strings.T("perk.node.badge.gated_prereq"),
             _ => Strings.T("perk.view.locked_requirement", ("level", def.UnlockLevel)), // GatedLevel
         };
     }

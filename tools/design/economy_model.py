@@ -75,9 +75,9 @@ def perk_total():
     src = _src("Perk.cs")
     cross = [int(x) for x in re.findall(r"inkCost:\s*(\d+)", src)]
     # 2026-10-02:五行 5 枝 = L1/L2 三段(StagedCosts)+ L3/L4 单段(WuxingCosts[2:]);
-    # 被动 4 枝 × 3 层;机制四枝统一走 MechanicCosts(一气特价随 AP 取消)前两层,
-    # 第 3 层只有广纳枝(2026-10-18 集腋,斩获挪到 wide_3)
-    return 5 * (sum(map(sum, staged)) + sum(w[2:])) + 4 * sum(p) + 4 * sum(m[:2]) + sum(m[2:]) + sum(cross)
+    # 被动 4 枝 × 3 层;机制四枝 × 2 层统一走 MechanicCosts(一气特价随 AP 取消);
+    # 跨树相济 / 博采与斩获终极技两级(2026-10-18 接替融会)都写成 inkCost: 具名参数,由 cross 一并收
+    return 5 * (sum(map(sum, staged)) + sum(w[2:])) + 4 * sum(p) + 4 * sum(m) + sum(cross)
 
 
 PERK_TOTAL = perk_total()

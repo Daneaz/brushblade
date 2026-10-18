@@ -302,7 +302,7 @@ namespace Brushblade.Presentation
             //    博采=Jade 撞一气 171°),那是打地鼠,枝一改角度就得重躲一遍。
             // 3. 与主界面「技能」页签的 PerkTab(同样 FromElement(Element.Heart))同源。
             "xvigor" => ElementColor(Element.Heart),
-            "xedge" => ElementColor(Element.Heart),
+            "ult_killdraw" => ElementColor(Element.Heart),   // 斩获终极技:节点样式同跨树(2026-10-18)
             "xdraw" => ElementColor(Element.Heart),
             _ => TextMain,
         };

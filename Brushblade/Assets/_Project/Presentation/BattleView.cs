@@ -444,6 +444,7 @@ namespace Brushblade.Presentation
             // 木系提示(D2-木 Task 5):特性名是游戏数据,从图谱里按本命字段 / 效果种类找
             _juice.NatureCueOf = has => CharInfo.NatureTraitCue(_graph, has);
             _juice.EffectCueOf = kind => CharInfo.TraitCueOf(_graph, null, e => e.Kind == kind);
+            _juice.LibraryCharAt = i => i >= 0 && i < Battle.Library.Count ? _graph.Get(Battle.Library[i]) : null;   // 击杀得字的 token(drafts/killdrop)
             _juice.SummonCellAt = slot => _summonCellByCore.TryGetValue(slot, out var cell) ? cell : null;
             _juice.EnemyCellAt = index => _enemyCellByIndex.TryGetValue(index, out var foe) ? foe : null;
             _juice.ChipCue = (on, index, icon) => _chipCues.Add(new ChipCueEntry(on, index, icon));
@@ -567,6 +568,7 @@ namespace Brushblade.Presentation
             if (!Animating) _mergeGhosts.Clear();   // 绿潮:被并入的小藻格动画演完才清
             if (!Animating) Refresh();         // 期间不重绘:锁输入,血条 fill/label 引用不被毁
             if (!Animating) FlushChipCues();
+            if (!Animating) FlushKillDrops();  // 击杀得字:重绘后飞入字库 / 字库满计数闪(drafts/killdrop 批尾)
         }
 
         /// <summary>出手前记下玩家/敌人血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血)。</summary>
@@ -705,12 +707,13 @@ namespace Brushblade.Presentation
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     ChipDamage(sbar, summonBefore, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     break;
-                // 秋实 / 折桂(W7 / W8):新进池的「木」、新进库的那张字记成新到手,重绘时套光晕(同战利品的读法)
+                // 秋实(W7):新进池的「木」记成新到手,重绘时套光晕(同战利品的读法)。
+                // 击杀得字(斩获 / 折桂)的光晕改在 token 落位那一刻登记(FlushKillDrops,drafts/killdrop ④)
                 case BattleEventKind.PartGranted:
                     MarkFreshPoolTail(WoodPart);
                     break;
-                case BattleEventKind.CharGranted:
-                    if (e.Amount >= 0 && e.Amount < Battle.Library.Count) MarkFresh(Battle.Library[e.Amount]);
+                case BattleEventKind.CharGrantBlocked:   // 斩获被字库满挡下:批尾(重绘后)字库计数闪一次
+                    _libraryCountFlash = true;
                     break;
                 // 绿潮(W10):每进一只小藻,藻灵血条往右长一截(上限已是并完的终值)
                 case BattleEventKind.SummonMerged:
@@ -3959,10 +3962,11 @@ namespace Brushblade.Presentation
         /// 现在改回横排一行、**定宽** CountCaptionW:定宽不是为了标题自己好看,是为了让
         /// 两行的第一张牌落在同一个 x 上(标题自然宽度「字库 5/9」与「部件池 12/12」差着
         /// 一大截,不定宽就对不齐)。配合两行都改左对齐,标题与牌各自成一条竖线。</summary>
-        private static void CountCaption(Transform parent, string text, int fontSize, Color color)
+        private static Text CountCaption(Transform parent, string text, int fontSize, Color color)
         {
             var label = Ui.ThemedLabel(parent, text, fontSize, color, null, TextAnchor.MiddleLeft);
             Ui.Sized(label.gameObject, width: CountCaptionW);
+            return label;
         }
 
         /// <summary>手牌行末尾的广告扩容位(稿 .adslot)。
@@ -4001,7 +4005,7 @@ namespace Brushblade.Presentation
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
-            CountCaption(_libraryRow, Strings.T("battle.label.library_count",
+            _libraryCountLabel = CountCaption(_libraryRow, Strings.T("battle.label.library_count",
                 ("count", library.Count), ("capacity", Battle.LibraryCapacity)), 14, Theme.TextDim);
             if (library.Count == 0)
                 Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_empty"), 16, Theme.TextDim);
@@ -8084,6 +8088,60 @@ namespace Brushblade.Presentation
             return rest;
         }
 
+        // ---- 击杀得字飞入(spec 2026-10-18 斩获终极技 §2,drafts/killdrop)----
+
+        /// <summary>得字落位协程在跑(<see cref="DealRoutine"/> 据此排在它后面)。</summary>
+        private bool _grantLanding;
+        /// <summary>本批有斩获被字库满挡下(CharGrantBlocked,Core 已按每回合首次发):批尾计数闪一次。</summary>
+        private bool _libraryCountFlash;
+        /// <summary>字库行行首「字库 N/M」(DrawLibrary 每次重绘重登记;旧的随重绘销毁 = Unity null)。</summary>
+        private Text _libraryCountLabel;
+
+        private RectTransform LibraryTileAt(int index) =>
+            index >= 0 && index < _libraryTileRects.Count && index < Battle.Library.Count ? _libraryTileRects[index] : null;
+
+        /// <summary>批尾(OnAnimDone 归零重绘之后):① 字库满 → 计数闪;② 有停着的 token → 飞进字库。
+        /// 写法照 <see cref="DealRoutine"/>:同一帧内先把目标牌 scale 按 0、上锁,再起协程等一帧读布局。
+        /// 胜负已分(结算不画字库;奖励页画的是携带字库,卡位对不上)→ 不持锁,token 原地淡出,字照样已在字库里。</summary>
+        private void FlushKillDrops()
+        {
+            bool over = Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost;
+            if (_libraryCountFlash)
+            {
+                _libraryCountFlash = false;
+                if (!over) _juice.FlashCount(_libraryCountLabel);
+            }
+            if (_grantLanding || !_juice.HasGrantTokens) return;
+            if (over)
+            {
+                StartCoroutine(_juice.LandGrantTokens(_ => null, (i, _) => MarkFreshLibrary(i, null)));
+                return;
+            }
+            foreach (int index in _juice.GrantTokenIndices())
+                if (LibraryTileAt(index) is { } rect && rect != null) rect.localScale = Vector3.zero;   // 坑 ①:先藏,同一帧内不会渲染
+            _grantLanding = true;
+            BeginAnim();   // 锁到落完:等布局那一帧里点字牌出字会 Refresh 掉正在飞的牌(同 DealRoutine)
+            var hold = new AnimHold(this, held: true);
+            StartCoroutine(Guarded(LandGrantsRoutine(hold), hold, () => _grantLanding = false));
+        }
+
+        private System.Collections.IEnumerator LandGrantsRoutine(AnimHold hold)
+        {
+            yield return null;   // 坑 ②:等布局跑完,牌的 position 才是真实落点
+            yield return _juice.LandGrantTokens(LibraryTileAt, MarkFreshLibrary);
+            _grantLanding = false;   // 先于解锁:解锁那次重绘若再触发 FlushKillDrops,不能被自己挡住
+            hold.Release(NoDeaths);  // = OnAnimDone:解锁 + 重绘(恢复全部牌的 scale、按表套光晕)
+        }
+
+        /// <summary>落位那一刻登记新到手(光晕从这里起算),牌在就当场套上。</summary>
+        private void MarkFreshLibrary(int index, RectTransform tile)
+        {
+            if (index < 0 || index >= Battle.Library.Count) return;
+            string glyph = Battle.Library[index];
+            MarkFresh(glyph);
+            if (tile != null) ApplyFreshGlow(glyph, tile, Theme.ElementColor(_graph.Get(glyph).Element));
+        }
+
         /// <summary>回合开始的抽卡动画(2026-08-27 用户拍板):新掉的字从字库行**右侧**逐张滑入
         /// 到自己的卡位,错峰落位并弹跳一下。
         ///
@@ -8143,6 +8201,9 @@ namespace Brushblade.Presentation
             BeginAnim(); // 早退在此之前,锁不会失配;配对的 OnAnimDone 在本协程末尾
             hold.Hold();
             yield return null; // 坑 ②:等布局跑完,下面读到的 position 才是牌的真实落点
+            // 同一拍里先播击杀得字、再播回合掉字(drafts/killdrop 规则):得字那条在 OnAnimDone 里已经起跑(本协程排在它之后),
+            // 这里牌已藏好、锁已持住,等它落完再滑 —— 它落完的那次 OnAnimDone 因本协程持锁不会重绘
+            while (_grantLanding) yield return null;
 
             // 入口在**最右那张新牌的右侧**(2026-08-27 用户拍板):掉字一律 append 到字库末尾,
             // 新牌永远落在最右 —— 从左端的计数标签飞过来是横穿整行、逆着落点方向跑(改前就是

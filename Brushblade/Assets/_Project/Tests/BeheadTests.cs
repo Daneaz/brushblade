@@ -40,7 +40,7 @@ namespace Brushblade.Core.Tests
         public void Behead_AppendedAtEnd()
         {
             Assert.That((int)BattleEventKind.Behead, Is.EqualTo((int)BattleEventKind.StatusApplied + 1));
-            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.Behead));
+            // 斩获掉字再追加 CharGrantBlocked(KillDrawTests 守它的位置)
         }
 
         [TestCase(EnemyTier.Leader)]

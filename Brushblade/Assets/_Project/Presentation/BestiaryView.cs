@@ -51,6 +51,7 @@ namespace Brushblade.Presentation
         /// 所以是**另一条轴**(稿 note-bestiary)。</summary>
         private const int FilterAll = -1;
         private const int FilterBoss = -2;
+        private const int FilterLeader = -3;   // 双字头领(2026-10-18 斩获终极技 spec §3)
 
         /// <summary>层段页签的配色。2026-09-30 起 1~50 层按相生序各段一个主属性,页签就取它;
         /// 词渊是全池混合段,取心。</summary>
@@ -243,11 +244,12 @@ namespace Brushblade.Presentation
 
         private void BuildFilters(Transform parent)
         {
-            // 屏比溢出(2026-10-04 按两档宽验算):页签宽是写死的(BuildFilterTab),八个页签
-            // 全部 208 + 字林 208 + 朱砂/文山/金石/墨海/词渊 各 172 + Boss 266 + 间距 7×4 = 1570
-            // (各段已录过 10 时的最宽档;开局全个位数是 1516)。可用宽 = 画布宽 − 两侧安全区 123×2:
-            //   基准机 1951 → 1705,放得下(余 135~189,弹簧吃掉);
-            //   16:9  1600 → 1354,差 162~216 —— 横排布局组会把每个页签按比例压到 ~86%,
+            // 屏比溢出(2026-10-04 按两档宽验算;2026-10-18 加「头领」页签后重算):页签宽是写死的
+            // (BuildFilterTab),九个页签 全部 208 + 字林 208 + 朱砂/文山/金石/墨海/词渊 各 172
+            // + 头领 158~172(32 + 2×29 + 10 + chip「0/10」~「10/10」,头领共 10 只)+ Boss 266
+            // + 间距 8×4 = 1678~1746。可用宽 = 画布宽 − 两侧安全区 123×2:
+            //   基准机 1951 → 1705,开局放得下(余 27),录满后差约 41 —— 基准机也会横滚一点;
+            //   16:9  1600 → 1354,差 324~392 —— 横排布局组会把每个页签按比例压到 ~78%,
             //   页签名与计数 chip 叠在一起、探出页签边。
             // 所以整条放进 HScrollFill:内容宽 = max(视口, 页签总宽),基准机铺满拖不动、
             // 16:9 按原尺寸排版并横向滚出来。页签尺寸与字号一律不动。
@@ -267,6 +269,8 @@ namespace Brushblade.Presentation
             };
             for (int b = 0; b < BandCount; b++)
                 widths.Add(BuildFilterTab(bar.transform, b, _endless.Bands[b].Name));
+            // 头领排在层段之后、Boss 之前(怪的档位顺序);用普通页签样式,不新增视觉元素
+            widths.Add(BuildFilterTab(bar.transform, FilterLeader, Strings.T("bestiary.filter.leader")));
             widths.Add(BuildFilterTab(bar.transform, FilterBoss, Strings.T("bestiary.filter.boss")));
 
             var spring = Ui.Panel(bar.transform, "Spring");
@@ -374,6 +378,7 @@ namespace Brushblade.Presentation
         {
             FilterAll => true,
             FilterBoss => IsBoss(def),
+            FilterLeader => IsLeader(def),
             _ => _band.TryGetValue(def.Id, out int b) && b == filter,
         };
 
