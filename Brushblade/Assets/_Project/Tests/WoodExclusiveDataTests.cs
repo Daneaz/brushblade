@@ -122,7 +122,7 @@ namespace Brushblade.Core.Tests
             ("楸", L4, Atk, "先声", "Amplify 26 if FirstCastThisTurn scope All"),   // spec C §2:攻面 秋实 改名先声
             ("楸", L4, Ftr, "秋实", "Summon 0 count 1 passive{DeathPart=True}"),
             ("楸", L5, Atk, "落叶", "BurnSingle 1 pick All"),
-            ("楸", L8, Atk, "秋风扫叶", "Reshape 0 shape Row shapePct 60 hitPct 60|BurnSingle 1 pick HitTargets"),
+            ("楸", L8, Atk, "秋风扫叶", "Reshape 0 shape All shapePct 67|BurnSingle 1 pick HitTargets"),   // 2026-10-18 群攻入口:改全体 67
             ("楸", L8, Ftr, "一叶知秋", "TurnPulse 0 turns 3 perHit[Vulnerable 30 turns 1 pick Random if OwnSummonAlive]"),
             ("荆", L4, Atk, "精进", "Amplify 18 scope All"),   // spec C §2:攻面 披荆 改名精进
             ("荆", L4, Ftr, "披荆", "Summon 0 count 1 passive{ThornsBleed=35}"),
@@ -243,7 +243,7 @@ namespace Brushblade.Core.Tests
             Assert.That((lin.SummonCount, lin.SummonPercent), Is.EqualTo((2, 60)));
             var charm = FoldedOf("花", CardFace.Attack, 8, EffectKind.Charm);
             Assert.That((charm.Value, charm.Turns), Is.EqualTo((100, 1)));
-            // 硬弓 / 撼天 / 森罗加伤落到本体伤害;林深全体 50%;万箭齐发散射 5 发 40%;秋风扫叶横扫各 60%
+            // 硬弓 / 撼天 / 森罗加伤落到本体伤害;林深全体 50%;万箭齐发散射 5 发 40%;秋风扫叶全体各 67%(2026-10-18 群攻入口,原横扫各 60%)
             var ying = FoldedOf("柘", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((ying.HostArmorStrikePercent, ying.ArmorIgnorePercent), Is.EqualTo((400, 100)));
             Assert.That(FoldedOf(Ten, CardFace.Attack, 8, EffectKind.DamageSingle).HostAtkStrikePercent, Is.EqualTo(200));
@@ -252,7 +252,7 @@ namespace Brushblade.Core.Tests
             var jian = FoldedOf("箭", CardFace.Attack, 8, EffectKind.DamageSingle);
             Assert.That((jian.Shape, jian.Shots, jian.ShotPercent), Is.EqualTo((TargetArea.Scatter, 5, 40)));
             var qiu = FoldedOf("楸", CardFace.Attack, 8, EffectKind.DamageSingle);
-            Assert.That((qiu.Shape, qiu.ShapePercent, qiu.HitPercent), Is.EqualTo((TargetArea.Row, 60, 60)));
+            Assert.That((qiu.Shape, qiu.ShapePercent, qiu.HitPercent), Is.EqualTo((TargetArea.All, 67, 100)));
             // spec A D15:花攻击面本体不再有魅惑,Lv8 之前攻面都没有 Charm(Q27 的 Lv5 寄生 +1 回合随之无物可加)
             Assert.That(Folded("花", CardFace.Attack, 5).Any(e => e.Kind == EffectKind.Charm), Is.False);
             Assert.That(Folded("花", CardFace.Attack, 4).Any(e => e.Kind == EffectKind.Charm), Is.False);
@@ -621,14 +621,15 @@ namespace Brushblade.Core.Tests
             {
                 var b = Battle("森", level, new[] { Dummy() },
                     summons: Enumerable.Range(0, BattleEngine.MaxSummonSlots).Select(Corpse).ToList());
-                Assert.That(b.Summons.Count(s => s != null), Is.EqualTo(BattleEngine.MaxSummonSlots), "前提:8 格全占");
+                Assert.That(b.Summons.Count(s => s != null), Is.EqualTo(BattleEngine.MaxSummonSlots), "前提:6 格全占");
                 foreach (var s in b.Summons) s.Hp = 0;
                 Cast(b, "森");
                 return b;
             }
-            // 8 具尸体:spec A 森灵 + 入场幼苗 2 先占 3 格(Q28 书写顺序),万木回春救剩下 5 具
+            // 6 具尸体(2026-10-18 召唤槽 8 → 6):spec A 森灵 + 入场幼苗 2 先占 3 格(Q28 书写顺序),
+            // 万木回春救剩下 3 具
             var revived = Alive(Run(8)).Where(s => s.Char == "木").ToList();
-            Assert.That(revived.Count, Is.EqualTo(5));
+            Assert.That(revived.Count, Is.EqualTo(3));
             Assert.That(revived.All(s => s.Hp == 300), Is.True, "⌈1000 × 30%⌉");
             Assert.That(Alive(Run(7)).Any(s => s.Char == "木"), Is.False, "对照:Lv7 没有万木回春");
         }

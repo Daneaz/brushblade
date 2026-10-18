@@ -486,7 +486,7 @@ namespace Brushblade.Core.Tests
         /// spec A:DamageSingle 数值改为 §2 的档位单体 / 群体 / 全体锚点(海 90、剁 133、锥 90 …),形状字段不变。</summary>
         [TestCase("海", "DamageSingle 90 shape All shapePct 60 shots 3")]
         [TestCase("剁", "DamageSingle 133 hits 2 hitPct 35 per Morale perHit[Bleed 35 turns 3]")]   // spec C:剁骨从第 1 击起,不再带 perHitFrom 2
-        [TestCase("锥", "DamageSingle 90 shape Column shapePct 70 hits 2 hitPct 60 armorIgnore 100")]
+        [TestCase("锥", "DamageSingle 68 shape All shapePct 67 hits 2 hitPct 60 armorIgnore 100")]   // 2026-10-18 群攻入口:本体贯穿 68,锥心改全体 67
         [TestCase("锋", "DamageSingle 62 hits 2 hitPct 60 crit")]
         [TestCase("鑫", "DamageSingle 286 shape Adjacent hits 3 hitPct 50")]
         [TestCase("\uE626", "DamageSingle 420 hits 4 hitPct 30 perHit[ArmorBreak 15 turns 3] armorIgnore 100")]
@@ -494,7 +494,7 @@ namespace Brushblade.Core.Tests
         [TestCase("鍂", "DamageSingle 195 hits 2 hitPct 60 perHit[ArmorBreak 20 turns 3;Morale 1]")]
         [TestCase("碉", "DamageSingle 42 shape Row shapePct 50 shieldStrike 40")]
         [TestCase("壁", "DamageSingle 62 shape Row shapePct 50 shieldStrike 40")]
-        [TestCase("垒", "DamageSingle 62 shape Row shapePct 50 armorStrike 300")]
+        [TestCase("垒", "DamageSingle 46 shape All shapePct 67 armorStrike 300")]   // 2026-10-18 群攻入口:本体横扫 46,劈山改全体 67
         public void StackedReshapes_OtherLv8AttackFaces_Unchanged(string ch, string expected)
         {
             Assert.That(FoldedDamageSig(ch), Is.EqualTo(expected), ch);

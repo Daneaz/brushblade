@@ -13,7 +13,7 @@ namespace Brushblade.Core.Tests
     /// E25(Seed whileSlowed)。
     ///
     /// 夹具口径同 MetalSharedExtTests:Element.Heart(生克 1.0×)、PlayerAttack = 100、无甲 10 万血靶子、敌人攻击 0。
-    /// 四只靶子按 ColumnOrder {1,2,0,3} 落位:前排 0 → 列 1、1 → 列 2、2 → 列 0;后排 3 → 列 1(与 0 同列)。</summary>
+    /// 四只靶子按 ColumnOrder {1,0,2} 落位(2026-10-18 三列):前排 0 → 列 1、1 → 列 0、2 → 列 2;后排 3 → 列 1(与 0 同列)。</summary>
     public class WaterSharedExtTests
     {
         private const int Hp = 100000;
@@ -95,18 +95,18 @@ namespace Brushblade.Core.Tests
         {
             var def = Def(new EffectDef(EffectKind.Freeze, 1), new EffectDef(EffectKind.Freeze, 2, pick: EffectPick.AdjacentOne));
             var b = Battle(def, 1, FourMobs());
-            Assert.That(b.Enemies[2].ColumnEnd, Is.EqualTo(b.Enemies[0].Column), "夹具:2 在 0 的左边");
+            Assert.That(b.Enemies[1].ColumnEnd, Is.EqualTo(b.Enemies[0].Column), "夹具:1 在 0 的左边");
             Cast(b, 0);
             Assert.That(Enumerable.Range(0, 4).Select(i => Has(b, i, StatusKind.Freeze)),
-                Is.EqualTo(new[] { true, false, true, false }), "先左");
-            Assert.That(b.Enemies[2].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
+                Is.EqualTo(new[] { true, true, false, false }), "先左");
+            Assert.That(b.Enemies[1].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
 
             var c = Battle(def, 1, FourMobs());
-            c.Enemies[2].Statuses.Apply(new StatusEffect
+            c.Enemies[1].Statuses.Apply(new StatusEffect
                 { Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, Magnitude = 1, TurnsLeft = 1 });
             Cast(c, 0);
             Assert.That(Enumerable.Range(0, 4).Select(i => Has(c, i, StatusKind.Freeze)),
-                Is.EqualTo(new[] { true, true, false, false }), "左边霜抗中冻不上 → 改右");
+                Is.EqualTo(new[] { true, false, true, false }), "左边霜抗中冻不上 → 改右");
             Assert.That(BattleEngine.EffectNeedsTarget(new EffectDef(EffectKind.Freeze, 1, pick: EffectPick.AdjacentOne)), Is.True);
         }
 
@@ -150,14 +150,14 @@ namespace Brushblade.Core.Tests
                 });
             var b = Battle(def, 8, FourMobs());
             Cast(b, 0, attackMode: true);
-            Assert.That(Has(b, 2, StatusKind.Freeze), Is.True, "Lv8 冻上了左邻");
-            foreach (var (i, turns) in new[] { (0, 2), (2, 1) })
+            Assert.That(Has(b, 1, StatusKind.Freeze), Is.True, "Lv8 冻上了左邻");
+            foreach (var (i, turns) in new[] { (0, 2), (1, 1) })
             {
                 var mark = b.Enemies[i].Statuses.Find(StatusKind.Vulnerable);
                 Assert.That(mark, Is.Not.Null, $"敌人 {i} 吃到冰封标记");
                 Assert.That(mark.TurnsLeft, Is.EqualTo(turns), "回合 = 该目标本次冻结回合");
             }
-            Assert.That(Has(b, 1, StatusKind.Vulnerable), Is.False);
+            Assert.That(Has(b, 2, StatusKind.Vulnerable), Is.False);
         }
 
         private sealed class StatusOrder : IBattleHookListener

@@ -345,7 +345,8 @@ namespace Brushblade.Core
                 PlayerCritChance = PerkRules.Bonus(meta, PerkEffect.CritChance),
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
                 ApPerTurn = BaseApPerTurn, // 一气(AP)2026-10-02 取消
-                EmptyLibraryExtraDraws = PerkRules.Bonus(meta, PerkEffect.EmptyLibraryDraws), // 广纳/兼收
+                EmptyLibraryExtraDraws = PerkRules.Bonus(meta, PerkEffect.EmptyLibraryDraws), // 广纳
+                KillDraws = PerkRules.Bonus(meta, PerkEffect.KillDraw),                       // 斩获
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
                 ElementEffectPercent = ElementEffectTable(meta), // 五行 L2(三段,spec 2026-10-02)
                 // 木脉 L4「择伐」:节点在木枝上、按木系读,但读出的值当**全局开关**用
@@ -398,27 +399,28 @@ namespace Brushblade.Core
         /// <summary>召唤槽位的解锁层(2026-08-27 用户拍板;2026-09-30 改为每档一格),**按下标**排:
         ///
         /// <code>
-        ///   槽位   0    1    2    3        4    5    6    7
-        ///   位置  前1  前2  前3  前4      后1  后2  后3  后4
-        ///   层数   25    1    7   37       31   13   19   43
+        ///   槽位   0    1    2        3    4    5
+        ///   位置  前左 前中 前右      后左 后中 后右
+        ///   层数    7    1   13       25   19   31
         /// </code>
         ///
-        /// 2026-09-30 用户拍板:召唤物不超过本层敌人总数(Boss 按占格算 4 只)。
-        /// 档位线 1/7/13/19/25/31/37/43 就是普通层敌人数
-        /// <see cref="EndlessGenerator.MinionCountFor"/> 的跳变层,累计 1…8 格逐层相等;
-        /// Boss 层敌人数 ≥ 4 + 随从,同样压得住。开格次序沿用旧表的「从中间往两侧」:
-        /// 前 2 → 前 3 → 后 2 → 后 3 → 前 1 → 后 1 → 前 4 → 后 4。
+        /// 2026-09-30 用户拍板:召唤物不超过本层敌人总数(Boss 按占格算 2 只)。
+        /// 档位线 1/7/13/19/25/31 就是普通层敌人数
+        /// <see cref="EndlessGenerator.MinionCountFor"/> 的跳变层,累计 1…6 格逐层相等;
+        /// Boss 层敌人数 ≥ 2 + 随从,同样压得住。开格次序(2026-10-18 战场改 3×2,对齐 designer 战场稿)
+        /// 先开满前排、再开后排,每排居中往外(中 → 左 → 右):
+        /// 前中 → 前左 → 前右 → 后中 → 后左 → 后右。
         ///
         /// ⚠ 开放集合**不是连续前缀** —— 开局能用的是槽 1,槽 0 还锁着。
         /// 引擎里凡是找空位、顶替、携带回位的地方都要按集合判,拿「下标 &lt; 开放数」当判据
         /// 会让第一只召唤物落进锁着的槽 0(SummonSlotUnlockTests 的
-        /// OpeningDepth_FillsTheTwoMiddleFrontSlots 守着这条)。
+        /// OpeningDepth_FillsTheMiddleFrontSlot 守着这条)。
         ///
         /// 一张表喂三个方向:<see cref="UnlockedSlotMask"/>(这层开哪几格)、
         /// <see cref="SummonSlotsFor"/>(这层开几格)、<see cref="UnlockDepthForSlot"/>
         /// (这格第几层开,UI 印它)。写成三串独立常量迟早分叉,而分叉的表现是 UI 提示一个
         /// 错的层数 —— 静默、只有肉眼能发现。</summary>
-        private static readonly int[] SlotUnlockDepth = { 25, 1, 7, 37, 31, 13, 19, 43 };
+        private static readonly int[] SlotUnlockDepth = { 7, 1, 13, 25, 19, 31 };
 
         /// <summary>这一层开放哪几个召唤槽位,按位表示(bit i = 槽 i)。
         ///

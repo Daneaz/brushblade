@@ -134,12 +134,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EnemyCount_GrowsWithDepth_CapsAtEight()
+        public void EnemyCount_GrowsWithDepth_CapsAtSix()
         {
-            // 2026-08-27:每 6 层多一只(此前每 4 层),上限 6 → 8
+            // 2026-08-27:每 6 层多一只(此前每 4 层);2026-10-18 战场改 3×2,上限 8 → 6
             Assert.That(EndlessGenerator.BuildFloor(Config(), 9, new GameRandom(7)).Count, Is.EqualTo(2));
             Assert.That(EndlessGenerator.BuildFloor(Config(), 13, new GameRandom(7)).Count, Is.EqualTo(3));
-            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count, Is.EqualTo(8));
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count, Is.EqualTo(6));
         }
 
         [Test]
@@ -168,20 +168,20 @@ namespace Brushblade.Core.Tests
             Assert.That(floor[0].MaxHp, Is.EqualTo(12)); // 第 5 层 Boss scale 1.0(滞后缩放)
         }
 
-        /// <summary>Boss 带小怪(2026-09-05 用户拍板):第 20 层起,每个 Boss 层 +1 只,
-        /// 直到把 Boss 之外的格位填满。20 层之前的 Boss(5/10/15)照旧单独出场。
+        /// <summary>Boss 带小怪(2026-09-05 用户拍板;2026-10-18 起点 20 → 15,随战场 3×2):第 15 层起,
+        /// 每个 Boss 层 +1 只,直到把 Boss 之外的格位填满。15 层之前的 Boss(5/10)照旧单独出场。
         /// **首项恒为 Boss** —— 落位与表现层都靠这一条(与 BuildFloor 非 Boss 分支的
         /// 「首位强制前排」同一种「第 0 项有特殊约定」的写法)。</summary>
         [TestCase(5, 0)]
         [TestCase(10, 0)]
-        [TestCase(15, 0)]
-        [TestCase(20, 1)]
-        [TestCase(25, 2)]
-        [TestCase(30, 3)]
+        [TestCase(15, 1)]
+        [TestCase(20, 2)]
+        [TestCase(25, 3)]
+        [TestCase(30, 4)]
         [TestCase(35, 4)]
         [TestCase(40, 4)]   // 带满之后恒为满,不再长
         [TestCase(95, 4)]
-        public void BossFloor_EscortsGrowFromDepth20(int depth, int escorts)
+        public void BossFloor_EscortsGrowFromDepth15(int depth, int escorts)
         {
             var floor = EndlessGenerator.BuildFloor(Config(), depth, new GameRandom(7));
             Assert.That(floor[0].Id, Is.EqualTo("排山倒海"), "首项恒为 Boss");
@@ -200,9 +200,10 @@ namespace Brushblade.Core.Tests
         public void BossEscorts_TakeTheSameFloorScale()
         {
             var floor = EndlessGenerator.BuildFloor(Config(), 20, new GameRandom(7));
-            Assert.That(floor.Count, Is.EqualTo(2));
+            Assert.That(floor.Count, Is.EqualTo(3));
             // 第 20 层 Boss 层 scale = (1 + 0.10 × (20 − 5)) × 1 = 2.5;池里三只的血 12/8/22
-            Assert.That(floor[1].MaxHp, Is.EqualTo(30).Or.EqualTo(20).Or.EqualTo(55));
+            for (int i = 1; i < floor.Count; i++)
+                Assert.That(floor[i].MaxHp, Is.EqualTo(30).Or.EqualTo(20).Or.EqualTo(55));
         }
 
         /// <summary>随从也走「辅助不单独成场 / 带甲每场最多 1 只」那两道既有闸 ——
@@ -481,22 +482,22 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void BuildFloor_EnemyCountCapsAtEight()
+        public void BuildFloor_EnemyCountCapsAtSix()
         {
             Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count,
-                Is.EqualTo(8), "深层敌人数上限应为 8");
+                Is.EqualTo(6), "深层敌人数上限应为 6(3 列 × 2 排)");
             for (int depth = 1; depth <= 120; depth++)
                 Assert.That(EndlessGenerator.BuildFloor(Config(), depth, new GameRandom(7)).Count,
-                    Is.LessThanOrEqualTo(8), $"第 {depth} 层敌人数超上限");
+                    Is.LessThanOrEqualTo(6), $"第 {depth} 层敌人数超上限");
         }
 
         [Test]
-        public void BuildFloor_ReachesFullHouseAtDepth43()
+        public void BuildFloor_ReachesFullHouseAtDepth31()
         {
-            // 放缓节奏(2026-08-27):1 + min(7, (depth−1)/6) —— 43 层才满员,42 层还是 7 只。
-            // 这条钉住的是**节奏**而不只是上限:把除数改回 4 会让满员深度回到 29,测试要红。
-            Assert.That(EndlessGenerator.BuildFloor(Config(), 42, new GameRandom(7)).Count, Is.EqualTo(7));
-            Assert.That(EndlessGenerator.BuildFloor(Config(), 43, new GameRandom(7)).Count, Is.EqualTo(8));
+            // 节奏(2026-08-27 每 6 层一只;2026-10-18 上限 6):1 + min(5, (depth−1)/6) ——
+            // 31 层才满员,29 层还是 5 只(30 是 Boss 层,不看)。钉住的是**节奏**而不只是上限。
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 29, new GameRandom(7)).Count, Is.EqualTo(5));
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 31, new GameRandom(7)).Count, Is.EqualTo(6));
         }
     }
 }

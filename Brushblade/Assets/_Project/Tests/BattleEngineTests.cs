@@ -1635,7 +1635,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SummonCapacity_DefaultsToTheHardCap()
         {
-            // 2026-08-27:硬上限 6 → 8(前 4 + 后 4)。夹具不传 BattleConfig.SummonSlots,
+            // 2026-08-27:硬上限 6 → 8(前 4 + 后 4);2026-10-18:8 → 6(前 3 + 后 3)。夹具不传 BattleConfig.SummonSlots,
             // 缺省满开 —— 按层解锁的曲线由 SummonSlotUnlockTests 单独盯
             Assert.That(Engine().SummonCapacity, Is.EqualTo(BattleEngine.MaxSummonSlots));
         }

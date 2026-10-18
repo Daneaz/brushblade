@@ -508,7 +508,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void StartingLibrary_WidePerkNoLongerAppendsDraws()
         {
-            // 广纳 2026-10-02 起改为空库掉字(EmptyLibraryDraws),起手固定 6 张
+            // 广纳(字库 ≤1 多掉)/ 斩获(击杀掉字)都不动起手,起手固定 6 张
             var graph = PoolGraph();
             var meta = PoolMeta(FullPool);
             int baseline = MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count;

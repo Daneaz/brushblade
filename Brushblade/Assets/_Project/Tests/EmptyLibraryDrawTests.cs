@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>广纳/兼收(2026-10-02):回合开始掉字时若字库为 0,掉字数 +N。</summary>
+    /// <summary>广纳(2026-10-18 改口径):回合开始掉字时若字库 ≤ 1 张,掉字数 +N。</summary>
     public class EmptyLibraryDrawTests
     {
         private static RecipeGraph Graph() => new(new[]
@@ -33,8 +33,21 @@ namespace Brushblade.Core.Tests
             Assert.That(e.Library.Count, Is.EqualTo(expected));
         }
 
+        [TestCase(0, 2)]
+        [TestCase(1, 3)]
+        [TestCase(2, 4)]
+        public void OneCardLeft_DrawsExtra(int extra, int expected)
+        {
+            var e = Engine(extra, new[] { "刀", "刀" });
+            e.Cast("刀", 0);                 // 构造时已掉 1,共 3 张,打两张剩 1
+            e.Cast("刀", 0);
+            Assert.That(e.Library.Count, Is.EqualTo(1));
+            e.EndTurn();
+            Assert.That(e.Library.Count, Is.EqualTo(expected), "1 + 正常掉 1 + 广纳");
+        }
+
         [Test]
-        public void NonEmptyLibrary_DrawsNormally()
+        public void TwoCardsLeft_DrawsNormally()
         {
             var e = Engine(2, new[] { "刀", "刀" });
             e.Cast("刀", 0);                 // 构造时已掉 1,共 3 张,打一张剩 2

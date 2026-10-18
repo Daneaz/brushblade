@@ -53,7 +53,7 @@ namespace Brushblade.Core.Tests
         public void WrapsAroundPastLastSlot()
         {
             var engine = Engine();
-            Assert.That(engine.PlanSummonSlots(6, 3), Is.EqualTo(new[] { 6, 7, 0 }));
+            Assert.That(engine.PlanSummonSlots(4, 3), Is.EqualTo(new[] { 4, 5, 0 }));   // 6 格(2026-10-18)
         }
 
         [Test]
@@ -107,9 +107,9 @@ namespace Brushblade.Core.Tests
         public void SkipsOccupiedSlotsAlongTheWay()
         {
             var engine = Engine();
-            Occupy(engine, 3, 4);
-            Assert.That(engine.PlanSummonSlots(2, 3), Is.EqualTo(new[] { 2, 5, 6 }),
-                "3、4 站着人就跳过,继续往下找空的");
+            Occupy(engine, 2, 3);
+            Assert.That(engine.PlanSummonSlots(1, 3), Is.EqualTo(new[] { 1, 4, 5 }),
+                "2、3 站着人就跳过,继续往下找空的");
         }
 
         [Test]
@@ -125,24 +125,24 @@ namespace Brushblade.Core.Tests
         [Test]
         public void NotEnoughFreeSlots_FallsBackToOccupiedOnes()
         {
-            // 只剩 1 个空位(槽 7)却要召 3 只,且选定格 1 站着人:
-            // 首只照旧听点击落 1(顶替),**其余** 2 只先吃空位 7、再回头顶替 —— 顶替同样从
+            // 只剩 1 个空位(槽 5)却要召 3 只,且选定格 1 站着人:
+            // 首只照旧听点击落 1(顶替),**其余** 2 只先吃空位 5、再回头顶替 —— 顶替同样从
             // 选定格之后顺延,于是第三只落 2。
-            // (语义② 下 plan[0] 是那个唯一的空位 7;现在 7 退到第二位。)
+            // (语义② 下 plan[0] 是那个唯一的空位 5;现在 5 退到第二位。)
             var engine = Engine();
-            Occupy(engine, 0, 1, 2, 3, 4, 5, 6);
+            Occupy(engine, 0, 1, 2, 3, 4);
             var plan = engine.PlanSummonSlots(1, 3);
             Assert.That(plan.Count, Is.EqualTo(3));
             Assert.That(plan[0], Is.EqualTo(1), "首只永远是玩家点的那一格");
-            Assert.That(plan[1], Is.EqualTo(7), "余数里空位优先");
-            Assert.That(plan, Is.EquivalentTo(new[] { 1, 7, 2 }));
+            Assert.That(plan[1], Is.EqualTo(5), "余数里空位优先");
+            Assert.That(plan, Is.EquivalentTo(new[] { 1, 5, 2 }));
         }
 
         [Test]
         public void AllSlotsFull_PlanIsAllReplacements()
         {
             var engine = Engine();
-            Occupy(engine, 0, 1, 2, 3, 4, 5, 6, 7);
+            Occupy(engine, 0, 1, 2, 3, 4, 5);
             var plan = engine.PlanSummonSlots(3, 2);
             Assert.That(plan, Is.EqualTo(new[] { 3, 4 }), "全满才从选定格起顺延顶替");
         }

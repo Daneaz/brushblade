@@ -175,10 +175,12 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(BossExpected), fp);
         }
 
-        private const string KillExpected = "d9d7f014f6dc5655 6469";
+        // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "d9d7f014f6dc5655 6469"
+        private const string KillExpected = "4a8bb5b18660b32e 6665";
         // 2026-10-13(护盾回合保留 Task 2):夹具里的 persistOnce 护盾随留存桶取消改为普通护盾,指纹重取;
         // 同批不带 persistOnce 的指纹(本文件其余常量与其他 *IdentityTests)逐位未变。
         // 2026-10-13(护盾回合保留 Task 4):删回合清盾(U1),护盾跨回合保留,指纹重取(原值 "d4aa3156089da689 20729")。
-        private const string BossExpected = "bce33c438e5110c1 20746";
+        // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "bce33c438e5110c1 20746"
+        private const string BossExpected = "d3a853b077e250ed 20671";
     }
 }

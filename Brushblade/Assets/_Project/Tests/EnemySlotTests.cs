@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>敌人开场站位(2026-08-30):每排恒定 4 格,列号居中往外,跨列的按宽度打包。</summary>
+    /// <summary>敌人开场站位(2026-08-30):每排恒定 3 格(2026-10-18:4 → 3),列号居中往外,跨列的按宽度打包。</summary>
     public class EnemySlotTests
     {
         private static RecipeGraph Graph() => new(new[]
@@ -18,32 +18,32 @@ namespace Brushblade.Core.Tests
             int rowSpan = 1) =>
             new(id, Element.Heart, 100, 10, row: row, columnSpan: span, rowSpan: rowSpan);
 
-        /// <summary>跨两排的 Boss:中间 2 列 × 两排(2026-09-05 用户拍板的占位)。</summary>
+        /// <summary>跨两排的 Boss:中列 1 列 × 两排(2026-10-18 战场改 3×2,原中间 2 列 × 两排)。</summary>
         private static EnemyDef CrossRowBoss(string id = "霸") =>
             Mob(id, span: Targeting.BossColumnSpan, rowSpan: Targeting.RowSpanBoth);
 
         private static BattleEngine Engine(params EnemyDef[] enemies) =>
             new(Graph(), new BattleConfig(), Array.Empty<string>(), new[] { "木" }, enemies, seed: 1);
 
-        // ---- 跨排 Boss(2026-09-05 用户拍板:占中间 2×2,不再占满前排一整排) ----
+        // ---- 跨排 Boss(2026-10-18:占中列竖两格,1 列 × 2 排) ----
 
-        /// <summary>Boss 落在中间两列、同时占两排。列 1..2 是 4 列的正中两格
-        /// (ColumnOrder 居中往外的头两个),所以「居中」这件事不需要给 Boss 开特例 ——
+        /// <summary>Boss 落在中列、同时占两排。列 1 是 3 列的正中
+        /// (ColumnOrder 居中往外的第一个),所以「居中」这件事不需要给 Boss 开特例 ——
         /// 既有的列序天然把它放在中间。</summary>
         [Test]
-        public void CrossRowBoss_TakesTheTwoCenterColumnsOfBothRows()
+        public void CrossRowBoss_TakesTheCenterColumnOfBothRows()
         {
             var engine = Engine(CrossRowBoss());
             var boss = engine.Enemies[0];
             Assert.That(boss.Column, Is.EqualTo(1));
-            Assert.That(boss.ColumnEnd, Is.EqualTo(3), "占列 1..2");
+            Assert.That(boss.ColumnEnd, Is.EqualTo(2), "只占列 1");
             Assert.That(boss.RowSpan, Is.EqualTo(2));
             Assert.That(boss.Occupies(EnemyRow.Front), Is.True);
             Assert.That(boss.Occupies(EnemyRow.Back), Is.True);
         }
 
-        /// <summary>随从被挤到两侧列 —— Boss 的中间两列在**两排**都被占掉了。
-        /// 4 只随从正好填满左右各一列 × 两排(EscortCap 那个 4 就是这么来的)。</summary>
+        /// <summary>随从被挤到两侧列 —— Boss 的中列在**两排**都被占掉了。
+        /// 4 只随从正好填满左右各一列 × 两排(EscortCap = 6 − 2 那个 4 就是这么来的)。</summary>
         [Test]
         public void CrossRowBoss_EscortsFillTheFlankColumns()
         {
@@ -52,7 +52,7 @@ namespace Brushblade.Core.Tests
             for (int i = 1; i < engine.Enemies.Count; i++)
             {
                 int column = engine.Enemies[i].Column;
-                Assert.That(column == 0 || column == 3, Is.True,
+                Assert.That(column == 0 || column == 2, Is.True,
                     $"随从 {engine.Enemies[i].Def.Id} 落在列 {column},该在两侧");
             }
         }
@@ -70,42 +70,63 @@ namespace Brushblade.Core.Tests
                     Is.EqualTo(0), "Boss 占前排:近战召唤物打它,够不到后排随从");
         }
 
-        /// <summary>横扫(同排全打)对跨排 Boss:**打哪一排都扫到它,而且打两次**
-        /// (用户 2026-09-05 拍板「横扫、溅射这些 boss 都打两次」)——
-        /// 它在被扫的那一排上占着 2 列,横扫沿列方向扫过去就是两格。</summary>
+        /// <summary>横扫(同排全打)对跨排 Boss:**打哪一排都扫到它,只结算一次**
+        /// (2026-10-18 战场改 3×2:Boss 在每一排只占 1 列,横扫扫过的就是一格;
+        /// 原 2×2 时代「横扫、溅射 boss 都打两次」随之作废)。</summary>
         [Test]
-        public void CrossRowBoss_TakesTwoHitsFromSweepInEitherRow()
+        public void CrossRowBoss_TakesOneHitFromSweepInEitherRow()
         {
             var engine = Engine(CrossRowBoss(), Mob("前卒"), Mob("后卒", EnemyRow.Back));
             Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 1, TargetArea.Row, 0), 0),
-                Is.EqualTo(2), "扫前排:Boss 占那一排的 2 列");
+                Is.EqualTo(1), "扫前排:Boss 占那一排的 1 列");
             Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 2, TargetArea.Row, 0), 0),
-                Is.EqualTo(2), "扫后排:同理");
+                Is.EqualTo(1), "扫后排:同理");
         }
 
-        /// <summary>贯穿(同列前后全打)对跨排 Boss 同样是两次 —— 它在那一列上占着前后两排,
-        /// 这正是「贯穿打满两只」那条口径落在一个实体上的样子。</summary>
+        /// <summary>溅射(同排左右相邻)对跨排 Boss 也只一次 —— 从任一排的邻格溅过去都碰到它。</summary>
         [Test]
-        public void CrossRowBoss_TakesTwoHitsFromSkewer()
+        public void CrossRowBoss_TakesOneHitFromSplashInEitherRow()
+        {
+            var engine = Engine(CrossRowBoss(), Mob("前卒"), Mob("后卒", EnemyRow.Back));
+            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 1, TargetArea.Adjacent, 0), 0),
+                Is.EqualTo(1), "前排邻格溅到 Boss");
+            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 2, TargetArea.Adjacent, 0), 0),
+                Is.EqualTo(1), "后排邻格溅到 Boss");
+        }
+
+        /// <summary>贯穿(同列前后全打)对跨排 Boss:它占满中列两排,贯穿该列**命中一次**
+        /// (2026-10-18 Review Focus:同一大怪不被同一记打两次)。</summary>
+        [Test]
+        public void CrossRowBoss_TakesOneHitFromSkewer()
         {
             var engine = Engine(CrossRowBoss());
             Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 0, TargetArea.Column, 0), 0),
-                Is.EqualTo(2));
+                Is.EqualTo(1));
         }
 
-        /// <summary>那两份伤害是**一次出手**打出来的,不是两次(用户 2026-09-05 澄清:
-        /// 「剑刺类应该是出手一次,但是 boss 受到两次伤害,因为站位的关系」)。
-        ///
-        /// 落到数据上:第二条 Damage 事件带 SameSwing —— 表现层据此不拉开节拍,
-        /// 否则两份伤害会被演成挥了两次刀(Juice 里那条「同一目标连续两记停一拍」
-        /// 本来是给**多段**的剁用的)。伤害本身仍是两次独立结算,只是同一拍打出。</summary>
+        /// <summary>贯穿打随从所在的侧列,不会穿到中列的 Boss;打 Boss 也不会穿到侧列随从。</summary>
         [Test]
-        public void CrossRowBoss_TwoHitsAreOneSwing()
+        public void Skewer_StaysInItsColumn_AroundCrossRowBoss()
+        {
+            var engine = Engine(CrossRowBoss(), Mob("前卒"), Mob("后卒", EnemyRow.Back));
+            // 前卒落列 0、后卒落列 0(中列被 Boss 两排占掉,侧列按 ColumnOrder 先左)
+            Assert.That(engine.Enemies[1].Column, Is.EqualTo(0));
+            Assert.That(engine.Enemies[2].Column, Is.EqualTo(0));
+            var side = Targeting.ExpandTargets(engine.Enemies, 1, TargetArea.Column, 0);
+            Assert.That(CountHits(side, 0), Is.EqualTo(0), "侧列贯穿不碰 Boss");
+            Assert.That(CountHits(side, 2), Is.EqualTo(1), "同列后卒被贯穿");
+            var center = Targeting.ExpandTargets(engine.Enemies, 0, TargetArea.Column, 0);
+            Assert.That(center.Count, Is.EqualTo(1), "中列只有 Boss 一只");
+        }
+
+        /// <summary>横扫跨排 Boss 落到事件上:一次出手、一条伤害,不带 SameSwing。</summary>
+        [Test]
+        public void CrossRowBoss_SweepIsOneSwingOneHit()
         {
             var graph = new RecipeGraph(new[]
             {
                 new CharDef("木", Element.Wood),
-                // 横扫一记:主目标之外同排全扫,对跨排 Boss 覆盖两格
+                // 横扫一记:主目标之外同排全扫
                 new CharDef("扫", Element.Metal, new[] { "木", "木" },
                     new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.Row) }),
             });
@@ -118,20 +139,17 @@ namespace Brushblade.Core.Tests
             var damages = new List<BattleEvent>();
             foreach (var e in engine.LastEvents)
                 if (e.Kind == BattleEventKind.Damage && e.TargetIndex == 0) damages.Add(e);
-            Assert.That(damages.Count, Is.EqualTo(2), "两份伤害");
-            Assert.That(damages[0].SameSwing, Is.False, "第一份是这次挥击本身");
-            Assert.That(damages[1].SameSwing, Is.True, "第二份是同一次挥击的第二格,不是第二次出手");
+            Assert.That(damages.Count, Is.EqualTo(1), "一份伤害");
+            Assert.That(damages[0].SameSwing, Is.False);
         }
 
-        /// <summary>召唤物横扫跨排 Boss:**出手事件只发一条,伤害发两条**。
+        /// <summary>召唤物横扫跨排 Boss:**出手事件一条,伤害一条**(2026-10-18 起 Boss 只占 1 列)。
         ///
         /// 「剑」就是这条路径 —— 它是召唤字,横扫是那只召唤物出的手,走 SummonAttack 而不是
         /// 玩家侧的 Damage。SummonAttack 在表现层触发「召唤物的字飞过去」那段动作 + 一拍等待,
-        /// 跨排 Boss 记两次就会让它扑第二遍(用户:「剑的横扫还是有两次动作」)。
-        /// 上一轮的 SameSwing 只压住了玩家侧的节拍与打击感,漏了这条路径 ——
-        /// 因为那些测试断的都是 Damage 事件,没有一条数过 SummonAttack。</summary>
+        /// 多一条就会让它扑第二遍(用户:「剑的横扫还是有两次动作」)。</summary>
         [Test]
-        public void SummonSweep_OnCrossRowBoss_SwingsOnceHitsTwice()
+        public void SummonSweep_OnCrossRowBoss_SwingsOnceHitsOnce()
         {
             var graph = new RecipeGraph(new[]
             {
@@ -156,7 +174,7 @@ namespace Brushblade.Core.Tests
                 if (e.Kind == BattleEventKind.Damage && e.TargetIndex == 0) damages++;
             }
             Assert.That(swings, Is.EqualTo(1), "出手一次 —— 再多就是召唤物扑了两遍");
-            Assert.That(damages, Is.EqualTo(2), "受击两次 —— 站位吃掉两格");
+            Assert.That(damages, Is.EqualTo(1), "受击一次 —— 竖块 Boss 在一排只占一格");
         }
 
         /// <summary>普通怪不受影响:形状对它照旧一次。这一条防的是「给所有人都记了两次」。</summary>
@@ -195,8 +213,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ColumnOrder_IsCenterOutward()
         {
-            Assert.That(Targeting.ColumnOrder, Is.EqualTo(new[] { 1, 2, 0, 3 }),
-                "4 列没有正中,取中间偏左先");
+            Assert.That(Targeting.ColumnOrder, Is.EqualTo(new[] { 1, 0, 2 }),
+                "3 列:正中先,再左、右");
         }
 
         [Test]
@@ -204,7 +222,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(Mob("甲"));
             Assert.That(engine.Enemies[0].Column, Is.EqualTo(1),
-                "单怪落中间偏左,不再靠最左 —— 这一条取代了旧的 RowCells 折叠特例");
+                "单怪落正中,不靠最左 —— 这一条取代了旧的 RowCells 折叠特例");
         }
 
         [Test]
@@ -212,7 +230,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(Mob("甲"), Mob("乙"));
             Assert.That(engine.Enemies[0].Column, Is.EqualTo(1));
-            Assert.That(engine.Enemies[1].Column, Is.EqualTo(2));
+            Assert.That(engine.Enemies[1].Column, Is.EqualTo(0));
         }
 
         [Test]
@@ -228,14 +246,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void AssignSlots_PacksByWidthNotByCount()
         {
-            // 前排:占 2 列的 + 两只占 1 列的 = 宽 4,正好铺满;第四只放不下,改判后排
-            var engine = Engine(Mob("甲", span: 2), Mob("乙"), Mob("丙"), Mob("丁"));
+            // 前排:占 2 列的 + 一只占 1 列的 = 宽 3,正好铺满;第三只放不下,改判后排
+            var engine = Engine(Mob("甲", span: 2), Mob("乙"), Mob("丙"));
             int frontWidth = 0;
             foreach (var e in engine.Enemies)
                 if (e.Row == EnemyRow.Front) frontWidth += e.ColumnSpan;
             Assert.That(frontWidth, Is.LessThanOrEqualTo(Targeting.RowCapacity),
                 "一排的总宽不许超过列数");
-            Assert.That(engine.Enemies[3].Row, Is.EqualTo(EnemyRow.Back));
+            Assert.That(engine.Enemies[2].Row, Is.EqualTo(EnemyRow.Back));
         }
 
         [Test]

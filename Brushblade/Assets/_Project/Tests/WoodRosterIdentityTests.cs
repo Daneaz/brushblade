@@ -207,7 +207,9 @@ namespace Brushblade.Core.Tests
             Assert.That(fp, Is.EqualTo(CastEndExpected), fp);
         }
 
-        private const string EnemyTurnExpected = "4b49c5b2b25a84a0 23247";
-        private const string CastEndExpected = "bc633e03db115a97 24117";
+        // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "4b49c5b2b25a84a0 23247"
+        private const string EnemyTurnExpected = "6dc4dfee7251b217 22742";
+        // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "bc633e03db115a97 24117"
+        private const string CastEndExpected = "86e472227e222f56 25267";
     }
 }

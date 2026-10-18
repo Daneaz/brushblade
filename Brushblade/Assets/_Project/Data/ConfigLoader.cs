@@ -174,6 +174,7 @@ namespace Brushblade.Data
             public List<IdiomBossDto> IdiomBosses { get; set; }
             public List<string> EliteBossPool { get; set; }
             public List<IdiomBossDto> EliteIdiomBosses { get; set; }
+            public List<string> LeaderPool { get; set; }   // 双字头领(2026-10-18);缺省 = 本段不出头领
             public List<string> RewardPool { get; set; }
             public int MilestoneInk { get; set; }
             public string Element { get; set; }
@@ -373,13 +374,13 @@ namespace Brushblade.Data
                 if (enemyPool.Count == 0)
                     throw new ConfigException($"层段「{bandDto.Name}」杂兵池为空");
 
-                List<EnemyDef> ParseBossIds(List<string> ids)
+                List<EnemyDef> ParseBossIds(List<string> ids, string poolName = "Boss 池")
                 {
                     var pool = new List<EnemyDef>();
                     foreach (var id in ids ?? new List<string>())
                     {
                         if (!enemyDefs.TryGetValue(id, out var def))
-                            throw new ConfigException($"层段「{bandDto.Name}」Boss 池引用了未定义的敌人:{id}");
+                            throw new ConfigException($"层段「{bandDto.Name}」{poolName}引用了未定义的敌人:{id}");
                         pool.Add(def);
                     }
                     return pool;
@@ -404,6 +405,7 @@ namespace Brushblade.Data
                     IdiomBossPool = idiomBosses,
                     EliteBossPool = ParseBossIds(bandDto.EliteBossPool),
                     EliteIdiomBossPool = ParseIdioms(bandDto.Name, bandDto.EliteIdiomBosses, bossSkills),
+                    LeaderPool = ParseBossIds(bandDto.LeaderPool, "头领池"),
                     RewardPool = bandDto.RewardPool ?? new List<string>(),
                     MilestoneInk = bandDto.MilestoneInk,
                     Element = ParseBandElement(bandDto),

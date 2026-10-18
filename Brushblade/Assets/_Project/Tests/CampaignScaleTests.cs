@@ -27,7 +27,7 @@ namespace Brushblade.Core.Tests
             },
             defense: 15, speed: 130,
             row: EnemyRow.Back, range: AttackRange.Ranged, focus: AttackFocus.Player,
-            columnSpan: 2, minDepth: 7, rowSpan: Targeting.RowSpanBoth);
+            columnSpan: 2, minDepth: 7, rowSpan: Targeting.RowSpanBoth, tier: EnemyTier.Leader);
 
         [Test]
         public void Scale_KeepsEveryNonNumericField()
@@ -45,6 +45,7 @@ namespace Brushblade.Core.Tests
             Assert.That(scaled.ColumnSpan, Is.EqualTo(source.ColumnSpan));
             Assert.That(scaled.RowSpan, Is.EqualTo(source.RowSpan), "跨排:2026-09-05 就是这一个丢过");
             Assert.That(scaled.MinDepth, Is.EqualTo(source.MinDepth));
+            Assert.That(scaled.Tier, Is.EqualTo(source.Tier), "档位(2026-10-18)");
             Assert.That(scaled.Phases.Count, Is.EqualTo(source.Phases.Count));
             for (int i = 0; i < source.Phases.Count; i++)
             {

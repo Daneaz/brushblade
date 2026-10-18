@@ -53,6 +53,11 @@ namespace Brushblade.Core
         Bulwark, // 坚壁:被动高护甲,该阶段不蓄力
     }
 
+    /// <summary>敌人档位(spec 2026-10-18 §5):战斗格第一行的档位 chip 与详情弹窗据此显示。
+    /// 由生成处(<see cref="EndlessGenerator.BuildFloor"/>)写入:普通层杂兵与 Boss 层随从 Minion、
+    /// 双字头领 Leader、精英层(第 5/15/25… 层)Boss Elite、主题 Boss 层 Boss。只在末尾追加。</summary>
+    public enum EnemyTier { Minion, Leader, Elite, Boss }
+
     /// <summary>成语 Boss 的单个阶段(8.5:四字成语,四个字 = 四个阶段)。</summary>
     public sealed class BossPhaseDef
     {
@@ -148,12 +153,17 @@ namespace Brushblade.Core
         /// 而层段(band)整段共用一个 enemyPool,表达不了段内的深度差。</summary>
         public int MinDepth { get; }
 
+        /// <summary>档位(2026-10-18,见 <see cref="EnemyTier"/>)。缺省 Minion;配置不写它,
+        /// 由生成处经 <see cref="CampaignConfig.Scale(EnemyDef, float, EnemyTier)"/> 写入。
+        /// 与 <see cref="ColumnSpan"/> 同理不进快照:读档时按 DefId 从本层重生成的遭遇里找回。</summary>
+        public EnemyTier Tier { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
             int defense = 0, int speed = 0,
             EnemyRow row = EnemyRow.Front, AttackRange range = AttackRange.Melee,
             AttackFocus focus = AttackFocus.Default, int columnSpan = 1, int minDepth = 0,
-            int rowSpan = 1)
+            int rowSpan = 1, EnemyTier tier = EnemyTier.Minion)
         {
             Id = id;
             Element = element;
@@ -170,6 +180,7 @@ namespace Brushblade.Core
             // 只有两排,>2 一律按 2 收 —— 越界的配置比报错更该被夹回可表达的范围
             RowSpan = rowSpan < 1 ? 1 : (rowSpan > Targeting.RowSpanBoth ? Targeting.RowSpanBoth : rowSpan);
             MinDepth = minDepth;
+            Tier = tier;
         }
     }
 

@@ -76,7 +76,10 @@ namespace Brushblade.Core
         ///
         /// **护甲按 scale 的一半增长**(2026-08-12,E-b4 裁定 11,见 <see cref="ScaledDefense"/>);
         /// 技能不缩放。</summary>
-        public static EnemyDef Scale(EnemyDef enemy, float scale)
+        public static EnemyDef Scale(EnemyDef enemy, float scale) => Scale(enemy, scale, enemy.Tier);
+
+        /// <summary>同上,并把档位改写成 <paramref name="tier"/>(生成处写档位用,2026-10-18)。</summary>
+        public static EnemyDef Scale(EnemyDef enemy, float scale, EnemyTier tier)
         {
             List<BossPhaseDef> phases = null;
             if (enemy.Phases.Count > 0)
@@ -98,7 +101,7 @@ namespace Brushblade.Core
                 Scaled(enemy.MaxHp, scale), Scaled(enemy.Attack, scale),
                 enemy.Ability, phases, ScaledDefense(enemy.Defense, scale), enemy.Speed,
                 enemy.Row, enemy.Range, enemy.Focus, enemy.ColumnSpan, enemy.MinDepth,
-                enemy.RowSpan);
+                enemy.RowSpan, tier);
         }
 
         /// <summary>护甲点数的深度缩放:**半速**(2026-08-12,E-b4 裁定 11)。

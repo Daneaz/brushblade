@@ -50,7 +50,7 @@ namespace Brushblade.Core.Tests
         public void Body_OtherElements()
         {
             // 剑(蓝):格挡 2 次、反击 40%;Lv3 格挡·强化 3 次、反击 50%;五行面战意恒 1(spec A §4.2)
-            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Attack, 1)), Is.EqualTo("Damage:90,Morale:1"));
+            Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Attack, 1)), Is.EqualTo("Damage:68,Morale:1"), "2026-10-18 群攻入口:剑 本体横扫 = 蓝群体 68");
             Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 1)), Is.EqualTo("Morale:1,Block:2,CounterPercent:40"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("剑"), CardFace.Feature, 10)),
                 Is.EqualTo("Morale:1,Block:3,CounterPercent:50"), "反击统一按 %(2026-10-15 用户):不随卡等级变");

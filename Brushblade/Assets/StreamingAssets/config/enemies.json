@@ -71,7 +71,7 @@
       "element": "Water",
       "maxHp": 120,
       "attack": 60,
-      "columnSpan": 2,
+      "columnSpan": 1,
     "rowSpan": 2,
       "phases": [
         {
@@ -106,7 +106,7 @@
       "element": "Water",
       "maxHp": 120,
       "attack": 70,
-      "columnSpan": 2,
+      "columnSpan": 1,
     "rowSpan": 2,
       "phases": [
         {
@@ -141,7 +141,7 @@
       "element": "Metal",
       "maxHp": 100,
       "attack": 80,
-      "columnSpan": 2,
+      "columnSpan": 1,
     "rowSpan": 2,
       "phases": [
         {
@@ -192,7 +192,17 @@
     { "id": "刻刀", "element": "Metal", "maxHp": 100, "attack": 50, "row": "Back", "range": "Ranged", "focus": "Player", "minDepth": 31 },
     { "id": "铭文", "element": "Metal", "maxHp": 170, "attack": 35, "ability": "Obscure", "minDepth": 31 },
     { "id": "泼墨", "element": "Water", "maxHp": 160, "attack": 42, "minDepth": 41 },
-    { "id": "晕染", "element": "Water", "maxHp": 120, "attack": 28, "ability": "Mend", "row": "Back", "range": "Ranged", "minDepth": 41 }
+    { "id": "晕染", "element": "Water", "maxHp": 120, "attack": 28, "ability": "Mend", "row": "Back", "range": "Ranged", "minDepth": 41 },
+    { "id": "朽木", "element": "Wood",  "maxHp": 370, "attack": 47, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "荆棘", "element": "Wood",  "maxHp": 370, "attack": 47, "ability": "Barb", "columnSpan": 1, "rowSpan": 2 },
+    { "id": "烽燧", "element": "Fire",  "maxHp": 290, "attack": 48, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "余烬", "element": "Fire",  "maxHp": 290, "attack": 48, "ability": "Sear", "columnSpan": 1, "rowSpan": 2 },
+    { "id": "碑碣", "element": "Earth", "maxHp": 320, "attack": 39, "defense": 35, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "磐石", "element": "Earth", "maxHp": 320, "attack": 39, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "钟鼎", "element": "Metal", "maxHp": 320, "attack": 46, "defense": 31, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "刀笔", "element": "Metal", "maxHp": 320, "attack": 46, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "漩涡", "element": "Water", "maxHp": 340, "attack": 46, "columnSpan": 1, "rowSpan": 2 },
+    { "id": "浊浪", "element": "Water", "maxHp": 340, "attack": 46, "ability": "Obscure", "columnSpan": 1, "rowSpan": 2 }
   ],
   "dropTable": [
     "金",
@@ -727,6 +737,10 @@
           "版牍",
           "火漆"
         ],
+        "leaderPool": [
+          "朽木",
+          "荆棘"
+        ],
         "eliteIdiomBosses": [
           {
             "chars": "草木皆兵",
@@ -767,6 +781,10 @@
           "错字鬼",
           "枯笔",
           "标点小妖"
+        ],
+        "leaderPool": [
+          "烽燧",
+          "余烬"
         ],
         "eliteIdiomBosses": [
           {
@@ -809,6 +827,10 @@
           "窑变",
           "涂改"
         ],
+        "leaderPool": [
+          "碑碣",
+          "磐石"
+        ],
         "eliteIdiomBosses": [
           {
             "chars": "积土成山",
@@ -850,6 +872,10 @@
           "夯土妖",
           "标点小妖"
         ],
+        "leaderPool": [
+          "钟鼎",
+          "刀笔"
+        ],
         "eliteIdiomBosses": [
           {
             "chars": "铜墙铁壁",
@@ -881,6 +907,10 @@
           "铁画",
           "悬针",
           "涂改"
+        ],
+        "leaderPool": [
+          "漩涡",
+          "浊浪"
         ],
         "eliteBossPool": [
           "翻江倒海"
@@ -936,6 +966,10 @@
           "铭文",
           "泼墨",
           "晕染"
+        ],
+        "leaderPool": [
+          "漩涡",
+          "浊浪"
         ],
         "bossPool": [
           "排山倒海",

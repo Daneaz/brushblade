@@ -112,7 +112,8 @@ namespace Brushblade.Presentation
             "lore_1" or "lore_2" =>
                 Strings.T("perk.info.effect.library", ("value", def.Value)),
             "wide_1" => Strings.T("perk.node.wide_1.desc", ("value", def.Value)),
-            "wide_2" => Strings.T("perk.node.wide_2.desc", ("value", def.Value)),
+            "wide_2" => Strings.T("perk.node.wide_2.desc", ("value", def.Value),
+                ("cap", BattleEngine.KillDrawPerTurnCap)),
             "insight_1" => Strings.T("perk.node.insight_1.desc", ("value", def.Value)),
             "insight_2" => Strings.T("perk.node.insight_2.desc", ("value", def.Value)),
             "qi_1" => Strings.T("perk.node.qi_1.desc", ("value", def.Value)),
@@ -200,6 +201,8 @@ namespace Brushblade.Presentation
             // 机制树(2026-10-02)
             PerkEffect.EmptyLibraryDraws =>
                 Strings.T("perk.detail.empty_library_draws", ("value", def.Value)),
+            PerkEffect.KillDraw =>   // 斩获(2026-10-18)
+                Strings.T("perk.detail.kill_draw", ("value", def.Value), ("cap", BattleEngine.KillDrawPerTurnCap)),
             PerkEffect.RewardOptions =>
                 Strings.T("perk.detail.reward_options", ("value", def.Value)),
             PerkEffect.RewardRerolls =>

@@ -342,15 +342,18 @@ namespace Brushblade.Presentation
             return Screen.safeArea.width / scale - padSide * 2f;
         }
 
-        /// <summary>敌人格宽:一排恒 4 格 + 3 道 RowGap 铺满 _fieldWidth。基准机 = 293(稿 140pt)。</summary>
-        private float EnemyCellW => (_fieldWidth - RowGap * 3f) / 4f;
+        /// <summary>敌人格宽:一排恒 <see cref="Targeting.RowCapacity"/> 格 + (列数 − 1) 道 RowGap 铺满 _fieldWidth。
+        /// 2026-10-18 战场改 3×2:战场总宽不变、4 格 → 3 格,每格加宽(基准机 ≈ 396,原 293)。</summary>
+        private float EnemyCellW => (_fieldWidth - RowGap * (Targeting.RowCapacity - 1)) / Targeting.RowCapacity;
 
-        /// <summary>战场格的缩放比(≤1):单列敌人立绘、召唤格宽跟着它等比缩,字号不缩。</summary>
-        private float FieldScale => EnemyCellW / EnemyCellWidth;
+        /// <summary>战场格的缩放比(≤1):单列敌人立绘跟着它等比缩,字号不缩。
+        /// ⚠ 2026-10-18 起仍按**旧 4 列格宽**算 —— 3×2 加宽后立绘尺寸 / 字号待设计稿(spec §6)定,
+        /// 在那之前保持立绘与改前同大,加出来的宽度只给信息列。</summary>
+        private float FieldScale => (_fieldWidth - RowGap * 3f) / 4f / EnemyCellWidth;
 
-        /// <summary>召唤格宽:与敌人格同比缩(基准机 289,稿 138pt)。立绘**不缩** —— 召唤物的
-        /// 点击目标就是立绘那颗钮(后排 75 已低于 tap-min,不能再小),缩的只是信息列。</summary>
-        private float SummonCellW => SummonCellWidth * FieldScale;
+        /// <summary>召唤格宽:与敌人格同比(基准机 289:293,稿 138pt),随 3×2 一起加宽。立绘**不缩** ——
+        /// 召唤物的点击目标就是立绘那颗钮(后排 75 已低于 tap-min,不能再小),变的只是信息列。</summary>
+        private float SummonCellW => SummonCellWidth * EnemyCellW / EnemyCellWidth;
 
         /// <summary>视觉高度不足 <see cref="TapMin"/> 的可点牌:垫一层透明子节点把触控高度撑到
         /// TapMin(竖向居中、横向与牌同宽)。点击/拖拽/长按都会从命中的子节点冒泡到牌本身的
@@ -2459,7 +2462,7 @@ namespace Brushblade.Presentation
             _summonCellByCore.Clear();
             _summonBarByCore.Clear();
             _summonActionBarByCore.Clear();
-            // 八格**常态化显示**(2026-08-27 用户拍板):未解锁的也画出来,印上「N 关解锁」——
+            // 全部槽位**常态化显示**(2026-08-27 用户拍板;2026-10-18 起 6 格):未解锁的也画出来,印上「N 关解锁」——
             // 玩家因此一眼看得出还有几格没开、什么时候开,而不是打到第 10 层突然多出两格。
             // 循环到硬上限而不是 SummonCapacity;后者只决定这一格是实格还是锁着的格。
             for (int i = 0; i < Battle.Summons.Count; i++)
@@ -2485,7 +2488,7 @@ namespace Brushblade.Presentation
                 cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
                 _summonCellByCore[i] = (RectTransform)cell.transform;
 
-                // 格宽随屏宽缩(SummonCellW:基准机 289,16:9 ≈ 212),立绘不缩(它就是点击目标),
+                // 格宽随屏宽缩(SummonCellW:2026-10-18 起 3 格一排,基准机 ≈ 391,16:9 ≈ 288;原 289 / 212),立绘不缩(它就是点击目标),
                 // 缩的是信息列:16:9 前排 212 − 100 − 10 ≈ 102、后排 ≈ 127。账:头行 名字 19 + 6 +
                 // 属性徽章 25 = 50;三位数「射程+攻」chip 76;血值叠字「1234/1234」13 号约 64 —— 都装得下。
                 float portraitSize = front ? SummonPortraitFront : SummonPortraitBack;
@@ -3182,6 +3185,12 @@ namespace Brushblade.Presentation
         /// 所以血条与 chip 行**不必**为它让路:它们与立绘是左右关系,不是上下之争。</summary>
         private const float BossPortraitSize = 220f;
 
+        /// <summary>竖块(跨排)信息列的最小宽度(2026-10-18 战场 3×2 防溢出):放得下「射程+攻」「甲」
+        /// 两枚 chip 并排 —— 三位数半角口径各约 56(见 portraitSize 那段注释),加 ChipSpacing 4 = 116,取 120。
+        /// 竖块只占 1 列后格宽在 16:9 约 292、扣 SafeArea inset 的机型更窄,220 的立绘会把信息列挤成负数;
+        /// 立绘因此夹到 <c>格宽 − 间距 − 本值</c>。完整排法等设计稿(spec §6),这里只防溢出。</summary>
+        private const float CrossRowMinInfoWidth = 120f;
+
         // 立绘与信息列的间距(稿 .foe { gap: 6px })。信息列自身的行距(稿 .info { gap: 2px }),
         // 头行里名字与属性徽章的间距(稿 .hd { gap: 4px })——同一套 ×2.093 换算。
         private const float EnemyBlkInfoGap = 13f;   // 6pt
@@ -3402,8 +3411,11 @@ namespace Brushblade.Presentation
                 // 字号不缩。不缩立绘的话 16:9 前排信息列只剩 214.5 − 126 − 13 ≈ 75,一枚三位数的
                 // 「射程+攻」chip(76,2026-10-18 半角口径后 56)就放不下;缩后前排 109 / 后排 131,攻 + 甲两枚分两行排得下,
                 // 其余战况收「+N」(全量在详情弹窗)。点击目标是整格(≥ 214×109),不受立绘大小影响。
-                // Boss 不缩:跨两列 2×214.5 + 17 = 446,扣 220 立绘仍余 213 给信息列。
-                float portraitSize = crossRow ? BossPortraitSize
+                // Boss 不随 FieldScale 缩。⚠ 2026-10-18 起 Boss / 头领只占 1 列(竖两格):16:9 格宽 ≈ 292,
+                // 220 立绘会把信息列挤到约 58 —— 立绘夹到给信息列留 CrossRowMinInfoWidth(攻 + 甲两枚 chip);
+                // 竖块的完整立绘 / 信息排法待设计稿(spec §6),这里只防溢出。
+                float portraitSize = crossRow
+                    ? Mathf.Min(BossPortraitSize, cellElement.preferredWidth - EnemyBlkInfoGap - CrossRowMinInfoWidth)
                     : (front ? EnemyPortraitFront : EnemyPortraitBack) * FieldScale;
                 float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
                 // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),

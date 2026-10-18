@@ -169,7 +169,10 @@ namespace Brushblade.Core
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
-        public int EmptyLibraryExtraDraws { get; set; } // 广纳/兼收(2026-10-02):回合开始字库为空时掉字数 +N
+        public int EmptyLibraryExtraDraws { get; set; } // 广纳(2026-10-18):回合开始字库 ≤ 1 张时掉字数 +N
+        /// <summary>斩获(spec 2026-10-18 §7):每击杀一名敌人掉 N 张字进字库(缺省 0 = 关,一次随机都不摇)。
+        /// 每回合上限 <see cref="BattleEngine.KillDrawPerTurnCap"/>;满库不掉、不进 DropChoice;抽字走 _traitRandom。</summary>
+        public int KillDraws { get; set; }
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
@@ -399,6 +402,9 @@ namespace Brushblade.Core
                         // 白名单见 StatusCueRules.IsAnnounced。不发:灼(Burn / SummonBurn)、敌人加攻(EnemyBuff)、
                         // 锋芒(MoraleGain)、被拦下的施加(BuffBlocked / DebuffWarded / 冻结静默挡下)、影子引擎。
                         // 恒等指纹与 tools/trace 一律滤掉这条。
+        // ---- 斩首(spec 2026-10-18 §4;⚠ 只在末尾追加)----
+        Behead,         // 头领 / 精英 / Boss 阵亡、场上还有别的存活敌人(TargetIndex = 阵亡者下标)。表现层飘「斩首」;
+                        // 慑本身走紧随其后的 StatusApplied。发在 EnemyDied 之后、慑施加之前。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -561,17 +567,18 @@ namespace Brushblade.Core
         /// 选定长数组而非「紧凑 List + Slot 字段」的理由见 spec §3.1:事件的 SecondIndex、
         /// 表现层的血条引用、存档下标现在三者是同一个数,槽位化后仍是同一个数。</summary>
         private readonly SummonState[] _summons = new SummonState[SummonCap];
-        /// <summary>召唤槽位的**硬上限** = 数组长度(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
+        /// <summary>召唤槽位的**硬上限** = 数组长度(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4;
+        /// 2026-10-18 战场改 3×2:8 → 6 = 前 3 + 后 3)。
         /// 本场**实际可用**几格由 <see cref="BattleConfig.SummonSlots"/> 按层解锁决定,见
         /// <see cref="_slotMask"/> —— 数组多长与本场开着哪几格是两回事,逻辑里要看后者。</summary>
-        private const int SummonCap = 8;
-        private const int FrontRowSize = 4;   // 前排槽位数(2026-08-20;2026-08-27:3 → 4):槽 [0, FrontRowSize) 为前排
-        private const int EnemyCap = 8;  // 场上敌人上限(2026-08-03:4→6;2026-08-27:6→8),分裂怪据此守闸
+        private const int SummonCap = 6;
+        private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20;2026-08-27:3 → 4;2026-10-18:4 → 3):槽 [0, FrontRowSize) 为前排
+        private const int EnemyCap = Targeting.RowCapacity * 2;  // 场上敌人上限 6(2026-08-03:4→6;2026-08-27:6→8;2026-10-18:8→6 = 3 列 × 2 排),分裂怪据此守闸
 
         /// <summary>本场可用的召唤槽位数(2026-08-27 按层解锁)。夹在 [1, SummonCap]。
-        /// 开放的是一组指定位置(见 <see cref="MetaRules.UnlockedSlotMask"/>,1…8 格按层逐格开),
+        /// 开放的是一组指定位置(见 <see cref="MetaRules.UnlockedSlotMask"/>,1…6 格按层逐格开),
         /// 不是从 0 号起的连续前缀 —— 不需要另一套排位规则。</summary>
-        /// 未解锁的槽恒为 null,所以「前排是槽 [0,4)」这条几何**不随解锁变** ——
+        /// 未解锁的槽恒为 null,所以「前排是槽 [0,3)」这条几何**不随解锁变** ——
         /// 排位规则读到的仍是同一段区间,结果逐位相同。
         /// 表现层也靠这条固定几何把未解锁的格子画在它将来该在的那一排。
         private readonly int _slotMask;
@@ -1892,6 +1899,35 @@ namespace Brushblade.Core
             _pendingDrop = null;
             Phase = BattlePhase.PlayerTurn;
             return BattleError.None;
+        }
+
+        /// <summary>斩获每回合至多掉几张(spec 2026-10-18 §7)。计数在 StartTurn 清零:
+        /// 敌人回合与其前一玩家回合共用一个计数。</summary>
+        public const int KillDrawPerTurnCap = 2;
+
+        /// <summary>计数挂在 _traitUsesThisTurn 上:StartTurn 清零、随快照存读,不另开字段。</summary>
+        private const string KillDrawUseKey = "#killdraw";
+
+        /// <summary>斩获:击杀时从已解锁卡池均匀抽 KillDraws 张入库(同回合掉字的抽取范围)。
+        /// 关闭 / 满库 / 本回合已满额时一次随机都不摇;抽字走 _traitRandom,主随机序列不平移。
+        /// 满库直接不掉,不挂 _pendingDrop、不进 DropChoice。
+        ///
+        /// 开场推进(构造函数里的速度预推进)期间的击杀同样走这里,其计数随后被首个 StartTurn 清零 ——
+        /// 即开局那一拍的击杀不占第一回合的额度,开局最多可多拿 <see cref="KillDrawPerTurnCap"/> 张。
+        /// 这是接受的口径(开场击杀本就罕见),不是漏判。</summary>
+        private void GrantKillDraws()
+        {
+            if (_config == null || _config.KillDraws <= 0) return;
+            if (_config.UnlockedChars == null || _config.UnlockedChars.Count == 0) return;
+            var deck = new List<string>(_config.UnlockedChars);   // 同 StartTurn 的掉字口径
+            for (int n = 0; n < _config.KillDraws; n++)
+            {
+                if (_forge.Library.Count >= _config.LibraryCapacity) return;
+                if (!TryUseTrait(KillDrawUseKey, KillDrawPerTurnCap, 0)) return;
+                GrantLibraryChar(deck[_traitRandom.Next(deck.Count)]);
+                // 与回合掉字同一个动画源:表现层按落位下标飞入(敌人回合那批由 SplitOutDrawn 摘出)
+                _events.Add(new BattleEvent(BattleEventKind.CharDrawn, -1, _forge.Library.Count - 1));
+            }
         }
 
         /// <summary>复活补给:把一个字加入当前战斗字库;满库返回 false 不入(守容量上限)。</summary>
@@ -3282,9 +3318,9 @@ namespace Brushblade.Core
             if (_config.UnlockedChars != null && _config.UnlockedChars.Count > 0)
             {
                 var deck = new List<string>(_config.UnlockedChars);
-                // 广纳/兼收(2026-10-02):判在掉字之前 —— 回合开始时字库为空才多掉
+                // 广纳(2026-10-18 改 ≤1):判在掉字之前 —— 回合开始时字库 ≤ 1 张才多掉
                 int drops = _config.DropsPerTurn
-                    + (_forge.Library.Count == 0 ? _config.EmptyLibraryExtraDraws : 0);
+                    + (_forge.Library.Count <= 1 ? _config.EmptyLibraryExtraDraws : 0);
                 for (int i = 0; i < drops; i++)
                 {
                     string pick = deck[_random.Next(deck.Count)];
@@ -5687,7 +5723,7 @@ namespace Brushblade.Core
         /// 2026-08-30 列区间 + 居中往外)。
         ///
         /// 按 _enemies 顺序依次分:先试偏好排,该排**剩余宽度**不够就改判到另一排。
-        /// 判据是宽度不是只数 —— Boss 一只就占满 4 列,按只数算会让小怪叠在它身上。
+        /// 判据是宽度不是只数 —— 跨列的怪一只就占多列,按只数算会让小怪叠在它身上。
         ///
         /// 列号走 <see cref="Targeting.ColumnOrder"/> 的居中往外序,取第一个能放下
         /// 连续 <c>ColumnSpan</c> 列的起点。占满整排的(Span = RowCapacity)只有起点 0 放得下。
@@ -5711,7 +5747,7 @@ namespace Brushblade.Core
                     row = other;
                     column = FreeColumnIn(other, enemy.Def.ColumnSpan, rowSpan);
                 }
-                // 两排都放不下:EnemyCap 8 = 4 + 4 且全员 Span 1 时走不到,
+                // 两排都放不下:EnemyCap 6 = 3 + 3 且全员 Span 1 时走不到,
                 // 但跨列的怪会让「只数没超上限、宽度却超了」成为可能。落到 −1 就把它
                 // 挤在最后一排的 0 列 —— 画面会叠,但下标与列号仍然自洽,不至于崩。
                 enemy.Row = row;
@@ -5887,7 +5923,8 @@ namespace Brushblade.Core
         // 那条问的是「吃不吃护甲」,这条问的是「算不算挥击」,日后出现「穿甲的挥击」时
         // 不该连带把反噬也关掉。
         /// <param name="sameSwing">这一记与上一记落在同一目标上的伤害是同一次挥击
-        /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。</param>
+        /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。
+        /// 2026-10-18 起 Boss 只占 1 列、ExpandTargets 对同一只恒只记一次,形状路径不再产出 true。</param>
         private int DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
@@ -6092,7 +6129,7 @@ namespace Brushblade.Core
         /// 分头写就有走岔的余地。已阵亡的怪**照样占位**(引擎从不移除阵亡敌人),
         /// 与表现层「尸体占格」一致。</summary>
         /// <param name="rowSpan">要放的这只占几排(2026-09-05)。>1 时要求**两排**的同一段列
-        /// 都空 —— 跨排 Boss 的 2×2 占位就是这么落的。</param>
+        /// 都空 —— 跨排 Boss 的 1 列 × 2 排占位就是这么落的。</param>
         private int FreeColumnIn(EnemyRow row, int span, int rowSpan = 1)
         {
             var other = row == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front;
@@ -6133,6 +6170,32 @@ namespace Brushblade.Core
             if (source == EffectSource.Execute) EnqueueCastTraits(_cast.OnExecute, enemyIndex);
             EnqueueBurnBurst(enemyIndex);   // 焚城(D2-火 N6):在余烬转走残层之前读死者的灼
             SpreadEmbers(enemyIndex);
+            Behead(enemyIndex);
+            GrantKillDraws();   // 斩获(2026-10-18):五条致死路径的汇流点,任何来源的击杀都算
+        }
+
+        /// <summary>斩首的慑(spec 2026-10-18 §4):量 30%、2 回合,全局同源(同批多只阵亡取最强、不叠)。</summary>
+        private const int BeheadCursePercent = 30;
+        private const int BeheadCurseTurns = 2;
+        private const string BeheadSourceId = "#behead";
+
+        /// <summary>斩首(spec 2026-10-18 §4):头领 / 精英 / Boss 阵亡 → 其余存活敌人挂慑。
+        /// 挂在 <see cref="ResolveDefeat"/>(五条死亡路径汇流点,同 <see cref="SpreadEmbers"/>);Boss 破阶不走这里。
+        /// 场上没有别的存活敌人时不施加、不播报。不摇随机数。</summary>
+        private void Behead(int enemyIndex)
+        {
+            if (_enemies[enemyIndex].Def.Tier == EnemyTier.Minion) return;
+            if (!_enemies.Any(e => e.Alive)) return;
+            _events.Add(new BattleEvent(BattleEventKind.Behead, enemyIndex, 0));
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                if (!_enemies[i].Alive) continue;
+                ApplyStatus(_enemies[i].Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                    Magnitude = BeheadCursePercent, TurnsLeft = BeheadCurseTurns, SourceId = BeheadSourceId,
+                }, UnitRef.Enemy(i), UnitRef.None);
+            }
         }
 
         /// <summary>火脉 L2「余烬」(spec 2026-09-13 §2.2):死者身上剩余的灼烧层数
