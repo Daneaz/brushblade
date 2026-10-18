@@ -3400,7 +3400,7 @@ namespace Brushblade.Presentation
                 cellElement.preferredWidth = EnemyCellW * span + RowGap * (span - 1);
                 // 单列格的立绘随格宽同比缩(FieldScale,基准机 = 1;16:9 ≈ 0.73 → 前排 92 / 后排 70),
                 // 字号不缩。不缩立绘的话 16:9 前排信息列只剩 214.5 − 126 − 13 ≈ 75,一枚三位数的
-                // 「射程+攻」chip(76)就放不下;缩后前排 109 / 后排 131,攻 + 甲两枚分两行排得下,
+                // 「射程+攻」chip(76,2026-10-18 半角口径后 56)就放不下;缩后前排 109 / 后排 131,攻 + 甲两枚分两行排得下,
                 // 其余战况收「+N」(全量在详情弹窗)。点击目标是整格(≥ 214×109),不受立绘大小影响。
                 // Boss 不缩:跨两列 2×214.5 + 17 = 446,扣 220 立绘仍余 213 给信息列。
                 float portraitSize = crossRow ? BossPortraitSize

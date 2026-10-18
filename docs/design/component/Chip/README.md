@@ -1,7 +1,7 @@
 小胶囊标签：状态、计数、不可逆告警、红点；实现是 `Ui.Chip`（今天在 `Ui.cs:375`），圆角恒 14 逻辑单位（`Theme.Rounded(14)`，≈6.7pt）—— 是定值圆角，不是高度一半，20 号字的页头 chip（高 32）看得出四角是圆角矩形而非全胶囊。
 
 ## 尺寸是文本的纯函数
-宽 = 字数 × 字号 + padX（带图标再加 `Icons.Size` 18 + `Icons.Gap` 3），高 = 字号 + padY（`Ui.ChipWidth` / `Ui.ChipHeight`）。
+宽 = 文字估算宽 + padX（全角一个字号、数字字母等半角 0.55 个字号，同 `Ui.EstimateWidth`，2026-10-18 起）（带图标再加 `Icons.Size` 18 + `Icons.Gap` 3），高 = 字号 + padY（`Ui.ChipWidth` / `Ui.ChipHeight`）。
 `Ui.ChipFlow` 因此能在建对象之前排好行，不用测量、不用等一帧布局。默认 padX 18 / padY 12（`Ui.ChipPadX` / `Ui.ChipPadY`），默认字号 14。
 
 | 档 | 字号 / padX / padY | 用在哪 | 调用点 |

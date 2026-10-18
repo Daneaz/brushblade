@@ -460,9 +460,11 @@ namespace Brushblade.Presentation
         public const int ChipPadY = 12;
 
         /// <summary>chip 尺寸是文本的纯函数 —— <see cref="ChipFlow"/> 要在建对象之前就把行排好,
-        /// 靠的就是这两个函数,不需要任何测量或等一帧布局。</summary>
+        /// 靠的就是这两个函数,不需要任何测量或等一帧布局。
+        /// 文字宽同 <see cref="EstimateWidth"/>:全角一个字号、半角(数字字母)0.55 个字号(2026-10-18:此前按「字数 × 字号」,
+        /// 数字也算全角,三位数 chip 白多 20 宽 —— 小怪攻 + 甲两枚三位数在基准机前排挤成两行)。</summary>
         public static float ChipWidth(string text, int fontSize, int padX = ChipPadX) =>
-            text.Length * fontSize + padX;
+            EstimateWidth(text, fontSize) + padX;
 
         public static float ChipHeight(int fontSize, int padY = ChipPadY) => fontSize + padY;
 
