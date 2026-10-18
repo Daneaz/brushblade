@@ -1,0 +1,123 @@
+/* 战场 3×2 · 设计稿样式。:root 段与 traits / counterfx 同源(tokens.json 原值抄录),token 名一一对应。
+   单位:稿面 pt(CSS px = pt);Unity 逻辑单位 = pt × 2.093。 */
+:root {
+  --paper: #F6F1E7; --panel-paper: #FBF8F1; --panel-inset: #F1EBDE; --card-face: #FFFDF7;
+  --paper-card: rgba(255,254,249,0.62); --paper-dim: #DED7C9; --panel-border: #DED7C9; --quiet: #E4DDCE;
+  --ink-bar: #EFEADF; --locked-bg: #DAD7D0; --locked-paper: #EFEAE0; --locked-glyph: #8E8675;
+  --node-rail: #E0D9CB; --text-main: #161B22; --text-quiet: #2C333D; --text-dim: #5D646F;
+  --text-faint: #676F7A; --text-mute: #928B7B; --text-warm: #696151; --ink: #11161F;
+  --ink-soft: #3D4E69; --neutral-part: #4F5661; --ingot-dark: #1A1F2B; --cinnabar: #C53637;
+  --cinnabar-dark: #9B1E22; --warn-bg: #FBE3E2; --warn-text: #9B1E22; --jade: #34864B;
+  --done-green: #298646; --ad-green: #3B9555; --ad-green-bg: #E3F4E6; --ad-green-text: #0B5D2A;
+  --upgrade-text: #1B552C; --gold: #CA9D33; --gold-border: #8F6B09; --gold-text: #402900;
+  --gold-soft: #F6EDD5; --gold-deep: #8A6600; --ingot-gold: #9D7B2A; --silver: #A9AFB8;
+  --exit-pink: #7A3F5C; --shop-nav: #A05337; --split-blue: #194F81; --shield-blue: #19507F;
+  --scrim: rgba(22,27,34,0.55); --scrim-soft: rgba(22,27,34,0.42); --scrim-paper: rgba(246,241,231,0.72); --shadow-ink: rgba(22,27,34,0.08);
+  --metal: #B3A381; --metal-soft: #EEE3CF; --metal-fg: #64532C; --metal-glyph: #6B6449;
+  --wood: #348F4F; --wood-soft: #CCE6D0; --wood-fg: #195C2E; --wood-glyph: #1F6333;
+  --water: #0F74C5; --water-soft: #C8E1FB; --water-fg: #0E4F86; --water-glyph: #0A5E9E;
+  --fire: #C53637; --fire-soft: #FED2CE; --fire-fg: #862726; --fire-glyph: #B02D2E;
+  --earth: #8F7332; --earth-soft: #ECDCBD; --earth-fg: #634800; --earth-glyph: #82552A;
+  --heart: #9750A7; --heart-soft: #ECD5F1; --heart-fg: #673672; --heart-glyph: #7E4190;
+  --rarity-white: #A19E97; --rarity-white-soft: #EDEAE3; --rarity-green: #2E9E52; --rarity-green-soft: #E2F2E7;
+  --rarity-blue: #0F74C5; --rarity-blue-soft: #DEEAF7; --rarity-purple: #7945AB; --rarity-purple-soft: #EBE2F5;
+  --rarity-gold: #C9A94A; --rarity-gold-soft: #F6EDD5; --rarity-orange: #E1791B; --rarity-orange-soft: #FAE7D3;
+  --rarity-red: #CD272E; --rarity-red-soft: #F9DFDF; --tab-deck-bg: #E9F0F5; --tab-deck-border: #9FC1E2;
+  --tab-deck-fg: #0E4F86; --tab-bestiary-bg: #EBF2E6; --tab-bestiary-border: #A5C8AD; --tab-bestiary-fg: #195C2E;
+  --tab-perks-bg: #F6ECF1; --tab-perks-border: #CFB2D5; --tab-perks-fg: #673672; --tab-shop-bg: #F1E6DC;
+  --tab-shop-border: #D0AB9A; --tab-shop-fg: #A05337; --band-zilin: #6B9461; --band-ciyuan: #5C7AA3;
+  --band-wenshan: #A88557; --band-mohai: #47526B;
+  --radius-bar: 2px; --radius-mini: 5px; --radius-tile: 7px; --radius-box: 8px; --radius-card: 9px; --radius-panel: 10px; --radius-sheet: 12px;
+  --shadow-card: 0 2px 6px rgba(22,27,34,0.08); --shadow-cta: 0 3px 10px rgba(155,30,34,0.26); --shadow-cta-lg: 0 4px 12px rgba(155,30,34,0.28); --ring-selected: 0 0 0 2px rgba(22,27,34,0.18); --halo-new: 0 0 0 2px rgba(201,169,74,0.5), 0 0 12px 3px rgba(201,169,74,0.34); --ring-reddot: 0 0 0 1.5px #F6F1E7;
+}
+
+/* ================= 基础 ================= */
+body { margin: 0; }
+sc-for, sc-if { display: contents; }
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+.grow { flex: 1; }
+i { font-style: normal; }
+.e-Metal { --el: var(--metal); --elSoft: var(--metal-soft); --elFg: var(--metal-fg); --glyph: var(--metal-glyph); }
+.e-Wood  { --el: var(--wood);  --elSoft: var(--wood-soft);  --elFg: var(--wood-fg);  --glyph: var(--wood-glyph); }
+.e-Water { --el: var(--water); --elSoft: var(--water-soft); --elFg: var(--water-fg); --glyph: var(--water-glyph); }
+.e-Fire  { --el: var(--fire);  --elSoft: var(--fire-soft);  --elFg: var(--fire-fg);  --glyph: var(--fire-glyph); }
+.e-Earth { --el: var(--earth); --elSoft: var(--earth-soft); --elFg: var(--earth-fg); --glyph: var(--earth-glyph); }
+
+/* ================= 状态 chip(单位格档 15/10/5 → 字 7.17 / padX 4.78 / 高 9.56pt;宽由脚本按 Ui.ChipWidth 写死) ================= */
+.sc { flex: none; box-sizing: border-box; height: 9.56px; padding: 0 2.39px; border-radius: 4.78px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 1.43px; color: #fff; font-size: 7.17px; line-height: 1;
+  white-space: nowrap; font-variant-numeric: tabular-nums; font-family: "Noto Sans SC", sans-serif; }
+.sc svg { width: 8.6px; height: 8.6px; flex: none; }
+.sc.k-dot   { background: var(--cinnabar); }
+.sc.k-ctrl  { background: var(--ink-soft); }
+.sc.k-heal  { background: var(--jade); }
+.sc.k-gold  { background: var(--gold); color: var(--gold-text); }
+.sc.k-frost { background: var(--water-glyph); }
+.sc.k-atk   { background: var(--paper-dim); color: var(--text-main); }
+.sc.k-count { background: var(--paper-dim); color: var(--text-dim); padding: 0 .96px; }
+
+/* ================= ★ 档位签(本稿新增):宋体粗字、纸底描边、方角 —— 「这是谁」 =================
+   与战况 chip 三处分开:① 纸底 + 描边(战况 chip 一律实底、不描边);② 方角 1pt(战况 chip 胶囊);③ 宋体(战况 chip 黑体)。
+   字 13 → 6.21pt,padX 8 → 3.82pt,高 18 → 8.6pt,描边 1.5 → .72pt。 */
+.tier { flex: none; box-sizing: border-box; height: 8.6px; padding: 0 1.91px; border-radius: 1px; background: var(--panel-paper);
+  box-shadow: inset 0 0 0 .72px currentColor; display: inline-flex; align-items: center; justify-content: center;
+  font-family: "Noto Serif SC", "Songti SC", serif; font-weight: 700; font-size: 6.21px; line-height: 1; white-space: nowrap; letter-spacing: 0; }
+.tier.t-minion { color: var(--text-dim); }
+.tier.t-leader { color: var(--ink-soft); }
+.tier.t-elite  { color: var(--gold-deep); }
+.tier.t-boss   { color: var(--cinnabar-dark); }
+
+/* ================= 战场 ================= */
+.field { position: relative; margin: 0 auto; }
+.u { position: absolute; box-sizing: border-box; display: flex; align-items: center; }
+.u .pt { position: relative; flex: none; }
+.u .pt img, .u .pt .ly, .bpt .ly { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.u .pt .ly, .bpt .ly { background-size: contain; background-repeat: no-repeat; background-position: center; -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
+.foe { gap: 6.21px; }
+.ally { gap: 4.78px; }
+.inf { flex: none; display: flex; flex-direction: column; gap: 1.91px; min-width: 0; }
+.hd { display: flex; align-items: center; gap: 2.87px; height: 11.47px; }
+.hd .nm { font-family: "Noto Serif SC", serif; font-size: 9.08px; font-weight: 600; white-space: nowrap; color: var(--text-main); }
+.hd .eb { height: 9.56px; padding: 0 2.39px; border-radius: 2.39px; background: var(--glyph); color: #fff; font-size: 7.17px; display: inline-flex; align-items: center; }
+.scs { display: flex; flex-direction: column; gap: 1.43px; }
+.ln { display: flex; gap: 1.91px; }
+.hpb { position: relative; height: 9.08px; border-radius: 4.54px; background: var(--paper-dim); overflow: hidden; }
+.hpb > span { display: block; height: 100%; background: var(--cinnabar); }
+.hpb > u { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-decoration: none;
+  font-size: 6.2px; color: #fff; font-weight: 700; -webkit-text-stroke: .35px rgba(22,27,34,.6); font-variant-numeric: tabular-nums; }
+.atb { position: relative; height: 2.87px; border-radius: 1.4px; background: var(--paper-dim); overflow: hidden; }
+.atb > span { display: block; height: 100%; background: var(--ink-soft); }
+.atb.soon > span { background: var(--cinnabar); }
+.ally .hpb { height: 8.12px; } .ally .hpb > span { background: var(--jade); }
+.atb.ally { height: 7.17px; border-radius: 3.6px; }
+.atb.ally.soon > span { background: var(--jade); }
+.atb > u { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 6.21px; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.ally .pt { border-radius: 6.69px; background: var(--elSoft); display: flex; align-items: center; justify-content: center;
+  font-family: "Noto Sans SC", sans-serif; font-weight: 500; color: var(--elFg); line-height: 1; }
+.slot { position: absolute; box-sizing: border-box; border: .96px solid var(--paper-dim); border-radius: 5.73px; opacity: .45; }
+.sslot { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.sslot.locked { border-radius: 5.73px; background: rgba(22,27,34,.05); color: var(--text-mute); font-size: 7.17px; letter-spacing: .5px; }
+.divider { position: absolute; left: 0; right: 0; height: 1px; background: var(--panel-border); }
+.sbadge { position: absolute; left: -1px; bottom: -1px; height: 9.56px; padding: 0 2.4px 0 1.5px; border-radius: 4.78px; background: var(--gold); color: var(--gold-text);
+  font-size: 6.69px; font-weight: 700; display: inline-flex; align-items: center; gap: 1px; font-variant-numeric: tabular-nums; z-index: 3; }
+.sbadge svg { width: 7px; height: 7px; }
+
+/* ================= ★ 竖块(Boss / 精英 / 头领:1 列 × 2 排) =================
+   头行全宽 → 立绘 172 + 右栏(攻 / 甲 + 血条 + 行动条,贴立绘底)→ 全宽 chip 流 2 行。 */
+.blk { flex-direction: column; align-items: stretch; gap: 1.91px; padding: 0; }
+.blk .hd { flex: none; }
+.blk .bbody { flex: none; display: flex; gap: 6.21px; align-items: stretch; }
+.blk .side { flex: none; display: flex; flex-direction: column; gap: 1.91px; }
+.blk .scs.low { flex: none; }
+.bpt { position: relative; flex: none; }
+.bpt.leader { display: flex; align-items: center; justify-content: center; }
+.bpt.leader::after { content: "立绘待生成 · 1:1"; position: absolute; left: 0; right: 0; bottom: 3px; text-align: center; font-size: 5.5px; color: var(--text-faint); letter-spacing: .5px; }
+.bpt.leader .lg { position: absolute; font-family: "Noto Serif SC", serif; font-weight: 700; line-height: 1; font-size: 50px; }
+.bpt.leader .lg0 { left: 9%; top: 10%; color: color-mix(in srgb, var(--ink) 88%, transparent); transform: rotate(-8deg); }
+.bpt.leader .lg1 { right: 7%; bottom: 13%; color: var(--glyph); transform: rotate(6deg); mix-blend-mode: multiply; }
+.bpt.leader .ring { position: absolute; inset: 4%; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--glyph) 40%, transparent); }
+
+/* ================= 标注层 ================= */
+.guided .u, .show-guides .u { outline: .6px dashed rgba(197,54,55,.45); outline-offset: -.3px; }
+.show-guides .inf, .show-guides .side, .show-guides .scs.low { outline: .6px dotted rgba(15,116,197,.6); }
+.show-guides .pt, .show-guides .bpt { outline: .6px dotted rgba(52,134,75,.7); }

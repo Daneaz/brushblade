@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./data.js"></script>
+  <script src="./corpse.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./corpse.css">
+  <style>
+    /* 木灵尸体标识 · 七态 × 两档屏宽。召唤格按 battlegrid(已落地)尺寸;敌方区与执笔人条画成灰块。 */
+    .wrap { position: relative; width: 932px; height: 470px; background: #E9E3D6; font-family: "Noto Sans SC", "PingFang SC", sans-serif; color: var(--text-main); }
+    .stage { position: relative; width: 932px; height: 360px; background: color-mix(in srgb, var(--paper) 87.5%, var(--band-mohai)); overflow: hidden; }
+    .col { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); }
+    .ph { position: absolute; left: 0; right: 0; border-radius: 8px; background: repeating-linear-gradient(135deg, rgba(22,27,34,.035) 0 4px, transparent 4px 8px); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--text-mute); letter-spacing: 1px; }
+    .sumf { position: absolute; left: 0; top: 108px; }
+    .edge { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(197,54,55,.25); }
+
+    .cell { position: absolute; box-sizing: border-box; display: flex; align-items: flex-start; gap: 4.78px; }
+    .cell.hide > * { display: none; }
+    .cell .pt { flex: none; border-radius: 6.69px; background: var(--elSoft); display: flex; align-items: center; justify-content: center; color: var(--elFg); font-family: "Noto Sans SC", sans-serif; font-weight: 500; line-height: 1; }
+    .cell .inf { flex: none; display: flex; flex-direction: column; gap: 1.91px; }
+    .cell .hd .tag { font-size: 6.21px; color: var(--text-faint); letter-spacing: .5px; }
+    .cell .ln { display: flex; gap: 1.91px; }
+    .sc.k-dead { background: var(--locked-bg); color: var(--text-dim); }
+    .hpb .prev { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(52,134,75,.42) 0 2px, rgba(52,134,75,.22) 2px 4px); }
+    .hpb.dead > u { color: var(--text-faint); -webkit-text-stroke: 0; }
+    .hpb.dead.rev > u { color: var(--text-main); -webkit-text-stroke: 0; font-weight: 700; }
+    .actph { height: 7.17px; }
+    /* ★ 尸体:立绘 LockedBg + 灰字形;名字 text-dim;属性徽章保留原色(身份);「阵亡」text-faint */
+    .corpse .pt { background: var(--locked-bg); color: var(--text-faint); }
+    .corpse .hd .nm { color: var(--text-dim); }
+    .corpse.faint .scs, .corpse.faint .hpb, .corpse.faint .actph { display: none; }
+    .corpse.faint { opacity: .5; }
+    .hint { font-size: 7.5px; color: var(--wood-fg); white-space: nowrap; height: 9.56px; display: flex; align-items: center; }
+    .hint.warn { color: var(--cinnabar-dark); font-weight: 500; }
+    /* 落点层(同 FaceMark):底色 5% / 9% 墨,翠玉 10%;描环 1.5 / 2.5pt,色 = 朝上那面的字形色;点选态翠玉环 */
+    .tint, .ring { position: absolute; inset: 0; border-radius: 5.73px; pointer-events: none; }
+    .tint { background: rgba(17,22,31,.05); } .tint.hov { background: rgba(17,22,31,.09); }
+    .tint.jade { background: rgba(52,134,75,.10); }
+    .ring { box-shadow: inset 0 0 0 1.43px var(--rc); }
+    .ring.hov { box-shadow: inset 0 0 0 2.39px var(--rc); }
+    .ring.pick { --rc: var(--jade); }
+    .ring.w-Water { --rc: var(--water-glyph); } .ring.w-Wood { --rc: var(--wood-glyph); }
+    /* 预估签(同 BuildEstimateLabel):墨底白字 15 → 7.17pt,padX 20,高 27 → 12.9pt,探出格顶 19 → 9.08pt */
+    .sign { position: absolute; left: 50%; top: -9.08px; height: 12.9px; transform: translateX(-50%); border-radius: 6.45px; background: var(--ink); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 7.17px; white-space: nowrap; z-index: 5; }
+    .sign i { color: rgba(255,255,255,.55); font-style: normal; }
+    /* 空位(选位态才画) */
+    .empty { position: absolute; box-sizing: border-box; }
+    .empty .gh { position: absolute; border-radius: 5.73px; background: rgba(61,78,105,.12); }
+    .empty .tint { background: rgba(52,134,75,.10); }
+    .empty .lab { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 7.5px; color: var(--wood-fg); }
+
+    .hand { position: absolute; left: 0; display: flex; gap: 3.82px; align-items: flex-end; }
+    .hand .cap { width: 45.87px; font-size: 6.69px; color: var(--text-dim); align-self: center; }
+    .tile { width: 45.87px; height: 55.9px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid var(--rarity-green); background: var(--card-face); display: flex; justify-content: center; }
+    .tile b { margin-top: 9px; font-family: "Noto Serif SC", serif; font-size: 19.11px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .tile.sel { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); transform: translateY(-4px); }
+    .tile.back { background: var(--elSoft); }
+    .tile.ghostdrag { opacity: .35; }
+    .drag { position: absolute; width: 45.87px; height: 55.9px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid var(--ink); background: var(--elSoft); display: flex; justify-content: center; box-shadow: 0 6px 14px rgba(22,27,34,.3); transform: rotate(-4deg); z-index: 9; }
+    .drag b { margin-top: 9px; font-family: "Noto Serif SC", serif; font-size: 19.11px; font-weight: 600; line-height: 1; color: var(--glyph); }
+
+    .ctl { display: flex; align-items: center; gap: 4px; padding: 0 12px; height: 28px; font-size: 9px; color: var(--text-dim); }
+    .ctl .lb { color: var(--text-faint); margin-right: 2px; } .ctl .sp { width: 8px; }
+    .ctl button { height: 19px; padding: 0 7px; border: none; border-radius: 10px; background: var(--locked-bg); color: var(--text-quiet); font-size: 8.5px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: var(--ink-soft); color: #fff; }
+    .note { position: absolute; left: 14px; right: 14px; bottom: 6px; font-size: 8.5px; color: var(--text-warm); line-height: 1.5; }
+    .tagw { position: absolute; right: 6px; top: 4px; font-size: 8px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; z-index: 20; }
+  </style>
+</helmet>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="tagw">{{ wLabel }}</div>
+    <div class="col" style="{{ colStyle }}">
+      <i class="edge" style="left:0"></i><i class="edge" style="right:0"></i>
+      <div class="ph" style="top:10px;height:86px">敌方区 3 × 2</div>
+      <div class="ph" style="top:100px;height:1px;background:var(--panel-border)"></div>
+      <div class="sumf" style="{{ sumStyle }}">
+        <sc-for list="{{ m.empties }}" as="e">
+          <div class="empty" style="{{ e.style }}">
+            <sc-if value="{{ e.on }}" hint-placeholder-val="{{ false }}"><i class="tint"></i><i class="gh" style="{{ e.ghStyle }}"></i></sc-if>
+            <sc-for list="{{ e.label }}" as="l"><span class="lab">{{ l }}</span></sc-for>
+            <sc-for list="{{ e.ring }}" as="r"><i class="{{ r.cls }}"></i></sc-for>
+          </div>
+        </sc-for>
+        <sc-for list="{{ m.cells }}" as="c">
+          <div class="{{ c.cls }}" style="{{ c.style }}">
+            <sc-for list="{{ c.tint }}" as="t"><i class="{{ t.cls }}"></i></sc-for>
+            <div class="pt" style="{{ c.ptStyle }}">{{ c.g }}</div>
+            <div class="inf" style="{{ c.infStyle }}">
+              <div class="hd"><b class="nm">{{ c.g }}</b><i class="eb">{{ c.eln }}</i><sc-for list="{{ c.tag }}" as="t"><span class="tag">{{ t }}</span></sc-for></div>
+              <div class="scs"><div class="ln"><sc-for list="{{ c.chips }}" as="x"><i class="{{ x.cls }}" style="{{ x.style }}"><svg viewBox="0 0 64 64"><use href="{{ x.href }}"></use></svg>{{ x.t }}</i></sc-for><sc-for list="{{ c.hint }}" as="h"><span class="{{ h.cls }}">{{ h.t }}</span></sc-for></div></div>
+              <div class="{{ c.hpCls }}"><span style="{{ c.hpFill }}"></span><i class="prev" style="{{ c.hpPrev }}"></i><u>{{ c.hpTxt }}</u></div>
+              <div class="{{ c.actCls }}"><span style="width:62%"></span></div>
+            </div>
+            <sc-for list="{{ c.ring }}" as="r"><i class="{{ r.cls }}"></i></sc-for>
+            <sc-for list="{{ c.sign }}" as="s"><span class="sign" style="{{ s.style }}">{{ s.main }}<i>{{ s.dim }}</i></span></sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div class="ph" style="top:322px;height:24px">执笔人条</div>
+    </div>
+    <sc-for list="{{ handRow }}" as="h"><div class="hand" style="{{ h.style }}"><span class="cap">字库 5/10</span><sc-for list="{{ h.tiles }}" as="t"><div class="{{ t.cls }}"><b>{{ t.g }}</b></div></sc-for></div></sc-for>
+    <sc-for list="{{ dragTile }}" as="d"><div class="{{ d.cls }}" style="{{ d.style }}"><b>{{ d.g }}</b></div></sc-for>
+  </div>
+  <div class="ctl">
+    <span class="lb">态</span>
+    <sc-for list="{{ sBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  </div>
+  <div class="ctl">
+    <span class="lb">屏宽</span>
+    <sc-for list="{{ wBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">字库有复活字</span>
+    <sc-for list="{{ rBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  </div>
+  <div class="note">{{ note }}</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 470}}'>
+var CP = window.CP;
+function css(o) { return Object.keys(o).map(function (k) { return k + ':' + (typeof o[k] === 'number' ? o[k] + 'px' : o[k]); }).join(';'); }
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { s: 'drag', w: 'narrow', rev: null }; }
+  renderVals() {
+    var self = this, s = this.state, S = CP.STATES[s.s];
+    var revOn = s.rev == null ? !!S.revInHand : s.rev;
+    var m = CP.model(s.w, s.s, s.rev);
+    m.cells.forEach(function (c) {
+      c.style = css(c.box); c.ptStyle = css(c.ptS); c.infStyle = 'width:' + c.infW + 'px';
+      c.chips = c.chips.map(function (x) { return { cls: 'sc ' + x.k, t: x.t, href: '#ic-' + x.ic, style: 'width:' + CP.pt(CP.chipW(x.t, x.ic)) + 'px' }; });
+      c.hpCls = 'hpb' + (c.cls.indexOf('corpse') >= 0 ? ' dead' + (c.hp && c.hp.prev ? ' rev' : '') : '');
+      c.hpFill = c.hp ? 'width:' + c.hp.fill : 'width:0';
+      c.hpPrev = c.hp && c.hp.prev ? 'width:' + c.hp.prev : 'display:none';
+      c.hpTxt = c.hp ? c.hp.txt : '';
+      c.actCls = c.act ? 'atb ally' : 'actph';
+      c.sign = c.sign.map(function (g) { return { main: g.main, dim: g.dim, style: 'width:' + g.w + 'px' }; });
+    });
+    m.empties.forEach(function (e) { e.style = css(e.box); e.ghStyle = css(e.ghostS); });
+    var cardK = S.card, card = cardK ? CP.CARDS[cardK] : null;
+    var lib = [['冻', 'Water'], ['锋', 'Metal'], [revOn ? '沐' : '炎', revOn ? 'Water' : 'Fire'], ['林', 'Wood'], ['垒', 'Earth']];
+    if (card && lib.every(function (l) { return l[0] !== card.g; })) lib[2] = [card.g, card.el];
+    var colW = m.fieldW;
+    var handX = (932 - colW) / 2;
+    var selI = card ? lib.findIndex(function (l) { return l[0] === card.g; }) : -1;
+    var tiles = lib.map(function (l, i) { return { g: l[0], cls: 'tile e-' + l[1] + (i === selI ? (S.drag ? ' ghostdrag back' : ' sel back') : '') }; });
+    var dragTile = [];
+    if (S.drag && card) {
+      var hc = m.cells.filter(function (c) { return c.sign.length; })[0];
+      var b = hc ? hc.box : { left: 0, top: 0, width: 100, height: 50 };
+      dragTile = [{ g: card.g, cls: 'drag e-' + card.el, style: css({ left: handX + b.left + b.width * .55, top: 108 + b.top + b.height + 6 }) }];
+    }
+    var over = m.audits.filter(function (a) { return a.w > a.cell; });
+    return {
+      m: m, wLabel: CP.WIDTHS[s.w].label,
+      colStyle: 'width:' + colW + 'px', sumStyle: 'width:' + colW + 'px;height:' + m.height + 'px',
+      handRow: [{ style: css({ left: handX, top: 238 + 0 }), tiles: tiles }].map(function (h) { h.style = css({ left: handX, top: 262 }); return h; }),
+      dragTile: dragTile,
+      note: S.note + (over.length ? ' ⚠ 超宽:' + over.map(function (a) { return a.who; }).join('、') : ''),
+      sBtns: Object.keys(CP.STATES).map(function (k) { return { n: CP.STATES[k].n, cls: k === s.s ? 'on' : '', pick: function () { self.setState({ s: k, rev: null }); } }; }),
+      wBtns: Object.keys(CP.WIDTHS).map(function (k) { return { n: CP.WIDTHS[k].n, cls: k === s.w ? 'on' : '', pick: function () { self.setState({ w: k }); } }; }),
+      rBtns: [['否', false], ['是', true]].map(function (o) { return { n: o[0], cls: revOn === o[1] ? 'on' : '', pick: function () { self.setState({ rev: o[1] }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

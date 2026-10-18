@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./corpse.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./corpse.css">
+  <style>
+    .board { width: 1320px; height: 520px; box-sizing: border-box; padding: 24px 28px; background: var(--paper); color: var(--text-main);
+      font-family: "Noto Sans SC", "PingFang SC", sans-serif; display: grid; grid-template-columns: 1fr 1fr; gap: 22px 32px; align-content: start; }
+    h2 { grid-column: 1 / -1; margin: 0; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: var(--text-quiet); letter-spacing: 1px; }
+    p, li { font-size: 10px; line-height: 1.65; color: var(--text-quiet); margin: 0; }
+    ul { margin: 2px 0 0; padding-left: 16px; }
+    b.k { color: var(--cinnabar-dark); }
+    table { border-collapse: collapse; font-size: 9.5px; font-variant-numeric: tabular-nums; width: 100%; }
+    th { text-align: left; font-weight: 600; color: var(--text-dim); padding: 4px 7px; border-bottom: 1px solid var(--panel-border); white-space: nowrap; }
+    td { padding: 4px 7px; border-bottom: 1px solid #ECE6D9; vertical-align: top; }
+    td.k { font-weight: 600; color: var(--text-quiet); white-space: nowrap; }
+    td.ok { color: var(--jade); font-weight: 600; } td.bad { color: var(--cinnabar-dark); font-weight: 700; }
+    .full { grid-column: 1 / -1; }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>木灵尸体标识 · 规格</h2>
+
+  <div>
+    <h3>① 尸体格长什么样</h3>
+    <ul>
+      <li><b>结构与活木灵同构</b>(立绘在左、信息列在右),玩家一眼认得「这格是林」:
+        立绘块 <code>locked-bg</code> + 字形 <code>text-faint</code>(同现状);头行 = 字名(<code>text-dim</code>)+ <b>属性徽章保留原色</b>(身份,嫁接换过属性就显示换后的)+「阵亡」<code>text-faint</code> 13 号。</li>
+      <li>chip 行:攻 + 本命,一律压成 <code>locked-bg</code> 底 <code>text-dim</code> 图标 —— 本命图标形状不变,认得出是盾反 / 附灼。</li>
+      <li>血条:空轨 + 「0/上限」;行动条位置留白(不画,保持格高不跳)。</li>
+      <li><b>常显规则</b>:字库里有带复活的面(<code>BattleEngine.HasRevive</code> 扫字库)→ 平时常显淡态(只画立绘 + 头行,α .5);没有 → 同现状什么都不画。
+        这样「这里有一只能救」只在你真能救时提醒,平时不添噪音。</li>
+      <li>选目标 / 拖放 / 召唤选位这些态 → 全量显示(不淡)。</li>
+    </ul>
+  </div>
+
+  <div>
+    <h3>② 复活:签与预演</h3>
+    <ul>
+      <li><b>点选</b>(点了沐「苏」):可救的尸体铺翠玉 10% + 翠玉描环 1.5pt;<b>血条里预演复活血量</b>:翠玉斜纹填到 ⌈上限 × N%⌉,叠字「→ 75/150」(text-main 粗)。</li>
+      <li><b>拖放</b>:所有可救尸体挂落点(描环 = 朝上那面的字形色、5% / 9% 墨底,同现有 FaceMark);悬停那只挂预估签
+        「<b>复活 林 · 生命 75</b> · 盾反」—— 签会压住头行,所以签里重写字名;本命名作第二段压浅(白 55%)。</li>
+      <li><b>复活全部</b>(㵘):悬停任一具,所有可救尸体一起加深(同全体面);签「复活全部 · 2 只」。受存活上限截断时写实际只数。</li>
+      <li><b>复活带回什么</b>(Core <code>ReviveAt</code>):字、属性(含嫁接后的)、攻击、生命上限、本命 —— 原样回来;血 = ⌈上限 × N%⌉(沐 50%、㵘 60%;0 = 半血);<b>护盾清零、行动条从 0 攒</b>。
+        详情弹窗(长按尸体)写全这句:「复活后:生命 75/150,本命盾反照旧;护盾与行动条清零」。</li>
+      <li>⚠ 请实现方核对:阵亡时身上的状态(格挡 / 战意 / 灼…)是否随死亡清空;若不清,复活会带回,签与详情要改口。</li>
+    </ul>
+  </div>
+
+  <div>
+    <h3>③ 召唤到尸体格</h3>
+    <ul>
+      <li><b>选位</b>:真空位照旧「淡墨块 + 召唤到这里」;尸体格保留身份(立绘 + 头行),chip 行换成一句提示:
+        「召唤到这里会覆盖它」(<code>wood-fg</code>);<b>字库里有复活字时</b>换成「<b class="k">覆盖后无法复活</b>」(<code>cinnabar-dark</code>)—— 只在真会损失时才警告。</li>
+      <li><b>拖生面悬停尸体格</b>:预估签「<b>覆盖 林</b>」,有复活字时接第二段「 · 无法再复活」(压浅)。描环翠玉 / 木字形色同现状。</li>
+      <li>建议:Core 自动落位已是「先真空位、再尸体」(<code>NextEmptySlot</code>);选位态里空位与尸体的翠玉底同深,文案已区分,不另加层级。</li>
+      <li>新文案(进字符串表,重跑字体子集):<code>battle.corpse.tag</code>「阵亡」· <code>battle.corpse.overwrite</code>「召唤到这里会覆盖它」· <code>battle.corpse.overwrite_warn</code>「覆盖后无法复活」·
+        <code>battle.estimate.revive</code>「复活 {name} · 生命 {n}」· <code>battle.estimate.revive_all</code>「复活全部 · {n} 只」· <code>battle.landing.overwrite</code>「覆盖 {name}」· <code>battle.landing.overwrite_warn</code>「无法再复活」。</li>
+    </ul>
+  </div>
+
+  <div>
+    <h3>④ 两档屏宽验算(逻辑单位)</h3>
+    <table>
+      <tr><th>项</th><th>需要</th><sc-for list="{{ heads }}" as="h"><th>{{ h }}</th></sc-for></tr>
+      <sc-for list="{{ rows }}" as="r"><tr><td class="k">{{ r.n }}</td><td>{{ r.need }}</td><sc-for list="{{ r.cells }}" as="c"><td class="{{ c.cls }}">{{ c.t }}</td></sc-for></tr></sc-for>
+    </table>
+    <p style="margin-top:6px;font-size:9px;color:var(--text-warm)">格宽 396.3 / 291.7;前排 113 高(立绘 100,信息列 = 格宽 − 110)、后排 88 高(立绘 75,信息列 = 格宽 − 85)。
+      纵向同活木灵(头行 24 + chip 20 + 血 17 + 行动 15 + 间距 = 前排 111 ≤ 113;后排 chip 1 行同样成立)。签宽 = 估算字宽 + 20,挂在格上沿居中,≤ 格宽即不探出格外。</p>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 520}}'>
+var CP = window.CP;
+class Component extends DCLogic {
+  renderVals() {
+    var widths = [['base', '前', 110], ['base', '后', 85], ['narrow', '前', 110], ['narrow', '后', 85]];
+    var heads = ['基准 前排', '基准 后排', '16:9 前排', '16:9 后排'];
+    function cw(wk) { return (CP.WIDTHS[wk].field - 34) / 3; }
+    var items = [
+      ['头行', '林 + 徽章 +「阵亡」', 19 + 6 + 25 + 6 + 26, 'info'],
+      ['chip 行', '攻 64 + 本命', CP.chipW('64', true) + 4 + CP.chipW('', true), 'flow'],
+      ['覆盖提示(16 号)', '「召唤到这里会覆盖它」', CP.textW('召唤到这里会覆盖它', 16), 'info'],
+      ['复活签', '复活 林 · 生命 75 · 盾反', CP.signW('复活 林 · 生命 75 · 盾反'), 'cell'],
+      ['复活全部签', '复活全部 · 2 只', CP.signW('复活全部 · 2 只'), 'cell'],
+      ['覆盖签', '覆盖 林 · 无法再复活', CP.signW('覆盖 林 · 无法再复活'), 'cell']
+    ];
+    var rows = items.map(function (it) {
+      return { n: it[0], need: it[1] + ' = ' + Math.round(it[2]), cells: widths.map(function (w) {
+        var c = cw(w[0]), room = it[3] === 'cell' ? c : (c - w[2] - (it[3] === 'flow' ? 4 : 0));
+        return { t: Math.round(room) + (it[2] <= room ? ' ✓' : ' ✗'), cls: it[2] <= room ? 'ok' : 'bad' };
+      }) };
+    });
+    return { heads: heads, rows: rows };
+  }
+}
+</script>
+</body>
+</html>
