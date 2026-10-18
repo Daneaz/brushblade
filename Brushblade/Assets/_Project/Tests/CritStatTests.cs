@@ -295,6 +295,24 @@ namespace Brushblade.CoreTests
             Assert.That(engine.EffectiveCrit, Is.EqualTo(20));
         }
 
+        // ---- 局内暴击加成(状态栏暴击 chip 的判据,2026-10-18):养成被动给的基础暴击长期生效,不算 ----
+
+        [Test]
+        public void CritBonus_BaseCritFromPerk_IsZero()
+        {
+            var engine = Battle(15, "锋");
+            Assert.That(engine.EffectiveCrit, Is.EqualTo(15));
+            Assert.That(engine.PlayerCritBonus, Is.EqualTo(0), "被动基础暴击不进局内加成,状态栏不该常驻暴击图标");
+        }
+
+        [Test]
+        public void CritBonus_Feng_CountsOnTopOfBase()
+        {
+            var engine = Battle(15, "锋");
+            engine.Cast("锋");
+            Assert.That(engine.PlayerCritBonus, Is.EqualTo(20));
+        }
+
         [Test]
         public void Feng_StacksWhenCastTwice()
         {
