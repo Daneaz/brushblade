@@ -57,12 +57,22 @@ namespace Brushblade.CoreTests
 
         // ---- 配置 ----
 
+        /// <summary>词渊是全池混合段(杂兵全 32 只),头领同样全池随机:前五段的十只全收(2026-10-18 用户 bugfix)。</summary>
+        [Test]
+        public void RealConfig_CiyuanLeaderPool_IsAllLeaders()
+        {
+            var bands = RealEndless().Bands;
+            var all = bands.Where(x => x.Name != "词渊").SelectMany(x => x.LeaderPool).Select(e => e.Id).OrderBy(x => x).ToArray();
+            var ciyuan = bands.Single(x => x.Name == "词渊").LeaderPool.Select(e => e.Id).OrderBy(x => x).ToArray();
+            Assert.That(all.Length, Is.EqualTo(10));
+            Assert.That(ciyuan, Is.EqualTo(all));
+        }
+
         [TestCase("字林", "朽木", "荆棘")]
         [TestCase("朱砂", "烽燧", "余烬")]
         [TestCase("文山", "碑碣", "磐石")]
         [TestCase("金石", "钟鼎", "刀笔")]
         [TestCase("墨海", "漩涡", "浊浪")]
-        [TestCase("词渊", "漩涡", "浊浪")]   // 词渊暂无名单,沿用墨海两只(spec §3)
         public void RealConfig_EveryBandHasItsTwoLeaders(string bandName, string a, string b)
         {
             var band = RealEndless().Bands.Single(x => x.Name == bandName);
