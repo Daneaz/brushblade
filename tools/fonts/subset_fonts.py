@@ -20,6 +20,7 @@ RAW = Path(__file__).parent / "raw"
 # 基线字符:ASCII + 常用 CJK 标点/符号 + 拼音带调字母(CharInfo/GlyphTile 用)
 BASE = (
     "".join(chr(c) for c in range(0x20, 0x7F))
+    + "\u00a0"   # 不换行空格:词条气泡把说明里的空格换成它,免得 Unity Text 在空格处整词折行
     + "、。·「」『』【】《》…—×✓◀▶♥◆？！：；，（）"
     + "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü"
 )
@@ -72,7 +73,7 @@ def charset() -> set:
         chars |= json_chars(path)
     for d in CODE_DIRS:
         chars |= code_chars(d)
-    return {c for c in chars if c == " " or not c.isspace()}
+    return {c for c in chars if c in " \u00a0" or not c.isspace()}
 
 
 def add_stacked_glyphs(font):
