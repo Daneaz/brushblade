@@ -79,14 +79,14 @@ namespace Brushblade.Core.Tests
             _ => 100,
         };
 
-        // 2026-10-18 群攻入口 spec §1:金木土各两字本体改群体范围,原同范围特性改「全体 50」
+        // 2026-10-18 群攻入口 spec §1:金木土各两字本体改群体范围,原同范围特性改「全体 67」
         [TestCase("剑", TargetArea.Row, "Lv8", "横扫千军")]
         [TestCase("锥", TargetArea.Column, "Lv8", "锥心")]
         [TestCase("箭", TargetArea.Column, null, null)]
         [TestCase("楸", TargetArea.Row, "Lv8", "秋风扫叶")]
         [TestCase("碎", TargetArea.Adjacent, "Lv5", "碎石")]
         [TestCase("垒", TargetArea.Row, "Lv8", "劈山")]
-        public void GroupAttackEntry_BodyIsGroupAtThreeQuarters_TraitBecomesAllFifty(string id, TargetArea shape, string slot, string trait)
+        public void GroupAttackEntry_BodyIsGroupAtThreeQuarters_TraitBecomesAllSixtySeven(string id, TargetArea shape, string slot, string trait)
         {
             var d = CharTableTests.RealGraph().Get(id);
             var dmg = d.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle);
@@ -98,7 +98,7 @@ namespace Brushblade.Core.Tests
             Assert.That(t.Name, Is.EqualTo(trait));
             var reshape = t.Effects.First(e => e.Kind == EffectKind.Reshape);
             Assert.That(reshape.Shape, Is.EqualTo(TargetArea.All), id);
-            Assert.That(reshape.ShapePercent, Is.EqualTo(50), id);
+            Assert.That(reshape.ShapePercent, Is.EqualTo(67), "全体 0.5 / 群体 0.75 ≈ 67%(2026-10-18 控制方裁定)");
         }
 
         [TestCase("爆")] [TestCase("炸")] [TestCase("烈")] [TestCase("焚")] [TestCase("焱")] [TestCase("燚")]

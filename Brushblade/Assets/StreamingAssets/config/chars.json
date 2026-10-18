@@ -2901,7 +2901,7 @@
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
-              "shapePercent": 50
+              "shapePercent": 67
             },
             {
               "kind": "BurnSingle",
@@ -7217,7 +7217,7 @@
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
-              "shapePercent": 50
+              "shapePercent": 67
             },
             {
               "kind": "Morale",
@@ -7403,7 +7403,7 @@
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
-              "shapePercent": 50,
+              "shapePercent": 67,
               "armorIgnorePercent": 100
             }
           ]
@@ -8949,7 +8949,7 @@
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
-              "shapePercent": 50
+              "shapePercent": 67
             },
             {
               "kind": "ArmorBreak",
@@ -9777,7 +9777,7 @@
               "kind": "Reshape",
               "value": 0,
               "shape": "All",
-              "shapePercent": 50
+              "shapePercent": 67
             }
           ]
         },
