@@ -289,13 +289,13 @@ def _write_meta(png: Path):
 
 # ---------------------------------------------------------------- 双字头领(样张,spec 2026-10-18 §3/§6)
 #
-# 头领 = 两字词语讹熔:与 Boss 同一套笔法(白色墨字层 + 眼 + 意象配饰),只是两个字、竖块画幅。
-# 竖块 = 战场 1 列 × 2 排,先按宽:高 = 1:2,设计稿定后再调 LEADER_W/LEADER_H 与摆位。
-# 两字上下错位压叠成一团(不是左右并排的「词」),眼开在两字交叠处 —— 只认得出个大概。
+# 头领 = 两字词语讹熔:与 Boss 同一套笔法(白色墨字层 + 眼 + 意象配饰),只是两个字。
+# 画幅按 designer 战场稿(docs/design/drafts/battlegrid/ GridSpec ⑤):1:1 方图 512×512,同成语 Boss;
+# 两字略斜错叠(上左一字、下右一字),主体在 7% 安全区内,眼在团块中上(约 34%–46% 高)。
 # 层与 Boss 同名(少 c2/c3):c0 c1 halo iris eyes wisp body face。
 # 现阶段只出样张到 tools/design/leaders/_sample/,不进 Resources、不接入游戏。
 
-LEADER_W, LEADER_H = 256, 512
+LEADER_W, LEADER_H = SIZE, SIZE
 LEADER_DIR = Path(__file__).parent / "leaders/_sample"
 
 
@@ -324,12 +324,12 @@ LEADERS = [
     #  蚀孔 [(x, y, rx, ry)…] —— 从两字层上挖掉的洞(可空),意象配饰)
     # 朽木:字身被蛀空、长出层孔菌、上头支棱着断枝、底下掉木屑。
     ("朽木", "xiumu", "Wood",
-     [(120, 198, .56, -9), (136, 292, .6, 8)],
-     ((100, 252, 1.0), (160, 254, .92)),
-     [(48, 150, 7, 9), (54, 262, 6, 8), (130, 336, 9, 7), (204, 236, 7, 9), (128, 392, 6, 5), (80, 322, 6, 5)],
-     lambda: snag(146, 110, 196, 26) + snag(90, 128, 46, 60, width=5)
-     + fungus(40, 284, 38, flip=True) + fungus(34, 324, 28, flip=True) + fungus(214, 212, 34) + fungus(222, 372, 28)
-     + dots([(96, 444), (122, 462), (140, 440), (158, 474), (110, 488), (176, 452), (132, 496), (84, 470)], 3, "#A8865A", .7)),
+     [(204, 206, .66, -8), (306, 296, .68, 7)],
+     ((216, 206, 1.3), (300, 210, 1.2)),
+     [(130, 140, 8, 10), (138, 300, 7, 9), (296, 330, 10, 8), (292, 404, 7, 6), (226, 304, 6, 5), (372, 352, 8, 7)],
+     lambda: snag(296, 104, 372, 42) + snag(318, 100, 432, 84, width=5)
+     + fungus(70, 300, 40, flip=True) + fungus(64, 344, 30, flip=True) + fungus(446, 250, 34) + fungus(452, 394, 28)
+     + dots([(84, 420), (110, 446), (132, 418), (150, 458), (98, 474), (168, 432), (124, 482), (72, 452)], 4, "#A8865A", .7)),
 ]
 
 
@@ -383,9 +383,9 @@ def leader_sample():
         jobs[f"leader_{slug}_preview"] = leader_preview(name, element, layout, eyes, holes, deco)
         for key, svg in jobs.items():
             (LEADER_DIR / f"{key}.svg").write_text(svg, encoding="utf-8")
-        # 预览出 2 倍图,方便直接看;各层 PNG 等批量接入时再出
+        # 预览出原尺寸合成图,方便直接看;各层 PNG 等批量接入时再出
         src = LEADER_DIR / f"leader_{slug}_preview.svg"
-        subprocess.run(["rsvg-convert", "-w", str(LEADER_W * 2), "-h", str(LEADER_H * 2), str(src),
+        subprocess.run(["rsvg-convert", "-w", str(LEADER_W), "-h", str(LEADER_H), str(src),
                         "-o", str(src.with_suffix(".png"))], check=True)
     print(f"头领样张 {len(LEADERS)} 只 → {LEADER_DIR.relative_to(ROOT)}")
     return 0
