@@ -156,6 +156,15 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        [Test]
+        public void ReviveFace_LandsOnSummons_SoCorpsesCanBeDropTargets()
+        {
+            // 2026-10-18 bug:沐「苏」拖到阵亡木灵上没有落点 —— 复活面必须放开木灵落点(尸体格据此画落点)
+            var mu = Graph.All.First(d => d.Id == "沐");
+            var landing = CardFaceRules.Landing(mu, CardFace.Feature, 1);
+            Assert.That((landing & FaceLanding.Summons) != 0, Is.True, landing.ToString());
+        }
+
         private static readonly EffectKind[] NonHostileKinds =
         {
             EffectKind.Shield, EffectKind.ShieldAll, EffectKind.BurnPotency, EffectKind.HealSelf, EffectKind.Summon,

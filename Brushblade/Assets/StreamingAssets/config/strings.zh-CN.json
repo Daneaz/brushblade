@@ -166,6 +166,7 @@
   "battle.landing.graft": "嫁接",
   "battle.landing.graft_or_replace": "嫁接 / 替换",
   "battle.landing.replace": "替换",
+  "battle.landing.revive": "复活",
   "battle.landing.summon_here": "召唤到这里",
   "battle.landing.taunt": "本场嘲讽",
   "battle.landing.attune": "改为{element}(永久)",
