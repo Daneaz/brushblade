@@ -2734,6 +2734,12 @@ namespace Brushblade.Presentation
                 if (_slotPicking) AttachSlotPicker(cell.transform, slot);
                 else AttachAllyTargetPicker(cell.transform, slot);   // 点尸体 = 复活它
             }
+            // 拖带复活的那一面(沐「苏」)落尸体 = 复活它(2026-10-18 修:此前拖放只给活木灵画落点,
+            // 尸体只在点选态可点,拖过去没有落点)。判据与点选的 CanPickCorpse、Cast 的 CanReviveSlot 同源。
+            else if (FaceDragging && corpse != null && (_faceDragLanding & FaceLanding.Summons) != 0
+                && BattleEngine.HasRevive(_faceDragDef, _faceDragFace == CardFace.Attack) && Battle.CanReviveSlot(slot))
+                AddFaceMark(cell.transform, (RectTransform)cell.transform, FaceMarkKind.Summon, slot,
+                    Strings.T("battle.landing.revive"));
             // 拖两面字的生面(Plan E1):空位 = 召唤到这里。尸体格也是空位(与点击路径、Core 一致,Ruling 4),
             // 只有活木灵格是嫁接
             else if (FaceDragging && (_faceDragLanding & FaceLanding.EmptySlot) != 0)
