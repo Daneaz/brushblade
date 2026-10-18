@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>敌方排位(2026-08-20):Row/Range/Focus 三个正交字段,
-    /// 每排上限 <see cref="Targeting.RowCapacity"/>(2026-08-27:3 → 4),溢出改判到另一排。</summary>
+    /// 每排上限 <see cref="Targeting.RowCapacity"/>(2026-08-27:3 → 4;2026-10-18:4 → 3),溢出改判到另一排。</summary>
     [TestFixture]
     public class EnemyRowTests
     {
@@ -57,22 +57,22 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Rows_OverflowToTheOtherRow_WhenPreferredIsFull()
         {
-            // 五只都想站后排,后排只有 4 格 —— 第五只改判前排
+            // 四只都想站后排,后排只有 3 格 —— 第四只改判前排
             var engine = MakeEngine(Mob("a", EnemyRow.Back), Mob("b", EnemyRow.Back),
-                Mob("c", EnemyRow.Back), Mob("d", EnemyRow.Back), Mob("e", EnemyRow.Back));
+                Mob("c", EnemyRow.Back), Mob("d", EnemyRow.Back));
             int back = 0, front = 0;
             foreach (var e in engine.Enemies)
                 if (e.Row == EnemyRow.Back) back++; else front++;
             Assert.That(back, Is.EqualTo(Targeting.RowCapacity), "后排不超过每排上限");
             Assert.That(front, Is.EqualTo(1), "溢出的改判前排");
-            Assert.That(engine.Enemies[4].Row, Is.EqualTo(EnemyRow.Front), "改判的是排在后面的那只");
+            Assert.That(engine.Enemies[3].Row, Is.EqualTo(EnemyRow.Front), "改判的是排在后面的那只");
         }
 
         [Test]
-        public void EightEnemies_NeverExceedRowCapacityPerRow()
+        public void SixEnemies_NeverExceedRowCapacityPerRow()
         {
             var engine = MakeEngine(Mob("a"), Mob("b"), Mob("c"), Mob("d"),
-                Mob("e"), Mob("f"), Mob("g"), Mob("h"));
+                Mob("e"), Mob("f"));
             int back = 0, front = 0;
             foreach (var e in engine.Enemies)
                 if (e.Row == EnemyRow.Back) back++; else front++;
@@ -289,7 +289,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void AssignSlots_GivesEachEnemyAColumnWithinItsRow()
         {
-            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"), Mob("前4"),
+            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"),
                 Mob("后1", EnemyRow.Back));
 
             var front = new List<int>();
@@ -297,16 +297,16 @@ namespace Brushblade.Core.Tests
             foreach (var e in engine.Enemies)
                 (e.Row == EnemyRow.Front ? front : back).Add(e.Column);
 
-            Assert.That(front, Is.EquivalentTo(new[] { 0, 1, 2, 3 }), "前排四只各占一列,不重号");
+            Assert.That(front, Is.EquivalentTo(new[] { 0, 1, 2 }), "前排三只各占一列,不重号");
             Assert.That(back, Is.EquivalentTo(new[] { 1 }),
-                "2026-08-30 居中往外:单怪落列 1(ColumnOrder{1,2,0,3}的第一个),不再是列 0");
+                "2026-08-30 居中往外:单怪落列 1(ColumnOrder{1,0,2}的第一个),不再是列 0");
         }
 
         [Test]
         public void AssignSlots_OverflowToOtherRow_StillGetsFreeColumn()
         {
-            // 第 5 只偏好前排但前排已满 → 改判后排,列号要在**后排**里重新算,不能沿用前排的计数
-            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"), Mob("前4"), Mob("前5"));
+            // 第 4 只偏好前排但前排已满 → 改判后排,列号要在**后排**里重新算,不能沿用前排的计数
+            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"), Mob("前4"));
 
             var back = new List<int>();
             foreach (var e in engine.Enemies)
@@ -319,20 +319,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void AssignSlots_FillsBothRowsToFourBeforeAnyColumnRepeats()
+        public void AssignSlots_FillsBothRowsToThreeBeforeAnyColumnRepeats()
         {
-            // 2026-08-27 四列改造:8 只怪恰好排满 4 + 4,列号在各自排里 0..3 不重号
-            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"), Mob("前4"),
-                Mob("后1", EnemyRow.Back), Mob("后2", EnemyRow.Back),
-                Mob("后3", EnemyRow.Back), Mob("后4", EnemyRow.Back));
+            // 2026-10-18 三列改造:6 只怪恰好排满 3 + 3,列号在各自排里 0..2 不重号
+            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"),
+                Mob("后1", EnemyRow.Back), Mob("后2", EnemyRow.Back), Mob("后3", EnemyRow.Back));
 
             var front = new List<int>();
             var back = new List<int>();
             foreach (var e in engine.Enemies)
                 (e.Row == EnemyRow.Front ? front : back).Add(e.Column);
 
-            Assert.That(front, Is.EquivalentTo(new[] { 0, 1, 2, 3 }));
-            Assert.That(back, Is.EquivalentTo(new[] { 0, 1, 2, 3 }));
+            Assert.That(front, Is.EquivalentTo(new[] { 0, 1, 2 }));
+            Assert.That(back, Is.EquivalentTo(new[] { 0, 1, 2 }));
         }
 
         /// <summary>同一个 DefId 的两只怪可能站不同列,而 Restore 是按 Id 查 Def 的 ——

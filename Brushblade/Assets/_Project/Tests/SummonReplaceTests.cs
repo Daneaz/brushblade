@@ -262,6 +262,7 @@ namespace Brushblade.Core.Tests
 
         // spec C:删战后复原用的「原属性 / 原本命」两个快照字段,指纹只因格式变化(原值 "18147eeefa50350b 14858";
         // 在 HEAD 4cf2b63f 干净树上只删指纹里的原本命段,跑出的正是新值,已核验)。
-        private const string AutoExpected = "26fb873860f8c4c2 14795";
+        // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "26fb873860f8c4c2 14795"
+        private const string AutoExpected = "4d78fccdcda23267 13207";
     }
 }

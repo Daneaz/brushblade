@@ -561,17 +561,18 @@ namespace Brushblade.Core
         /// 选定长数组而非「紧凑 List + Slot 字段」的理由见 spec §3.1:事件的 SecondIndex、
         /// 表现层的血条引用、存档下标现在三者是同一个数,槽位化后仍是同一个数。</summary>
         private readonly SummonState[] _summons = new SummonState[SummonCap];
-        /// <summary>召唤槽位的**硬上限** = 数组长度(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
+        /// <summary>召唤槽位的**硬上限** = 数组长度(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4;
+        /// 2026-10-18 战场改 3×2:8 → 6 = 前 3 + 后 3)。
         /// 本场**实际可用**几格由 <see cref="BattleConfig.SummonSlots"/> 按层解锁决定,见
         /// <see cref="_slotMask"/> —— 数组多长与本场开着哪几格是两回事,逻辑里要看后者。</summary>
-        private const int SummonCap = 8;
-        private const int FrontRowSize = 4;   // 前排槽位数(2026-08-20;2026-08-27:3 → 4):槽 [0, FrontRowSize) 为前排
-        private const int EnemyCap = 8;  // 场上敌人上限(2026-08-03:4→6;2026-08-27:6→8),分裂怪据此守闸
+        private const int SummonCap = 6;
+        private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20;2026-08-27:3 → 4;2026-10-18:4 → 3):槽 [0, FrontRowSize) 为前排
+        private const int EnemyCap = Targeting.RowCapacity * 2;  // 场上敌人上限 6(2026-08-03:4→6;2026-08-27:6→8;2026-10-18:8→6 = 3 列 × 2 排),分裂怪据此守闸
 
         /// <summary>本场可用的召唤槽位数(2026-08-27 按层解锁)。夹在 [1, SummonCap]。
-        /// 开放的是一组指定位置(见 <see cref="MetaRules.UnlockedSlotMask"/>,1…8 格按层逐格开),
+        /// 开放的是一组指定位置(见 <see cref="MetaRules.UnlockedSlotMask"/>,1…6 格按层逐格开),
         /// 不是从 0 号起的连续前缀 —— 不需要另一套排位规则。</summary>
-        /// 未解锁的槽恒为 null,所以「前排是槽 [0,4)」这条几何**不随解锁变** ——
+        /// 未解锁的槽恒为 null,所以「前排是槽 [0,3)」这条几何**不随解锁变** ——
         /// 排位规则读到的仍是同一段区间,结果逐位相同。
         /// 表现层也靠这条固定几何把未解锁的格子画在它将来该在的那一排。
         private readonly int _slotMask;
@@ -5687,7 +5688,7 @@ namespace Brushblade.Core
         /// 2026-08-30 列区间 + 居中往外)。
         ///
         /// 按 _enemies 顺序依次分:先试偏好排,该排**剩余宽度**不够就改判到另一排。
-        /// 判据是宽度不是只数 —— Boss 一只就占满 4 列,按只数算会让小怪叠在它身上。
+        /// 判据是宽度不是只数 —— 跨列的怪一只就占多列,按只数算会让小怪叠在它身上。
         ///
         /// 列号走 <see cref="Targeting.ColumnOrder"/> 的居中往外序,取第一个能放下
         /// 连续 <c>ColumnSpan</c> 列的起点。占满整排的(Span = RowCapacity)只有起点 0 放得下。
@@ -5711,7 +5712,7 @@ namespace Brushblade.Core
                     row = other;
                     column = FreeColumnIn(other, enemy.Def.ColumnSpan, rowSpan);
                 }
-                // 两排都放不下:EnemyCap 8 = 4 + 4 且全员 Span 1 时走不到,
+                // 两排都放不下:EnemyCap 6 = 3 + 3 且全员 Span 1 时走不到,
                 // 但跨列的怪会让「只数没超上限、宽度却超了」成为可能。落到 −1 就把它
                 // 挤在最后一排的 0 列 —— 画面会叠,但下标与列号仍然自洽,不至于崩。
                 enemy.Row = row;
@@ -5887,7 +5888,8 @@ namespace Brushblade.Core
         // 那条问的是「吃不吃护甲」,这条问的是「算不算挥击」,日后出现「穿甲的挥击」时
         // 不该连带把反噬也关掉。
         /// <param name="sameSwing">这一记与上一记落在同一目标上的伤害是同一次挥击
-        /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。</param>
+        /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。
+        /// 2026-10-18 起 Boss 只占 1 列、ExpandTargets 对同一只恒只记一次,形状路径不再产出 true。</param>
         private int DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
@@ -6092,7 +6094,7 @@ namespace Brushblade.Core
         /// 分头写就有走岔的余地。已阵亡的怪**照样占位**(引擎从不移除阵亡敌人),
         /// 与表现层「尸体占格」一致。</summary>
         /// <param name="rowSpan">要放的这只占几排(2026-09-05)。>1 时要求**两排**的同一段列
-        /// 都空 —— 跨排 Boss 的 2×2 占位就是这么落的。</param>
+        /// 都空 —— 跨排 Boss 的 1 列 × 2 排占位就是这么落的。</param>
         private int FreeColumnIn(EnemyRow row, int span, int rowSpan = 1)
         {
             var other = row == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front;

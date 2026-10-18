@@ -12,26 +12,25 @@ namespace Brushblade.Core
         /// <summary>PickAllyTarget 的返回值:打玩家本人,而不是某个召唤物槽位。</summary>
         public const int PlayerTarget = -1;
 
-        /// <summary>每排的列数(2026-08-22;2026-08-27 用户拍板 3 → 4)。
+        /// <summary>每排的列数(2026-08-22;2026-08-27 用户拍板 3 → 4;2026-10-18 战场改 3×2,4 → 3)。
         /// BattleEngine.EnemyRowCap 转引这个数(敌方每排上限);写在这里是为了让形状裁定
         /// 不必反向依赖引擎。
         /// 召唤物侧的 FrontRowSize 是另一回事——那是召唤物前排的槽位数,与敌方每排列数
-        /// 没有耦合,两者恰好同为 4 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
-        public const int RowCapacity = 4;
+        /// 没有耦合,两者恰好相等纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
+        public const int RowCapacity = 3;
 
         /// <summary>跨两排 = 占满敌方纵深(2026-09-05)。只有两排,所以「跨排」只有这一档,
         /// 不存在 3。写成常量而不是字面量 2,是为了让占位裁定读起来是「占满两排」
         /// 而不是「某个数」。</summary>
         public const int RowSpanBoth = 2;
 
-        /// <summary>Boss 的列宽(2026-09-05 用户拍板:中间 2×2)。
-        /// 从 <see cref="RowCapacity"/>(占满一整排)收到 2 —— 两侧各留一列给随从,
-        /// 左右两列 × 两排正好是 EndlessGenerator.EscortCap 的那 4 格。
-        /// 「居中」不需要给 Boss 开特例:<see cref="ColumnOrder"/> 的头两个就是 1、2,
-        /// 而 Boss 恒为 floor[0]、第一个落位,自然拿到中间两列。</summary>
-        public const int BossColumnSpan = 2;
+        /// <summary>Boss 的列宽(2026-09-05 中间 2×2;2026-10-18 战场改 3×2,收到 1 列 × 2 排的竖块)。
+        /// 两侧各留一列给随从,左右两列 × 两排正好是 EndlessGenerator.EscortCap 的那 4 格。
+        /// 「居中」不需要给 Boss 开特例:<see cref="ColumnOrder"/> 的第一个就是 1,
+        /// 而 Boss 恒为 floor[0]、第一个落位,自然拿到中列。</summary>
+        public const int BossColumnSpan = 1;
 
-        /// <summary>列号的分配顺序(2026-08-30):**居中往外**。4 列没有正中,取中间偏左先。
+        /// <summary>列号的分配顺序(2026-08-30):**居中往外**。3 列(2026-10-18)正中先,再左、右。
         ///
         /// 取代了旧的「两排都 ≤1 只就把该排折叠成一格」特例(RowCells,已删)——
         /// 那条特例当年是为了修「单怪铺三格会被顶到最左」(2026-08-23 实机反馈),
@@ -39,7 +38,7 @@ namespace Brushblade.Core
         ///
         /// ⚠ 这是**唯一**一条布局策略。将来若要加别的(例如辅助怪躲进没有前排的后排列
         /// 以避开贯穿),判据加在 <c>BattleEngine.AssignSlots</c> 那一处,不要在这里架一层抽象。</summary>
-        public static readonly IReadOnlyList<int> ColumnOrder = new[] { 1, 2, 0, 3 };
+        public static readonly IReadOnlyList<int> ColumnOrder = new[] { 1, 0, 2 };
 
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
         ///
@@ -292,7 +291,7 @@ namespace Brushblade.Core
                 return VolleyTargets(enemies, shots, volleyLeadsWithPrimary ? primaryIndex : -1);
             if (shape == TargetArea.Chain) return ChainTargets(enemies, primaryIndex, shots);
             // 全体(spec v7 §3.2):不看主目标(可以是 −1),按下标升序取**此刻**全部存活敌人。
-            // 跨排 Boss 只记一次,不走 AddHits 的双记 —— 与退役的 DamageAll 逐目标各打一下同口径。
+            // 跨排 Boss 只记一次 —— 与退役的 DamageAll 逐目标各打一下同口径。
             // 返回的是快照:出字途中分裂出的新怪不吃这一发(同 DamageAll 的 aoeCount)。
             if (shape == TargetArea.All)
             {
@@ -307,7 +306,7 @@ namespace Brushblade.Core
             if (shape == TargetArea.Single) { result.Add(primaryIndex); return result; }
 
             var primary = enemies[primaryIndex];
-            AddHits(result, primaryIndex, enemies[primaryIndex]);   // 首项恒为主目标
+            result.Add(primaryIndex);   // 首项恒为主目标
             for (int i = 0; i < enemies.Count; i++)
             {
                 if (i == primaryIndex || !enemies[i].Alive) continue;
@@ -324,7 +323,7 @@ namespace Brushblade.Core
                         && primary.Column < enemies[i].ColumnEnd,
                     _ => false,
                 };
-                if (hit) AddHits(result, i, enemies[i]);
+                if (hit) result.Add(i);
             }
             return result;
         }
@@ -357,22 +356,6 @@ namespace Brushblade.Core
                 if (summon != null && summon.Alive && summon.Hp < summon.MaxHp) result.Add(s);
             }
             return result;
-        }
-
-        /// <summary>把一只被形状覆盖的敌人记进结果表 —— **跨排 Boss 记两次**
-        /// (用户 2026-09-05 拍板「贯穿打满两只,横扫、溅射这些 boss 都打两次」)。
-        ///
-        /// 两次而不是四次:Boss 占中间 2×2 共四格,但任何一个形状覆盖它的都只是其中两格 ——
-        /// 横扫与溅射沿**列**方向扫过它在那一排的 2 列,贯穿沿**排**方向穿过它在那一列的 2 排。
-        /// 所以这个数与形状无关,恒为「它在被扫的那个方向上占几格」= RowSpan/ColumnSpan 的那个 2。
-        ///
-        /// 走「同一下标重复两次」而不是「一次算双倍伤害」:ExpandTargets 的既有约定就是
-        /// 「表内可含重复下标,调用方按每项一次结算」(连发早就在用),于是斩杀、多段、穿透、
-        /// 反伤、护盾吸收全都自然地各算两遍 —— 双倍伤害那种写法会把这些一次性效果吞掉一半。</summary>
-        private static void AddHits(List<int> result, int index, EnemyState enemy)
-        {
-            int hits = enemy.RowSpan > 1 ? RowSpanBoth : 1;
-            for (int h = 0; h < hits; h++) result.Add(index);
         }
 
         /// <summary>弹射的目标序列(2026-08-25):主目标打头,其余存活敌人按**离主目标的格子距离**

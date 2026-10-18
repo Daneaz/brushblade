@@ -1060,12 +1060,12 @@ namespace Brushblade.Core.Tests
         public void Cleave_SideTargetsTakeShapePercent()
         {
             var engine = Engine(new[] { "劈" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
-            // 2026-08-30 居中往外:三只按 ColumnOrder{1,2,0,3}分到列 1、2、0,下标 0 落正中(列 1)
+            // 2026-10-18 三列居中往外:三只按 ColumnOrder{1,0,2}分到列 1、0、2,下标 0 落正中(列 1)
             engine.Cast("劈", targetIndex: 0); // 打前排中间那只
 
             int primaryLoss = 200 - engine.Enemies[0].Hp;
-            int leftLoss = 200 - engine.Enemies[2].Hp; // 列 0
-            int rightLoss = 200 - engine.Enemies[1].Hp; // 列 2
+            int leftLoss = 200 - engine.Enemies[1].Hp; // 列 0
+            int rightLoss = 200 - engine.Enemies[2].Hp; // 列 2
             Assert.That(primaryLoss, Is.GreaterThan(0));
             Assert.That(leftLoss, Is.EqualTo(primaryLoss / 2), "ShapePercent 50:左侧是主目标的一半");
             Assert.That(rightLoss, Is.EqualTo(leftLoss), "两侧对称");
@@ -1251,10 +1251,11 @@ namespace Brushblade.Core.Tests
             engine.Cast("连兵");
             engine.EndTurn(); // 召唤物出手:3 发循环打 2 只候选,一只挨 2 发、另一只挨 1 发
 
+            // 候选按列序排(2026-10-18 三列:下标 0 落列 1、下标 1 落列 0),所以列 0 的下标 1 先挨
             int loss0 = 200 - engine.Enemies[0].Hp;
             int loss1 = 200 - engine.Enemies[1].Hp;
-            Assert.That(loss1, Is.GreaterThan(0), "第二只至少挨了 1 发");
-            Assert.That(loss0, Is.EqualTo(loss1 * 2), "第一只挨 2 发、每发全额,正好是第二只的两倍");
+            Assert.That(loss0, Is.GreaterThan(0), "列 1 那只至少挨了 1 发");
+            Assert.That(loss1, Is.EqualTo(loss0 * 2), "列 0 那只挨 2 发、每发全额,正好是另一只的两倍");
         }
 
         /// <summary>Ranged 与 Shape 正交:Ranged 决定主目标怎么选(越过前排取后排),

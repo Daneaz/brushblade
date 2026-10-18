@@ -71,7 +71,7 @@
       "element": "Water",
       "maxHp": 120,
       "attack": 60,
-      "columnSpan": 2,
+      "columnSpan": 1,
     "rowSpan": 2,
       "phases": [
         {
@@ -106,7 +106,7 @@
       "element": "Water",
       "maxHp": 120,
       "attack": 70,
-      "columnSpan": 2,
+      "columnSpan": 1,
     "rowSpan": 2,
       "phases": [
         {
@@ -141,7 +141,7 @@
       "element": "Metal",
       "maxHp": 100,
       "attack": 80,
-      "columnSpan": 2,
+      "columnSpan": 1,
     "rowSpan": 2,
       "phases": [
         {

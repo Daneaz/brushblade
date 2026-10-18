@@ -71,7 +71,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
                     passive: new SummonPassive { OnHitSlowPercent = 50, OnHitSlowTurns = 2 }) }),
             // 盯:嘲讽(2026-08-25)。测试按需指定槽位:前排槽验「同排里先打嘲讽」,
-            // 后排槽(≥ BattleEngine.FrontRow = 4)验「站位在先,嘲讽够不着」
+            // 后排槽(≥ BattleEngine.FrontRow = 3)验「站位在先,嘲讽够不着」
             new CharDef("盯", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { Taunt = true }) }),
@@ -919,17 +919,17 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Taunt_PullsMeleeAttackWithinTheSameRow()
         {
-            // 嘲讽在**排位已经放行的那一段**里生效:两只都在前排(槽 0..3 都是前排,
-            // BattleEngine.FrontRow = 4),近战本该打最前的槽 0,有嘲讽时改打嘲讽的那只 ——
+            // 嘲讽在**排位已经放行的那一段**里生效:两只都在前排(槽 0..2 都是前排,
+            // BattleEngine.FrontRow = 3,2026-10-18),近战本该打最前的槽 0,有嘲讽时改打嘲讽的那只 ——
             // 否则「攻 0 靠反伤输出」的肉盾挨不挨打全看运气。
             //
             // 这条 2026-09-03 之前叫 Taunt_PullsMeleeAttackEvenFromABackRowSlot,注释写着
             // 槽 3 是「后排」—— 那是笔误(前排是 4 格,槽 3 在前排),它验的从来就是同排优先。
             var engine = Engine(new[] { "素", "盯" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
             engine.Cast("素", summonSlots: new[] { 0 });   // 前排槽 0:没有嘲讽时它会挡下这一击
-            engine.Cast("盯", summonSlots: new[] { 3 });   // 同为前排的槽 3
+            engine.Cast("盯", summonSlots: new[] { 2 });   // 同为前排的槽 2
             engine.EndTurn();
-            Assert.That(engine.Summons[3].Hp, Is.LessThan(100), "该打嘲讽的那只");
+            Assert.That(engine.Summons[2].Hp, Is.LessThan(100), "该打嘲讽的那只");
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "同排的另一只不该挨打");
         }
 
@@ -941,7 +941,7 @@ namespace Brushblade.Core.Tests
             // 站位这套规则整个失效(用户实机反馈)。
             var engine = Engine(new[] { "素", "盯" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
             engine.Cast("素", summonSlots: new[] { 0 });   // 前排槽 0
-            engine.Cast("盯", summonSlots: new[] { 4 });   // 后排槽 4(FrontRow = 4)
+            engine.Cast("盯", summonSlots: new[] { 4 });   // 后排槽 4(FrontRow = 3)
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.LessThan(10), "近战仍被前排拦下");
             Assert.That(engine.Summons[4].Hp, Is.EqualTo(100), "后排的嘲讽者这一击够不着(盯 满血 100)");
@@ -976,10 +976,10 @@ namespace Brushblade.Core.Tests
         {
             // 嘲讽者死了就不再拉仇恨,否则全场攻击会打进一个空槽、玩家反而无敌
             var engine = Engine(new[] { "盯", "素" }, new[] { new EnemyDef("靶", Element.Heart, 200, 500) });
-            engine.Cast("盯", summonSlots: new[] { 3 });
+            engine.Cast("盯", summonSlots: new[] { 2 });   // 同在前排(FrontRow = 3)
             engine.Cast("素", summonSlots: new[] { 0 });
             engine.EndTurn();
-            Assert.That(engine.Summons[3] == null || !engine.Summons[3].Alive, Is.True, "500 伤必死");
+            Assert.That(engine.Summons[2] == null || !engine.Summons[2].Alive, Is.True, "500 伤必死");
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "第一拍嘲讽把火力全吸走了");
 
             engine.EndTurn();

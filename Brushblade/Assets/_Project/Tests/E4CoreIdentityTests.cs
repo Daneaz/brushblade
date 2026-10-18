@@ -116,7 +116,8 @@ namespace Brushblade.Core.Tests
             Assert.That(Hash(sb.ToString()), Is.EqualTo(SummonHpLossExpected), sb.ToString());
         }
 
-        private const string SummonHpLossExpected = "0d3b452a6d57732a 4967";   // 2026-10-17:3 号木灵去掉守护(守护改磐固)后重录
+        // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "0d3b452a6d57732a 4967"
+        private const string SummonHpLossExpected = "5cc4a1d91a95a61a 4967";   // 2026-10-17:3 号木灵去掉守护(守护改磐固)后重录
 
         // ---------------- 出字热路径:暴击 / 反应 / 限次特性 / 印记 ----------------
 

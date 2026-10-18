@@ -14,7 +14,7 @@ namespace Brushblade.Core.Tests
             new CharDef("燃", Element.Fire, effects: new[] { new EffectDef(EffectKind.BurnSingle, stacks) }),
         });
 
-        // 前排三只:ColumnOrder {1,2,0} → 依次落在列 1、2、0;后排一只落在列 1
+        // 前排三只:ColumnOrder {1,0,2} → 依次落在列 1、0、2;后排一只落在列 1
         private static BattleEngine Engine(int stacks, bool spread, int hp = 90000) =>
             new(Graph(stacks), new BattleConfig
                 {
@@ -143,7 +143,7 @@ namespace Brushblade.Core.Tests
                     Is.EqualTo(1), $"邻居 {n} 收到一次扩散");
         }
 
-        // 跨两列 Boss 占前排列 1–2:同排首尾相接的列 0、列 3 是左右邻;
+        // 跨两列的怪占前排列 1–2(3 列战场,2026-10-18):同排首尾相接的列 0 是左邻;
         // 后排列 1、列 2 与它的列区间有交集 → 都是上下邻;后排列 0 不相交 → 不是。
         [Test]
         public void AdjacentEnemies_TwoColumnBoss_UsesColumnIntervals()
@@ -158,7 +158,6 @@ namespace Brushblade.Core.Tests
                 {
                     new EnemyDef("王", Element.Heart, 90000, 0, columnSpan: 2),
                     new EnemyDef("甲", Element.Heart, 90000, 0),
-                    new EnemyDef("乙", Element.Heart, 90000, 0),
                     new EnemyDef("丙", Element.Heart, 90000, 0, row: EnemyRow.Back),
                     new EnemyDef("丁", Element.Heart, 90000, 0, row: EnemyRow.Back),
                     new EnemyDef("戊", Element.Heart, 90000, 0, row: EnemyRow.Back),
@@ -172,7 +171,7 @@ namespace Brushblade.Core.Tests
             var adj = Targeting.AdjacentEnemies(e.Enemies, 0);
             var expected = new[]
             {
-                At(EnemyRow.Front, 0), At(EnemyRow.Front, 3),
+                At(EnemyRow.Front, 0),
                 At(EnemyRow.Back, 1), At(EnemyRow.Back, 2),
             }.OrderBy(i => i).ToList();
             Assert.That(adj, Is.EqualTo(expected));

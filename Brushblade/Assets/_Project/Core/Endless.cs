@@ -148,7 +148,7 @@ namespace Brushblade.Core
                 new(idiom.Chars[2].ToString(), idiom.Elements[2], 180, 80, SkillAt(2)),
                 new(idiom.Chars[3].ToString(), idiom.Elements[3], 240, 100, SkillAt(3)),
             };
-            // 占位(2026-09-05 用户拍板):中间 2 列 × 两排,不再占满前排一整排 ——
+            // 占位(2026-09-05 中间 2 列 × 两排;2026-10-18 战场改 3×2,中列 1 列 × 两排)——
             // 两侧各留一列给随从(左右两列 × 两排 = EscortCap 那 4 格)。
             return new EnemyDef(idiom.Chars, idiom.Elements[0], 180, 60, EnemyAbility.None, phases,
                 columnSpan: Targeting.BossColumnSpan, rowSpan: Targeting.RowSpanBoth);
@@ -236,27 +236,31 @@ namespace Brushblade.Core
             return floor;
         }
 
-        /// <summary>普通层的敌人数。上限 8(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
-        /// 每 6 层多一只而不是每 4 层(2026-08-27 用户拍板「提到 8 但放缓节奏」):
-        /// 总量抬高的同时把满员深度从 21 层推到 43 层,前中期体验接近改前。
+        /// <summary>普通层的敌人数。上限 6(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4;
+        /// 2026-10-18 战场改 3×2:8 → 6 = 前 3 + 后 3)。
+        /// 每 6 层多一只(2026-08-27 用户拍板「放缓节奏」),31 层满员。
         ///
         /// ⚠ 召唤槽解锁表(<see cref="MetaRules.SummonSlotsFor"/>)与它逐层对齐
         /// (2026-09-30:召唤物不超过本层敌人数),改这里要同步改那张表 ——
         /// SummonSlotUnlockTests 的两条对账测试守着。</summary>
-        public static int MinionCountFor(int depth) => 1 + Math.Min(7, (depth - 1) / 6);
+        public static int MinionCountFor(int depth) => 1 + Math.Min(Targeting.RowCapacity * 2 - 1, (depth - 1) / 6);
 
-        /// <summary>Boss 层的随从数(2026-09-05):第 20 层前为 0,之后每个 Boss 层 +1,
+        /// <summary>Boss 层的随从数(2026-09-05):第 15 层前为 0,之后每个 Boss 层 +1,
         /// 上限 <see cref="EscortCap"/>。
         ///
+        /// 2026-10-18 起点 20 → 15:战场改 3×2 后 Boss 只占 2 格(原 4 格),按「召唤格 ≤ 本层敌人占格」
+        /// (SummonSlots_NeverExceedTheFloorsEnemyCount)第 15/20/25 层的 Boss 层会被召唤格反超 1 格;
+        /// 随从提前一个 Boss 层起算后 Boss 层占格 = 2 + 随从,与召唤格 3/4/5/5/6 逐层压得住。
+        ///
         /// 除以 BossEvery 而不是写死 5 —— 这个函数只在 Boss 层被调,所以
-        /// 「(depth − 20) / BossEvery + 1」正好等于「从 20 层起这是第几个 Boss」,
+        /// 「(depth − 15) / BossEvery + 1」正好等于「从 15 层起这是第几个 Boss」,
         /// 两种读法给出同一个数(用户拍板时确认过这一点),而写成 BossEvery 的话
         /// 改 Boss 间隔时这里自动跟上。</summary>
-        public const int EscortFromDepth = 20;
+        public const int EscortFromDepth = 15;
 
-        /// <summary>随从上限 = 敌方总格位 − Boss 占的格位。Boss 占中间 2×2 = 4 格,
-        /// 两排共 <c>RowCapacity × 2 = 8</c> 格,故剩 4。</summary>
-        public const int EscortCap = Targeting.RowCapacity * 2 - 4;
+        /// <summary>随从上限 = 敌方总格位 − Boss 占的格位。Boss 占中列 1×2 = 2 格,
+        /// 两排共 <c>RowCapacity × 2 = 6</c> 格,故剩 4(2026-10-18 战场改 3×2,数不变)。</summary>
+        public const int EscortCap = Targeting.RowCapacity * 2 - Targeting.BossColumnSpan * Targeting.RowSpanBoth;
 
         public static int EscortCountFor(EndlessConfig config, int depth)
         {

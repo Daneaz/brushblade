@@ -621,14 +621,15 @@ namespace Brushblade.Core.Tests
             {
                 var b = Battle("森", level, new[] { Dummy() },
                     summons: Enumerable.Range(0, BattleEngine.MaxSummonSlots).Select(Corpse).ToList());
-                Assert.That(b.Summons.Count(s => s != null), Is.EqualTo(BattleEngine.MaxSummonSlots), "前提:8 格全占");
+                Assert.That(b.Summons.Count(s => s != null), Is.EqualTo(BattleEngine.MaxSummonSlots), "前提:6 格全占");
                 foreach (var s in b.Summons) s.Hp = 0;
                 Cast(b, "森");
                 return b;
             }
-            // 8 具尸体:spec A 森灵 + 入场幼苗 2 先占 3 格(Q28 书写顺序),万木回春救剩下 5 具
+            // 6 具尸体(2026-10-18 召唤槽 8 → 6):spec A 森灵 + 入场幼苗 2 先占 3 格(Q28 书写顺序),
+            // 万木回春救剩下 3 具
             var revived = Alive(Run(8)).Where(s => s.Char == "木").ToList();
-            Assert.That(revived.Count, Is.EqualTo(5));
+            Assert.That(revived.Count, Is.EqualTo(3));
             Assert.That(revived.All(s => s.Hp == 300), Is.True, "⌈1000 × 30%⌉");
             Assert.That(Alive(Run(7)).Any(s => s.Char == "木"), Is.False, "对照:Lv7 没有万木回春");
         }

@@ -102,7 +102,7 @@ CARDS_BY_RARITY = _card_counts()
 
 
 # ---- 局内(镜像 EndlessRules / EndlessGenerator)----
-ESCORT_FROM, ESCORT_CAP = 20, 4
+ESCORT_FROM, ESCORT_CAP = 15, 4   # 2026-10-18 战场 3×2:随从起点 20 → 15
 
 
 def is_boss(d):
@@ -118,7 +118,7 @@ def kill_ink(d):
     if is_boss(d):
         escorts = 0 if d < ESCORT_FROM else min(ESCORT_CAP, (d - ESCORT_FROM) // BOSS_EVERY + 1)
         return 5 * per + escorts * per
-    return (1 + min(7, (d - 1) // 6)) * per
+    return (1 + min(5, (d - 1) // 6)) * per   # 2026-10-18 战场 3×2:上限 8 → 6
 
 
 # 奇遇墨锭期望(12 个奇遇均匀抽):宝库必取 +80(换 200 HP);书院抄书 +20、赌书押 30
