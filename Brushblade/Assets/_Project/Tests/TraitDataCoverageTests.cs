@@ -352,12 +352,12 @@ namespace Brushblade.Core.Tests
                 Assert.That(f[0].Turns, Is.EqualTo(bodyKindle.Turns + 1), $"{d.Id} 燃意回合 +1");
                 Assert.That(f[0].Pick, Is.EqualTo(bodyKindle.Pick), $"{d.Id} 燃意选择器随本体");
             }
-            // 焱:攻击面改全体(spec A §3),Lv3 攻 BurnAll 4(D16);五行面燃意挂我方全体(spec C §5)
+            // 焱:2026-10-20 用户改单体(火系群体太多),Lv3 攻 BurnSingle 4;五行面燃意随之单体(spec C §5)
             var yan = Graph.Get("焱");
             var ya = At(yan, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Attack).Effects;
-            Assert.That((ya[0].Kind, ya[0].Value), Is.EqualTo((EffectKind.BurnAll, 4)));
+            Assert.That((ya[0].Kind, ya[0].Value), Is.EqualTo((EffectKind.BurnSingle, 4)));
             var yf = At(yan, TraitSlot.Lv3).Single(t => t.Face == TraitFace.Feature).Effects;
-            Assert.That(yf[0].Pick, Is.EqualTo(EffectPick.AllAllies));
+            Assert.That(yf[0].Pick, Is.Not.EqualTo(EffectPick.AllAllies));
         }
 
         [Test]

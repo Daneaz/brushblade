@@ -68,7 +68,7 @@ namespace Brushblade.Core.Tests
             Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Feature, 1)), Is.EqualTo("Heal:210,ReviveHp:60"), "㵘 = 苏(全体),复活生命 60%");
             Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Feature, 1)), Is.EqualTo("Shield:45,Armor:20,Duration:2"), "崩五行面全体盾 45");
             Assert.That(Cells(FaceStats.Body(Graph.Get("冰"), CardFace.Attack, 3)), Is.EqualTo($"Damage:{Scale(195, 3)},Freeze:2"));
-            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:420,SpendHeft:60"),
+            Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Attack, 1)), Is.EqualTo("Damage:210,SpendHeft:60"),
                 "厚积薄发出耗厚格(final review Important 1)");
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 1)), Is.EqualTo("Shield:420,Armor:70,Duration:3"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("㙓"), CardFace.Feature, 4)),
@@ -289,7 +289,7 @@ namespace Brushblade.Core.Tests
         public void Body_SpendCells_PerStackDamage_Scaled()
         {
             var lei = Graph.Get("㙓");
-            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:420,SpendHeft:60"));
+            Assert.That(Cells(FaceStats.Body(lei, CardFace.Attack, 1)), Is.EqualTo("Damage:210,SpendHeft:60"));
             Assert.That(FaceStats.Body(lei, CardFace.Attack, 10).Last().Value, Is.EqualTo(Scale(78, 10)), "Lv10 已含 Lv3 厚积薄发·强化(60→78)");
             Assert.That(Cells(FaceStats.Body(Graph.Get("崩"), CardFace.Attack, 1)), Is.EqualTo("Damage:45,SpendHeft:13"));
             Assert.That(Cells(FaceStats.Body(Graph.Get("㵘"), CardFace.Attack, 1)), Is.EqualTo("Damage:210,SpendWellspring:60"));

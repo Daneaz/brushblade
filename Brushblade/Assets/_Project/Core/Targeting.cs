@@ -311,7 +311,11 @@ namespace Brushblade.Core
                 if (i == primaryIndex || !enemies[i].Alive) continue;
                 bool hit = shape switch
                 {
-                    TargetArea.Row => enemies[i].SharesRow(primary),
+                    // 主目标跨两排(Boss / 精英 / 头目)时默认扫前排(2026-10-20 用户),
+                    // 否则 SharesRow 对它恒真,横扫会变成全体
+                    TargetArea.Row => primary.RowSpan > 1
+                        ? enemies[i].Occupies(EnemyRow.Front)
+                        : enemies[i].SharesRow(primary),
                     // 相邻 = 一方的右开端正好顶着另一方的起始列(2026-08-30 列区间)。
                     // Span 全 1 时 ⟺ |ΔColumn| == 1,与旧写法逐字节相同。
                     TargetArea.Adjacent => enemies[i].SharesRow(primary)

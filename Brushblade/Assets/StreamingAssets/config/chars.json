@@ -420,19 +420,17 @@
       "effects": [
         {
           "kind": "Kindle",
-          "value": 20,
-          "pick": "AllAllies",
+          "value": 35,
           "turns": 3
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 143,
-          "shape": "All"
+          "value": 286
         },
         {
-          "kind": "BurnAll",
+          "kind": "BurnSingle",
           "value": 3
         }
       ],
@@ -456,7 +454,7 @@
           "name": "灼·强化",
           "effects": [
             {
-              "kind": "BurnAll",
+              "kind": "BurnSingle",
               "value": 4
             }
           ]
@@ -469,8 +467,7 @@
           "effects": [
             {
               "kind": "Kindle",
-              "value": 23,
-              "pick": "AllAllies",
+              "value": 40,
               "turns": 4
             }
           ]
@@ -4271,7 +4268,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 286
+          "value": 215,
+          "shape": "Adjacent"
         },
         {
           "kind": "Freeze",
@@ -7945,7 +7943,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 420
+          "value": 210,
+          "shape": "All"
         },
         {
           "kind": "SpendHeft",

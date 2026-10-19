@@ -367,8 +367,9 @@ namespace Brushblade.Core.Tests
             // 金单体 195、红单体 420(锚点 × 7 × 系数% 四舍五入),守面与攻面同值。
             Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(195), "金档单体");
             Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(420), "红档单体");
+            // 2026-10-20 用户:㙓 攻面改全体(厚积薄发本就打全体),= 红档全体 210,守面仍单体 420
             Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(420), "㙓 攻面单体伤害 = 红档单体");
+                Is.EqualTo(210), "㙓 攻面全体伤害 = 红档全体");
             Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(195), "金档单体");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
                 Is.EqualTo(195), "攻击面与护盾面同值");
@@ -444,13 +445,14 @@ namespace Brushblade.Core.Tests
             // 橙 3、红 4(燚 5 → 4、焚 4 → 3,焱 仍 3)。
             // 2026-10-15(spec A §2/§5):焱 攻击面改全体(橙全体 143),焱 / 焚 同档同值,
             // 红档 燚 全体 210;灼层数 橙 3、橙 3、红 4。
-            int yan = yanDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
+            // 2026-10-20 用户:焱 攻击面改单体(火系群体太多),橙单体 286 + 单体灼 3。
+            int yan = yanDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.Single).Value;
             int yi = yiDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
             int fen = fenDef.AttackEffects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
-            int yanBurn = yanDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            int yanBurn = yanDef.AttackEffects.First(e => e.Kind == EffectKind.BurnSingle).Value;
             int yiBurn = yiDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int fenBurn = fenDef.AttackEffects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            Assert.That(yan, Is.EqualTo(143), "橙 = 全体 143");
+            Assert.That(yan, Is.EqualTo(286), "橙 = 单体 286");
             Assert.That(fen, Is.EqualTo(143), "橙 = 全体 143");
             Assert.That(yi, Is.EqualTo(210), "红 = 全体 210");
             Assert.That(yanBurn, Is.EqualTo(3));

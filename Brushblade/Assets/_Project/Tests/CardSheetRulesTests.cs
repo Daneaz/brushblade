@@ -390,7 +390,7 @@ namespace Brushblade.Core.Tests
         public void AreaOf_AllTargetsBody()
         {
             Assert.That(CardSheetRules.AreaOf(Graph.Get("燚"), CardFace.Attack, 1), Is.EqualTo(TargetArea.All), "全体伤害");
-            Assert.That(CardSheetRules.AreaOf(Graph.Get("焱"), CardFace.Feature, 1), Is.EqualTo(TargetArea.All), "全体灼烧、无伤害");
+            Assert.That(CardSheetRules.AreaOf(Graph.Get("焚"), CardFace.Feature, 1), Is.EqualTo(TargetArea.All), "全体燃意、无伤害");
             Assert.That(CardSheetRules.AreaOf(Graph.Get("炎"), CardFace.Feature, 1), Is.EqualTo(TargetArea.Single));
             Assert.That(CardSheetRules.AreaOf(Graph.Get("冷"), CardFace.Feature, 1), Is.EqualTo(TargetArea.Single));
         }

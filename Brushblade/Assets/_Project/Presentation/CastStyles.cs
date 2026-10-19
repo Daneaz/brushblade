@@ -14,8 +14,8 @@ namespace Brushblade.Presentation
         Sweep,       // 刀光·横扫:剑 鑫
         DoubleChop,  // 双刀连剁:剁 刲 鍂(分段伤害)
         Thrust,      // 突刺:锥(贯穿一列)
-        Fireball,    // 火球:炎 燥 蒸 热 灿
-        FireWave,    // 火浪:爆 烈 焚 焱 燚
+        Fireball,    // 火球:炎 燥 蒸 热 灿 焱
+        FireWave,    // 火浪:爆 烈 焚 燚
         Blast,       // 爆破:炸
         IceShard,    // 冰刺:冰 淼
         Frost,       // 寒雾:冷 冻

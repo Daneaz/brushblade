@@ -494,7 +494,7 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # D1 Task 12 新写法的字段(选择器 / 回合)在真实产物里落得下来
     # 2026-10-15 spec C:燃面本体改为燃意 Kindle(我方全体)。
     assert by_id["焱"]["effects"] == [
-        {"kind": "Kindle", "value": 20, "pick": "AllAllies", "turns": 3}], "焱 燃:我方全体燃意(2026-10-16:全体 ×0.5 后 +5)"
+        {"kind": "Kindle", "value": 35, "turns": 3}], "焱 燃:单体燃意(2026-10-20 改单体:梯度 30 + 5)"
     # 2026-10-15 spec C:崩 / 溃 的破甲 / 减速附加删除,攻击面本体只剩 伤害 + Spend(层数族挪到特性)。
     assert [e["kind"] for e in by_id["崩"]["attackEffects"]] == ["DamageSingle", "SpendHeft"]
     assert [e["kind"] for e in by_id["溃"]["attackEffects"]] == ["DamageSingle", "SpendWellspring"]
@@ -727,7 +727,7 @@ def test_spec_a_flower_attack_is_seed_not_charm():
 # 2026-10-16 用户:全体燃意按范围系数 ×0.5(spec A 口径),再整体 +5 个百分点
 _FIRE_FEATURE = {"热": (20, 2, None), "爆": (13, 2, "AllAllies"), "炸": (15, 2, "AllAllies"), "烈": (15, 3, "AllAllies"),
                  "燥": (25, 3, None), "蒸": (25, 3, None), "炎": (30, 3, None), "灿": (30, 3, None),
-                 "焚": (20, 3, "AllAllies"), "焱": (20, 3, "AllAllies"), "燚": (23, 3, "AllAllies")}
+                 "焚": (20, 3, "AllAllies"), "焱": (35, 3, None), "燚": (23, 3, "AllAllies")}
 
 
 def test_spec_c_fire_feature_body_is_kindle():
