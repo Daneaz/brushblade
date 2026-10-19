@@ -83,6 +83,18 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(1), "扫后排:同理");
         }
 
+        /// <summary>横扫**以跨排 Boss 为主目标**(2026-10-20 用户:剑选中 Boss / 精英 / 头目):
+        /// 默认扫前排 —— Boss 两排都占,按 SharesRow 会把两排全扫成全体。前卒中、后卒不中。</summary>
+        [Test]
+        public void SweepOnCrossRowBoss_DefaultsToFrontRow()
+        {
+            var engine = Engine(CrossRowBoss(), Mob("前卒"), Mob("后卒", EnemyRow.Back));
+            var targets = Targeting.ExpandTargets(engine.Enemies, 0, TargetArea.Row, 0);
+            Assert.That(CountHits(targets, 0), Is.EqualTo(1), "主目标 Boss");
+            Assert.That(CountHits(targets, 1), Is.EqualTo(1), "前排随从被扫到");
+            Assert.That(CountHits(targets, 2), Is.EqualTo(0), "后排随从不在横扫范围");
+        }
+
         /// <summary>溅射(同排左右相邻)对跨排 Boss 也只一次 —— 从任一排的邻格溅过去都碰到它。</summary>
         [Test]
         public void CrossRowBoss_TakesOneHitFromSplashInEitherRow()

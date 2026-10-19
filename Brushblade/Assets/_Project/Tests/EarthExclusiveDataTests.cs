@@ -175,9 +175,9 @@ namespace Brushblade.Core.Tests
         {
             // 塔 Lv8 攻:塔基 armorStrike 300 + 镇塔 500 = 800(E27,改前会被覆盖成 500)
             Assert.That(Folded("塔", CardFace.Attack, 8, EffectKind.DamageSingle).ArmorStrikePercent, Is.EqualTo(800));
-            // 㙓 Lv8 攻(spec C):山压 / 地动 的镇压与全体改形都下架,伤害回到本体单体;地动改成释放后全体护盾
+            // 㙓 Lv8 攻(spec C):山压 / 地动 的镇压与全体改形都下架,伤害回到本体(2026-10-20 本体改全体);地动改成释放后全体护盾
             var dong = Folded("㙓", CardFace.Attack, 8, EffectKind.DamageSingle);
-            Assert.That((dong.ShieldStrikePercent, dong.Shape), Is.EqualTo((0, TargetArea.Single)));
+            Assert.That((dong.ShieldStrikePercent, dong.Shape), Is.EqualTo((0, TargetArea.All)));
             Assert.That(Folded("㙓", CardFace.Attack, 8, EffectKind.SpendShield).Value, Is.EqualTo(50));
             // 垚 Lv8 攻:三山散射 3 发、逐发镇压 300 + spec A Lv6 垚峙 200 = 500;移山的 shieldStrike 30 留着(Q13)
             var shan = Folded("垚", CardFace.Attack, 8, EffectKind.DamageSingle);

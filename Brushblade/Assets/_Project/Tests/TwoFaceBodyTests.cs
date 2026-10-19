@@ -214,6 +214,7 @@ namespace Brushblade.Core.Tests
         {
             ["剑"] = TargetArea.Row, ["锥"] = TargetArea.Column, ["箭"] = TargetArea.Column,
             ["楸"] = TargetArea.Row, ["碎"] = TargetArea.Adjacent, ["垒"] = TargetArea.Row,
+            ["淼"] = TargetArea.Adjacent,   // 2026-10-20 用户:淼 本体改溅射
         };
 
         [Test]
@@ -221,18 +222,17 @@ namespace Brushblade.Core.Tests
         {
             TargetArea AttackShape(string id) => Only(Char(id).AttackEffects, EffectKind.DamageSingle, id).Shape;
 
-            foreach (var id in new[] { "灿", "鑫", "淋", "海", "㙓" })
+            foreach (var id in new[] { "灿", "鑫", "淋", "海", "焱" })
                 Assert.That(AttackShape(id), Is.EqualTo(TargetArea.Single), $"{id} 攻击单体(U2)");
             foreach (var (id, shape) in GroupBody)
                 Assert.That(AttackShape(id), Is.EqualTo(shape), $"{id} 攻击群体(2026-10-18 群攻入口)");
-            foreach (var id in new[] { "爆", "炸", "烈", "焚", "焱", "燚", "溃", "㵘", "崩" })
+            foreach (var id in new[] { "爆", "炸", "烈", "焚", "燚", "溃", "㵘", "崩", "㙓" })
                 Assert.That(AttackShape(id), Is.EqualTo(TargetArea.All), $"{id} 攻击全体(本体列)");
 
-            // 焱(spec A §3 用户拍板):攻击面改全体 + BurnAll 3;五行面全体,灼恒 1
+            // 焱(2026-10-20 用户):攻击面改单体 + BurnSingle 3;燃意随之单体(spec C §5)
             var yan3 = Char("焱");
-            // spec C §5:五行面 = 燃意(我方全体),不再有灼 / 慑
-            Assert.That(Only(yan3.Effects, EffectKind.Kindle, "焱").Pick, Is.EqualTo(EffectPick.AllAllies), "焱 燃意:我方全体");
-            Assert.That(Only(yan3.AttackEffects, EffectKind.BurnAll, "焱").Value, Is.EqualTo(3), "焱 攻:全体灼");
+            Assert.That(Only(yan3.Effects, EffectKind.Kindle, "焱").Pick, Is.Not.EqualTo(EffectPick.AllAllies), "焱 燃意:单体");
+            Assert.That(Only(yan3.AttackEffects, EffectKind.BurnSingle, "焱").Value, Is.EqualTo(3), "焱 攻:单体灼");
 
             // 两面范围对齐(spec A §3)
             Assert.That(Only(Char("溃").Effects, EffectKind.HealAll, "溃").Value, Is.EqualTo(45));

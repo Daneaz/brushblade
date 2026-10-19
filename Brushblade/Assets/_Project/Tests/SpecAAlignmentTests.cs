@@ -101,7 +101,7 @@ namespace Brushblade.Core.Tests
             Assert.That(reshape.ShapePercent, Is.EqualTo(67), "全体 0.5 / 群体 0.75 ≈ 67%(2026-10-18 控制方裁定)");
         }
 
-        [TestCase("爆")] [TestCase("炸")] [TestCase("烈")] [TestCase("焚")] [TestCase("焱")] [TestCase("燚")]
+        [TestCase("爆")] [TestCase("炸")] [TestCase("烈")] [TestCase("焚")] [TestCase("燚")]
         [TestCase("溃")] [TestCase("㵘")] [TestCase("崩")]
         public void AllAttackFace_MeansAllFeatureFace(string id)   // §9.2
         {
