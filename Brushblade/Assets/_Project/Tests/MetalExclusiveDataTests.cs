@@ -321,9 +321,11 @@ namespace Brushblade.Core.Tests
             Assert.That(broken.Cast("剁", 0, attackMode: true), Is.EqualTo(BattleError.None));
             var brokenHits = Hits(broken, 0);
             Assert.That(brokenHits.Count, Is.EqualTo(fullHits.Count), "断金不改击数");
-            Assert.That(brokenHits[0].Amount, Is.EqualTo(fullHits[0].Amount * 4).Within(4), "断金 +300%:每击 ×4");
-            Assert.That(Morale(full), Is.EqualTo(Config.MoraleCap).Or.GreaterThan(0), "对照:没点断金不清战意");
-            Assert.That(Morale(broken), Is.LessThan(Morale(full)), "断金结算后战意被清空");
+            // 2026-10-19 锋刃回鞘并入断金:满战意攻击面没点断金也 +100%、也清战意;断金 +300% → +(100 + 300)%,
+            // 相对「只有锋刃回鞘」每击 ×5/2(原断言「×4、没点断金不清战意」按新口径改)
+            Assert.That(brokenHits[0].Amount * 2, Is.EqualTo(fullHits[0].Amount * 5).Within(10), "断金 +300%:每击 ×5/2");
+            Assert.That(Morale(full), Is.EqualTo(0), "锋刃回鞘结算后清空战意");
+            Assert.That(Morale(broken), Is.EqualTo(0), "断金同样清空");
         }
 
         /// <summary>大卸八块钉值(final fix 4):每击 = 本体单击 × 35%。本体单击 = 攻击面 DamageSingle 按 Lv8 缩放
