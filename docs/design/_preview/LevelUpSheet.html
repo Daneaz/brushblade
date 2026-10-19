@@ -52,8 +52,8 @@
 .lu .box .nm { height: 19.11px; display: flex; align-items: center; gap: 6.21px; font-size: 13.86px; }
 .lu .box .nm i { width: 8.12px; height: 8.12px; border-radius: 2.87px; background: var(--rarity-purple); display: block; }
 .lu .box .yd { height: 13.38px; line-height: 13.38px; font-size: 9.56px; color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.lu .box .sl { height: 12.42px; display: flex; align-items: center; gap: 2.87px; font-size: 9.08px; color: var(--text-faint); white-space: nowrap; }
-.lu .box .sl b { color: var(--upgrade-text); }
+/* 末张卡底一行领取提示(每级宝箱改为在角色页主动领取):19 gold-deep、定高 26,与里程碑条右端同一句 */
+.lu .box .sl { height: 12.42px; line-height: 12.42px; font-size: 9.08px; color: var(--gold-deep); white-space: nowrap; }
 /* MilestoneBar:OutlinedPanel gold-soft 底、2 rarity-gold@55% 描边、圆角 17;高 63、横排内边距 25、间距 17,撑满整行 */
 .lu .mile { height: 30.1px; flex: none; display: flex; align-items: center; gap: 8.12px; padding: 0 11.94px; border-radius: 8.12px;
   background: var(--gold-soft); box-shadow: inset 0 0 0 0.96px color-mix(in srgb, var(--rarity-gold) 55%, transparent); white-space: nowrap; }
@@ -67,7 +67,7 @@
 <!-- 示例:Lv.19 → Lv.20(段末安全层)。一段最多 4 层 ×10 + Boss 50 = 90 经验,而 Lv.19 升 20 要 1000 ——
      一段只升一级是常态。属性 = MaxHpFor / AttackFor / DefenseFor / DodgeFor / SpeedFor 在 19 与 20 的值;
      宝箱 = TierForLevel(20) = 紫檀匣(Lv.11–20):KindCount 8 / ExpectedCards 40 / InkReward 120 / 4 小时;
-     箱位 3 / 4(meta.Chests.Count / SlotLimit),没有欠箱。跨过 Lv.20 里程碑 → 一条提示条(1,200 墨 + 金字 3 选 1)。 -->
+     每级宝箱不再自动发放,末张卡写「回主界面后在角色页领取」。跨过 Lv.20 里程碑 → 一条提示条(1,200 墨 + 金字 3 选 1)。 -->
 <div class="stage">
   <div class="under"><div class="mark">山</div><div class="card">
     <i style="left:25.8px;background:var(--cinnabar);opacity:.85"></i><i style="right:25.8px;background:var(--ink-soft);opacity:.85"></i></div></div>
@@ -83,7 +83,7 @@
             <div class="nm serif"><i></i>紫檀匣</div>
             <span class="chip" style="width:68.8px;height:15.77px;font-size:8.6px;background:var(--panel-inset);color:var(--text-dim);box-shadow:inset 0 0 0 0.96px var(--panel-border)">Lv.11–20</span>
             <div class="yd">8 种 40 张 · 120 墨 · 4 小时</div>
-            <div class="sl">已放进箱位<b>3 / 4</b></div></div>
+            <div class="sl">回主界面后在角色页领取</div></div>
         </div>
       </div>
       <div class="mile"><b>Lv.20 里程碑</b><span class="bd">1,200 墨 + 金字 3 选 1 已解锁</span><span class="ht">回主界面后在角色页领取</span></div>
@@ -94,6 +94,6 @@
 </div>
 <div style="font-size:8.5px;color:var(--text-faint);line-height:1.55;padding:8px 16px 0;max-width:900px">
   属性行 = panel-inset 底条 + 四个 Text 横排(旧值暖灰小字、新值放大加粗、增量加粗);没涨的行新值 text-dim、增量常规字重 text-warm。升级奖励卡的立绘按两栏剩余高反算:这里(一档 + 一条里程碑)是 114 → 54.47pt,
-  无里程碑时封顶 180(稿 86pt),有欠箱 chip 时缩到 73。</div>
+  无里程碑时封顶 180(稿 86pt)。</div>
 </div>
 </body></html>

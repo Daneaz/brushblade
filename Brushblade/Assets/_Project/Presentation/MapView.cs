@@ -189,7 +189,7 @@ namespace Brushblade.Presentation
                 Ui.Anchor((RectTransform)chevronGo.transform, Vector2.one, Vector2.one,
                     new Vector2(-41, -41), new Vector2(-14, -14));
             }
-            if (MilestoneRules.HasClaimable(_meta))
+            if (LevelRewardRules.HasClaimableReward(_meta))   // 可领里程碑或待领每级宝箱(箱位满也算)
             {
                 RedDot(panel.transform);
                 // RedDot 默认钉在角上;这里让到 chevron 左侧,不压它

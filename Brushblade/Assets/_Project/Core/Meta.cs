@@ -50,9 +50,9 @@ namespace Brushblade.Core
         public SettingsState Settings { get; set; } = new();
         /// <summary>跨局统计(2026-10-02 角色页)。</summary>
         public StatsState Stats { get; set; } = new();
-        /// <summary>每级宝箱已发到第几级(1 = 一只都没发)。只在宝箱真正入位后才前进 ——
-        /// 箱位满时停住、欠着(从不占暂存位),见 <see cref="LevelRewardRules.GrantLevelChests"/>。</summary>
-        public int LevelRewardGranted { get; set; } = 1;
+        /// <summary>已领取的每级宝箱(等级)。玩家在角色页按任意顺序逐只领取,只填空箱位、
+        /// 从不占暂存位,见 <see cref="LevelRewardRules.TryClaimChest"/>。</summary>
+        public List<int> ClaimedLevelChests { get; set; } = new();
         /// <summary>升级弹窗上次展示到的等级。0 = 尚未初始化(老存档 / 新号首次启动),
         /// 首次读取时静默对齐到当前等级,不弹「Lv.1 → N」。</summary>
         public int LastSeenLevel { get; set; }

@@ -13,7 +13,7 @@ namespace Brushblade.Presentation
         private const float W = 1256f, H = 745f; // 稿 600×356pt
         private const int CapProbe = 1000;   // 远超任何属性封顶等级,取曲线终值当「封顶值」
 
-        public static void Show(Transform root, MetaState meta, LevelUpSummary summary)
+        public static void Show(Transform root, LevelUpSummary summary)
         {
             if (summary == null) return;
             var sheet = Ui.Sheet(root, "LevelUp", W, H, dismissable: false, replaceSameName: true,
@@ -39,10 +39,8 @@ namespace Brushblade.Presentation
             colsElement.flexibleHeight = 1;
             cols.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = true;
 
-            int owed = LevelRewardRules.OwedChests(meta);
             BuildStats(cols.transform, summary.FromLevel, summary.ToLevel);
-            BuildChests(cols.transform, meta, summary.FromLevel, summary.ToLevel, owed,
-                ColsHeight(summary.Milestones.Count));
+            BuildChests(cols.transform, summary.FromLevel, summary.ToLevel, ColsHeight(summary.Milestones.Count));
 
             foreach (int lv in summary.Milestones)
                 MilestoneBar(content, lv);
@@ -137,18 +135,18 @@ namespace Brushblade.Presentation
         // ---- 升级奖励卡(稿 .box:pt × 2.093) ----
         private const float ChestTitleH = 30f, ColGap = 10f;
         private const float CardPadTop = 13f, CardPadBottom = 19f, CardGap = 8f;
-        private const float NameH = 40f, BandH = 33f, YieldH = 28f, SlotH = 26f;
-        /// <summary>卡里除立绘外的定高:内边距 + 箱名 + 档位 chip + 产出 + 箱位 + 四道行距 = 191。</summary>
-        private const float CardFixedH = CardPadTop + CardPadBottom + NameH + BandH + YieldH + SlotH + 4 * CardGap;
+        private const float NameH = 40f, BandH = 33f, YieldH = 28f, HintH = 26f;
+        /// <summary>卡里除立绘外的定高:内边距 + 箱名 + 档位 chip + 产出 + 领取提示 + 四道行距 = 191。</summary>
+        private const float CardFixedH = CardPadTop + CardPadBottom + NameH + BandH + YieldH + HintH + 4 * CardGap;
         private const float ArtMax = 180f;  // 稿 86pt
         private const float ArtMulti = 84f; // 原逐行版的立绘尺寸;多档时每张卡都用它
 
-        /// <summary>按「Lv.from → Lv.to」这一段逐级查档,与标题同源(本次调用前已静默补发过的也算在内);
-        /// 同档合并成一张卡「× N」(稿 MultiLevel 的读法)。没发出的那几只由 owed 另行提示。
+        /// <summary>按「Lv.from → Lv.to」这一段逐级查档,与标题同源;同档合并成一张卡「× N」(稿 MultiLevel 的读法)。
+        /// 每级宝箱不再自动发放(2026-10-19 稿 character-chest-claim §2),卡只说升到了哪档,末张提示去角色页领。
         /// 卡放在竖向 ScrollList 里:一档时卡撑满列、立绘按剩余高反算(封顶 86pt,稿的 86pt 在它自己的
         /// 356pt 定高里其实放不下);多档(连升跨档,
         /// 当前数值下几乎碰不到)每张卡立绘 84,放不下就滚,第二张的顶会露出来提示还有。</summary>
-        private static void BuildChests(Transform parent, MetaState meta, int from, int to, int owed, float colsH)
+        private static void BuildChests(Transform parent, int from, int to, float colsH)
         {
             var col = Ui.VStack(parent, "Chests", ColGap);
             col.AddComponent<LayoutElement>().preferredWidth = 456; // 稿 218pt
@@ -166,29 +164,26 @@ namespace Brushblade.Presentation
                 counts[tier] = n + 1;
             }
 
-            float listH = colsH - ChestTitleH - ColGap - (owed > 0 ? ColGap + Ui.ChipHeight(OwedFont) : 0f);
-            // 一档:立绘吃掉卡里剩下的高(无里程碑 180 封顶、一条里程碑 114、再加欠箱 chip 73),卡恰好不滚
+            float listH = colsH - ChestTitleH - ColGap;
+            // 一档:立绘吃掉卡里剩下的高(无里程碑 180 封顶、一条里程碑 114),卡恰好不滚
             float art = counts.Count == 1 ? Mathf.Clamp(listH - CardFixedH, 0f, ArtMax) : ArtMulti;
             var list = Ui.ScrollList(col.transform, "ChestList", ColGap, out var listContent);
             Ui.Sized(list, height: listH);
             int i = 0;
             foreach (var kv in counts)
             {
-                bool last = ++i == counts.Count;  // 箱位只说一次,写在末张
-                float cardH = CardFixedH + art - (last ? 0f : SlotH + CardGap);
+                bool last = ++i == counts.Count;  // 领取提示只说一次,写在末张
+                float cardH = CardFixedH + art - (last ? 0f : HintH + CardGap);
                 if (counts.Count == 1) cardH = Mathf.Max(listH, cardH);  // 一档时撑满列(稿 .box flex: 1)
-                ChestCard(listContent, kv.Key, kv.Value, art, cardH, showSlots: last, meta);
+                ChestCard(listContent, kv.Key, kv.Value, art, cardH, showHint: last);
             }
-            if (owed > 0)
-                Ui.Chip(col.transform, Strings.T("levelup.owed", ("count", owed)), Theme.WarningBg, Theme.WarningText, OwedFont);
         }
 
-        private const int OwedFont = 19;
-
         /// <summary>一张箱卡:立绘 → 色点箱名 → 档位 chip「Lv.11–20」→ 产出「8 种 40 张 · 120 墨 · 4 小时」
-        /// → (末张)「已放进箱位 3 / 4」。产出取 ChestRules 的种数 / 期望张数 / 墨锭 / 开启时长,与商城同源。</summary>
+        /// → (末张)「回主界面后在角色页领取」19 `gold-deep`(与里程碑条右端同一句)。
+        /// 产出取 ChestRules 的种数 / 期望张数 / 墨锭 / 开启时长,与商城同源。</summary>
         private static void ChestCard(Transform parent, ChestTier tier, int count, float art, float height,
-            bool showSlots, MetaState meta)
+            bool showHint)
         {
             int t = (int)tier - 1;
             var card = Ui.OutlinedPanel(parent, "ChestCard", Theme.CardWhite, Theme.PanelBorder, 21, 2f, out var face);
@@ -227,13 +222,9 @@ namespace Brushblade.Presentation
                     ("ink", Ui.InkText(ChestRules.InkReward[t])), ("duration", duration)),
                 20, Theme.TextDim).gameObject, height: YieldH);
 
-            if (!showSlots) return;
-            var slot = Ui.Row(card.transform, "Slots", 6);
-            Ui.Sized(slot, height: SlotH);
-            Ui.ThemedLabel(slot.transform, Strings.T("levelup.slot_label"), 19, Theme.LockGray);
-            Ui.ThemedLabel(slot.transform, Strings.T("levelup.slot_count",
-                    ("count", meta.Chests.Count), ("limit", ChestRules.SlotLimit)), 19, Theme.UpgradeText)
-                .fontStyle = FontStyle.Bold;
+            if (!showHint) return;
+            Ui.Sized(Ui.ThemedLabel(card.transform, Strings.T("levelup.milestone_hint"), 19, Theme.GoldDeep)
+                .gameObject, height: HintH);
         }
     }
 }

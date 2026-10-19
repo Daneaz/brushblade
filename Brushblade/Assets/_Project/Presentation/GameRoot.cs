@@ -98,8 +98,6 @@ namespace Brushblade.Presentation
 
         public static void ShowMap(string message = null)
         {
-            if (LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time).Count > 0)
-                MetaStore.Save(_meta);
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
                 onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary,
@@ -109,7 +107,7 @@ namespace Brushblade.Presentation
         private static void ShowCharacter()
         {
             var view = NewView("CharacterView");
-            view.AddComponent<CharacterView>().Init(_graph, _campaign, _meta, ChestCardPool(),
+            view.AddComponent<CharacterView>().Init(_graph, _campaign, _meta, ChestCardPool(), Time,
                 () => MetaStore.Save(_meta), () => ShowMap());
         }
 
@@ -492,7 +490,6 @@ namespace Brushblade.Presentation
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
             snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
-            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned, milestone);
@@ -608,7 +605,7 @@ namespace Brushblade.Presentation
                     Strings.T("root.safelayer.milestone_title", ("bandName", milestone.Name)),
                     Strings.T("root.safelayer.milestone_body", ("ink", Ui.InkText(milestone.MilestoneInk))),
                     (Strings.T("common.ok"), null, Theme.Cta, Color.white));
-            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
+            LevelUpPopup.Show(view.transform, _pendingLevelUp);
             _pendingLevelUp = null;
             MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
         }
@@ -679,7 +676,6 @@ namespace Brushblade.Presentation
                 : died
                     ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", Ui.InkText(ink)))
                     : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", Ui.InkText(ink)));
-            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowTowerSettle(headline, ink, chestTitle, chestDesc, chestTier, previousBest, clearedDepth);
@@ -747,7 +743,7 @@ namespace Brushblade.Presentation
 
             Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(),
                 Theme.Cta, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
-            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
+            LevelUpPopup.Show(view.transform, _pendingLevelUp);
             _pendingLevelUp = null;
             MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
         }
