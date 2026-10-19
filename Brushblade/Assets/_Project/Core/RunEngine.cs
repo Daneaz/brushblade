@@ -53,6 +53,13 @@ namespace Brushblade.Core
         /// 打开;章节关卡与测试夹具缺省关,账目与改前逐字节一致。每只的数额见
         /// <see cref="EndlessRules.KillInk"/>。</summary>
         public bool KillInkDrops { get; set; }
+
+        /// <summary>打赢后转配方转盘的**绝对层号**(spec 2026-10-19 §2;由 <see cref="EndlessGenerator.BuildSegment"/>
+        /// 按 <see cref="RecipeWheel.AppliesAt"/> 填)。章节关卡与测试夹具缺省空 = 不转。</summary>
+        public IReadOnlyCollection<int> RecipeWheelDepths { get; set; } = Array.Empty<int>();
+
+        /// <summary>转盘随机流的种子(塔种子):与层号一起经 <see cref="RecipeWheel.StreamFor"/> 派生独立流。</summary>
+        public int RecipeWheelSeed { get; set; }
     }
 
     /// <summary>连战状态机:战斗 → 奖励 → 下一战。
@@ -203,6 +210,7 @@ namespace Brushblade.Core
                 DefeatedEnemyIds = new List<string>(_defeatedEnemyIds),
                 RunRecipes = new List<string>(_runRecipes),
                 UnfamiliarChars = new List<string>(_unfamiliar),
+                RecipeWheel = LastRecipeWheel,
                 Battle = Battle?.Capture(),
             };
             return snapshot;
@@ -241,6 +249,7 @@ namespace Brushblade.Core
                 CurrentSupply = snapshot.CurrentSupply, // 停在补给选字页挂起:来源不能回落成复活
                 ReviveCharPicksLeft = snapshot.ReviveCharPicksLeft,
                 ReviveRoundsLeft = snapshot.ReviveRoundsLeft,
+                LastRecipeWheel = snapshot.RecipeWheel,
             };
             run._rewardOptions.AddRange(snapshot.RewardOptions);
             run._componentOptions.AddRange(snapshot.ComponentOptions);
@@ -717,7 +726,25 @@ namespace Brushblade.Core
             // 复活补给与战后选字共用 _rewardOptions:上一次复活剩下的候选不能混进这一轮
             // (改序之前这里直接 RollRewardOptions 重掷,内部会 Clear,轮不到这条)
             _rewardOptions.Clear();
+            SpinRecipeWheel(); // 先转盘、再奇遇 / 选字(spec 2026-10-19 §2);独立随机流,不平移主序列
             ProceedAfterBattle();
+        }
+
+        /// <summary>本层战后的配方转盘结果(spec 2026-10-19 §2);本层不转为 null。
+        /// 在 <see cref="AdvanceAfterBattle"/> 同一步转完并入账(配方集 + 生疏),不留「待转」的悬空态;
+        /// 开下一战时清空。进 RunSnapshot,停在选字页挂起再进仍可读到。</summary>
+        public RecipeWheelResult LastRecipeWheel { get; private set; }
+
+        private void SpinRecipeWheel()
+        {
+            int depth = CurrentDepth;
+            if (_battleConfig.UnlockedChars == null || !_runConfig.RecipeWheelDepths.Contains(depth)) return;
+            var wheel = RecipeWheel.Spin(depth, _graph, _battleConfig.UnlockedChars, _runRecipes,
+                RecipeWheel.StreamFor(_runConfig.RecipeWheelSeed, depth));
+            if (wheel == null) return; // 一格都凑不出:跳过
+            LastRecipeWheel = wheel;
+            _runRecipes.Add(wheel.Target);
+            if (!_unfamiliar.Contains(wheel.Target)) _unfamiliar.Add(wheel.Target);
         }
 
         /// <summary>打赢之后往哪走(2026-08-30 改序:**先奇遇,后选字**)。
@@ -924,6 +951,7 @@ namespace Brushblade.Core
         private void BeginNextBattle()
         {
             BattleIndex += 1;
+            LastRecipeWheel = null;
             _carriedNormalShield += _perFloorNormalShield; // 金汤每关补盾,叠加上关剩余
             Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);
             _killInkCredited.Clear();

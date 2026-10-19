@@ -765,6 +765,8 @@ namespace Brushblade.Core
             {
                 meta.EndlessV2.Library.RemoveAll(id => !Known(id));
                 meta.EndlessV2.Pool.RemoveAll(id => !Known(id));
+                meta.EndlessV2.RunRecipes.RemoveAll(id => !Known(id));      // 配方集(2026-10-19)
+                meta.EndlessV2.UnfamiliarChars.RemoveAll(id => !Known(id));
             }
 
             // 里程碑候选含下架字 → 整条作废,下次打开领取弹窗重生成(否则弹窗空、红点常亮)

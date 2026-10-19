@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -100,6 +101,10 @@ namespace Brushblade.Core
                 EventChancePercent = eventChancePercent,
                 FromDepth = fromDepth,   // 召唤槽位按当前层解锁,RunEngine 靠它换算绝对层号
                 KillInkDrops = true,
+                // 配方转盘(spec 2026-10-19 §2):11 层起的 Boss / 精英层;同 (塔种子, 层) 同结果,续爬重建一致
+                RecipeWheelDepths = Enumerable.Range(fromDepth, segmentEnd - fromDepth + 1)
+                    .Where(d => RecipeWheel.AppliesAt(config, d)).ToArray(),
+                RecipeWheelSeed = seed,
             };
         }
 
