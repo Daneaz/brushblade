@@ -613,12 +613,13 @@ namespace Brushblade.Presentation
             }
             if (face.Area is { } area)
                 StatCell(row.transform, def, back, z, onTerms, Strings.T("charsheet.stat.area"),
-                    CharInfo.ShapeLabel(area), "", GlossaryRules.TermOf(area));
+                    CharInfo.ShapeLabel(area), "", GlossaryRules.TermOf(area), termOnValue: true);
         }
 
-        /// <summary>一枚数值格:键名(带术语时本系 -fg 加粗、点开词条气泡)+ 值 + 单位。</summary>
+        /// <summary>一枚数值格:键名(带术语时本系 -fg 加粗、点开词条气泡)+ 值 + 单位。
+        /// <paramref name="termOnValue"/>:术语是值本身(攻击类型格的「横扫」),高亮落在值上、键名照常,气泡标题用值。</summary>
         private static void StatCell(Transform row, CharDef def, bool back, Sizes z, TermsTap onTerms,
-            string keyText, string valueText, string unit, GlossaryTerm? term)
+            string keyText, string valueText, string unit, GlossaryTerm? term, bool termOnValue = false)
         {
             var cell = Ui.OutlinedPanel(row, "Stat", back ? Theme.CardWhite : Theme.PanelPaper,
                 Theme.PanelBorder, z.CellRadius, 2);
@@ -629,24 +630,24 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(z.StatPadH, z.StatPadH, 6, 6);
             Ui.Stretch((RectTransform)stack.transform);
 
-            var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.ElementSoftFg(def.Element) : Theme.TextDim);
+            bool keyTerm = term != null && !termOnValue;
+            var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, keyTerm ? Theme.ElementSoftFg(def.Element) : Theme.TextDim);
             key.alignment = TextAnchor.MiddleLeft;
-            if (term != null)
+            if (keyTerm) key.fontStyle = FontStyle.Bold;
+            if (term != null && onTerms != null)
             {
-                key.fontStyle = FontStyle.Bold;
-                if (onTerms != null)
-                {
-                    var terms = new[] { term.Value };
-                    var cellRect = (RectTransform)cell.transform;
-                    TapTarget(cell, () => onTerms(cellRect, z.CellRadius, keyText, terms));
-                }
+                var terms = new[] { term.Value };
+                var cellRect = (RectTransform)cell.transform;
+                string title = termOnValue ? valueText : keyText;
+                TapTarget(cell, () => onTerms(cellRect, z.CellRadius, title, terms));
             }
             Ui.Sized(key.gameObject, height: z.StatK + 2f, flexWidth: 1);
 
             var value = Ui.Row(stack.transform, "Value", 4);
             value.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
             Ui.Sized(value, height: z.StatV + 2f, flexWidth: 1);
-            var number = Ui.ThemedLabel(value.transform, valueText, z.StatV, Theme.TextMain, Theme.TitleFont);
+            var number = Ui.ThemedLabel(value.transform, valueText, z.StatV,
+                term != null && termOnValue ? Theme.ElementSoftFg(def.Element) : Theme.TextMain, Theme.TitleFont);
             number.fontStyle = FontStyle.Bold;
             if (unit.Length > 0) Ui.ThemedLabel(value.transform, unit, z.StatUnit, Theme.TextDim);
         }
