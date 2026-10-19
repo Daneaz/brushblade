@@ -196,7 +196,7 @@ namespace Brushblade.Presentation
             Element.Fire => new Color(0.690f, 0.176f, 0.180f),   // #B02D2E
             Element.Water => new Color(0.039f, 0.369f, 0.620f),  // #0A5E9E
             Element.Wood => new Color(0.122f, 0.388f, 0.200f),   // #1F6333
-            Element.Metal => new Color(0.561f, 0.361f, 0.000f),  // #8F5C00 琥珀金
+            Element.Metal => new Color(0.576f, 0.396f, 0.024f),  // #936506 琥珀金
             Element.Earth => new Color(0.416f, 0.169f, 0.133f),  // #6A2B22 赭红褐
             Element.Heart => new Color(0.494f, 0.255f, 0.565f),  // #7E4190
             _ => TextMain,
@@ -209,7 +209,7 @@ namespace Brushblade.Presentation
             Element.Water => new Color(0.785f, 0.883f, 0.986f),
             Element.Wood => new Color(0.801f, 0.902f, 0.817f),
             Element.Earth => new Color(0.890f, 0.820f, 0.757f), // #E3D1C1
-            Element.Metal => new Color(0.969f, 0.906f, 0.675f), // #F7E7AC
+            Element.Metal => new Color(0.984f, 0.949f, 0.824f), // #FBF2D2
             Element.Heart => new Color(0.925f, 0.835f, 0.945f),
             _ => LockedBg,
         };

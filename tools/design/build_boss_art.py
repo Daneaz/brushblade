@@ -52,7 +52,7 @@ EL = {
 # 字形色 = Theme.GlyphColor / tokens.json 的 *-glyph(Boss 当前阶段字、头领亮色、金属类配饰都读它)。
 # 金、土 2026-10-19 金土分家改为琥珀金 / 赭红褐(原 #6B6449 冷灰 / #82552A)。
 GLYPH = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#6A2B22",
-         "Metal": "#8F5C00", "Water": "#0A5E9E", "Heart": "#7E4190"}
+         "Metal": "#936506", "Water": "#0A5E9E", "Heart": "#7E4190"}
 
 # 熔团摆位(比稿 A):四字挤向画布中下,互相压叠、轻微错位。[中心 x, 中心 y, 缩放, 旋转°]
 # 眼睛开在团块中心 EYES —— 运行时剩下的字向 CENTER 收拢(Boss 越打越小)
@@ -554,7 +554,7 @@ def build_leader(name, slug, element, layout, eyes, holes, deco):
 # 预览用的运行时着色(与 MobView.InitLeaderRig 同一推导,2026-10-18 控制方裁定):
 # 亮 = 本系字形色 Theme.GlyphColor;深 = 亮色向 Theme.Ink 插值 35%(Color.Lerp(light, Ink, 0.35))。
 # 金系例外(2026-10-19 用户拍板):当时字形色 #6B6449 冷灰,两字发灰褐、深浅差小 —— 亮改取 LEADER_LIGHT 里的现有 token
-# (同日金土分家后金字形色已是琥珀金 #8F5C00,例外按 README「头领不改」照旧保留)。
+# (同日金土分家后金字形色已是琥珀金 #936506,例外按 README「头领不改」照旧保留)。
 # 不新增 token;上字 c0 染深、下字 c1 染亮。运行时若改配法,只动这里与 MobView。GLYPH 表见文件开头。
 LEADER_DEEPEN = 0.35
 LEADER_LIGHT = {"Metal": "#CA9D33"}   # Theme.Gold 赭金(0.791, 0.617, 0.199)
