@@ -13,7 +13,7 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState();
             Assert.That(meta.Stats, Is.Not.Null);
-            Assert.That(meta.LevelRewardGranted, Is.EqualTo(1));
+            Assert.That(meta.ClaimedLevelChests.Count, Is.EqualTo(0));
             Assert.That(meta.LastSeenLevel, Is.EqualTo(0));
             Assert.That(meta.ClaimedMilestones.Count, Is.EqualTo(0));
             Assert.That(meta.MilestoneOffers.Count, Is.EqualTo(0));
@@ -22,7 +22,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SaveRoundTrip_KeepsAllNewFields()
         {
-            var meta = new MetaState { LevelRewardGranted = 7, LastSeenLevel = 7 };
+            var meta = new MetaState { LastSeenLevel = 7 };
+            meta.ClaimedLevelChests.AddRange(new[] { 3, 5 });
             meta.ClaimedMilestones.Add(5);
             meta.MilestoneOffers[10] = new List<string> { "a", "b", "c" };
             meta.Stats.ChestsOpened[ChestTier.Gilded] = 3;
@@ -34,7 +35,7 @@ namespace Brushblade.Core.Tests
 
             var back = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
 
-            Assert.That(back.LevelRewardGranted, Is.EqualTo(7));
+            Assert.That(back.ClaimedLevelChests, Is.EqualTo(new List<int> { 3, 5 }));
             Assert.That(back.LastSeenLevel, Is.EqualTo(7));
             Assert.That(back.ClaimedMilestones.Contains(5), Is.True);
             Assert.That(back.MilestoneOffers[10], Is.EqualTo(new List<string> { "a", "b", "c" }));
@@ -51,7 +52,7 @@ namespace Brushblade.Core.Tests
         {
             var back = SaveSerializer.FromJson("{\"CharacterXp\":500,\"Ink\":10}");
             Assert.That(back.CharacterXp, Is.EqualTo(500));
-            Assert.That(back.LevelRewardGranted, Is.EqualTo(1));
+            Assert.That(back.ClaimedLevelChests.Count, Is.EqualTo(0));
             Assert.That(back.LastSeenLevel, Is.EqualTo(0));
             Assert.That(back.Stats.Climbs, Is.EqualTo(0));
         }

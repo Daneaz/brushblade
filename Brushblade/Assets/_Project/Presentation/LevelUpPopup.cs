@@ -39,7 +39,7 @@ namespace Brushblade.Presentation
             colsElement.flexibleHeight = 1;
             cols.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = true;
 
-            int owed = LevelRewardRules.OwedChests(meta);
+            int owed = LevelRewardRules.PendingChestCount(meta);
             BuildStats(cols.transform, summary.FromLevel, summary.ToLevel);
             BuildChests(cols.transform, meta, summary.FromLevel, summary.ToLevel, owed,
                 ColsHeight(summary.Milestones.Count));

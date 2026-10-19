@@ -98,8 +98,6 @@ namespace Brushblade.Presentation
 
         public static void ShowMap(string message = null)
         {
-            if (LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time).Count > 0)
-                MetaStore.Save(_meta);
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
                 onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary,
@@ -492,7 +490,6 @@ namespace Brushblade.Presentation
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
             snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
-            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned, milestone);
@@ -679,7 +676,6 @@ namespace Brushblade.Presentation
                 : died
                     ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", Ui.InkText(ink)))
                     : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", Ui.InkText(ink)));
-            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowTowerSettle(headline, ink, chestTitle, chestDesc, chestTier, previousBest, clearedDepth);

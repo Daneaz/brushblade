@@ -190,7 +190,7 @@ namespace Brushblade.Presentation
                 TextAnchor.MiddleLeft);
             note.horizontalOverflow = HorizontalWrapMode.Wrap;
 
-            int owed = LevelRewardRules.OwedChests(_meta);
+            int owed = LevelRewardRules.PendingChestCount(_meta);
             if (owed > 0)
                 Ui.Chip(stack, Strings.T("character.owed", ("count", owed)), Theme.WarningBg, Theme.WarningText, 19);
         }
