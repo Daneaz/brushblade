@@ -89,13 +89,14 @@ namespace Brushblade.Core
         public static bool HasClaimableReward(MetaState meta) =>
             MilestoneRules.HasClaimable(meta) || PendingChestCount(meta) > 0;
 
-        /// <summary>轨道末端 = max(当前等级 + 5, 严格大于当前等级的下一个里程碑)。</summary>
+        /// <summary>轨道末端 = max(里程碑表末 Lv.50, 当前等级 + 5, 严格大于当前等级的下一个里程碑)。
+        /// 表末兜底:低等级时也要看得到一路到 Lv.50 的里程碑与宝箱(2026-10-19 试玩)。</summary>
         public static int TrackEnd(MetaState meta)
         {
             int level = MetaRules.CharacterLevel(meta.CharacterXp);
             int next = level + 1;
             while (!MilestoneRules.ForLevel(next).HasValue) next++; // 50 级后每 10 级一个,必终止
-            return Math.Max(level + TrackLookahead, next);
+            return Math.Max(MilestoneRules.TableEnd, Math.Max(level + TrackLookahead, next));
         }
 
         /// <summary>首次打开轨道时聚焦的等级:Lv.2 起第一个宝箱或里程碑可领的等级;都领完返回当前等级。</summary>

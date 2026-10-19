@@ -167,9 +167,13 @@ namespace Brushblade.Core.Tests
             Assert.That(LevelRewardRules.HasClaimableReward(meta), Is.False);
         }
 
-        [TestCase(1, 6)]
-        [TestCase(3, 8)]
-        [TestCase(9, 14)]
+        /// <summary>轨道至少铺到里程碑表末 Lv.50(2026-10-19 试玩:只铺到 Lv.7 看不到后面的里程碑);
+        /// 之后 = max(当前等级 + 5, 下一个里程碑)。</summary>
+        [TestCase(1, 50)]
+        [TestCase(3, 50)]
+        [TestCase(9, 50)]
+        [TestCase(45, 50)]
+        [TestCase(46, 51)]
         [TestCase(48, 53)]
         [TestCase(50, 60)]
         [TestCase(57, 62)]
