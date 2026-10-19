@@ -57,8 +57,7 @@ namespace Brushblade.Presentation
             // 是节点面与详情弹窗标题直接印出英文 id「cross_vigor」——兜底那一支本来就是给「理论不可达」留的。
             "cross_vigor" => Strings.T("perk.node.cross_vigor.name"),
             "cross_draw" => Strings.T("perk.node.cross_draw.name"),
-            "ult_killdraw_1" => Strings.T("perk.node.ult_killdraw_1.name"),
-            "ult_killdraw_2" => Strings.T("perk.node.ult_killdraw_2.name"),
+            "ult_killdraw" => Strings.T("perk.node.ult_killdraw.name"),
             _ => def.NodeKey, // 兜底:44 个 NodeKey 已穷举,理论不可达
         };
 
@@ -126,7 +125,7 @@ namespace Brushblade.Presentation
             "cross_draw" => Strings.T("perk.node.cross_draw.desc",
                 ("base", def.BaseValue), ("value", def.Value)),
             // 斩获终极技两级同构(概率 / 张数不同),共用一条模板
-            "ult_killdraw_1" or "ult_killdraw_2" => Strings.T("perk.node.ult_killdraw.desc",
+            "ult_killdraw" => Strings.T("perk.node.ult_killdraw.desc",
                 ("chance", PerkRules.KillDrawChancePercent(def)), ("value", def.Value),
                 ("cap", BattleEngine.KillDrawPerTurnCap)),
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
@@ -151,11 +150,11 @@ namespace Brushblade.Presentation
         public static string DetailText(PerkNodeDef def) =>
             def.Tree == PerkTree.Cross ? CrossDetailText(def) : EffectDetailText(def);
 
-        private static string CrossDetailText(PerkNodeDef def) => def.Id switch
+        private static string CrossDetailText(PerkNodeDef def) => def.NodeKey switch
         {
             "cross_vigor" => Strings.T("perk.detail.cross_vigor"),
             "cross_draw" => Strings.T("perk.detail.cross_draw"),
-            "ult_killdraw_1" or "ult_killdraw_2" => Strings.T("perk.detail.kill_draw",   // 斩获终极技(2026-10-18)
+            "ult_killdraw" => Strings.T("perk.detail.kill_draw",   // 斩获终极技(2026-10-18)
                 ("chance", PerkRules.KillDrawChancePercent(def)), ("value", def.Value),
                 ("cap", BattleEngine.KillDrawPerTurnCap)),
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(表里只有这四条跨树)

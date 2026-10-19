@@ -148,12 +148,12 @@ namespace Brushblade.Core.Tests
             Assert.That(c2.EmptyLibraryExtraDraws, Is.EqualTo(1), "集腋不叠进广纳的字段");
             Assert.That(c2.LowLibraryExtraDraws, Is.EqualTo(1), "集腋(wide_2)");
             Assert.That(c2.KillDraws, Is.EqualTo(0));
-            meta.UnlockedPerks.Add("ult_killdraw_1");
+            meta.UnlockedPerks.Add("ult_killdraw_s1");
             var c3 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
             Assert.That(c3.EmptyLibraryExtraDraws, Is.EqualTo(1));
             Assert.That(c3.LowLibraryExtraDraws, Is.EqualTo(1));
             Assert.That((c3.KillDraws, c3.KillDrawChancePercent), Is.EqualTo((1, 50)), "终极技一级:50% 掉 1");
-            meta.UnlockedPerks.Add("ult_killdraw_2");
+            meta.UnlockedPerks.Add("ult_killdraw_s2");
             var c4 = MetaRules.BuildBattleConfig(meta, new[] { "金" });
             Assert.That((c4.KillDraws, c4.KillDrawChancePercent), Is.EqualTo((2, 70)), "终极技二级:70% 掉 2,不与一级叠加");
             Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize));
