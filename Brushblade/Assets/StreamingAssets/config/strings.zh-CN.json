@@ -1282,6 +1282,7 @@
   "charsheet.trait.used": "本场已用",
   "charsheet.part.mark": "印记 · {trait}:本回合出手附带{effects}(还剩 {count} 次)",
   "charsheet.stat.damage": "攻击",
+  "charsheet.stat.area": "攻击类型",
   "charsheet.stat.summon_hp": "木灵生命",
   "charsheet.stat.summon_atk": "木灵攻击",
   "charsheet.stat.burn": "灼",

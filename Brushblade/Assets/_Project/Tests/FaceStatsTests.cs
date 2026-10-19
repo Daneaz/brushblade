@@ -415,6 +415,21 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        /// <summary>2026-10-20 用户:攻击面数值格右侧加「攻击类型」格,点开词条解释该范围。每种范围都要有词条。</summary>
+        [Test]
+        public void AreaTerm_CoversEveryTargetArea()
+        {
+            Assert.That(GlossaryRules.TermOf(TargetArea.Single), Is.EqualTo(GlossaryTerm.AreaSingle));
+            Assert.That(GlossaryRules.TermOf(TargetArea.Row), Is.EqualTo(GlossaryTerm.AreaRow));
+            Assert.That(GlossaryRules.TermOf(TargetArea.Adjacent), Is.EqualTo(GlossaryTerm.AreaAdjacent));
+            Assert.That(GlossaryRules.TermOf(TargetArea.Column), Is.EqualTo(GlossaryTerm.AreaColumn));
+            Assert.That(GlossaryRules.TermOf(TargetArea.Scatter), Is.EqualTo(GlossaryTerm.AreaScatter));
+            Assert.That(GlossaryRules.TermOf(TargetArea.Chain), Is.EqualTo(GlossaryTerm.AreaChain));
+            Assert.That(GlossaryRules.TermOf(TargetArea.All), Is.EqualTo(GlossaryTerm.AreaAll));
+            foreach (TargetArea area in System.Enum.GetValues(typeof(TargetArea)))
+                Assert.That(GlossaryRules.Group(GlossaryRules.TermOf(area)), Is.EqualTo(1), $"{area} 落在范围组");
+        }
+
         [Test]
         public void Sheet_Metal_CounterPercentRisesAtLv3()
         {

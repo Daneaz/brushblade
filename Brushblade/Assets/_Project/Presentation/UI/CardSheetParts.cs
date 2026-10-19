@@ -115,6 +115,8 @@ namespace Brushblade.Presentation
             public string Landing;
             public bool Up;
             public IReadOnlyList<FaceStat> Stats;
+            /// <summary>攻击面的攻击类型格(2026-10-20 用户:从落点句拆出,放伤害格右侧);null = 不画(五行面 / 召唤面)。</summary>
+            public TargetArea? Area;
             public readonly List<RowModel> Rows = new();
             /// <summary>战斗版:未解锁的特性收成的一行(null = 没有)。</summary>
             public string LockedLine;
@@ -157,6 +159,8 @@ namespace Brushblade.Presentation
                 _ => Strings.T("charsheet.landing.summon"),
             };
             if (target == FaceTarget.Summon) return where;
+            // 攻击面的范围单独成格(FaceModel.Area),落点句只留落点
+            if (face == CardFace.Attack) return where;
             var area = CardSheetRules.AreaOf(def, face, level) ?? TargetArea.Single;
             // spec C §5.3(Q12):作用于我方的全体面写「我方全体」
             string areaText = area == TargetArea.All && target != FaceTarget.Enemy
@@ -595,7 +599,7 @@ namespace Brushblade.Presentation
             Ui.Chip(head.transform, Strings.T("charsheet.face_up"), Theme.Ink, Color.white, (int)UpTagFont, 21, 12);
         }
 
-        /// <summary>数值格(<see cref="FaceStats.Sheet"/>,攻击面 1 格、五行面按系 1–3 格);带术语的格键名本系 -fg 加粗、可点。
+        /// <summary>数值格(<see cref="FaceStats.Sheet"/>,攻击面伤害 + 攻击类型 2 格、五行面按系 1–3 格);带术语的格键名本系 -fg 加粗、可点。
         /// 正面格底 panel-paper、背面格底 card-face(稿 .face.front .sb)。</summary>
         private static void StatCells(Transform parent, CharDef def, FaceModel face, bool back, Sizes z, TermsTap onTerms)
         {
@@ -604,39 +608,47 @@ namespace Brushblade.Presentation
             Ui.Sized(row, height: z.StatH, flexWidth: 1);
             foreach (var stat in face.Stats)
             {
-                var cell = Ui.OutlinedPanel(row.transform, "Stat", back ? Theme.CardWhite : Theme.PanelPaper,
-                    Theme.PanelBorder, z.CellRadius, 2);
-                Ui.Sized(cell.gameObject, height: z.StatH, flexWidth: 1);
-                var stack = Ui.VStack(cell.transform, "Stack", 0);
-                var layout = stack.GetComponent<VerticalLayoutGroup>();
-                layout.childAlignment = TextAnchor.MiddleLeft;
-                layout.padding = new RectOffset(z.StatPadH, z.StatPadH, 6, 6);
-                Ui.Stretch((RectTransform)stack.transform);
-
                 var term = GlossaryRules.TermOf(stat);
-                string keyText = StatLabel(stat.Kind);
-                var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.ElementSoftFg(def.Element) : Theme.TextDim);
-                key.alignment = TextAnchor.MiddleLeft;
-                if (term != null)
-                {
-                    key.fontStyle = FontStyle.Bold;
-                    if (onTerms != null)
-                    {
-                        var terms = new[] { term.Value };
-                        var cellRect = (RectTransform)cell.transform;
-                        TapTarget(cell, () => onTerms(cellRect, z.CellRadius, keyText, terms));
-                    }
-                }
-                Ui.Sized(key.gameObject, height: z.StatK + 2f, flexWidth: 1);
-
-                var value = Ui.Row(stack.transform, "Value", 4);
-                value.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
-                Ui.Sized(value, height: z.StatV + 2f, flexWidth: 1);
-                var number = Ui.ThemedLabel(value.transform, StatValue(stat), z.StatV, Theme.TextMain, Theme.TitleFont);
-                number.fontStyle = FontStyle.Bold;
-                string unit = StatUnit(stat);
-                if (unit.Length > 0) Ui.ThemedLabel(value.transform, unit, z.StatUnit, Theme.TextDim);
+                StatCell(row.transform, def, back, z, onTerms, StatLabel(stat.Kind), StatValue(stat), StatUnit(stat), term);
             }
+            if (face.Area is { } area)
+                StatCell(row.transform, def, back, z, onTerms, Strings.T("charsheet.stat.area"),
+                    CharInfo.ShapeLabel(area), "", GlossaryRules.TermOf(area));
+        }
+
+        /// <summary>一枚数值格:键名(带术语时本系 -fg 加粗、点开词条气泡)+ 值 + 单位。</summary>
+        private static void StatCell(Transform row, CharDef def, bool back, Sizes z, TermsTap onTerms,
+            string keyText, string valueText, string unit, GlossaryTerm? term)
+        {
+            var cell = Ui.OutlinedPanel(row, "Stat", back ? Theme.CardWhite : Theme.PanelPaper,
+                Theme.PanelBorder, z.CellRadius, 2);
+            Ui.Sized(cell.gameObject, height: z.StatH, flexWidth: 1);
+            var stack = Ui.VStack(cell.transform, "Stack", 0);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.padding = new RectOffset(z.StatPadH, z.StatPadH, 6, 6);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            var key = Ui.ThemedLabel(stack.transform, keyText, z.StatK, term != null ? Theme.ElementSoftFg(def.Element) : Theme.TextDim);
+            key.alignment = TextAnchor.MiddleLeft;
+            if (term != null)
+            {
+                key.fontStyle = FontStyle.Bold;
+                if (onTerms != null)
+                {
+                    var terms = new[] { term.Value };
+                    var cellRect = (RectTransform)cell.transform;
+                    TapTarget(cell, () => onTerms(cellRect, z.CellRadius, keyText, terms));
+                }
+            }
+            Ui.Sized(key.gameObject, height: z.StatK + 2f, flexWidth: 1);
+
+            var value = Ui.Row(stack.transform, "Value", 4);
+            value.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
+            Ui.Sized(value, height: z.StatV + 2f, flexWidth: 1);
+            var number = Ui.ThemedLabel(value.transform, valueText, z.StatV, Theme.TextMain, Theme.TitleFont);
+            number.fontStyle = FontStyle.Bold;
+            if (unit.Length > 0) Ui.ThemedLabel(value.transform, unit, z.StatUnit, Theme.TextDim);
         }
 
         /// <summary>一条特性行(component/TraitRow)。on:底 = 正面 panel-paper / 背面 card-face + panel-border 内描边,Lv 标墨底白字;
