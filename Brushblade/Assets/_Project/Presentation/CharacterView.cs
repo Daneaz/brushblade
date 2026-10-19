@@ -39,6 +39,8 @@ namespace Brushblade.Presentation
         private readonly List<int> _trackLevels = new();
         private RectTransform _trackContent, _trackViewport;
         private GameObject _edgeLeft, _edgeRight;
+        /// <summary>两侧渐隐只在那一侧还能滚时出现 —— 常亮会把滚到头时的首 / 末格盖掉一截(2026-10-19 试玩:Lv.2 左缘被挡)。</summary>
+        private GameObject _fadeLeft, _fadeRight;
         private Text _edgeLeftText, _edgeRightText;
 
         private const float TopBarH = 80f;     // 与 PerkView 同
@@ -328,8 +330,8 @@ namespace Brushblade.Presentation
             _trackScroll = scroll;
 
             // 两侧纸色渐隐(提示还能滚)+ 屏外可领小签;都压在滚动区之上、不随内容走
-            EdgeFade(trackGo.transform, left: true);
-            EdgeFade(trackGo.transform, left: false);
+            _fadeLeft = EdgeFade(trackGo.transform, left: true);
+            _fadeRight = EdgeFade(trackGo.transform, left: false);
             (_edgeLeft, _edgeLeftText) = EdgePill(trackGo.transform, left: true);
             (_edgeRight, _edgeRightText) = EdgePill(trackGo.transform, left: false);
             scroll.onValueChanged.AddListener(_ => RefreshEdges());
@@ -598,7 +600,7 @@ namespace Brushblade.Presentation
             }
         }
 
-        private static void EdgeFade(Transform parent, bool left)
+        private static GameObject EdgeFade(Transform parent, bool left)
         {
             var image = Ui.Panel(parent, left ? "FadeL" : "FadeR").AddComponent<RawImage>();
             image.texture = FadeTexture;
@@ -608,6 +610,8 @@ namespace Brushblade.Presentation
             float x = left ? 0f : 1f;
             Ui.Anchor(image.rectTransform, new Vector2(x, 0f), new Vector2(x, 1f),
                 new Vector2(left ? 0f : -FadeW, 0f), new Vector2(left ? FadeW : 0f, 0f));
+            image.gameObject.SetActive(false);   // 布局算完后由 RefreshEdges 按能否滚动打开
+            return image.gameObject;
         }
 
         /// <summary>屏外还有可领时贴边出的 `cta` 小签「◂ 2 待领」/「3 待领 ▸」:高 31(15pt)、字 17(8.12pt)、
@@ -648,6 +652,8 @@ namespace Brushblade.Presentation
         {
             if (_trackContent == null || _trackViewport == null || _edgeLeft == null) return;
             float off = TrackOffset, viewW = _trackViewport.rect.width;
+            if (_fadeLeft != null) _fadeLeft.SetActive(off > 0.5f);
+            if (_fadeRight != null) _fadeRight.SetActive(off + viewW < _trackContent.rect.width - 0.5f);
             int left = 0, right = 0;
             for (int i = 0; i < _trackLevels.Count; i++)
             {
