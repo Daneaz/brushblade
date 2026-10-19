@@ -33,6 +33,7 @@
   - 字怪分层 `Mobs/`、Boss 讹熔层 `Mobs/boss_jingtaohailang_*`、召唤物草木层 `Summons/`；
   - 相克图 `UI/wuxing_ke.png`、绿档字牌框 `Cards/card_green_frame.png`。
   - 白色图层由 `Image.color` 染色的那几层（Boss 四字、虹膜、召唤物叶层），卡上用 CSS mask 还原。
+  - 2026-10-19 金土分家后重出的杂兵 / Boss 层与相克图已按同法（`sips` 缩小）换进卡里。
 - 示例数值按 `EndlessConfig.ScaleFor(50)` = 5.5 缩放 `enemies.json` 的基础值。
   示例里的字、部件、敌人都取自当前 `chars.json` 和墨海敌人池。
 
@@ -70,6 +71,7 @@
 ## 左窄栏（`WuxingChart.Mount` + `BattleView.DrawNearMissHints`）
 - 两块都没有卡片底，直接坐在层段底上。
 - 相克图是光栅 PNG（`UI/Resources/wuxing_ke.png`）：五行**原色**圆点，心居中，箭头按相克方向着色。
+  金、土的圆点与箭头 2026-10-19 随金土分家改为 `metal` #916F0C / `earth` #784330；木水火心仍是图自带色。
   131×120 → 62.59×57.33pt。标题「相 克」16 → 7.64pt 宋体 `TextMain`。
 - 配字表标题「配字表」16 → 7.64pt 宋体 **`TextDim`**（与「相 克」不同色）。
   - 每行：字形 20 → 9.56pt 宋体，字形色；「缺 X」是一个 Text，`cinnabar-dark` 13 → 6.21pt。
@@ -182,6 +184,7 @@
 
 ## 敌方格（`BattleView.DrawEnemies`）
 - 立绘：分层字怪 `MobView`，body / face / wisp 三层等大叠放，无底无框，各自呼吸漂移（3.1 / 2.3 / 4.7s）。
+  木火土金水五系杂兵的字身按系着色（2026-10-19，`rasterize_mobs.recolor`）：浅墨笔 = `<el>-glyph`、墨字 = 它往 `ink` 35%（与双字头领一深一亮同一推导）；心系仍是墨字。
   有状态层（`state`）的怪按战斗状态点亮。
   - 尺寸：前排 126 → 60pt，后排 96 → 46pt。
   - 32 只杂兵和全部 Boss 都已有素材；取不到形象时才回落成属性色圆形字头像。
