@@ -10,11 +10,11 @@
 <helmet>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
   <style>
-    /* 五行配色 · 新旧对照。所有色块由 pal.js 按「常规 / 绿弱 / 红弱」三种色觉逐色换算后上色(Machado 2009,严重度 1.0)。 */
+    /* 五行配色 · 新旧对照(只动金、土)。 */
     body { margin: 0; }
     sc-for, sc-if { display: contents; }
     i { font-style: normal; }
-    .board { width: 1320px; height: 720px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    .board { width: 1320px; height: 560px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
     h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
     .lead { font-size: 10px; color: #5D646F; margin-bottom: 14px; }
     h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
@@ -45,9 +45,9 @@
 
 <div class="board">
   <h2>五行配色 · 新旧对照</h2>
-  <div class="lead">只动两系:<b>金 → 铁青钢色</b>(冷)、<b>土 → 土黄</b>(去红、更黄);木主色顺手压深一档(白字 4.05 → 4.65,原本不达标);水、火不动。五行古意本就是「金白 · 土黄」,冷金暖土一眼分家。</div>
+  <div class="lead">只动金、土两组:<b>金 → 古金</b>(金黄,取偏暗一档好让白字过 4.5)、<b>土 → 红褐</b>(明显更深、更红)。木、水、火不动。</div>
 
-  <h3>① 五系并排 × 三种色觉(主色 chip · 部件方块 · 字牌)</h3>
+  <h3>① 五系并排(主色 chip · 部件方块 · 字牌)</h3>
   <div class="grid">
     <span></span><span class="hd">旧</span><span class="hd">新</span>
     <sc-for list="{{ strips }}" as="r">
@@ -63,8 +63,7 @@
   </div>
 
   <h3>② 逐系用到的地方(旧 → 新)</h3>
-  <div class="ctl"><span>色觉</span><sc-for list="{{ vBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for></div>
-  <div class="detail">
+    <div class="detail">
     <span></span><span class="hd" style="font-size:10px;color:#5D646F;font-weight:600">旧</span><span class="hd" style="font-size:10px;color:#5D646F;font-weight:600">新</span>
     <sc-for list="{{ rows }}" as="r">
       <span class="el" style="{{ r.elS }}">{{ r.n }}</span>
@@ -84,7 +83,7 @@
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 720}}'>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 560}}'>
 var WX = window.WX;
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { v: 'normal' }; }
@@ -98,7 +97,7 @@ class Component extends DCLogic {
         tiles: WX.ORDER.map(function (e) { return { t: WX.GLYPH[e], s: 'color:' + S(P[e][3]) + ';border-color:' + S('#7945AB') }; })
       };
     }
-    var strips = [['常规', 'normal', ''], ['绿弱', 'deutan', '红绿色弱 · 最常见'], ['红弱', 'protan', '红绿色弱']].map(function (m) {
+    var strips = [['常规', 'normal', '']].map(function (m) {
       return { n: m[0], sub: m[2], cells: [set(WX.OLD, m[1]), set(WX.NEW, m[1])] };
     });
     var S = function (h) { return WX.sim(h, V); };

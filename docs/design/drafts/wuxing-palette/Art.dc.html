@@ -14,7 +14,7 @@
     body { margin: 0; }
     sc-for, sc-if { display: contents; }
     i { font-style: normal; }
-    .board { width: 1320px; height: 1400px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    .board { width: 1320px; height: 1180px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
     h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
     .lead { font-size: 10px; color: #5D646F; margin-bottom: 12px; line-height: 1.6; }
     h3 { margin: 14px 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
@@ -47,12 +47,11 @@
 
 <div class="board">
   <h2>五行配色 · 立绘(小怪 / 头领 / Boss)</h2>
-  <div class="lead">一条规则覆盖三档:每系两个值 ——<b>亮 = 本系主色</b>(新色板)、<b>深 = 主色往墨 #111622 走 45%</b>。档位越高,用色越「讲究」:小怪整字一色,头领一深一亮两字,Boss 墨团里只亮当前阶段那一个字。
-  头领原先的「金系换赭金」例外随之取消(新土黄会和赭金撞)。下面的样张是用管线现有 SVG / build_boss_art 函数按新旧规则合成的,只示意,不是产物。</div>
+  <div class="lead">从简:立绘全部走现有代码路径,只是读新的金 / 土 token。<b>Boss</b> 当前阶段字本来就染字形色,换 token 即随之变;<b>头领</b>不改(金系照旧赭金、深 = 字形色往墨 35%);<b>小怪</b>照头领现有做法着色:墨字 → 字形色往墨 35%,浅墨笔 → 字形色。样张由 scratch 脚本按现有 SVG 合成,只示意。</div>
 
   <div class="ctl"><span>战场底</span><sc-for list="{{ bgBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for></div>
   <div class="tbl">
-    <span></span><span class="h">旧(小怪统一墨色;Boss 当前字用字形色)</span><span class="h">新</span>
+    <span></span><span class="h">旧(小怪统一墨色)</span><span class="h">新</span>
     <sc-for list="{{ rows }}" as="r">
       <span class="rl">{{ r.n }}</span>
       <sc-for list="{{ r.cells }}" as="c"><div class="strip" style="{{ bgStyle }}"><sc-for list="{{ c }}" as="x"><figure><img src="{{ x.src }}" alt=""><figcaption>{{ x.cap }}</figcaption></figure></sc-for></div></sc-for>
@@ -74,24 +73,17 @@
     </div>
   </div>
 
-  <h3>④ 着色规则(给脚本与 MobView 用)</h3>
+  <h3>④ 着色规则(三行)</h3>
   <table class="rules">
-    <tr><th>档</th><th>层</th><th>颜色</th><th>对比度 / 色差</th><th>备注</th></tr>
-    <tr><td class="k">共用</td><td>亮 / 深</td><td>亮 = <code>ElementColor</code>(metal #4F7C84 · wood #2E8449 · water #0F74C5 · fire #C53637 · earth #896E0E · heart #9750A7);深 = <code>Color.Lerp(亮, Ink, 0.45)</code></td><td>深在宣纸上 7.9–8.9、最深层段底(墨海 22%,#D0CECC)上 5.6–6.4;亮在宣纸上 4.1–4.7、层段底上 2.9–3.4(图形,不背 4.5)</td><td>不新增 token;同 CardFrameView「元件是图不是字,用鲜色板」</td></tr>
-    <tr><td class="k">小怪</td><td>body 墨字(#111622)</td><td>深</td><td>五系两两 ΔE ≥ 26(金 / 水最近)</td><td>脚本把 body 的墨字填色换成本系深色</td></tr>
-    <tr><td class="k"></td><td>body 浅墨笔(#3D4E69)</td><td>亮</td><td>深 / 亮 ΔE 19–34</td><td>飞白 / 洗笔那几笔透出本系亮色,字有「墨里透色」的层次</td></tr>
-    <tr><td class="k"></td><td>属性气场渐变 · face · wisp</td><td>气场 = 亮;face 眼不着色;wisp 里五行色按新色板换</td><td>—</td><td>墨色不保留为整字色,只留在眼眶与配饰的墨线里</td></tr>
-    <tr><td class="k">头领</td><td>c0(上字)/ c1(下字)</td><td>深 / 亮</td><td>金:ΔE 11 → 19(原用字形色太暗,深浅分不开)</td><td>取消 <code>LEADER_LIGHT</code> 金系赭金例外与 <code>LeaderDeepen 0.35</code>,改 0.45;Obscure 未读懂仍两字墨色</td></tr>
-    <tr><td class="k"></td><td>iris</td><td>亮</td><td>—</td><td>同现状(主色)</td></tr>
-    <tr><td class="k">Boss</td><td>当前阶段字</td><td>该阶段属性的<b>亮</b>(原为字形色)</td><td>对墨团 ΔE 44–79;金 / 土当前字 ΔE 23 → 62</td><td>字形色太暗,压在墨团上跳不出来 —— 这正是「金土难分」在 Boss 上的原因</td></tr>
-    <tr><td class="k"></td><td>其余未破字 · 已破字</td><td>墨 90% · 隐去(同现状)</td><td>—</td><td>不给其余字上各自属性色:四色同框会抢掉「当前阶段」</td></tr>
-    <tr><td class="k"></td><td>iris · wisp</td><td>iris = 当前阶段亮;wisp 里五行色按新色板换</td><td>—</td><td>wisp 中性色(烟灰 #8C8676、枝干 #5C4A22 等)不动</td></tr>
-    <tr><td class="k">wisp 换色表</td><td colspan="4">#6B6449 → #356068(metal-glyph)· #B3A382 → #4F7C84(metal)· #997C3C → #896E0E(earth)· #82552A → #634A00(earth-glyph)· #C2A366(沙)→ #C9A53A · #348F4F → #2E8449;水、火、心不变</td></tr>
+    <tr><th>档</th><th>规则</th><th>改动面</th></tr>
+    <tr><td class="k">Boss</td><td>当前阶段字 = 该阶段 <code>GlyphColor</code>(现状不变);金 #735800 / 土 #683623,ΔE 23 → 32</td><td>只换 token;<code>build_boss_art.py</code> 的 EL / GLYPH 表与配饰里的旧金 / 土色同步新值</td></tr>
+    <tr><td class="k">头领</td><td>不改:上字 = 亮往墨 35%、下字 = 亮;亮 = <code>GlyphColor</code>,金系照旧 <code>Theme.Gold</code></td><td>无代码改动,只随 token 变</td></tr>
+    <tr><td class="k">小怪</td><td>body 墨字 #111622 → <code>Lerp(GlyphColor, Ink, 0.35)</code>;浅墨笔 #3D4E69 → <code>GlyphColor</code>(= 头领现有一深一亮,不加新参数)</td><td><code>mobs/svg</code> body 按系换色后 <code>rasterize_mobs.py</code> 重出</td></tr>
   </table>
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 1400}}'>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 1180}}'>
 var A = window.ART || {};
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { bg: 'mohai' }; }
