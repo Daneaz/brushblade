@@ -165,8 +165,8 @@ namespace Brushblade.Presentation
             Element.Fire => new Color(0.772f, 0.211f, 0.215f),
             Element.Water => new Color(0.06f, 0.455f, 0.771f),
             Element.Wood => new Color(0.204f, 0.561f, 0.309f),
-            Element.Earth => new Color(0.561f, 0.451f, 0.196f), // #8F7332(原 #997C3C:攻击模式 chip 白字 4.0 → 4.5:1)
-            Element.Metal => new Color(0.702f, 0.638f, 0.507f),
+            Element.Earth => new Color(0.471f, 0.263f, 0.188f), // #784330 红褐(2026-10-19 金土分家;原 #8F7332)
+            Element.Metal => new Color(0.569f, 0.435f, 0.047f), // #916F0C 古金(2026-10-19 金土分家;原 #B3A381,白字 2.48 → 4.68)
             Element.Heart => new Color(0.592f, 0.312f, 0.655f),
             _ => NeutralPart,
         };
@@ -189,15 +189,15 @@ namespace Brushblade.Presentation
         /// <summary>字形专用属性色(2026-07-28):比 UI 色块用的 <see cref="ElementColor"/> 加深,
         /// 保证在白/宣纸/暖灰底上都过 WCAG 4.5:1。起因是金 #B3A382 对纯白只有 2.48,
         /// 底色再白也够不到大字门槛 —— 那是字色本身的问题。
-        /// 金往冷灰偏、土往红褐偏是刻意的:直接加深会双双变成暗黄褐(ΔE 仅 3.2)分不开,
-        /// 而组合字「桂」的左右两半正要靠这点色差区分。</summary>
+        /// 金往琥珀金偏、土往赭红褐偏是刻意的:直接加深会双双变成暗黄褐分不开,
+        /// 而组合字「桂」的左右两半正要靠这点色差区分(2026-10-19 金土分家:原金 #6B6449 冷灰、土 #82552A,ΔE 23 → 38)。</summary>
         public static Color GlyphColor(Element? element) => element switch
         {
             Element.Fire => new Color(0.690f, 0.176f, 0.180f),   // #B02D2E
             Element.Water => new Color(0.039f, 0.369f, 0.620f),  // #0A5E9E
             Element.Wood => new Color(0.122f, 0.388f, 0.200f),   // #1F6333
-            Element.Metal => new Color(0.420f, 0.392f, 0.286f),  // #6B6449 冷灰调
-            Element.Earth => new Color(0.510f, 0.333f, 0.165f),  // #82552A 红褐调
+            Element.Metal => new Color(0.561f, 0.361f, 0.000f),  // #8F5C00 琥珀金
+            Element.Earth => new Color(0.416f, 0.169f, 0.133f),  // #6A2B22 赭红褐
             Element.Heart => new Color(0.494f, 0.255f, 0.565f),  // #7E4190
             _ => TextMain,
         };
@@ -208,8 +208,8 @@ namespace Brushblade.Presentation
             Element.Fire => new Color(0.995f, 0.823f, 0.806f),
             Element.Water => new Color(0.785f, 0.883f, 0.986f),
             Element.Wood => new Color(0.801f, 0.902f, 0.817f),
-            Element.Earth => new Color(0.925f, 0.864f, 0.741f),
-            Element.Metal => new Color(0.933f, 0.892f, 0.81f),
+            Element.Earth => new Color(0.890f, 0.820f, 0.757f), // #E3D1C1
+            Element.Metal => new Color(0.969f, 0.906f, 0.675f), // #F7E7AC
             Element.Heart => new Color(0.925f, 0.835f, 0.945f),
             _ => LockedBg,
         };
@@ -220,7 +220,7 @@ namespace Brushblade.Presentation
 
         /// <summary>字卡详情五行面(背面)整块的淡底(traits 稿 `--tint`,Plan E2):本系淡底以 34% 混进 card-face。
         /// 稿 README 定的是「不新增 token,定比混色」,所以这里按式子算,不另存五个色值
-        /// (火 #FFEEE9、金 #F9F4E9、水 #ECF3F8、土 #F9F2E3、木 #EEF5EA)。小物件(手牌背面)仍用 <see cref="ElementSoft"/>。</summary>
+        /// (火 #FFEEE9、金 #FCF5DE、水 #ECF3F8、土 #F5EEE5、木 #EEF5EA)。小物件(手牌背面)仍用 <see cref="ElementSoft"/>。</summary>
         public static Color FaceTint(Element? element) => Color.Lerp(CardFace, ElementSoft(element), 0.34f);
 
         // ---- 底部导航页签配色(2026-08-28 反馈:四格各给一色) ----
@@ -275,8 +275,8 @@ namespace Brushblade.Presentation
             Element.Fire => new Color(0.525f, 0.151f, 0.149f),
             Element.Water => new Color(0.056f, 0.31f, 0.526f),
             Element.Wood => new Color(0.097f, 0.36f, 0.18f),
-            Element.Earth => new Color(0.39f, 0.283f, 0.0f),
-            Element.Metal => new Color(0.394f, 0.324f, 0.174f),
+            Element.Earth => new Color(0.329f, 0.165f, 0.114f), // #542A1D
+            Element.Metal => new Color(0.357f, 0.271f, 0.000f), // #5B4500
             Element.Heart => new Color(0.403f, 0.212f, 0.446f),
             _ => TextDim,
         };
