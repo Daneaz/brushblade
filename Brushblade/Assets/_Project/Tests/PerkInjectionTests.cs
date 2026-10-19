@@ -199,7 +199,7 @@ namespace Brushblade.Core.Tests
             Assert.That(cfg.HeftCap, Is.EqualTo(10), "积土不再抬厚上限");
             Assert.That(cfg.WellspringCap, Is.EqualTo(10), "涌泉不再抬泉上限");
             Assert.That(cfg.BurnPerStack, Is.EqualTo(20), "燎原不再抬灼烧每层");
-            Assert.That(cfg.MoraleReleasePercent, Is.EqualTo(200), "断金注入金系(2026-10-19 改 +200%)");
+            Assert.That(cfg.MoraleReleasePercent, Is.EqualTo(300), "断金注入金系");
         }
 
         [Test]
