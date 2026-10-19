@@ -93,7 +93,8 @@ namespace Brushblade.Presentation
             "fire_3" => Strings.T("perk.node.fire_3.desc"),
             "earth_3" => Strings.T("perk.node.earth_3.desc", ("value", def.Value)),
             // 五行 L4:各系专属天花板,效果各不相同;择伐、燎原是开关,模板里没有 {value}
-            "metal_4" => Strings.T("perk.node.metal_4.desc", ("value", def.Value)),
+            // 断金(2026-10-19 并入锋刃回鞘):印「提高到」后的合计 = 基础 + 断金,两个数都从数据算,不写死
+            "metal_4" => Strings.T("perk.node.metal_4.desc", ("value", BattleEngine.EdgeSheathePercent + def.Value)),
             "wood_4" => Strings.T("perk.node.wood_4.desc"),
             "water_4" => Strings.T("perk.node.water_4.desc", ("value", def.Value)),
             "fire_4" => Strings.T("perk.node.fire_4.desc"),
@@ -194,7 +195,8 @@ namespace Brushblade.Presentation
                 Strings.T("perk.detail.shield_carry", ("value", def.Value)),
             // 五行 L4
             PerkEffect.MoraleRelease =>
-                Strings.T("perk.detail.morale_release", ("value", def.Value)),
+                Strings.T("perk.detail.morale_release", ("base", BattleEngine.EdgeSheathePercent),
+                    ("value", BattleEngine.EdgeSheathePercent + def.Value)),
             PerkEffect.CounterTargeting => Strings.T("perk.detail.counter_targeting"),
             PerkEffect.WellspringSpendPercent =>
                 Strings.T("perk.detail.spend_wellspring", ("value", def.Value)),

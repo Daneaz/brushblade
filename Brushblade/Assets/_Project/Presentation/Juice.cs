@@ -820,6 +820,10 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e);
                         break;
                     }
+                    // 锋刃回鞘(spec 2026-10-19 §3):本张第一条效果之前发,玩家处飘无面印名签;吸血走 Heal、回库走 CharGranted
+                    case BattleEventKind.EdgeSheathe:
+                        PerkCueAt(Strings.T("juice.popup.edge_sheathe"), null);
+                        break;
                     case BattleEventKind.CharGrantBlocked:   // 斩获被字库满挡下(每回合首次):划线签;字库计数闪由 BattleView 批尾播
                         PlayGrantBlocked(e, enemyAnchor(e.TargetIndex));
                         onImpact?.Invoke(e);
