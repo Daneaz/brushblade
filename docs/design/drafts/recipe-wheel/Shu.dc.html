@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./frames.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./rw.css">
+  <style>
+    /* 「生疏」手牌标记。字牌按 Ui.GlyphTile 真实画法(稀有度牌框素材 + 字号 = 牌高 × 0.34 + 底部面印);
+       生疏签 = 左上角骑在牌框上的一枚「疏」方印。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .board { width: 1100px; height: 640px; box-sizing: border-box; padding: 22px 28px; background: var(--paper); color: var(--text-main); font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    .lead { font-size: 10px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.6; }
+    h3 { margin: 14px 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: var(--text-quiet); letter-spacing: 1px; }
+    .row { display: flex; gap: 22px; align-items: flex-start; }
+    .hand { display: flex; gap: 3.82px; align-items: flex-end; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--paper) 90%, var(--band-zilin)); }
+    .cap { width: 45.87px; font-size: 6.69px; color: var(--text-dim); align-self: center; }
+    .gt { position: relative; flex: none; width: 45.87px; height: 55.9px; }
+    .gt img { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .gt .ti { position: absolute; left: 7.3%; right: 7.3%; top: 5.8%; bottom: 5.8%; border-radius: 3px; }
+    .gt b { position: absolute; left: 0; right: 0; top: 7%; height: 55%; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 19px; line-height: 1; }
+    .gt .seal { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); width: 13px; height: 13px; border-radius: 2.5px; color: #fff; font-family: "Noto Serif SC", serif; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .gt.sel { transform: translateY(-4px); } .gt.sel img { filter: drop-shadow(0 0 0 #11161F) drop-shadow(0 0 1.5px #11161F); }
+    .gt.poor { filter: saturate(.25) brightness(.92); }
+    .gt.fresh { box-shadow: 0 0 0 1.5px rgba(202,157,51,.9), 0 0 8px 3px rgba(202,157,51,.45); border-radius: 5px; }
+    /* ★ 生疏签:26 → 12.4pt 见方、圆角 5 → 2.4pt,ink-soft 实底 + 宋体粗白「疏」16 → 7.65pt;左上角向外骑出 2pt,不压字区(字在牌高 30%–95%) */
+    .shu { position: absolute; left: -2px; top: -2px; width: 12.4px; height: 12.4px; border-radius: 2.4px; background: var(--ink-soft); color: #fff; z-index: 3;
+      font-family: "Noto Serif SC", serif; font-size: 7.65px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 .8px var(--panel-paper); }
+    .gt.poor .shu { filter: none; }
+    .lbl { font-size: 8.5px; color: var(--text-dim); margin-top: 4px; text-align: center; }
+    .zoom { transform: scale(3); transform-origin: left top; }
+    .zbox { width: 330px; height: 190px; position: relative; }
+    .z1 { position: absolute; }
+    /* 详情一行 */
+    .sheetmock { width: 520px; box-sizing: border-box; padding: 10px 14px; border-radius: 10px; background: var(--panel-paper); border: 1px solid var(--panel-border); display: flex; flex-direction: column; gap: 6px; }
+    .hdr { display: flex; gap: 10px; align-items: center; }
+    .hdr .nm { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    .hdr .meta { font-size: 10px; color: var(--text-dim); }
+    .shurow { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--panel-inset); font-size: 10px; color: var(--text-quiet); }
+    .shurow .s { position: static; width: 13px; height: 13px; border-radius: 2.5px; background: var(--ink-soft); color: #fff; font-family: "Noto Serif SC", serif; font-size: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+    .shurow b { font-weight: 700; color: var(--text-main); }
+    .lv { font-size: 10px; color: var(--text-dim); }
+    .lv s { color: var(--text-faint); text-decoration: none; }
+    .craft { display: flex; align-items: center; gap: 6px; width: 124px; height: 23.89px; padding: 0 8px; box-sizing: border-box; border-radius: 4.78px; background: var(--ad-green-bg); font-family: "Noto Serif SC", serif; }
+    .craft .pp { font-size: 7.17px; color: var(--text-dim); }
+    .craft .ar { font-size: 6.21px; color: var(--text-warm); }
+    .craft .out { font-size: 10.51px; font-weight: 600; }
+    .craft .s { width: 10px; height: 10px; border-radius: 2px; background: var(--ink-soft); color: #fff; font-size: 6.2px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-left: -2px; }
+    .rules { font-size: 9.5px; color: var(--text-quiet); line-height: 1.7; margin: 0; padding-left: 16px; }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>「生疏」手牌标记</h2>
+  <div class="lead">生疏字 = 由配方转盘得来、在本局合出的字:效果 ×70%,按 Lv1 计。只在局内出现(卡组 / 开箱的 CardBadges 用不到它)。<br>
+    标记 = 左上角一枚「疏」方印(浓墨 ink-soft 实底白字):左上角在战斗字牌上是空的(面印在底部正中,新到手光晕绕整张牌,AP 不够时整牌去饱和但「疏」印不跟着灰)。</div>
+
+  <div class="row">
+    <div>
+      <h3>① 字库行(实际尺寸)</h3>
+      <div class="hand">
+        <span class="cap">字库 6/10</span>
+        <sc-for list="{{ hand }}" as="t"><div><div class="{{ t.cls }}"><img src="{{ t.frame }}" alt=""><i class="ti" style="{{ t.tint }}"></i><b style="{{ t.gs }}">{{ t.g }}</b><i class="seal" style="{{ t.ss }}">{{ t.seal }}</i><sc-for list="{{ t.shu }}" as="x"><i class="shu">疏</i></sc-for></div><div class="lbl">{{ t.lab }}</div></div></sc-for>
+      </div>
+    </div>
+    <div>
+      <h3>② × 3 放大</h3>
+      <div class="zbox">
+        <sc-for list="{{ zoom }}" as="t"><div class="z1" style="{{ t.pos }}"><div class="zoom"><div class="{{ t.cls }}"><img src="{{ t.frame }}" alt=""><i class="ti" style="{{ t.tint }}"></i><b style="{{ t.gs }}">{{ t.g }}</b><i class="seal" style="{{ t.ss }}">{{ t.seal }}</i><i class="shu">疏</i></div></div></div></sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <h3>③ 字卡详情(长按 / 拆合台)多一行</h3>
+      <div class="sheetmock">
+        <div class="hdr"><span class="nm">沐</span><span class="meta">金档 · 水 · <span class="lv">Lv1 <s>(局外 Lv5)</s></span></span></div>
+        <div class="shurow"><i class="s">疏</i><b>生疏</b>:效果 ×70%,按 Lv1 计 · 本局由配方转盘得来</div>
+        <div style="font-size:9px;color:var(--text-faint)">(下面照常是两面技能说明;数值已按 ×70%、Lv1 显示)</div>
+      </div>
+    </div>
+    <div>
+      <h3>④ 拆合台「可合成」行</h3>
+      <div class="craft"><span class="pp">氵+木</span><span class="ar">→</span><span class="out" style="color:var(--water-glyph)">沐</span><i class="s">疏</i></div>
+      <p class="rules" style="margin-top:10px;padding-left:0;width:300px">合出来就是生疏字的配方,在出字旁挂同一枚小「疏」(20 → 9.6pt),合之前就知道。</p>
+    </div>
+  </div>
+
+  <h3>⑤ 规格</h3>
+  <ul class="rules">
+    <li>签:见方 = 牌宽 × 0.27(战斗字库牌 96 宽 → 26 逻辑 / 12.4pt;牌按张数缩时同比缩,最小不低于 20 / 9.6pt);圆角 5;<code>ink-soft</code> 实底、白字宋体粗,字号 = 签宽 × 0.62;外描 1.5 <code>panel-paper</code> 细边让它从牌框上分出来;对比度白 / ink-soft 8.4:1。</li>
+    <li>位置:锚牌的左上角,向外骑出 4 逻辑(2pt);层级在字之上、选中描边之下;AP 不够去饱和时签不去色(它说的是「这张弱」,不是「用不了」)。</li>
+    <li>选色理由:ink-soft 在规范里就是「中性信息」;不用灰(会读成禁用)、不用朱砂(会读成危险 / 负面状态)、不用金(赭金是增益)。</li>
+    <li>详情行:<code>panel-inset</code> 底条,签 + 「生疏」粗 + 说明;Lv 行写「Lv1(局外 LvN 压浅)」。新文案:<code>char.shu.badge</code>「疏」、<code>char.shu.line</code>「生疏:效果 ×70%,按 Lv1 计」、<code>char.shu.source</code>「本局由配方转盘得来」(重跑字体子集)。</li>
+  </ul>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1100, "height": 640}}'>
+var FR = window.FRAMES || {};
+var GLY = { Fire: '#B02D2E', Water: '#0A5E9E', Wood: '#1F6333', Metal: '#6B6449', Earth: '#82552A' };
+var SOFT = { Fire: '#FED2CE', Water: '#C8E1FB', Wood: '#CCE6D0', Metal: '#EEE3CF', Earth: '#ECDCBD' };
+var SEAL = { Fire: '燃', Water: '润', Wood: '生', Metal: '铠', Earth: '固' };
+class Component extends DCLogic {
+  renderVals() {
+    function tile(g, el, rar, opts) {
+      opts = opts || {};
+      var feat = opts.feat;
+      return { g: g, frame: FR[rar], gs: 'color:' + GLY[el], tint: feat ? 'background:' + SOFT[el] : 'display:none',
+        seal: feat ? SEAL[el] : '攻', ss: 'background:' + (feat ? GLY[el] : '#11161F'),
+        cls: 'gt' + (opts.sel ? ' sel' : '') + (opts.poor ? ' poor' : '') + (opts.fresh ? ' fresh' : ''), shu: opts.shu ? [1] : [], lab: opts.lab || '' };
+    }
+    var hand = [
+      tile('冻', 'Water', 'Green', { lab: '普通' }),
+      tile('沐', 'Water', 'Gold', { shu: true, lab: '生疏 · 攻击面' }),
+      tile('沐', 'Water', 'Gold', { shu: true, feat: true, lab: '生疏 · 五行面' }),
+      tile('烈', 'Fire', 'Purple', { shu: true, sel: true, lab: '生疏 · 选中' }),
+      tile('森', 'Wood', 'Orange', { shu: true, fresh: true, lab: '生疏 · 新到手' }),
+      tile('堡', 'Earth', 'Blue', { shu: true, poor: true, lab: '生疏 · AP 不够' })
+    ];
+    var zoom = [tile('沐', 'Water', 'Gold', {}), tile('森', 'Wood', 'Orange', { feat: true })];
+    zoom[0].pos = 'left:0;top:0'; zoom[1].pos = 'left:160px;top:0';
+    return { hand: hand, zoom: zoom };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./rw.js"></script>
+  <script src="./frames.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./rw.css">
+  <style>
+    /* 配方转盘(5 选 1)。外壳同升级弹窗:Ui.Sheet 1256 × 745 → 600 × 356pt,屏幕正中,scrim 55%。
+       扇区角度 = 概率(低档 81° × 4、高档 36°):面积即概率。「转」在轮毂上。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .wrap { position: relative; width: 932px; height: 500px; background: #E9E3D6; font-family: "Noto Sans SC", "PingFang SC", sans-serif; color: var(--text-main); }
+    .dev { position: relative; height: 430px; margin: 0 auto; overflow: hidden; background: color-mix(in srgb, var(--paper) 90%, var(--band-zilin)); }
+    .under { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 240px; color: rgba(22,27,34,.05); }
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
+    .sheet { position: absolute; top: 37px; left: 50%; width: 600px; height: 356px; margin-left: -300px; box-sizing: border-box; background: var(--panel-paper); border: .72px solid var(--panel-border); border-radius: 8.6px;
+      padding: 12px 18px 14px; display: flex; flex-direction: column; gap: 8px; }
+    .kick { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: "Noto Serif SC", serif; font-size: 11.94px; font-weight: 600; color: var(--cta, #2E5E8C); letter-spacing: 2px; }
+    .kick::before, .kick::after { content: ""; width: 34px; height: 1px; background: var(--panel-border); }
+    .sub { text-align: center; font-size: 9.08px; color: var(--text-dim); margin-top: -4px; }
+    .body { flex: 1; min-height: 0; display: flex; gap: 16px; align-items: center; }
+    .wheelbox { position: relative; flex: none; width: 236px; height: 236px; }
+    .wheel { position: absolute; left: 14px; top: 14px; width: 208px; height: 208px; transition: transform 3.6s cubic-bezier(.12,.62,.1,1); }
+    .wheel.noanim { transition: none; }
+    .wheel.blur { filter: blur(1.4px); }
+    .wheel svg { overflow: visible; position: absolute; inset: 0; }
+    .sg { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 700; line-height: 1; }
+    .sp { position: absolute; width: 40px; height: 10px; margin: -5px 0 0 -20px; display: flex; align-items: center; justify-content: center; font-size: 6.5px; white-space: nowrap; }
+    .ring { position: absolute; left: 10px; top: 10px; width: 216px; height: 216px; border-radius: 50%; box-shadow: 0 0 0 3px var(--ink), 0 3px 10px rgba(22,27,34,.25); pointer-events: none; }
+    .pointer { position: absolute; left: 50%; top: 0; width: 0; height: 0; margin-left: -9px; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 18px solid var(--ink); z-index: 3; filter: drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
+    .pointer::after { content: ""; position: absolute; left: -3px; top: -16px; width: 6px; height: 6px; border-radius: 3px; background: var(--gold); }
+    .hub { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 24px; border: none; z-index: 4; cursor: pointer;
+      background: #2E5E8C; color: #fff; font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 700; box-shadow: 0 0 0 3px var(--panel-paper), 0 0 0 4.5px var(--ink), 0 2px 6px rgba(22,27,34,.3); }
+    .hub.off { background: var(--locked-bg); color: var(--text-faint); cursor: default; }
+    .hub::after { content: ""; position: absolute; inset: -4px; }
+    .side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; align-self: stretch; justify-content: center; }
+    .lg { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px 0 6px; border-radius: 6px; background: var(--card-face); border: .72px solid var(--panel-border); }
+    .lg.hi { background: var(--gold-soft); border-color: rgba(201,169,74,.7); }
+    .lg.win { box-shadow: 0 0 0 1.5px #2E5E8C; }
+    .lg.dim { opacity: .4; }
+    .mt { position: relative; flex: none; width: 19.5px; height: 24.4px; }
+    .mt img { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .mt b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding-bottom: 2px; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 9.5px; }
+    .lg .nm { font-size: 9.56px; color: var(--text-main); white-space: nowrap; }
+    .lg .nm small { color: var(--text-dim); font-size: 8.6px; margin-left: 4px; }
+    .lg .rc { font-family: "Noto Serif SC", serif; font-size: 9.56px; color: var(--text-dim); white-space: nowrap; }
+    .lg .pc { margin-left: auto; font-size: 8.6px; color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .lg.hi .pc { color: var(--gold-deep); font-weight: 700; }
+    .note { font-size: 8.6px; color: var(--text-warm); line-height: 1.5; margin-top: 2px; }
+    .note b { color: var(--text-quiet); font-weight: 600; }
+    .shu { display: inline-flex; width: 11px; height: 11px; border-radius: 2.4px; background: var(--ink-soft); color: #fff; font-family: "Noto Serif SC", serif; font-size: 7.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: -2px; margin: 0 2px; }
+    /* 结果卡 */
+    .res { flex: 1; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; animation: rin .25s ease-out; }
+    @keyframes rin { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+    .bt { position: relative; width: 66px; height: 82.5px; }
+    .bt img { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .bt b { position: absolute; left: 0; right: 0; top: 8%; height: 58%; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 28px; }
+    .bt .py { position: absolute; left: 0; right: 0; bottom: 11%; text-align: center; font-size: 7.2px; color: var(--text-dim); }
+    .rn { font-size: 10px; color: var(--text-dim); }
+    .rn b { font-family: "Noto Serif SC", serif; font-size: 14px; color: var(--text-main); margin-right: 6px; }
+    .recipe { display: flex; align-items: center; gap: 5px; font-family: "Noto Serif SC", serif; }
+    .part { width: 26px; height: 31px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
+    .op { font-size: 11px; color: var(--text-warm); }
+    .got { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #1B552C; font-weight: 600; }
+    .got i { width: 13px; height: 13px; border-radius: 7px; background: var(--jade); color: #fff; font-size: 9px; display: flex; align-items: center; justify-content: center; }
+    .cont { margin-top: 4px; height: 26px; padding: 0 22px; border: none; border-radius: 13px; background: #2E5E8C; color: #fff; font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; letter-spacing: 1px; }
+    .e-Fire { --g: var(--fire-glyph); --s: var(--fire-soft); --f: var(--fire-fg); }
+    .e-Water { --g: var(--water-glyph); --s: var(--water-soft); --f: var(--water-fg); }
+    .e-Wood { --g: var(--wood-glyph); --s: var(--wood-soft); --f: var(--wood-fg); }
+    .e-Metal { --g: var(--metal-glyph); --s: var(--metal-soft); --f: var(--metal-fg); }
+    .e-Earth { --g: var(--earth-glyph); --s: var(--earth-soft); --f: var(--earth-fg); }
+    .ctl { display: flex; align-items: center; gap: 5px; padding: 0 12px; height: 30px; font-size: 9px; color: var(--text-dim); }
+    .ctl .lb { color: var(--text-faint); } .ctl .sp { width: 8px; }
+    .ctl button { height: 20px; padding: 0 8px; border: none; border-radius: 10px; background: var(--locked-bg); color: var(--text-quiet); font-size: 9px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: var(--ink-soft); color: #fff; }
+    .tag { position: absolute; right: 6px; bottom: 4px; font-size: 8px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; }
+  </style>
+</helmet>
+
+<div class="wrap">
+  <div class="dev" style="{{ devStyle }}">
+    <div class="under">林</div>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <div class="kick">配 方 转 盘</div>
+      <div class="sub">{{ sub }}</div>
+      <div class="body">
+        <div class="wheelbox">
+          <div class="{{ wheelCls }}" style="{{ wheelStyle }}">
+            <svg width="208" height="208" viewBox="-104 -104 208 208">
+              <sc-for list="{{ secs }}" as="s">
+                <path d="{{ s.d }}" fill="{{ s.fill }}" stroke="#11161F" stroke-width="1.2"></path>
+              </sc-for>
+              <sc-for list="{{ hiRim }}" as="h"><path d="{{ h.d }}" fill="none" stroke="#CA9D33" stroke-width="3" stroke-linejoin="round"></path></sc-for>
+              <sc-for list="{{ winRim }}" as="h"><path d="{{ h.d }}" fill="rgba(255,255,255,.18)" stroke="#2E5E8C" stroke-width="3.2" stroke-linejoin="round"></path></sc-for>
+            </svg>
+            <sc-for list="{{ secs }}" as="s"><i class="sg" style="{{ s.gst }}">{{ s.g }}</i><i class="sp" style="{{ s.lst }}">{{ s.pt }}</i></sc-for>
+          </div>
+          <div class="ring"></div>
+          <div class="pointer"></div>
+          <button class="{{ hubCls }}" onClick="{{ spin }}">{{ hubTxt }}</button>
+        </div>
+        <sc-if value="{{ showSide }}" hint-placeholder-val="{{ true }}">
+          <div class="side">
+            <sc-for list="{{ legend }}" as="l">
+              <div class="{{ l.cls }}">
+                <div class="mt"><img src="{{ l.frame }}" alt=""><b style="{{ l.gs }}">{{ l.g }}</b></div>
+                <span class="nm">{{ l.g }}<small>{{ l.meta }}</small></span>
+                <span class="rc">{{ l.rc }}</span>
+                <span class="pc">{{ l.pc }}</span>
+              </div>
+            </sc-for>
+            <div class="note">转出的那张配方记入本局,拆合台从此能合;合出的字为 <i class="shu">疏</i><b>生疏</b>:效果 ×70%,按 Lv1 计。</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showRes }}" hint-placeholder-val="{{ false }}">
+          <div class="res">
+            <div class="bt"><img src="{{ r.frame }}" alt=""><b style="{{ r.gs }}">{{ r.g }}</b><span class="py">{{ r.py }}</span></div>
+            <div class="rn"><b>{{ r.g }}</b>{{ r.meta }}</div>
+            <div class="recipe"><i class="part" style="{{ r.ps }}">{{ r.p0 }}</i><span class="op">+</span><i class="part" style="{{ r.ps }}">{{ r.p1 }}</i><span class="op">→</span><i class="part" style="{{ r.os }}">{{ r.g }}</i></div>
+            <div class="got"><i>✓</i>已记入本局配方</div>
+            <div class="note" style="text-align:center">合出的「{{ r.g }}」本局 <i class="shu">疏</i>生疏:效果 ×70%,按 Lv1 计</div>
+            <button class="cont">继续 · 选字</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    <div class="tag">{{ wLabel }}</div>
+  </div>
+  <div class="ctl">
+    <span class="lb">层段</span><sc-for list="{{ tBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">定格</span><sc-for list="{{ fBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">定格落在</span><sc-for list="{{ wBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">屏宽</span><sc-for list="{{ sBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 500}}'>
+var RW = window.RW, FR = window.FRAMES || {};
+var SOFT = { Blue: '#DEEAF7', Purple: '#EBE2F5', Gold: '#F6EDD5', Orange: '#FAE7D3', Red: '#F9DFDF' };
+var GLY = { Fire: '#B02D2E', Water: '#0A5E9E', Wood: '#1F6333', Metal: '#6B6449', Earth: '#82552A' };
+var ESOFT = { Fire: '#FED2CE', Water: '#C8E1FB', Wood: '#CCE6D0', Metal: '#EEE3CF', Earth: '#ECDCBD' };
+var EFG = { Fire: '#862726', Water: '#0E4F86', Wood: '#195C2E', Metal: '#64532C', Earth: '#634800' };
+var PY = { '炸': 'zhà', '海': 'hǎi', '锥': 'zhuī', '堡': 'bǎo', '烈': 'liè', '楸': 'qiū', '湮': 'yān', '铡': 'zhá', '燥': 'zào', '沐': 'mù', '炎': 'yán', '林': 'lín', '冰': 'bīng', '圭': 'guī', '森': 'sēn', '焚': 'fén', '淼': 'miǎo', '鑫': 'xīn', '桂': 'guì', '燚': 'yì' };
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { t: 't21', phase: 'idle', win: 2, rot: -12, w: 'base', anim: false }; }
+  spin() {
+    var s = this.state; if (s.phase !== 'idle') return;
+    var G = RW.geom(s.t), r = Math.random() * 100, acc = 0, win = 0;
+    for (var i = 0; i < G.length; i++) { acc += G[i].s.p; if (r < acc) { win = i; break; } }
+    var g = G[win], jitter = (Math.random() - .5) * (g.a1 - g.a0) * .6;        // 落在扇区中段,不压线
+    var target = -(g.mid + jitter);
+    var base = s.rot - (((s.rot % 360) + 360) % 360);
+    var rot = base - 360 * 5 + target - 360;                                      // 顺时针转 5 圈多
+    var self = this;
+    this.setState({ phase: 'spin', win: win, rot: rot, anim: true });
+    setTimeout(function () { self.setState({ phase: 'land' }); }, 3700);
+    setTimeout(function () { self.setState({ phase: 'result' }); }, 4400);
+  }
+  renderVals() {
+    var self = this, s = this.state, T = RW.TIERS[s.t], G = RW.geom(s.t);
+    var landed = s.phase === 'land' || s.phase === 'result';
+    var secs = G.map(function (g) {
+      var hi = g.s.hi, c = g.s.c, dim = landed && g.i !== s.win;
+      return { d: g.d, fill: dim ? '#E4DED2' : SOFT[g.s.rar], g: c[0], gc: dim ? '#A8A296' : GLY[c[1]], fs: hi ? 18 : 22,
+        gst: 'left:' + (104 + g.gx).toFixed(1) + 'px;top:' + (104 + g.gy).toFixed(1) + 'px;transform:rotate(' + g.mid.toFixed(1) + 'deg);font-size:' + (hi ? 18 : 22) + 'px;color:' + (dim ? '#A8A296' : GLY[c[1]]),
+        lst: 'left:' + (104 + g.lx).toFixed(1) + 'px;top:' + (104 + g.ly).toFixed(1) + 'px;transform:rotate(' + g.mid.toFixed(1) + 'deg);color:' + (hi ? '#8A6600' : '#676F7A') + ';font-weight:' + (hi ? 700 : 400),
+        pt: hi ? '稀有 10%' : '22.5%', pc: hi ? '#8A6600' : '#676F7A', pw: hi ? 700 : 400 };
+    });
+    var hiG = G.filter(function (g) { return g.s.hi; })[0];
+    var legend = G.map(function (g) {
+      var c = g.s.c;
+      return { cls: 'lg' + (g.s.hi ? ' hi' : '') + (landed ? (g.i === s.win ? ' win' : ' dim') : ''), frame: FR[g.s.rar], g: c[0], gs: 'color:' + GLY[c[1]],
+        meta: RW.RAR[g.s.rar] + ' · ' + RW.EL[c[1]], rc: c[2][0] + ' + ' + c[2][1], pc: g.s.hi ? '稀有 10%' : '22.5%' };
+    });
+    var rot = s.phase === 'idle' ? s.rot : s.phase === 'spin' && !s.anim ? s.rot : s.rot;
+    var W = s.w === 'narrow' ? { dev: 764, label: '16:9 无刘海 · 764pt(弹窗 600pt ≤ 净宽 647pt)' } : { dev: 932, label: '基准机 · 932pt' };
+    var wc = G[s.win].s.c;
+    var r = { frame: FR[G[s.win].s.rar], g: wc[0], gs: 'color:' + GLY[wc[1]], py: PY[wc[0]] || '', meta: RW.RAR[G[s.win].s.rar] + ' · ' + RW.EL[wc[1]] + (G[s.win].s.hi ? ' · 稀有格' : ''),
+      p0: wc[2][0], p1: wc[2][1], ps: 'background:' + ESOFT[wc[1]] + ';color:' + EFG[wc[1]], os: 'background:#FFFDF7;color:' + GLY[wc[1]] + ';box-shadow:inset 0 0 0 1.2px ' + GLY[wc[1]] };
+    function frame(ph) {
+      var g = G[s.win];
+      if (ph === 'idle') return { phase: 'idle', rot: -12, anim: false };
+      if (ph === 'spin') return { phase: 'spin', rot: -(g.mid) - 360 * 3 + 47, anim: false };
+      return { phase: ph, rot: -(g.mid), anim: false };
+    }
+    return {
+      devStyle: 'width:' + W.dev + 'px', wLabel: W.label,
+      sub: '第 ' + T.depth + ' 层 · ' + T.kind + '战后 · ' + RW.RAR[T.low] + ' ×4 + ' + RW.RAR[T.high] + ' ×1',
+      wheelCls: 'wheel' + (s.anim ? '' : ' noanim') + (s.phase === 'spin' && !s.anim ? ' blur' : ''),
+      wheelStyle: 'transform:rotate(' + rot + 'deg)',
+      secs: secs, hiRim: hiG ? [{ d: hiG.d }] : [], winRim: landed ? [{ d: G[s.win].d }] : [],
+      hubCls: 'hub' + (s.phase === 'idle' ? '' : ' off'), hubTxt: s.phase === 'idle' ? '转' : s.phase === 'spin' ? '…' : '中',
+      spin: function () { self.spin(); },
+      showSide: s.phase !== 'result', showRes: s.phase === 'result', legend: legend, r: r,
+      tBtns: Object.keys(RW.TIERS).map(function (k) { return { n: RW.TIERS[k].n, cls: k === s.t ? 'on' : '', pick: function () { self.setState({ t: k, phase: 'idle', rot: -12, anim: false }); } }; }),
+      fBtns: [['idle', '待转'], ['spin', '转动中'], ['land', '落定'], ['result', '结果卡']].map(function (f) { return { n: f[1], cls: s.phase === f[0] ? 'on' : '', pick: function () { self.setState(frame(f[0])); } }; }),
+      wBtns: [[0, '低档'], [2, '稀有格']].map(function (f) { return { n: f[1], cls: s.win === f[0] ? 'on' : '', pick: function () { var st = { win: f[0] }; if (s.phase !== 'idle') { var g = G[f[0]]; st.rot = -(g.mid); st.anim = false; } self.setState(st); } }; }),
+      sBtns: [['base', '基准机'], ['narrow', '16:9']].map(function (f) { return { n: f[1], cls: s.w === f[0] ? 'on' : '', pick: function () { self.setState({ w: f[0] }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>
