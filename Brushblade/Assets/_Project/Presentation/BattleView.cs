@@ -5271,7 +5271,7 @@ namespace Brushblade.Presentation
             // 的定宽(见下),整行就再也不超预算了。
             Ui.Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH).minWidth = PickedTileW;
             var pickedGlyph = Ui.ThemedLabel(pickedFace.transform, def.Id, PickedGlyphFontSize,
-                Theme.GlyphColor(def.Element), Theme.TitleFont);
+                Theme.TileGlyphColor(def.Element), Theme.TitleFont);
             Ui.Stretch(pickedGlyph.rectTransform);
             // 两面字(HandFlip 稿 .bhead .mt):牌底印朝上的面,五行面朝上时牌面换本系淡底。
             // 部件池选中(_selectedIndex < 0)没有面,不印。

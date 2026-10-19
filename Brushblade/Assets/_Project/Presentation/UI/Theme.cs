@@ -202,6 +202,13 @@ namespace Brushblade.Presentation
             _ => TextMain,
         };
 
+        /// <summary>字牌大字(<see cref="Ui.GlyphTile"/> / <see cref="Ui.MiniGlyphTile"/> / 战斗选中牌)的字形色。
+        /// 字牌大字按大字号放宽到 ≥3:1(2026-10-19 试玩「锋再亮一点」):金系单独取更亮的金 #B2801C
+        /// (白 3.5 · paper 3.1 · FaceTint 3.3 · metal-soft 3.1);其余各系与 <see cref="GlyphColor"/> 同值。
+        /// 小字、面印、徽标仍走 GlyphColor,守 4.5:1。</summary>
+        public static Color TileGlyphColor(Element? element) =>
+            element == Element.Metal ? new Color(0.698f, 0.502f, 0.110f) /* #B2801C metal-glyph-tile */ : GlyphColor(element);
+
         /// <summary>属性淡底(部件池方块)。</summary>
         public static Color ElementSoft(Element? element) => element switch
         {
