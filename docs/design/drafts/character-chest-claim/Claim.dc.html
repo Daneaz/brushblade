@@ -99,7 +99,21 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .ms .ttl b, .ms .ttl span { white-space: nowrap; }
 .node.lvl .pin { width: 13px; height: 13px; margin: 3.5px 0; font-size: 7px; }
 .node.mile .pin { box-shadow: 0 0 0 2px #F6EDD5, 0 0 0 3px #C9A94A; }
-.node.mile .mc { background: #FBF5E4; border-color: rgba(201,169,74,.6); }
+/* ★ 回填 2026-10-19 · 卡底三态(全部取 tokens):
+   已领 = 退到底 —— panel-paper 底(与面板同色,卡几乎融进面板)+ panel-border 细描边,Lv 与箱名换冷灰 text-faint,立绘 35%;
+   里程碑 = 饱和金 —— gold-soft 实底 + rarity-gold 实色粗描边 1.43pt,Lv 字 gold-deep;
+   可领 = 描边换 cta 1.43pt(里程碑格保留金底,所以「里程碑 + 可领」两件事同时读得出);
+   里程碑全领完 = 同普通已领,只在卡顶留一道 rarity-gold 1.43pt 细条作身份残留。 */
+.strip .node .mc { background: #FFFDF7; border: 0.96px solid #DED7C9; box-shadow: none; }
+.strip .node .mc .lv { color: #161B22; }
+.strip .node.mile .mc { background: #F6EDD5; border: 1.43px solid #C9A94A; }
+.strip .node.mile .mc .lv { color: #8A6600; }
+.strip .node.st-ready .mc { border: 1.43px solid #2E5E8C; }
+.strip .node.lvl.st-ready .mc { background: #FFFFFF; }
+.strip .node.st-done .mc { background: #FBF8F1; border: 0.96px solid #DED7C9; }
+.strip .node.st-done .mc .lv, .strip .node.st-done .mc .cn, .strip .node.st-done .mc .st { color: #676F7A; }
+.strip .node.mile.st-done .mc { box-shadow: inset 0 1.43px 0 #C9A94A; }
+.strip .node.st-done .mc .mrow { opacity: .5; }
 .pin.p-done { background: #34864B; color: #fff; border: none; }
 .pin.p-ready { background: #2E5E8C; color: #fff; border: none; }
 .pin.p-todo { background: #FBF8F1; border: 1.5px solid #DED7C9; color: #928B7B; }
@@ -371,7 +385,7 @@ class Component extends DCLogic {
       else if (cReady) btn = [{ cls: 'btn2' + (full ? ' off' : ''), t: full ? '箱位已满' : (m ? '领宝箱' : '领 取') }];
       else if (reached) st = ['已领'];
       else st = ['差 ' + (lv - L) + ' 级'];
-      return { lv, cls: 'node ' + (m ? 'mile' : 'lvl') + (allDone ? ' done' : ''), pinCls, isDone: allDone,
+      return { lv, cls: 'node ' + (m ? 'mile' : 'lvl') + (allDone ? ' st-done' : (cReady || mReady) ? ' st-ready' : ' st-todo'), pinCls, isDone: allDone,
         mile: m ? [{ cls: 'mrow' + (mDone ? ' done' : ''), ink: m[0], rar: m[1], pickCls: 'pick ' + rarCls[m[1]] }] : [],
         chestCls: 'chest' + (cDone ? ' done' : !reached ? ' locked' : ''), c, lid, inl: m ? [1] : [], big: m ? [] : [1], ck: cDone ? [1] : [],
         cname: m ? [] : [{ t: tn, cls: 'cn' + (reached ? '' : ' dim') }], btn, st };
