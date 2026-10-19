@@ -182,15 +182,15 @@ namespace Brushblade.Core.Tests
                 new EnemyDef("弱", Element.Heart, 300, 120),
                 new EnemyDef("远", Element.Metal, 100000, 180, range: AttackRange.Ranged),
                 new EnemyDef("弱", Element.Heart, 500, 90),
-            }, new BattleConfig { SummonDeathHealPercent = 20, UnlockedSummonSlots = 0b1111 },
+            }, new BattleConfig { SummonDeathHealPercent = 20, UnlockedSummonSlots = 0b111 },
                 levels: new Dictionary<string, int> { ["桂"] = 5 });
             var all = new StringBuilder();
             string fp = Fingerprint(b, log, (x, t, sb) =>
             {
                 int alive = x.Summons.Count(s => s != null && s.Alive);
                 if (t == 0) Do(x, "藻", -1, sb);
-                if (t == 1 || t == 6) Do(x, "桂", -1, sb, replace: alive >= 4);
-                if (t == 4 || t == 8) Do(x, "藻", -1, sb, replace: alive >= 4);
+                if (t == 1 || t == 6) Do(x, "桂", -1, sb, replace: alive >= 3);
+                if (t == 4 || t == 8) Do(x, "藻", -1, sb, replace: alive >= 3);
                 if (t == 2 || t == 7) Do(x, "桂", 0, sb, attack: true);
                 Do(x, t % 2 == 0 ? "泉" : "雨", -1, sb);
                 if (t % 3 == 0) Do(x, "润", -1, sb);
@@ -208,8 +208,10 @@ namespace Brushblade.Core.Tests
         }
 
         // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "4b49c5b2b25a84a0 23247"
-        private const string EnemyTurnExpected = "6dc4dfee7251b217 22742";
+        // 2026-10-19 丛生分裂冷却 2 拍(Plan F)后重录,原值 "6dc4dfee7251b217 22742"
+        private const string EnemyTurnExpected = "1261e1ece0a1b2db 20093";
         // 2026-10-18 战场改 3×2(敌每排 3 列、召唤槽 6、前排 3 格)后重录,原值 "bc633e03db115a97 24117"
-        private const string CastEndExpected = "86e472227e222f56 25267";
+        // 2026-10-19 丛生分裂冷却 2 拍后小藻变少,召唤槽改开 3 格(0b111)、满 3 只才顶替,才能照旧走到顶替召唤;重录,原值 "86e472227e222f56 25267"
+        private const string CastEndExpected = "6cff78fb10a1cd5c 23239";
     }
 }

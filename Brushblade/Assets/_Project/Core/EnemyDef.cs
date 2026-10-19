@@ -283,6 +283,9 @@ namespace Brushblade.Core
         /// 槽位下标会被后来的召唤复用,所以新单位落位时由引擎清掉指向该槽的旧记号。</summary>
         public int SproutParentSlot { get; internal set; } = -1;
 
+        /// <summary>丛生冷却(Plan F 2026-10-19):本只母体还要跳过几拍才能再分裂;分裂成功后置 <c>BattleEngine.SproutCooldownBeats</c>。</summary>
+        public int SproutCooldown { get; internal set; }
+
         /// <summary>场上全部召唤物的攻击光环之和(2026-09-05),由 <c>BattleEngine</c>
         /// 在每次结算前刷新。长在这里而不是引擎里算:详情弹窗(Presentation.SummonInfo)
         /// 要显示同一个数,表现层不该自己再推一遍规则。</summary>
@@ -351,6 +354,7 @@ namespace Brushblade.Core
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
                 Passive = Passive?.Clone(), Statuses = statuses,
                 SproutParentSlot = SproutParentSlot,
+                SproutCooldown = SproutCooldown,
             };
         }
 
@@ -359,6 +363,7 @@ namespace Brushblade.Core
             var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
                 s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
             state.SproutParentSlot = s.SproutParentSlot;
+            state.SproutCooldown = s.SproutCooldown;
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;
         }

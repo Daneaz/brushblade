@@ -125,6 +125,9 @@ namespace Brushblade.Core
         /// <summary>丛生小藻的母体槽位(D2-0 Task 6);-1 = 不是小藻。缺省 -1:老存档没有该字段时不会被误读成「母体在槽 0」。</summary>
         public int SproutParentSlot { get; set; } = -1;
 
+        /// <summary>丛生母体剩余冷却拍数(Plan F 2026-10-19);缺省 0 = 可分裂。</summary>
+        public int SproutCooldown { get; set; }
+
         /// <summary>身上的状态(2026-08-26)。与 <see cref="EnemySnapshot.Statuses"/> 同型;
         /// 老存档没有这个字段 → Newtonsoft 填 null → Restore 兜底成空表。</summary>
         public List<StatusEffect> Statuses { get; set; } = new();

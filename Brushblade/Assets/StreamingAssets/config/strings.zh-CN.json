@@ -1446,7 +1446,7 @@
   "char.passive.perallyattack": "每有 1 只其他木灵,攻击 +{value}%",
   "char.passive.armor": "入场自带护甲 {value}",
   "char.passive.healallytimes": "每回合回血结算 {value} 次",
-  "char.passive.sprout": "每拍分裂小木灵(血攻 {value}%,至多 {max} 只)",
+  "char.passive.sprout": "每 3 拍分裂 1 只小木灵(血攻 {value}%,至多 {max} 只)",
   "char.passive.entrysaplings": "入场附带 {value} 只小木灵",
   "char.passive.onhitcharm": "出手 {chance}% 魅惑目标 1 回合",
   "face.seal.attack": "攻",

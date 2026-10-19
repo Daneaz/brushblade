@@ -473,14 +473,13 @@ namespace Brushblade.Core.Tests
         public void GreenTide_SproutsMergeIntoAlgaeLing_NoDeath_Taunt()
         {
             // spec A:丛藻(Lv5 一次分出 2 只小藻)已删除,小藻只剩本命「丛生」(藻灵每拍分裂 1 只,SproutMax 2)这一个来源。
-            // 先出一只藻灵、过两拍让它分出小藻(Lv3 本命强化 SproutMax 3,两拍内已满 3 只),再出第二只藻灵 —— 绿潮把场上全部小藻并入这只新召出的藻灵
+            // 先出一只藻灵、过几拍让它分出小藻(Lv3 本命强化 SproutMax 3;2026-10-19 起分裂后冷却 2 拍,要多等几回合),再出第二只藻灵 —— 绿潮把场上全部小藻并入这只新召出的藻灵
             var log = new HookLog();
             var b = Battle("藻", 8, new[] { Dummy() });
             b.AddHookListener(log);
             Cast(b, "藻");
             var first = Alive(b).Single();
-            b.EndTurn();
-            b.EndTurn();
+            for (int i = 0; i < 12 && Alive(b).Count(s => s.Char == "苗") < 3; i++) b.EndTurn();
             var sprouts = Alive(b).Where(s => s.Char == "苗").ToList();
             Assert.That(sprouts.Count, Is.EqualTo(3), "前提:丛生分出 3 只小藻(SproutMax 3)");
             int sproutAttack = sprouts.Sum(s => s.Attack), sproutHp = sprouts.Sum(s => s.Hp);
