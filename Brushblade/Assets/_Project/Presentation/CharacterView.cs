@@ -8,7 +8,8 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>角色页(spec 2026-10-02 §6.2;稿 Character.dc.html):左档案、右上里程碑轨道、右下统计四页签。
+    /// <summary>角色页(spec 2026-10-02 §6.2;稿 Character.dc.html,等级奖励轨道按 2026-10-19 稿
+    /// character-chest-claim):左档案、右上等级奖励长轨道、右下统计四页签。
     /// 与稿的差异不止一条(顶栏排布、字距、若干色值与尺寸),逐条见 docs/design/current/CharacterScreen/README.md
     /// 的「与拍板稿的差异」节。</summary>
     public sealed class CharacterView : MonoBehaviour
@@ -19,38 +20,64 @@ namespace Brushblade.Presentation
         private CampaignConfig _campaign;
         private MetaState _meta;
         private IReadOnlyList<string> _cardPool;
+        private ITimeSource _time;
         private Action _save, _onBack;
         private Tab _tab = Tab.Chest;
-        /// <summary>右栏横向滚动的位置(Content.anchoredPosition.x)。切页签、领里程碑都会整页重建,
-        /// 不记下来的话每点一次就弹回最左。null = 本次打开还没定过位(首次按可领那格定)。</summary>
+
+        // ---- 滚动位置:切页签、领奖励都会整页重建,不记下来的话每点一次就弹回最左 ----
+        // 两层横滚上下分开、不嵌套(稿 character-chest-claim §1「与右栏横滚的手势冲突」):
+        // 上面是等级奖励轨道自己的 ScrollRect,下面是只包统计面板的 HScrollFill。
+        // 位置都存 Content.anchoredPosition.x(≤ 0)。Rebuild 前从下面两个引用读,不用
+        // GetComponentInChildren —— 子树里有两只 ScrollRect,MilestonePickSheet 也挂在本节点下。
+        private ScrollRect _trackScroll, _statsScroll;
+        /// <summary>统计面板(HScrollFill)的横向位置;null = 本次打开还没重建过(停在最左)。</summary>
         private float? _rightScrollX;
+        /// <summary>等级奖励轨道的横向位置;null = 本次打开还没定过位 → 首次按 <see cref="LevelRewardRules.FocusLevel"/> 聚焦。</summary>
+        private float? _trackScrollX;
+
+        // ---- 轨道(边缘小签随滚动刷新要用) ----
+        private readonly List<int> _trackLevels = new();
+        private RectTransform _trackContent, _trackViewport;
+        private GameObject _edgeLeft, _edgeRight;
+        private Text _edgeLeftText, _edgeRightText;
 
         private const float TopBarH = 80f;     // 与 PerkView 同
         private const float ProfW = 419f;      // 稿 200pt
         private const float MsH = 327f;        // 稿 156pt
         private const float Gap = 21f;         // 稿 10pt
         private const int PanelPad = 21;       // 稿 10pt
-        private const int WindowSize = 10;     // 轨道格数
-        /// <summary>右栏(里程碑 + 统计)排版的最小宽:932×430pt 基准机上右栏的实际宽
+        /// <summary>统计面板排版的最小宽:932×430pt 基准机上右栏的实际宽
         /// (画布 900×2796/1290 ≈ 1951 − 两侧安全区 123×2 − 左栏 419 − 栏距 21)。全部间距都按这个宽验算过;
-        /// 16:9(画布宽 1600)下右栏只剩约 914,里程碑卡与统计栏都会溢出,所以右栏改成横向滚动区,
-        /// 不足这个宽时按它排、横向滚出来(2026-10-04 用户拍板)。</summary>
+        /// 16:9(画布宽 1600)下右栏只剩约 914,统计栏会溢出,所以统计面板套在横向滚动区里,
+        /// 不足这个宽时按它排、横向滚出来(2026-10-04 用户拍板)。等级奖励面板不在里面 —— 它宽 = 右栏视口,
+        /// 轨道自己横滚(2026-10-19 稿 character-chest-claim)。</summary>
         private const float RightMinW = 1265f;
+
+        // ---- 等级奖励轨道(稿 character-chest-claim §1;pt × 2.093) ----
+        private const float NodeW = 115f;          // 格宽 54.95pt(= 旧 10 格等分时的格宽)
+        private const float NodeGap = 8f;          // 格距 3.82pt
+        private const float CellStride = NodeW + NodeGap;
+        private const float TrackPadTop = 6f;      // 稿 .strip top 3pt:给里程碑钉的外圈留位
+        private const float PinRow = 42f;          // 里程碑大钉 20pt;普通小钉上下各让 7 与它对齐
+        private const float PinSmall = 27f;        // 普通级小钉 13pt
+        private const float FadeW = 38f;           // 两侧纸色渐隐 18pt
+        private const int MilestoneTableStep = 5;  // Lv.50 内每 5 级一个里程碑(之后见 MilestoneRules.AfterStep)
 
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta,
-            IReadOnlyList<string> cardPool, Action save, Action onBack)
+            IReadOnlyList<string> cardPool, ITimeSource time, Action save, Action onBack)
         {
-            _graph = graph; _campaign = campaign; _meta = meta; _cardPool = cardPool;
+            _graph = graph; _campaign = campaign; _meta = meta; _cardPool = cardPool; _time = time;
             _save = save; _onBack = onBack;
             Rebuild();
         }
 
         private void Rebuild()
         {
-            var oldScroll = transform.GetComponentInChildren<ScrollRect>();
-            if (oldScroll != null) _rightScrollX = oldScroll.content.anchoredPosition.x;
+            if (_statsScroll != null) _rightScrollX = _statsScroll.content.anchoredPosition.x;
+            if (_trackScroll != null) _trackScrollX = _trackScroll.content.anchoredPosition.x;
+            StopAllCoroutines();   // 上一轮的聚焦 / 小签刷新别作用到即将销毁的轨道上
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
             var (padSide, padBottom) = SafeArea.MissingInset();
@@ -69,36 +96,57 @@ namespace Brushblade.Presentation
 
             BuildProfile(body.transform);
 
-            var rightScroll = Ui.HScrollFill(body.transform, "RightScroll", RightMinW, out var rightContent);
-            rightScroll.AddComponent<LayoutElement>().flexibleWidth = 1;
-            var right = Ui.VStack(rightContent, "Right", Gap);
-            Ui.Stretch((RectTransform)right.transform);
+            var right = Ui.VStack(body.transform, "Right", Gap);
+            right.AddComponent<LayoutElement>().flexibleWidth = 1;
             var rightLayout = right.GetComponent<VerticalLayoutGroup>();
             rightLayout.childForceExpandWidth = true;
             rightLayout.childForceExpandHeight = false;
-            BuildMilestones(right.transform);
-            BuildStats(right.transform);
 
-            var scroll = rightScroll.GetComponent<ScrollRect>();
+            BuildRewards(right.transform);   // 宽 = 右栏视口,不进 HScrollFill
+
+            var statsScroll = Ui.HScrollFill(right.transform, "StatsScroll", RightMinW, out var statsContent);
+            statsScroll.AddComponent<LayoutElement>().flexibleHeight = 1;
+            var statsHolder = Ui.VStack(statsContent, "StatsHolder", 0);
+            Ui.Stretch((RectTransform)statsHolder.transform);
+            var holderLayout = statsHolder.GetComponent<VerticalLayoutGroup>();
+            holderLayout.childForceExpandWidth = true;
+            holderLayout.childForceExpandHeight = false;
+            BuildStats(statsHolder.transform);
+            _statsScroll = statsScroll.GetComponent<ScrollRect>();
             if (_rightScrollX is float x)
-                rightContent.anchoredPosition = new Vector2(x, 0f);   // Clamped 会在越界时自己收回
+                statsContent.anchoredPosition = new Vector2(x, 0f);   // Clamped 会在越界时自己收回
+
+            if (_trackScrollX is float tx)
+            {
+                _trackContent.anchoredPosition = new Vector2(tx, 0f);
+                StartCoroutine(RefreshEdgesNextFrame());
+            }
             else
-                StartCoroutine(ScrollToClaimable(scroll));
+                StartCoroutine(ScrollToClaimable());
         }
 
-        /// <summary>首次打开:有可领的里程碑就把它滚进视野(16:9 下轨道右端约三格在视口外)。
-        /// 等一帧 —— Content 的宽要布局算完、<see cref="FillViewportWidth"/> 改过之后才定。</summary>
-        private System.Collections.IEnumerator ScrollToClaimable(ScrollRect scroll)
+        /// <summary>首次打开:把 <see cref="LevelRewardRules.FocusLevel"/> 那格滚到视口左侧、左边留 1 格上下文;
+        /// 都领完(聚焦格 = 当前等级且它没东西可领)→ 当前等级那格落在视口约 60% 处,右边露出后几级。
+        /// 等一帧 —— 视口宽要布局算完才有。</summary>
+        private System.Collections.IEnumerator ScrollToClaimable()
         {
-            var window = Window(_meta);
-            int target = window.FindIndex(lv => !_meta.ClaimedMilestones.Contains(lv)
-                && MilestoneRules.IsClaimable(_meta, lv));
-            _rightScrollX = 0f;
-            if (target <= 0 || window.Count < 2) yield break;
+            _trackScrollX = 0f;
             yield return null;
-            if (scroll == null) yield break;
-            scroll.horizontalNormalizedPosition = (float)target / (window.Count - 1);
-            _rightScrollX = scroll.content.anchoredPosition.x;
+            if (_trackContent == null || _trackViewport == null) yield break;
+            int level = MetaRules.CharacterLevel(_meta.CharacterXp);
+            int focus = LevelRewardRules.FocusLevel(_meta);
+            int index = _trackLevels.IndexOf(focus);
+            if (index < 0) { RefreshEdges(); yield break; }   // Lv.1:轨道从 Lv.2 起,停在最左
+            float offset = focus == level && !IsCellClaimable(level)
+                ? index * CellStride - _trackViewport.rect.width * 0.6f
+                : (index - 1) * CellStride;
+            SetTrackOffset(offset);
+        }
+
+        private System.Collections.IEnumerator RefreshEdgesNextFrame()
+        {
+            yield return null;
+            RefreshEdges();
         }
 
         // ================= 顶栏 =================
@@ -189,10 +237,6 @@ namespace Brushblade.Presentation
             var note = Ui.ThemedLabel(stack, Strings.T("character.cap_note"), 19, Theme.LockGray, null,
                 TextAnchor.MiddleLeft);
             note.horizontalOverflow = HorizontalWrapMode.Wrap;
-
-            int owed = LevelRewardRules.PendingChestCount(_meta);
-            if (owed > 0)
-                Ui.Chip(stack, Strings.T("character.owed", ("count", owed)), Theme.WarningBg, Theme.WarningText, 19);
         }
 
         /// <summary>一行属性:名靠左、值靠右、下一级增量在最右一小列;增量为 0 写「—」。</summary>
@@ -215,159 +259,452 @@ namespace Brushblade.Presentation
             d.gameObject.AddComponent<LayoutElement>().preferredWidth = 54;     // 稿 26pt
         }
 
-        // ================= 右上:等级里程碑轨道 =================
+        // ================= 右上:等级奖励长轨道 =================
+        // 稿 docs/design/drafts/character-chest-claim/README.md §1:每级一格(Lv.2 → TrackEnd),每格挂该级宝箱,
+        // 里程碑等级的格子同时挂里程碑奖励。轨道是面板内独立的横向 ScrollRect(只横向、惯性、无滚动条)。
 
-        private void BuildMilestones(Transform parent)
+        private void BuildRewards(Transform parent)
         {
-            var panel = Ui.OutlinedPanel(parent, "Ms", Theme.PanelPaper, Theme.PanelBorder, 21);
+            var panel = Ui.OutlinedPanel(parent, "Rewards", Theme.PanelPaper, Theme.PanelBorder, 21);
             panel.gameObject.AddComponent<LayoutElement>().preferredHeight = MsH;
             var stack = PaddedStack(panel.transform, "Stack", 17,
                 new RectOffset(PanelPad, PanelPad, PanelPad, 19));
 
             int level = MetaRules.CharacterLevel(_meta.CharacterXp);
-            var window = Window(_meta);
-            int claimed = 0;
-            foreach (int lv in window)
-                if (_meta.ClaimedMilestones.Contains(lv)) claimed++;
+            BuildRewardsTitle(stack, level);
 
-            var ttl = TitleRow(stack, Strings.T("character.ms_title"));
-            Ui.ThemedLabel(ttl, Strings.T("character.ms_progress", ("claimed", claimed), ("total", window.Count)),
-                19, Theme.LockGray);
-            Rule(ttl);
-            var after = MilestoneRules.ForLevel(MilestoneRules.TableEnd + MilestoneRules.AfterStep).Value;
-            Ui.ThemedLabel(ttl, Strings.T("character.ms_after", ("ink", Ui.InkText(after.Ink)),
-                    ("rarity", CharInfo.RarityName(after.Rarity))),
-                19, Theme.LockGray);
+            // ---- 滚动区:ScrollRect → Viewport(RectMask2D + 透明接射线底)→ Content(横排格子) ----
+            var trackGo = Ui.Panel(stack, "Track");
+            trackGo.AddComponent<LayoutElement>().flexibleHeight = 1;
+            var scroll = trackGo.AddComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.inertia = true;
 
-            // 格距 8(space-4 = 4pt):原 13 时每格卡内净宽 98.6,而「色点 13 + 5 + 『金字 3 选 1』17 号」
-            // 按 Noto 字宽实算 99.9,Text 不折行,两头探出贴边。8 → 净宽 103.1(932pt 宽屏)。
-            var track = Ui.Row(stack, "Track", 8);
-            track.AddComponent<LayoutElement>().flexibleHeight = 1;
-            var trackLayout = track.GetComponent<HorizontalLayoutGroup>();
-            trackLayout.childForceExpandWidth = true;
-            trackLayout.childForceExpandHeight = true;
+            var viewport = Ui.Panel(trackGo.transform, "Viewport");
+            _trackViewport = (RectTransform)viewport.transform;
+            Ui.Stretch(_trackViewport);
+            viewport.AddComponent<RectMask2D>();
+            viewport.AddComponent<Image>().color = new Color(0, 0, 0, 0); // 格缝里也能拖,见 Ui.ScrollList
 
-            // 轨道底线:从第一格的钉连到最后一格,已达成的那一段染金(稿 .rail)
+            _trackLevels.Clear();
+            int end = LevelRewardRules.TrackEnd(_meta);
+            for (int lv = LevelRewardRules.TrackStart; lv <= end; lv++) _trackLevels.Add(lv);
+            int count = _trackLevels.Count;
+            float contentW = count * NodeW + Math.Max(0, count - 1) * NodeGap;
+
+            var contentGo = Ui.Row(viewport.transform, "Content", NodeGap);
+            _trackContent = (RectTransform)contentGo.transform;
+            _trackContent.anchorMin = Vector2.zero;            // 锚左、竖向铺满
+            _trackContent.anchorMax = new Vector2(0f, 1f);
+            _trackContent.pivot = new Vector2(0f, 0.5f);
+            _trackContent.anchoredPosition = Vector2.zero;
+            _trackContent.sizeDelta = new Vector2(contentW, 0f);
+            var rowLayout = contentGo.GetComponent<HorizontalLayoutGroup>();
+            rowLayout.childAlignment = TextAnchor.UpperLeft;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = true;
+            rowLayout.padding = new RectOffset(0, 0, (int)TrackPadTop, 0);
+
+            // 底线:从第一格的钉连到最后一格,染到当前等级那格(稿 .rail)
             int lastReached = -1;
-            for (int i = 0; i < window.Count; i++)
-                if (window[i] <= level) lastReached = i;
-            var rail = Ui.Bar(track.transform,
-                window.Count > 1 && lastReached > 0 ? (float)lastReached / (window.Count - 1) : 0f,
-                Theme.Success, new Vector2(0, 6));
+            for (int i = 0; i < count; i++)
+                if (_trackLevels[i] <= level) lastReached = i;
+            var rail = Ui.Bar(contentGo.transform,
+                count > 1 && lastReached > 0 ? (float)lastReached / (count - 1) : 0f,
+                Theme.RarityGold, new Vector2(0, 6));
             rail.GetComponent<LayoutElement>().ignoreLayout = true;
-            float half = window.Count > 0 ? 0.5f / window.Count : 0f;
-            Ui.Anchor((RectTransform)rail.transform, new Vector2(half, 1f), new Vector2(1f - half, 1f),
-                new Vector2(0, -21 - 3), new Vector2(0, -21 + 3));
+            float pinCenter = TrackPadTop + PinRow / 2f;
+            Ui.Anchor((RectTransform)rail.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+                new Vector2(NodeW / 2f, -pinCenter - 3), new Vector2(-NodeW / 2f, -pinCenter + 3));
 
-            foreach (int lv in window)
-                MilestoneNode(track.transform, lv, level);
+            bool slotsFull = _meta.Chests.Count >= ChestRules.SlotLimit;
+            foreach (int lv in _trackLevels)
+                RewardNode(contentGo.transform, lv, level, slotsFull);
+
+            scroll.viewport = _trackViewport;
+            scroll.content = _trackContent;
+            _trackScroll = scroll;
+
+            // 两侧纸色渐隐(提示还能滚)+ 屏外可领小签;都压在滚动区之上、不随内容走
+            EdgeFade(trackGo.transform, left: true);
+            EdgeFade(trackGo.transform, left: false);
+            (_edgeLeft, _edgeLeftText) = EdgePill(trackGo.transform, left: true);
+            (_edgeRight, _edgeRightText) = EdgePill(trackGo.transform, left: false);
+            scroll.onValueChanged.AddListener(_ => RefreshEdges());
         }
 
-        /// <summary>一格里程碑:顶上一颗钉 + 下面一张卡,三态 已领 / 可领 / 未达。</summary>
-        private void MilestoneNode(Transform parent, int lv, int level)
+        /// <summary>标题行:「等级奖励」+「每级 1 只宝箱 · 每 5 级里程碑」+ 分隔线 + 右端「待领 宝箱 N · 里程碑 M · 箱位 n / 4」。
+        /// 没有待领时只写「箱位 n / 4」;箱位数字 `upgrade-text` 粗体,满了 `cinnabar-dark`(稿 .slots b / b.full)。</summary>
+        private void BuildRewardsTitle(Transform stack, int level)
         {
-            var def = MilestoneRules.ForLevel(lv).Value;
-            bool done = _meta.ClaimedMilestones.Contains(lv);
-            bool ready = !done && MilestoneRules.IsClaimable(_meta, lv);
+            var ttl = TitleRow(stack, Strings.T("character.rewards.title"));
+            // 稿:当前等级 ≥ 50 时轨道后面的里程碑都是每 10 级一个
+            int step = level >= MilestoneRules.TableEnd ? MilestoneRules.AfterStep : MilestoneTableStep;
+            Ui.ThemedLabel(ttl, Strings.T("character.rewards.sub", ("step", step)), 19, Theme.LockGray);
+            Rule(ttl);
 
-            var node = Ui.VStack(parent, "Node", 8);
-            node.AddComponent<LayoutElement>().flexibleWidth = 1;
+            int pendingChests = LevelRewardRules.PendingChestCount(_meta);
+            int pendingMilestones = 0;
+            foreach (var m in MilestoneRules.MilestonesUpTo(level))
+                if (!_meta.ClaimedMilestones.Contains(m.Level)) pendingMilestones++;
+            string pending = "";
+            if (pendingChests > 0 || pendingMilestones > 0)
+            {
+                pending = Strings.T("character.rewards.pending", ("chests", pendingChests));
+                if (pendingMilestones > 0)
+                    pending += Strings.T("character.rewards.pending_ms", ("count", pendingMilestones));
+                pending += " · ";
+            }
+            // 数字段整体着色:开标签挂在 count 前、闭标签挂在 limit 后,「n / 4」一起变色加粗
+            bool full = _meta.Chests.Count >= ChestRules.SlotLimit;
+            string hex = ColorUtility.ToHtmlStringRGB(full ? Theme.CinnabarDark : Theme.UpgradeText);
+            string slots = Strings.T("character.rewards.slots",
+                ("count", $"<color=#{hex}><b>{_meta.Chests.Count}"), ("limit", $"{ChestRules.SlotLimit}</b></color>"));
+            var label = Ui.ThemedLabel(ttl, pending + slots, 19, Theme.LockGray, null, TextAnchor.MiddleRight);
+            label.supportRichText = true;
+        }
+
+        private enum ChestMark { Ready, Done, Locked }
+
+        /// <summary>一格:顶上一颗钉 + 下面一张卡。普通格「Lv.N → 箱立绘 → 箱名 → 底行」;里程碑格
+        /// 「Lv.N + 小箱 → 墨锭 → 金字 3 选 1 → 底行」。底行五态见稿 §1 的表 —— **里程碑优先**。</summary>
+        private void RewardNode(Transform parent, int lv, int level, bool slotsFull)
+        {
+            var ms = MilestoneRules.ForLevel(lv);
+            bool isMs = ms.HasValue;
+            bool reached = lv <= level;
+            bool chestReady = LevelRewardRules.IsChestClaimable(_meta, lv);
+            bool chestDone = reached && _meta.ClaimedLevelChests.Contains(lv);
+            bool msReady = isMs && MilestoneRules.IsClaimable(_meta, lv);
+            bool msDone = isMs && reached && _meta.ClaimedMilestones.Contains(lv);
+            bool allDone = reached && !chestReady && !msReady;
+            var mark = chestDone ? ChestMark.Done : reached ? ChestMark.Ready : ChestMark.Locked;
+            var tier = LevelRewardRules.TierForLevel(lv);
+
+            var node = Ui.VStack(parent, "Node", 4);   // 钉与卡间距 2pt
+            Ui.Sized(node, width: NodeW);
             var nodeLayout = node.GetComponent<VerticalLayoutGroup>();
             nodeLayout.childAlignment = TextAnchor.UpperCenter;
             nodeLayout.childForceExpandWidth = false;
 
-            // 钉:已领 = 铜绿底白勾;可领 = 石青底;未达 = 宣纸底描边(2026-10-04 五色语义)
-            var pin = Ui.CircleGlyph(node.transform, "", done ? Theme.Success : ready ? Theme.Primary : Theme.PanelBorder,
-                Color.white, 42);
-            if (!done && !ready)
-            {
-                var inner = Ui.Panel(pin.transform, "Inner").AddComponent<Image>();
-                inner.sprite = Theme.Circle;
-                inner.color = Theme.PanelPaper;
-                Ui.Anchor(inner.rectTransform, Vector2.zero, Vector2.one, new Vector2(3, 3), new Vector2(-3, -3));
-            }
-            else if (ready)
-            {
-                // 可领:钉外一圈 3pt 石青 22% 光环(稿 .ready .pin box-shadow 0 0 0 3px)→ 外扩 6。
-                // 子节点画在父图之上,所以钉本身改透明,光环在下、金色实心圆在上;光环不进布局。
-                pin.GetComponent<Image>().color = Color.clear;
-                var halo = Ui.Panel(pin.transform, "Halo").AddComponent<Image>();
-                halo.sprite = Theme.Circle;
-                halo.color = new Color(Theme.Primary.r, Theme.Primary.g, Theme.Primary.b, 0.22f);
-                halo.raycastTarget = false;
-                Ui.Anchor(halo.rectTransform, Vector2.zero, Vector2.one, new Vector2(-6, -6), new Vector2(6, 6));
-                var face = Ui.Panel(pin.transform, "Face").AddComponent<Image>();
-                face.sprite = Theme.Circle;
-                face.color = Theme.Primary;
-                face.raycastTarget = false;
-                Ui.Stretch(face.rectTransform);
-            }
-            else if (done && Icons.Get("check") is { } check)
-            {
-                var icon = Ui.Panel(pin.transform, "Check").AddComponent<Image>();
-                icon.sprite = check;
-                icon.color = Color.white;
-                icon.preserveAspect = true;
-                Ui.Anchor(icon.rectTransform, Vector2.zero, Vector2.one, new Vector2(10, 10), new Vector2(-10, -10));
-            }
+            Pin(node.transform, isMs, allDone, reached && (chestReady || msReady));
 
+            // 卡:里程碑格 = gold-soft 淡化底 + rarity-gold 60% 描边;普通格已领完压 panel-inset,其余 card-face
+            var gold = Theme.RarityGold;
             var card = Ui.OutlinedPanel(node.transform, "Card",
-                done ? Theme.PanelInset : Theme.CardWhite,
-                ready ? Theme.Primary : Theme.PanelBorder, 17, ready ? 3f : 2f);
+                isMs ? MilestoneCardFill : allDone ? Theme.PanelInset : Theme.CardWhite,
+                isMs ? new Color(gold.r, gold.g, gold.b, 0.6f) : Theme.PanelBorder, 17, 2f);
             var cardElement = card.gameObject.AddComponent<LayoutElement>();
             cardElement.flexibleWidth = 1;
             cardElement.flexibleHeight = 1;
-            var cell = PaddedStack(card.transform, "Cell", 6, new RectOffset(6, 6, 10, 10));
+            var cell = PaddedStack(card.transform, "Cell", 4, new RectOffset(6, 6, 8, 8));
             var cellLayout = cell.GetComponent<VerticalLayoutGroup>();
             cellLayout.childAlignment = TextAnchor.UpperCenter;
             cellLayout.childForceExpandWidth = false;
 
-            Ui.ThemedLabel(cell, Strings.T("character.ms_level", ("level", lv)), 27,
-                ready ? Theme.TextMain : Theme.TextDim, Theme.TitleFont);
-            Ui.IngotLabel(cell, Ui.InkText(def.Ink), 20);
-            var pick = Ui.Row(cell, "Pick", 5);
-            Dot(pick.transform, Theme.RarityColor(def.Rarity), 13);
-            var pickLabel = Ui.ThemedLabel(pick.transform,
-                Strings.T("character.ms_pick", ("rarity", CharInfo.RarityName(def.Rarity))), 17, Theme.TextDim);
-            pickLabel.raycastTarget = false;
-
-            Spring(cell); // 状态行 / 领取钮钉在卡底
-            if (ready)
+            // 三位数等级(Lv.100 起)「Lv.100」+ 小箱会超出卡内净宽 99,字号 25 → 21
+            int lvFont = lv >= 100 ? 21 : 25;
+            var lvColor = allDone ? Theme.TextDim : Theme.TextMain;
+            if (isMs)
             {
-                int claimLevel = lv;
-                var claim = Ui.PillButton(cell, Strings.T("character.ms_claim"),
-                    () => MilestonePickSheet.Show(transform, _graph, _meta, claimLevel, _cardPool, _save, Rebuild),
-                    Theme.Primary, Color.white, 21, new Vector2(100, 44));
-                claim.GetComponent<LayoutElement>().flexibleWidth = 1;   // 稿 width:100%
+                var lvRow = Ui.Row(cell, "LvRow", 4);
+                LevelLabel(lvRow.transform, lv, lvFont, lvColor);
+                ChestIcon(lvRow.transform, tier, 23f, mark);
+
+                var def = ms.Value;
+                var reward = Ui.VStack(cell, "Milestone", 4);
+                if (msDone) reward.AddComponent<CanvasGroup>().alpha = 0.55f;   // 稿 .mrow.done
+                Ui.IngotLabel(reward.transform, Ui.InkText(def.Ink), 20);
+                var pick = Ui.Row(reward.transform, "Pick", 5);
+                Dot(pick.transform, Theme.RarityColor(def.Rarity), 13);
+                Ui.ThemedLabel(pick.transform,
+                    Strings.T("character.ms_pick", ("rarity", CharInfo.RarityName(def.Rarity))), 17, Theme.TextDim)
+                    .raycastTarget = false;
             }
-            else if (done)
+            else
+            {
+                LevelLabel(cell, lv, lvFont, lvColor);
+                ChestIcon(cell, tier, 50f, mark);
+                Ui.ThemedLabel(cell, ChestRules.TierName(tier), 17, reached ? Theme.TextDim : Theme.LockGray)
+                    .raycastTarget = false;
+            }
+
+            Spring(cell); // 底行钉在卡底
+            int claimLevel = lv;
+            if (msReady)
+                CellButton(cell, Strings.T("character.rewards.claim_ms"),
+                    () => MilestonePickSheet.Show(transform, _graph, _meta, claimLevel, _cardPool, _save, Rebuild));
+            else if (chestReady && slotsFull)
+                CellButton(cell, Strings.T("character.rewards.slots_full"), null);
+            else if (chestReady)
+                CellButton(cell, isMs ? Strings.T("character.rewards.claim_chest") : Strings.T("character.ms_claim"),
+                    () => ClaimChest(claimLevel));
+            else if (reached)
                 Ui.ThemedLabel(cell, Strings.T("character.ms_claimed"), 18, Theme.LockGray);
             else
                 Ui.ThemedLabel(cell, Strings.T("character.ms_gap", ("gap", lv - level)), 18, Theme.LockGray);
         }
 
-        /// <summary>轨道上显示哪 10 档(纯计算)。Lv.50 及以内:表内十档。之后:从最早一个未领的那档起
-        /// 往后 10 档;都领完取最后 10 档;不足 10 档向前补。候选含当前等级之后的下一档。</summary>
-        private static List<int> Window(MetaState meta)
+        /// <summary>领一只每级宝箱:规则侧拒绝(连点、箱位刚满)时不改状态;成功先落盘再重建,
+        /// 重建保持轨道滚动位置(<see cref="_trackScrollX"/>)。</summary>
+        private void ClaimChest(int level)
         {
-            int level = MetaRules.CharacterLevel(meta.CharacterXp);
-            var levels = new List<int>();
-            if (level <= MilestoneRules.TableEnd)
-            {
-                foreach (var m in MilestoneRules.MilestonesUpTo(MilestoneRules.TableEnd))
-                    levels.Add(m.Level);
-                return levels;
-            }
-            // 多取一个步长:恰好露出当前等级之后的下一档(写「差 N 级」)
-            foreach (var m in MilestoneRules.MilestonesUpTo(level + MilestoneRules.AfterStep))
-                levels.Add(m.Level);
+            if (LevelRewardRules.TryClaimChest(_meta, level, _cardPool, _time))
+                _save();
+            Rebuild();
+        }
 
-            int start = levels.Count;
-            for (int i = 0; i < levels.Count; i++)
-                if (!meta.ClaimedMilestones.Contains(levels[i])) { start = i; break; }
-            if (start == levels.Count) start = levels.Count - WindowSize;   // 都领完:最后 10 档
-            start = Math.Max(0, Math.Min(start, levels.Count - WindowSize)); // 不足 10 档:向前补
-            return levels.GetRange(start, Math.Min(WindowSize, levels.Count - start));
+        /// <summary>稿:里程碑格卡底「gold-soft 淡化(#FBF5E4)」。#FBF5E4 不在 tokens,按稿的说法取
+        /// gold-soft 与 card-face(Theme.CardWhite)各半 ≈ #FAF6EA。</summary>
+        private static Color MilestoneCardFill => Color.Lerp(Theme.GoldSoft, Theme.CardWhite, 0.5f);
+
+        private static void LevelLabel(Transform parent, int lv, int size, Color color)
+        {
+            // 宋体行高 ≈ 字号 × 1.44,布局盒按稿给 31(15pt),字照常居中画出(同 PityBlock 的做法)
+            var label = Ui.ThemedLabel(parent, Strings.T("character.ms_level", ("level", lv)), size, color,
+                Theme.TitleFont);
+            label.raycastTarget = false;
+            label.gameObject.AddComponent<LayoutElement>().preferredHeight = 31;
+        }
+
+        /// <summary>钉:里程碑大钉 42 外加赭金描圈(gold-soft 2pt + rarity-gold 1pt),普通小钉 27 上下各让 7。
+        /// 全领完 `jade` + 白勾;有可领 `cta`;未达 `panel-border` 描圈。</summary>
+        private static void Pin(Transform parent, bool milestone, bool done, bool ready)
+        {
+            var box = Ui.Panel(parent, "PinBox");
+            Ui.Sized(box, PinRow, PinRow);
+            float d = milestone ? PinRow : PinSmall;
+            if (milestone)
+            {
+                Disc(box.transform, "RingOuter", Theme.RarityGold, d + 12);
+                Disc(box.transform, "RingInner", Theme.GoldSoft, d + 8);
+            }
+            if (done)
+            {
+                Disc(box.transform, "Face", Theme.Success, d);
+                if (Icons.Get("check") is { } check)
+                {
+                    var icon = Ui.Panel(box.transform, "Check").AddComponent<Image>();
+                    icon.sprite = check;
+                    icon.color = Color.white;
+                    icon.preserveAspect = true;
+                    icon.raycastTarget = false;
+                    CenterSize(icon.rectTransform, d * 0.52f);
+                }
+            }
+            else if (ready)
+                Disc(box.transform, "Face", Theme.Primary, d);
+            else
+            {
+                Disc(box.transform, "Face", Theme.PanelBorder, d);
+                Disc(box.transform, "Inner", Theme.PanelPaper, d - 6);   // 1.5pt 描圈
+            }
+        }
+
+        private static Image Disc(Transform parent, string name, Color color, float size)
+        {
+            var image = Ui.Panel(parent, name).AddComponent<Image>();
+            image.sprite = Theme.Circle;
+            image.color = color;
+            image.raycastTarget = false;
+            CenterSize(image.rectTransform, size);
+            return image;
+        }
+
+        private static void CenterSize(RectTransform rect, float size)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(size, size);
+        }
+
+        /// <summary>宝箱状态画在立绘上:可领 = 原色;已领 = 立绘 35% + 右下 `jade` 小勾;未达 = 压到 45%。
+        /// 稿上未达还要去色 70%,uGUI 没有现成的去色材质,只做了透明度(见 current/CharacterScreen 差异)。</summary>
+        private static void ChestIcon(Transform parent, ChestTier tier, float size, ChestMark mark)
+        {
+            var holder = Ui.Row(parent, "Chest", 0);
+            ChestArt.Draw(holder.transform, tier, ChestView.State.Idle, size);
+            var art = holder.transform.GetChild(holder.transform.childCount - 1).gameObject;
+            if (mark != ChestMark.Ready)
+                art.AddComponent<CanvasGroup>().alpha = mark == ChestMark.Done ? 0.35f : 0.45f;
+            if (mark != ChestMark.Done) return;
+
+            bool small = size < 40f;
+            float badge = small ? 15f : 21f;            // 稿 7pt / 10pt
+            var tick = Ui.Panel(holder.transform, "Tick");
+            tick.AddComponent<LayoutElement>().ignoreLayout = true;
+            var rect = (RectTransform)tick.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 0f);
+            rect.anchoredPosition = new Vector2(6f, small ? -4f : -2f);   // 稿 right -3pt、bottom -2 / -1pt
+            rect.sizeDelta = new Vector2(badge, badge);
+            var disc = tick.AddComponent<Image>();
+            disc.sprite = Theme.Circle;
+            disc.color = Theme.Success;
+            disc.raycastTarget = false;
+            if (Icons.Get("check") is { } check)
+            {
+                var icon = Ui.Panel(tick.transform, "Check").AddComponent<Image>();
+                icon.sprite = check;
+                icon.color = Color.white;
+                icon.preserveAspect = true;
+                icon.raycastTarget = false;
+                CenterSize(icon.rectTransform, badge * 0.7f);
+            }
+        }
+
+        /// <summary>格底一颗钮:高 40(19pt)、撑满卡宽、字 19、`cta` 底白字;onClick 为 null 时画成
+        /// 置灰 `locked-bg` 底 `text-faint` 字、不可点(「箱位已满」)。</summary>
+        private static void CellButton(Transform parent, string text, Action onClick)
+        {
+            const float H = 40f;
+            const int Font = 19, Radius = 20;
+            GameObject go;
+            if (onClick != null)
+                go = Ui.RoundButton(parent, text, onClick, Theme.Primary, Color.white, Font,
+                    new Vector2(NodeW - 12, H), Radius).gameObject;
+            else
+            {
+                var face = Ui.CardPanel(parent, "Disabled", Theme.LockedBg, Radius);
+                face.raycastTarget = false;
+                Ui.Stretch(Ui.ThemedLabel(face.transform, text, Font, Theme.LockGray).rectTransform);
+                go = face.gameObject;
+                Ui.Sized(go, NodeW - 12, H);
+            }
+            go.GetComponent<LayoutElement>().flexibleWidth = 1;
+        }
+
+        // ---- 渐隐与边缘小签 ----
+
+        private static Texture2D _fadeTexture;
+
+        /// <summary>两像素的白→透明横向渐变,双线性采样;RawImage 取 uv 0.25–0.75 段正好是纯 1 → 0。</summary>
+        private static Texture2D FadeTexture
+        {
+            get
+            {
+                if (_fadeTexture != null) return _fadeTexture;
+                _fadeTexture = new Texture2D(2, 1, TextureFormat.RGBA32, false)
+                {
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear,
+                };
+                _fadeTexture.SetPixels(new[] { Color.white, new Color(1f, 1f, 1f, 0f) });
+                _fadeTexture.Apply();
+                return _fadeTexture;
+            }
+        }
+
+        private static void EdgeFade(Transform parent, bool left)
+        {
+            var image = Ui.Panel(parent, left ? "FadeL" : "FadeR").AddComponent<RawImage>();
+            image.texture = FadeTexture;
+            image.uvRect = left ? new Rect(0.25f, 0f, 0.5f, 1f) : new Rect(0.75f, 0f, -0.5f, 1f);
+            image.color = Theme.PanelPaper;
+            image.raycastTarget = false;
+            float x = left ? 0f : 1f;
+            Ui.Anchor(image.rectTransform, new Vector2(x, 0f), new Vector2(x, 1f),
+                new Vector2(left ? 0f : -FadeW, 0f), new Vector2(left ? FadeW : 0f, 0f));
+        }
+
+        /// <summary>屏外还有可领时贴边出的 `cta` 小签「◂ 2 待领」/「3 待领 ▸」:高 31(15pt)、字 17(8.12pt)、
+        /// 左右内边距 13(6pt),距轨道顶 54(26pt)、贴边 4(2pt)。点了把最近的那个屏外可领格滚进视野。</summary>
+        private (GameObject, Text) EdgePill(Transform parent, bool left)
+        {
+            var go = Ui.Panel(parent, left ? "EdgeL" : "EdgeR");
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(15);
+            image.type = Image.Type.Sliced;
+            image.color = Theme.Primary;
+            var rect = (RectTransform)go.transform;
+            float x = left ? 0f : 1f;
+            rect.anchorMin = rect.anchorMax = new Vector2(x, 1f);
+            rect.pivot = new Vector2(x, 1f);
+            rect.anchoredPosition = new Vector2(left ? 4f : -4f, -54f);
+            rect.sizeDelta = new Vector2(0f, 31f);
+            var label = Ui.ThemedLabel(go.transform, "", 17, Color.white);
+            label.raycastTarget = false;
+            Ui.Stretch(label.rectTransform);
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(() => JumpToOffscreen(left));
+            go.SetActive(false);
+            return (go, label);
+        }
+
+        private bool IsCellClaimable(int lv) =>
+            LevelRewardRules.IsChestClaimable(_meta, lv) || MilestoneRules.IsClaimable(_meta, lv);
+
+        /// <summary>格心落在视口左 / 右之外算「屏外」。</summary>
+        private float CellCenter(int index) => index * CellStride + NodeW / 2f;
+
+        private float TrackOffset => _trackContent != null ? -_trackContent.anchoredPosition.x : 0f;
+
+        /// <summary>按当前滚动位置数两侧屏外的可领格,刷新两枚边缘小签(滚动时由 onValueChanged 调)。</summary>
+        private void RefreshEdges()
+        {
+            if (_trackContent == null || _trackViewport == null || _edgeLeft == null) return;
+            float off = TrackOffset, viewW = _trackViewport.rect.width;
+            int left = 0, right = 0;
+            for (int i = 0; i < _trackLevels.Count; i++)
+            {
+                if (!IsCellClaimable(_trackLevels[i])) continue;
+                float c = CellCenter(i);
+                if (c < off) left++;
+                else if (c > off + viewW) right++;
+            }
+            SetEdge(_edgeLeft, _edgeLeftText, left,
+                left > 0 ? Strings.T("character.rewards.edge_left", ("count", left)) : "");
+            SetEdge(_edgeRight, _edgeRightText, right,
+                right > 0 ? Strings.T("character.rewards.edge_right", ("count", right)) : "");
+        }
+
+        private static void SetEdge(GameObject pill, Text label, int count, string text)
+        {
+            pill.SetActive(count > 0);
+            if (count <= 0) return;
+            label.text = text;
+            var rect = (RectTransform)pill.transform;
+            rect.sizeDelta = new Vector2(Ui.EstimateWidth(text, label.fontSize) + 26f, rect.sizeDelta.y);
+        }
+
+        /// <summary>左签:最近的左侧屏外可领格滚到视口左、左边留 1 格;右签:最近的右侧屏外可领格滚到视口右、右边留 1 格。</summary>
+        private void JumpToOffscreen(bool left)
+        {
+            if (_trackContent == null || _trackViewport == null) return;
+            float off = TrackOffset, viewW = _trackViewport.rect.width;
+            if (left)
+            {
+                for (int i = _trackLevels.Count - 1; i >= 0; i--)
+                    if (CellCenter(i) < off && IsCellClaimable(_trackLevels[i]))
+                    {
+                        SetTrackOffset((i - 1) * CellStride);
+                        return;
+                    }
+            }
+            else
+            {
+                for (int i = 0; i < _trackLevels.Count; i++)
+                    if (CellCenter(i) > off + viewW && IsCellClaimable(_trackLevels[i]))
+                    {
+                        SetTrackOffset((i + 2) * CellStride - NodeGap - viewW);
+                        return;
+                    }
+            }
+        }
+
+        /// <summary>把轨道滚到 offset(内容左缘在视口左缘之左多少),夹在 [0, 内容宽 − 视口宽];同步记下位置。</summary>
+        private void SetTrackOffset(float offset)
+        {
+            float maxOff = Mathf.Max(0f, _trackContent.rect.width - _trackViewport.rect.width);
+            offset = Mathf.Clamp(offset, 0f, maxOff);
+            if (_trackScroll != null) _trackScroll.StopMovement();
+            _trackContent.anchoredPosition = new Vector2(-offset, _trackContent.anchoredPosition.y);
+            _trackScrollX = -offset;
+            RefreshEdges();
         }
 
         // ================= 右下:统计四页签 =================
