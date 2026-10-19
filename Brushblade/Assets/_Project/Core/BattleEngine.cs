@@ -190,6 +190,14 @@ namespace Brushblade.Core
         /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
 
+        /// <summary>本局配方集(spec 2026-10-19 §1):并进可合成集,只放开这些字本身(不做闭包)。
+        /// 由 RunEngine 逐场注入;null / 空 = 无。<see cref="UnlockedChars"/> 为 null(不限)时无意义。</summary>
+        public IReadOnlyCollection<string> RunRecipes { get; set; }
+
+        /// <summary>本局生疏字(spec §3):出字时卡等级取 <see cref="MetaRules.UnfamiliarCardLevel"/>
+        /// (= Lv1 × 70%)。RunEngine 注入前已剔除已收集的字。null / 空 = 无。</summary>
+        public IReadOnlyCollection<string> UnfamiliarChars { get; set; }
+
         /// <summary>四个天花板/换算常量的基础值(现值)。公开成常量而不是留在属性缺省的字面量里,
         /// 是因为 <see cref="PerkInfo.DetailText"/>(Presentation)要把「加成前 → 加成后」的
         /// 具体数字摊开给玩家看——属性缺省与 UI 换算各写一份字面量必然分叉(2026-09-07 收尾波
@@ -1632,6 +1640,13 @@ namespace Brushblade.Core
                 if (!_composableComputed)
                 {
                     _composableChars = ForgeEngine.ComposableSet(_graph, _config.UnlockedChars);
+                    // 局内配方集(spec 2026-10-19 §1):只并入目标字本身,不连带它的原料链或下游叠字
+                    if (_composableChars != null && _config.RunRecipes != null && _config.RunRecipes.Count > 0)
+                    {
+                        var set = new HashSet<string>(_composableChars);
+                        set.UnionWith(_config.RunRecipes);
+                        _composableChars = set;
+                    }
                     _composableComputed = true;
                 }
                 return _composableChars;
@@ -4944,7 +4959,12 @@ namespace Brushblade.Core
 
         /// <summary>局外卡等级;没配等级表或表里没有这张字 = 1。</summary>
         private int CardLevelOf(string charId) =>
-            _cardLevels != null && _cardLevels.TryGetValue(charId, out var level) ? level : 1;
+            IsUnfamiliar(charId) ? MetaRules.UnfamiliarCardLevel
+            : _cardLevels != null && _cardLevels.TryGetValue(charId, out var level) ? level : 1;
+
+        /// <summary>此字本局是否生疏(spec 2026-10-19 §3;表现层据此在详情加一行)。</summary>
+        public bool IsUnfamiliar(string charId) =>
+            charId != null && _config?.UnfamiliarChars != null && _config.UnfamiliarChars.Contains(charId);
 
         private bool HasDamageEffect(CharDef def, bool attackMode)
         {
@@ -4990,7 +5010,7 @@ namespace Brushblade.Core
         /// 就地改会让第二次召唤在第一次的结果上再乘一遍,等级越召越高。</summary>
         private static SummonPassive ScalePassiveByCardLevel(SummonPassive passive, int cardLevel)
         {
-            if (passive == null || cardLevel <= 1) return passive;
+            if (passive == null || cardLevel == 1) return passive; // 生疏(Lv0)也要缩
             var scaled = passive.Clone();
             if (scaled.OnHitFreezeChance > 0)
                 scaled.OnHitFreezeChance = Math.Min(100,

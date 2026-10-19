@@ -668,7 +668,8 @@ namespace Brushblade.Core.Tests
             }", graph));
         }
 
-        // ---- 字摊口径:换来的字也须在卡池(2026-07-20;与战利品/合成同源) ----
+        // ---- 字摊口径:2026-07-20 起换来的字须在卡池;2026-10-19 起闸门撤掉,
+        //      卡池外的字照收并记进本局配方集(spec 2026-10-19 §1,拆了能合回来) ----
 
         private static RunEngine StallRun(params string[] unlocked) =>
             new(Graph(), StallConfig(), new BattleConfig
@@ -706,13 +707,13 @@ namespace Brushblade.Core.Tests
         };
 
         [Test]
-        public void Stall_RejectsCharOutsidePool_AndKeepsComponents()
+        public void Stall_CharOutsidePool_IsAccepted_AndEntersRunRecipes()
         {
-            var run = StallRun("林"); // 卡池只有林,炎换不到
+            var run = StallRun("林"); // 卡池只有林,炎在卡池外
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 0), Is.False);
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));       // 停留在事件
-            Assert.That(run.CarriedPool, Is.EquivalentTo(new[] { "木", "火" })); // 先验后扣:部件不损
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 0), Is.True);
+            Assert.That(run.CarriedLibrary.Contains("炎"), Is.True);
+            Assert.That(run.RunRecipes.Contains("炎"), Is.True, "卡池外的字记进本局配方集");
         }
 
         [Test]
@@ -725,14 +726,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void FixedGift_AlsoPoolGated() // 守卫是全局的:单字奇遇(测字先生等)同受卡池约束
+        public void FixedGift_OutsidePool_EntersRunRecipes() // 单字奇遇(测字先生等)与字摊同口径
         {
             var run = new RunEngine(Graph(), Config(100),
                 new BattleConfig { UnlockedChars = new[] { "林" } },
                 new[] { "焚" }, Array.Empty<string>(), seed: 7);
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.False); // 「求字」得炎,炎不在卡池
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.ChooseEventOption(0), Is.True); // 「求字」得炎,炎不在卡池
+            Assert.That(run.RunRecipes.Contains("炎"), Is.True);
         }
 
         [Test]

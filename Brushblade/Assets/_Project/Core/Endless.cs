@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -100,6 +101,10 @@ namespace Brushblade.Core
                 EventChancePercent = eventChancePercent,
                 FromDepth = fromDepth,   // 召唤槽位按当前层解锁,RunEngine 靠它换算绝对层号
                 KillInkDrops = true,
+                // 配方转盘(spec 2026-10-19 §2):11 层起的 Boss / 精英层;同 (塔种子, 层) 同结果,续爬重建一致
+                RecipeWheelDepths = Enumerable.Range(fromDepth, segmentEnd - fromDepth + 1)
+                    .Where(d => RecipeWheel.AppliesAt(config, d)).ToArray(),
+                RecipeWheelSeed = seed,
             };
         }
 
@@ -418,6 +423,11 @@ namespace Brushblade.Core
         public List<StatusEffect> CarriedStatuses { get; set; } = new();
         /// <summary>跨场开局效果表(spec v7 §5.1),跨段延续;段末与清层时由 GameRoot 写入。</summary>
         public List<OpeningEffect> CarriedOpenings { get; set; } = new();
+
+        /// <summary>本局配方集 / 生疏字(spec 2026-10-19 §1 §3):整次登塔有效、跨段延续,塔结算随快照清除。
+        /// 段内的变化走 InProgress.Run(RunSnapshot 同名字段);这里是换段时的携带态。</summary>
+        public List<string> RunRecipes { get; set; } = new();
+        public List<string> UnfamiliarChars { get; set; } = new();
 
         /// <summary>段中断点(2026-07-27):非空即「上次退出时正打到一半」,读档直接接着打。
         /// 段末结算/塔结算时清空 —— 留着会让下次登塔从旧段中间开始。</summary>

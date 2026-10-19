@@ -46,6 +46,9 @@ namespace Brushblade.Balance.Bot
         public int NormalShield;
         public List<SummonSnapshot> Summons = new List<SummonSnapshot>();
         public List<StatusEffect> Statuses = new List<StatusEffect>();
+        /// <summary>本局配方集 / 生疏字(2026-10-19):整次登塔延续,同 EndlessSaveState。</summary>
+        public List<string> RunRecipes = new List<string>();
+        public List<string> UnfamiliarChars = new List<string>();
     }
 
     /// <summary>一局爬塔的结果与读数。</summary>
@@ -214,6 +217,8 @@ namespace Brushblade.Balance.Bot
             Summons = new List<SummonSnapshot>(run.CarriedSummons),
             Statuses = new List<StatusEffect>(run.CarriedStatuses),
             Openings = new List<OpeningEffect>(run.CarriedOpenings),
+            RunRecipes = new List<string>(run.RunRecipes),
+            UnfamiliarChars = new List<string>(run.UnfamiliarChars),
         };
 
         /// <summary>开一段,构造参数照 <c>GameRoot.StartSegment</c> 的新起一段分支(非断点续爬)。
@@ -238,7 +243,10 @@ namespace Brushblade.Balance.Bot
                 poolExpanded: carry.PoolExpanded,
                 maxHpBonus: carry.MaxHpBonus,
                 startingOpenings: carry.Openings,
-                maxHpEventCount: carry.MaxHpEventCount);
+                maxHpEventCount: carry.MaxHpEventCount,
+                // 配方转盘(2026-10-19):RunEngine 战后自己转,机器人照单全收(转盘无玩家选择),这里只负责跨段带上
+                runRecipes: carry.RunRecipes,
+                unfamiliarChars: carry.UnfamiliarChars);
             if (carry.Revived) run.MarkRevived();
             return run;
         }
@@ -249,6 +257,10 @@ namespace Brushblade.Balance.Bot
         {
             var config = segmentConfig.WithPlayerMaxHp(run.EffectiveMaxHp);
             config.UnlockedSummonSlots = MetaRules.UnlockedSlotMask(run.CurrentDepth);
+            // 配方集 / 生疏(2026-10-19):同 RunEngine.BattleConfigForRun,否则搜索副本的可合成集与出字等级对不上本体
+            config.RunRecipes = run.RunRecipes;
+            config.UnfamiliarChars = run.UnfamiliarChars   // 已收集的永不生疏(同 RunEngine)
+                .Where(id => segmentConfig.UnlockedChars != null && !segmentConfig.UnlockedChars.Contains(id)).ToList();
             return config;
         }
 

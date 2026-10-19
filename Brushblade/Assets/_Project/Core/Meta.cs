@@ -765,6 +765,8 @@ namespace Brushblade.Core
             {
                 meta.EndlessV2.Library.RemoveAll(id => !Known(id));
                 meta.EndlessV2.Pool.RemoveAll(id => !Known(id));
+                meta.EndlessV2.RunRecipes.RemoveAll(id => !Known(id));      // 配方集(2026-10-19)
+                meta.EndlessV2.UnfamiliarChars.RemoveAll(id => !Known(id));
             }
 
             // 里程碑候选含下架字 → 整条作废,下次打开领取弹窗重生成(否则弹窗空、红点常亮)
@@ -795,7 +797,7 @@ namespace Brushblade.Core
         /// 沿革:0.1(2026-07)→ 0.117(2026-09-11,Lv5 = 档位倍率 G)→ 0.06(v7:特性接管成长,G 不变量取消)。</summary>
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
-            if (cardLevel <= 1 || baseValue <= 0) return baseValue;
+            if (cardLevel == 1 || baseValue <= 0) return baseValue;
             long scaled = (long)baseValue * CardLevelPercent(cardLevel);
             return (int)((scaled + 99) / 100);
         }
@@ -803,7 +805,18 @@ namespace Brushblade.Core
         /// <summary>卡等级系数的百分数:100 + 6 × (等级 − 1);Lv ≤ 1 = 100。
         /// <see cref="ScaleByCardLevel"/> 与灼的火力(StatusEffect.Potency)共用这一条曲线。</summary>
         public static int CardLevelPercent(int cardLevel) =>
-            cardLevel <= 1 ? 100 : 100 + 6 * (cardLevel - 1);
+            cardLevel == UnfamiliarCardLevel ? UnfamiliarPercent
+            : cardLevel <= 1 ? 100 : 100 + 6 * (cardLevel - 1);
+
+        /// <summary>生疏(spec 2026-10-19 §3):转盘配方合出的字本局按 Lv1 计、效果 ×70%。
+        /// 引擎把它表示成曲线上的「Lv0」—— <see cref="CardLevelPercent"/>(0) = 70,
+        /// 于是所有吃等级曲线的连续数值(伤害 / 护盾 / 治疗 / 召唤攻血 / 灼的火力…)一处到位;
+        /// 离散量(层数 / 回合 / 次数)本来就不吃曲线,生疏也不动它们。
+        /// 特性解锁按 max(1, 等级) 判(<see cref="TraitRules.Unlocked"/>),Lv1 特性照常在。</summary>
+        public const int UnfamiliarCardLevel = 0;
+
+        /// <summary>生疏的效果系数(百分比)。起值,体验后再调(用户 2026-10-19)。</summary>
+        public const int UnfamiliarPercent = 70;
 
         /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放
         /// (只在 Lv3 由特性提升);伤害、护盾、治疗、护甲点数、百分比等数值缩放。

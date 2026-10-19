@@ -13,7 +13,7 @@ namespace Brushblade.Core
         /// 它的效果不参与出字,见 <see cref="Superseded"/>。</summary>
         public static IReadOnlyList<TraitDef> Unlocked(CharDef def, int cardLevel)
         {
-            var unlocked = def.Traits.Where(t => t.UnlockLevel <= cardLevel).ToList();
+            var unlocked = def.Traits.Where(t => t.UnlockLevel <= Math.Max(1, cardLevel)).ToList(); // 生疏 = Lv0,按 Lv1 解锁
             var replaced = new HashSet<(TraitSlot, TraitFace)>(
                 unlocked.Where(t => t.Replaces.HasValue && t.Replaces.Value != TraitSlot.Lv1)
                     .Select(t => (t.Replaces.Value, t.Face)));
