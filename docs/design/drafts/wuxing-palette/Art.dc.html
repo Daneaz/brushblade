@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./art.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    /* 立绘配色:五系 × {小怪、头领、Boss},旧 / 新。样张按管线现有 SVG 与 build_boss_art 函数合成(scratch 脚本,不改管线),只示意着色规则。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .board { width: 1320px; height: 1400px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    .lead { font-size: 10px; color: #5D646F; margin-bottom: 12px; line-height: 1.6; }
+    h3 { margin: 14px 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
+    .ctl { display: flex; gap: 5px; align-items: center; font-size: 9.5px; color: #5D646F; margin-bottom: 8px; }
+    .ctl button { height: 20px; padding: 0 9px; border: none; border-radius: 10px; background: #DAD7D0; color: #2C333D; font-size: 9px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: #3D4E69; color: #fff; }
+    .tbl { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 6px 14px; align-items: center; }
+    .tbl .h { font-size: 10px; font-weight: 600; color: #5D646F; }
+    .tbl .rl { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: #2C333D; }
+    .strip { display: flex; gap: 4px; padding: 6px; border-radius: 8px; }
+    .strip figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .strip img { width: 104px; height: 104px; display: block; }
+    .strip figcaption { font-size: 8.5px; color: #5D646F; }
+    .duo { display: flex; gap: 20px; }
+    .pair { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 8px; }
+    .pair .t { font-size: 10px; font-weight: 600; color: #2C333D; }
+    .pair .row { display: flex; gap: 6px; }
+    .pair img { width: 92px; height: 92px; }
+    .field { position: relative; width: 560px; height: 250px; border-radius: 8px; }
+    .field img { position: absolute; }
+    .field .tag { position: absolute; font-size: 8px; color: #5D646F; }
+    .rules { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+    .rules th { text-align: left; color: #5D646F; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid #DED7C9; }
+    .rules td { padding: 4px 6px; border-bottom: 1px solid #ECE6D9; vertical-align: top; }
+    .rules td.k { font-weight: 600; white-space: nowrap; }
+    .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -2px; margin: 0 2px; }
+    .two { display: flex; flex-direction: column; gap: 0; }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>五行配色 · 立绘(小怪 / 头领 / Boss)</h2>
+  <div class="lead">一条规则覆盖三档:每系两个值 ——<b>亮 = 本系主色</b>(新色板)、<b>深 = 主色往墨 #111622 走 45%</b>。档位越高,用色越「讲究」:小怪整字一色,头领一深一亮两字,Boss 墨团里只亮当前阶段那一个字。
+  头领原先的「金系换赭金」例外随之取消(新土黄会和赭金撞)。下面的样张是用管线现有 SVG / build_boss_art 函数按新旧规则合成的,只示意,不是产物。</div>
+
+  <div class="ctl"><span>战场底</span><sc-for list="{{ bgBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for></div>
+  <div class="tbl">
+    <span></span><span class="h">旧(小怪统一墨色;Boss 当前字用字形色)</span><span class="h">新</span>
+    <sc-for list="{{ rows }}" as="r">
+      <span class="rl">{{ r.n }}</span>
+      <sc-for list="{{ r.cells }}" as="c"><div class="strip" style="{{ bgStyle }}"><sc-for list="{{ c }}" as="x"><figure><img src="{{ x.src }}" alt=""><figcaption>{{ x.cap }}</figcaption></figure></sc-for></div></sc-for>
+    </sc-for>
+  </div>
+
+  <div class="two">
+    <div>
+      <h3>② 金 vs 土 特写(旧 → 新)</h3>
+      <div class="duo">
+        <sc-for list="{{ duo }}" as="d"><div class="pair" style="{{ bgStyle }}"><span class="t">{{ d.t }}</span><div class="row"><sc-for list="{{ d.imgs }}" as="x"><img src="{{ x }}" alt=""></sc-for></div></div></sc-for>
+      </div>
+    </div>
+    <div>
+      <h3>③ 战场观感(新;3 × 2,Boss 竖块居中)</h3>
+      <div class="field" style="{{ bgStyle }}">
+        <sc-for list="{{ field }}" as="f"><img src="{{ f.src }}" style="{{ f.s }}" alt=""><span class="tag" style="{{ f.ts }}">{{ f.t }}</span></sc-for>
+      </div>
+    </div>
+  </div>
+
+  <h3>④ 着色规则(给脚本与 MobView 用)</h3>
+  <table class="rules">
+    <tr><th>档</th><th>层</th><th>颜色</th><th>对比度 / 色差</th><th>备注</th></tr>
+    <tr><td class="k">共用</td><td>亮 / 深</td><td>亮 = <code>ElementColor</code>(metal #4F7C84 · wood #2E8449 · water #0F74C5 · fire #C53637 · earth #896E0E · heart #9750A7);深 = <code>Color.Lerp(亮, Ink, 0.45)</code></td><td>深在宣纸上 7.9–8.9、最深层段底(墨海 22%,#D0CECC)上 5.6–6.4;亮在宣纸上 4.1–4.7、层段底上 2.9–3.4(图形,不背 4.5)</td><td>不新增 token;同 CardFrameView「元件是图不是字,用鲜色板」</td></tr>
+    <tr><td class="k">小怪</td><td>body 墨字(#111622)</td><td>深</td><td>五系两两 ΔE ≥ 26(金 / 水最近)</td><td>脚本把 body 的墨字填色换成本系深色</td></tr>
+    <tr><td class="k"></td><td>body 浅墨笔(#3D4E69)</td><td>亮</td><td>深 / 亮 ΔE 19–34</td><td>飞白 / 洗笔那几笔透出本系亮色,字有「墨里透色」的层次</td></tr>
+    <tr><td class="k"></td><td>属性气场渐变 · face · wisp</td><td>气场 = 亮;face 眼不着色;wisp 里五行色按新色板换</td><td>—</td><td>墨色不保留为整字色,只留在眼眶与配饰的墨线里</td></tr>
+    <tr><td class="k">头领</td><td>c0(上字)/ c1(下字)</td><td>深 / 亮</td><td>金:ΔE 11 → 19(原用字形色太暗,深浅分不开)</td><td>取消 <code>LEADER_LIGHT</code> 金系赭金例外与 <code>LeaderDeepen 0.35</code>,改 0.45;Obscure 未读懂仍两字墨色</td></tr>
+    <tr><td class="k"></td><td>iris</td><td>亮</td><td>—</td><td>同现状(主色)</td></tr>
+    <tr><td class="k">Boss</td><td>当前阶段字</td><td>该阶段属性的<b>亮</b>(原为字形色)</td><td>对墨团 ΔE 44–79;金 / 土当前字 ΔE 23 → 62</td><td>字形色太暗,压在墨团上跳不出来 —— 这正是「金土难分」在 Boss 上的原因</td></tr>
+    <tr><td class="k"></td><td>其余未破字 · 已破字</td><td>墨 90% · 隐去(同现状)</td><td>—</td><td>不给其余字上各自属性色:四色同框会抢掉「当前阶段」</td></tr>
+    <tr><td class="k"></td><td>iris · wisp</td><td>iris = 当前阶段亮;wisp 里五行色按新色板换</td><td>—</td><td>wisp 中性色(烟灰 #8C8676、枝干 #5C4A22 等)不动</td></tr>
+    <tr><td class="k">wisp 换色表</td><td colspan="4">#6B6449 → #356068(metal-glyph)· #B3A382 → #4F7C84(metal)· #997C3C → #896E0E(earth)· #82552A → #634A00(earth-glyph)· #C2A366(沙)→ #C9A53A · #348F4F → #2E8449;水、火、心不变</td></tr>
+  </table>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 1400}}'>
+var A = window.ART || {};
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { bg: 'mohai' }; }
+  renderVals() {
+    var self = this;
+    var ELS = [['Metal', '金'], ['Wood', '木'], ['Water', '水'], ['Fire', '火'], ['Earth', '土']];
+    var BG = { paper: ['宣纸', '#F6F1E7'], zilin: ['字林层段', '#E9E9DB'], mohai: ['墨海层段', '#E0DDD8'], deep: ['墨海最深 22%', '#D0CECC'] };
+    var CAP = { mob: { Metal: '铁画', Wood: '错字鬼', Water: '泼墨', Fire: '焦痕', Earth: '镇纸' },
+                leader: { Metal: '钟鼎', Wood: '朽木', Water: '漩涡', Fire: '烽燧', Earth: '碑碣' },
+                boss: { Metal: '刀山火海 · 刀', Wood: '枯木逢春 · 枯', Water: '翻江倒海 · 江', Fire: '烈火干柴 · 烈', Earth: '刀山火海 · 山' } };
+    var rows = [['小怪', 'mob'], ['头领', 'leader'], ['Boss', 'boss']].map(function (r) {
+      return { n: r[0], cells: ['old', 'new'].map(function (tag) { return ELS.map(function (e) { return { src: A[r[1] + '_' + e[0] + '_' + tag], cap: e[1] + ' · ' + CAP[r[1]][e[0]] }; }); }) };
+    });
+    var duo = [['小怪', 'mob'], ['头领', 'leader'], ['Boss', 'boss']].map(function (r) {
+      return { t: r[0] + ':金 / 土(旧 → 新)', imgs: [A[r[1] + '_Metal_old'], A[r[1] + '_Earth_old'], A[r[1] + '_Metal_new'], A[r[1] + '_Earth_new']] };
+    });
+    // 3 × 2 敌方区示意(格宽按基准机 189pt 缩成 180 宽的示意列)
+    var cw = 186, field = [];
+    function put(src, x, y, s, t) { field.push({ src: src, s: 'left:' + x + 'px;top:' + y + 'px;width:' + s + 'px;height:' + s + 'px', t: t, ts: 'left:' + (x + 2) + 'px;top:' + (y + s - 4) + 'px' }); }
+    put(A.mob_Metal_new, 30, 8, 92, '金 · 小怪'); put(A.mob_Water_new, 30, 128, 110, '水 · 小怪');
+    put(A.boss_Earth_new, cw + 20, 30, 170, '土 · Boss(山 阶段)');
+    put(A.mob_Fire_new, 2 * cw + 30, 8, 92, '火 · 小怪'); put(A.mob_Earth_new, 2 * cw + 30, 128, 110, '土 · 小怪');
+    return { rows: rows, duo: duo, field: field, bgStyle: 'background:' + BG[this.state.bg][1],
+      bgBtns: Object.keys(BG).map(function (k) { return { n: BG[k][0], cls: self.state.bg === k ? 'on' : '', pick: function () { self.setState({ bg: k }); } }; }) };
+  }
+}
+</script>
+</body>
+</html>
