@@ -88,10 +88,10 @@ INK = "#11161F"            # Theme.Ink / tokens.json ink
 GLYPH_DEEPEN = 0.35        # 同 MobView.LeaderDeepen
 GLYPH = {                  # Theme.GlyphColor / tokens.json *-glyph
     "Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#6A2B22",
-    "Metal": "#8F5C00", "Water": "#0A5E9E",
+    "Metal": "#936506", "Water": "#0A5E9E",
 }
 PALETTE_SWAP = {           # 合并稿旧色(小写) → tokens.json
-    "Metal": {"#d8cba9": "#F7E7AC", "#d4c9a8": "#F7E7AC", "#d6c9ad": "#F7E7AC",   # 亮 → metal-soft
+    "Metal": {"#d8cba9": "#FBF2D2", "#d4c9a8": "#FBF2D2", "#d6c9ad": "#FBF2D2",   # 亮 → metal-soft
               "#b3a382": "#916F0C",                                              # 主 → metal
               "#6b6049": "#5B4500", "#6e5f3f": "#5B4500"},                       # 深 → metal-fg
     "Earth": {"#c4a86a": "#E3D1C1", "#c2a366": "#E3D1C1",                        # 亮 → earth-soft
