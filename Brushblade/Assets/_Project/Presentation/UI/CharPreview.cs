@@ -513,6 +513,7 @@ namespace Brushblade.Presentation
             Landing = CardSheetParts.LandingText(def, face, level),
             Up = battle?.UpFace == face,
             Stats = FaceStats.Sheet(def, face, level),
+            Area = face == CardFace.Attack ? CardSheetRules.AreaOf(def, face, level) : null,
         };
 
         private static CardSheetParts.RowState StateOf(SheetTrait cell, BattleContext battle) =>

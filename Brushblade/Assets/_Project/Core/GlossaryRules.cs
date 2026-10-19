@@ -109,6 +109,18 @@ namespace Brushblade.Core
             _ => TermOf(stat.Kind),
         };
 
+        /// <summary>攻击类型格的术语(2026-10-20):范围 → 同名范围词条。</summary>
+        public static GlossaryTerm TermOf(TargetArea area) => area switch
+        {
+            TargetArea.Row => GlossaryTerm.AreaRow,
+            TargetArea.Adjacent => GlossaryTerm.AreaAdjacent,
+            TargetArea.Column => GlossaryTerm.AreaColumn,
+            TargetArea.Scatter => GlossaryTerm.AreaScatter,
+            TargetArea.Chain => GlossaryTerm.AreaChain,
+            TargetArea.All => GlossaryTerm.AreaAll,
+            _ => GlossaryTerm.AreaSingle,
+        };
+
         /// <summary>连带词条:冻结的说明写了「Boss 改为冰滞」,气泡里有冻结、没有冰滞时把冰滞补在冻结紧后(2026-10-18 体验反馈)。
         /// 不做通用的「说明里提到谁就补谁」:润泽 / 泉 等说明会连带出一串,气泡反而难读。</summary>
         public static IReadOnlyList<GlossaryTerm> WithCompanions(IReadOnlyList<GlossaryTerm> terms)
