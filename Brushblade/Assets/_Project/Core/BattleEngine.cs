@@ -4874,13 +4874,18 @@ namespace Brushblade.Core
                 if (other != null && other.SproutParentSlot == slot) other.SproutParentSlot = -1;
         }
 
-        /// <summary>丛生(D2-0 Task 6):本木灵那一拍开始时,有空格且名下存活小藻 &lt; SproutMax 就分裂 1 只。
+        /// <summary>丛生分裂后跳过的拍数(Plan F 2026-10-19 用户拍板「分裂冷却」):每 3 拍至多分裂 1 只,
+        /// 小藻阵亡后不能立刻补,收住「一张藻 = 无限免费前排」。</summary>
+        public const int SproutCooldownBeats = 2;
+
+        /// <summary>丛生(D2-0 Task 6):本木灵那一拍开始时,冷却已过、有空格且名下存活小藻 &lt; SproutMax 就分裂 1 只。
         /// 血 / 攻 = 本木灵 × N%,元素同本木灵,SourceChar 同本木灵;落最小空格;不摇随机数。母体阵亡后小藻留场。</summary>
         private void TrySprout(int s)
         {
             var parent = _summons[s];
             var p = parent?.Passive;
             if (parent == null || !parent.Alive || p == null || p.SproutPercent <= 0 || p.SproutMax <= 0) return;
+            if (parent.SproutCooldown > 0) { parent.SproutCooldown--; return; }
             int mine = 0;
             foreach (var other in _summons)
                 if (other != null && other.Alive && other.SproutParentSlot == s && other.Char == SaplingChar) mine++;
@@ -4889,6 +4894,7 @@ namespace Brushblade.Core
                 parent.Attack * p.SproutPercent / 100, parent.SourceChar, -1);
             if (slot < 0) return;
             _summons[slot].SproutParentSlot = s;
+            parent.SproutCooldown = SproutCooldownBeats;
             RefreshSummonAura();
         }
 

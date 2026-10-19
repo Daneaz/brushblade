@@ -196,7 +196,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Sprout_SplitsEachBeat_CapsAtMax_StatsFromParent()
+        public void Sprout_SplitsEveryThirdBeat_CapsAtMax_StatsFromParent()
         {
             var parent = new SummonPassive { SproutPercent = 50, SproutMax = 2 };
             var b = Battle(new[] { Wood(0, 100, attack: 10, passive: parent) }, Summoner("素", null));
@@ -209,10 +209,39 @@ namespace Brushblade.Core.Tests
             Assert.That(sprout.SourceChar, Is.EqualTo("木"));
             Assert.That(sprout.SproutParentSlot, Is.EqualTo(0));
             b.EndTurn();
-            Assert.That(b.Summons.Count(x => x != null && x.Char == "苗"), Is.EqualTo(2));
             b.EndTurn();
+            Assert.That(b.Summons.Count(x => x != null && x.Char == "苗"), Is.EqualTo(1), "分裂后冷却 2 拍(Plan F 2026-10-19)");
             b.EndTurn();
-            Assert.That(b.Summons.Count(x => x != null && x.Char == "苗"), Is.EqualTo(2), "两拍后到上限,不再分裂");
+            Assert.That(b.Summons.Count(x => x != null && x.Char == "苗"), Is.EqualTo(2), "第 4 拍再分裂");
+            for (int i = 0; i < 3; i++) b.EndTurn();
+            Assert.That(b.Summons.Count(x => x != null && x.Char == "苗"), Is.EqualTo(2), "到上限,不再分裂");
+        }
+
+        [Test]
+        public void Sprout_DeadSproutling_ReplacedOnlyAfterCooldown()
+        {
+            var parent = new SummonPassive { SproutPercent = 50, SproutMax = 1 };
+            var b = Battle(new[] { Wood(0, 100, attack: 10, passive: parent) }, Summoner("素", null));
+            b.EndTurn();   // 第 1 拍分裂
+            b.Summons.First(x => x != null && x.Char == "苗").Hp = 0;
+            b.EndTurn();   // 第 2 拍:冷却中
+            Assert.That(b.Summons.Count(x => x != null && x.Alive && x.Char == "苗"), Is.EqualTo(0), "小藻阵亡不立刻补");
+            b.EndTurn();   // 第 3 拍:冷却中
+            Assert.That(b.Summons.Count(x => x != null && x.Alive && x.Char == "苗"), Is.EqualTo(0));
+            b.EndTurn();   // 第 4 拍:冷却结束
+            Assert.That(b.Summons.Count(x => x != null && x.Alive && x.Char == "苗"), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Sprout_CooldownSurvivesSnapshotRoundTrip()
+        {
+            var parent = new SummonPassive { SproutPercent = 50, SproutMax = 3 };
+            var b = Battle(new[] { Wood(0, 100, passive: parent) }, Summoner("素", null));
+            b.EndTurn();
+            var snap = b.Summons[0].Capture(0);
+            Assert.That(snap.SproutCooldown, Is.EqualTo(2));
+            Assert.That(SummonState.Restore(snap).SproutCooldown, Is.EqualTo(2));
+            Assert.That(new SummonSnapshot().SproutCooldown, Is.EqualTo(0));
         }
 
         [Test]
