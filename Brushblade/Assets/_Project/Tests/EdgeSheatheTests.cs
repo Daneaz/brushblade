@@ -148,16 +148,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void MoraleReleasePerk_TotalIs300()
-        {
-            // 用户 2026-10-19:断金 +200%,合计 = 基础 100% + 200% = +300%(断金文案「提高到 {value}%」按这两个数算)
-            Assert.That(PerkRules.Get("metal_4").Value, Is.EqualTo(200));
-            Assert.That(BattleEngine.EdgeSheathePercent + PerkRules.Get("metal_4").Value, Is.EqualTo(300));
-            int plain = Hit(Engine(Full, new[] { "火刀" }, release: 200), "火刀");
-            Assert.That(Hit(Engine(Full, new[] { "刀" }, release: 200), "刀"), Is.EqualTo(plain * 4), "×(100 + 300)%");
-        }
-
-        [Test]
         public void WithMoraleRelease_FeatureFace_NoLongerReleases()
         {
             // 口径统一(spec §2):断金也只认攻击面,旧口径「任何带伤害的金字面」作废

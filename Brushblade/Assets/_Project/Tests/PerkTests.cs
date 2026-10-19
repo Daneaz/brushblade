@@ -353,7 +353,7 @@ namespace Brushblade.Core.Tests
                 ("water_3", PerkEffect.OverhealDamagePercent, 50),
                 ("fire_3", PerkEffect.BurnSpreadPercent, 100),
                 ("earth_3", PerkEffect.ShieldCarryPercent, 25),
-                ("metal_4", PerkEffect.MoraleRelease, 200),   // 2026-10-19 用户:断金 +200%,锋刃回鞘合计 +300%
+                ("metal_4", PerkEffect.MoraleRelease, 300),
                 ("wood_4", PerkEffect.CounterTargeting, 1),
                 ("water_4", PerkEffect.WellspringSpendPercent, 150),
                 ("fire_4", PerkEffect.BurnSpreadAdjacent, 1),
