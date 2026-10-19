@@ -14,11 +14,11 @@ window.WX = (function () {
     Earth: ['#8F7332', '#ECDCBD', '#634800', '#82552A', '#F9F2E3']
   };
   var NEW = {
-    Metal: ['#916F0C', '#F7E7AC', '#5B4500', '#735800', '#FCF6DE'],
+    Metal: ['#916F0C', '#FFF1B0', '#5B4500', '#8A6600', '#FFF9DF'],
     Wood:  ['#348F4F', '#CCE6D0', '#195C2E', '#1F6333', '#EEF5EA'],
     Water: ['#0F74C5', '#C8E1FB', '#0E4F86', '#0A5E9E', '#ECF3F8'],
     Fire:  ['#C53637', '#FED2CE', '#862726', '#B02D2E', '#FFEEE9'],
-    Earth: ['#784330', '#E3D1C1', '#542A1D', '#683623', '#F5EEE5']
+    Earth: ['#784330', '#E3D1C1', '#542A1D', '#5A2717', '#F5EEE5']
   };
   function hx(h) { h = h.replace('#', ''); return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; }); }
   function lin(c) { return c <= .04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); }

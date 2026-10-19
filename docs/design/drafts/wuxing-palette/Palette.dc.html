@@ -14,7 +14,7 @@
     body { margin: 0; }
     sc-for, sc-if { display: contents; }
     i { font-style: normal; }
-    .board { width: 1320px; height: 560px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    .board { width: 1320px; height: 730px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
     h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
     .lead { font-size: 10px; color: #5D646F; margin-bottom: 14px; }
     h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
@@ -39,6 +39,13 @@
     .ctl { display: flex; gap: 5px; align-items: center; font-size: 9.5px; color: #5D646F; margin: 0 0 8px; }
     .ctl button { height: 20px; padding: 0 9px; border: none; border-radius: 10px; background: #DAD7D0; color: #2C333D; font-size: 9px; cursor: pointer; font-family: inherit; }
     .ctl button.on { background: #3D4E69; color: #fff; }
+    .closeup { display: flex; gap: 10px; margin-bottom: 16px; }
+    .cg { display: flex; flex-direction: column; gap: 4px; }
+    .ct { font-size: 10px; font-weight: 600; color: #2C333D; }
+    .crow { display: flex; gap: 4px; }
+    .cwrap { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 4px; border-radius: 8px; border: 1px solid #DED7C9; }
+    .big { width: 46px; height: 56px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #7945AB; background: #FFFDF7; display: flex; align-items: flex-start; justify-content: center; padding-top: 9px; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 19px; }
+    .cwrap small { font-size: 8px; color: #5D646F; }
     .note { font-size: 9px; color: #696151; margin-top: 10px; line-height: 1.6; }
   </style>
 </helmet>
@@ -46,6 +53,11 @@
 <div class="board">
   <h2>五行配色 · 新旧对照</h2>
   <div class="lead">只动金、土两组:<b>金 → 古金</b>(金黄,取偏暗一档好让白字过 4.5)、<b>土 → 红褐</b>(明显更深、更红)。木、水、火不动。</div>
+
+  <h3>⓪ 字牌特写:锋 / 垒(旧 → 上一版 → 新;白底 · 宣纸底 · 各自淡底)</h3>
+  <div class="closeup">
+    <sc-for list="{{ close }}" as="g"><div class="cg"><span class="ct">{{ g.t }}</span><div class="crow"><sc-for list="{{ g.items }}" as="x"><div class="cwrap" style="{{ x.bg }}"><i class="big" style="{{ x.s }}">{{ x.g }}</i><small>{{ x.cap }}</small></div></sc-for></div></div></sc-for>
+  </div>
 
   <h3>① 五系并排(主色 chip · 部件方块 · 字牌)</h3>
   <div class="grid">
@@ -83,7 +95,7 @@
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 560}}'>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 730}}'>
 var WX = window.WX;
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { v: 'normal' }; }
@@ -108,7 +120,19 @@ class Component extends DCLogic {
             face: 'background:' + S(c[4]), seal: 'background:' + S(c[3]), fg: 'color:' + S(c[2]), badge: 'background:' + S(c[3]),
             tab: 'background:' + S(c[1]) + ';color:' + S(c[2]) + ';border-color:' + S(c[2]) + '55' }; }) };
     });
-    return { strips: strips, rows: rows,
+    var PREV = { Metal: ['#916F0C', '#F7E7AC', '#5B4500', '#735800'], Earth: ['#784330', '#E3D1C1', '#542A1D', '#683623'] };
+    var close = [['旧', WX.OLD], ['上一版(54dab313)', PREV], ['新', WX.NEW]].map(function (v) {
+      var P = v[1], items = [];
+      [['白底', '#FFFFFF', '#FFFFFF'], ['宣纸', '#F6F1E7', '#F6F1E7'], ['淡底', null, null]].forEach(function (b) {
+        ['Metal', 'Earth'].forEach(function (e) {
+          var face = b[1] || P[e][1];
+          items.push({ g: e === 'Metal' ? '锋' : '垒', cap: b[0] + ' · ' + (e === 'Metal' ? '金' : '土'),
+            bg: 'background:' + (b[1] ? '#EDE8DC' : '#EDE8DC'), s: 'color:' + P[e][3] + ';background:' + face });
+        });
+      });
+      return { t: v[0] + ':金 ' + P.Metal[3] + ' / 土 ' + P.Earth[3] + '(ΔE ' + Math.round(WX.de(P.Metal[3], P.Earth[3])) + ')', items: items };
+    });
+    return { close: close, strips: strips, rows: rows,
       vBtns: [['normal', '常规'], ['deutan', '绿弱'], ['protan', '红弱']].map(function (b) { return { n: b[1], cls: V === b[0] ? 'on' : '', pick: function () { self.setState({ v: b[0] }); } }; }) };
   }
 }

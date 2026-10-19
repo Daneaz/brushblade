@@ -76,7 +76,7 @@
   <h3>④ 着色规则(三行)</h3>
   <table class="rules">
     <tr><th>档</th><th>规则</th><th>改动面</th></tr>
-    <tr><td class="k">Boss</td><td>当前阶段字 = 该阶段 <code>GlyphColor</code>(现状不变);金 #735800 / 土 #683623,ΔE 23 → 32</td><td>只换 token;<code>build_boss_art.py</code> 的 EL / GLYPH 表与配饰里的旧金 / 土色同步新值</td></tr>
+    <tr><td class="k">Boss</td><td>当前阶段字 = 该阶段 <code>GlyphColor</code>(现状不变);金 #8A6600 / 土 #5A2717,ΔE 23 → 42;金字压在墨团上更跳(对墨 ΔE 73),土字更沉(40)</td><td>只换 token;<code>build_boss_art.py</code> 的 EL / GLYPH 表与配饰里的旧金 / 土色同步新值</td></tr>
     <tr><td class="k">头领</td><td>不改:上字 = 亮往墨 35%、下字 = 亮;亮 = <code>GlyphColor</code>,金系照旧 <code>Theme.Gold</code></td><td>无代码改动,只随 token 变</td></tr>
     <tr><td class="k">小怪</td><td>body 墨字 #111622 → <code>Lerp(GlyphColor, Ink, 0.35)</code>;浅墨笔 #3D4E69 → <code>GlyphColor</code>(= 头领现有一深一亮,不加新参数)</td><td><code>mobs/svg</code> body 按系换色后 <code>rasterize_mobs.py</code> 重出</td></tr>
   </table>
