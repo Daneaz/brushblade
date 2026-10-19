@@ -135,10 +135,10 @@ namespace Brushblade.Core.Tests
         // ---- 与既有守卫的衔接 ----
 
         [Test]
-        public void CrossNodes_UnlockByLevelTwentyTwo()
+        public void CrossNodes_UnlockByLevelTwentyFour()
         {
             foreach (var id in new[] { "cross_vigor", "cross_draw", "ult_killdraw_1", "ult_killdraw_2" })
-                Assert.That(PerkRules.Get(id).UnlockLevel, Is.LessThanOrEqualTo(22),
+                Assert.That(PerkRules.Get(id).UnlockLevel, Is.LessThanOrEqualTo(24),
                     $"{id} 的门槛不该超过全开等级");
         }
 
@@ -195,9 +195,9 @@ namespace Brushblade.Core.Tests
             }
             Assert.That((u1.Value, PerkRules.KillDrawChancePercent(u1)), Is.EqualTo((1, 50)));
             Assert.That((u2.Value, PerkRules.KillDrawChancePercent(u2)), Is.EqualTo((2, 70)));
-            // 一级取融会原值 Lv8 / 900;二级按被动树同比(L1→L2 门槛 +6、墨价 ×2)
-            Assert.That((u1.UnlockLevel, u1.InkCost), Is.EqualTo((8, 900)));
-            Assert.That((u2.UnlockLevel, u2.InkCost), Is.EqualTo((14, 1800)));
+            // 一级 Lv18 / 900(用户 10-18 拍板改门槛,墨价仍取融会原值);二级在其上按被动树同比(L1→L2 门槛 +6、墨价 ×2)
+            Assert.That((u1.UnlockLevel, u1.InkCost), Is.EqualTo((18, 900)));
+            Assert.That((u2.UnlockLevel, u2.InkCost), Is.EqualTo((24, 1800)));
         }
 
         [Test]

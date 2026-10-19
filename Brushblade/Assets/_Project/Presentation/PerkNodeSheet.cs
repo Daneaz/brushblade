@@ -126,9 +126,11 @@ namespace Brushblade.Presentation
 
             // 跨树节点的 Depth 恒为 1,但它不在任何一条直链上 —— 印「第1层」是在说一件
             // 表里没有的事。两条 key 都写成字面量(动态拼后缀会被 EveryTableKey_IsUsed 判成孤儿)。
+            // 斩获终极技挂在机制扇区、前置是机制树全部节点:面包屑印「机制 · 终极技」(用户 10-18),相济 / 博采仍印「跨树」
             string crumbText = def.Tree == PerkTree.Cross
                 ? Strings.T("perk.detail.breadcrumb.cross",
-                    ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)))
+                    ("tree", PerkView.TreeName(def.Branch == "ult_killdraw" ? PerkTree.Mechanic : def.Tree)),
+                    ("branch", PerkView.BranchName(def.Branch)))
                 : Strings.T("perk.detail.breadcrumb",
                     ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)),
                     ("depth", def.Depth));
