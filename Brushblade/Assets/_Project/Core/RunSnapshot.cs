@@ -183,6 +183,8 @@ namespace Brushblade.Core
         public int RewardRerollsLeft { get; set; } // 本轮剩余整组重抽次数(明察)
         public int ReviveRoundsLeft { get; set; } // 复活补给剩余重抽轮数(2026-08-04)
         public List<string> DefeatedEnemyIds { get; set; } = new();
+        public List<string> RunRecipes { get; set; } = new();      // 本局配方集(spec 2026-10-19 §1)
+        public List<string> UnfamiliarChars { get; set; } = new(); // 本局生疏字(spec §3)
         public BattleSnapshot Battle { get; set; }
     }
 }

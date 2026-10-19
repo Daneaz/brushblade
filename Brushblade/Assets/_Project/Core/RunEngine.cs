@@ -104,8 +104,12 @@ namespace Brushblade.Core
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
             bool libraryExpanded = false, bool poolExpanded = false, int maxHpBonus = 0,
-            IReadOnlyList<OpeningEffect> startingOpenings = null, int maxHpEventCount = 0)
+            IReadOnlyList<OpeningEffect> startingOpenings = null, int maxHpEventCount = 0,
+            IReadOnlyList<string> runRecipes = null, IReadOnlyList<string> unfamiliarChars = null)
         {
+            // 配方集 / 生疏跨段延续(spec 2026-10-19):必须赶在开第一场之前,BattleConfigForRun 要读
+            if (runRecipes != null) _runRecipes.AddRange(runRecipes.Distinct());
+            if (unfamiliarChars != null) _unfamiliar.AddRange(unfamiliarChars.Distinct());
             _startingInk = startingInk;
             _maxHpEventCount = maxHpEventCount;
             _maxHpBonus = maxHpBonus; // 奇遇上限加成跨段延续(2026-09-18):必须赶在开第一场之前
@@ -197,6 +201,8 @@ namespace Brushblade.Core
                 ReviveCharPicksLeft = ReviveCharPicksLeft,
                 ReviveRoundsLeft = ReviveRoundsLeft,
                 DefeatedEnemyIds = new List<string>(_defeatedEnemyIds),
+                RunRecipes = new List<string>(_runRecipes),
+                UnfamiliarChars = new List<string>(_unfamiliar),
                 Battle = Battle?.Capture(),
             };
             return snapshot;
@@ -239,6 +245,8 @@ namespace Brushblade.Core
             run._rewardOptions.AddRange(snapshot.RewardOptions);
             run._componentOptions.AddRange(snapshot.ComponentOptions);
             run._defeatedEnemyIds.AddRange(snapshot.DefeatedEnemyIds);
+            run._runRecipes.AddRange(snapshot.RunRecipes ?? new List<string>());   // 必须在复原战斗之前:
+            run._unfamiliar.AddRange(snapshot.UnfamiliarChars ?? new List<string>()); // BattleConfigForRun 要读
             foreach (int credited in snapshot.KillInkCredited ?? new List<int>()) run._killInkCredited.Add(credited);
             // 扩容是构造 BattleConfig 时算进容量的,复原后要补回上限(容量本身不入快照)
             if (snapshot.LibraryExpanded) battleConfig.LibraryCapacity += ExpandBonus;
@@ -379,9 +387,8 @@ namespace Brushblade.Core
                     return false; // 任选字须指定选哪一个
                 gainChar = option.GainCharChoices[charChoiceIndex];
             }
-            if (gainChar != null && _battleConfig.UnlockedChars != null
-                && !_battleConfig.UnlockedChars.Contains(gainChar))
-                return false; // 不在已解锁卡池(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
+            // 2026-07-20 起这里拒收已解锁卡池之外的字(「换到也合不回来」)。2026-10-19 起未收集的字
+            // 记进本局配方集,拆了能合回来,拒收的理由不在了 —— 闸门撤掉,改为成交时入配方集(spec §1)
             // 字库满:须指定换掉哪一张(2026-07-22,与战利品 PickRewardReplacing 同一口径);
             // 未指定则拒绝,由表现层转入「换掉哪一个」子步。先验后扣,部件不受损。
             bool replacing = gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity;
@@ -409,6 +416,7 @@ namespace Brushblade.Core
             {
                 if (replacing) _carriedLibrary[replaceLibraryIndex] = gainChar; // 被换的字永久移除
                 else _carriedLibrary.Add(gainChar);
+                RecordGiftRecipe(gainChar);
             }
             // 入池部件:确定项(原序)+ 随机项(只掷一次,防重掷抖动/破种子)。
             // 空位先填,填不下的进溢出队列交玩家决议(替换/跳过,2026-07-24)——不再静默丢。
@@ -447,6 +455,29 @@ namespace Brushblade.Core
             }
             EnterReward(); // 改序后奇遇接的是选字,不再直接开下一战(2026-08-30)
             return true;
+        }
+
+        // ---- 局内配方集与生疏(spec 2026-10-19 §1 §3)----
+
+        private readonly List<string> _runRecipes = new();
+        private readonly List<string> _unfamiliar = new();
+
+        /// <summary>本局配方集:奇遇送的未收集字 + 配方转盘落中的字。并进每场的可合成集(只放开字本身)。
+        /// 整次登塔有效:段内进 RunSnapshot,跨段经 EndlessSaveState 与构造参数带回。</summary>
+        public IReadOnlyList<string> RunRecipes => _runRecipes;
+
+        /// <summary>本局生疏字(转盘配方得来、且没被奇遇送过的字)。已收集的字在注入战斗时剔除。</summary>
+        public IReadOnlyList<string> UnfamiliarChars => _unfamiliar;
+
+        private bool IsCollected(string charId) =>
+            _battleConfig.UnlockedChars == null || _battleConfig.UnlockedChars.Contains(charId);
+
+        /// <summary>奇遇送字:未收集的记进配方集;奇遇送的字维持原强度 —— 先前转盘记下的生疏一并撤销。</summary>
+        private void RecordGiftRecipe(string charId)
+        {
+            if (IsCollected(charId)) return;
+            if (!_runRecipes.Contains(charId)) _runRecipes.Add(charId);
+            _unfamiliar.Remove(charId);
         }
 
         /// <summary>奇遇部件溢出待决议项(队首为当前项;EventOverflow 阶段有效,2026-07-24)。</summary>
@@ -975,6 +1006,9 @@ namespace Brushblade.Core
         {
             var config = _battleConfig.WithPlayerMaxHp(EffectiveMaxHp);
             config.UnlockedSummonSlots = MetaRules.UnlockedSlotMask(CurrentDepth); // 按层解锁,逐场重算
+            // 配方集 / 生疏(spec 2026-10-19):逐场快照一份;已收集的字永不生疏
+            config.RunRecipes = _runRecipes.ToList();
+            config.UnfamiliarChars = _unfamiliar.Where(id => !IsCollected(id)).ToList();
             return config;
         }
 

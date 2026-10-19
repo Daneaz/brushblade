@@ -419,6 +419,11 @@ namespace Brushblade.Core
         /// <summary>跨场开局效果表(spec v7 §5.1),跨段延续;段末与清层时由 GameRoot 写入。</summary>
         public List<OpeningEffect> CarriedOpenings { get; set; } = new();
 
+        /// <summary>本局配方集 / 生疏字(spec 2026-10-19 §1 §3):整次登塔有效、跨段延续,塔结算随快照清除。
+        /// 段内的变化走 InProgress.Run(RunSnapshot 同名字段);这里是换段时的携带态。</summary>
+        public List<string> RunRecipes { get; set; } = new();
+        public List<string> UnfamiliarChars { get; set; } = new();
+
         /// <summary>段中断点(2026-07-27):非空即「上次退出时正打到一半」,读档直接接着打。
         /// 段末结算/塔结算时清空 —— 留着会让下次登塔从旧段中间开始。</summary>
         public InProgressRun InProgress { get; set; }
