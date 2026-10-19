@@ -25,6 +25,8 @@ namespace Brushblade.Balance.Bot
         /// <summary>跨段携带护盾 / 木灵 / 状态(生产口径,缺省 true)。false 只供诊断(<c>--no-board-carry</c>):
         /// 拆分「搜索更聪明」与「携带对齐生产」各自的涨幅,读数不代表游戏。</summary>
         public bool CarryBoard = true;
+        /// <summary>--triggers:收集特性触发与按字的攻 / 五行面出手(<see cref="ClimbResult.Triggers"/>)。缺省 false = 不挂观察者、零开销。</summary>
+        public bool CollectTriggers;
     }
 
     /// <summary>新一段 <see cref="RunEngine"/> 的构造参数 = 上一段的携带态(spec §4.3)。
@@ -64,6 +66,8 @@ namespace Brushblade.Balance.Bot
         public int DualFeatureCasts;
         public long CounterDealt;
         public long CounterClipped;
+        /// <summary>--triggers 的读数;<see cref="ClimbSetup.CollectTriggers"/> 为 false 时为 null。</summary>
+        public TraitTally Triggers;
     }
 
     /// <summary>一局爬塔的驱动(spec §1:取代旧工装的 PlayTurn / ResolveDropChoice / PickBestReward)。
@@ -101,6 +105,7 @@ namespace Brushblade.Balance.Bot
         public static ClimbResult Climb(ClimbSetup s, int seed, IReadOnlyList<string> library, IReadOnlyList<string> pool)
         {
             var result = new ClimbResult { Seed = seed };
+            if (s.CollectTriggers) result.Triggers = new TraitTally(s.Graph, s.CardLevels);
             var endless = s.Campaign.Endless;
             int towerSeed = seed * 7919 + 17;
             int fromDepth = 1;
@@ -162,7 +167,7 @@ namespace Brushblade.Balance.Bot
                 if (battle.Phase != BattlePhase.PlayerTurn) break;
                 turns++;
                 var executed = Search.PlayTurn(battle, s.Graph, config, s.CardLevels, opt,
-                    TurnSeed(seed, depth, battle.Turn), result.Stats);
+                    TurnSeed(seed, depth, battle.Turn), result.Stats, result.Triggers);
                 foreach (var a in executed) Tally(s.Graph, a, result);
             }
             result.CounterDealt += battle.CounterDamageDealt;

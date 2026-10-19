@@ -210,7 +210,8 @@ namespace Brushblade.Balance.Bot
         /// 本体拒了某一步同样重搜(计入 <see cref="BotStats.BodyRejected"/>)。
         /// 返回本体上实际执行(且受理)的动作。结束回合后返回;中途分出胜负或挂起掉字时也返回,交由驱动处理。</summary>
         public static List<BotAction> PlayTurn(BattleEngine b, RecipeGraph g, BattleConfig cfg,
-            IReadOnlyDictionary<string, int> cardLevels, SearchOptions opt, ulong turnSeed, BotStats stats)
+            IReadOnlyDictionary<string, int> cardLevels, SearchOptions opt, ulong turnSeed, BotStats stats,
+            ITurnObserver observer = null)
         {
             var executed = new List<BotAction>();
             if (b.Phase != BattlePhase.PlayerTurn) return executed;
@@ -223,12 +224,15 @@ namespace Brushblade.Balance.Bot
                 if (steps >= MaxStepsPerTurn || next >= plan.Count)
                 {
                     var end = new BotAction { Kind = ActionKind.EndTurn };
+                    observer?.Before(end, b);
                     end.ApplyTo(b);
+                    observer?.After(end, b);
                     executed.Add(end);
                     break;
                 }
 
                 var step = plan[next++];
+                observer?.Before(step.Action, b);
                 var error = step.Action.ApplyTo(b);
                 if (error != BattleError.None)
                 {
@@ -238,6 +242,7 @@ namespace Brushblade.Balance.Bot
                     next = 0;
                     continue;
                 }
+                observer?.After(step.Action, b);
                 executed.Add(step.Action);
                 if (step.Action.Kind == ActionKind.EndTurn) break;
                 stats.Steps++;

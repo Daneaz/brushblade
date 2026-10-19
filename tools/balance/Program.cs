@@ -19,7 +19,7 @@ namespace Brushblade.Balance
     /// 缺省跑 Plan F1 的搜索机器人(<c>Bot/</c>):快档 30 种子 × {五系随机 + 单系五个} × 卡 Lv5;
     /// <c>--slow</c> 慢档 30 种子 × 全部 10 画像 × Lv1/5/8(K=12 / 叶子 4096),另跑同画像快档 Lv5 出差列。
     /// 进度走 stderr(stdout 报告不变);<c>--max-minutes N</c> 到时不再开新局,报告只统计跑完的种子。
-    /// 命令行:<c>dotnet run -c Release -- [--slow] [--profile 名] [--seeds N] [--card-level N] [--max-minutes N] [--no-board-carry]</c>
+    /// 命令行:<c>dotnet run -c Release -- [--slow] [--profile 名] [--seeds N] [--card-level N] [--max-minutes N] [--triggers] [--no-board-carry]</c>
     /// (<c>--no-board-carry</c> 仅供诊断,见 <c>--help</c>)。</summary>
     public static class Program
     {
@@ -58,13 +58,14 @@ namespace Brushblade.Balance
             "  --seeds N         覆盖种子数\n" +
             "  --card-level N    覆盖卡等级\n" +
             "  --max-minutes N   到时不再开新局(已开的跑完),报告只统计跑完的种子并在表头注明\n" +
+            "  --triggers        每画像 × 卡等级多出「特性触发 / 局 Top 15」与按字的攻击面 / 五行面出手(只读事件,不改对局)\n" +
             "  --no-board-carry  【仅供诊断】跨段不带护盾 / 木灵 / 厚泉等状态(生产会带);\n" +
             "                    只用于拆分「搜索更聪明」与「携带对齐生产」各自的涨幅,读数不代表游戏\n" +
             "  --help            打印本说明";
 
         public static void Main(string[] args)
         {
-            bool slow = false, noBoardCarry = false;
+            bool slow = false, noBoardCarry = false, triggers = false;
             int? seedsArg = null, levelArg = null;
             double? maxMinutes = null;
             string profileArg = null;
@@ -81,6 +82,7 @@ namespace Brushblade.Balance
                     { profileArg = args[i + 1]; i++; }
                 else if (args[i] == "--slow") slow = true;
                 else if (args[i] == "--no-board-carry") noBoardCarry = true;
+                else if (args[i] == "--triggers") triggers = true;
                 else if (args[i] == "--help" || args[i] == "-h") { Console.WriteLine(Usage); return; }
                 else
                     throw new ArgumentException($"未知参数:{args[i]}\n{Usage}");
@@ -113,7 +115,7 @@ namespace Brushblade.Balance
                 if (profiles.Count == 0) throw new ArgumentException($"没有画像匹配「{profileArg}」");
             }
 
-            RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null, noBoardCarry, maxMinutes);
+            RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null, noBoardCarry, maxMinutes, triggers);
         }
 
         private sealed class Profile
@@ -201,7 +203,7 @@ namespace Brushblade.Balance
 
         /// <summary>建一行(画像 × 卡等级 × 档位)的爬塔配置;各行的种子由 <see cref="RunRows"/> 摊平后一起并发。</summary>
         private static Row NewRow(RecipeGraph graph, CampaignConfig campaign, Profile profile, int level,
-            int seeds, SearchOptions opt, CardAppraiser appraiser, bool noBoardCarry = false)
+            int seeds, SearchOptions opt, CardAppraiser appraiser, bool noBoardCarry = false, bool triggers = false)
         {
             var setup = new ClimbSetup
             {
@@ -209,7 +211,7 @@ namespace Brushblade.Balance
                 CardLevels = profile.OwnedCards.ToDictionary(c => c, _ => level),
                 NewBattleConfig = () => NewBattleConfig(campaign, profile),
                 Search = opt, Appraiser = appraiser, DepthCap = DepthCap, StallTurns = StallTurns,
-                CarryBoard = !noBoardCarry,
+                CarryBoard = !noBoardCarry, CollectTriggers = triggers,
             };
             return new Row { Profile = profile, Level = level, Setup = setup, Results = new ClimbResult[seeds], SeedSeconds = new double[seeds] };
         }
@@ -257,7 +259,7 @@ namespace Brushblade.Balance
 
         private static void RunSearchBot(RecipeGraph graph, CampaignConfig campaign, EndlessConfig endless,
             List<Profile> profiles, bool slow, int? seedsArg, int? levelArg, bool profileChosen, bool noBoardCarry,
-            double? maxMinutes)
+            double? maxMinutes, bool triggers)
         {
             int seeds = seedsArg ?? 30;
             var levels = levelArg.HasValue ? new[] { levelArg.Value } : slow ? new[] { 1, 5, 8 } : new[] { 5 };
@@ -275,7 +277,7 @@ namespace Brushblade.Balance
             var rows = new List<Row>();
             foreach (var profile in profiles)
                 foreach (int level in levels)
-                    rows.Add(NewRow(graph, campaign, profile, level, seeds, opt, appraiser, noBoardCarry));
+                    rows.Add(NewRow(graph, campaign, profile, level, seeds, opt, appraiser, noBoardCarry, triggers));
 
             // 慢档差列:同画像、同种子的快档 Lv5(spec §5;2026-10-14 拍板只比 Lv5)。估值与档位无关,共用同一个估值器
             Dictionary<string, Row> fastLv5 = null;
@@ -331,8 +333,50 @@ namespace Brushblade.Balance
                 Console.WriteLine($"- {row.Profile.Name} Lv{row.Level}:Top {Fmt(top)} · Bottom {Fmt(bottom)}");
             }
 
+            if (triggers) PrintTriggers(rows);
+
             Console.WriteLine($"\n耗时:墙钟 {total.Elapsed.TotalSeconds:F1}s(各行种子摊平并发)· {(slow ? "慢档" : "快档")} {mainSeconds:F0} 种子·秒" +
                 (fastLv5 != null ? $" · 快档对照(Lv5){fastSeconds:F0} 种子·秒" : ""));
+        }
+
+        /// <summary>--triggers 两段(Plan F · A2 §3):特性触发 / 局 Top 15、按字的攻击面 / 五行面出手 / 局。只算跑完的种子。</summary>
+        private static void PrintTriggers(IReadOnlyList<Row> rows)
+        {
+            static Dictionary<string, double> PerGame(ClimbResult[] done, Func<TraitTally, Dictionary<string, int>> pick)
+            {
+                var sum = new Dictionary<string, double>(StringComparer.Ordinal);
+                foreach (var r in done)
+                    foreach (var kv in pick(r.Triggers))
+                        sum[kv.Key] = (sum.TryGetValue(kv.Key, out var v) ? v : 0) + kv.Value;
+                return sum.ToDictionary(kv => kv.Key, kv => kv.Value / done.Length, StringComparer.Ordinal);
+            }
+
+            Console.WriteLine("\n特性触发 / 局 Top 15(--triggers;同一行动段内同名只计一次,只计本体;丛生(分裂) = 木灵那一拍落小藻):\n");
+            foreach (var row in rows)
+            {
+                var done = row.Done;
+                if (done.Length == 0) { Console.WriteLine($"- {row.Label}:无跑完的种子"); continue; }
+                var all = PerGame(done, t => t.Counts);
+                var top = all.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).Take(15).ToList();
+                string line = $"- {row.Label}:" + string.Join(" · ", top.Select(kv => $"{kv.Key}×{kv.Value:F1}"));
+                // 丛生分裂是 A2 点名要读的数(藻),掉出 Top 15 也补在行尾
+                if (all.TryGetValue(TraitTally.SproutLabel, out var sprout) && top.All(kv => kv.Key != TraitTally.SproutLabel))
+                    line += $" · …(Top 外){TraitTally.SproutLabel}×{sprout:F1}";
+                Console.WriteLine(line);
+            }
+
+            Console.WriteLine("\n本体攻击面 / 五行面出手 / 局(按字,攻/五,只列出过字的):\n");
+            foreach (var row in rows)
+            {
+                var done = row.Done;
+                if (done.Length == 0) continue;
+                var atk = PerGame(done, t => t.AttackFaceByChar);
+                var feat = PerGame(done, t => t.FeatureFaceByChar);
+                var ids = atk.Keys.Union(feat.Keys)
+                    .Select(id => (id, a: atk.TryGetValue(id, out var x) ? x : 0, f: feat.TryGetValue(id, out var y) ? y : 0))
+                    .OrderByDescending(x => x.a + x.f).ThenBy(x => x.id, StringComparer.Ordinal);
+                Console.WriteLine($"- {row.Label}:" + string.Join(" · ", ids.Select(x => $"{x.id} {x.a:F1}/{x.f:F1}")));
+            }
         }
 
         /// <summary>一行读数;超时截断时只算跑完的种子(<c>seeds</c> = 跑完数,不截断时即全部)。</summary>
