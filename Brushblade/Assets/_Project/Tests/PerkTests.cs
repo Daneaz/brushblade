@@ -43,7 +43,7 @@ namespace Brushblade.Core.Tests
             Assert.That(PerkRules.CanUnlock(meta, "vigor_1"), Is.False, "元 L1 需 Lv.2");
         }
 
-        /// <summary>门槛表本身:步长 6、三树错开 2 级、Lv22 全开。
+        /// <summary>门槛表本身:步长 6、三树错开 2 级(全开层见 AllNodes_UnlockByLevel24)。
         /// 写死在测试里是刻意的 —— 曲线一改这条就该红,让人重新想一遍节奏。</summary>
         [Test]
         public void UnlockLevels_FollowTheStaggeredSchedule()
@@ -60,11 +60,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void AllNodes_UnlockByLevel22()
+        public void AllNodes_UnlockByLevel24()
         {
             foreach (var def in PerkRules.Nodes)
-                Assert.That(def.UnlockLevel, Is.LessThanOrEqualTo(22),
-                    $"{def.Id} 的门槛超过 Lv.22,全开层就不是 22 了");
+                Assert.That(def.UnlockLevel, Is.LessThanOrEqualTo(24),
+                    $"{def.Id} 的门槛超过 Lv.24,全开层就不是 24 了(2026-10-18 由 22 放宽)");
         }
 
         // ---- 墨锭 ----

@@ -153,7 +153,7 @@ namespace Brushblade.Core
     public static class PerkRules
     {
         // 门槛:步长统一 6,三树错开 2 级。被动 Lv2/8/14、五行 Lv4/10/16/22、机制 Lv6/12。
-        // 每 2 级亮一批新节点;Lv22 全开,留 4 级余量到 Lv26 的属性封顶。
+        // 每 2 级亮一批新节点;Lv24 全开(2026-10-18 用户放宽:斩获终极技一级 Lv18、二级 Lv24),离 Lv26 属性封顶留 2 级。
         // 五行 L1/L2 自 2026-10-02 起是三段节点,门槛/定价走下面的 StagedGates/StagedCosts,
         // WuxingGates/WuxingCosts 只用下标 2/3(L3/L4)。
         private static readonly int[] WuxingGates = { 4, 10, 16, 22 };
@@ -259,18 +259,18 @@ namespace Brushblade.Core
                 }));
 
             // ---- 斩获终极技:2 级(spec 2026-10-18「斩获终极技」§1,占原融会的位置)----
-            // 一级:前置 = 机制树**全部**节点已解锁;击杀 50% 掉 1 张。门槛 / 墨价取融会原值 Lv8 / 900
-            //   (机制树 L2 本身要 Lv12,所以实际最早 Lv12 才点得到)。
+            // 一级:前置 = 机制树**全部**节点已解锁;击杀 50% 掉 1 张。门槛 Lv18(用户 10-18 拍板,原取融会 Lv8),
+            //   墨价仍取融会原值 900。
             // 二级:前置 = 一级(同枝第 2 层,走隐式同枝推导);击杀 70% 掉 2 张。门槛 / 墨价按被动树
-            //   L1→L2 同比递增:门槛 +6 级(被动 2 → 8 ⇒ 8 → 14),墨价 ×2(被动 300 → 600 ⇒ 900 → 1800)。
+            //   L1→L2 同比递增:门槛 +6 级(被动 2 → 8 ⇒ 18 → 24),墨价 ×2(被动 300 → 600 ⇒ 900 → 1800)。
             // Value = 每次命中掉几张;概率见 KillDrawChancePercent。两级不叠加,见 KillDrawTier。
             list.Add(new PerkNodeDef("ult_killdraw_1", PerkTree.Cross, "ult_killdraw", null,
-                depth: 1, unlockLevel: 8, inkCost: 900,
+                depth: 1, unlockLevel: 18, inkCost: 900,
                 effect: PerkEffect.KillDraw, value: 1,
                 baseValue: 0, scaling: PerkScaling.None,
                 prereq: new[] { new PerkRequirement(PerkTree.Mechanic, minDepth: 1, count: mechanicNodes) }));
             list.Add(new PerkNodeDef("ult_killdraw_2", PerkTree.Cross, "ult_killdraw", null,
-                depth: 2, unlockLevel: 14, inkCost: 1800,
+                depth: 2, unlockLevel: 24, inkCost: 1800,
                 effect: PerkEffect.KillDraw, value: 2,
                 baseValue: 0, scaling: PerkScaling.None, prereq: null));
 
