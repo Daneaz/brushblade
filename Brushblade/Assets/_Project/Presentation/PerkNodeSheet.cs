@@ -262,7 +262,9 @@ namespace Brushblade.Presentation
             // 跨树节点的前置是「任一五行 L3 + 任一被动 L2」这样的谓词,不是同枝直链 ——
             // 这里的逐层圆点画法表达不了它,换一套画法、换一条分区标题。
             // 斩获终极技二级(Prereq == null)是同枝第 2 层,走下面的直链画法(一级 → 二级)。
-            if (def.Tree == PerkTree.Cross && def.Prereq != null) { BuildCrossPrereq(parent, meta, def); return; }
+            if (def.Tree == PerkTree.Cross && def.Prereq != null && def.StageCount <= 1) { BuildCrossPrereq(parent, meta, def); return; }
+            // 斩获一段:前置谓词(机制树全满)照列,下面再画两段的链
+            if (def.Tree == PerkTree.Cross && def.Prereq != null) BuildCrossPrereq(parent, meta, def);
 
             SectionLabel(parent, Strings.T("perk.detail.section.chain"));
 
@@ -272,14 +274,19 @@ namespace Brushblade.Presentation
             var row = Ui.Row(parent, "Chain", 4);
             Ui.Sized(row, flexWidth: 1, height: 78);
 
-            for (int d = 1; d <= maxDepth; d++)
+            // 只有一层的多段节点(斩获终极技两段,2026-10-19):链按「段」画,一段一个点 ——
+            // 按层画只剩一个点,玩家看不出还有第二段(用户反馈)。
+            bool byStage = maxDepth == 1 && def.StageCount > 1;
+            int steps = byStage ? def.StageCount : maxDepth;
+            var stages = byStage ? PerkRules.StagesOf(def.NodeKey) : null;
+            for (int d = 1; d <= steps; d++)
             {
                 // ⚠ 按 NodeKey 取,不按 id:三段节点没有 {branch}_{depth} 这个 id(2026-10-02)。
                 // 「已点亮」= 任意一段已点,与 PrereqMet 的同枝推导同一口径。
                 var nodeKey = $"{def.Branch}_{d}";
-                var node = PerkRules.CurrentStage(meta, nodeKey);
-                bool unlocked = PerkRules.OwnedStageCount(meta, nodeKey) > 0;
-                bool current = d == def.Depth;
+                var node = byStage ? stages[d - 1] : PerkRules.CurrentStage(meta, nodeKey);
+                bool unlocked = byStage ? PerkRules.IsUnlocked(meta, node.Id) : PerkRules.OwnedStageCount(meta, nodeKey) > 0;
+                bool current = byStage ? d == def.Stage : d == def.Depth;
 
                 var cell = Ui.VStack(row.transform, $"Step_{d}", 4);
                 Ui.Sized(cell, flexWidth: 1);
@@ -319,7 +326,10 @@ namespace Brushblade.Presentation
                     }
                 }
 
-                var label = Ui.ThemedLabel(cell.transform, PerkInfo.Name(node), 12,
+                string stepName = byStage
+                    ? PerkInfo.Name(node) + " " + Strings.T("perk.detail.stage", ("stage", node.Stage), ("total", node.StageCount))
+                    : PerkInfo.Name(node);
+                var label = Ui.ThemedLabel(cell.transform, stepName, 12,
                     unlocked || current ? Theme.TextMain : Theme.LockGray);
                 Ui.Sized(label.gameObject, flexWidth: 1);
             }
