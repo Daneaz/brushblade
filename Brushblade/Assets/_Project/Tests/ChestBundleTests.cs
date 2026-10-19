@@ -198,6 +198,19 @@ namespace Brushblade.Core.Tests
                 Assert.That(w[r - 1] > 0, Is.EqualTo(r <= (int)highest), $"{tier} 的第 {r} 档");
         }
 
+        /// <summary>图鉴「XX匣起开得出」读的就是这条(2026-10-20):从权重表现算,不另抄一份。</summary>
+        [TestCase(CardRarity.White, ChestTier.Bamboo)]
+        [TestCase(CardRarity.Green, ChestTier.Bamboo)]
+        [TestCase(CardRarity.Blue, ChestTier.Bamboo)]
+        [TestCase(CardRarity.Purple, ChestTier.Celadon)]
+        [TestCase(CardRarity.Gold, ChestTier.Rosewood)]
+        [TestCase(CardRarity.Orange, ChestTier.Gilded)]
+        [TestCase(CardRarity.Red, ChestTier.Gilded)]
+        public void LowestTierFor_IsFirstTierWithWeight(CardRarity rarity, ChestTier expected)
+        {
+            Assert.That(ChestRules.LowestTierFor(rarity), Is.EqualTo(expected));
+        }
+
         // ---- 开箱 ----
 
         [Test]

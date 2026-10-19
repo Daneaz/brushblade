@@ -360,6 +360,15 @@ namespace Brushblade.Core
             return counts;
         }
 
+        /// <summary>最低从哪一档宝箱起开得出这个稀有度(权重 > 0 的第一档)。图鉴「XX匣起」的提示读它,
+        /// 权重表一改提示自动跟上(2026-10-20,此前图鉴那几句是手抄的,早就和表对不上)。</summary>
+        public static ChestTier LowestTierFor(CardRarity rarity)
+        {
+            for (var tier = LowestTier; tier < ChestTier.Crimson; tier++)
+                if (CardRarityWeights[(int)tier - 1][(int)rarity - 1] > 0) return tier;
+            return ChestTier.Crimson;
+        }
+
         /// <summary>该档宝箱的卡稀有度权重(千分比,索引 = rarity−1)。</summary>
         public static IReadOnlyList<int> CardRarityWeightsFor(ChestTier tier)
             => CardRarityWeights[(int)tier - 1];
