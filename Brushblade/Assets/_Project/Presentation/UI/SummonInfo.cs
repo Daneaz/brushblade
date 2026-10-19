@@ -29,7 +29,24 @@ namespace Brushblade.Presentation
             var summon = battle.Summons[slot];
             bool ranged = battle.IsSummonRanged(slot);
             // 左栏「状态」:自身的袋子 + 玩家袋里落在这只身上的光环(远程光环除外 —— 它写在右栏射程那一条上)+ 本命在场光环
-            var statuses = UnitDetailChip.BuildStatuses(summon.Statuses, graph: graph);
+            // 磐固那条护甲(2026-10-19 专属 chip)不走通用「护甲」行:单列一行「磐固」,说明带本场上限(上限在本命上,条目里没有)
+            var own = new List<StatusEffect>();
+            StatusEffect harden = null;
+            foreach (var st in summon.Statuses.All)
+                if (st.Kind == StatusKind.DefenseBuff && st.SourceId == BattleEngine.HardenSourceId) harden = st;
+                else own.Add(st);
+            var statuses = UnitDetailChip.BuildStatuses(own, summon.Statuses, graph: graph);
+            if (harden != null)
+            {
+                var info = StatusText.OfHarden(harden.Magnitude, summon.Passive?.HardenMax ?? 0);
+                statuses.Add(new StatusEntry
+                {
+                    IconKey = info.IconKey,
+                    ChipText = UnitDetailChip.TextFor(StatusKind.DefenseBuff, harden.Magnitude),
+                    ChipColor = UnitDetailChip.ColorFor(StatusKind.DefenseBuff, harden.Magnitude),
+                    Name = info.Name, Duration = info.Duration, Desc = info.Desc,
+                });
+            }
             var auras = new List<StatusEffect>();
             foreach (var aura in battle.SummonAurasAt(slot))
                 if (aura.Kind != StatusKind.SummonRanged) auras.Add(aura);

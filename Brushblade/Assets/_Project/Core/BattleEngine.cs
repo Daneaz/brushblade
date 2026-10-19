@@ -456,6 +456,8 @@ namespace Brushblade.Core
         BurnGrow,      // Burn 的 Source:上炎在敌人行动开始时加的那几层(GrowBurnOn)
         // ---- 掉字飞入(spec 2026-10-18 §2):只当事件标签。⚠ 只在末尾追加 ----
         KillDraw,      // CharGranted 的 Source:斩获掉的字(折桂为 None),表现层据此印「斩获」名签
+        // ---- 磐固专属 chip(2026-10-19):只当事件标签。⚠ 只在末尾追加 ----
+        Harden,        // StatusApplied(DefenseBuff)的 Source:这条护甲是磐固加的层,表现层据此印「磐固」名签、闪 guard chip
     }
 
     public readonly struct BattleEvent
@@ -5310,8 +5312,10 @@ namespace Brushblade.Core
         /// <summary>发 <see cref="BattleEventKind.StatusApplied"/>(spec 2026-10-18 §1)。ApplyStatus 成功分支与四处旁路
         /// (AddPlayerCounter 已有条目、金汇加次数、磐固、杜门不出)共用。过白名单 <see cref="StatusCueRules.IsAnnounced"/>;
         /// 影子引擎不发;增量 &lt; 0(同源覆盖成更小值)按 0 记。木灵光环(玩家袋、TargetSlot 指向木灵)按槽位发到木灵:
-        /// −1 = 每只存活木灵各一条。<paramref name="fresh"/> = 施加前目标身上没有该状态(<see cref="BattleEvent.Fresh"/>),光环展开的每条同值。</summary>
-        private void EmitStatusGain(UnitRef target, StatusKind kind, int delta, bool fresh, int targetSlot = -1)
+        /// −1 = 每只存活木灵各一条。<paramref name="fresh"/> = 施加前目标身上没有该状态(<see cref="BattleEvent.Fresh"/>),光环展开的每条同值。
+        /// <paramref name="source"/> 只当标签(磐固 = <see cref="EffectSource.Harden"/>),光环那支不用。</summary>
+        private void EmitStatusGain(UnitRef target, StatusKind kind, int delta, bool fresh, int targetSlot = -1,
+            EffectSource source = EffectSource.None)
         {
             if (_estimate || !StatusCueRules.IsAnnounced(kind)) return;
             delta = Math.Max(0, delta);
@@ -5325,7 +5329,8 @@ namespace Brushblade.Core
             }
             int side = target.Side == UnitSide.Enemy ? 0 : target.Side == UnitSide.Summon ? 2 : 1;
             int index = target.Side == UnitSide.Player ? Targeting.PlayerTarget : target.Index;
-            _events.Add(new BattleEvent(BattleEventKind.StatusApplied, index, (int)kind, secondIndex: side, absorbed: delta, fresh: fresh));
+            _events.Add(new BattleEvent(BattleEventKind.StatusApplied, index, (int)kind, secondIndex: side, absorbed: delta, fresh: fresh,
+                source: source));
         }
 
         // ── 战斗钩子总线(spec v6 §5 / §10 R4 R5 / §11.4) ──
@@ -6622,7 +6627,7 @@ namespace Brushblade.Core
                 preCut * CombatCaps.ReflectPercent / 100 - thornsDealt - reflectDealt - counterDealt);
             bool hardFresh = !summon.Statuses.Has(StatusKind.DefenseBuff);   // 上状态事件的 Fresh:磐固首层之前没有护甲增益
             int hardened = Harden(summon);   // 磐固(spec 2026-10-16 §3):本击全部结算完才加层(本击不吃本次加成);阵亡不加;没有字段时一次判断即返回
-            if (hardened > 0) EmitStatusGain(UnitRef.Summon(summonIndex), StatusKind.DefenseBuff, hardened, hardFresh);   // 封顶没涨不发(spec 2026-10-18 §1)
+            if (hardened > 0) EmitStatusGain(UnitRef.Summon(summonIndex), StatusKind.DefenseBuff, hardened, hardFresh, source: EffectSource.Harden);   // 封顶没涨不发(spec 2026-10-18 §1)
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。

@@ -188,6 +188,34 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Harden_Event_TaggedHardenSource()
+        {
+            // 表现层据 Source 把磐固的上状态名签印成「磐固」、闪 guard chip(2026-10-19 磐固专属 chip)
+            var passive = new SummonPassive { Taunt = true, Harden = 10, HardenMax = 50 };
+            var b = Battle(new CharDef[0], new[] { new EnemyDef("怔", Element.Heart, Hp, 100) },
+                summons: new[] { Wood(0, passive) });
+            var hardens = new List<BattleEvent>();
+            for (int turn = 0; turn < 10 && hardens.Count == 0; turn++)
+            {
+                b.EndTurn();
+                hardens.AddRange(Applied(b).Where(e => e.Amount == (int)StatusKind.DefenseBuff));
+            }
+            Assert.That(hardens.Count, Is.GreaterThan(0), "夹具前提:挨到打");
+            Assert.That(hardens.All(e => e.Source == EffectSource.Harden), Is.True);
+        }
+
+        [Test]
+        public void CardDefenseBuff_Event_SourceNone()
+        {
+            var def = RebalanceFixture.Char("壁", new EffectDef(EffectKind.DefenseBuff, 10, turns: 2));
+            var b = Battle(def);
+            Cast(b, "壁");
+            var rows = Applied(b).Where(e => e.Amount == (int)StatusKind.DefenseBuff).ToList();
+            Assert.That(rows.Count, Is.EqualTo(1), "夹具前提:玩家上了护甲");
+            Assert.That(rows[0].Source, Is.EqualTo(EffectSource.None));
+        }
+
+        [Test]
         public void ApCost_Seal_Emitted()
         {
             var def = RebalanceFixture.Char("杜", new EffectDef(EffectKind.DamageCut, 60), new EffectDef(EffectKind.ApCost, 1));

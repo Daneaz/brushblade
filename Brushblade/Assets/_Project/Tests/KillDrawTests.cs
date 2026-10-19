@@ -290,7 +290,9 @@ namespace Brushblade.Core.Tests
             Assert.That((int)BattleEventKind.CharGrantBlocked, Is.EqualTo((int)BattleEventKind.Behead + 1));
             Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.CharGrantBlocked));
             Assert.That((int)EffectSource.KillDraw, Is.EqualTo((int)EffectSource.BurnGrow + 1));
-            Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.KillDraw));
+            // 2026-10-19 其后追加 Harden(磐固上状态的事件标签,见 StatusAppliedEventTests.Harden_Event_TaggedHardenSource)
+            Assert.That((int)EffectSource.Harden, Is.EqualTo((int)EffectSource.KillDraw + 1));
+            Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.Harden));
         }
     }
 }

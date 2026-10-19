@@ -3308,7 +3308,14 @@ namespace Brushblade.Presentation
             // 荆棘光环(荆天棘地)占反弹的位置、排在正面最先(挨打时就起作用);减伤挨着格挡(两者同受 60% 封顶)
             if (thornsAura) chips.Add(new("", BattleChipColor(StatusKind.SummonThorns), Color.white, "thorns"));
             Flag(StatusKind.Immunity, "immunity");
-            Flag(StatusKind.DefenseBuff, "defense");
+            // 磐固(2026-10-19 用户拍板专属 chip):本命受击加的护甲层单出一枚 guard(护)、数字 = 当前加成,守御组翠玉;
+            // 这一份不再算进通用护甲增益那枚 —— 只剩磐固时不出 defense 图标(一份加成不画两枚)
+            int harden = 0;
+            foreach (var e in st.All)
+                if (e.Kind == StatusKind.DefenseBuff && e.SourceId == BattleEngine.HardenSourceId) harden += e.Magnitude;
+            if (st.TotalMagnitude(StatusKind.DefenseBuff) - harden > 0)
+                chips.Add(new("", BattleChipColor(StatusKind.DefenseBuff), Color.white, "defense"));
+            if (harden > 0) chips.Add(new($"{harden}", BattleChipColor(StatusKind.DefenseBuff), Color.white, "guard"));
             Flag(StatusKind.DodgeBuff, "dodge");
             Flag(StatusKind.Reflect, "reflect");
             // 减伤(StatusChips 10-04 / StatusChipsWood W4):玩家的本回合减伤也护木灵;林荫 / 森严走 Core 读口(木灵侧含森严)
