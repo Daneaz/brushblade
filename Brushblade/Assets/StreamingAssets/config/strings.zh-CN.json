@@ -1399,7 +1399,6 @@
   "character.ms_pick": "{rarity}字 3 选 1",
   "character.ms_claim": "领 取",
   "character.ms_claimed": "已领",
-  "character.ms_gap": "差 {gap} 级",
   "character.tab.chest": "宝箱",
   "character.tab.tower": "登塔",
   "character.tab.battle": "战斗",

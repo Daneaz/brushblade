@@ -40,7 +40,9 @@
       | 宝箱可领、有空箱位 | 普通格「领 取」/ 里程碑格「领宝箱」`cta` 白字 → `LevelRewardRules.TryClaimChest`，成功先 `_save()` 再 `Rebuild()` |
       | 宝箱可领、箱位已满 | `locked-bg` 底 `text-faint`「箱位已满」，不可点 |
       | 都领完 | 「已领」18（8.60）`text-faint` |
-      | 未达 | 「差 N 级」18 `text-faint` |
+      | 未达 | 底行留空(2026-10-20 试玩移除「差 N 级」) |
+
+    格内中段(普通格宝箱 + 箱名 / 里程碑格墨锭 + 字 3 选 1)在 Lv 行与底行之间上下居中(2026-10-20)。
 - **右下：统计**（`BuildStats`）：弹性高（196.39），内边距 19/21/21（9.08/10.03/10.03），竖排 17（8.12）。
   - 页签（`TabButton`）：`OutlinedPanel` 圆角 25（11.94）、描边 2；宽 = 字数 × 23 + 58 = 104（49.69）、高 50（23.89）；字 23（10.99）**宋体**（`Theme.TitleFont`；规范里页签走宋体，不算按钮）。选中 `ink-soft` 底白字，未选 `panel-paper` 底 `panel-border` 边 `text-dim` 字。页签间距 13（6.21）。
   - 页面区：横排、间距 29（13.86），竖分隔线 2（0.96）`panel-border`。
@@ -72,7 +74,7 @@
 
 ## 文案
 
-`character.*` 一组（标题、副标、经验行、属性标题、封顶说明、等级奖励 `character.rewards.*`、里程碑格复用的 `character.ms_level / ms_pick / ms_claim / ms_claimed / ms_gap`、页签、统计各格与其说明 `character.tower.*_note` / `character.econ.*_note`、单位 `character.unit.times / floors / bosses`）；复用 `map.hero.*`（头像字、名、等级段位、属性名、百分号、经验值、Top10 空态）、`levelup.stat_delta`（「+N」）、`common.back_to_map`；稀有度名走 `CharInfo.RarityName`，箱名走 `ChestRules.TierName`。
+`character.*` 一组（标题、副标、经验行、属性标题、封顶说明、等级奖励 `character.rewards.*`、里程碑格复用的 `character.ms_level / ms_pick / ms_claim / ms_claimed`、页签、统计各格与其说明 `character.tower.*_note` / `character.econ.*_note`、单位 `character.unit.times / floors / bosses`）；复用 `map.hero.*`（头像字、名、等级段位、属性名、百分号、经验值、Top10 空态）、`levelup.stat_delta`（「+N」）、`common.back_to_map`；稀有度名走 `CharInfo.RarityName`，箱名走 `ChestRules.TierName`。
 
 ## 示例数据（`preview.html`，当前规则下合法）
 
