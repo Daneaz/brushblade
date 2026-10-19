@@ -79,9 +79,15 @@ namespace Brushblade.Core
         private List<string> _carriedLibrary;
         private List<string> _carriedPool;
         private int _carriedHp;
-        // 局内血量上限加成(2026-08-04;2026-10-18 改为按基础上限线性累加,不再复利)。
+        // 局内血量上限加成(2026-08-04):奇遇按当前有效上限的百分比复利累加。
         // 局外 Meta.MaxHpFor 硬顶 1480(50 级),而怪物 scale 无上限 —— 这是关内把上限顶上去的唯一手段。
         private int _maxHpBonus;
+        // 本局已用掉的改上限次数(2026-10-19 用户拍板):复利保留,但一局最多 MaxHpEventCap 次。
+        // 掷空反向扣的那次也算;跨段经构造参数带入、段内经 RunSnapshot 续爬。
+        private int _maxHpEventCount;
+
+        /// <summary>一局(一次登塔)里带 MaxHpPercent 的奇遇选项最多成交几次(2026-10-19)。</summary>
+        public const int MaxHpEventCap = 10;
         private int _carriedNormalShield;
         private int _carriedShieldAccum;
         private int _carriedHealAccum;
@@ -98,9 +104,10 @@ namespace Brushblade.Core
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
             bool libraryExpanded = false, bool poolExpanded = false, int maxHpBonus = 0,
-            IReadOnlyList<OpeningEffect> startingOpenings = null)
+            IReadOnlyList<OpeningEffect> startingOpenings = null, int maxHpEventCount = 0)
         {
             _startingInk = startingInk;
+            _maxHpEventCount = maxHpEventCount;
             _maxHpBonus = maxHpBonus; // 奇遇上限加成跨段延续(2026-09-18):必须赶在开第一场之前
             _graph = graph;
             _runConfig = runConfig;
@@ -168,6 +175,7 @@ namespace Brushblade.Core
                 CarriedPool = new List<string>(_carriedPool),
                 CarriedHp = _carriedHp,
                 MaxHpBonus = _maxHpBonus,
+                MaxHpEventCount = _maxHpEventCount,
                 CarriedNormalShield = _carriedNormalShield,
                 CarriedShieldAccum = _carriedShieldAccum,
                 CarriedHealAccum = _carriedHealAccum,
@@ -210,6 +218,7 @@ namespace Brushblade.Core
                 _carriedPool = new List<string>(snapshot.CarriedPool),
                 _carriedHp = snapshot.CarriedHp,
                 _maxHpBonus = snapshot.MaxHpBonus,
+                _maxHpEventCount = snapshot.MaxHpEventCount,
                 _carriedNormalShield = snapshot.CarriedNormalShield,
                 _carriedShieldAccum = snapshot.CarriedShieldAccum,
                 _carriedHealAccum = snapshot.CarriedHealAccum,
@@ -360,6 +369,8 @@ namespace Brushblade.Core
             var option = CurrentEvent.Options[index];
             if (option.InkCost > AvailableInk)
                 return false; // 买不起,换个选项
+            if (IsEventOptionLocked(option))
+                return false; // 本局改上限次数已用完(2026-10-19)
 
             string gainChar = option.GainChar;
             if (option.GainCharChoices.Count > 0)
@@ -417,10 +428,9 @@ namespace Brushblade.Core
             {
                 bool gained = option.MaxHpChancePercent <= 0
                     || _random.Next(100) < option.MaxHpChancePercent;
-                // 按**基础**上限(局外养成的上限,不含局内已叠的加成)线性累加(2026-10-18):原按当前有效上限复利,
-                // 1.3^15 ≈ 51 倍 —— 一局叠到 8 万血、怪打不动;怪物缩放是线性的(每层 +10%),玩家这边也该线性。
-                int delta = Math.Max(1, _battleConfig.PlayerMaxHp) * (gained ? option.MaxHpPercent : -option.MaxHpPercent) / 100;
+                int delta = EffectiveMaxHp * (gained ? option.MaxHpPercent : -option.MaxHpPercent) / 100;
                 _maxHpBonus += delta;
+                _maxHpEventCount++;
                 if (delta > 0) _carriedHp += delta;                    // 拿到的是血也是容器
                 _carriedHp = Math.Clamp(_carriedHp, 1, EffectiveMaxHp); // 扣上限时把当前血收回来
             }
@@ -939,6 +949,14 @@ namespace Brushblade.Core
         /// <summary>奇遇累计的上限加成(可为负)。**本次登塔**生效(2026-09-18 用户拍板):
         /// 外层段末写进 EndlessSaveState,下一段经构造参数 maxHpBonus 传回。</summary>
         public int MaxHpBonus => _maxHpBonus;
+
+        /// <summary>本局已用掉的改上限次数(上限 <see cref="MaxHpEventCap"/>);跨段时写进 EndlessSaveState 再经构造参数传回。</summary>
+        public int MaxHpEventCount => _maxHpEventCount;
+
+        /// <summary>该奇遇选项因次数上限而不可选(2026-10-19):带 MaxHpPercent 且本局已满 <see cref="MaxHpEventCap"/> 次。
+        /// 与 ComponentCost 不足同一套「不可选」—— 表现层据此置灰。</summary>
+        public bool IsEventOptionLocked(EventOption option) =>
+            option.MaxHpPercent != 0 && _maxHpEventCount >= MaxHpEventCap;
 
         /// <summary>携带态的当前血量(战斗之间由 run 保管,与 <see cref="EffectiveMaxHp"/> 配对读)。
         /// 2026-09-02 开放:奇遇结算改血/改上限后,表现层要把玩家血条**先更新到新值再起厚**,

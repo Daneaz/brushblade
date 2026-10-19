@@ -36,6 +36,7 @@ namespace Brushblade.Balance.Bot
         /// <summary>null = 满血开段(第一段)。</summary>
         public int? Hp;
         public int MaxHpBonus;
+        public int MaxHpEventCount; // 改上限奇遇已用次数(一局上限 10,2026-10-19)
         public bool LibraryExpanded;
         public bool PoolExpanded;
         public bool Revived;
@@ -200,6 +201,7 @@ namespace Brushblade.Balance.Bot
             Pool = new List<string>(run.CarriedPool),
             Hp = run.CarriedHp,
             MaxHpBonus = run.MaxHpBonus,
+            MaxHpEventCount = run.MaxHpEventCount,
             LibraryExpanded = run.LibraryExpanded,
             PoolExpanded = run.PoolExpanded,
             Revived = run.Revived,
@@ -230,7 +232,8 @@ namespace Brushblade.Balance.Bot
                 libraryExpanded: carry.LibraryExpanded,
                 poolExpanded: carry.PoolExpanded,
                 maxHpBonus: carry.MaxHpBonus,
-                startingOpenings: carry.Openings);
+                startingOpenings: carry.Openings,
+                maxHpEventCount: carry.MaxHpEventCount);
             if (carry.Revived) run.MarkRevived();
             return run;
         }
