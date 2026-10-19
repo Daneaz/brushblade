@@ -419,6 +419,7 @@ namespace Brushblade.Presentation
                 ChestIcon(lvRow.transform, tier, 23f, mark);
 
                 var def = ms.Value;
+                Spring(cell); // 墨锭 + 字 3 选 1 在 Lv 行与底行之间上下居中(2026-10-20 试玩)
                 var reward = Ui.VStack(cell, "Milestone", 4);
                 if (msDone) reward.AddComponent<CanvasGroup>().alpha = 0.5f;   // 稿 .st-done .mrow / .mrow.done
                 Ui.IngotLabel(reward.transform, Ui.InkText(def.Ink), 20);
@@ -431,12 +432,13 @@ namespace Brushblade.Presentation
             else
             {
                 LevelLabel(cell, lv, lvFont, lvColor);
+                Spring(cell); // 宝箱 + 箱名在 Lv 行与底行之间上下居中(2026-10-20 试玩)
                 ChestIcon(cell, tier, 50f, mark);
                 Ui.ThemedLabel(cell, ChestRules.TierName(tier), 17, reached && !allDone ? Theme.TextDim : Theme.LockGray)
                     .raycastTarget = false;
             }
 
-            Spring(cell); // 底行钉在卡底
+            Spring(cell); // 底行钉在卡底;与上面那根弹簧对半分,中段居中
             int claimLevel = lv;
             if (msReady)
                 CellButton(cell, Strings.T("character.rewards.claim_ms"),
@@ -448,8 +450,7 @@ namespace Brushblade.Presentation
                     () => ClaimChest(claimLevel));
             else if (reached)
                 Ui.ThemedLabel(cell, Strings.T("character.ms_claimed"), 18, Theme.LockGray);
-            else
-                Ui.ThemedLabel(cell, Strings.T("character.ms_gap", ("gap", lv - level)), 18, Theme.LockGray);
+            // 未达:底行留空(2026-10-20 试玩:移除「差 N 级」)
         }
 
         /// <summary>领一只每级宝箱:规则侧拒绝(连点、箱位刚满)时不改状态;成功先落盘再重建,
