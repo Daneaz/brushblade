@@ -288,11 +288,15 @@ namespace Brushblade.Core.Tests
         public void NewEnumValues_AppendedAtEnd()
         {
             Assert.That((int)BattleEventKind.CharGrantBlocked, Is.EqualTo((int)BattleEventKind.Behead + 1));
-            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.CharGrantBlocked));
+            // 2026-10-19 其后追加 EdgeSheathe(锋刃回鞘名签事件,见 EdgeSheatheTests)
+            Assert.That((int)BattleEventKind.EdgeSheathe, Is.EqualTo((int)BattleEventKind.CharGrantBlocked + 1));
+            Assert.That(Enum.GetValues(typeof(BattleEventKind)).Cast<int>().Max(), Is.EqualTo((int)BattleEventKind.EdgeSheathe));
             Assert.That((int)EffectSource.KillDraw, Is.EqualTo((int)EffectSource.BurnGrow + 1));
             // 2026-10-19 其后追加 Harden(磐固上状态的事件标签,见 StatusAppliedEventTests.Harden_Event_TaggedHardenSource)
             Assert.That((int)EffectSource.Harden, Is.EqualTo((int)EffectSource.KillDraw + 1));
-            Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.Harden));
+            // 2026-10-19 其后追加 EdgeSheathe(锋刃回鞘吸血 / 回库的事件标签)
+            Assert.That((int)EffectSource.EdgeSheathe, Is.EqualTo((int)EffectSource.Harden + 1));
+            Assert.That(Enum.GetValues(typeof(EffectSource)).Cast<int>().Max(), Is.EqualTo((int)EffectSource.EdgeSheathe));
         }
     }
 }

@@ -254,7 +254,8 @@ namespace Brushblade.Core
         /// <summary>木脉 L2「归根」:召唤物阵亡时,玩家回复该召唤物最大生命的 N%。0 = 未点亮。</summary>
         public int SummonDeathHealPercent { get; set; }
 
-        /// <summary>断金(金脉 L4):战意 ≥ MoraleCap 时,金系**字**本张伤害 +N%,结算后清空战意;部件不算。</summary>
+        /// <summary>断金(金脉 L4):并入锋刃回鞘(spec 2026-10-19 §2)—— 锋刃回鞘触发时本张伤害再 +N%。
+        /// 触发条件同锋刃回鞘(战意满 + 金系字攻击面带伤害),本身不再单独判定。</summary>
         public int MoraleReleasePercent { get; set; }
 
         /// <summary>积土 / 涌泉(土/水 L4,2026-10-02):厚积薄发 / 涌泉相报伤害 +N%;>0 时结算后返还
@@ -414,6 +415,9 @@ namespace Brushblade.Core
         // ---- 掉字飞入(spec 2026-10-18 斩获终极技 §2,drafts/killdrop;⚠ 只在末尾追加)----
         CharGrantBlocked, // 斩获该掉字时字库已满、一张没进(TargetIndex = 阵亡敌人下标)。**每回合只发首次**(计数同斩获,StartTurn 清零);
                           // 本回合额度已到顶、概率未中都不发。表现层飘划线的「斩获 · 字库满」+ 批尾字库计数闪。
+        // ---- 锋刃回鞘(spec 2026-10-19;⚠ 只在末尾追加)----
+        EdgeSheathe,    // 战意满时金字攻击面触发锋刃回鞘(TargetIndex = −1,Amount = 本张伤害加成 %,含断金)。发在本张第一条效果之前,
+                        // 表现层据此在玩家处飘「锋刃回鞘」名签;吸血走 Heal(Source = EdgeSheathe)、回库走 CharGranted(同)。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
@@ -458,6 +462,8 @@ namespace Brushblade.Core
         KillDraw,      // CharGranted 的 Source:斩获掉的字(折桂为 None),表现层据此印「斩获」名签
         // ---- 磐固专属 chip(2026-10-19):只当事件标签。⚠ 只在末尾追加 ----
         Harden,        // StatusApplied(DefenseBuff)的 Source:这条护甲是磐固加的层,表现层据此印「磐固」名签、闪 guard chip
+        // ---- 锋刃回鞘(spec 2026-10-19):只当事件标签。⚠ 只在末尾追加 ----
+        EdgeSheathe,   // Heal(吸血)/ CharGranted(击杀回库)的 Source
     }
 
     public readonly struct BattleEvent
@@ -1951,6 +1957,36 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>锋刃回鞘的伤害加成 %(断金另加,spec 2026-10-19 §1)。</summary>
+        public const int EdgeSheathePercent = 100;
+
+        /// <summary>锋刃回鞘吸血 %:按本张对敌造成的实际 HP 损失合计(敌盾吸收不算)。</summary>
+        public const int EdgeSheatheLifestealPercent = 35;
+
+        /// <summary>锋刃回鞘的结算尾(效果表跑完、特性反应排空之前):吸血 → 击杀回库 → 清空战意。
+        /// <paramref name="hpBefore"/> = 进门时每只敌人的生命(当时已死记 0);之后新出现的敌人(分裂)不计。
+        /// 吸血同沐霖口径:独立回复,不触发溢流、不计入本次出字的治疗链。
+        /// 回库:本张结算中至少击杀 1 只 → 同 id 的字回 1 张(卡等级按 id,不变);满库不回、不发事件;
+        /// 不占斩获的每回合额度,也不摇随机数。</summary>
+        private void ResolveEdgeSheathe(CharDef def, int[] hpBefore)
+        {
+            int lost = 0, firstKilled = -1;
+            for (int i = 0; i < hpBefore.Length && i < _enemies.Count; i++)
+            {
+                if (hpBefore[i] <= 0) continue;
+                lost += Math.Max(0, hpBefore[i] - _enemies[i].Hp);
+                if (!_enemies[i].Alive && firstKilled < 0) firstKilled = i;
+            }
+            int drained = lost * EdgeSheatheLifestealPercent / 100;
+            if (drained > 0 && PlayerHp > 0)
+                HealAlly(Targeting.PlayerTarget, drained, overflowToDamage: false,
+                    source: EffectSource.EdgeSheathe, countInCast: false);
+            if (firstKilled >= 0 && GrantLibraryChar(def.Id))
+                _events.Add(new BattleEvent(BattleEventKind.CharGranted, firstKilled, _forge.Library.Count - 1,
+                    source: EffectSource.EdgeSheathe));
+            _playerStatuses.Remove(StatusKind.Morale);
+        }
+
         /// <summary>字库满挡下斩获的提示键:同 <see cref="KillDrawUseKey"/> 挂在 _traitUsesThisTurn 上,StartTurn 清零 → 每回合首次。</summary>
         private const string KillDrawBlockedKey = "#killdraw-full";
 
@@ -3396,12 +3432,6 @@ namespace Brushblade.Core
             bool graft = IsGraft(def, attackMode, allySlot);   // 嫁接:Summon 效果改为作用在 allySlot 上(E5)
             bool grafted = false;
             _cast.CritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
-            // 断金(2026-10-02):进门时判定,同一张字结算途中暴击涨满的不算本张。
-            // 只认金系「字」(部件直出不算)且本张字带伤害效果;纯 buff 金字不消耗战意。
-            bool moraleRelease = _config != null && _config.MoraleReleasePercent > 0
-                && def.Element == Element.Metal && !def.IsComponent
-                && _playerStatuses.TotalMagnitude(StatusKind.Morale) >= _config.MoraleCap
-                && HasDamageEffect(def, attackMode);
             int cardLevel = CardLevelOf(def.Id);
             // 灼的火力:按来源字的卡等级(特性反应 / 开局效果的 def.Id 即来源字;查不到等级 = 1 → 100)
             int burnPotency = MetaRules.CardLevelPercent(cardLevel);
@@ -3409,6 +3439,20 @@ namespace Brushblade.Core
             // 没有这类特性时两项都是 null —— 下面的入队整条空转,恒等。
             bool topLevelCast = TriggerDepth == 0 && _castingCharId == def.Id;
             var castFace = FaceOf(def, attackMode);
+            // 锋刃回鞘(spec 2026-10-19,断金并入):进门时判定,同一张字结算途中暴击涨满的不算本张。
+            // 只认顶层出字的金系「字」攻击面且该面带伤害;部件、五行面、纯 buff 面、特性反应 / 开局效果都不触发。
+            bool edgeSheathe = topLevelCast && _config != null
+                && def.Element == Element.Metal && !def.IsComponent && castFace == CardFace.Attack
+                && _playerStatuses.TotalMagnitude(StatusKind.Morale) >= _config.MoraleCap
+                && HasDamageEffect(def, attackMode);
+            int edgePercent = EdgeSheathePercent + (_config?.MoraleReleasePercent ?? 0);
+            // 吸血 / 回库的依据:进门时每只敌人的生命(实际 HP 损失 = 敌盾吸收不算;斩杀抹掉的血算)
+            int[] edgeHpBefore = null;
+            if (edgeSheathe)
+            {
+                edgeHpBefore = _enemies.Select(en => en.Alive ? en.Hp : 0).ToArray();
+                _events.Add(new BattleEvent(BattleEventKind.EdgeSheathe, -1, edgePercent));
+            }
             _cast.OnCrit = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnCrit)) : null;
             _cast.OnKill = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnKill)) : null;
             _cast.OnExecute = topLevelCast ? NullIfEmpty(TraitRules.Triggered(def, castFace, cardLevel, TraitTrigger.OnExecute)) : null;
@@ -3487,7 +3531,7 @@ namespace Brushblade.Core
                 if (def.Element == Element.Water) GainWellspring(_cast.DirectDamage);
                 else if (def.Element == Element.Earth) GainHeft(_cast.DirectDamage);
             }
-            if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
+            if (edgeSheathe) ResolveEdgeSheathe(def, edgeHpBefore);
             // 每场次数记账(E35):本次进了 Fold 的限次特性各记一次(出字已结算完,不会再被拒)
             foreach (var t in battleLimited)
                 if (BattleUsesOf(def, t) < t.MaxPerBattle) TryUseTrait(BattleUseKey(def, t), perTurn: 0, perBattle: t.MaxPerBattle);
@@ -3521,8 +3565,8 @@ namespace Brushblade.Core
                     && effect.Kind != EffectKind.BurnSingle && effect.Kind != EffectKind.BurnAll
                     && effect.Kind != EffectKind.SpendHeft && effect.Kind != EffectKind.SpendWellspring)   // 释放伤害的加成在 SpendResource 里求(层数那时才已知)
                     value = Amplified(value, AmpPercent(effect, targetIndex), AmpAxisPercent(attacker, effect.Kind));
-                if (moraleRelease && effect.Kind == EffectKind.DamageSingle)
-                    value = value * (100 + _config.MoraleReleasePercent) / 100;
+                if (edgeSheathe && effect.Kind == EffectKind.DamageSingle)
+                    value = value * (100 + edgePercent) / 100;
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:

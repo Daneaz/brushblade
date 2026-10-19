@@ -194,7 +194,8 @@ namespace Brushblade.Presentation
                 case StatusKind.Morale:
                     return new Info("morale", Strings.T("status.morale.name"),
                         Strings.T("status.duration.persistent"),
-                        Strings.T("status.morale.desc", ("magnitude", magnitude)));
+                        Strings.T("status.morale.desc", ("magnitude", magnitude),
+                            ("edge", BattleEngine.EdgeSheathePercent), ("steal", BattleEngine.EdgeSheatheLifestealPercent)));
                 case StatusKind.CritBuff:
                     return new Info("crit", Strings.T("status.crit.name"),
                         Duration(turnsLeft),

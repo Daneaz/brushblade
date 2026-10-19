@@ -10,7 +10,7 @@ namespace Brushblade.Presentation
 {
     /// <summary>击杀得字飞入(spec 2026-10-18 斩获终极技 §2,drafts/killdrop 10-18 拍板)。
     ///
-    /// 斩获 / 折桂的 <see cref="BattleEventKind.CharGranted"/>:① 冒 —— 阵亡那一刻 token(就是 <see cref="FlyGlyph"/> 那枚)
+    /// 斩获 / 折桂 / 锋刃回鞘的 <see cref="BattleEventKind.CharGranted"/>:① 冒 —— 阵亡那一刻 token(就是 <see cref="FlyGlyph"/> 那枚)
     /// 从立绘中心弹出、上移 30,赭金环扩散,同格飘名签;② 停 —— token 停在震屏层(BattleView 根节点,重绘不清)等本批收尾;
     /// ③ 飞 / ④ 落由 BattleView 在 OnAnimDone 重绘之后调 <see cref="LandGrantTokens"/>(它负责持锁与藏牌,同 DealRoutine)。
     /// 字库满(<see cref="BattleEventKind.CharGrantBlocked"/>)不冒 token,只飘划线的「斩获 · 字库满」,
@@ -64,6 +64,7 @@ namespace Brushblade.Presentation
         private void PlayCharGranted(BattleEvent e, RectTransform cell)
         {
             if (e.Source == EffectSource.KillDraw) PerkCueAt(Strings.T("perk.node.ult_killdraw.name"), cell);
+            else if (e.Source == EffectSource.EdgeSheathe) PerkCueAt(Strings.T("juice.popup.edge_sheathe"), cell);   // 锋刃回鞘:本张字回库
             else TraitCueAt(EffectCueOf?.Invoke(EffectKind.GrantChar), cell);   // 折桂:「攻」印 + 折桂(特性名签原样)
 
             var def = LibraryCharAt?.Invoke(e.Amount);
