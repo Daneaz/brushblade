@@ -391,13 +391,16 @@ namespace Brushblade.Presentation
             nodeLayout.childAlignment = TextAnchor.UpperCenter;
             nodeLayout.childForceExpandWidth = false;
 
-            Pin(node.transform, isMs, allDone, reached && (chestReady || msReady));
+            bool ready = reached && (chestReady || msReady);   // 与钉的 cta 态同源
+            Pin(node.transform, isMs, allDone, ready);
 
-            // 卡:里程碑格 = gold-soft 淡化底 + rarity-gold 60% 描边;普通格已领完压 panel-inset,其余 card-face
-            var gold = Theme.RarityGold;
-            var card = Ui.OutlinedPanel(node.transform, "Card",
-                isMs ? MilestoneCardFill : allDone ? Theme.PanelInset : Theme.CardWhite,
-                isMs ? new Color(gold.r, gold.g, gold.b, 0.6f) : Theme.PanelBorder, 17, 2f);
+            // 卡(稿 2026-10-19 回填):已领退到底 = panel-paper 底 + panel-border 2;里程碑 = gold-soft 实底 +
+            // rarity-gold 3;可领 = 描边换 cta 3(普通格卡底换纯白,里程碑格保留金底);普通未达 = card-face + panel-border 2
+            var cardFill = allDone ? Theme.PanelPaper : isMs ? Theme.GoldSoft : ready ? Theme.CardWhite : Theme.CardFace;
+            var cardBorder = allDone ? Theme.PanelBorder : ready ? Theme.Cta : isMs ? Theme.RarityGold : Theme.PanelBorder;
+            var card = Ui.OutlinedPanel(node.transform, "Card", cardFill, cardBorder, 17,
+                !allDone && (ready || isMs) ? 3f : 2f, out var cardFace);
+            if (isMs && allDone) MilestoneDoneStrip(cardFace.transform);
             var cardElement = card.gameObject.AddComponent<LayoutElement>();
             cardElement.flexibleWidth = 1;
             cardElement.flexibleHeight = 1;
@@ -408,7 +411,7 @@ namespace Brushblade.Presentation
 
             // 三位数等级(Lv.100 起)「Lv.100」+ 小箱会超出卡内净宽 99,字号 25 → 21
             int lvFont = lv >= 100 ? 21 : 25;
-            var lvColor = allDone ? Theme.TextDim : Theme.TextMain;
+            var lvColor = allDone ? Theme.LockGray : isMs ? Theme.GoldDeep : Theme.TextMain;   // 全领完 text-faint
             if (isMs)
             {
                 var lvRow = Ui.Row(cell, "LvRow", 4);
@@ -417,7 +420,7 @@ namespace Brushblade.Presentation
 
                 var def = ms.Value;
                 var reward = Ui.VStack(cell, "Milestone", 4);
-                if (msDone) reward.AddComponent<CanvasGroup>().alpha = 0.55f;   // 稿 .mrow.done
+                if (msDone) reward.AddComponent<CanvasGroup>().alpha = 0.5f;   // 稿 .st-done .mrow / .mrow.done
                 Ui.IngotLabel(reward.transform, Ui.InkText(def.Ink), 20);
                 var pick = Ui.Row(reward.transform, "Pick", 5);
                 Dot(pick.transform, Theme.RarityColor(def.Rarity), 13);
@@ -429,7 +432,7 @@ namespace Brushblade.Presentation
             {
                 LevelLabel(cell, lv, lvFont, lvColor);
                 ChestIcon(cell, tier, 50f, mark);
-                Ui.ThemedLabel(cell, ChestRules.TierName(tier), 17, reached ? Theme.TextDim : Theme.LockGray)
+                Ui.ThemedLabel(cell, ChestRules.TierName(tier), 17, reached && !allDone ? Theme.TextDim : Theme.LockGray)
                     .raycastTarget = false;
             }
 
@@ -458,9 +461,22 @@ namespace Brushblade.Presentation
             Rebuild();
         }
 
-        /// <summary>稿:里程碑格卡底「gold-soft 淡化(#FBF5E4)」。#FBF5E4 不在 tokens,按稿的说法取
-        /// gold-soft 与 card-face(Theme.CardWhite)各半 ≈ #FAF6EA。</summary>
-        private static Color MilestoneCardFill => Color.Lerp(Theme.GoldSoft, Theme.CardWhite, 0.5f);
+        /// <summary>里程碑格全领完后的身份残留:卡顶内侧一道 `rarity-gold` 细条,高 3(1.43pt),撑满卡宽,
+        /// 挂在卡面(描边内侧)顶边、不进布局。</summary>
+        private static void MilestoneDoneStrip(Transform face)
+        {
+            var strip = Ui.Panel(face, "MsStrip");
+            strip.AddComponent<LayoutElement>().ignoreLayout = true;
+            var rect = (RectTransform)strip.transform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(0f, 3f);
+            var image = strip.AddComponent<Image>();
+            image.color = Theme.RarityGold;
+            image.raycastTarget = false;
+        }
 
         private static void LevelLabel(Transform parent, int lv, int size, Color color)
         {

@@ -204,3 +204,67 @@ def test_every_png_has_a_unity_meta():
     missing = [p.name for p in sorted(RESOURCES.glob("*.png"))
                if not p.with_suffix(".png.meta").exists()]
     assert missing == [], f"这些 PNG 缺 .meta:{missing}"
+
+
+# ---------------------------------------------------------------- 五行配色金土分家(2026-10-19)
+# 立绘里的属性色是从 tokens.json 抄过去的副本(rasterize_mobs 的换色规则、build_boss_art 的 EL / GLYPH),
+# token 再改一次而这里没跟,不会有任何东西报错 —— 金、土立绘就是这样停在更早一版旧值上的。
+
+TOKENS = ROOT / "docs/design/system/tokens.json"
+FIVE = ("Wood", "Fire", "Earth", "Metal", "Water")
+
+
+def _token(name):
+    data = json.loads(TOKENS.read_text(encoding="utf-8"))
+
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get("name") == name and "value" in node:
+                return node["value"]
+            node = list(node.values())
+        if isinstance(node, list):
+            for child in node:
+                hit = walk(child)
+                if hit:
+                    return hit
+        return None
+
+    value = walk(data)
+    assert value, f"tokens.json 里找不到 {name}"
+    return value.upper()
+
+
+@pytest.mark.parametrize("element", FIVE)
+def test_glyph_tables_match_tokens(element):
+    want = _token(f"{element.lower()}-glyph")
+    assert rm.GLYPH[element].upper() == want
+    assert bba.GLYPH[element].upper() == want
+
+
+@pytest.mark.parametrize("element", ["Metal", "Earth"])
+def test_metal_earth_palettes_match_tokens(element):
+    key = element.lower()
+    assert set(v.upper() for v in rm.PALETTE_SWAP[element].values()) == \
+        {_token(key), _token(f"{key}-soft"), _token(f"{key}-fg")}
+    assert bba.EL[element].upper() == _token(key)
+
+
+def test_ink_matches_token():
+    assert rm.INK.upper() == _token("ink")
+
+
+@pytest.mark.parametrize("slug", sorted(rm.MINION_SLUGS.values()))
+def test_mob_recolor_applies(slug):
+    """五系杂兵 body 的两个字形组必须被换成「亮 = 字形色、深 = 往墨 35%」;金、土各层不再留旧色板。"""
+    element = rm.minion_elements()[slug]
+    for layer in rm.present_layers(f"enemy_{slug}"):
+        src = (rm.SVG_DIR / f"enemy_{slug}_{layer}.svg").read_text(encoding="utf-8")
+        out = rm.recolor(src, element, layer)
+        if element in rm.PALETTE_SWAP:
+            left = [c for c in rm.PALETTE_SWAP[element] if c in out.lower()]
+            assert left == [], f"{slug}_{layer} 还留着旧色 {left}"
+        if layer == "body" and element in FIVE:
+            fills = [m.group(2) for m in rm._GLYPH_GROUP.finditer(out)]
+            assert fills == list(rm.glyph_tints(element)), slug
+        if element not in FIVE and element not in rm.PALETTE_SWAP:
+            assert out == src, f"{slug} 不是五行杂兵,不该换色"

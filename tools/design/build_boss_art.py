@@ -42,11 +42,17 @@ SIZE = 512
 INK = "#111622"
 PAPER = "#F6F1E7"
 
-# 五行色(与字怪合并稿同一套)
+# 五行色(与字怪合并稿同一套)。金、土 2026-10-19 金土分家改为 tokens.json 的 metal / earth
+# (古金 / 红褐,原 #B3A382 / #997C3C);木水火心沿用合并稿原值。
 EL = {
-    "Wood": "#348F4F", "Fire": "#C53637", "Earth": "#997C3C",
-    "Metal": "#B3A382", "Water": "#0F74C4", "Heart": "#974FA7",
+    "Wood": "#348F4F", "Fire": "#C53637", "Earth": "#784330",
+    "Metal": "#916F0C", "Water": "#0F74C4", "Heart": "#974FA7",
 }
+
+# 字形色 = Theme.GlyphColor / tokens.json 的 *-glyph(Boss 当前阶段字、头领亮色、金属类配饰都读它)。
+# 金、土 2026-10-19 金土分家改为琥珀金 / 赭红褐(原 #6B6449 冷灰 / #82552A)。
+GLYPH = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#6A2B22",
+         "Metal": "#8F5C00", "Water": "#0A5E9E", "Heart": "#7E4190"}
 
 # 熔团摆位(比稿 A):四字挤向画布中下,互相压叠、轻微错位。[中心 x, 中心 y, 缩放, 旋转°]
 # 眼睛开在团块中心 EYES —— 运行时剩下的字向 CENTER 收拢(Boss 越打越小)
@@ -63,7 +69,7 @@ def _f(v):
     return f"{v:.1f}".rstrip("0").rstrip(".")
 
 
-def spear(x, y, h=64, color="#6B6449"):
+def spear(x, y, h=64, color=GLYPH["Metal"]):
     return (f'<path d="M{x} {y + h} L{x} {y}" stroke="{INK}" stroke-width="5" stroke-linecap="round"/>'
             f'<path d="M{x - 9} {y + 14} L{x} {y - 12} L{x + 9} {y + 14} Z" fill="{color}"/>')
 
@@ -106,7 +112,7 @@ def snow(x, y, r, color="#9FC6E6"):
     return f'<g opacity=".8">{arms}</g>'
 
 
-def blade(x, y, h=70, color="#B3A382"):
+def blade(x, y, h=70, color=EL["Metal"]):
     return (f'<path d="M{x - 8} {y + h} L{x} {y} L{x + 8} {y + h} Z" fill="{color}" opacity=".85"/>'
             f'<path d="M{x} {y + 8} L{x} {y + h - 6}" stroke="{PAPER}" stroke-width="1.5" opacity=".7"/>')
 
@@ -145,7 +151,7 @@ def strata(color=EL["Earth"]):
                    for y, w, o in ((452, 10, .45), (474, 7, .35), (492, 5, .25)))
 
 
-def ridge(color="#6B6449"):
+def ridge(color=GLYPH["Metal"]):
     return f'<path d="M20 330 L110 200 L170 260 L250 130 L330 250 L400 180 L492 320" fill="none" stroke="{color}" stroke-width="7" stroke-linejoin="round" opacity=".32"/>'
 
 
@@ -187,7 +193,7 @@ BOSSES = [
      lambda: dots([(80, 90), (130, 60), (400, 70), (450, 110), (430, 40)], 5, "#F2B45A", .85)
      + "".join(flame(x, 494, .7) for x in range(50, 480, 56))),
     ("积土成山", "jituchengshan", ("Earth", "Earth", "Heart", "Earth"),
-     lambda: strata() + rock(60, 400, 16) + rock(452, 396, 18) + '<path d="M256 26 L286 70 L226 70 Z" fill="#997C3C" opacity=".5"/>'),
+     lambda: strata() + rock(60, 400, 16) + rock(452, 396, 18) + f'<path d="M256 26 L286 70 L226 70 Z" fill="{EL["Earth"]}" opacity=".5"/>'),
     ("山崩地裂", "shanbengdilie", ("Earth", "Earth", "Earth", "Metal"),
      lambda: crack([(20, 470), (120, 450), (160, 488), (250, 456), (300, 496), (380, 452), (492, 478)], width=6)
      + crack([(250, 456), (262, 420)], width=4) + rock(80, 80, 20) + rock(430, 60, 24) + rock(470, 150, 12)),
@@ -387,7 +393,7 @@ def bell(x, y, s=1.0, color="#6E8C7A"):
              f'L{_f(x + w * .6)} {y} Z" fill="{color}" opacity=".7"/>'
              f'<path d="M{_f(x - 8 * s)} {y} L{_f(x - 8 * s)} {_f(y - 14 * s)} L{_f(x + 8 * s)} {_f(y - 14 * s)} '
              f'L{_f(x + 8 * s)} {y}" fill="none" stroke="{color}" stroke-width="{_f(4 * s)}" opacity=".8"/>')
-    studs = dots([(_f(x + dx * w), _f(y + dy * h)) for dx in (-.5, 0, .5) for dy in (.3, .55)], _f(3.5 * s), "#B3A382", .8)
+    studs = dots([(_f(x + dx * w), _f(y + dy * h)) for dx in (-.5, 0, .5) for dy in (.3, .55)], _f(3.5 * s), EL["Metal"], .8)
     rings = "".join(f'<path d="M{_f(x + w + r)} {_f(y + h * .2)} Q {_f(x + w + r + 12 * s)} {_f(y + h * .55)} '
                     f'{_f(x + w + r)} {_f(y + h * .9)}" fill="none" stroke="{color}" stroke-width="3" opacity=".45" '
                     f'stroke-linecap="round"/>' for r in (14 * s, 30 * s))
@@ -414,7 +420,7 @@ def slips(x, y, n=6, color="#B08A4E"):
     return strips + cords
 
 
-def book_knife(x, y, color="#6B6449"):
+def book_knife(x, y, color=GLYPH["Metal"]):
     """书刀:削竹简改字的窄刃刀,斜插在右上 —— 刃比 Boss 的 blade 宽且深,免得淡成一根线。"""
     return (f'<g transform="rotate(30 {x} {y + 70})">'
             f'<path d="M{x - 13} {y + 120} L{x - 4} {y} Q {x + 14} {y + 30} {x + 13} {y + 120} Z" fill="{color}" opacity=".8"/>'
@@ -547,10 +553,9 @@ def build_leader(name, slug, element, layout, eyes, holes, deco):
 
 # 预览用的运行时着色(与 MobView.InitLeaderRig 同一推导,2026-10-18 控制方裁定):
 # 亮 = 本系字形色 Theme.GlyphColor;深 = 亮色向 Theme.Ink 插值 35%(Color.Lerp(light, Ink, 0.35))。
-# 金系例外(2026-10-19 用户拍板):字形色 #6B6449 冷灰,两字发灰褐、深浅差小 —— 亮改取 LEADER_LIGHT 里的现有 token。
-# 不新增 token;上字 c0 染深、下字 c1 染亮。运行时若改配法,只动这里与 MobView。
-GLYPH = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#82552A",
-         "Metal": "#6B6449", "Water": "#0A5E9E", "Heart": "#7E4190"}
+# 金系例外(2026-10-19 用户拍板):当时字形色 #6B6449 冷灰,两字发灰褐、深浅差小 —— 亮改取 LEADER_LIGHT 里的现有 token
+# (同日金土分家后金字形色已是琥珀金 #8F5C00,例外按 README「头领不改」照旧保留)。
+# 不新增 token;上字 c0 染深、下字 c1 染亮。运行时若改配法,只动这里与 MobView。GLYPH 表见文件开头。
 LEADER_DEEPEN = 0.35
 LEADER_LIGHT = {"Metal": "#CA9D33"}   # Theme.Gold 赭金(0.791, 0.617, 0.199)
 
