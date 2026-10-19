@@ -198,6 +198,8 @@
   "battle.msg.dismantle_success": "拆「{charId}」",
   "battle.msg.shield_broken": "  护盾被掀空({amount})",
   "battle.msg.shield_decay": "护盾减半留用 · {from} → {to}",
+  "battle.msg.recipe_wheel_got": "配方转盘:获得配方「{charId}」(本局)",
+  "battle.msg.unfamiliar_note": "「{charId}」生疏:效果 ×{percent}%,按 Lv1 计",
   "battle.msg.slot_occupied_pending": "选的位置上站着人,出字待确认",
   "battle.msg.suppress_downgraded": "  封禁对首领降级——特殊能力仍会释放,只削护甲减半",
   "battle.msg.unseal": "  解封:「{charId}」属性变为{element}系",

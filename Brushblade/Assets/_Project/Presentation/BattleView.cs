@@ -4857,7 +4857,14 @@ namespace Brushblade.Presentation
             // 引擎(下一场才 NewBattle),读到的是上一场的次数表,而这一页展示的正是下一场的字库。
             // Reviving 是同一场里看广告补给(不走 NewBattle),照常查。
             bool live = _run.Phase == RunPhase.InBattle || _run.Phase == RunPhase.Reviving;
-            _modal = CharPreview.Show(transform, def, _graph, _run.CardLevel(charId),
+            // 生疏(spec 2026-10-19 §3):卡面标记与详情行等 designer 稿;落地前先按 Lv1 显示、底部提示行补一句
+            bool unfamiliar = battle.IsUnfamiliar(charId);
+            if (unfamiliar)
+            {
+                _message = Strings.T("battle.msg.unfamiliar_note", ("charId", charId), ("percent", MetaRules.UnfamiliarPercent));
+                if (_messageLabel != null) _messageLabel.text = _message;
+            }
+            _modal = CharPreview.Show(transform, def, _graph, unfamiliar ? 1 : _run.CardLevel(charId),
                 new CharPreview.BattleContext
                 {
                     Pool = battle.Pool,
@@ -5686,6 +5693,12 @@ namespace Brushblade.Presentation
                 ? Strings.T("battle.msg.shield_decay",
                     ("from", shieldBefore), ("to", _run.CarriedNormalShield))
                 : "";
+            // 配方转盘(spec 2026-10-19 §2):转盘 UI 等 designer 稿,落地前先用提示行报结果
+            if (_run.LastRecipeWheel != null)
+            {
+                string got = Strings.T("battle.msg.recipe_wheel_got", ("charId", _run.LastRecipeWheel.Target));
+                _message = _message.Length > 0 ? got + "  " + _message : got;
+            }
             Refresh();
         }
 
@@ -6190,8 +6203,8 @@ namespace Brushblade.Presentation
                 var option = evt.Options[i];
                 bool affordable = option.InkCost <= _run.AvailableInk
                     && option.ComponentCost <= _run.CarriedPool.Count
-                    && !_run.IsEventOptionLocked(option) // 本局改上限次数已满 10(2026-10-19)
-                    && AnyGainable(option); // 给的字都不在已解锁卡池 → 整个选项置灰(2026-07-20)
+                    && !_run.IsEventOptionLocked(option); // 本局改上限次数已满 10(2026-10-19)
+                // 2026-07-20 起卡池外的字整项置灰;2026-10-19 起 Core 照收并记进本局配方集(拆了能合回来),置灰撤掉
                 var button = Ui.RoundButton(optionRow, option.Label, () =>
                 {
                     // 结算飘字播放期间钮还在屏上(刻意不重绘,不然飘字当场被盖掉)——
@@ -6486,28 +6499,6 @@ namespace Brushblade.Presentation
             _eventPicks.Clear();
         }
 
-        /// <summary>选项是否还有能入手的字:不给字的选项(纯墨锭/血量)恒为 true。</summary>
-        private bool AnyGainable(EventOption option)
-        {
-            if (option.GainCharChoices.Count > 0)
-            {
-                foreach (var id in option.GainCharChoices)
-                    if (CanGain(id)) return true;
-                return false;
-            }
-            return option.GainChar == null || CanGain(option.GainChar);
-        }
-
-        /// <summary>此字能否入手:已解锁卡池之外的字换到也不能合、口径与战利品一致(RunEngine 会拒)。</summary>
-        private bool CanGain(string charId)
-        {
-            var unlocked = Battle.UnlockedChars;
-            if (unlocked == null) return true;
-            foreach (var id in unlocked)
-                if (id == charId) return true;
-            return false;
-        }
-
         /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。
         /// <paramref name="parent"/> 由 <see cref="DrawEvent"/> 传入 —— 2026-09-02(轮三 Task 4)
         /// 之前这里自己找 _poolRow(屏幕下方那条部件池带),而奇遇的其余三件已经收进
@@ -6519,13 +6510,6 @@ namespace Brushblade.Presentation
                 int choice = i;
                 string charId = option.GainCharChoices[i];
                 var def = _graph.Get(charId);
-                if (!CanGain(charId)) // 不在已解锁卡池:换到也白换,直接置灰(2026-07-20)
-                {
-                    var locked = Ui.RoundButton(parent, charId, null,
-                        Theme.LockedBg, Theme.TextDim, EventPartGlyphFont, new Vector2(EventPartW, EventPartH), 12);
-                    locked.interactable = false;
-                    continue;
-                }
                 Ui.RoundButton(parent, charId, () =>
                 {
                     _pendingCharChoice = choice;
