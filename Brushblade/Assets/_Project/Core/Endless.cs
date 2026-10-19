@@ -382,6 +382,8 @@ namespace Brushblade.Core
         /// <summary>奇遇累计的血量上限加成(可为负),本次登塔生效、跨段延续(2026-09-18)。
         /// 上限本体仍从养成态现算,真实上限 = PlayerMaxHpFor(meta) + MaxHpBonus。</summary>
         public int MaxHpBonus { get; set; }
+        /// <summary>本次登塔已用掉的改上限奇遇次数(RunEngine.MaxHpEventCap = 10,2026-10-19),与 MaxHpBonus 同进同出。</summary>
+        public int MaxHpEventCount { get; set; }
         public List<string> Library { get; set; } = new();
         public List<string> Pool { get; set; } = new();
         /// <summary>本次登塔累计已挣的墨锭,**纯展示量**(2026-08-30 起)——安全层与结算弹窗
@@ -459,13 +461,16 @@ namespace Brushblade.Core
         /// 3×2 改版补偿(2026-10-18 收尾 spec §4,只动层墨锭、不动击杀单价):改版让 Boss 随从提前到 15 层
         /// (击杀墨锭多)、普通层满员 8 → 6(37 层起击杀墨锭少)。对应两刀:11 层起 Boss 层底数 5 → 4,
         /// 31 层起普通层 ×4/3(向下取整)。整趟墨锭(层清算 + 击杀 + 奇遇)对改版前:30 层 ±0%、
-        /// 50 层 −0.5%、60 层 −0.1%(tools/design/economy_model.py 镜像同一公式;70 层起渐偏多,100 层约 +8%)。</summary>
+        /// 50 层 −0.5%、60 层 −0.1%(tools/design/economy_model.py 镜像同一公式)。
+        /// 2026-10-19:×4/3 按层翻倍、击杀缺口只线性涨,70 层后越补越多(100 层 +8.5%),
+        /// 71 层起普通层改 ×37/32 —— 80 层 +0.3%、100 层 +0.4%(70 层仍 +1.7%)。</summary>
         public static int FloorInk(EndlessConfig config, int depth)
         {
             int tier = (depth - 1) / 10;                  // 1~10 档 0,11~20 档 1……
             if (config.IsBossDepth(depth))
                 return (tier >= 1 ? 4 : 5) << tier;
             int ink = 2 << tier;
+            if (tier >= 7) return ink * 37 / 32;
             return tier >= 3 ? ink * 4 / 3 : ink;
         }
 

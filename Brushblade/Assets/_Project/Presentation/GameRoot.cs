@@ -287,7 +287,8 @@ namespace Brushblade.Presentation
                 poolExpanded: resume == null && snapshot.PoolExpanded,
                 // 奇遇上限加成本次登塔生效(2026-09-18):与 PlayerHp 同一次落盘,一起传回
                 maxHpBonus: snapshot.MaxHpBonus,
-                startingOpenings: snapshot.CarriedOpenings);
+                startingOpenings: snapshot.CarriedOpenings,
+                maxHpEventCount: snapshot.MaxHpEventCount); // 改上限次数跟随整次登塔(2026-10-19)
             if (resume == null && snapshot.Revived)
                 run.MarkRevived(); // 防重进本层二次复活(2026-07-24)
 
@@ -407,6 +408,7 @@ namespace Brushblade.Presentation
             CommitEventInk(run); // 本段净额(层清算 + 字摊)即时结进账户
             snapshot.PlayerHp = run.Battle.PlayerHp;
             snapshot.MaxHpBonus = run.MaxHpBonus;
+            snapshot.MaxHpEventCount = run.MaxHpEventCount;
             snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
             snapshot.EarnedInk = carriedInk + run.EarnedInk; // 展示用累计,钱本身已入账
@@ -422,6 +424,7 @@ namespace Brushblade.Presentation
         {
             snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:含调息/吐纳胜利回血(2026-10-02),此时 Battle 是刚打完的那场(回血前)
             snapshot.MaxHpBonus = run.MaxHpBonus;
+            snapshot.MaxHpEventCount = run.MaxHpEventCount;
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
             snapshot.EarnedInk = earnedSoFar; // 展示用累计,钱本身已入账
@@ -475,6 +478,7 @@ namespace Brushblade.Presentation
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:含调息/吐纳胜利回血(2026-10-02),此时 Battle 是刚打完的那场(回血前)
             snapshot.MaxHpBonus = run.MaxHpBonus; // 奇遇上限加成跨段延续(本次登塔生效,2026-09-18)
+            snapshot.MaxHpEventCount = run.MaxHpEventCount; // 改上限次数同进同出(2026-10-19)
             // 用携带态而非 Battle:Boss 层战利品(2026-07-20)加在携带态上,读 Battle 会把它丢掉
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary); // 出字即消耗,无回归(v0.7)
             snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);

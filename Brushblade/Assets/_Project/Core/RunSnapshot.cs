@@ -155,6 +155,7 @@ namespace Brushblade.Core
         public List<string> CarriedPool { get; set; } = new();
         public int CarriedHp { get; set; }
         public int MaxHpBonus { get; set; } // 局内血量上限加成(奇遇累加,2026-08-04)
+        public int MaxHpEventCount { get; set; } // 本局已用掉的改上限次数(上限 10,2026-10-19)
         public int CarriedNormalShield { get; set; }
         public int CarriedShieldAccum { get; set; }
         public int CarriedHealAccum { get; set; }

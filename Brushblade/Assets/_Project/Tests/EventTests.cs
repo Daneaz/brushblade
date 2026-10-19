@@ -746,9 +746,12 @@ namespace Brushblade.Core.Tests
         // ---- 局内血量上限(2026-08-04):怪物 scale 无上限,靠奇遇把上限顶上去 ----
 
         /// <summary>上限奇遇:option 0 直接 +30%,option 1 是 80% 掷正/20% 反噬,option 2 拿 1 部件换。</summary>
-        private static RunEngine MaxHpRun(int seed = 7, params string[] pool) => new(
+        private static RunEngine MaxHpRun(int seed = 7, params string[] pool) => MaxHpRun(seed, 0, pool);
+
+        /// <summary>usedMaxHpEvents = 本局已用掉的改上限次数(跨段带进来的计数,2026-10-19 次数上限)。</summary>
+        private static RunEngine MaxHpRun(int seed, int usedMaxHpEvents, params string[] pool) => new(
             Graph(), MaxHpConfig(), new BattleConfig { PlayerMaxHp = 100 },
-            new[] { "焚", "焚" }, pool, seed); // 出字即消耗,连打两场要两张
+            new[] { "焚", "焚" }, pool, seed, maxHpEventCount: usedMaxHpEvents); // 出字即消耗,连打两场要两张
 
         private static RunConfig MaxHpConfig() => new RunConfig
             {
@@ -771,6 +774,7 @@ namespace Brushblade.Core.Tests
                             new EventOption { Label = "静养", MaxHpPercent = 30 },
                             new EventOption { Label = "猛练", MaxHpPercent = 30, MaxHpChancePercent = 80 },
                             new EventOption { Label = "以物易气", MaxHpPercent = 30, ComponentCost = 1 },
+                            new EventOption { Label = "离开" },
                         },
                     },
                 },
@@ -790,7 +794,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void MaxHpPercent_AddsLinearlyOnBaseCap() // 线性:每次都按基础上限算(2026-10-18 改,原复利叠到 8 万血)
+        public void MaxHpPercent_Compounds() // 复利:第二次踩在已提升的上限上
         {
             var run = MaxHpRun();
             WinAndSkipReward(run);
@@ -800,7 +804,7 @@ namespace Brushblade.Core.Tests
             run.SkipReward();
             Assert.That(ChooseAndAdvance(run, 0), Is.True);
 
-            Assert.That(run.Battle.MaxHp, Is.EqualTo(160)); // 130 + 100×0.3 = 30(不再按已提升的 130 复利)
+            Assert.That(run.Battle.MaxHp, Is.EqualTo(169)); // 130 + floor(130×0.3)=39
         }
 
         [Test]
@@ -837,6 +841,65 @@ namespace Brushblade.Core.Tests
                 new BattleConfig { PlayerMaxHp = 100 }, null, 0, 0);
 
             Assert.That(restored.Battle.MaxHp, Is.EqualTo(130));
+        }
+
+        // ---- 次数上限(2026-10-19 用户拍板):复利保留,一局最多 10 次改上限 ----
+
+        [Test]
+        public void MaxHpEventCap_TenthAllowed_EleventhLocked()
+        {
+            var run = MaxHpRun(seed: 7, usedMaxHpEvents: 9, "木");
+            WinAndSkipReward(run);
+            Assert.That(run.IsEventOptionLocked(run.CurrentEvent.Options[0]), Is.False);
+            Assert.That(ChooseAndAdvance(run, 0), Is.True);              // 第 10 次:照常
+            Assert.That(run.MaxHpEventCount, Is.EqualTo(10));
+            Assert.That(run.Battle.MaxHp, Is.EqualTo(130));
+
+            run.Battle.Cast("焚");
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            var options = run.CurrentEvent.Options;
+            Assert.That(run.IsEventOptionLocked(options[0]), Is.True);
+            Assert.That(run.IsEventOptionLocked(options[3]), Is.False);    // 不带 MaxHpPercent 的照常
+            Assert.That(run.ChooseEventOption(0), Is.False);              // 第 11 次:三种改上限都拒
+            Assert.That(run.ChooseEventOption(1), Is.False);
+            Assert.That(run.ChooseEventOption(2, new[] { 0 }), Is.False);
+            Assert.That(run.CarriedPool.Contains("木"), Is.True, "被拒不能先扣部件");
+            Assert.That(run.EffectiveMaxHp, Is.EqualTo(130));
+            Assert.That(run.MaxHpEventCount, Is.EqualTo(10));
+            Assert.That(run.ChooseEventOption(3), Is.True);               // 离开仍可选
+        }
+
+        [Test]
+        public void MaxHpEventCap_BackfireCountsToo() // 淬骨掷空反向扣的那次也算一次
+        {
+            var run = MaxHpRun(seed: BackfireSeed());
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(1), Is.True);
+            Assert.That(run.EffectiveMaxHp, Is.EqualTo(70));
+            Assert.That(run.MaxHpEventCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MaxHpEventCount_SurvivesSnapshotRoundTrip() // 续爬不能把次数清零
+        {
+            var run = MaxHpRun(seed: 7, usedMaxHpEvents: 3);
+            WinAndSkipReward(run);
+            run.ChooseEventOption(0);
+
+            var restored = RunEngine.Restore(run.Capture(), Graph(), MaxHpConfig(),
+                new BattleConfig { PlayerMaxHp = 100 }, null, 0, 0);
+
+            Assert.That(restored.MaxHpEventCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void MaxHpEventCount_SurvivesEndlessSaveRoundTrip() // 跨段走 EndlessSaveState,落盘也得带上
+        {
+            var meta = new MetaState { EndlessV2 = new EndlessSaveState { MaxHpEventCount = 7 } };
+            var restored = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
+            Assert.That(restored.EndlessV2.MaxHpEventCount, Is.EqualTo(7));
         }
 
         /// <summary>找一个让 80% 判定落空的种子 —— 断言反噬分支不能靠运气。</summary>

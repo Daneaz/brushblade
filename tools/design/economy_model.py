@@ -113,11 +113,14 @@ def is_boss(d):
 
 
 def floor_ink(d):
-    # 2026-10-18 3×2 墨锭补偿(收尾 spec §4,镜像 EndlessRules.FloorInk):11 层起 Boss 底数 5 → 4,31 层起普通层 ×4/3
+    # 2026-10-18 3×2 墨锭补偿(收尾 spec §4,镜像 EndlessRules.FloorInk):11 层起 Boss 底数 5 → 4,31 层起普通层 ×4/3;
+    # 2026-10-19 71 层起普通层改 ×37/32(×4/3 在 70 层后补过头,100 层整趟 +8.5% → +0.4%)
     tier = (d - 1) // 10
     if is_boss(d):
         return (4 if tier >= 1 else 5) << tier
     ink = 2 << tier
+    if tier >= 7:
+        return ink * 37 // 32
     return ink * 4 // 3 if tier >= 3 else ink
 
 

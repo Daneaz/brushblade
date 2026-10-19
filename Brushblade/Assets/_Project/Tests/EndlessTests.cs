@@ -377,6 +377,19 @@ namespace Brushblade.Core.Tests
             Assert.That(EndlessRules.FloorInk(config, 51), Is.EqualTo(85), "64 × 4/3");
         }
 
+        /// <summary>71 层起普通层 ×4/3 → ×37/32(2026-10-19 用户拍板):×4/3 是按层翻倍的,而它要抵的击杀墨锭缺口
+        /// 只按层线性涨,70 层后越补越多(100 层整趟 +8.5%);压回后 30/50/60/80/100 层整趟对改版前都在 ±1% 内。</summary>
+        [Test]
+        public void FloorInk_From71_NormalFloorsUse37Over32()
+        {
+            var config = Config();
+            Assert.That(EndlessRules.FloorInk(config, 69), Is.EqualTo(170), "61~70 仍是 128 × 4/3");
+            Assert.That(EndlessRules.FloorInk(config, 70), Is.EqualTo(256), "Boss 4 << 6 不变");
+            Assert.That(EndlessRules.FloorInk(config, 71), Is.EqualTo(296), "256 × 37/32");
+            Assert.That(EndlessRules.FloorInk(config, 80), Is.EqualTo(512), "Boss 4 << 7 不变");
+            Assert.That(EndlessRules.FloorInk(config, 91), Is.EqualTo(1184), "1024 × 37/32");
+        }
+
         // ---- 成语 Boss 生成(20.7) ----
 
         private static IdiomBossDef Idiom() => new()

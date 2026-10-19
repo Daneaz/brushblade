@@ -6190,6 +6190,7 @@ namespace Brushblade.Presentation
                 var option = evt.Options[i];
                 bool affordable = option.InkCost <= _run.AvailableInk
                     && option.ComponentCost <= _run.CarriedPool.Count
+                    && !_run.IsEventOptionLocked(option) // 本局改上限次数已满 10(2026-10-19)
                     && AnyGainable(option); // 给的字都不在已解锁卡池 → 整个选项置灰(2026-07-20)
                 var button = Ui.RoundButton(optionRow, option.Label, () =>
                 {
