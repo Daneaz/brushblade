@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./pal.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    /* 五行配色 · 新旧对照。所有色块由 pal.js 按「常规 / 绿弱 / 红弱」三种色觉逐色换算后上色(Machado 2009,严重度 1.0)。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .board { width: 1320px; height: 720px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    .lead { font-size: 10px; color: #5D646F; margin-bottom: 14px; }
+    h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
+    .grid { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 8px 18px; align-items: center; margin-bottom: 18px; }
+    .grid .hd { font-size: 10px; color: #5D646F; font-weight: 600; }
+    .grid .rl { font-size: 10px; color: #2C333D; font-weight: 600; }
+    .grid .rl small { display: block; font-weight: 400; color: #676F7A; font-size: 8.5px; }
+    .cell { display: flex; gap: 14px; align-items: center; padding: 8px 10px; border-radius: 8px; background: #FBF8F1; border: 1px solid #DED7C9; }
+    .grp { display: flex; gap: 4px; align-items: center; }
+    .chip { width: 26px; height: 18px; border-radius: 4px; color: #fff; font-family: "Noto Serif SC", serif; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+    .part { width: 26px; height: 31px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 13px; }
+    .tile { width: 30px; height: 37px; box-sizing: border-box; border-radius: 4px; border: 1.2px solid #7945AB; background: #FFFDF7; display: flex; align-items: flex-start; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 14px; padding-top: 5px; }
+    .detail { display: grid; grid-template-columns: 50px repeat(2, 1fr); gap: 6px 18px; align-items: center; }
+    .drow { display: flex; gap: 12px; align-items: center; padding: 6px 10px; border-radius: 8px; background: #FBF8F1; border: 1px solid #DED7C9; }
+    .face { width: 128px; height: 26px; border-radius: 6px; display: flex; align-items: center; gap: 6px; padding: 0 7px; box-sizing: border-box; font-size: 9.5px; color: #2C333D; }
+    .face .seal { width: 13px; height: 13px; border-radius: 2.5px; color: #fff; font-family: "Noto Serif SC", serif; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+    .face b { font-weight: 700; }
+    .unit { display: flex; align-items: center; gap: 3px; font-family: "Noto Serif SC", serif; font-size: 9.5px; font-weight: 600; }
+    .unit .eb { height: 10px; padding: 0 2.5px; border-radius: 2.5px; color: #fff; font-family: "Noto Sans SC", sans-serif; font-size: 7.2px; display: inline-flex; align-items: center; }
+    .tab { height: 18px; padding: 0 8px; border-radius: 9px; font-size: 9px; display: inline-flex; align-items: center; border: 1px solid; }
+    .el { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 700; }
+    .ctl { display: flex; gap: 5px; align-items: center; font-size: 9.5px; color: #5D646F; margin: 0 0 8px; }
+    .ctl button { height: 20px; padding: 0 9px; border: none; border-radius: 10px; background: #DAD7D0; color: #2C333D; font-size: 9px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: #3D4E69; color: #fff; }
+    .note { font-size: 9px; color: #696151; margin-top: 10px; line-height: 1.6; }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>五行配色 · 新旧对照</h2>
+  <div class="lead">只动两系:<b>金 → 铁青钢色</b>(冷)、<b>土 → 土黄</b>(去红、更黄);木主色顺手压深一档(白字 4.05 → 4.65,原本不达标);水、火不动。五行古意本就是「金白 · 土黄」,冷金暖土一眼分家。</div>
+
+  <h3>① 五系并排 × 三种色觉(主色 chip · 部件方块 · 字牌)</h3>
+  <div class="grid">
+    <span></span><span class="hd">旧</span><span class="hd">新</span>
+    <sc-for list="{{ strips }}" as="r">
+      <span class="rl">{{ r.n }}<small>{{ r.sub }}</small></span>
+      <sc-for list="{{ r.cells }}" as="c">
+        <div class="cell">
+          <div class="grp"><sc-for list="{{ c.chips }}" as="x"><i class="chip" style="{{ x.s }}">{{ x.t }}</i></sc-for></div>
+          <div class="grp"><sc-for list="{{ c.parts }}" as="x"><i class="part" style="{{ x.s }}">{{ x.t }}</i></sc-for></div>
+          <div class="grp"><sc-for list="{{ c.tiles }}" as="x"><i class="tile" style="{{ x.s }}">{{ x.t }}</i></sc-for></div>
+        </div>
+      </sc-for>
+    </sc-for>
+  </div>
+
+  <h3>② 逐系用到的地方(旧 → 新)</h3>
+  <div class="ctl"><span>色觉</span><sc-for list="{{ vBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for></div>
+  <div class="detail">
+    <span></span><span class="hd" style="font-size:10px;color:#5D646F;font-weight:600">旧</span><span class="hd" style="font-size:10px;color:#5D646F;font-weight:600">新</span>
+    <sc-for list="{{ rows }}" as="r">
+      <span class="el" style="{{ r.elS }}">{{ r.n }}</span>
+      <sc-for list="{{ r.cells }}" as="c">
+        <div class="drow">
+          <i class="chip" style="{{ c.chip }}">{{ r.n }}</i>
+          <i class="part" style="{{ c.part }}">{{ r.p }}</i>
+          <i class="tile" style="{{ c.tile }}">{{ r.g }}</i>
+          <div class="face" style="{{ c.face }}"><i class="seal" style="{{ c.seal }}">{{ r.n }}</i><b style="{{ c.fg }}">本系词条</b> 数值 12</div>
+          <span class="unit">{{ r.g }}灵<i class="eb" style="{{ c.badge }}">{{ r.n }}</i></span>
+          <span class="tab" style="{{ c.tab }}">{{ r.n }}系</span>
+        </div>
+      </sc-for>
+    </sc-for>
+  </div>
+  <div class="note">样例依次是:属性 chip / 元件(主色底白字)· 部件池方块(淡底 + 深前景)· 字牌大字(字形色,紫档牌框)· 字卡详情五行面(五行面底 + 面印 + 本系词条 -fg)· 战场头行属性徽章(字形色底白字)· 页签 / 筛选(淡底 + 前景描边)。</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 720}}'>
+var WX = window.WX;
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { v: 'normal' }; }
+  renderVals() {
+    var self = this, V = this.state.v;
+    function set(P, mode) {
+      var S = function (h) { return WX.sim(h, mode); };
+      return {
+        chips: WX.ORDER.map(function (e) { return { t: WX.NAME[e], s: 'background:' + S(P[e][0]) }; }),
+        parts: WX.ORDER.map(function (e) { return { t: WX.PART[e], s: 'background:' + S(P[e][1]) + ';color:' + S(P[e][2]) }; }),
+        tiles: WX.ORDER.map(function (e) { return { t: WX.GLYPH[e], s: 'color:' + S(P[e][3]) + ';border-color:' + S('#7945AB') }; })
+      };
+    }
+    var strips = [['常规', 'normal', ''], ['绿弱', 'deutan', '红绿色弱 · 最常见'], ['红弱', 'protan', '红绿色弱']].map(function (m) {
+      return { n: m[0], sub: m[2], cells: [set(WX.OLD, m[1]), set(WX.NEW, m[1])] };
+    });
+    var S = function (h) { return WX.sim(h, V); };
+    var rows = WX.ORDER.map(function (e) {
+      return { n: WX.NAME[e], p: WX.PART[e], g: WX.GLYPH[e], elS: 'color:' + S(WX.NEW[e][3]),
+        cells: [WX.OLD, WX.NEW].map(function (P) { var c = P[e];
+          return { chip: 'background:' + S(c[0]), part: 'background:' + S(c[1]) + ';color:' + S(c[2]), tile: 'color:' + S(c[3]) + ';border-color:' + S('#7945AB'),
+            face: 'background:' + S(c[4]), seal: 'background:' + S(c[3]), fg: 'color:' + S(c[2]), badge: 'background:' + S(c[3]),
+            tab: 'background:' + S(c[1]) + ';color:' + S(c[2]) + ';border-color:' + S(c[2]) + '55' }; }) };
+    });
+    return { strips: strips, rows: rows,
+      vBtns: [['normal', '常规'], ['deutan', '绿弱'], ['protan', '红弱']].map(function (b) { return { n: b[1], cls: V === b[0] ? 'on' : '', pick: function () { self.setState({ v: b[0] }); } }; }) };
+  }
+}
+</script>
+</body>
+</html>

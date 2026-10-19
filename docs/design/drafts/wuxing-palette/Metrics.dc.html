@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./pal.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .board { width: 1320px; height: 1020px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 18px 30px; align-content: start; }
+    h2 { grid-column: 1 / -1; margin: 0; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
+    .full { grid-column: 1 / -1; }
+    table { border-collapse: collapse; font-size: 9.5px; font-variant-numeric: tabular-nums; width: 100%; }
+    th { text-align: left; font-weight: 600; color: #5D646F; padding: 4px 6px; border-bottom: 1px solid #DED7C9; white-space: nowrap; }
+    td { padding: 4px 6px; border-bottom: 1px solid #ECE6D9; white-space: nowrap; vertical-align: middle; }
+    td.k { font-weight: 600; color: #2C333D; }
+    .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid rgba(22,27,34,.15); }
+    .ok { color: #2E7D46; font-weight: 600; } .bad { color: #9B1E22; font-weight: 700; } .chg { background: #F6EDD5; }
+    p, li { font-size: 10px; line-height: 1.65; color: #2C333D; margin: 0; }
+    ul { margin: 2px 0 0; padding-left: 16px; }
+    .small { font-size: 9px; color: #696151; margin-top: 6px; line-height: 1.6; }
+  </style>
+</helmet>
+
+<div class="board">
+  <h2>五行配色 · 度量与影响面</h2>
+
+  <div class="full">
+    <h3>① 新旧 token 对照与对比度(主色 = 白字;字形色 = 白 / paper / 本系淡底;深前景 = 本系淡底)</h3>
+    <table>
+      <tr><th>token</th><th>旧</th><th>新</th><th>约束</th><th>旧对比度</th><th>新对比度</th></tr>
+      <sc-for list="{{ tok }}" as="t"><tr class="{{ t.cls }}"><td class="k">{{ t.n }}</td><td><i class="sw" style="{{ t.os }}"></i>{{ t.o }}</td><td><i class="sw" style="{{ t.ns }}"></i>{{ t.v }}</td><td>{{ t.rule }}</td><td class="{{ t.oc }}">{{ t.ov }}</td><td class="{{ t.nc }}">{{ t.nv }}</td></tr></sc-for>
+    </table>
+    <p class="small">底色给出的高亮行是改动项。五行面底(FaceTint)由代码派生(card-face 往淡底走 34%),不进 tokens:金 #F9F4E9 → #F2F7F3,土 #F9F2E3 → #FAF4DF。</p>
+  </div>
+
+  <div>
+    <h3>② 最难分的几对(ΔE,越大越好;< 20 难分)</h3>
+    <table>
+      <tr><th>层</th><th>对</th><th>常规 旧 → 新</th><th>绿弱 旧 → 新</th><th>红弱 旧 → 新</th></tr>
+      <sc-for list="{{ pairs }}" as="p"><tr><td class="k">{{ p.l }}</td><td>{{ p.n }}</td><td class="{{ p.c0 }}">{{ p.v0 }}</td><td class="{{ p.c1 }}">{{ p.v1 }}</td><td class="{{ p.c2 }}">{{ p.v2 }}</td></tr></sc-for>
+    </table>
+    <p class="small">ΔE = CIE76;色觉模拟 Machado 2009 严重度 1.0。淡底层五系都是浅色,ΔE 天然小,它总与深前景字一起出现,读的是字不是底。</p>
+  </div>
+
+  <div>
+    <h3>③ 色弱下的结论与辅助手段(后续选项)</h3>
+    <ul>
+      <li>金 / 土:新色板在三种色觉下都 ≥ 50,问题解决。</li>
+      <li><b>木 / 火 / 土在红绿色弱下仍会挤成一团橄榄色</b>(火 / 土主色绿弱 ΔE 1 → 11):红、绿、黄在这类色觉里只剩明度差,任何不动火的方案都救不回来;火又和 cinnabar(危险色)同值,不宜动。</li>
+      <li>现有缓解:战场属性徽章、属性 chip、相克图本来就写着「金木水火土」字,不靠颜色。</li>
+      <li>后续可选(本稿不做,需要时另出稿):
+        <br>a. 部件池方块与字牌角落加一枚 6pt 的五行小纹(金 = 斜线锋、木 = 竖纹、水 = 波、火 = 焰尖、土 = 横层);
+        <br>b. 设置页加「色弱辅助」开关:打开后五行面印与部件方块改为「色 + 字」双编码;
+        <br>c. 牌框光效元件(CardFrameView 的锋光 / 尘石)已按系区分形状,可作为字牌上的第二通道。</li>
+    </ul>
+  </div>
+
+  <div class="full">
+    <h3>④ 受影响的地方(实现时逐项改,值从 tokens 取)</h3>
+    <table>
+      <tr><th>位置</th><th>读的 token</th><th>说明</th></tr>
+      <sc-for list="{{ impact }}" as="r"><tr><td class="k">{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[2] }}</td></tr></sc-for>
+    </table>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 1020}}'>
+var WX = window.WX;
+class Component extends DCLogic {
+  renderVals() {
+    var key = { Metal: 'metal', Wood: 'wood', Water: 'water', Fire: 'fire', Earth: 'earth' };
+    var tok = [];
+    WX.ORDER.forEach(function (e) {
+      var o = WX.OLD[e], n = WX.NEW[e];
+      function row(suffix, i, rule, f) {
+        var ov = f(o), nv = f(n), changed = o[i] !== n[i];
+        tok.push({ n: key[e] + suffix, o: o[i], v: n[i], os: 'background:' + o[i], ns: 'background:' + n[i], rule: rule,
+          ov: ov.toFixed(2), nv: nv.toFixed(2), oc: ov >= 4.5 ? 'ok' : 'bad', nc: nv >= 4.5 ? 'ok' : 'bad', cls: changed ? 'chg' : '' });
+      }
+      row('', 0, '白字 ≥ 4.5', function (c) { return WX.cr(c[0], '#FFFFFF'); });
+      row('-soft', 1, '(底色,不单独约束)', function (c) { return WX.cr(c[2], c[1]); });
+      row('-fg', 2, '在本系淡底 ≥ 4.5', function (c) { return WX.cr(c[2], c[1]); });
+      row('-glyph', 3, '白 / paper / 淡底取最小 ≥ 4.5', function (c) { return Math.min(WX.cr(c[3], '#FFFFFF'), WX.cr(c[3], '#F6F1E7'), WX.cr(c[3], c[1])); });
+    });
+    tok = tok.filter(function (t) { return t.n.indexOf('-soft') < 0 || t.cls; });
+    var layers = [['主色', 0], ['淡底', 1], ['字形', 3]];
+    var pairs = [];
+    layers.forEach(function (L) {
+      var all = [];
+      for (var a = 0; a < 5; a++) for (var b = a + 1; b < 5; b++) {
+        var A = WX.ORDER[a], B = WX.ORDER[b], i = L[1];
+        var f = function (P, m) { return WX.de(WX.sim(P[A][i], m), WX.sim(P[B][i], m)); };
+        all.push({ l: L[0], n: WX.NAME[A] + ' / ' + WX.NAME[B], o: [f(WX.OLD, 'normal'), f(WX.OLD, 'deutan'), f(WX.OLD, 'protan')], v: [f(WX.NEW, 'normal'), f(WX.NEW, 'deutan'), f(WX.NEW, 'protan')] });
+      }
+      all.sort(function (x, y) { return Math.min(x.o[0], x.v[0]) - Math.min(y.o[0], y.v[0]); });
+      var pick = all.filter(function (p) { return /金 \/ 土|火 \/ 土|木 \/ 土|金 \/ 木|金 \/ 水/.test(p.n); });
+      pick.forEach(function (p) {
+        var r = { l: p.l, n: p.n };
+        for (var k = 0; k < 3; k++) { r['v' + k] = Math.round(p.o[k]) + ' → ' + Math.round(p.v[k]); r['c' + k] = p.v[k] < 20 ? 'bad' : (p.v[k] - p.o[k] > 5 ? 'ok' : ''); }
+        pairs.push(r);
+      });
+    });
+    var impact = [
+      ['tokens.json(system/)', 'metal / metal-soft / metal-fg / metal-glyph、earth / earth-soft / earth-fg / earth-glyph、wood', 'usage 里的对比度说明一并更新;earth 的「白字 4.5:1」注改新值'],
+      ['Theme.cs', 'ElementColor / GlyphColor / ElementSoft / ElementSoftFg', '四个 switch 的金、土(木主色)常量与注释;FaceTint 派生自动跟上;branding 测试对账 Theme.cs ↔ tokens'],
+      ['字牌(GlyphTile、MiniGlyphTile、详情大牌)', 'glyph', '字形色;CardFrameView 锋光 SteelEdge #5B6B7A 可改为直接取 metal 主色(同族冷钢)'],
+      ['属性 chip / 元件 / 战场属性徽章 / 攻击模式 chip', '主色 / glyph', 'UnitDetail.Positioning 引用 earth 主色(站位色)随之变黄,确认可接受'],
+      ['部件池方块 / 出阵迷你牌 / 手牌背面', 'soft + fg', '同源徽标「≈X」用主色实底白字'],
+      ['字卡详情页签与五行面(abilitytext)', 'FaceTint / fg / glyph', '词条 -fg 粗体、面印底 glyph'],
+      ['相克图 UI/wuxing_ke.png', '主色(光栅)', '⚠ 光栅图,要重出 PNG(五行原色圆点与箭头)'],
+      ['Boss 讹熔 wisp SVG(tools/design/bosses)、build_boss_art.py spear()', '#6B6449 硬编码', '金系配饰的旧橄榄灰;重生成 Boss 图层后 sha 变,按管线流程走'],
+      ['current/ 现状卡与 drafts 画布、demos', '各处硬编码 hex(约 190 处)', 'current/ 随实现提交同步改;历史 drafts / demos 不追改(以 current 为准)'],
+      ['字体子集', '—', '无新文案,不需要重跑']
+    ];
+    return { tok: tok, pairs: pairs, impact: impact };
+  }
+}
+</script>
+</body>
+</html>
