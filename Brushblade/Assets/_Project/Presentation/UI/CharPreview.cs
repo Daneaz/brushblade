@@ -415,17 +415,16 @@ namespace Brushblade.Presentation
                 CostBoxes(lvRow.transform, def, meta, level, rest - 21f);   // 成本靠右:前面垫的弹簧又占一道行距
         }
 
-        /// <summary>这一档从哪只匣子起开得出。口径同 <see cref="ChestRules"/> 的稀有度权重表。</summary>
-        private static string ChestHint(CardRarity rarity) => rarity switch
+        /// <summary>这一档从哪只匣子起开得出:直接读 <see cref="ChestRules.LowestTierFor"/>(权重表现算),
+        /// 不手抄 —— 2026-10-20 之前这里是逐档写死的句子,早就和权重表对不上。
+        /// 最低一档就能出的(白绿蓝)说「起就能开出」,其余说「及以上有机会」。</summary>
+        private static string ChestHint(CardRarity rarity)
         {
-            CardRarity.White => Strings.T("collection.chest_hint.common"),
-            CardRarity.Green => Strings.T("collection.chest_hint.common"),
-            CardRarity.Blue => Strings.T("collection.chest_hint.blue"),
-            CardRarity.Purple => Strings.T("collection.chest_hint.purple"),
-            CardRarity.Gold => Strings.T("collection.chest_hint.gold"),
-            CardRarity.Orange => Strings.T("collection.chest_hint.orange"),
-            _ => Strings.T("collection.chest_hint.red"),
-        };
+            var tier = ChestRules.LowestTierFor(rarity);
+            return tier == ChestRules.LowestTier
+                ? Strings.T("collection.chest_hint.common", ("tierName", ChestRules.TierName(tier)))
+                : Strings.T("collection.chest_hint.from", ("tierName", ChestRules.TierName(tier)));
+        }
 
         /// <summary>两格成本(重复卡 / 墨锭):够 = ad-green-bg + upgrade-text,不够 = panel-inset + cinnabar-dark。
         /// 16:9 下等级行只余约 26(E2 附录 §4.1 临界),墨锭位数一多就放不下 —— 按可用宽 <paramref name="width"/>
