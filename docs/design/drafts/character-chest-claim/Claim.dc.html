@@ -53,55 +53,23 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .at.hp b { color: #C53637; }
 .at u { text-decoration: none; font-size: 8.5px; color: #1B552C; width: 26px; text-align: right; align-self: center; font-variant-numeric: tabular-nums; }
 .at u.cap { color: #676F7A; }
-.next { font-size: 9px; color: #676F7A; line-height: 1.4; white-space: nowrap; }
-/* ★ 升级宝箱领取区(本稿新增):钉在档案栏底部,取代原「待发 N 只」欠箱 chip。
-   卡 = StatTile 同族:card-face 底、1pt panel-border、圆角 8.12;内边距 6 / 7。栏宽 200 − 2×12 = 176pt,卡内净宽 162pt。 */
-.claimbox { margin-top: auto; flex: none; box-sizing: border-box; background: #FFFDF7; border: 0.96px solid #DED7C9; border-radius: 8.12px; padding: 6px 7px; display: flex; flex-direction: column; gap: 4px; }
-.claimbox.has { border-color: rgba(46,94,140,.45); }
-.cb-hd { display: flex; align-items: baseline; gap: 5px; height: 12px; white-space: nowrap; }
-.cb-hd b { font-family: "Noto Serif SC", serif; font-size: 10.03px; font-weight: 600; color: #161B22; }
-.cb-hd span { font-size: 8.6px; color: #676F7A; font-variant-numeric: tabular-nums; }
-.cb-hd span.n { color: #2E5E8C; font-weight: 700; }
-.cb-hd a { margin-left: auto; position: relative; font-size: 8.6px; color: #3D4E69; text-decoration: none; cursor: pointer; }
-.cb-hd a::after { content: ""; position: absolute; left: -8px; right: -6px; top: 50%; height: 44px; transform: translateY(-50%); }
-.cb-row { display: flex; align-items: center; gap: 4px; height: 21px; }
-.cb-row .art { width: 20px; height: 20px; flex: none; }
-.cb-row .cn { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; color: #161B22; white-space: nowrap; }
-.cb-row .lv { font-size: 8.6px; color: #676F7A; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cb-btn { position: relative; margin-left: auto; height: 21px; min-width: 44px; padding: 0 9px; box-sizing: border-box; border: none; border-radius: 10.5px; background: #2E5E8C; color: #fff; font-family: inherit; font-size: 10.03px; font-weight: 500; letter-spacing: 2px; white-space: nowrap; cursor: pointer; }
-.cb-btn::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 44px; transform: translateY(-50%); }
-.cb-btn.off { background: #DAD7D0; color: #676F7A; letter-spacing: 0; cursor: default; }
-.cb-yield { font-size: 8.6px; color: #5D646F; white-space: nowrap; font-variant-numeric: tabular-nums; height: 11px; line-height: 11px; }
-.cb-empty { display: flex; align-items: center; gap: 5px; height: 21px; font-size: 8.6px; color: #676F7A; white-space: nowrap; }
-.cb-empty .art { width: 20px; height: 20px; opacity: .45; filter: grayscale(.6); }
-.cb-empty b { font-weight: 500; color: #5D646F; }
-/* 全部待领(Ui.Sheet,1256 × 自适应 → 600pt 宽) */
-.sheetscrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
-.sheet { position: absolute; left: 166px; top: 52px; width: 600px; box-sizing: border-box; background: #FBF8F1; border: 0.72px solid #DED7C9; border-radius: 8.6px; padding: 12px 16px 12px; display: flex; flex-direction: column; gap: 8px; z-index: 51; }
-.sh-hd { display: flex; align-items: baseline; gap: 8px; }
-.sh-hd b { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; }
-.sh-hd span { font-size: 9px; color: #676F7A; font-variant-numeric: tabular-nums; }
-.sh-hd .x { margin-left: auto; width: 22px; height: 22px; border-radius: 11px; background: #EFEADF; color: #5D646F; display: flex; align-items: center; justify-content: center; font-size: 11px; }
-.sh-row { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 12px 0 8px; border-radius: 8.12px; background: #FFFDF7; border: 0.96px solid #DED7C9; }
-.sh-row .art { width: 36px; height: 36px; flex: none; }
-.sh-row .nm { display: flex; flex-direction: column; gap: 2px; min-width: 96px; }
-.sh-row .shn { font-size: 12.5px !important;  font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-.sh-row .nm span { font-size: 8.6px; color: #676F7A; font-variant-numeric: tabular-nums; }
-.sh-row .band { height: 15.77px; padding: 0 6px; border-radius: 8px; background: #F1EBDE; border: 0.96px solid #DED7C9; font-size: 8.6px; color: #5D646F; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sh-row .yd { font-size: 9.56px; color: #5D646F; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.sh-row .cb-btn { height: 24px; min-width: 60px; font-size: 11px; }
-.sh-foot { font-size: 9px; color: #676F7A; text-align: center; }
-.ctl { position: absolute; left: 0; right: 0; bottom: -34px; height: 30px; display: flex; align-items: center; gap: 5px; padding: 0 12px; font-size: 9px; color: #5D646F; }
-.ctl .lb { color: #676F7A; }
-.ctl button { height: 20px; padding: 0 8px; border: none; border-radius: 10px; background: #DAD7D0; color: #2C333D; font-size: 9px; cursor: pointer; font-family: inherit; }
-.ctl button.on { background: #3D4E69; color: #fff; }
+.next { margin-top: auto; font-size: 9px; color: #676F7A; line-height: 1.6; }
 
 .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 
 /* 中上:等级里程碑轨道 */
 .ms { flex: none; height: 156px; padding: 10px 10px 9px; display: flex; flex-direction: column; gap: 8px; }
-.track { position: relative; flex: 1; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3.8px; }
-.rail { position: absolute; left: 5%; right: 5%; top: 8.6px; height: 2.9px; border-radius: 1.5px; background: #DED7C9; }
+.track { position: relative; flex: 1; overflow: hidden; }
+/* ★ 长轨道:格定宽 115 → 54.95pt(= 现状 10 格等分的格宽),格距 8 → 3.82;轨道自己横滚(ScrollRect,只横向),不再套在右栏 HScrollFill 里 */
+.strip { position: absolute; left: 0; top: 3px; bottom: 0; display: flex; gap: 3.82px; transition: transform .25s ease-out; }
+.strip .node { width: 54.95px; flex: none; }
+.fade { position: absolute; top: 0; bottom: 0; width: 18px; z-index: 3; pointer-events: none; }
+.fade.l { left: 0; background: linear-gradient(90deg, #FBF8F1, rgba(251,248,241,0)); }
+.fade.r { right: 0; background: linear-gradient(270deg, #FBF8F1, rgba(251,248,241,0)); }
+/* 屏外还有可领:贴边一枚 cta 小签「◂ 2 待领」,点了滚过去 */
+.edgepill { position: absolute; top: 26px; z-index: 4; height: 15px; padding: 0 6px; border-radius: 7.5px; background: #2E5E8C; color: #fff; font-size: 8.12px; display: inline-flex; align-items: center; white-space: nowrap; box-shadow: 0 1px 4px rgba(22,27,34,.25); }
+.edgepill.l { left: 2px; } .edgepill.r { right: 2px; }
+.rail { position: absolute; left: 27px; right: 27px; top: 8.6px; z-index: 0; height: 2.9px; border-radius: 1.5px; background: #DED7C9; }
 .rail span { display: block; height: 100%; width: 33.3%; border-radius: 1.5px; background: #CA9D33; }
 .node { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .pin { width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; z-index: 1; }
@@ -121,6 +89,48 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .claim::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 44px; transform: translateY(-50%); }
 .todo .pin { background: #FBF8F1; border: 1.5px solid #DED7C9; color: #928B7B; }
 .todo .mc .lv { color: #5D646F; }
+
+/* ★ 本稿(2026-10-19 回填):轨道改成「每级一格」—— 每格一只该级的升级宝箱;里程碑等级的格子同时挂里程碑奖励。
+   格内净宽同现状(≈ 47–49pt;16:9 靠 HScrollFill 横滚,宽度不变),格内一律单行不折。 */
+.node .pin { flex: none; }
+.strip .node { gap: 2px; }
+.strip .mc { gap: 2px; padding: 4px 3px; }
+.strip .mc .lv { font-size: 12px; line-height: 1.25; }
+.ms .ttl b, .ms .ttl span { white-space: nowrap; }
+.node.lvl .pin { width: 13px; height: 13px; margin: 3.5px 0; font-size: 7px; }
+.node.mile .pin { box-shadow: 0 0 0 2px #F6EDD5, 0 0 0 3px #C9A94A; }
+.node.mile .mc { background: #FBF5E4; border-color: rgba(201,169,74,.6); }
+.pin.p-done { background: #34864B; color: #fff; border: none; }
+.pin.p-ready { background: #2E5E8C; color: #fff; border: none; }
+.pin.p-todo { background: #FBF8F1; border: 1.5px solid #DED7C9; color: #928B7B; }
+.mc .chest { position: relative; display: flex; justify-content: center; }
+.mc .lvrow { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.mc .chest.inl { display: inline-flex; }
+.mc .chest.inl .ck { width: 7px; height: 7px; right: -3px; bottom: -2px; } .mc .chest.inl .ck svg { width: 5px; height: 5px; }
+.mc .chest svg { display: block; }
+.mc .chest.done svg { opacity: .35; }
+.mc .chest.locked svg { opacity: .45; filter: grayscale(.7); }
+.mc .chest .ck { position: absolute; right: -3px; bottom: -1px; width: 10px; height: 10px; border-radius: 5px; background: #34864B; display: flex; align-items: center; justify-content: center; }
+.mc .cn { font-size: 8.12px; color: #5D646F; white-space: nowrap; }
+.mc .cn.dim { color: #676F7A; }
+.mc .mrow { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mc .mrow.done { opacity: .55; }
+.mc .btn2 { position: relative; margin-top: auto; height: 19px; width: 100%; border: none; border-radius: 9.5px; background: #2E5E8C; color: #fff; font-family: inherit; font-size: 9px; font-weight: 500; cursor: pointer; white-space: nowrap; padding: 0; }
+.mc .btn2::after { content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 44px; transform: translateY(-50%); }
+.mc .btn2.off { background: #DAD7D0; color: #676F7A; cursor: default; }
+.mc .btn2.gold { background: #2E5E8C; }
+.ms .slots { font-size: 9px; color: #676F7A; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ms .slots b { color: #1B552C; font-weight: 700; } .ms .slots b.full { color: #9B1E22; }
+.ms .slots i { font-style: normal; color: #2E5E8C; font-weight: 700; }
+.ctl { position: absolute; left: 0; right: 0; bottom: -34px; height: 30px; display: flex; align-items: center; gap: 5px; padding: 0 12px; font-size: 9px; color: #5D646F; }
+.ctl .lb { color: #676F7A; }
+.ctl button { height: 20px; padding: 0 8px; border: none; border-radius: 10px; background: #DAD7D0; color: #2C333D; font-size: 9px; cursor: pointer; font-family: inherit; }
+.ctl button.on { background: #3D4E69; color: #fff; }
+
+/* 16:9:只有统计面板留在 HScrollFill 里(按 1265 排、横滚);里程碑面板宽 = 视口,轨道自己滚 —— 两层横滚不嵌套 */
+.dev.narrow .stats { overflow: hidden; position: relative; }
+.dev.narrow .stats > * { min-width: 584px; }
+.dev.narrow .stats::after { content: "统计区 HScrollFill 横滚(同现状)→"; position: absolute; right: 6px; bottom: 4px; font-size: 7.5px; color: #fff; background: rgba(22,27,34,.5); padding: 1px 5px; border-radius: 3px; }
 
 /* 中下:统计 */
 .stats { flex: 1; min-height: 0; padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -165,11 +175,11 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .vsep { width: 1px; background: #EDE7DA; flex: none; }
 </style>
 </helmet>
-<div class="dev">
-<div class="safe">
+<div class="{{ devCls }}" style="{{ devStyle }}">
+<div class="safe" style="{{ safeStyle }}">
 <div class="top">
 <h1 class="serif">执 笔 人</h1>
-<span class="sub">Lv.20 · 秀才 · 最高 43 层</span>
+<span class="sub">{{ subTxt }}</span>
 <div style="flex: 1"></div>
 <div class="inkc">
 <svg width="17" height="10" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>
@@ -184,14 +194,14 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="face serif">墨</div>
 <div>
 <div class="nm serif">执笔人</div>
-<div class="rk">Lv.20 · 秀才</div>
+<div class="rk">{{ lvTxt }}</div>
 </div>
 </div>
 <div class="xp">
-<div class="row"><span>经验 · 距 Lv.21</span><span>420 / 1050</span></div>
+<div class="row"><span>{{ xpTxt }}</span><span>420 / 1050</span></div>
 <div class="t"><span style="width: 40%"></span></div>
 </div>
-<div class="ttl"><b>属性</b><span>下一级</span><span class="rule"></span><span>Lv.50 封顶</span></div>
+<div class="ttl"><b>属性</b><span>下一级</span><span class="rule"></span></div>
 <div class="attrs">
 <div class="at hp"><span>生命</span><b>880</b><u>+20</u></div>
 <div class="at"><span>攻击</span><b>138</b><u>+2</u></div>
@@ -200,35 +210,35 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="at"><span>速度</span><b>110</b><u class="cap">—</u></div>
 <div class="at"><span>每回合 AP</span><b>3</b><u class="cap">—</u></div>
 </div>
-<div class="{{ cbCls }}">
-<div class="cb-hd"><b>升级宝箱</b><sc-for list="{{ cbCount }}" as="c"><span class="n">{{ c }}</span></sc-for><sc-for list="{{ cbAll }}" as="a"><a onClick="{{ a.open }}">{{ a.t }}</a></sc-for></div>
-<sc-for list="{{ cbHead }}" as="h">
-<div class="cb-row"><svg class="art" viewBox="0 0 120 120"><rect x="22" y="50" width="76" height="44" rx="6" fill="{{ h.c }}" stroke="#111622" stroke-width="5"></rect><path d="M18 50 Q60 22 102 50 Z" fill="{{ h.lid }}" stroke="#111622" stroke-width="5" stroke-linejoin="round"></path><rect x="52" y="58" width="16" height="14" rx="3" fill="#F6EDD5" stroke="#111622" stroke-width="4"></rect></svg><span class="cn">{{ h.name }}</span><span class="lv">{{ h.lv }}</span><button class="{{ h.btnCls }}">{{ h.btn }}</button></div>
-<div class="cb-yield">{{ h.yd }}</div>
-</sc-for>
-<sc-for list="{{ cbEmpty }}" as="e">
-<div class="cb-empty"><svg class="art" viewBox="0 0 120 120"><rect x="22" y="50" width="76" height="44" rx="6" fill="{{ e.c }}" stroke="#111622" stroke-width="5"></rect><path d="M18 50 Q60 22 102 50 Z" fill="{{ e.lid }}" stroke="#111622" stroke-width="5" stroke-linejoin="round"></path></svg><span>暂无待领 · 升到 <b>{{ e.lv }}</b> 得一只{{ e.name }}</span></div>
-</sc-for>
-</div>
+<div class="next">属性 Lv.50 封顶 · 之后升级只给宝箱与里程碑</div>
 </div>
 
 <div class="right">
 <div class="panel ms">
-<div class="ttl"><b>等级里程碑</b><span>已领 3 / 10 · 每 5 级一档</span><span class="rule"></span><span>Lv.50 之后每 10 级 · 3,000 墨 + 橙字 3 选 1</span></div>
+<div class="ttl"><b>等级奖励</b><span>{{ hdSub }}</span><span class="rule"></span><span class="slots">{{ hdPend }} 箱位 <b class="{{ slotCls }}">{{ slots }}</b></span></div>
 <div class="track">
-<div class="rail"><span></span></div>
+<div class="strip" style="{{ stripStyle }}">
+<div class="rail"><span style="{{ railStyle }}"></span></div>
 <sc-for list="{{ ms }}" as="m" hint-placeholder-count="10">
 <div class="{{ m.cls }}">
-<div class="pin"><sc-if value="{{ m.isDone }}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if></div>
+<div class="{{ m.pinCls }}"><sc-if value="{{ m.isDone }}" hint-placeholder-val="{{ false }}"><svg width="8" height="8" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if></div>
 <div class="mc">
-<div class="lv">Lv.{{ m.lv }}</div>
-<div class="ink"><svg width="13" height="8" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>{{ m.ink }}</div>
-<div class="{{ m.pickCls }}"><i></i>{{ m.rar }}字 3 选 1</div>
-<sc-if value="{{ m.isReady }}" hint-placeholder-val="{{ false }}"><button class="claim">领 取</button></sc-if>
-<sc-if value="{{ m.showSt }}" hint-placeholder-val="{{ true }}"><div class="st">{{ m.st }}</div></sc-if>
+<div class="lvrow"><span class="lv">Lv.{{ m.lv }}</span><sc-for list="{{ m.inl }}" as="q"><span class="{{ m.chestCls }} inl"><svg width="11" height="11" viewBox="0 0 120 120"><rect x="22" y="50" width="76" height="44" rx="6" fill="{{ m.c }}" stroke="#111622" stroke-width="5"></rect><path d="M18 50 Q60 22 102 50 Z" fill="{{ m.lid }}" stroke="#111622" stroke-width="5" stroke-linejoin="round"></path><rect x="52" y="58" width="16" height="14" rx="3" fill="#F6EDD5" stroke="#111622" stroke-width="4"></rect></svg><sc-for list="{{ m.ck }}" as="k"><i class="ck"><svg width="7" height="7" viewBox="0 0 12 12"><path d="M2 6.5 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></i></sc-for></span></sc-for></div>
+<sc-for list="{{ m.mile }}" as="x"><div class="{{ x.cls }}">
+<div class="ink"><svg width="13" height="8" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>{{ x.ink }}</div>
+<div class="{{ x.pickCls }}"><i></i>{{ x.rar }}字 3 选 1</div>
+</div></sc-for>
+<sc-for list="{{ m.big }}" as="q"><div class="{{ m.chestCls }}"><svg width="24" height="24" viewBox="0 0 120 120"><rect x="22" y="50" width="76" height="44" rx="6" fill="{{ m.c }}" stroke="#111622" stroke-width="5"></rect><path d="M18 50 Q60 22 102 50 Z" fill="{{ m.lid }}" stroke="#111622" stroke-width="5" stroke-linejoin="round"></path><rect x="52" y="58" width="16" height="14" rx="3" fill="#F6EDD5" stroke="#111622" stroke-width="4"></rect></svg><sc-for list="{{ m.ck }}" as="k"><i class="ck"><svg width="7" height="7" viewBox="0 0 12 12"><path d="M2 6.5 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></i></sc-for></div></sc-for>
+<sc-for list="{{ m.cname }}" as="n"><div class="{{ n.cls }}">{{ n.t }}</div></sc-for>
+<sc-for list="{{ m.btn }}" as="b"><button class="{{ b.cls }}">{{ b.t }}</button></sc-for>
+<sc-for list="{{ m.st }}" as="t"><div class="st">{{ t }}</div></sc-for>
 </div>
 </div>
 </sc-for>
+</div>
+<i class="fade l"></i><i class="fade r"></i>
+<sc-for list="{{ edgeL }}" as="e"><span class="edgepill l">◂ {{ e }} 待领</span></sc-for>
+<sc-for list="{{ edgeR }}" as="e"><span class="edgepill r">{{ e }} 待领 ▸</span></sc-for>
 </div>
 </div>
 
@@ -305,65 +315,88 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 </div>
 </div>
 <div class="homebar"><span></span></div>
-<sc-if value="{{ sheetOn }}" hint-placeholder-val="{{ false }}">
-<div class="sheetscrim" onClick="{{ closeSheet }}"></div>
-<div class="sheet">
-<div class="sh-hd"><b>待领升级宝箱</b><span>{{ shSub }}</span><span class="x" onClick="{{ closeSheet }}">✕</span></div>
-<sc-for list="{{ shRows }}" as="r">
-<div class="sh-row"><svg class="art" viewBox="0 0 120 120"><rect x="22" y="50" width="76" height="44" rx="6" fill="{{ r.c }}" stroke="#111622" stroke-width="3"></rect><path d="M18 50 Q60 22 102 50 Z" fill="{{ r.lid }}" stroke="#111622" stroke-width="3" stroke-linejoin="round"></path><rect x="52" y="58" width="16" height="14" rx="3" fill="#F6EDD5" stroke="#111622" stroke-width="2.5"></rect></svg><div class="nm"><b class="shn">{{ r.name }}</b><span>{{ r.lv }} 升级所得</span></div><span class="band">{{ r.band }}</span><span class="yd">{{ r.yd }}</span><button class="{{ r.btnCls }}">{{ r.btn }}</button></div>
-</sc-for>
-<div class="sh-foot">{{ shFoot }}</div>
-</div>
-</sc-if>
-<div class="ctl"><span class="lb">待领</span><sc-for list="{{ stBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for><span class="lb" style="margin-left:10px">全部待领弹窗</span><sc-for list="{{ shBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for></div>
+<div class="ctl"><span class="lb">局面</span><sc-for list="{{ stBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for><span class="lb" style="margin-left:8px">屏宽</span><sc-for list="{{ wBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for><span class="lb" style="margin-left:8px">轨道</span><sc-for list="{{ nBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for><span class="lb" style="margin-left:8px">{{ winNote }}</span></div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":932,"height":466}}'>
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { tab: 'chest', st: 'multi', sheet: false }; }
+  constructor(props) { super(props); this.state = { tab: 'chest', st: 'backlog', w: 'base', nudge: 0 }; }
   renderVals() {
     const tab = this.state.tab;
     const tabs = [['chest', '宝箱'], ['tower', '登塔'], ['battle', '战斗'], ['econ', '经济']].map(([id, label]) => ({
       label, cls: 'tabbtn' + (tab === id ? ' on' : ''), pick: () => this.setState({ tab: id })
     }));
     const rarCls = { '蓝': 'r-Blue', '紫': 'r-Purple', '金': 'r-Gold', '橙': 'r-Orange', '红': 'r-Red' };
-    const table = [[5, '300', '蓝'], [10, '500', '紫'], [15, '800', '紫'], [20, '1,200', '金'], [25, '1,500', '金'], [30, '2,000', '金'], [35, '2,500', '橙'], [40, '3,000', '橙'], [45, '3,500', '橙'], [50, '5,000', '红']];
-    const level = 20, claimed = [5, 10, 15];
-    const ms = table.map(([lv, ink, rar]) => {
-      const done = claimed.indexOf(lv) >= 0, ready = !done && lv <= level;
-      const state = done ? 'done' : (ready ? 'ready' : 'todo');
-      return { lv, ink, rar, cls: 'node ' + state, pickCls: 'pick ' + rarCls[rar], isReady: ready, showSt: !ready,
-        isDone: done, st: done ? '已领' : '差 ' + (lv - level) + ' 级' };
+    // 里程碑表(Lv.5…50;之后每 10 级 3,000 墨 + 橙字 3 选 1)与箱档(Lv.2–5 竹简 · 6–10 青瓷 · 11–20 紫檀 · 21–30 鎏金 · 31–40 朱漆 · 41+ 赤霄)
+    const MT = { 5: ['300', '蓝'], 10: ['500', '紫'], 15: ['800', '紫'], 20: ['1,200', '金'], 25: ['1,500', '金'], 30: ['2,000', '金'], 35: ['2,500', '橙'], 40: ['3,000', '橙'], 45: ['3,500', '橙'], 50: ['5,000', '红'] };
+    const mileOf = lv => lv <= 50 ? MT[lv] : (lv % 10 === 0 ? ['3,000', '橙'] : null);
+    const tierOf = lv => lv <= 5 ? ['竹简匣', '#2E9E52', '#7BC796'] : lv <= 10 ? ['青瓷匣', '#0F74C5', '#6FAEE0'] : lv <= 20 ? ['紫檀匣', '#7945AB', '#9B6FC4'] : lv <= 30 ? ['鎏金匣', '#C9A94A', '#E0C878'] : lv <= 40 ? ['朱漆匣', '#E1791B', '#EFA35E'] : ['赤霄匣', '#CD272E', '#E2686D'];
+    // 局面:level 当前等级;chestTo = 宝箱已领到哪一级(含);mileDone = 已领里程碑;extra = 额外未领的宝箱级;slots 箱位
+    const SC = {
+      normal:  { n: '常态(Lv.20 刚升)', level: 20, chestTo: 19, mileDone: [5, 10, 15], slots: 3 },
+      backlog: { n: '积压 5 只跨档', level: 23, chestTo: 18, mileDone: [5, 10, 15, 20], slots: 2 },
+      full:    { n: '箱位已满', level: 23, chestTo: 18, mileDone: [5, 10, 15], slots: 4 },
+      clear:   { n: '全领完', level: 23, chestTo: 23, mileDone: [5, 10, 15, 20], slots: 1 },
+      late:    { n: 'Lv.50 之后', level: 62, chestTo: 58, mileDone: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60], slots: 3 }
+    };
+    const S = SC[this.state.st], L = S.level, full = S.slots >= 4;
+    const chestDone = lv => lv <= S.chestTo, mileDone = lv => S.mileDone.indexOf(lv) >= 0;
+    // 长轨道范围:Lv.2 → max(L + 5, 下一个里程碑等级)(末端总露出下一个里程碑)
+    let nextMile = L + 1; while (!mileOf(nextMile)) nextMile++;
+    const end = Math.max(L + 5, nextMile);
+    const lvls = []; for (let lv = 2; lv <= end; lv++) lvls.push(lv);
+    // 聚焦:第一个还有「已达到但未领」的宝箱或里程碑的格;都领完 → 当前等级的格。目标格左侧留 1 格上下文
+    let focus = null;
+    for (let lv = 2; lv <= L; lv++) { const m = mileOf(lv); if (!chestDone(lv) || (m && !mileDone(lv))) { focus = lv; break; } }
+    const allClear = focus === null; if (allClear) focus = L;
+    const CW = 54.95 + 3.82, viewW = this.state.w === 'narrow' ? 436.4 - 20.06 : 604 - 20.06;
+    const maxOff = Math.max(0, lvls.length * CW - 3.82 - viewW);
+    let off = (lvls.indexOf(focus) - 1) * CW + (this.state.nudge || 0) * CW;
+    if (allClear) off = lvls.indexOf(focus) * CW - viewW * 0.6;   // 全领完:当前等级落在视口约 60% 处,右边露出后面几级
+    off = Math.max(0, Math.min(maxOff, off));
+    const firstVis = Math.floor(off / CW), lastVis = Math.floor((off + viewW) / CW);
+    const stripStyle = 'transform:translateX(' + (-off) + 'px)';
+    const start = lvls[firstVis];
+    let pendC = 0, pendM = 0;
+    for (let lv = 2; lv <= L; lv++) { if (!chestDone(lv)) pendC++; const m = mileOf(lv); if (m && !mileDone(lv)) pendM++; }
+    const ms = lvls.map(lv => {
+      const m = mileOf(lv), [tn, c, lid] = tierOf(lv), reached = lv <= L;
+      const cDone = reached && chestDone(lv), mDone = m && reached && mileDone(lv);
+      const cReady = reached && !cDone, mReady = m && reached && !mDone;
+      const allDone = reached && cDone && (!m || mDone);
+      const pinCls = 'pin ' + (allDone ? 'p-done' : (cReady || mReady) ? 'p-ready' : 'p-todo');
+      // 底部钮:里程碑优先(不占箱位,点了开 MilestonePickSheet),领完再领宝箱;箱位满时宝箱钮置灰
+      let btn = [], st = [];
+      if (mReady) btn = [{ cls: 'btn2', t: '领奖励' }];
+      else if (cReady) btn = [{ cls: 'btn2' + (full ? ' off' : ''), t: full ? '箱位已满' : (m ? '领宝箱' : '领 取') }];
+      else if (reached) st = ['已领'];
+      else st = ['差 ' + (lv - L) + ' 级'];
+      return { lv, cls: 'node ' + (m ? 'mile' : 'lvl') + (allDone ? ' done' : ''), pinCls, isDone: allDone,
+        mile: m ? [{ cls: 'mrow' + (mDone ? ' done' : ''), ink: m[0], rar: m[1], pickCls: 'pick ' + rarCls[m[1]] }] : [],
+        chestCls: 'chest' + (cDone ? ' done' : !reached ? ' locked' : ''), c, lid, inl: m ? [1] : [], big: m ? [] : [1], ck: cDone ? [1] : [],
+        cname: m ? [] : [{ t: tn, cls: 'cn' + (reached ? '' : ' dim') }], btn, st };
     });
+    const doneIdx = lvls.filter(lv => lv <= L).length;
+    const railStyle = 'width:' + Math.max(0, Math.min(100, (doneIdx - 1) / (lvls.length - 1) * 100)) + '%';
+    const claimable = lv => { const m = mileOf(lv); return lv <= L && (!chestDone(lv) || (m && !mileDone(lv))); };
+    const cntL = lvls.filter((lv, i) => i < firstVis && claimable(lv)).length, cntR = lvls.filter((lv, i) => i > lastVis && claimable(lv)).length;
+    const edgeL = cntL ? [cntL] : [], edgeR = cntR ? [cntR] : [];
+    const hdPend = (pendC || pendM) ? '待领 宝箱 ' + pendC + (pendM ? ' · 里程碑 ' + pendM : '') + ' ·' : '';
+    const slots = S.slots + ' / 4', slotCls = full ? 'full' : '';
+    const stBtns = Object.keys(SC).map(k => ({ n: SC[k].n, cls: this.state.st === k ? 'on' : '', pick: () => this.setState({ st: k, nudge: 0 }) }));
+    const winNote = '轨道 Lv.2–' + end + ' · 打开即聚焦 Lv.' + focus + (allClear ? '(全领完 → 当前等级)' : '(第一个待领)');
+    const wBtns = [['base', '基准机'], ['narrow', '16:9']].map(([k, n]) => ({ n, cls: (this.state.w || 'base') === k ? 'on' : '', pick: () => this.setState({ w: k }) }));
+    const nBtns = [['◂ 滚', -3], ['聚焦', 0], ['滚 ▸', 3]].map(([n, d]) => ({ n, cls: '', pick: () => this.setState({ nudge: d === 0 ? 0 : (this.state.nudge || 0) + d }) }));
+    const devStyle = this.state.w === 'narrow' ? 'width:764px' : '';
+    const devCls = 'dev' + (this.state.w === 'narrow' ? ' narrow' : '');
+    const safeStyle = this.state.w === 'narrow' ? 'left:58.77px;right:58.77px' : '';
     const chests = [['素纸匣', 'r-White', 4], ['竹简匣', 'r-Green', 21], ['青瓷匣', 'r-Blue', 27], ['紫檀匣', 'r-Purple', 19], ['鎏金匣', 'r-Gold', 11], ['朱漆匣', 'r-Orange', 6], ['赤霄匣', 'r-Red', 2]]
       .map(([k, r, v]) => ({ k, v, cls: 'li ' + r + (v === 0 ? ' zero' : '') }));
     const cards = [['白', 'r-White', 131], ['绿', 'r-Green', 118], ['蓝', 'r-Blue', 82], ['紫', 'r-Purple', 51], ['金', 'r-Gold', 22], ['橙', 'r-Orange', 3], ['红', 'r-Red', 0]]
       .map(([k, r, v]) => ({ k: k + '字', v, cls: 'li ' + r + (v === 0 ? ' zero' : '') }));
     const raw = [['爆','Fire','Green',412],['冷','Water','White',388],['剑','Metal','Blue',301],['藤','Wood','Green',276],['碎','Earth','Blue',240],['炎','Fire','Gold',198],['海','Water','Blue',161],['荆','Wood','Purple',140],['垒','Earth','Green',122],['利','Metal','White',97]];
     const top = raw.map((r, i) => ({ g: r[0], cls: 'tl serif e-' + r[1] + ' r-' + r[2], n: r[3], rank: i + 1 }));
-    // ★ 升级宝箱:档位按等级(Lv.2–5 竹简 · 6–10 青瓷 · 11–20 紫檀 · 21–30 鎏金 · 31–40 朱漆 · 41+ 赤霄),产出同 levelup.chest_yield
-    const TIER = { '竹简匣': ['#2E9E52', '#7BC796', 'Lv.2–5', '4 种 22 张 · 30 墨 · 30 分钟'], '青瓷匣': ['#0F74C5', '#6FAEE0', 'Lv.6–10', '6 种 27 张 · 60 墨 · 2 小时'],
-      '紫檀匣': ['#7945AB', '#9B6FC4', 'Lv.11–20', '8 种 40 张 · 120 墨 · 4 小时'], '鎏金匣': ['#C9A94A', '#E0C878', 'Lv.21–30', '12 种 91 张 · 250 墨 · 8 小时'],
-      '朱漆匣': ['#E1791B', '#EFA35E', 'Lv.31–40', '14 种 115 张 · 320 墨 · 10 小时'], '赤霄匣': ['#CD272E', '#E2686D', 'Lv.41+', '16 种 136 张 · 400 墨 · 12 小时'] };
-    const ST = { empty: { pend: [], slots: 2 }, one: { pend: [[20, '紫檀匣']], slots: 3 }, multi: { pend: [[19, '紫檀匣'], [20, '紫檀匣'], [21, '鎏金匣']], slots: 2 },
-      full: { pend: [[19, '紫檀匣'], [20, '紫檀匣']], slots: 4 }, red: { pend: [[41, '赤霄匣']], slots: 1 } };
-    const S = ST[this.state.st], full = S.slots >= 4;
-    const mk = ([lv, name]) => ({ name, lv: 'Lv.' + lv, c: TIER[name][0], lid: TIER[name][1], band: TIER[name][2], yd: TIER[name][3],
-      btnCls: 'cb-btn' + (full ? ' off' : ''), btn: full ? '箱位已满' : '领 取' });
-    const pend = S.pend.map(mk);
-    const cbCls = 'claimbox' + (pend.length ? ' has' : '');
-    const cbCount = pend.length ? ['待领 ' + pend.length + ' 只'] : [];
-    const cbAll = pend.length >= 2 ? [{ t: '全部 ›', open: () => this.setState({ sheet: true }) }] : [];
-    const cbHead = pend.length ? [pend[0]] : [];
-    const cbEmpty = pend.length ? [] : [{ lv: 'Lv.21', name: '鎏金匣', c: TIER['鎏金匣'][0], lid: TIER['鎏金匣'][1] }];
-    const sheetOn = this.state.sheet && pend.length >= 2;
-    const shRows = pend;
-    const shSub = '共 ' + pend.length + ' 只 · 箱位 ' + S.slots + ' / 4';
-    const shFoot = full ? '箱位已满 —— 开掉一只再来领,待领的箱子不会作废' : '领取 = 放进一个空箱位(不占暂存位);可按任意顺序领';
-    const stBtns = [['empty', '无'], ['one', '1 只'], ['multi', '3 只跨档'], ['full', '箱位已满'], ['red', '赤霄(最长)']].map(([k, n]) => ({ n, cls: this.state.st === k ? 'on' : '', pick: () => this.setState({ st: k, sheet: false }) }));
-    const shBtns = [['关', false], ['开', true]].map(([n, v]) => ({ n, cls: this.state.sheet === v ? 'on' : '', pick: () => this.setState({ sheet: v, st: v && pend.length < 2 ? 'multi' : this.state.st }) }));
-    return { cbCls, cbCount, cbAll, cbHead, cbEmpty, sheetOn, shRows, shSub, shFoot, stBtns, shBtns, closeSheet: () => this.setState({ sheet: false }),
-      tabs, ms, chests, cards, top, isChest: tab === 'chest', isTower: tab === 'tower', isBattle: tab === 'battle', isEcon: tab === 'econ' };
+    return { hdSub: L >= 50 ? '每级 1 只宝箱 · 每 10 级里程碑' : '每级 1 只宝箱 · 每 5 级里程碑', xpTxt: '经验 · 距 Lv.' + (L + 1), lvTxt: 'Lv.' + L + ' · 秀才', subTxt: 'Lv.' + L + ' · 秀才 · 最高 43 层', devCls, stripStyle, edgeL, edgeR, wBtns, nBtns, devStyle, safeStyle, railStyle, hdPend, slots, slotCls, stBtns, winNote, tabs, ms, chests, cards, top, isChest: tab === 'chest', isTower: tab === 'tower', isBattle: tab === 'battle', isEcon: tab === 'econ' };
   }
 }
 </script>
