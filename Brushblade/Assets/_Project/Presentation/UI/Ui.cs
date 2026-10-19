@@ -982,7 +982,7 @@ namespace Brushblade.Presentation
             // 属性识别只靠字形颜色(2026-07-28 拍板移除顶条):字形已是加深过的属性专用色板,
             // 再加一条色带是冗余。金系原色对浅底只有 2.48:1,故字形必走 GlyphColor 而非 ElementColor
             var glyph = ThemedLabel(content.transform, def.Id, Mathf.RoundToInt(s.y * 0.34f),
-                locked ? Theme.LockedGlyph : Theme.GlyphColor(def.Element), Theme.TitleFont);
+                locked ? Theme.LockedGlyph : Theme.TileGlyphColor(def.Element), Theme.TitleFont);
             // 费用带撤销后的重新分配(2026-08-21):字形 0.36–0.94 → 0.30–0.95,拼音 0.19–0.36 → 0.06–0.30。
             // 字号仍是 s.y * 0.34 —— 比例不动,是为了不改动其它调用方(图鉴 144×180、跑图 76×95)的观感;
             // 战斗字库牌靠**把牌整体调小**来缩,而不是靠改这个比例。
@@ -1059,7 +1059,7 @@ namespace Brushblade.Presentation
             // 内容区按各档边框厚度让位(与大牌同一张表):紫檀木框比素纸厚得多
             var (insetX, insetY) = CardFrames.ContentInset(def.Rarity);
             var glyph = ThemedLabel(go.transform, def.Id, Mathf.RoundToInt(size.y * 0.46f),
-                Theme.GlyphColor(def.Element), Theme.TitleFont);
+                Theme.TileGlyphColor(def.Element), Theme.TitleFont);
             Anchor(glyph.rectTransform, new Vector2(insetX, insetY),
                 new Vector2(1f - insetX, 1f - insetY), Vector2.zero, Vector2.zero);
             return go;

@@ -53,3 +53,6 @@
 - **2026-10-19 · 试玩回填:金字再亮一点、五行面金底再淡一点**(用户:「把锋的字体颜色再调亮一点,五行面的背景颜色降一点」,直接改、不再出稿)。
   metal-glyph #8F5C00 → #936506(L* 43.5 → 46.2);metal-soft #F7E7AC → #FBF2D2,FaceTint 金随之派生。对比度:白 5.12 · paper 4.54 · FaceTint 4.86 · metal-soft 4.56 ——
   paper 卡在 4.5 下限,在守 4.5 的前提下金字已到最亮;要更亮只能对字牌大字放宽到大字号 3:1。上表对比度列仍是拍板时的数,以 tokens.json 为准。
+- **2026-10-19 · 试玩回填:字牌大字放宽到 3:1,金字单独再提亮**(用户拍板「字牌大字放宽到 3:1,把金字再调亮」)。新增 token `metal-glyph-tile` #B2801C(L* 57,原 46),
+  经 `Theme.TileGlyphColor` 只用于字牌大字:`Ui.GlyphTile` / `Ui.MiniGlyphTile` / 战斗选中牌。对比度:白 3.5 · paper 3.1 · FaceTint 3.3 · metal-soft 3.1。
+  `metal-glyph` #936506 不变,仍给小字、面印、徽标与立绘用(守 4.5)。其余各系字牌大字仍等于 GlyphColor。
