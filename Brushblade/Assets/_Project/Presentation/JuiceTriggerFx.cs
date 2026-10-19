@@ -108,11 +108,12 @@ namespace Brushblade.Presentation
         /// <summary>状态名签(稿 .lbl.status):战场 chip 色实底(<see cref="BattleView.BattleChipColor"/>,与 chip 列表同一出处)、
         /// 全圆角、图标 21 + 白字黑体 19 粗。<paramref name="struck"/> = 被挡下(拦截):整体 60%、压一条白横线。
         /// 名取不到(StatusText 对隐藏载体返回空)不飘、返回 null。
-        /// <paramref name="suffix"/> 接在名后(上状态的「 +N」,spec 2026-10-18 §2);<paramref name="scale"/> &lt; 1 = 叠层 / 刷新的小一档(同款、整体缩小)。</summary>
+        /// <paramref name="suffix"/> 接在名后(上状态的「 +N」,spec 2026-10-18 §2);<paramref name="scale"/> &lt; 1 = 叠层 / 刷新的小一档(同款、整体缩小)。
+        /// <paramref name="harden"/> = 磐固加的护甲层:名与图标取 <see cref="StatusText.OfHarden"/>(「磐固」/ guard),底色仍按护甲(守御组)。</summary>
         public RectTransform StatusLabel(StatusKind kind, int mag, bool struck, RectTransform carrier, bool isPlayer = false,
-            string suffix = null, float scale = 1f)
+            string suffix = null, float scale = 1f, bool harden = false)
         {
-            var info = StatusText.Of(kind, mag, 0, isPlayer);
+            var info = harden ? StatusText.OfHarden(mag, 0) : StatusText.Of(kind, mag, 0, isPlayer);
             if (string.IsNullOrEmpty(info.Name)) return null;
             string name = info.Name + suffix;
             bool hasIcon = info.IconKey != null;
@@ -397,13 +398,14 @@ namespace Brushblade.Presentation
             public CueOn On;
             public int Index;
             public StatusKind Kind;
+            public bool Harden;   // 磐固加的护甲层(事件 Source = Harden,2026-10-19 专属 chip):名签印「磐固」、闪 guard
             public int Delta;
             public bool? Fresh;
         }
 
         /// <summary>这一条事件对应的上状态落点:StatusApplied 本身,加上灼(Burn / SummonBurn,余烬除外 —— 它批末另演)
         /// 与敌人加攻(EnemyBuff)这两种自带事件的。不是上状态返回 false。</summary>
-        private static bool StatusCueKey(BattleEvent e, out (CueOn on, int index, StatusKind kind) key, out int delta, out bool? fresh)
+        private static bool StatusCueKey(BattleEvent e, out (CueOn on, int index, StatusKind kind, bool harden) key, out int delta, out bool? fresh)
         {
             key = default;
             delta = 0;
@@ -411,20 +413,21 @@ namespace Brushblade.Presentation
             switch (e.Kind)
             {
                 case BattleEventKind.StatusApplied:
-                    key = (e.SecondIndex == 0 ? CueOn.Enemy : e.SecondIndex == 2 ? CueOn.Summon : CueOn.Player, e.TargetIndex, (StatusKind)e.Amount);
+                    key = (e.SecondIndex == 0 ? CueOn.Enemy : e.SecondIndex == 2 ? CueOn.Summon : CueOn.Player, e.TargetIndex, (StatusKind)e.Amount,
+                        e.Source == EffectSource.Harden);
                     delta = e.Absorbed;
                     fresh = e.Fresh;
                     return true;
                 case BattleEventKind.Burn when e.Source != EffectSource.Embers:
-                    key = (e.TargetIndex < 0 ? CueOn.Player : CueOn.Enemy, e.TargetIndex, StatusKind.Burn);
+                    key = (e.TargetIndex < 0 ? CueOn.Player : CueOn.Enemy, e.TargetIndex, StatusKind.Burn, false);
                     delta = e.Amount;
                     return true;
                 case BattleEventKind.SummonBurn:
-                    key = (CueOn.Summon, e.TargetIndex, StatusKind.Burn);
+                    key = (CueOn.Summon, e.TargetIndex, StatusKind.Burn, false);
                     delta = e.Amount;
                     return true;
                 case BattleEventKind.EnemyBuff:   // Amount 是百分点(敌我 AttackBuff 单位统一)
-                    key = (CueOn.Enemy, e.TargetIndex, StatusKind.AttackBuff);
+                    key = (CueOn.Enemy, e.TargetIndex, StatusKind.AttackBuff, false);
                     delta = e.Amount;
                     return true;
                 default:
@@ -437,7 +440,7 @@ namespace Brushblade.Presentation
         private static Dictionary<int, StatusCue> CollectStatusCues(IReadOnlyList<BattleEvent> events)
         {
             var at = new Dictionary<int, StatusCue>();
-            var byKey = new Dictionary<(CueOn, int, StatusKind), StatusCue>();
+            var byKey = new Dictionary<(CueOn, int, StatusKind, bool), StatusCue>();
             for (int i = 0; i < events.Count; i++)
             {
                 if (!StatusCueKey(events[i], out var key, out int delta, out bool? fresh)) continue;
@@ -447,7 +450,7 @@ namespace Brushblade.Presentation
                     if (fresh.HasValue) cue.Fresh = (cue.Fresh ?? false) || fresh.Value;
                     continue;
                 }
-                cue = new StatusCue { On = key.Item1, Index = key.Item2, Kind = key.Item3, Delta = delta, Fresh = fresh };
+                cue = new StatusCue { On = key.Item1, Index = key.Item2, Kind = key.Item3, Harden = key.Item4, Delta = delta, Fresh = fresh };
                 byKey[key] = cue;
                 at[i] = cue;
             }
@@ -478,6 +481,7 @@ namespace Brushblade.Presentation
             // 敌人没有加攻 chip:加攻改的是头一枚「射程 + 攻」的数字,闪那一枚
             string icon = cue.On == CueOn.Enemy && cue.Kind == StatusKind.AttackBuff
                 ? ((enemyRanged?.Invoke(cue.Index) ?? false) ? "ranged" : "melee")
+                : cue.Harden ? StatusText.OfHarden(mag, 0).IconKey
                 : StatusText.Of(cue.Kind, mag, 0, isPlayer).IconKey;
             if (icon != null)
             {
@@ -498,8 +502,8 @@ namespace Brushblade.Presentation
             // 敌人加攻没有自己的 chip,百分比只在名签上(原「攻+N%」飘字的信息不能丢)
             string suffix = cue.Delta <= 0 ? null
                 : cue.On == CueOn.Enemy && cue.Kind == StatusKind.AttackBuff ? $" +{cue.Delta}%"
-                : HasNumberChip(cue.On, cue.Kind) ? $" +{cue.Delta}" : null;
-            StatusLabel(cue.Kind, mag, false, carrier, isPlayer, suffix, fresh ? 1f : RestackTagScale);
+                : cue.Harden || HasNumberChip(cue.On, cue.Kind) ? $" +{cue.Delta}" : null;   // 磐固 chip 带数字
+            StatusLabel(cue.Kind, mag, false, carrier, isPlayer, suffix, fresh ? 1f : RestackTagScale, harden: cue.Harden);
             if (cue.Kind == StatusKind.IceStall && cue.On == CueOn.Enemy) FrostSnap(EnemyActionBarAt?.Invoke(cue.Index));
         }
     }

@@ -91,6 +91,7 @@ namespace Brushblade.Presentation
         /// 着色「同系一深一亮」(控制方裁定,五系同一推导、不新增 token):
         /// 亮 = 本系字形色 <see cref="Theme.GlyphColor"/>,深 = 亮色向 <see cref="Theme.Ink"/> 插值
         /// <see cref="LeaderDeepen"/>(Color.Lerp(light, Ink, 0.35))。上字 c0 染深、下字 c1 染亮;虹膜染 ElementColor。
+        /// 金系例外(2026-10-19):亮取 <see cref="Theme.Gold"/>(字形色冷灰,两字发灰褐)。
         /// 与 build_boss_art.leader_tints 同一口径(那边只出预览)。
         ///
         /// Obscure(浊浪):没被读懂前两层都染墨色(同 Boss 非当前阶段字的 <see cref="InkTint"/>),
@@ -103,7 +104,9 @@ namespace Brushblade.Presentation
             _leaderChars = new Image[2];
             AddLayer("Char0", MobAssets.Layer(prefix, "c0"), size, out _leaderChars[0], _body);
             AddLayer("Char1", MobAssets.Layer(prefix, "c1"), size, out _leaderChars[1], _body);
-            Color light = Theme.GlyphColor(def.Element);
+            // 金系例外(2026-10-19 用户拍板):字形色冷灰,两字发灰褐、深浅差小 —— 亮改取赭金 Theme.Gold(深仍向墨 35%);
+            // 与 tools/design/build_boss_art.py 的 LEADER_LIGHT 同一推导
+            Color light = def.Element == Element.Metal ? Theme.Gold : Theme.GlyphColor(def.Element);
             _leaderTints = new[] { Color.Lerp(light, Theme.Ink, LeaderDeepen), light };
             _leaderObscure = def.Ability == EnemyAbility.Obscure;
             _face = Container("Eyes", size);

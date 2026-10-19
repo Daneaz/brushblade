@@ -547,10 +547,12 @@ def build_leader(name, slug, element, layout, eyes, holes, deco):
 
 # 预览用的运行时着色(与 MobView.InitLeaderRig 同一推导,2026-10-18 控制方裁定):
 # 亮 = 本系字形色 Theme.GlyphColor;深 = 亮色向 Theme.Ink 插值 35%(Color.Lerp(light, Ink, 0.35))。
-# 五系同一规则、不新增 token;上字 c0 染深、下字 c1 染亮。运行时若改配法,只动这里与 MobView。
+# 金系例外(2026-10-19 用户拍板):字形色 #6B6449 冷灰,两字发灰褐、深浅差小 —— 亮改取 LEADER_LIGHT 里的现有 token。
+# 不新增 token;上字 c0 染深、下字 c1 染亮。运行时若改配法,只动这里与 MobView。
 GLYPH = {"Wood": "#1F6333", "Fire": "#B02D2E", "Earth": "#82552A",
          "Metal": "#6B6449", "Water": "#0A5E9E", "Heart": "#7E4190"}
 LEADER_DEEPEN = 0.35
+LEADER_LIGHT = {"Metal": "#CA9D33"}   # Theme.Gold 赭金(0.791, 0.617, 0.199)
 
 
 def _lerp_hex(a, b, t):
@@ -561,7 +563,7 @@ def _lerp_hex(a, b, t):
 
 def leader_tints(element):
     """(上字深, 下字亮)。"""
-    light = GLYPH[element]
+    light = LEADER_LIGHT.get(element, GLYPH[element])
     return _lerp_hex(light, INK, LEADER_DEEPEN), light
 
 

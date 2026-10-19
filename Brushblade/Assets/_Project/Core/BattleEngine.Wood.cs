@@ -291,7 +291,7 @@ namespace Brushblade.Core
         // ---- 磐固(spec 2026-10-16 §3,柘 Lv6;替换 M5 守护)----
 
         /// <summary>磐固那一条护甲的 SourceId:木灵袋里同源只留一条(StatusBag.Apply 覆盖刷新),战后由 RunEngine 按它剥掉不携带。</summary>
-        internal const string HardenSourceId = "#harden";
+        public const string HardenSourceId = "#harden";   // public:表现层按它把磐固层从通用护甲增益里分出来(2026-10-19 专属 chip)
 
         /// <summary>磐固:本木灵被挥击命中(DamageSummon 走到末段 = 没打空、没被免疫抵消)后护甲 +Harden,本场累计至多 HardenMax。
         /// 落在 DefenseBuff 上,SummonDefense(受击减伤、良弓、柘弓 byArmor)都读得到;本击已结算完,不吃本次加成。阵亡不加。

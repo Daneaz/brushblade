@@ -414,6 +414,15 @@ namespace Brushblade.Presentation
             }
         }
 
+        /// <summary>磐固(柘灵本命,2026-10-19 专属 chip):本命受击加的那条护甲(DefenseBuff,SourceId = <see cref="BattleEngine.HardenSourceId"/>)
+        /// 单列,名「磐固」、图标 guard(护),与通用护甲增益分开。<paramref name="cap"/> = 本命的本场上限(0 = 不封顶,不写「至多」)。
+        /// 战场 chip、木灵详情、上状态名签三处共用这一份。</summary>
+        public static Info OfHarden(int magnitude, int cap) =>
+            new Info("guard", Strings.T("status.harden.name"), Strings.T("status.duration.persistent"),
+                cap > 0
+                    ? Strings.T("status.harden.desc", ("magnitude", magnitude), ("cap", cap))
+                    : Strings.T("status.harden.desc.nocap", ("magnitude", magnitude)));
+
         /// <summary>山岳(D2-土 E32):回敬带护甲门槛时句首补「护甲 ≥ N 时,」(与卡面同一条文案)。</summary>
         private static string RetaliateGate(StatusEffect effect) =>
             effect.MinArmor > 0 ? Strings.T("char.effect.retaliate.minarmor", ("armor", effect.MinArmor)) : "";
