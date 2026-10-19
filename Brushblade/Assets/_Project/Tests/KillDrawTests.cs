@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>斩获终极技(ult_killdraw_1/2,spec 2026-10-18「斩获终极技」§1):每击杀一名敌人按概率掉 N 张字进字库
+    /// <summary>斩获终极技(ult_killdraw_s1/2,spec 2026-10-18「斩获终极技」§1):每击杀一名敌人按概率掉 N 张字进字库
     /// (一级 50% 掉 1、二级 70% 掉 2),两级每回合都至多 <see cref="BattleEngine.KillDrawPerTurnCap"/> 张;
     /// 满库不掉(不进 DropChoice);任何来源的击杀都算;概率与抽字都走 _traitRandom,主随机序列不平移;
     /// 未中不发任何事件。计数在玩家回合开始(StartTurn)清零,

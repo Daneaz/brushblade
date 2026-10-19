@@ -264,15 +264,19 @@ namespace Brushblade.Core
             // 二级:前置 = 一级(同枝第 2 层,走隐式同枝推导);击杀 70% 掉 2 张。门槛 / 墨价按被动树
             //   L1→L2 同比递增:门槛 +6 级(被动 2 → 8 ⇒ 18 → 24),墨价 ×2(被动 300 → 600 ⇒ 900 → 1800)。
             // Value = 每次命中掉几张;概率见 KillDrawChancePercent。两级不叠加,见 KillDrawTier。
-            list.Add(new PerkNodeDef("ult_killdraw_1", PerkTree.Cross, "ult_killdraw", null,
+            // 一个两段节点(2026-10-19 用户:斩获的两级,不是两个图标;参照「深根」等五行三段节点):
+            // id ult_killdraw_s1 / _s2、NodeKey ult_killdraw;二段走 Stage 前置(要一段)。
+            list.Add(new PerkNodeDef("ult_killdraw_s1", PerkTree.Cross, "ult_killdraw", null,
                 depth: 1, unlockLevel: 18, inkCost: 900,
                 effect: PerkEffect.KillDraw, value: 1,
                 baseValue: 0, scaling: PerkScaling.None,
-                prereq: new[] { new PerkRequirement(PerkTree.Mechanic, minDepth: 1, count: mechanicNodes) }));
-            list.Add(new PerkNodeDef("ult_killdraw_2", PerkTree.Cross, "ult_killdraw", null,
-                depth: 2, unlockLevel: 24, inkCost: 1800,
+                prereq: new[] { new PerkRequirement(PerkTree.Mechanic, minDepth: 1, count: mechanicNodes) },
+                stage: 1, stageCount: 2, nodeKey: "ult_killdraw"));
+            list.Add(new PerkNodeDef("ult_killdraw_s2", PerkTree.Cross, "ult_killdraw", null,
+                depth: 1, unlockLevel: 24, inkCost: 1800,
                 effect: PerkEffect.KillDraw, value: 2,
-                baseValue: 0, scaling: PerkScaling.None, prereq: null));
+                baseValue: 0, scaling: PerkScaling.None, prereq: null,
+                stage: 2, stageCount: 2, nodeKey: "ult_killdraw"));
 
             return list;
         }
@@ -348,7 +352,7 @@ namespace Brushblade.Core
         private static readonly int[] KillDrawChances = { 50, 70 };   // 一级 / 二级(spec 2026-10-18 终极技 §1)
 
         /// <summary>斩获终极技某一级的击杀掉字概率(百分比)。</summary>
-        public static int KillDrawChancePercent(PerkNodeDef def) => KillDrawChances[def.Depth - 1];
+        public static int KillDrawChancePercent(PerkNodeDef def) => KillDrawChances[def.Stage - 1];
 
         /// <summary>斩获终极技当前生效的一级:已点亮的最深一级;一级都没点返回 null。
         /// 两级**不叠加**(二级 = 70% 掉 2,不是 1 + 2 张),所以不走 <see cref="Bonus"/> 求和。</summary>
@@ -357,7 +361,7 @@ namespace Brushblade.Core
             PerkNodeDef best = null;
             foreach (var def in Nodes)
                 if (def.Effect == PerkEffect.KillDraw && IsUnlocked(meta, def.Id)
-                    && (best == null || def.Depth > best.Depth))
+                    && (best == null || def.Stage > best.Stage))
                     best = def;
             return best;
         }

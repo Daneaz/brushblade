@@ -301,8 +301,8 @@ namespace Brushblade.Core.Tests
                 Assert.That(face.Stage, Is.EqualTo(1));
                 Assert.That(keys.Add(face.NodeKey), Is.True, $"重复 {face.NodeKey}");
             }
-            // 五行 5×4 + 被动 4×3 + 机制 4×2 + 广纳第 3 层 1 + 跨树 3
-            Assert.That(PerkRules.Faces.Count, Is.EqualTo(44));
+            // 五行 5×4 + 被动 4×3 + 机制 4×2 + 跨树 3(相济、博采、斩获;斩获两段只占一个节点,2026-10-19)
+            Assert.That(PerkRules.Faces.Count, Is.EqualTo(43));
         }
 
         // ---- 被动树不叠加(2026-10-02 用户拍板)----
@@ -362,7 +362,7 @@ namespace Brushblade.Core.Tests
                 ("power_3", PerkEffect.AttackPercent, 15), ("edge_3", PerkEffect.CritChance, 15),
                 ("guard_3", PerkEffect.Defense, 25),
                 ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.LowLibraryDraws, 1),
-                ("ult_killdraw_1", PerkEffect.KillDraw, 1), ("ult_killdraw_2", PerkEffect.KillDraw, 2),
+                ("ult_killdraw_s1", PerkEffect.KillDraw, 1), ("ult_killdraw_s2", PerkEffect.KillDraw, 2),
                 ("insight_1", PerkEffect.RewardOptions, 1), ("insight_2", PerkEffect.RewardRerolls, 1),
                 ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.VictoryHealPercent, 5),
             };

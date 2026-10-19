@@ -137,7 +137,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CrossNodes_UnlockByLevelTwentyFour()
         {
-            foreach (var id in new[] { "cross_vigor", "cross_draw", "ult_killdraw_1", "ult_killdraw_2" })
+            foreach (var id in new[] { "cross_vigor", "cross_draw", "ult_killdraw_s1", "ult_killdraw_s2" })
                 Assert.That(PerkRules.Get(id).UnlockLevel, Is.LessThanOrEqualTo(24),
                     $"{id} 的门槛不该超过全开等级");
         }
@@ -184,8 +184,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void KillDrawUlt_CarriesTheSpecValues()
         {
-            var u1 = PerkRules.Get("ult_killdraw_1");
-            var u2 = PerkRules.Get("ult_killdraw_2");
+            var u1 = PerkRules.Get("ult_killdraw_s1");
+            var u2 = PerkRules.Get("ult_killdraw_s2");
             foreach (var u in new[] { u1, u2 })
             {
                 Assert.That(u.Tree, Is.EqualTo(PerkTree.Cross), $"{u.Id}:节点样式走跨树那套");
@@ -203,7 +203,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void KillDrawUlt_NeedsEveryMechanicNode()
         {
-            var def = PerkRules.Get("ult_killdraw_1");
+            var def = PerkRules.Get("ult_killdraw_s1");
             var all = AllMechanicIds();
             Assert.That(all.Length, Is.EqualTo(8), "机制树 4 枝 × 2 层");
             Assert.That(PerkRules.PrereqMet(MetaWith(all), def), Is.True, "机制树全部点亮即可");
@@ -217,20 +217,20 @@ namespace Brushblade.Core.Tests
         [Test]
         public void KillDrawUltTwo_NeedsTierOne()
         {
-            var def = PerkRules.Get("ult_killdraw_2");
+            var def = PerkRules.Get("ult_killdraw_s2");
             var all = AllMechanicIds();
             Assert.That(PerkRules.PrereqMet(MetaWith(all), def), Is.False, "机制树点满但没点一级");
-            var withOne = new System.Collections.Generic.List<string>(all) { "ult_killdraw_1" };
+            var withOne = new System.Collections.Generic.List<string>(all) { "ult_killdraw_s1" };
             Assert.That(PerkRules.PrereqMet(MetaWith(withOne.ToArray()), def), Is.True);
-            Assert.That(PerkRules.CanUnlock(MetaWith(withOne.ToArray()), "ult_killdraw_2"), Is.True);
+            Assert.That(PerkRules.CanUnlock(MetaWith(withOne.ToArray()), "ult_killdraw_s2"), Is.True);
         }
 
         [Test]
         public void KillDrawTier_IsTheDeepestOwnedNotTheSum()
         {
             Assert.That(PerkRules.KillDrawTier(MetaWith()), Is.Null);
-            Assert.That(PerkRules.KillDrawTier(MetaWith("ult_killdraw_1")).Id, Is.EqualTo("ult_killdraw_1"));
-            Assert.That(PerkRules.KillDrawTier(MetaWith("ult_killdraw_2", "ult_killdraw_1")).Id, Is.EqualTo("ult_killdraw_2"));
+            Assert.That(PerkRules.KillDrawTier(MetaWith("ult_killdraw_s1")).Id, Is.EqualTo("ult_killdraw_s1"));
+            Assert.That(PerkRules.KillDrawTier(MetaWith("ult_killdraw_s2", "ult_killdraw_s1")).Id, Is.EqualTo("ult_killdraw_s2"));
         }
     }
 }

@@ -91,7 +91,7 @@ namespace Brushblade.Presentation
         {
             "xvigor" => 262f,   // 相济:五行正上方偏左
             "xdraw" => 278f,    // 博采:五行正上方偏右
-            "ult_killdraw" => def.Depth <= 1 ? 136f : 152f,   // 斩获终极技一级 / 二级:机制扇区中线两侧
+            "ult_killdraw" => 144f,   // 斩获终极技(两段节点,占原融会位置)
             _ => 270f,
         };
 

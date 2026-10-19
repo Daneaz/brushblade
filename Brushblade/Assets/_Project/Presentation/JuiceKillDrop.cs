@@ -63,7 +63,7 @@ namespace Brushblade.Presentation
         /// <summary>Play 里遇到 CharGranted:飘名签、冒 token、登记。<paramref name="cell"/> = 阵亡敌人格(取不到为 null)。</summary>
         private void PlayCharGranted(BattleEvent e, RectTransform cell)
         {
-            if (e.Source == EffectSource.KillDraw) PerkCueAt(Strings.T("perk.node.ult_killdraw_1.name"), cell);
+            if (e.Source == EffectSource.KillDraw) PerkCueAt(Strings.T("perk.node.ult_killdraw.name"), cell);
             else TraitCueAt(EffectCueOf?.Invoke(EffectKind.GrantChar), cell);   // 折桂:「攻」印 + 折桂(特性名签原样)
 
             var def = LibraryCharAt?.Invoke(e.Amount);
@@ -90,7 +90,7 @@ namespace Brushblade.Presentation
 
         /// <summary>字库满挡下斩获:不冒 token,阵亡格飘划线的「斩获」+「字库满」(同「被挡下」样式:整体 α .6 + 删除线)。</summary>
         private void PlayGrantBlocked(BattleEvent e, RectTransform cell) =>
-            PerkCueAt(Strings.T("perk.node.ult_killdraw_1.name"), cell, Strings.T("juice.popup.kill_draw_full"));
+            PerkCueAt(Strings.T("perk.node.ult_killdraw.name"), cell, Strings.T("juice.popup.kill_draw_full"));
 
         /// <summary>阵亡格里的立绘(MobView);纯字头像格退回整格。显式判空:Unity 假 null 过不了 ?.</summary>
         private static RectTransform PortraitOf(RectTransform cell)
