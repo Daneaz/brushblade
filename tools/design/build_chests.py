@@ -28,7 +28,7 @@ SVG_DIR = Path(__file__).parent / "chests/svg"
 CANVAS = 256      # 主界面显示 40pt ≈ 84 逻辑单位,256 留够高 DPI 余量
 VIEWBOX = 120     # 稿上的坐标空间,path 逐字照抄,一个数不改
 
-# 档位 slug ↔ 实色。顺序 = ChestTier 的 1~7,
+# 档位 slug ↔ 实色。顺序 = ChestTier 的 2~7(2026-10-20 素纸匣移除),
 # C# 侧 ChestAssets.Slugs 必须与它逐个对应(test_chests.py 守着)。
 #
 # 2026-08-30 拍板:箱色与卡色**并成一套** —— 这七个值就是 base.css 的 .r-* 稀有度色
@@ -36,7 +36,6 @@ VIEWBOX = 120     # 稿上的坐标空间,path 逐字照抄,一个数不改
 # C# 侧对应地改成 Theme.ChestColor = RarityColor(RarityOf(tier)),两边同源。
 # test_chests.py 逐档比对 base.css,改这里而不改那边会红。
 TIERS = {
-    "paper":     "#A19E98",  # 素纸匣 · 白
     "bamboo":    "#2E9E52",  # 竹简匣 · 绿
     "celadon":   "#0F74C4",  # 青瓷匣 · 蓝
     "rosewood":  "#7945AB",  # 紫檀匣 · 紫
@@ -48,7 +47,6 @@ TIERS = {
 # 各档的**盖缝**位置。逐条对着 BODIES 里那条盖沿线量出来的:
 # 纸/竹是函套盖的下沿,瓷/金/漆/铁是稿上已经画出的那道 `h` 线,檀是盖与身的交界。
 SEAMS = {
-    "paper":     "M26 45 h68",
     "bamboo":    "M26 44 h68",
     "celadon":   "M28 58 h64",
     "rosewood":  "M26 45 h68",
@@ -61,20 +59,6 @@ SEAMS = {
 # 共用画法:墨线 #111622(2.6 主体 / 1.8 细节)、纸底 #FFFDF7,
 # 属性色只做**大面积平涂的那一块**(盖或身)—— 40px 缩略图里认色全靠它。
 BODIES = {
-    # ① 素纸匣:纸函套 + 麻绳十字 + 题签。最朴素,毛边与书口是它唯一的「工」
-    "paper": (
-        '<ellipse cx="60" cy="102" rx="33" ry="4" fill="#111622" opacity=".10"/>'
-        '<path d="M26 30 h68 v62 h-68 z" fill="#FFFDF7" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>'
-        '<path d="M26 30 h68 v15 h-68 z" fill="{c}" fill-opacity=".55" stroke="#111622" stroke-width="2"/>'
-        '<path d="M82 50 v36 M86 50 v36 M90 50 v36" stroke="#C6BCA8" stroke-width="1.6" stroke-linecap="round"/>'
-        '<rect x="32" y="52" width="17" height="30" rx="1.5" fill="#F6F1E7" stroke="#111622" stroke-width="1.8"/>'
-        '<path d="M40.5 57 v20" stroke="#111622" stroke-width="1.4" opacity=".4" stroke-dasharray="2 3.5"/>'
-        '<path d="M26 64 h68" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>'
-        '<path d="M66 30 v62" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>'
-        '<circle cx="66" cy="64" r="4.6" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>'
-        '<path d="M26 92 q5.7 4 11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.5 0" fill="none"'
-        ' stroke="#111622" stroke-width="2.2" stroke-linecap="round"/>'
-    ),
     # ② 竹简匣:竹片竖排 + 两道编绳。轮廓最「瘦」,一眼与纸函分得开
     "bamboo": (
         '<ellipse cx="60" cy="102" rx="32" ry="4" fill="#111622" opacity=".10"/>'

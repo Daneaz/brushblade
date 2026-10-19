@@ -303,8 +303,8 @@ namespace Brushblade.Core.Tests
             var random = new GameRandom(1);
             for (int i = 0; i < 200; i++)
             {
-                Assert.That(EndlessRules.ChestTierFor(1, random),
-                    Is.EqualTo(ChestTier.Paper).Or.EqualTo(ChestTier.Bamboo));
+                Assert.That(EndlessRules.ChestTierFor(1, random), // 素纸匣已移除(2026-10-20):1~4 层同 5~9 层
+                    Is.EqualTo(ChestTier.Bamboo).Or.EqualTo(ChestTier.Celadon));
                 Assert.That(EndlessRules.ChestTierFor(12, random),
                     Is.EqualTo(ChestTier.Celadon).Or.EqualTo(ChestTier.Rosewood));
                 Assert.That(EndlessRules.ChestTierFor(40, random),

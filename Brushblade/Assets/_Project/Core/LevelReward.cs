@@ -33,7 +33,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>这一档每级宝箱对应的等级区间(升级弹窗的「Lv.11–20」chip)。末档 max = int.MaxValue
-        /// (开放);不作每级宝箱的档(素纸匣)返回 false。</summary>
+        /// (开放);不作每级宝箱的档返回 false。</summary>
         public static bool TryGetLevelBand(ChestTier tier, out int min, out int max)
         {
             min = 1;

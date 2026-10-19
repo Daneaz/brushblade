@@ -22,10 +22,9 @@ namespace Brushblade.Presentation
     /// (<c>tools/design/tests/test_chests.py</c> 守着这条)。</summary>
     public static class ChestAssets
     {
-        /// <summary>档位 → 资产 slug。顺序 = <see cref="ChestTier"/> 的 1~7。</summary>
+        /// <summary>档位 → 资产 slug。顺序 = <see cref="ChestTier"/> 的 2~7(素纸匣 2026-10-20 移除)。</summary>
         private static readonly Dictionary<ChestTier, string> Slugs = new()
         {
-            { ChestTier.Paper, "paper" },
             { ChestTier.Bamboo, "bamboo" },
             { ChestTier.Celadon, "celadon" },
             { ChestTier.Rosewood, "rosewood" },

@@ -46,10 +46,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TryGetLevelBand_PaperIsNeverALevelReward() =>
-            Assert.That(LevelRewardRules.TryGetLevelBand(ChestTier.Paper, out _, out _), Is.False);
-
-        [Test]
         public void TryGetLevelBand_AgreesWithTierForLevel()
         {
             for (int lv = 1; lv <= 200; lv++)

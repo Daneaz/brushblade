@@ -112,12 +112,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PaperChest_NeverDropsRed() // 一级箱红卡权重 0
+        public void BambooChest_NeverDropsRed() // 竹简匣红卡权重 0
         {
             var graph = MixedGraph();
             for (int seed = 0; seed < 50; seed++)
             {
-                OpenChest(ChestTier.Paper, graph, seed, out var rewards);
+                OpenChest(ChestTier.Bamboo, graph, seed, out var rewards);
                 Assert.That(rewards.Cards, Does.Not.Contain("燚"), $"seed={seed}");
             }
         }

@@ -91,11 +91,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void KindCountAndTotalCards_ArePinned()
         {
-            Assert.That(ChestRules.KindCount, Is.EqualTo(new[] { 3, 4, 6, 8, 12, 14, 16 }));
-            Assert.That(ChestRules.TotalCards, Is.EqualTo(new[] { 13, 22, 27, 40, 91, 115, 136 }));
+            Assert.That(ChestRules.KindCount, Is.EqualTo(new[] { 0, 4, 6, 8, 12, 14, 16 }));
+            Assert.That(ChestRules.TotalCards, Is.EqualTo(new[] { 0, 22, 27, 40, 91, 115, 136 }));
         }
 
-        [TestCase(ChestTier.Paper, 13)]
+        [TestCase(ChestTier.Bamboo, 22)]
         [TestCase(ChestTier.Crimson, 136)]
         public void ExpectedCards_IsTotalCards(ChestTier tier, int expected)
         {
@@ -162,7 +162,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EveryTier_StillYieldsWhiteAndGreen()
         {
-            for (int tier = 1; tier <= 7; tier++)
+            for (int tier = (int)ChestRules.LowestTier; tier <= 7; tier++)
             {
                 var w = ChestRules.CardRarityWeightsFor((ChestTier)tier);
                 Assert.That(w[0], Is.GreaterThan(0), $"tier {tier} 白");
@@ -170,39 +170,32 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        /// <summary>每箱金/橙/红期望张数 = 旧卡数 × 旧权重(3/4/6/8/12/14/16 × 2026-08-29 拍板表)。
-        /// 金橙红每种 1 张,所以期望 = 种数 × 权重。</summary>
-        [TestCase(ChestTier.Celadon, 0.06, 0.0, 0.0)]
-        [TestCase(ChestTier.Rosewood, 0.16, 0.04, 0.0)]
-        [TestCase(ChestTier.Gilded, 0.60, 0.12, 0.012)]
-        [TestCase(ChestTier.Vermilion, 0.98, 0.28, 0.07)]
-        [TestCase(ChestTier.Crimson, 1.60, 0.48, 0.16)]
-        public void HighRarityExpectationPerChest_Unchanged(ChestTier tier, double gold, double orange, double red)
+        /// <summary>2026-10-20 用户拍板的整张权重表(千分比):竹简只出白~蓝、青瓷白~紫、紫檀白~金,
+        /// 鎏金/朱漆/赤霄只动橙(10→5 / 20→10 / 30→20),金红不动;删掉与调低的份额按白~紫原比例摊回。
+        /// 取代 10-02 的「白~紫期望 ≈ 成捆版」与「金橙红期望不变」两组对账 —— 这次就是有意改产出。</summary>
+        [TestCase(ChestTier.Bamboo, new[] { 427, 372, 201, 0, 0, 0, 0 })]
+        [TestCase(ChestTier.Celadon, new[] { 337, 297, 254, 112, 0, 0, 0 })]
+        [TestCase(ChestTier.Rosewood, new[] { 327, 207, 250, 196, 20, 0, 0 })]
+        [TestCase(ChestTier.Gilded, new[] { 263, 185, 251, 245, 50, 5, 1 })]
+        [TestCase(ChestTier.Vermilion, new[] { 243, 171, 242, 259, 70, 10, 5 })]
+        [TestCase(ChestTier.Crimson, new[] { 218, 154, 228, 270, 100, 20, 10 })]
+        public void CardRarityWeights_ArePinned(ChestTier tier, int[] expected)
         {
-            var w = ChestRules.CardRarityWeightsFor(tier);
-            int n = ChestRules.KindCount[(int)tier - 1];
-            Assert.That(n * w[4] / 1000.0, Is.EqualTo(gold).Within(0.001), "金");
-            Assert.That(n * w[5] / 1000.0, Is.EqualTo(orange).Within(0.001), "橙");
-            Assert.That(n * w[6] / 1000.0, Is.EqualTo(red).Within(0.001), "红");
+            Assert.That(ChestRules.CardRarityWeightsFor(tier), Is.EqualTo(expected));
         }
 
-        /// <summary>白~紫每箱期望张数 ≈ 10-01 成捆版(捆数 × 每捆权重 × 每捆张数),误差 ≤ 3% 或 0.1 张。
-        /// 用户 2026-10-02 拍板「调白~紫权重对齐」:改开法不改产出,升级节奏与商城底价都不动。</summary>
-        [TestCase(ChestTier.Paper, 8.0, 4.0, 1.0, 0.0)]
-        [TestCase(ChestTier.Bamboo, 12.0, 7.0, 2.5, 0.4)]
-        [TestCase(ChestTier.Celadon, 13.62, 7.74, 4.34, 1.24)]
-        [TestCase(ChestTier.Rosewood, 21.70, 8.55, 6.58, 3.09)]
-        [TestCase(ChestTier.Gilded, 47.28, 19.44, 15.30, 7.80)]
-        [TestCase(ChestTier.Vermilion, 59.52, 24.16, 19.52, 10.75)]
-        [TestCase(ChestTier.Crimson, 69.20, 27.60, 23.10, 13.84)]
-        public void LowRarityExpectationPerChest_MatchesBundleEra(ChestTier tier,
-            double white, double green, double blue, double purple)
+        /// <summary>每档能出的最高稀有度:竹简到蓝、青瓷到紫、紫檀到金,鎏金起全七色。</summary>
+        [TestCase(ChestTier.Bamboo, CardRarity.Blue)]
+        [TestCase(ChestTier.Celadon, CardRarity.Purple)]
+        [TestCase(ChestTier.Rosewood, CardRarity.Gold)]
+        [TestCase(ChestTier.Gilded, CardRarity.Red)]
+        [TestCase(ChestTier.Vermilion, CardRarity.Red)]
+        [TestCase(ChestTier.Crimson, CardRarity.Red)]
+        public void HighestRarity_PerTier(ChestTier tier, CardRarity highest)
         {
-            var e = ExpectedCopies(tier);
-            var target = new[] { white, green, blue, purple };
-            var names = new[] { "白", "绿", "蓝", "紫" };
-            for (int r = 0; r < 4; r++)
-                Assert.That(e[r], Is.EqualTo(target[r]).Within(Math.Max(0.1, target[r] * 0.03)), names[r]);
+            var w = ChestRules.CardRarityWeightsFor(tier);
+            for (int r = 1; r <= 7; r++)
+                Assert.That(w[r - 1] > 0, Is.EqualTo(r <= (int)highest), $"{tier} 的第 {r} 档");
         }
 
         // ---- 开箱 ----
@@ -211,7 +204,7 @@ namespace Brushblade.Core.Tests
         public void Open_YieldsKindCountEntries_SummingToTotal()
         {
             var graph = RarityGraph();
-            for (int tier = 1; tier <= 7; tier++)
+            for (int tier = (int)ChestRules.LowestTier; tier <= 7; tier++)
             {
                 var rewards = Open(new MetaState(), (ChestTier)tier, tier * 7, graph);
                 Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[tier - 1]), $"tier {tier}");
@@ -225,16 +218,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Open_Paper_AlwaysThreeKindsThirteenCards()
+        public void Open_Bamboo_AlwaysFourKindsTwentyTwoCards()
         {
             var graph = RarityGraph();
             for (int seed = 1; seed <= 20; seed++)
             {
-                var rewards = Open(new MetaState(), ChestTier.Paper, seed, graph);
-                Assert.That(rewards.Cards.Count, Is.EqualTo(3));
+                var rewards = Open(new MetaState(), ChestTier.Bamboo, seed, graph);
+                Assert.That(rewards.Cards.Count, Is.EqualTo(4));
                 int sum = 0;
                 foreach (var n in rewards.Counts) sum += n;
-                Assert.That(sum, Is.EqualTo(13), $"seed {seed}");
+                Assert.That(sum, Is.EqualTo(22), $"seed {seed}");
             }
         }
 
