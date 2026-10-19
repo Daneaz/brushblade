@@ -785,11 +785,11 @@ namespace Brushblade.Presentation
         {
             var stats = _meta.Stats;
 
-            // ① 开箱:七档箱各开了几只
+            // ① 开箱:各档箱各开了几只
             int opened = 0;
             foreach (var kv in stats.ChestsOpened) opened += kv.Value;
             var chests = Column(pane, 268, Strings.T("character.chest.opened", ("count", opened.ToString("N0", Inv))));
-            for (var tier = ChestTier.Paper; tier <= ChestTier.Crimson; tier++)
+            for (var tier = ChestRules.LowestTier; tier <= ChestTier.Crimson; tier++)
             {
                 stats.ChestsOpened.TryGetValue(tier, out int n);
                 ListRow(chests, Theme.ChestColor(tier), ChestRules.TierName(tier), n);

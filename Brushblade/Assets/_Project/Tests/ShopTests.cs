@@ -163,7 +163,7 @@ namespace Brushblade.Core.Tests
             var meta = Fresh(time);
             meta.Ink = 5000;
             for (int i = 0; i < ChestRules.SlotLimit; i++)
-                ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+                ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
 
             Assert.That(ShopRules.TryBuyChest(meta, Pool, time), Is.False);
             Assert.That(meta.Ink, Is.EqualTo(5000)); // 不扣费

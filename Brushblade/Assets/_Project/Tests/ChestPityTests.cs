@@ -73,7 +73,7 @@ namespace Brushblade.Core.Tests
             Assert.That(ChestRules.KindCount.Length, Is.EqualTo(tiers));
             Assert.That(ChestRules.InkReward.Length, Is.EqualTo(tiers));
             Assert.That(ShopRules.ChestBasePrice.Length, Is.EqualTo(tiers));
-            for (int tier = 1; tier <= tiers; tier++)
+            for (int tier = (int)ChestRules.LowestTier; tier <= tiers; tier++)
             {
                 Assert.That(ChestRules.TierName((ChestTier)tier), Is.Not.EqualTo("?"),
                     $"第 {tier} 档没有名字");
@@ -86,7 +86,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CardRarityWeights_EachTierSumsToOneThousand()
         {
-            for (int tier = 1; tier <= 7; tier++)
+            for (int tier = (int)ChestRules.LowestTier; tier <= 7; tier++)
             {
                 int sum = 0;
                 foreach (int weight in ChestRules.CardRarityWeightsFor((ChestTier)tier)) sum += weight;
@@ -95,32 +95,31 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        /// <summary>金/橙/红九个数,单位千分比 —— 2026-08-29 拍板的**每种字**权重。2026-10-01 改捆时曾按
-        /// 捆数折算过一版;2026-10-02 改回「每箱 N 种」后种数又回到 3/4/6/8/12/14/16,于是原值原样回归
-        /// (金橙红每种 1 张,期望张数由 ChestBundleTests.HighRarityExpectationPerChest_Unchanged 钉着)。</summary>
-        [TestCase(ChestTier.Celadon, CardRarity.Gold, 10)]
-        [TestCase(ChestTier.Rosewood, CardRarity.Gold, 20)]
-        [TestCase(ChestTier.Gilded, CardRarity.Gold, 50)]
-        [TestCase(ChestTier.Rosewood, CardRarity.Orange, 5)]
-        [TestCase(ChestTier.Gilded, CardRarity.Orange, 10)]
-        [TestCase(ChestTier.Vermilion, CardRarity.Orange, 20)]
-        [TestCase(ChestTier.Gilded, CardRarity.Red, 1)]
-        [TestCase(ChestTier.Vermilion, CardRarity.Red, 5)]
-        [TestCase(ChestTier.Crimson, CardRarity.Red, 10)]
-        public void CardRarityWeights_MatchPinnedNumbers(ChestTier tier, CardRarity rarity, int expected)
+        /// <summary>素纸匣已移除(2026-10-20,含商城):商城/等级掷档表的白箱一列恒为 0,
+        /// 原份额并入竹简;Boss 首通 +1 档的起点也就从竹简开始。</summary>
+        [Test]
+        public void TierWeights_NeverRollPaper()
         {
-            Assert.That(ChestRules.CardRarityWeightsFor(tier)[(int)rarity - 1], Is.EqualTo(expected));
+            for (int level = 1; level <= 60; level++)
+            {
+                Assert.That(ChestRules.TierWeightsFor(level)[0], Is.EqualTo(0), $"Lv{level}");
+                for (int seed = 0; seed < 20; seed++)
+                    Assert.That(ChestRules.RollTier(level, new GameRandom(seed)),
+                        Is.GreaterThanOrEqualTo(ChestRules.LowestTier), $"Lv{level} seed{seed}");
+            }
+            Assert.That(ChestRules.TierWeightsFor(1), Is.EqualTo(new[] { 0, 85, 10, 4, 1, 0, 0 }),
+                "Lv1~5:素纸 55 并入竹简 30");
         }
 
         /// <summary>白档 12 个字曾因权重列写死 0 而永远掉不出来(其中 7 个连商城都没有)。</summary>
         [Test]
-        public void Paper_YieldsWhiteCards()
+        public void Bamboo_YieldsWhiteCards()
         {
             var graph = RarityGraph();
             int white = 0;
             for (int seed = 1; seed <= 30; seed++)
-                white += CountOf(OpenOn(new MetaState(), ChestTier.Paper, seed, graph), CardRarity.White, graph);
-            Assert.That(white, Is.GreaterThan(0), "素纸匣白权重 505‰,30 箱 90 种不该一张白都没有");
+                white += CountOf(OpenOn(new MetaState(), ChestTier.Bamboo, seed, graph), CardRarity.White, graph);
+            Assert.That(white, Is.GreaterThan(0), "竹简匣白权重 427‰,30 箱 120 种不该一张白都没有");
         }
 
         // ---- 计数保底 ----
@@ -246,7 +245,6 @@ namespace Brushblade.Core.Tests
         /// <summary>单箱保底表的公开读法(2026-09-04 为宝箱说明弹窗加的入口)。
         /// 与 <see cref="ChestRules.PityRules"/> 一起构成「保底怎么玩」那一屏的唯一数据源 ——
         /// 弹窗不许自己抄一份档位→稀有度的对照,抄一份就会跟着这张表一起过期。</summary>
-        [TestCase(ChestTier.Paper, null)]
         [TestCase(ChestTier.Bamboo, null)]
         [TestCase(ChestTier.Celadon, CardRarity.Blue)]
         [TestCase(ChestTier.Rosewood, CardRarity.Purple)]
@@ -265,7 +263,7 @@ namespace Brushblade.Core.Tests
         public void GuaranteedRarityFor_AgreesWithActualOpen()
         {
             var graph = RarityGraph();
-            for (int tier = 1; tier <= 7; tier++)
+            for (int tier = (int)ChestRules.LowestTier; tier <= 7; tier++)
             {
                 var chestTier = (ChestTier)tier;
                 var floor = ChestRules.GuaranteedRarityFor(chestTier);

@@ -15,11 +15,11 @@ CHEST_ASSETS = (build_chests.ROOT
 
 
 def test_tier_set_matches_core_enum():
-    """七档必须与 ChestTier 一一对应 —— 少一档就是那一档的箱在主界面画不出来。"""
+    """各档必须与 ChestTier 一一对应 —— 少一档就是那一档的箱在主界面画不出来(2026-10-20 起六档,素纸匣移除)。"""
     src = CORE_CHEST.read_text(encoding="utf-8")
     start = src.index("enum ChestTier")
     names = re.findall(r"^\s{8}(\w+) = \d,", src[start:src.index("}", start)], re.M)
-    assert len(names) == 7, f"没解析出七档,解析到 {names}"
+    assert len(names) == 6, f"没解析出六档,解析到 {names}"
     assert [n.lower() for n in names] == list(build_chests.TIERS), \
         f"Core 的档位 {names} 与 build_chests.TIERS {list(build_chests.TIERS)} 对不上"
 
@@ -98,7 +98,7 @@ THEME = build_chests.ROOT / "Brushblade/Assets/_Project/Presentation/UI/Theme.cs
 
 # 档位 slug → CardRarity 枚举名(白绿蓝紫金橙红,与 ChestTier 同序)
 TIER_TO_RARITY = {
-    "paper": "White", "bamboo": "Green", "celadon": "Blue", "rosewood": "Purple",
+    "bamboo": "Green", "celadon": "Blue", "rosewood": "Purple",
     "gilded": "Gold", "vermilion": "Orange", "crimson": "Red",
 }
 

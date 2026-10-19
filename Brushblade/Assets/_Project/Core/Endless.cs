@@ -438,8 +438,7 @@ namespace Brushblade.Core
         {
             var (low, high) = depth switch
             {
-                < 5 => (ChestTier.Paper, ChestTier.Bamboo),
-                < 10 => (ChestTier.Bamboo, ChestTier.Celadon),
+                < 10 => (ChestTier.Bamboo, ChestTier.Celadon), // 素纸匣已移除(2026-10-20),1~4 层并入此档
                 < 20 => (ChestTier.Celadon, ChestTier.Rosewood),
                 < 35 => (ChestTier.Rosewood, ChestTier.Gilded),
                 < 50 => (ChestTier.Gilded, ChestTier.Vermilion),

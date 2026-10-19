@@ -15,7 +15,7 @@ namespace Brushblade.Core.Tests
 
         private static readonly string[] Pool = { "灯", "炎", "烧" };
 
-        private static MetaState Award(FakeTime time, ChestTier tier = ChestTier.Paper)
+        private static MetaState Award(FakeTime time, ChestTier tier = ChestTier.Bamboo)
         {
             var meta = new MetaState();
             Assert.That(ChestRules.TryAwardChest(meta, tier, Pool, time), Is.True);
@@ -39,8 +39,8 @@ namespace Brushblade.Core.Tests
             var time = new FakeTime();
             var meta = new MetaState();
             for (int i = 0; i < ChestRules.SlotLimit; i++)
-                Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.True);
-            Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.False);
+                Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time), Is.True);
+            Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time), Is.False);
         }
 
         // ---- 战后掉箱:箱位 4 格 + 暂存最多 1 只(2026-09-30 用户拍板)----
@@ -50,7 +50,7 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState();
             for (int i = 0; i < ChestRules.SlotLimit; i++)
-                ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+                ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
             return meta;
         }
 
@@ -91,7 +91,7 @@ namespace Brushblade.Core.Tests
             var time = new FakeTime();
             var meta = new MetaState();
             for (int i = 0; i < ChestRules.SlotLimit; i++) // 4 位全满
-                ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+                ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
             meta.PendingChests.Add(ChestTier.Gilded);
             meta.PendingChests.Add(ChestTier.Crimson);
 
@@ -127,7 +127,7 @@ namespace Brushblade.Core.Tests
             var meta = new MetaState();
             for (int i = 0; i < 20; i++)
             {
-                Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.True);
+                Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time), Is.True);
                 meta.Chests.Clear(); // 腾出箱位
             }
         }
@@ -166,8 +166,8 @@ namespace Brushblade.Core.Tests
         {
             var time = new FakeTime();
             var meta = new MetaState();
-            ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
-            ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
 
             Assert.That(ChestRules.TryStartOpening(meta, 0, time), Is.True);
             Assert.That(ChestRules.TryStartOpening(meta, 1, time), Is.False); // 已有箱在计时
@@ -288,16 +288,16 @@ namespace Brushblade.Core.Tests
         public void Open_GrantsInkAndCards_RemovesChest()
         {
             var time = new FakeTime();
-            var meta = Award(time, ChestTier.Paper); // 3 种 + 15 墨锭
+            var meta = Award(time, ChestTier.Bamboo); // 4 种 + 30 墨锭
             ChestRules.TryStartOpening(meta, 0, time);
-            time.NowUnixSeconds += 300;
+            time.NowUnixSeconds += 1800;
 
             Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(1), out var rewards), Is.True);
-            Assert.That(rewards.Ink, Is.EqualTo(15));
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[0]));
+            Assert.That(rewards.Ink, Is.EqualTo(30));
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[1]));
             Assert.That(rewards.Cards, // 有放回抽取,重复=升级材料;Unity 版 NUnit 无 AnyOf
                 Has.All.Matches<string>(c => System.Array.IndexOf(Pool, c) >= 0));
-            Assert.That(meta.Ink, Is.EqualTo(15));
+            Assert.That(meta.Ink, Is.EqualTo(30));
             Assert.That(meta.Chests, Is.Empty);
             // 卡入收集:首张 owned,重复转 copies
             int owned = rewards.Cards.Distinct().Count();
@@ -309,10 +309,10 @@ namespace Brushblade.Core.Tests
         {
             var time = new FakeTime();
             var meta = new MetaState();
-            ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
-            ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
             ChestRules.TryStartOpening(meta, 0, time);
-            time.NowUnixSeconds += 300;
+            time.NowUnixSeconds += 1800;
             ChestRules.TryOpen(meta, 0, time, new GameRandom(1), out _);
 
             Assert.That(ChestRules.TryStartOpening(meta, 0, time), Is.True); // 剩下的箱顶上
@@ -384,7 +384,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Open_DoesNotYieldCardsWithUnmetPrerequisites()
         {
-            var rewards = OpenWith(PrereqPool, new[] { "杜" }, ChestTier.Paper, 7, PrereqGraph());
+            var rewards = OpenWith(PrereqPool, new[] { "杜" }, ChestTier.Bamboo, 7, PrereqGraph());
             Assert.That(rewards.Cards, Has.All.Matches<string>(c => c == "杜" || c == "圭"));
         }
 
@@ -409,9 +409,9 @@ namespace Brushblade.Core.Tests
         {
             var graph = PrereqGraph();
             var rewards = OpenWith(new[] { "垚", "桂", "㙓" }, Array.Empty<string>(),
-                ChestTier.Paper, 7, graph);
+                ChestTier.Bamboo, 7, graph);
 
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[0]),
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[1]),
                 "滤空也要出满数——这是隐藏限制存在的前提,出 0 张比限制失效更像 bug");
             Assert.That(rewards.Cards, Has.All.Matches<string>(c =>
                 !MetaRules.PrerequisitesMet(c, graph, Array.Empty<string>())),

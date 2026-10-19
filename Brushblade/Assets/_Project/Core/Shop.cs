@@ -72,8 +72,9 @@ namespace Brushblade.Core
         private static readonly bool[] AdOfferNeedsOwned = { true, true, false };
 
         /// <summary>宝箱位底价(索引 = tier−1;2026-10-01)= 该箱开出的张数按字摊单张价(每份价 ÷ 每份张数)折算,
-        /// 取整到十位(ShopDiscountTests 对账)。实付 = 底价 × 当日折扣。</summary>
-        public static readonly int[] ChestBasePrice = { 230, 460, 700, 1180, 2850, 3850, 4870 };
+        /// 取整到十位(ShopDiscountTests 对账)。实付 = 底价 × 当日折扣。
+        /// 2026-10-20 素纸匣移除(索引 0 占位);竹简删紫后期望价值 ≈ 423,底价 460 → 420,其余档仍在 3% 内未动。</summary>
+        public static readonly int[] ChestBasePrice = { 0, 420, 700, 1180, 2850, 3850, 4870 };
 
         // ---- 每日随机打折(2026-10-01 用户拍板)----
         // 字摊每份与宝箱位各自掷一档:常规 3~7 折,橙/红字与朱漆/赤霄宝箱 6~8 折。整折为一档。

@@ -157,7 +157,7 @@ namespace Brushblade.Presentation
             ChestTier.Gilded => CardRarity.Gold,      // 鎏金匣
             ChestTier.Vermilion => CardRarity.Orange, // 朱漆匣
             ChestTier.Crimson => CardRarity.Red,      // 赤霄匣
-            _ => CardRarity.White,                    // 素纸匣
+            _ => CardRarity.White,                    // 不可达(素纸匣 2026-10-20 已移除)
         };
 
         public static Color ElementColor(Element? element) => element switch

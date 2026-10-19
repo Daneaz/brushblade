@@ -11,10 +11,11 @@ namespace Brushblade.Core
 
     /// <summary>宝箱七级(19.5.1):数值索引 1~7,与 <see cref="CardRarity"/> 的七档色阶一一对应。
     /// 2026-08-29 补上朱漆匣(橙)—— 此前只有六档,鎏金注成「橙」而实际取的是金色,
-    /// 橙这一档在箱子侧根本不存在。赤霄由 6 挪到 7,旧存档里的赤霄箱会被读成朱漆(未上线,不做迁移)。</summary>
+    /// 橙这一档在箱子侧根本不存在。赤霄由 6 挪到 7,旧存档里的赤霄箱会被读成朱漆(未上线,不做迁移)。
+    /// 2026-10-20 素纸匣(白,= 1)整档移除(含商城),宝箱从竹简起;其余数值不变,仍与稀有度色阶对齐。
+    /// 各档数据表保持「索引 = tier−1」,索引 0 是空着的占位。</summary>
     public enum ChestTier
     {
-        Paper = 1,     // 素纸匣(白)
         Bamboo = 2,    // 竹简匣(绿)
         Celadon = 3,   // 青瓷匣(蓝)
         Rosewood = 4,  // 紫檀匣(紫)
@@ -61,40 +62,43 @@ namespace Brushblade.Core
 
     public static class ChestRules
     {
+        /// <summary>最低一档(2026-10-20 素纸匣移除后)。遍历各档从这里起。</summary>
+        public const ChestTier LowestTier = ChestTier.Bamboo;
+
         public const int SlotLimit = 4; // 箱位数(19.5.2);节奏阀 = 箱位 + 计时,无每日上限(2026-07-05 拍板)
 
-        /// <summary>各级开启时长(秒):5m/30m/2h/4h/8h/10h/12h。索引 = tier−1。</summary>
-        public static readonly long[] DurationSeconds = { 300, 1800, 7200, 14400, 28800, 36000, 43200 };
+        /// <summary>各级开启时长(秒):30m/2h/4h/8h/10h/12h。索引 = tier−1(索引 0 = 已移除的素纸匣,占位)。</summary>
+        public static readonly long[] DurationSeconds = { 0, 1800, 7200, 14400, 28800, 36000, 43200 };
 
-        /// <summary>各级单次广告缩短(秒):即开/即开/40m/60m/90m/105m/120m。</summary>
-        public static readonly long[] AdReductionSeconds = { 300, 1800, 2400, 3600, 5400, 6300, 7200 };
+        /// <summary>各级单次广告缩短(秒):即开/40m/60m/90m/105m/120m(索引 0 占位)。</summary>
+        public static readonly long[] AdReductionSeconds = { 0, 1800, 2400, 3600, 5400, 6300, 7200 };
 
         /// <summary>各级开出几种字(2026-10-02 回到 19.5.1 的 3/4/6/8/12/14/16)。每种的稀有度按
         /// <see cref="CardRarityWeights"/> 掷,张数见 <see cref="TotalCards"/> 与 <see cref="SplitCopies"/>。</summary>
-        public static readonly int[] KindCount = { 3, 4, 6, 8, 12, 14, 16 };
+        public static readonly int[] KindCount = { 0, 4, 6, 8, 12, 14, 16 };
 
         /// <summary>各级开出的总张数(2026-10-02)= 10-01 成捆版的每箱期望张数,高档陡增是为了让
         /// 后期卡量跟上后期墨锭收入(tools/design/economy_model.py:白~紫「攒卡天数 ≈ 攒墨锭天数」)。
         /// 只有掷出的全是金橙红时会不足(那几种各 1 张,不凑数)。</summary>
-        public static readonly int[] TotalCards = { 13, 22, 27, 40, 91, 115, 136 };
+        public static readonly int[] TotalCards = { 0, 22, 27, 40, 91, 115, 136 };
 
-        /// <summary>各级产出墨锭(首版基准)。</summary>
-        public static readonly int[] InkReward = { 15, 30, 60, 120, 250, 320, 400 };
+        /// <summary>各级产出墨锭(首版基准;索引 0 占位)。</summary>
+        public static readonly int[] InkReward = { 0, 30, 60, 120, 250, 320, 400 };
 
-        // 档位权重表:每 5 级一档向高档偏移(19.5.3 首版基准;行 = 等级段,列 = tier)
+        // 档位权重表:每 5 级一档向高档偏移(19.5.3 首版基准;行 = 等级段,列 = tier)。
+        // 2026-10-20 素纸匣移除:第一列原份额并入竹简(55+30 / 35+35 / …),其余列不动。
         private static readonly int[][] TierWeightBands =
         {
-            new[] { 55, 30, 10, 4, 1, 0, 0 },   // Lv 1~5
-            new[] { 35, 35, 18, 8, 3, 1, 0 },   // Lv 6~10
-            new[] { 20, 32, 25, 14, 6, 2, 1 },  // Lv 11~15
-            new[] { 10, 25, 28, 20, 11, 4, 2 }, // Lv 16~20
-            new[] { 5, 18, 26, 24, 17, 7, 3 },  // Lv 21~25
-            new[] { 2, 12, 22, 26, 22, 11, 5 }, // Lv 26+
+            new[] { 0, 85, 10, 4, 1, 0, 0 },    // Lv 1~5
+            new[] { 0, 70, 18, 8, 3, 1, 0 },    // Lv 6~10
+            new[] { 0, 52, 25, 14, 6, 2, 1 },   // Lv 11~15
+            new[] { 0, 35, 28, 20, 11, 4, 2 },  // Lv 16~20
+            new[] { 0, 23, 26, 24, 17, 7, 3 },  // Lv 21~25
+            new[] { 0, 14, 22, 26, 22, 11, 5 }, // Lv 26+
         };
 
         public static string TierName(ChestTier tier) => tier switch
         {
-            ChestTier.Paper => "素纸匣",
             ChestTier.Bamboo => "竹简匣",
             ChestTier.Celadon => "青瓷匣",
             ChestTier.Rosewood => "紫檀匣",
@@ -104,7 +108,7 @@ namespace Brushblade.Core
             _ => "?",
         };
 
-        /// <summary>该角色等级下七档宝箱的掉落权重(索引 = tier−1)。</summary>
+        /// <summary>该角色等级下各档宝箱的掉落权重(索引 = tier−1;素纸那一列恒 0)。</summary>
         public static IReadOnlyList<int> TierWeightsFor(int characterLevel)
         {
             int band = Math.Min((characterLevel - 1) / 5, TierWeightBands.Length - 1);
@@ -296,16 +300,20 @@ namespace Brushblade.Core
         //   每种至少 1 张会让抽中的蓝紫多拿,所以蓝紫的每种出率比成捆版低、白高;
         //   对账见 ChestBundleTests.LowRarityExpectationPerChest_MatchesBundleEra。
         // · **高档箱也出白/绿**(白卡升满要 1081 张,后期白字靠这个升得动)。
+        //
+        // 2026-10-20 用户拍板(素纸匣移除,每档封顶):竹简只出白~蓝(紫删)、青瓷白~紫(金删)、
+        // 紫檀白~金(橙删);鎏金/朱漆/赤霄的橙 10→5 / 20→10 / 30→20,金与红不动。
+        // 删掉/调低的份额按该档白~紫原比例摊回(最大余数法取整),对账见 ChestBundleTests.CardRarityWeights_ArePinned。
         private static readonly int[][] CardRarityWeights =
         {
             //       白    绿    蓝    紫    金   橙  红
-            new[] { 505, 356, 139,   0,   0,  0,  0 },  // 素纸
-            new[] { 406, 353, 191,  50,   0,  0,  0 },  // 竹简
-            new[] { 334, 294, 251, 111,  10,  0,  0 },  // 青瓷
-            new[] { 325, 206, 249, 195,  20,  5,  0 },  // 紫檀
-            new[] { 261, 184, 250, 244,  50, 10,  1 },  // 鎏金
-            new[] { 240, 169, 240, 256,  70, 20,  5 },  // 朱漆
-            new[] { 216, 152, 225, 267, 100, 30, 10 },  // 赤霄
+            new[] {   0,   0,   0,   0,   0,  0,  0 },  // (素纸,已移除)
+            new[] { 427, 372, 201,   0,   0,  0,  0 },  // 竹简
+            new[] { 337, 297, 254, 112,   0,  0,  0 },  // 青瓷
+            new[] { 327, 207, 250, 196,  20,  0,  0 },  // 紫檀
+            new[] { 263, 185, 251, 245,  50,  5,  1 },  // 鎏金
+            new[] { 243, 171, 242, 259,  70, 10,  5 },  // 朱漆
+            new[] { 218, 154, 228, 270, 100, 20, 10 },  // 赤霄
         };
 
         /// <summary>该档宝箱开出几张 = <see cref="TotalCards"/>(商城宝箱位「8 种 共 40 张」的后半句)。</summary>
@@ -360,7 +368,7 @@ namespace Brushblade.Core
         /// <see cref="PityRules"/> 的跨箱计数保底,两套叠在一起会让高稀有度过量。</summary>
         private static readonly CardRarity?[] GuaranteedRarity =
         {
-            null, null, CardRarity.Blue, CardRarity.Purple,
+            null /* 素纸,已移除 */, null, CardRarity.Blue, CardRarity.Purple,
             CardRarity.Purple, CardRarity.Purple, CardRarity.Purple,
         };
 

@@ -1099,6 +1099,7 @@ namespace Brushblade.Presentation
                     ("rarity", CharInfo.RarityName(rule.Rarity))));
             }
             HelpBody(left.transform, Strings.T("map.chest.help.pity_note"));
+            HelpBody(left.transform, Strings.T("map.chest.help.pity_progress"));
 
             var spacer = Ui.Panel(left.transform, "Spacer");
             spacer.AddComponent<LayoutElement>().flexibleHeight = 1; // 按钮贴右栏底
@@ -1123,7 +1124,7 @@ namespace Brushblade.Presentation
             label.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
-        /// <summary>左栏:七档 × (时长 / 卡数 / 墨锭 / 单箱保底 / 七色出货权重)。</summary>
+        /// <summary>左栏:各档(竹简起)× (时长 / 卡数 / 墨锭 / 单箱保底 / 七色出货权重)。</summary>
         private void BuildHelpTable(Transform parent)
         {
             var right = Ui.VStack(parent, "Left", 8);
@@ -1145,7 +1146,7 @@ namespace Brushblade.Presentation
                 HelpCell(head.transform, CharInfo.RarityName((CardRarity)rarity), HelpRarityColW,
                     Theme.RarityColor((CardRarity)rarity));
 
-            for (int tierIndex = 1; tierIndex <= (int)ChestTier.Crimson; tierIndex++)
+            for (int tierIndex = (int)ChestRules.LowestTier; tierIndex <= (int)ChestTier.Crimson; tierIndex++)
             {
                 var tier = (ChestTier)tierIndex;
                 var row = Ui.Row(right.transform, $"Tier{tierIndex}", 0);
@@ -1181,7 +1182,7 @@ namespace Brushblade.Presentation
             Ui.Sized(label.gameObject, width: width, height: HelpRowH);
         }
 
-        /// <summary>档位时长的人读法。七档全是整分或整时(300…43200),不需要「1 时 30 分」
+        /// <summary>档位时长的人读法。各档全是整分或整时(1800…43200),不需要「1 时 30 分」
         /// 这种混合写法 —— 真加了这样一档,这里会显示成分钟数,不会错只会长。</summary>
         private static string HelpDuration(long seconds) => seconds % 3600 == 0
             ? Strings.T("map.chest.help.duration_hour", ("hours", seconds / 3600))
