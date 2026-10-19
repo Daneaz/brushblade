@@ -214,13 +214,14 @@ namespace Brushblade.Presentation
             _ => LockedBg,
         };
 
-        /// <summary>token `card-face` #FFFDF7(微暖白)。<see cref="CardWhite"/> 是纯白,只在需要按 token 混色的地方用这一支。</summary>
-        private static readonly Color CardFaceToken = new(1f, 0.992f, 0.969f);
+        /// <summary>token `card-face` #FFFDF7(微暖白)。<see cref="CardWhite"/> 是纯白;按 token 混色、或稿上明写
+        /// `card-face` 的卡底(角色页等级奖励轨道的未达格)用这一支。</summary>
+        public static readonly Color CardFace = new(1f, 0.992f, 0.969f);
 
         /// <summary>字卡详情五行面(背面)整块的淡底(traits 稿 `--tint`,Plan E2):本系淡底以 34% 混进 card-face。
         /// 稿 README 定的是「不新增 token,定比混色」,所以这里按式子算,不另存五个色值
         /// (火 #FFEEE9、金 #F9F4E9、水 #ECF3F8、土 #F9F2E3、木 #EEF5EA)。小物件(手牌背面)仍用 <see cref="ElementSoft"/>。</summary>
-        public static Color FaceTint(Element? element) => Color.Lerp(CardFaceToken, ElementSoft(element), 0.34f);
+        public static Color FaceTint(Element? element) => Color.Lerp(CardFace, ElementSoft(element), 0.34f);
 
         // ---- 底部导航页签配色(2026-08-28 反馈:四格各给一色) ----
 
