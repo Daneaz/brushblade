@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <script src="./pal.js"></script>
+  <script src="./tiles.js"></script>
   <script src="./support.js"></script>
 </head>
 <body>
@@ -14,7 +15,7 @@
     body { margin: 0; }
     sc-for, sc-if { display: contents; }
     i { font-style: normal; }
-    .board { width: 1320px; height: 730px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+    .board { width: 1320px; height: 980px; box-sizing: border-box; padding: 22px 28px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
     h2 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
     .lead { font-size: 10px; color: #5D646F; margin-bottom: 14px; }
     h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
@@ -39,24 +40,33 @@
     .ctl { display: flex; gap: 5px; align-items: center; font-size: 9.5px; color: #5D646F; margin: 0 0 8px; }
     .ctl button { height: 20px; padding: 0 9px; border: none; border-radius: 10px; background: #DAD7D0; color: #2C333D; font-size: 9px; cursor: pointer; font-family: inherit; }
     .ctl button.on { background: #3D4E69; color: #fff; }
-    .closeup { display: flex; gap: 10px; margin-bottom: 16px; }
+    .closeup { display: flex; gap: 22px; margin-bottom: 12px; align-items: flex-start; }
     .cg { display: flex; flex-direction: column; gap: 4px; }
     .ct { font-size: 10px; font-weight: 600; color: #2C333D; }
-    .crow { display: flex; gap: 4px; }
-    .cwrap { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 4px; border-radius: 8px; border: 1px solid #DED7C9; }
-    .big { width: 46px; height: 56px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #7945AB; background: #FFFDF7; display: flex; align-items: flex-start; justify-content: center; padding-top: 9px; font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 19px; }
-    .cwrap small { font-size: 8px; color: #5D646F; }
+    .crow { display: flex; gap: 6px; align-items: flex-end; }
+    .cwrap, .zwrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .cwrap small, .zwrap small { font-size: 8px; color: #5D646F; white-space: nowrap; }
+    /* 字牌 = Ui.GlyphTile:牌框素材撑满(四边各留 2.5 / 3.125)→ 五行面在内容区铺 ElementSoft → 字在内容区 30%–95% 高居中,字号 = 牌高 × 0.34 */
+    .gt { position: relative; flex: none; }
+    .gt img { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .gt .ti { position: absolute; left: 7.29%; right: 7.29%; top: 5.83%; bottom: 5.83%; border-radius: 3px; }
+    .gt b { position: absolute; left: 7.29%; right: 7.29%; top: 5.83%; height: 57.5%; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-weight: 600; line-height: 1; }
+    .gt .py { position: absolute; left: 7.29%; right: 7.29%; bottom: 8%; text-align: center; color: #5D646F; font-family: "Noto Sans SC", sans-serif; }
+    .z4 { }
     .note { font-size: 9px; color: #696151; margin-top: 10px; line-height: 1.6; }
   </style>
 </helmet>
 
 <div class="board">
   <h2>五行配色 · 新旧对照</h2>
-  <div class="lead">只动金、土两组:<b>金 → 古金</b>(金黄,取偏暗一档好让白字过 4.5)、<b>土 → 红褐</b>(明显更深、更红)。木、水、火不动。</div>
+  <div class="lead">只动金、土两组:<b>金 → 古金</b>(字为琥珀金)、<b>土 → 红褐</b>(字为赭红褐)。只改字色与主色,字牌底色不动;木、水、火不动。</div>
 
-  <h3>⓪ 字牌特写:锋 / 垒(旧 → 上一版 → 新;白底 · 宣纸底 · 各自淡底)</h3>
+  <h3>⓪ 字牌特写:锋 / 垒(按游戏真实画法:绿档牌框素材、字号 = 牌高 × 0.34、Noto Serif SC)</h3>
   <div class="closeup">
-    <sc-for list="{{ close }}" as="g"><div class="cg"><span class="ct">{{ g.t }}</span><div class="crow"><sc-for list="{{ g.items }}" as="x"><div class="cwrap" style="{{ x.bg }}"><i class="big" style="{{ x.s }}">{{ x.g }}</i><small>{{ x.cap }}</small></div></sc-for></div></div></sc-for>
+    <sc-for list="{{ close }}" as="g"><div class="cg"><span class="ct">{{ g.t }}</span><div class="crow"><sc-for list="{{ g.items }}" as="x"><div class="cwrap"><div class="gt" style="{{ x.box }}"><img src="{{ frame }}" alt=""><i class="ti" style="{{ x.tint }}"></i><b style="{{ x.gs }}">{{ x.g }}</b><span class="py" style="{{ x.py }}">{{ x.pyt }}</span></div><small>{{ x.cap }}</small></div></sc-for></div></div></sc-for>
+  </div>
+  <div class="closeup">
+    <sc-for list="{{ zoom }}" as="g"><div class="cg"><span class="ct">{{ g.t }}</span><div class="crow"><sc-for list="{{ g.items }}" as="x"><div class="zwrap"><div class="gt z4" style="{{ x.box }}"><img src="{{ frame }}" alt=""><i class="ti" style="{{ x.tint }}"></i><b style="{{ x.gs }}">{{ x.g }}</b></div><small>{{ x.cap }}</small></div></sc-for></div></div></sc-for>
   </div>
 
   <h3>① 五系并排(主色 chip · 部件方块 · 字牌)</h3>
@@ -95,7 +105,7 @@
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 730}}'>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 980}}'>
 var WX = window.WX;
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { v: 'normal' }; }
@@ -121,18 +131,25 @@ class Component extends DCLogic {
             tab: 'background:' + S(c[1]) + ';color:' + S(c[2]) + ';border-color:' + S(c[2]) + '55' }; }) };
     });
     var PREV = { Metal: ['#916F0C', '#F7E7AC', '#5B4500', '#735800'], Earth: ['#784330', '#E3D1C1', '#542A1D', '#683623'] };
-    var close = [['旧', WX.OLD], ['上一版(54dab313)', PREV], ['新', WX.NEW]].map(function (v) {
+    // 真实尺寸:图鉴 / 卡组牌 96×120 → 45.87×57.34pt(带拼音);战斗字库牌 96×117 → 45.87×55.9pt(攻击面纸白 / 五行面 ElementSoft)
+    function tile(P, e, kind, scale) {
+      var w = 45.87 * scale, h = (kind === 'deck' ? 57.34 : 55.9) * scale, c = P[e];
+      return { g: e === 'Metal' ? '锋' : '垒', box: 'width:' + w + 'px;height:' + h + 'px',
+        tint: kind === 'feat' ? 'background:' + c[1] : 'display:none',
+        gs: 'color:' + c[3] + ';font-size:' + (h * 0.34).toFixed(2) + 'px',
+        py: kind === 'deck' ? 'font-size:' + (5.73 * scale).toFixed(2) + 'px' : 'display:none', pyt: e === 'Metal' ? 'fēng' : 'lěi',
+        cap: { deck: '卡组', atk: '战斗 · 攻击面', feat: '战斗 · 五行面' }[kind] };
+    }
+    var close = [['旧', WX.OLD], ['上一版', PREV], ['新', WX.NEW]].map(function (v) {
       var P = v[1], items = [];
-      [['白底', '#FFFFFF', '#FFFFFF'], ['宣纸', '#F6F1E7', '#F6F1E7'], ['淡底', null, null]].forEach(function (b) {
-        ['Metal', 'Earth'].forEach(function (e) {
-          var face = b[1] || P[e][1];
-          items.push({ g: e === 'Metal' ? '锋' : '垒', cap: b[0] + ' · ' + (e === 'Metal' ? '金' : '土'),
-            bg: 'background:' + (b[1] ? '#EDE8DC' : '#EDE8DC'), s: 'color:' + P[e][3] + ';background:' + face });
-        });
-      });
-      return { t: v[0] + ':金 ' + P.Metal[3] + ' / 土 ' + P.Earth[3] + '(ΔE ' + Math.round(WX.de(P.Metal[3], P.Earth[3])) + ')', items: items };
+      ['deck', 'atk', 'feat'].forEach(function (k) { items.push(tile(P, 'Metal', k, 1)); items.push(tile(P, 'Earth', k, 1)); });
+      return { t: v[0] + ' · 金 ' + P.Metal[3] + ' / 土 ' + P.Earth[3] + '(ΔE ' + Math.round(WX.de(P.Metal[3], P.Earth[3])) + ')', items: items };
     });
-    return { close: close, strips: strips, rows: rows,
+    var zoom = [['上一版 × 3', PREV], ['新 × 3', WX.NEW]].map(function (v) {
+      var P = v[1];
+      return { t: v[0] + '(攻击面 · 五行面)', items: [tile(P, 'Metal', 'atk', 3), tile(P, 'Earth', 'atk', 3), tile(P, 'Metal', 'feat', 3), tile(P, 'Earth', 'feat', 3)] };
+    });
+    return { frame: window.FRAME_GREEN, close: close, zoom: zoom, strips: strips, rows: rows,
       vBtns: [['normal', '常规'], ['deutan', '绿弱'], ['protan', '红弱']].map(function (b) { return { n: b[1], cls: V === b[0] ? 'on' : '', pick: function () { self.setState({ v: b[0] }); } }; }) };
   }
 }
