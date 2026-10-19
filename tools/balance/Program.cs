@@ -2,8 +2,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Brushblade.Balance.Bot;
 using Brushblade.Core;
@@ -15,8 +17,9 @@ namespace Brushblade.Balance
     /// 机器人弱于人类,数据当难度地板读;关卡制已废止(v0.7),旧关卡口径删除。
     ///
     /// 缺省跑 Plan F1 的搜索机器人(<c>Bot/</c>):快档 30 种子 × {五系随机 + 单系五个} × 卡 Lv5;
-    /// <c>--slow</c> 慢档 300 种子 × 全部 10 画像 × Lv1/5/8(K=12 / 叶子 4096),另跑同画像快档 Lv5 出差列。
-    /// 命令行:<c>dotnet run -c Release -- [--slow] [--profile 名] [--seeds N] [--card-level N] [--no-board-carry]</c>
+    /// <c>--slow</c> 慢档 30 种子 × 全部 10 画像 × Lv1/5/8(K=12 / 叶子 4096),另跑同画像快档 Lv5 出差列。
+    /// 进度走 stderr(stdout 报告不变);<c>--max-minutes N</c> 到时不再开新局,报告只统计跑完的种子。
+    /// 命令行:<c>dotnet run -c Release -- [--slow] [--profile 名] [--seeds N] [--card-level N] [--max-minutes N] [--no-board-carry]</c>
     /// (<c>--no-board-carry</c> 仅供诊断,见 <c>--help</c>)。</summary>
     public static class Program
     {
@@ -50,10 +53,11 @@ namespace Brushblade.Balance
         private const string Usage =
             "用法:dotnet run -c Release -- [选项]\n" +
             "  (缺省)            快档:30 种子 × {五系随机 + 单系五个} × 卡 Lv5,K=4 / 叶子 256\n" +
-            "  --slow            慢档:300 种子 × 10 画像 × 卡 Lv1/5/8,K=12 / 叶子 4096,另出快档 Lv5 差列\n" +
+            "  --slow            慢档:30 种子 × 10 画像 × 卡 Lv1/5/8,K=12 / 叶子 4096,另出快档 Lv5 差列\n" +
             "  --profile 名      只跑匹配的画像(先精确,再子串)\n" +
             "  --seeds N         覆盖种子数\n" +
             "  --card-level N    覆盖卡等级\n" +
+            "  --max-minutes N   到时不再开新局(已开的跑完),报告只统计跑完的种子并在表头注明\n" +
             "  --no-board-carry  【仅供诊断】跨段不带护盾 / 木灵 / 厚泉等状态(生产会带);\n" +
             "                    只用于拆分「搜索更聪明」与「携带对齐生产」各自的涨幅,读数不代表游戏\n" +
             "  --help            打印本说明";
@@ -62,6 +66,7 @@ namespace Brushblade.Balance
         {
             bool slow = false, noBoardCarry = false;
             int? seedsArg = null, levelArg = null;
+            double? maxMinutes = null;
             string profileArg = null;
             for (int i = 0; i < args.Length; i++)
             {
@@ -69,6 +74,9 @@ namespace Brushblade.Balance
                     { levelArg = lv; i++; }
                 else if (args[i] == "--seeds" && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n >= 1)
                     { seedsArg = n; i++; }
+                else if (args[i] == "--max-minutes" && i + 1 < args.Length
+                         && double.TryParse(args[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var mm) && mm > 0)
+                    { maxMinutes = mm; i++; }
                 else if (args[i] == "--profile" && i + 1 < args.Length)
                     { profileArg = args[i + 1]; i++; }
                 else if (args[i] == "--slow") slow = true;
@@ -105,7 +113,7 @@ namespace Brushblade.Balance
                 if (profiles.Count == 0) throw new ArgumentException($"没有画像匹配「{profileArg}」");
             }
 
-            RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null, noBoardCarry);
+            RunSearchBot(graph, campaign, endless, profiles, slow, seedsArg, levelArg, profileArg != null, noBoardCarry, maxMinutes);
         }
 
         private sealed class Profile
@@ -185,7 +193,10 @@ namespace Brushblade.Balance
             public ClimbResult[] Results;
             /// <summary>每颗种子单局的墙钟秒数;行的「种子·秒」= 合计(各行并发,行墙钟无意义)。</summary>
             public double[] SeedSeconds;
-            public double AvgDepth => Results.Average(r => r.DeathDepth);
+            /// <summary>跑完的种子(超时截断时少于 <see cref="Results"/> 槽数;不截断时就是全部)。</summary>
+            public ClimbResult[] Done => Truncation.Completed(Results);
+            public double AvgDepth => Done.Length == 0 ? double.NaN : Done.Average(r => r.DeathDepth);
+            public string Label => $"{Profile.Name} Lv{Level}";
         }
 
         /// <summary>建一行(画像 × 卡等级 × 档位)的爬塔配置;各行的种子由 <see cref="RunRows"/> 摊平后一起并发。</summary>
@@ -204,23 +215,51 @@ namespace Brushblade.Balance
         }
 
         /// <summary>把所有行的(行, 种子)摊平进一个负载均衡的 Parallel.ForEach:逐行串行时每行要等最慢的那颗种子,
-        /// 8 核只用上 2–3 核。每局的结果写回自己行的种子下标,与调度无关(确定性同 <see cref="BotRunner.ClimbMany"/>)。</summary>
-        private static void RunRows(RecipeGraph graph, IReadOnlyList<Row> rows)
+        /// 8 核只用上 2–3 核。每局的结果写回自己行的种子下标,与调度无关(确定性同 <see cref="BotRunner.ClimbMany"/>)。
+        /// 按种子优先排(先各行的种子 0,再各行的种子 1…),超时截断时各行完成数相近。
+        /// 进度走 stderr(<see cref="ProgressGate"/>);<paramref name="deadline"/> 到了就不再开新局(<see cref="RunBatch"/>)。</summary>
+        private static void RunRows(RecipeGraph graph, IReadOnlyList<Row> rows, TimeSpan? deadline)
         {
-            var jobs = rows.SelectMany(r => Enumerable.Range(0, r.Results.Length).Select(i => (row: r, seed: i))).ToList();
-            Parallel.ForEach(Partitioner.Create(jobs, loadBalance: true), job =>
+            int maxSeeds = rows.Max(r => r.Results.Length);
+            var jobs = Enumerable.Range(0, maxSeeds)
+                .SelectMany(i => rows.Where(r => i < r.Results.Length).Select(r => (row: r, seed: i))).ToList();
+            var clock = Stopwatch.StartNew();
+            int done = 0, lastDone = 0;
+            double lastElapsed = 0;
+            var gate = new object();
+            void Report(bool force)
             {
-                var watch = Stopwatch.StartNew();
-                var (library, pool) = StartingHand(graph, job.row.Profile, job.seed);
-                job.row.Results[job.seed] = BotRunner.Climb(job.row.Setup, job.seed, library, pool);
-                job.row.SeedSeconds[job.seed] = watch.Elapsed.TotalSeconds;
-            });
+                lock (gate)
+                {
+                    int d = Volatile.Read(ref done);
+                    double t = clock.Elapsed.TotalSeconds;
+                    if (!force && !ProgressGate.ShouldReport(d, jobs.Count, t, lastDone, lastElapsed)) return;
+                    Console.Error.WriteLine(ProgressGate.Line(d, jobs.Count, t));
+                    lastDone = d; lastElapsed = t;
+                }
+            }
+            using (new Timer(_ => Report(false), null, 1000, 1000))
+            {
+                RunBatch.Run(jobs.Count, k =>
+                {
+                    var job = jobs[k];
+                    var watch = Stopwatch.StartNew();
+                    var (library, pool) = StartingHand(graph, job.row.Profile, job.seed);
+                    job.row.Results[job.seed] = BotRunner.Climb(job.row.Setup, job.seed, library, pool);
+                    job.row.SeedSeconds[job.seed] = watch.Elapsed.TotalSeconds;
+                    Interlocked.Increment(ref done);
+                    Report(false);
+                }, expired: () => deadline.HasValue && clock.Elapsed >= deadline.Value);
+            }
+            lock (gate) if (done == lastDone) return; // 最后一局已报过
+            Report(true);
         }
 
         private static void RunSearchBot(RecipeGraph graph, CampaignConfig campaign, EndlessConfig endless,
-            List<Profile> profiles, bool slow, int? seedsArg, int? levelArg, bool profileChosen, bool noBoardCarry)
+            List<Profile> profiles, bool slow, int? seedsArg, int? levelArg, bool profileChosen, bool noBoardCarry,
+            double? maxMinutes)
         {
-            int seeds = seedsArg ?? (slow ? 300 : 30);
+            int seeds = seedsArg ?? 30;
             var levels = levelArg.HasValue ? new[] { levelArg.Value } : slow ? new[] { 1, 5, 8 } : new[] { 5 };
             if (!slow && !profileChosen) profiles = profiles.Where(InFastSet).ToList();
             var opt = slow ? SearchOptions.Slow : SearchOptions.Fast;
@@ -243,15 +282,22 @@ namespace Brushblade.Balance
             if (slow && levels.Contains(5))
                 fastLv5 = profiles.ToDictionary(p => p.Name,
                     p => NewRow(graph, campaign, p, 5, seeds, SearchOptions.Fast, appraiser, noBoardCarry));
-            RunRows(graph, fastLv5 == null ? rows : rows.Concat(fastLv5.Values).ToList());
+            var allRows = fastLv5 == null ? rows : rows.Concat(fastLv5.Values).ToList();
+            RunRows(graph, allRows, maxMinutes.HasValue ? TimeSpan.FromMinutes(maxMinutes.Value) : (TimeSpan?)null);
             double mainSeconds = rows.Sum(r => r.SeedSeconds.Sum());
             double fastSeconds = fastLv5?.Values.Sum(r => r.SeedSeconds.Sum()) ?? 0;
+
+            if (maxMinutes.HasValue)
+            {
+                string note = Truncation.Note(allRows.Select(r => (r.Label, r.Done.Length, r.Results.Length)), maxMinutes.Value);
+                if (note != null) Console.WriteLine(note + "\n");
+            }
 
             // 末两组列是机器人自检:重搜 / 本体拒(应恒 0)。拆 / 合 / 嫁接 / 替换按每局计。
             Console.WriteLine($"| 画像 | 卡Lv | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/{seeds} | 反击总伤/局 | 反击被削% "
                 + "| 拆/局 | 合/局 | 嫁接/局 | 替换/局 | 有拆合局% | 有嫁接或替换局% | 两面字 攻:五行 | 回合/局 | 重搜/回合 | 本体拒 | 种子·秒 |");
             Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
-            foreach (var row in rows) PrintRow(row, seeds);
+            foreach (var row in rows) PrintRow(row);
 
             Console.WriteLine();
             Console.WriteLine("| 画像 | " + string.Join(" | ", levels.Select(l => $"均卒层 Lv{l}")) + (fastLv5 != null ? " | 快档 Lv5 | 慢−快(Lv5) |" : " |"));
@@ -273,8 +319,10 @@ namespace Brushblade.Balance
             Console.WriteLine("\n出字 Top / Bottom 各 min(10, 卡池/2) 张(每局次数,只计卡池里的字):\n");
             foreach (var row in rows)
             {
+                var done = row.Done;
+                if (done.Length == 0) { Console.WriteLine($"- {row.Label}:无跑完的种子"); continue; }
                 var perGame = row.Profile.OwnedCards.Distinct()
-                    .Select(id => (id, n: row.Results.Sum(r => r.CastsByChar.TryGetValue(id, out int c) ? c : 0) / (double)seeds))
+                    .Select(id => (id, n: done.Sum(r => r.CastsByChar.TryGetValue(id, out int c) ? c : 0) / (double)done.Length))
                     .ToList();
                 string Fmt(IEnumerable<(string id, double n)> xs) => string.Join(" ", xs.Select(x => $"{x.id}{x.n:F1}"));
                 int take = Math.Min(10, perGame.Count / 2);
@@ -287,9 +335,16 @@ namespace Brushblade.Balance
                 (fastLv5 != null ? $" · 快档对照(Lv5){fastSeconds:F0} 种子·秒" : ""));
         }
 
-        private static void PrintRow(Row row, int seeds)
+        /// <summary>一行读数;超时截断时只算跑完的种子(<c>seeds</c> = 跑完数,不截断时即全部)。</summary>
+        private static void PrintRow(Row row)
         {
-            var results = row.Results;
+            var results = row.Done;
+            int seeds = results.Length;
+            if (seeds == 0)
+            {
+                Console.WriteLine($"| {row.Profile.Name} | {row.Level} | {row.Profile.OwnedCards.Count} | 无跑完的种子 |");
+                return;
+            }
             var deaths = results.Select(r => r.DeathDepth).OrderBy(d => d).ToList();
             double avg = deaths.Average();
             int p50 = deaths[deaths.Count / 2];
