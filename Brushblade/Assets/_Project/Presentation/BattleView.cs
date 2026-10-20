@@ -5491,6 +5491,12 @@ namespace Brushblade.Presentation
                     ? Strings.T("battle.hint.flip_selected_quick")
                     : Strings.T("battle.hint.flip_selected"), BenchHintFontSize, Theme.TextDim);
             }
+            else
+            {
+                // 单面字 / 部件 / 教程锁面(2026-10-21,quickcast 回填):「出」钮撤掉后补一句怎么出手
+                _actionHintRow.gameObject.SetActive(true);
+                BenchHint(_actionHintRow, Strings.T("battle.hint.drag_to_cast"), BenchHintFontSize, Theme.TextDim);
+            }
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
             // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
         }
