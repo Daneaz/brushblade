@@ -99,11 +99,11 @@ namespace Brushblade.Core.Tests
         public void Xdraw_NeedsMechanicL1AndWuxingL2()
         {
             var def = PerkRules.Get("cross_draw");
-            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1", "water_1_s1"), def), Is.False,
+            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1_s1", "water_1_s1"), def), Is.False,
                 "五行只到 L1 不够");
             Assert.That(PerkRules.PrereqMet(MetaWith("water_1_s1", "water_2_s1"), def), Is.False,
                 "缺机制侧");
-            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1", "water_1_s1", "water_2_s1"), def), Is.True);
+            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1_s1", "water_1_s1", "water_2_s1"), def), Is.True);
         }
 
         [Test]
@@ -122,7 +122,7 @@ namespace Brushblade.Core.Tests
         public void Xdraw_PaysTheBaseValueWhenNoElementIsDeep()
         {
             // 前置只要五行 L2,缩放却数 L3 —— 这是唯一真会落在基础档的节点(spec §3.4)
-            var meta = MetaWith("qi_1", "water_1_s1", "water_2_s1", "cross_draw");
+            var meta = MetaWith("qi_1_s1", "water_1_s1", "water_2_s1", "cross_draw");
             Assert.That(PerkRules.ScaleCountOf(meta, PerkRules.Get("cross_draw")), Is.EqualTo(0));
             Assert.That(PerkRules.Bonus(meta, PerkEffect.DrawRolls), Is.EqualTo(1),
                 "缩放计数为 0 时给保底 1,不是 0");

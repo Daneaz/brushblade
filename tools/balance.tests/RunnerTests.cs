@@ -55,7 +55,7 @@ namespace Brushblade.Balance.Tests
 
         /// <summary>一场只有 1 血字怪的连战:出炎打赢 → AdvanceAfterBattle → 停在战利品页。</summary>
         public static RunEngine WonRunInReward(string[] library, string[] rewardPool, int capacity,
-            int battles = 1, int? startingHp = null, int maxHpBonus = 0, int victoryHeal = 0,
+            int battles = 1, int? startingHp = null, int maxHpBonus = 0,
             bool libraryExpanded = false, IReadOnlyList<OpeningEffect> openings = null,
             int startingNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null)
@@ -68,7 +68,6 @@ namespace Brushblade.Balance.Tests
             var cfg = new BattleConfig
             {
                 PlayerMaxHp = 1000, PlayerAttack = MetaRules.AttackFor(10), LibraryCapacity = capacity, DropsPerTurn = 0,
-                VictoryHealPercent = victoryHeal,
             };
             var run = new RunEngine(Fixture.Graph, rc, cfg, library.Append("炎").ToList(), Array.Empty<string>(), seed: 3,
                 startingHp: startingHp, maxHpBonus: maxHpBonus, libraryExpanded: libraryExpanded, startingOpenings: openings,
@@ -117,15 +116,14 @@ namespace Brushblade.Balance.Tests
                 new OpeningEffect { SourceCharId = "炎", Element = Element.Fire, Kind = EffectKind.DamageSingle, Value = 7, BattlesLeft = 3 },
             };
             var run = RunFixture.WonRunInReward(new[] { "林" }, rewardPool: new[] { "冰" }, capacity: 6,
-                startingHp: 300, maxHpBonus: 120, victoryHeal: 20, libraryExpanded: true, openings: openings,
+                startingHp: 300, maxHpBonus: 120, libraryExpanded: true, openings: openings,
                 startingNormalShield: 80, startingSummons: new[] { RunFixture.WoodSpirit() },
                 startingStatuses: new[] { RunFixture.Heft(3) });
             BotRunner.PickRewards(run, id => 1);   // 战利品并入携带态(读 Battle.Library 会把它丢掉)
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon), "夹具:段末");
 
             var carry = BotRunner.CarryFrom(run);
-            Assert.That(carry.Hp, Is.EqualTo(run.CarriedHp), "血量取 CarriedHp(含胜利回血)");
-            Assert.That(carry.Hp, Is.Not.EqualTo(run.Battle.PlayerHp), "前提:胜利回血让两者不同");
+            Assert.That(carry.Hp, Is.EqualTo(run.CarriedHp), "血量取 CarriedHp");
             Assert.That(carry.MaxHpBonus, Is.EqualTo(120));
             Assert.That(carry.LibraryExpanded, Is.True);
             Assert.That(carry.PoolExpanded, Is.False);

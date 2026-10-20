@@ -92,9 +92,10 @@ namespace Brushblade.Core.Tests
             var restored = RunEngine.Restore(run.Capture(), RebalanceFixture.Graph(), config,
                 new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 }, null);
             restored.Battle.Cast("甲", 0);
+            int carried = restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);   // 战意跨战斗携带(2026-10-20)
             restored.AdvanceAfterBattle();
             while (restored.Phase == RunPhase.Reward) restored.SkipReward();
-            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0), "1 场后到期(读档后依然正确递减)");
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(carried), "1 场后到期:只剩携带值、不再 +2(读档后依然正确递减)");
         }
 
         [Test]
@@ -136,15 +137,18 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2), "第 2 场");
 
             var restored = RunEngine.Restore(run.Capture(), RebalanceFixture.Graph(), config, bc, null);
+            // 战意跨战斗携带(2026-10-20):每场开局值 = 上场末携带 + 仍生效的开局 +2(夹上限)
             restored.Battle.Cast("甲", 0);
+            int carried = restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             restored.AdvanceAfterBattle();
             while (restored.Phase == RunPhase.Reward) restored.SkipReward();
-            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2), "读档后第 3 场仍生效");
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(Math.Min(BattleConfig.BaseMoraleCap, carried + 2)), "读档后第 3 场仍生效");
 
             restored.Battle.Cast("甲", 0);
+            carried = restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             restored.AdvanceAfterBattle();
             while (restored.Phase == RunPhase.Reward) restored.SkipReward();
-            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0), "第 4 场到期");
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(carried), "第 4 场到期:只剩携带值");
         }
 
         [Test]

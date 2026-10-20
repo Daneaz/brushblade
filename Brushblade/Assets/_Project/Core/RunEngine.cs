@@ -699,9 +699,7 @@ namespace Brushblade.Core
             // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
-            // 调息(2026-10-02):胜利后按本关生效上限回血,夹上限
-            _carriedHp = Math.Min(EffectiveMaxHp,
-                Battle.PlayerHp + EffectiveMaxHp * _battleConfig.VictoryHealPercent / 100);
+            _carriedHp = Battle.PlayerHp;   // 回血在下一场开打前(调息,见 PreBattleHeal),胜利后不回
             // 护盾战斗结束按 ShieldCarryPercent 保留(2026-10-02;缺省 50 = 2026-09-05 的衰减 50%):护盾此前只加不减、整场爬塔通吃,
             // 是第二条血条而不是临时保护 —— 玩家一旦有一回合「获得 > 承伤」,那份盾
             // 就永久留在身上,战斗不会输也打不死怪(中层刮痧)。整数除、向下取整。
@@ -727,9 +725,12 @@ namespace Brushblade.Core
             //
             // D2-土 E34(2026-10-11):DefenseBuff 从名单里删掉。圭臬「本字护甲持续到战斗结束」落成 TurnsLeft −1,
             // 留着这一项它就会变成整段永久护甲(违反 spec §5.1);删之前名单里已没有 −1 的玩家护甲,删后逐位恒等。
+            //
+            // 战意(2026-10-20 用户):跨战斗携带、不清零,直到锋刃回鞘清空。同为层数(恒 -1)。
             _carriedStatuses = Battle.PlayerStatuses.All
                 .Where(s => (s.Kind == StatusKind.Heft
-                        || s.Kind == StatusKind.Wellspring)
+                        || s.Kind == StatusKind.Wellspring
+                        || s.Kind == StatusKind.Morale)
                     && s.TurnsLeft < 0)
                 .Select(s => s.Clone())
                 .ToList();
@@ -1052,7 +1053,7 @@ namespace Brushblade.Core
             return config;
         }
 
-        /// <summary>吐纳(2026-10-20):开新战前按生效上限回血,夹上限。只在新开一场时调用 ——
+        /// <summary>调息(2026-10-20):开新战前按生效上限回血,夹上限。只在新开一场时调用 ——
         /// 续爬复原走 BattleEngine.Restore,不会重复回血。</summary>
         private int PreBattleHeal(int hp) =>
             Math.Min(EffectiveMaxHp, hp + EffectiveMaxHp * _battleConfig.PreBattleHealPercent / 100);

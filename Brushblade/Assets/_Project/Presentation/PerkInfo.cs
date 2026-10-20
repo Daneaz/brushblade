@@ -44,8 +44,7 @@ namespace Brushblade.Presentation
             "wide_2" => Strings.T("perk.node.wide_2.name"),
             "insight_1" => Strings.T("perk.node.insight_1.name"),
             "insight_2" => Strings.T("perk.node.insight_2.name"),
-            "qi_1" => Strings.T("perk.node.qi_1.name"),
-            "qi_2" => Strings.T("perk.node.qi_2.name"),
+            "qi_1" => Strings.T("perk.node.qi_1.name"),   // 调息两段(2026-10-20 吐纳并入)
             // 跨树(2026-09-08;融会 2026-10-18 删除、斩获终极技两级接替)。少了这几条不是编译错,
             // 是节点面与详情弹窗标题直接印出英文 id「cross_vigor」——兜底那一支本来就是给「理论不可达」留的。
             "cross_vigor" => Strings.T("perk.node.cross_vigor.name"),
@@ -105,8 +104,7 @@ namespace Brushblade.Presentation
             "wide_2" => Strings.T("perk.node.wide_2.desc", ("value", def.Value)),   // 集腋
             "insight_1" => Strings.T("perk.node.insight_1.desc", ("value", def.Value)),
             "insight_2" => Strings.T("perk.node.insight_2.desc", ("value", def.Value)),
-            "qi_1" => Strings.T("perk.node.qi_1.desc", ("value", def.Value)),
-            "qi_2" => Strings.T("perk.node.qi_2.desc", ("value", def.Value)),
+            "qi_1" => Strings.T("perk.node.qi_1.desc", ("value", ShownValue(def))),
             // 跨树三个:它们是**缩放器**,一句话里同时要保底值与每级增量,所以两个占位符
             // 都得给(其余节点只有 {value})。走 BaseValue/Value 而不是把算好的合计
             // 印上去 —— 合计随存档变,拆开的这两个数才是节点自身的定义(spec §5.1)。
@@ -201,10 +199,8 @@ namespace Brushblade.Presentation
                 Strings.T("perk.detail.reward_options", ("value", def.Value)),
             PerkEffect.RewardRerolls =>
                 Strings.T("perk.detail.reward_rerolls", ("value", def.Value)),
-            PerkEffect.VictoryHealPercent =>
-                Strings.T("perk.detail.victory_heal", ("value", def.Value)),
-            PerkEffect.PreBattleHealPercent =>   // 吐纳(2026-10-20)
-                Strings.T("perk.detail.pre_battle_heal", ("value", def.Value)),
+            PerkEffect.PreBattleHealPercent =>   // 调息(2026-10-20)
+                Strings.T("perk.detail.pre_battle_heal", ("value", ShownValue(def))),
             // DrawRolls 只剩跨树博采在用、KillDraw 只有斩获终极技在用,都走 CrossDetailText,到不了这里
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
         };
