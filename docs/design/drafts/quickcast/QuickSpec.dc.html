@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./qc.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./qc.css">
+  <style>
+    .sp { width: 932px; box-sizing: border-box; padding: 14px 16px; background: var(--paper); font-family: "Noto Sans SC", sans-serif; color: var(--text-main);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .card { background: var(--panel-paper); border-radius: 9px; box-shadow: inset 0 0 0 1px var(--panel-border); padding: 9px 11px; }
+    .card.wide { grid-column: 1 / 3; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 700; color: var(--text-quiet); }
+    table { width: 100%; border-collapse: collapse; font-size: 8.4px; }
+    th { text-align: left; font-weight: 500; color: var(--text-faint); padding: 2px 4px; border-bottom: 1px solid var(--panel-border); white-space: nowrap; }
+    td { padding: 3px 4px; border-bottom: 1px solid var(--panel-inset); vertical-align: middle; }
+    td.k { font-family: ui-monospace, Menlo, monospace; font-size: 7.6px; color: var(--ink-soft); white-space: nowrap; }
+    td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.v { white-space: pre; }
+    .st { display: inline-block; padding: 0 4px; border-radius: 3px; font-size: 7.4px; line-height: 12px; white-space: nowrap; }
+    .st.add { background: var(--gold-soft); color: var(--gold-deep); } .st.keep { background: var(--panel-inset); color: var(--text-dim); }
+    .ring { display: inline-block; width: 22px; height: 13px; border-radius: 3px; vertical-align: middle; box-shadow: inset 0 0 0 1.5px var(--c); background: rgba(17,22,31,.05); margin-right: 3px; }
+    .ring.slot { background: rgba(52,134,75,.10); }
+    p { margin: 4px 0 0; font-size: 8.2px; line-height: 1.6; color: var(--text-warm); }
+    p b { color: var(--text-main); }
+    .gh { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .gh .tile { cursor: default; }
+    .gh .arr { font-size: 9px; color: var(--text-dim); }
+  </style>
+</helmet>
+
+<div class="sp">
+  <div class="card">
+    <h3>① 落点那一侧用哪一面(spec §1 · §2 QuickCastFace)</h3>
+    <table>
+      <tr><th>字</th><th>敌方侧</th><th>我方侧</th><th>说明</th></tr>
+      <sc-for list="{{ rules }}" as="r"><tr><td>{{ r.c }}</td><td><span class="ring" style="{{ r.es }}"></span>{{ r.e }}</td><td><span class="{{ r.aCls }}" style="{{ r.as }}"></span>{{ r.a }}</td><td>{{ r.n }}</td></tr></sc-for>
+    </table>
+    <p>描环色 = 该侧那一面的<b>面印色</b>(Ui.FaceSealColor):攻击面墨 ink、五行面本系字形色 —— 与现状单面点亮同一条规则,只是两侧各取各的面。空召唤位底仍是翠玉 10%,活木灵 / 敌人 / 玩家条底仍是墨 5% / 悬停 9%。不新增颜色。</p>
+  </div>
+  <div class="card">
+    <h3>② 两色同屏能不能分清(墨 vs 各系字形色,1.5pt 描环)</h3>
+    <table>
+      <tr><th>五行面描环</th><th>对段底</th><th>ΔE00 常人</th><th>绿弱 deut</th><th>红弱 prot</th><th>蓝弱 trit</th></tr>
+      <sc-for list="{{ de }}" as="d"><tr><td><span class="ring" style="{{ d.s }}"></span>{{ d.n }}</td><td class="n">{{ d.cr }}</td><td class="n">{{ d.d0 }}</td><td class="n">{{ d.d1 }}</td><td class="n">{{ d.d2 }}</td><td class="n">{{ d.d3 }}</td></tr></sc-for>
+    </table>
+    <p>段底取墨海段 paper 混 12.5%(#E0DDD8);色盲按 Machado 2009 严重度 1.0 模拟。最低一格是红弱下的土(20.3),仍远高于「一眼可辨」的 10。墨环对段底 13.4:1。
+      <b>颜色之外还有两层冗余</b>:敌我上下分区(分隔线两侧),以及跟手牌随悬停侧翻面(③)。</p>
+  </div>
+  <div class="card">
+    <h3>③ 跟手牌随悬停侧翻面(★ 新增,建议做)</h3>
+    <div class="gh">
+      <div class="tile e-Wood r-Gold"><span class="py">lín</span><span class="g">林</span><span class="seal atk">攻</span></div><span class="arr">悬停敌人</span>
+      <div class="tile back e-Wood r-Gold"><span class="py">lín</span><span class="g">林</span><span class="seal feat">生</span></div><span class="arr">悬停我方</span>
+    </div>
+    <p>拖起后跟手的那张牌,<b>悬停到哪一侧就翻成那一侧会出的面</b>(面印 + 五行面淡底),离开落点回到朝上的面;翻面用现成手牌翻面动效的缩短版(scaleX 0.14s,不吃输入)。
+      两侧是同一面(如「溃」五行面朝上)时不翻。字库里那张牌不翻 —— 出手后照现状回正面。</p>
+  </div>
+  <div class="card">
+    <h3>④ 底部提示行什么时候换文案</h3>
+    <p>拖拽中,<b>两侧都有可落点、且两侧的面不同</b> → <span class="st add">drag_release_quick</span>;否则(未开快速施法、单面字、部件池、教程锁面、「溃」五行面朝上、我方侧当下无落点)→ 原文 <span class="st keep">drag_release</span>。</p>
+    <p>选中两面字:开快速施法且两侧面不同 → 后缀 <span class="st add">suffix_tap_again_quick</span>、拆合台 <span class="st add">flip_selected_quick</span>;再点 / 点「出」→ 进双向点选态,提示沿用 <span class="st keep">pick_dual_target</span> / <span class="st keep">pick_dual_summon</span>。</p>
+    <p>局内从顶栏「设置」改了开关:关设置页时若有选中的两面字,按新开关重写提示行与拆合台提示(或直接撤选中)。</p>
+  </div>
+  <div class="card wide">
+    <h3>⑤ 字符串表 key(★ 新增 6 条;不新增汉字,全部字形已在字体子集 charset.txt 内)</h3>
+    <table>
+      <tr><th>key</th><th>中文</th><th>状态</th><th>宽(逻辑)/ 可用</th></tr>
+      <sc-for list="{{ keys }}" as="k"><tr><td class="k">{{ k.k }}</td><td class="v">{{ k.v }}</td><td><span class="{{ k.sc }}">{{ k.s }}</span></td><td class="n">{{ k.w }}</td></tr></sc-for>
+    </table>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 720}}'>
+var Q = window.QC;
+class Component extends DCLogic {
+  renderVals() {
+    function rc(c) { return '--c:' + c; }
+    var rules = [
+      { c: '林(木)', e: '攻击面「攻」', es: rc('var(--ink)'), a: '五行面「生」:空位召唤 / 木灵嫁接', as: rc('var(--wood-glyph)'), aCls: 'ring slot', n: '玩家条不可落' },
+      { c: '剑(金)', e: '攻击面「攻」', es: rc('var(--ink)'), a: '五行面「铠」:玩家 / 木灵', as: rc('var(--metal-glyph)'), aCls: 'ring', n: '空位不可落' },
+      { c: '溃 Lv5+(水)', e: '朝上的面(两面都能落敌)', es: rc('var(--ink)'), a: '五行面「润」', as: rc('var(--water-glyph)'), aCls: 'ring', n: '五行面朝上 → 两侧同色' },
+      { c: '其余两面字', e: '攻击面', es: rc('var(--ink)'), a: '五行面', as: rc('var(--fire-glyph)'), aCls: 'ring', n: '真实字表恒成立' },
+      { c: '部件 / 教程锁面', e: '不走快速施法', es: rc('var(--paper-dim)'), a: '照现状', as: rc('var(--paper-dim)'), aCls: 'ring', n: 'spec §1' }
+    ];
+    var de = [
+      ['木 wood-glyph', '--wood-glyph', '5.37', '34.3', '28.9', '32.4', '26.3'],
+      ['金 metal-glyph', '--metal-glyph', '3.78', '42.4', '44.3', '40.8', '39.1'],
+      ['水 water-glyph', '--water-glyph', '4.99', '28.0', '26.9', '29.3', '29.1'],
+      ['火 fire-glyph', '--fire-glyph', '4.76', '38.3', '39.2', '27.1', '38.4'],
+      ['土 earth-glyph', '--earth-glyph', '7.83', '28.2', '26.9', '20.3', '28.5']
+    ].map(function (r) { return { n: r[0], s: rc('var(' + r[1] + ')'), cr: r[2] + ':1', d0: r[3], d1: r[4], d2: r[5], d3: r[6] }; });
+    function w(k, f, lim) { var t = Q.T(k).split('\n'), m = 0; t.forEach(function (x) { m = Math.max(m, Q.textW(x, f)); }); return Math.round(m) + ' / ' + lim; }
+    var keys = [
+      ['settings.quick_cast', 1, w('settings.quick_cast', 23, '548')],
+      ['settings.quick_cast.desc', 1, w('settings.quick_cast.desc', 17, '548')],
+      ['battle.hint.drag_release_quick', 1, w('battle.hint.drag_release_quick', 19, '1535~1636')],
+      ['battle.hint.suffix_tap_again_quick', 1, w('battle.hint.suffix_tap_again_quick', 19, '后缀')],
+      ['battle.hint.flip_selected_quick', 1, w('battle.hint.flip_selected_quick', 13, '246')],
+      ['charsheet.foot.battle_quick', 1, w('charsheet.foot.battle_quick', 18, '同原文')],
+      ['battle.hint.drag_release', 0, ''], ['battle.hint.suffix_tap_again_flip', 0, ''], ['battle.hint.flip_selected', 0, ''],
+      ['battle.hint.pick_dual_target', 0, ''], ['battle.hint.pick_dual_summon', 0, ''], ['charsheet.foot.battle', 0, '']
+    ].map(function (r) { return { k: r[0], v: Q.T(r[0]).replace('\n', ' ⏎ '), s: r[1] ? '新增' : '保留', sc: 'st ' + (r[1] ? 'add' : 'keep'), w: r[2] }; });
+    return { rules: rules, de: de, keys: keys };
+  }
+}
+</script>
+</body>
+</html>

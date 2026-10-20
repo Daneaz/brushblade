@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./qc.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./qc.css">
+  <style>
+    /* 设置页:SettingsView 760×560 居中面板(逻辑),pt = 逻辑 ÷ 2.093。
+       面板 VStack:padding 34/34/28/28、间距 18;标题 30 宋体;开关行 62(无说明)/ 78(带说明);
+       行内:文字列(标题 23 + 说明 17 text-dim,间距 3)+ 开关钮 132×58 圆角 14 字 22;弹性占位;返回钮 240×66。
+       本稿只加第三行「快速施法」(带说明小字),其余逐值照 SettingsView.cs。 */
+    .bgview { position: absolute; inset: 0; }
+    .bgview.battle { background: color-mix(in srgb, var(--paper) 87.5%, var(--band-mohai)); }
+    .bgview.battle::before { content: "战 场(示意)"; position: absolute; inset: 22px 59px 21px; border-radius: 10px; letter-spacing: 6px;
+      background: repeating-linear-gradient(135deg, rgba(22,27,34,.05) 0 5px, transparent 5px 10px); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-mute); }
+    .scrimL { position: absolute; inset: 0; background: var(--scrim); }
+    .panel { position: absolute; left: 50%; top: 50%; width: 363.12px; height: 267.56px; transform: translate(-50%, -50%); box-sizing: border-box;
+      border-radius: 10.03px; background: var(--panel-paper); box-shadow: inset 0 0 0 .96px var(--panel-border);
+      padding: 13.38px 16.24px; display: flex; flex-direction: column; gap: 8.6px; }
+    .panel .ttl { height: 20.78px; flex: none; display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 14.33px; font-weight: 700; color: var(--text-main); }
+    .row { flex: none; display: flex; align-items: center; gap: 5.73px; }
+    .row .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1.43px; }
+    .row .t1 { font-size: 10.99px; color: var(--text-main); white-space: nowrap; }
+    .row .t2 { font-size: 8.12px; color: var(--text-dim); white-space: nowrap; }
+    .row.new { box-shadow: 0 0 0 1px var(--gold), 0 0 0 3px rgba(202,157,51,.2); border-radius: 3px; }
+    .tg { flex: none; width: 63.07px; height: 27.71px; border-radius: 6.69px; border: none; color: #fff; font-size: 10.51px; font-family: inherit; cursor: pointer; }
+    .tg.on { background: var(--jade); } .tg.off { background: var(--text-faint); }
+    .spacer { flex: 1; min-height: 0; position: relative; }
+    .spacer.show { background: repeating-linear-gradient(135deg, rgba(197,54,55,.10) 0 3px, transparent 3px 6px); border-radius: 3px; }
+    .spacer.show::after { content: attr(data-l); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--cinnabar-dark); }
+    .back { flex: none; align-self: center; width: 114.67px; height: 31.53px; border-radius: 11.47px; background: var(--ink-soft); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 12.42px; }
+    .meas { position: absolute; left: calc(50% + 190px); top: 50%; transform: translateY(-50%); width: 150px; font-size: 7.2px; line-height: 1.6; color: var(--text-warm); }
+    .meas b { color: var(--text-main); font-weight: 700; }
+    .meas.hide { display: none; }
+  </style>
+</helmet>
+
+<div class="wrap">
+  <div class="dev paper" style="{{ devStyle }}">
+    <div class="{{ bgCls }}"></div>
+    <sc-if value="{{ inBattle }}" hint-placeholder-val="{{ false }}"><div class="scrimL"></div></sc-if>
+    <div class="safeguide"><i style="{{ g0 }}"></i><i style="{{ g1 }}"></i></div>
+    <span class="tag">{{ tag }}</span>
+    <div class="panel">
+      <div class="ttl">设置</div>
+      <div class="row" style="height: 29.62px;"><div class="tx"><span class="t1">音效</span></div><button class="{{ sfxCls }}" onClick="{{ tSfx }}">{{ sfxT }}</button></div>
+      <div class="row" style="height: 29.62px;"><div class="tx"><span class="t1">背景音乐</span></div><button class="{{ musCls }}" onClick="{{ tMus }}">{{ musT }}</button></div>
+      <div class="row new" style="height: 37.27px;"><div class="tx"><span class="t1">{{ qTitle }}</span><span class="t2">{{ qDesc }}</span></div><button class="{{ qCls }}" onClick="{{ tQ }}">{{ qT }}</button></div>
+      <div class="{{ spCls }}" data-l="弹性占位 ≈ 103 逻辑(49pt)"></div>
+      <div class="back">返回</div>
+    </div>
+    <div class="{{ measCls }}">
+      <b>纵向(逻辑)</b><br>
+      上下内边距 28 + 28<br>标题 ≈ 43(30 号宋体行高)<br>开关行 62 + 62 + 78<br>间距 18 × 5 = 90<br>返回钮 66<br>
+      合计 ≈ 457 / 面板 560 → <b>余 ≈ 103</b>,三行放得下;再加一行 78 仍余 ≈ 7<br><br>
+      <b>横向(逻辑)</b><br>
+      内宽 760 − 68 = 692;文字列 692 − 132 − 12 = 548<br>
+      说明 24 字 × 17 = <b>408 ≤ 548</b>(余 140)<br>标题 4 字 × 23 = 92
+    </div>
+  </div>
+  <div class="ctl">
+    <span class="lb">入口</span><sc-for list="{{ enBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.go }}">{{ b.t }}</button></sc-for>
+    <span class="lb">屏宽</span><sc-for list="{{ wBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.go }}">{{ b.t }}</button></sc-for>
+    <span class="lb">标注</span><sc-for list="{{ mBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.go }}">{{ b.t }}</button></sc-for>
+  </div>
+  <div class="cap">点右侧开 / 关钮切换(缺省关)。面板定宽 760 × 560 逻辑(363 × 268pt)居中,不随屏宽变:基准机两侧各余 284pt,16:9 两侧各余 200pt。战斗内入口是同一个 SettingsView 叠在 scrim 遮罩上。</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 500}}'>
+var Q = window.QC;
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sfx: true, mus: true, q: false, en: 'map', w: 'base', meas: true };
+  }
+  renderVals() {
+    var self = this, s = this.state, W = Q.WIDTHS[s.w];
+    function tg(on) { return 'tg ' + (on ? 'on' : 'off'); }
+    function btns(list, key) { return list.map(function (x) { return { t: x[1], cls: s[key] === x[0] ? 'on' : '', go: function () { var o = {}; o[key] = x[0]; self.setState(o); } }; }); }
+    return {
+      devStyle: 'width:' + W.dev + 'px', tag: W.label.replace(/ · 战场.*/, ''),
+      g0: 'left:' + W.side + 'px', g1: 'left:' + (W.dev - W.side) + 'px',
+      bgCls: 'bgview' + (s.en === 'battle' ? ' battle' : ''), inBattle: s.en === 'battle',
+      sfxCls: tg(s.sfx), sfxT: s.sfx ? '开' : '关', tSfx: function () { self.setState({ sfx: !s.sfx }); },
+      musCls: tg(s.mus), musT: s.mus ? '开' : '关', tMus: function () { self.setState({ mus: !s.mus }); },
+      qCls: tg(s.q), qT: s.q ? '开' : '关', tQ: function () { self.setState({ q: !s.q }); },
+      qTitle: Q.T('settings.quick_cast'), qDesc: Q.T('settings.quick_cast.desc'),
+      spCls: 'spacer' + (s.meas ? ' show' : ''), measCls: 'meas' + (s.meas && s.w === 'base' ? '' : ' hide'),
+      enBtns: btns([['map', '主界面'], ['battle', '战斗内(顶栏「设置」)']], 'en'),
+      wBtns: btns([['base', '基准机 932'], ['narrow', '16:9 · 764']], 'w'),
+      mBtns: btns([[true, '显示'], [false, '隐藏']], 'meas')
+    };
+  }
+}
+</script>
+</body>
+</html>

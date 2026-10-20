@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./qc.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./qc.css">
+  <style>
+    /* 选中两面字的提示:底部提示行后缀 + 拆合台提示两行。快速施法开启后「再点」不翻面,改进敌我双向点选态
+       (沿用现状:可点格整格压墨 7%,空召唤位翠玉 10% +「召唤到这里」,提示 pick_dual_target / pick_dual_summon)。
+       金描框 = 本稿改了文案的地方。 */
+    .keys { padding: 0 12px 8px; display: grid; grid-template-columns: 210px 1fr 118px; gap: 2px 8px; font-size: 8.3px; color: var(--text-dim); }
+    .keys .k { font-family: ui-monospace, Menlo, monospace; font-size: 7.6px; color: var(--ink-soft); }
+    .keys .v { color: var(--text-main); white-space: pre; }
+    .keys .w { text-align: right; font-variant-numeric: tabular-nums; }
+    .keys .star { color: var(--gold-deep); font-weight: 700; }
+  </style>
+</helmet>
+
+<div class="wrap">
+  <div class="dev" style="{{ m.devStyle }}">
+    <div class="safeguide"><i style="{{ g0 }}"></i><i style="{{ g1 }}"></i></div>
+    <span class="tag">{{ tag }}</span>
+    <div class="frame" style="{{ m.frameStyle }}">
+      <div class="tbar"><b>「墨海」第 41~45 层 · 战斗 2</b><span>第 44 层</span><span class="grow"></span><span>回合 3</span><span class="pill off">速度 ×1</span><span class="pill">设置</span><span class="pill">退出</span></div>
+      <div class="arena">
+        <div class="rail"><span class="ttl">相 克</span><div class="wx"></div><span class="ttl" style="color: var(--text-dim)">配字表</span></div>
+        <div class="mid">
+          <div class="field" style="{{ m.fieldStyle }}">
+            <sc-for list="{{ m.slots }}" as="s">
+              <div class="{{ s.cls }}" style="{{ s.style }}">
+                <div class="lt" style="{{ s.lt }}"></div>
+                <sc-if value="{{ s.ghost }}" hint-placeholder-val="{{ false }}"><span class="ghost-lbl">{{ s.ghost }}</span></sc-if>
+              </div>
+            </sc-for>
+            <div class="divider" style="{{ m.dividerStyle }}"></div>
+            <sc-for list="{{ m.units }}" as="u">
+              <div class="{{ u.cls }}" style="{{ u.style }}">
+                <div class="lt" style="{{ u.lt }}"></div>
+                <sc-if value="{{ u.foe }}" hint-placeholder-val="{{ true }}"><div class="pt" style="{{ u.ptStyle }}"><img src="{{ u.img }}" alt=""></div></sc-if>
+                <sc-if value="{{ u.isAlly }}" hint-placeholder-val="{{ false }}"><div class="pt" style="{{ u.ptStyle }}">{{ u.g }}</div></sc-if>
+                <div class="inf">
+                  <div class="hd"><b class="nm">{{ u.n }}</b><i class="eb">{{ u.eln }}</i></div>
+                  <div class="scs"><sc-for list="{{ u.chips }}" as="c"><i class="{{ c.cls }}">{{ c.t }}</i></sc-for></div>
+                  <div class="hpb"><span style="{{ u.hp }}"></span><u>{{ u.hpt }}</u></div>
+                  <div class="atb"><span style="{{ u.atb }}"></span></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="{{ m.pl.cls }}" style="{{ m.plStyle }}">
+            <div class="lt" style="{{ m.pl.lt }}"></div>
+            <div class="pt">墨</div>
+            <div class="info"><div class="who">执笔人<span>血 612/920</span></div><div class="hpb"><span style="width:67%"></span></div><div class="atb"><span style="width:64%"></span></div></div>
+            <div class="ap">AP<i class="on"></i><i class="on"></i><i></i></div>
+            <div class="stt"><i class="sc">战意 2</i></div>
+          </div>
+          <div class="hrow" style="{{ m.rowStyle }}">
+            <span class="hl">字库 5/8</span>
+            <sc-for list="{{ m.hand }}" as="h">
+              <div class="{{ h.cls }}"><span class="py">{{ h.py }}</span><span class="g">{{ h.g }}</span><span class="{{ h.sealCls }}">{{ h.seal }}</span></div>
+            </sc-for>
+          </div>
+          <div class="hrow" style="{{ m.rowStyle }}">
+            <span class="hl">部件池 4/10</span>
+            <span class="ptile e-Fire">火</span><span class="ptile e-Wood">木</span><span class="ptile e-Water">氵</span><span class="ptile e-Metal">刂</span>
+          </div>
+        </div>
+        <div class="bench">
+          <div class="bt">拆 合 台</div>
+          <div class="{{ selCls }}">
+            <div class="bhead">
+              <div class="{{ mtCls }}"><span class="g">{{ c.id }}</span><span class="{{ upSealCls }}">{{ upSeal }}</span></div>
+              <div class="bname"><b>{{ c.id }}</b><span>{{ meta }}</span></div>
+            </div>
+            <div class="flipsw">
+              <sc-for list="{{ faces }}" as="f"><div class="{{ f.cls }}"><span class="{{ f.sealCls }}">{{ f.s }}</span>{{ f.role }}<span class="r">{{ f.pr }}</span></div></sc-for>
+            </div>
+            <div class="acts"><span class="a1">出</span><span class="a2">拆</span><span class="a3">弃</span></div>
+            <div class="{{ bhintCls }}">{{ bhint }}</div>
+          </div>
+          <div class="bt" style="margin-top: 2px;">可 合 成</div>
+          <div class="craft e-Wood">木+木 →<b>林</b></div>
+          <div class="endt">结束回合</div>
+        </div>
+      </div>
+    </div>
+    <div class="msg" style="{{ m.msgStyle }}"><span class="{{ msgCls }}">{{ msg }}</span></div>
+  </div>
+  <div class="ctl">
+    <span class="lb">状态</span><sc-for list="{{ stBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.go }}">{{ b.t }}</button></sc-for>
+    <span class="lb">字</span><sc-for list="{{ chBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.go }}">{{ b.t }}</button></sc-for>
+    <span class="lb">屏宽</span><sc-for list="{{ wBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.go }}">{{ b.t }}</button></sc-for>
+  </div>
+  <div class="keys">
+    <sc-for list="{{ keys }}" as="k"><span class="k">{{ k.k }}</span><span class="v">{{ k.v }}</span><span class="w">{{ k.w }}</span></sc-for>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 535}}'>
+var Q = window.QC;
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { st: 'sel', ch: 'lin', w: 'base' };
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var quick = s.st !== 'off', pick = s.st === 'pick';
+    var m = Q.battle({ w: s.w, ch: s.ch, up: 0, quick: quick, mode: pick ? 'pick' : 'idle', sel: true });
+    m.units.forEach(function (u) { u.isAlly = !u.foe; });
+    var c = Q.CHARS[s.ch];
+    var summonFace = c.faces[1].land.indexOf('O') >= 0;
+    var msg, bhint, newMsg = false, newB = false;
+    if (s.st === 'off') { msg = c.brief + Q.T('battle.hint.suffix_tap_again_flip'); bhint = Q.T('battle.hint.flip_selected'); }
+    else if (s.st === 'sel') { msg = c.brief + Q.T('battle.hint.suffix_tap_again_quick'); bhint = Q.T('battle.hint.flip_selected_quick'); newMsg = newB = true; }
+    else { msg = Q.T(summonFace ? 'battle.hint.pick_dual_summon' : 'battle.hint.pick_dual_target', { charId: c.id }); bhint = Q.T('battle.hint.flip_selected_quick'); newB = true; }
+    var bandL = Math.round(m.W.msgW * 0.96 * Q.K), msgL = Math.round(Q.textW(msg, 19));
+    function w(t, f) { return Math.round(Q.textW(t, f)); }
+    var keys = [
+      { k: 'battle.hint.suffix_tap_again_quick ★', v: Q.T('battle.hint.suffix_tap_again_quick'), w: w(Q.T('battle.hint.suffix_tap_again_quick'), 19) + ' 逻辑' },
+      { k: 'battle.hint.flip_selected_quick ★', v: Q.T('battle.hint.flip_selected_quick').replace('\n', ' ⏎ '), w: '行宽 ' + w('拖出：敌方用攻击面，我方用五行面', 13) + ' / 246' },
+      { k: 'battle.hint.pick_dual_* (沿用)', v: Q.T('battle.hint.pick_dual_target', { charId: c.id }) + ' · ' + Q.T('battle.hint.pick_dual_summon', { charId: c.id }), w: '' },
+      { k: '本帧提示行', v: msg, w: msgL + ' / 带宽 ' + bandL }
+    ];
+    return {
+      m: m, c: c, g0: m.guide[0], g1: m.guide[1], tag: m.W.label,
+      selCls: 'sel e-' + c.el, mtCls: 'mt e-' + c.el, upSeal: '攻', upSealCls: Q.sealCls(0),
+      meta: { Gold: '金', Blue: '蓝' }[c.rar] + ' · ' + Q.EL[c.el] + ' · Lv.' + c.lv,
+      faces: [0, 1].map(function (fi) { return { s: c.faces[fi].s, role: fi ? '五行面' : '攻击', pr: fi ? '背' : '正', sealCls: Q.sealCls(fi), cls: 'fsw e-' + c.el + (fi === 0 ? ' on' : ' back') }; }),
+      bhint: bhint, bhintCls: 'bhint' + (newB ? ' new' : ''),
+      msg: msg, msgCls: newMsg ? 'new' : '',
+      stBtns: [['off', '关 · 选中(现状)'], ['sel', '开 · 选中'], ['pick', '开 · 再点 / 点「出」后']].map(function (x) { return { t: x[1], cls: s.st === x[0] ? 'on' : '', go: function () { self.setState({ st: x[0] }); } }; }),
+      chBtns: [['lin', '林 · 木(召唤)'], ['jian', '剑 · 金(护)']].map(function (x) { return { t: x[1], cls: s.ch === x[0] ? 'on' : '', go: function () { self.setState({ ch: x[0] }); } }; }),
+      wBtns: [['base', '基准机 932'], ['narrow', '16:9 · 764']].map(function (x) { return { t: x[1], cls: s.w === x[0] ? 'on' : '', go: function () { self.setState({ w: x[0] }); } }; }),
+      keys: keys
+    };
+  }
+}
+</script>
+</body>
+</html>
