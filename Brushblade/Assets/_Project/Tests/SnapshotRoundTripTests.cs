@@ -485,12 +485,12 @@ namespace Brushblade.Core.Tests
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 读档接着打:召唤物照样上场
             Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
-            // 只落开着的格(2026-08-27 按位置解锁):第 7 层开的是前左、前中(槽 0、1;
-            // 2026-10-18 先开满前排),后中(槽 4)第 19 层才开。携带态按槽位升序,残血的首只回槽 0
-            Assert.That(b.Battle.Summons[4], Is.Null, "后排中间这一层还锁着");
-            Assert.That(b.Battle.Summons[1], Is.Not.Null);
-            Assert.That(b.Battle.Summons[0].Hp, Is.EqualTo(3), "残血原样入场,不回满");
-            Assert.That(b.Battle.Summons[0].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");
+            // 只落开着的格(2026-08-27 按位置解锁):第 7 层开的是前中、后中(槽 1、4;
+            // 2026-10-20 前后排交替开),前左(槽 0)第 13 层才开。携带态按槽位升序,残血的首只回槽 1
+            Assert.That(b.Battle.Summons[0], Is.Null, "前排左边这一层还锁着");
+            Assert.That(b.Battle.Summons[4], Is.Not.Null);
+            Assert.That(b.Battle.Summons[1].Hp, Is.EqualTo(3), "残血原样入场,不回满");
+            Assert.That(b.Battle.Summons[1].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 
