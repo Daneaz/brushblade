@@ -636,8 +636,8 @@
         },
         {
           "label": "观战学艺",
-          "detail": "HP +50",
-          "hpDelta": 50
+          "detail": "HP +300",
+          "hpDelta": 300
         },
         {
           "label": "拱手不赌"
@@ -708,15 +708,16 @@
       "text": "铁匠抡锤不歇:『字要淬,骨也要淬。火里走一遭,成不成看你的命。』",
       "options": [
         {
-          "label": "入炉淬骨",
+          "label": "猛火淬骨",
+          "detail": "七成 上限 +50%,三成 反噬 −50%",
+          "maxHpPercent": 50,
+          "maxHpChancePercent": 70
+        },
+        {
+          "label": "文火淬骨",
           "detail": "八成 上限 +30%,两成 反噬 −30%",
           "maxHpPercent": 30,
           "maxHpChancePercent": 80
-        },
-        {
-          "label": "只观火候",
-          "detail": "HP +100",
-          "hpDelta": 100
         },
         {
           "label": "退开三步"
