@@ -63,9 +63,8 @@ def avg_discount(premium):
 
 
 SHOP_CHEST_PRICE = [p * avg_discount(i >= 5) for i, p in enumerate(SHOP_CHEST_BASE)]  # 当日折后均价
-COPIES_UP = arr("CopiesToUpgrade", "Meta.cs")
 INK_UP = arr("InkToUpgrade", "Meta.cs")
-COPIES_MUL = arr("CopiesMultiplier", "Meta.cs")
+COPIES_GROWTH = arr("CopiesGrowth", "Meta.cs")
 INK_MUL = arr("InkMultiplier", "Meta.cs")
 
 
@@ -240,7 +239,7 @@ def skip_cost(seconds):
 
 
 def upgrade_cost(rarity, to_level):
-    copies = sum(max(1, math.ceil(COPIES_UP[l] * COPIES_MUL[rarity])) for l in range(to_level - 1))
+    copies = sum(math.ceil(COPIES_GROWTH[rarity] ** l) for l in range(to_level - 1))  # 与 MetaRules.CopiesRequired 同口径
     ink = sum(int(INK_UP[l] * INK_MUL[rarity]) for l in range(to_level - 1))
     return copies, ink
 
