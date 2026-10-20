@@ -133,6 +133,18 @@ namespace Brushblade.Presentation
             _ => new Color(0.632f, 0.62f, 0.594f), // 白
         };
 
+        /// <summary>稀有度淡底(token `rarity-*-soft`,稿 --rarSoft)。配方转盘扇区底首用(drafts/recipe-wheel)。</summary>
+        public static Color RaritySoft(CardRarity rarity) => rarity switch
+        {
+            CardRarity.Green => new Color(0.886f, 0.949f, 0.906f),  // #E2F2E7
+            CardRarity.Blue => new Color(0.871f, 0.918f, 0.969f),   // #DEEAF7
+            CardRarity.Purple => new Color(0.922f, 0.886f, 0.961f), // #EBE2F5
+            CardRarity.Gold => new Color(0.965f, 0.929f, 0.835f),   // #F6EDD5
+            CardRarity.Orange => new Color(0.980f, 0.906f, 0.827f), // #FAE7D3
+            CardRarity.Red => new Color(0.976f, 0.875f, 0.875f),    // #F9DFDF
+            _ => new Color(0.929f, 0.918f, 0.890f),                 // #EDEAE3 白
+        };
+
         /// <summary>宝箱配色 = **卡牌稀有度色**(2026-08-30 拍板并成一套)。
         ///
         /// 曾经是 <c>RarityColor((CardRarity)(int)tier)</c>,后来拆成独立一张表 ——

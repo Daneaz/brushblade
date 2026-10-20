@@ -332,5 +332,33 @@ namespace Brushblade.Core.Tests
             Assert.That(run.LastRecipeWheel.Slots.Contains(first.Target), Is.False);
             Assert.That(run.RunRecipes.Count, Is.EqualTo(2));
         }
+        [Test]
+        public void Run_CardLevel_UnfamiliarIsLvZero_OuterLevelKept() // 表现层显示口径:与 BattleEngine.CardLevelOf 同一条
+        {
+            var graph = Graph();
+            var levels = new Dictionary<string, int> { ["灯"] = 4, ["蓝甲"] = 5, ["蓝乙"] = 5, ["蓝丙"] = 5, ["蓝丁"] = 5,
+                ["蓝戊"] = 5, ["蓝己"] = 5, ["紫0"] = 5, ["紫1"] = 5 };
+            var run = new RunEngine(graph, BossFloor(15, wheel: true), new BattleConfig { UnlockedChars = Owned },
+                new[] { "灯" }, Array.Empty<string>(), seed: 7, cardLevels: levels);
+            Win(run);
+            string target = run.LastRecipeWheel.Target;
+            Assert.That(run.IsUnfamiliar(target), Is.True);
+            Assert.That(run.CardLevel(target), Is.EqualTo(MetaRules.UnfamiliarCardLevel));
+            Assert.That(run.OuterCardLevel(target), Is.EqualTo(5), "「局外 LvN」读局外等级");
+            Assert.That(run.IsUnfamiliar("灯"), Is.False);
+            Assert.That(run.CardLevel("灯"), Is.EqualTo(4));
+            Assert.That(run.OuterCardLevel("灯"), Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Run_IsUnfamiliar_CollectedCharNeverUnfamiliar() // 与 BattleConfigForRun 的剔除同口径
+        {
+            var run = new RunEngine(Graph(), BossFloor(15, wheel: false), new BattleConfig { UnlockedChars = Owned },
+                new[] { "灯" }, Array.Empty<string>(), seed: 7, unfamiliarChars: new[] { "灯", "蓝甲" });
+            Assert.That(run.IsUnfamiliar("灯"), Is.False);
+            Assert.That(run.IsUnfamiliar("蓝甲"), Is.True);
+            Assert.That(run.Battle.IsUnfamiliar("蓝甲"), Is.True);
+            Assert.That(run.CardLevel("灯"), Is.EqualTo(1));
+        }
     }
 }

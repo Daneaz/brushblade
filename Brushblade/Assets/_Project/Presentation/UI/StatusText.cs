@@ -428,8 +428,9 @@ namespace Brushblade.Presentation
         private static string RetaliateGate(StatusEffect effect) =>
             effect.MinArmor > 0 ? Strings.T("char.effect.retaliate.minarmor", ("armor", effect.MinArmor)) : "";
 
+        /// <summary>来源字的卡等级。不夹到 ≥1:生疏字是 Lv0(×70%,spec 2026-10-19 §3),与引擎结算同一口径。</summary>
         private static int LevelOf(StatusEffect effect, Func<string, int> cardLevelOf) =>
-            cardLevelOf != null && effect.SourceId != null ? Math.Max(1, cardLevelOf(effect.SourceId)) : 1;
+            cardLevelOf != null && effect.SourceId != null ? cardLevelOf(effect.SourceId) : 1;
 
         /// <summary>免疫减益的详情(D2-水 W4)。名:全量「免疫减益」/ 只拦一种「免疫灼烧」;说明:挡什么 + 转盾(灼按层、其余按条)
         /// + 剩余次数(WardCount &gt; 0 时)。状态名取本类 <see cref="Of(StatusKind, int, int, bool)"/>,与卡面同一份。</summary>

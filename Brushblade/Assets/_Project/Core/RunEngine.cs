@@ -291,8 +291,14 @@ namespace Brushblade.Core
         /// <summary>本段打赢过的敌人 id(图鉴解锁源;外层写进 MetaState)。</summary>
         public IReadOnlyList<string> DefeatedEnemyIds => _defeatedEnemyIds;
 
-        /// <summary>局内 UI 显示等级化数值用(19.3.2);未记录则 1 级。</summary>
+        /// <summary>局内 UI 显示等级化数值用(19.3.2);未记录则 1 级。
+        /// 生疏字(<see cref="IsUnfamiliar"/>)返回 <see cref="MetaRules.UnfamiliarCardLevel"/>,
+        /// 与 BattleEngine 出字时的卡等级同一口径(spec 2026-10-19 §3)。</summary>
         public int CardLevel(string cardId) =>
+            IsUnfamiliar(cardId) ? MetaRules.UnfamiliarCardLevel : OuterCardLevel(cardId);
+
+        /// <summary>局外卡等级(不论生疏);字卡详情「Lv1(局外 LvN)」读它。</summary>
+        public int OuterCardLevel(string cardId) =>
             _cardLevels != null && _cardLevels.TryGetValue(cardId, out var level) ? level : 1;
 
         /// <summary>奖励阶段的字候选(已取走的即时移除)。</summary>
@@ -477,6 +483,11 @@ namespace Brushblade.Core
 
         /// <summary>本局生疏字(转盘配方得来、且没被奇遇送过的字)。已收集的字在注入战斗时剔除。</summary>
         public IReadOnlyList<string> UnfamiliarChars => _unfamiliar;
+
+        /// <summary>此字本局是否生疏:记在生疏表里且未收集(已收集的字永不生疏,同 <see cref="BattleConfigForRun"/>)。
+        /// 表现层的「疏」签与详情行读它 —— 奖励 / 奇遇阶段 Battle 还是上一场,奇遇刚送的字不在它的配置里。</summary>
+        public bool IsUnfamiliar(string charId) =>
+            charId != null && _unfamiliar.Contains(charId) && !IsCollected(charId);
 
         private bool IsCollected(string charId) =>
             _battleConfig.UnlockedChars == null || _battleConfig.UnlockedChars.Contains(charId);
@@ -1036,7 +1047,7 @@ namespace Brushblade.Core
             config.UnlockedSummonSlots = MetaRules.UnlockedSlotMask(CurrentDepth); // 按层解锁,逐场重算
             // 配方集 / 生疏(spec 2026-10-19):逐场快照一份;已收集的字永不生疏
             config.RunRecipes = _runRecipes.ToList();
-            config.UnfamiliarChars = _unfamiliar.Where(id => !IsCollected(id)).ToList();
+            config.UnfamiliarChars = _unfamiliar.Where(IsUnfamiliar).ToList();
             return config;
         }
 

@@ -1,0 +1,108 @@
+<!-- @dsCard group="弹窗" height=430 width=932 subtitle="实现 · RecipeWheelSheet · 配方转盘(落定后结果卡),Boss / 精英战后、选字之前" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+/* 换算:卡上 pt = Unity 逻辑单位 ÷ 2.093。示例:第 30 层主题 Boss 战后,紫 ×4 + 金 ×1,落在高档格「沐」。 */
+.cs { position: relative; width: 932px; height: 430px; overflow: hidden; background: var(--paper); color: var(--text-main);
+  font-family: var(--font-sans); line-height: 1.3; }
+.cs * { box-sizing: border-box; }
+.cs .under { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-size: 240px; color: rgba(22,27,34,.05); }
+/* Ui.Sheet:Theme.Scrim 55%,点遮罩无效(dismissable:false) */
+.cs .scrim { position: absolute; inset: 0; background: var(--scrim); }
+/* 卡 879 × 670 → 420 × 320pt 屏幕正中;圆角 18 → 8.6、描边 1.5 → 0.72 panel-border、panel-paper 底;
+   内边距 38/25/29 → 18/12/14pt,行距 9 → 4.3pt */
+.cs .sheet { position: absolute; left: 256px; top: 55px; width: 420px; height: 320px; background: var(--panel-paper);
+  border: .72px solid var(--panel-border); border-radius: 8.6px; padding: 11.94px 18.16px 13.86px;
+  display: flex; flex-direction: column; gap: 4.3px; }
+/* Ui.KickerRow:宋体 25 → 11.94pt cta,两侧 71×2 → 33.92×0.96pt panel-border,间距 21 → 10pt */
+.cs .kick { display: flex; align-items: center; justify-content: center; gap: 10.03px; font-family: var(--font-serif);
+  font-weight: 600; font-size: 11.94px; color: var(--cta); }
+.cs .kick::before, .cs .kick::after { content: ""; width: 33.92px; height: .96px; background: var(--panel-border); }
+.cs .sub { text-align: center; font-size: 9.08px; color: var(--text-dim); }
+/* body 803 → 383.7pt 宽、吃剩余高度;转盘盒 494 → 236pt,左中为原点缩到 0.72;结果列 447 → 213.6pt 靠右 */
+.cs .body { position: relative; flex: 1; }
+.cs .box { position: absolute; left: 0; top: 50%; width: 236px; height: 236px; margin-top: -118px;
+  transform: scale(.72); transform-origin: left center; }
+.cs .box svg { position: absolute; inset: 0; overflow: visible; }
+.cs .sg { font-family: var(--font-serif); font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+.cs .sp { font-size: 6.69px; text-anchor: middle; dominant-baseline: central; }
+/* 轮毂:cta 100 → 47.8pt;+ panel-paper 环 113 → 54pt;+ ink 环 119 → 56.9pt(也是命中区)。落定后 locked-bg 底 text-faint「中」 */
+.cs .hub { position: absolute; left: 50%; top: 50%; width: 47.78px; height: 47.78px; margin: -23.89px 0 0 -23.89px; border-radius: 50%;
+  background: var(--locked-bg); color: var(--text-faint); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 700; font-size: 14.81px;
+  box-shadow: 0 0 0 3.11px var(--panel-paper), 0 0 0 4.54px var(--ink); }
+/* 结果列:VStack 行距 13 → 6.2pt,竖直居中 */
+.cs .res { position: absolute; right: 0; top: 0; bottom: 0; width: 213.57px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6.21px; }
+/* Ui.GlyphTile 138×173 → 65.9×82.7pt:稀有度牌框 + 字形 牌高×0.34 + 拼音 12 → 5.73pt(此处用金色描边近似牌框素材) */
+.cs .bt { position: relative; width: 65.93px; height: 82.66px; border-radius: 6.69px; background: var(--card-face);
+  box-shadow: inset 0 0 0 2.4px var(--rarity-gold); }
+.cs .bt b { position: absolute; left: 0; right: 0; top: 5%; height: 65%; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 600; font-size: 28.1px; color: var(--water-glyph); }
+.cs .bt i { position: absolute; left: 0; right: 0; bottom: 8%; text-align: center; font-style: normal; font-size: 5.73px; color: var(--text-dim); }
+.cs .rn { display: flex; align-items: center; gap: 6.21px; font-size: 10.03px; color: var(--text-dim); }
+.cs .rn b { font-family: var(--font-serif); font-weight: 700; font-size: 13.86px; color: var(--text-main); }
+/* 配方行间距 10 → 4.8pt;部件 54×65 → 25.8×31.1pt 圆角 10 → 4.78pt,部件池样式(本系 soft 底 + soft-fg 字),出字 card-face + 2.5 → 1.2pt 字形色描边 */
+.cs .recipe { display: flex; align-items: center; gap: 4.78px; font-family: var(--font-serif); }
+.cs .part { width: 25.8px; height: 31.06px; border-radius: 4.78px; display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 13.86px; }
+.cs .op { font-size: 10.99px; color: var(--text-warm); }
+.cs .got { display: flex; align-items: center; gap: 4.78px; font-size: 10.03px; font-weight: 700; color: var(--upgrade-text); }
+.cs .got i { width: 12.9px; height: 12.9px; border-radius: 50%; background: var(--jade); color: #fff; font-style: normal;
+  font-size: 8px; display: flex; align-items: center; justify-content: center; }
+/* Ui.PillButton:cta 底白字 23 → 11pt,高 54 → 25.8pt,左右各 46 → 22pt,圆角 24 → 11.47pt */
+.cs .cont { height: 25.8px; padding: 0 21.98px; border-radius: 11.47px; background: var(--cta); color: #fff; border: none;
+  font-family: var(--font-sans); font-size: 10.99px; }
+</style></head><body>
+<div class="cs">
+  <div class="under">林</div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="kick">配 方 转 盘</div>
+    <div class="sub">第 30 层 · Boss战后 · 紫 ×4 + 金 ×1</div>
+    <div class="body">
+      <div class="box">
+        <!-- 转盘 435 → 208pt(半径 104),盒内偏移 29 → 14pt;外圈 ink 环内径 226 → 108pt、外径 232 → 111pt;
+             扇区 = 稀有度 soft,角度 = 概率(低档 81°、高档 36°),顺时针「低 低 高 低 低」;落定后未中扇区 paper-dim、字 text-mute -->
+        <svg width="236" height="236" viewBox="-118 -118 236 236">
+          <g transform="rotate(-180)">
+        <path d="M0 0 L0.00 -104.00 A104 104 0 0 1 102.72 -16.27 Z" fill="var(--paper-dim)"/>
+        <path d="M0 0 L102.72 -16.27 A104 104 0 0 1 32.14 98.91 Z" fill="var(--paper-dim)"/>
+        <path d="M0 0 L32.14 98.91 A104 104 0 0 1 -32.14 98.91 Z" fill="var(--rarity-gold-soft)"/>
+        <path d="M0 0 L-32.14 98.91 A104 104 0 0 1 -102.72 -16.27 Z" fill="var(--paper-dim)"/>
+        <path d="M0 0 L-102.72 -16.27 A104 104 0 0 1 -0.00 -104.00 Z" fill="var(--paper-dim)"/>
+        <g stroke="var(--ink)" stroke-width="1.2"><line x1="0" y1="0" x2="0.00" y2="-104.00"/><line x1="0" y1="0" x2="102.72" y2="-16.27"/><line x1="0" y1="0" x2="32.14" y2="98.91"/><line x1="0" y1="0" x2="-32.14" y2="98.91"/><line x1="0" y1="0" x2="-102.72" y2="-16.27"/></g>
+        <path d="M0 0 L32.14 98.91 A104 104 0 0 1 -32.14 98.91 Z" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M0 0 L32.14 98.91 A104 104 0 0 1 -32.14 98.91 Z" fill="rgba(255,255,255,.18)" stroke="var(--cta)" stroke-width="3.2" stroke-linejoin="round"/>
+        <text class="sg" x="40.53" y="-47.45" transform="rotate(40.5 40.53 -47.45)" font-size="22" fill="var(--text-mute)">楸</text>
+        <text class="sp" x="58.09" y="-68.01" transform="rotate(40.5 58.09 -68.01)" fill="var(--text-faint)" font-weight="400">22.5%</text>
+        <text class="sg" x="53.20" y="32.60" transform="rotate(121.5 53.20 32.60)" font-size="22" fill="var(--text-mute)">湮</text>
+        <text class="sp" x="76.26" y="46.73" transform="rotate(121.5 76.26 46.73)" fill="var(--text-faint)" font-weight="400">22.5%</text>
+        <text class="sg" x="0.00" y="62.40" transform="rotate(180.0 0.00 62.40)" font-size="18" fill="var(--water-glyph)">沐</text>
+        <text class="sp" x="0.00" y="89.44" transform="rotate(180.0 0.00 89.44)" fill="var(--gold-deep)" font-weight="700">稀有 10%</text>
+        <text class="sg" x="-53.20" y="32.60" transform="rotate(238.5 -53.20 32.60)" font-size="22" fill="var(--text-mute)">铡</text>
+        <text class="sp" x="-76.26" y="46.73" transform="rotate(238.5 -76.26 46.73)" fill="var(--text-faint)" font-weight="400">22.5%</text>
+        <text class="sg" x="-40.53" y="-47.45" transform="rotate(319.5 -40.53 -47.45)" font-size="22" fill="var(--text-mute)">燥</text>
+        <text class="sp" x="-58.09" y="-68.01" transform="rotate(319.5 -58.09 -68.01)" fill="var(--text-faint)" font-weight="400">22.5%</text>
+          </g>
+          <circle r="109.5" fill="none" stroke="var(--ink)" stroke-width="3"/>
+          <!-- 指针:ink 倒三角 38 → 18pt + gold 小圆 12.6 → 6pt -->
+          <path d="M-9 -118 L9 -118 L0 -100 Z" fill="var(--ink)"/>
+          <circle cx="0" cy="-113" r="3" fill="var(--gold)"/>
+        </svg>
+        <div class="hub">中</div>
+      </div>
+      <div class="res">
+        <div class="bt"><b>沐</b><i>mù</i></div>
+        <div class="rn"><b>沐</b>金 · 水 · 稀有格</div>
+        <div class="recipe">
+          <i class="part" style="background:var(--water-soft);color:var(--water-fg)">氵</i><span class="op">+</span>
+          <i class="part" style="background:var(--wood-soft);color:var(--wood-fg)">木</i><span class="op">→</span>
+          <i class="part" style="background:var(--card-face);color:var(--water-glyph);box-shadow:inset 0 0 0 1.2px var(--water-glyph)">沐</i>
+        </div>
+        <div class="got"><i>✓</i>已记入本局配方</div>
+        <button class="cont">继续 · 选字</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>
