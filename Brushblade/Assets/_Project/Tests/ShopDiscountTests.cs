@@ -25,7 +25,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ChestBasePrice_IsPinned()
         {
-            Assert.That(ShopRules.ChestBasePrice, Is.EqualTo(new[] { 0, 420, 700, 1180, 2850, 3850, 4870 }));
+            Assert.That(ShopRules.ChestBasePrice, Is.EqualTo(new[] { 0, 350, 620, 1180, 2850, 3850, 4870 }));
         }
 
         /// <summary>底价 = 该箱期望开出的张数按字摊单张价(每份价 ÷ 每份张数)折算(误差 ≤ 3%,底价取整到十位)。
