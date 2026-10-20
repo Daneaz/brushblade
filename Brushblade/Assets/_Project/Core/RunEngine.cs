@@ -770,10 +770,11 @@ namespace Brushblade.Core
         private void ProceedAfterBattle()
         {
             bool finalBattle = BattleIndex >= _runConfig.Encounters.Count - 1;
-            if (!finalBattle && _runConfig.EventPool.Count > 0
+            var eligible = _runConfig.EventPool.Where(e => e.AppliesAt(CurrentDepth)).ToList();
+            if (!finalBattle && eligible.Count > 0
                 && _random.Next(100) < _runConfig.EventChancePercent)
             {
-                CurrentEvent = _runConfig.EventPool[_random.Next(_runConfig.EventPool.Count)];
+                CurrentEvent = eligible[_random.Next(eligible.Count)];
                 Phase = RunPhase.Event;
                 return;
             }

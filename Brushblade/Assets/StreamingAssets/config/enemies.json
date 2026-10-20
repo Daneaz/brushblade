@@ -547,6 +547,34 @@
     {
       "id": "字摊",
       "text": "路旁小摊,摊主捻须:『以物易物,童叟无欺。』",
+      "maxDepth": 19,
+      "options": [
+        {
+          "label": "以物易字",
+          "detail": "舍 1 部件,2 叠字任选一",
+          "componentCost": 1,
+          "gainCharChoices": [
+            "鍂",
+            "林",
+            "冰",
+            "炎",
+            "圭"
+          ]
+        },
+        {
+          "label": "白讨部件",
+          "detail": "随机部件 ×1",
+          "randomComponents": 1
+        },
+        {
+          "label": "只看不换"
+        }
+      ]
+    },
+    {
+      "id": "老字号",
+      "text": "百年老字号的掌柜拨着算盘:『好字不贱卖,拿料来换。』",
+      "minDepth": 20,
       "options": [
         {
           "label": "以物易字",

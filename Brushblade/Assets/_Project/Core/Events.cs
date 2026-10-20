@@ -37,5 +37,11 @@ namespace Brushblade.Core
         public string Id { get; set; }
         public string Text { get; set; }
         public IReadOnlyList<EventOption> Options { get; set; }
+        // 出现的层数范围(2026-10-20,字摊按层拆两档):按刚打完那一层判,两端都含,0 = 不设限
+        public int MinDepth { get; set; }
+        public int MaxDepth { get; set; }
+
+        public bool AppliesAt(int depth) =>
+            (MinDepth == 0 || depth >= MinDepth) && (MaxDepth == 0 || depth <= MaxDepth);
     }
 }
