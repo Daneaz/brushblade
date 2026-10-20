@@ -4250,8 +4250,8 @@ namespace Brushblade.Presentation
                     }
                     if (dualDirection)
                     {
-                        // 敌我同时点亮:_targeting 与 _allyTargeting 一起开,与 OnCastPressed
-                        // 的双向态是同一套状态组合。松手时按落点决定走哪一面(见 onDrop)。
+                        // 敌我同时点亮:_targeting 与 _allyTargeting 一起开(双向态)。
+                        // 松手时按落点决定走哪一面(见 onDrop)。
                         _selectedChar = def.Id;
                         _selectedIndex = libraryIndex;
                         _targeting = true;
@@ -5336,7 +5336,7 @@ namespace Brushblade.Presentation
             // 选位置态:动作行只画一句提示(2026-08-20 review M-2)。这一段必须在判空**之前**——
             // 拖召唤字进来的那条路径 _selectedChar 是 null,早退的话这里什么也不画,
             // 玩家看不出自己正处在「等你选位置」的状态。
-            // 不画「出/拆/弃」:再点一次「出」会走 OnCastPressed → BeginCast,把落位态悄悄重置。
+            // 不画「拆/弃」:落位态里只该做选位这一件事。
             // 「取消」按钮 2026-08-21 随整排一起移除 —— 点空白即取消(Backdrop)。
             if (_slotPicking)
             {
@@ -5469,19 +5469,14 @@ namespace Brushblade.Presentation
                 BenchHint(_actionRow, Strings.T("battle.hint.targeting_enemy", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
-            // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示——再点一次「出」
-            // 会走 OnCastPressed → BeginCast,把这个待选态悄悄重置。
+            // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示。
             if (_allyTargeting)
             {
                 BenchHint(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
-            // 2026-08-21 用户拍板:动作名一律收成单字 —— 「出字 / 直出 / 兜底一击」三种情形
-            // 统一叫「出」,「丢弃」叫「弃」。竖栏里按钮排一行,长标签会把整行挤换行;
-            // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
-            // 玩家在按钮上分不分得清都不影响他要点的那一下。
-            // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
-            Ui.RoundButton(_actionRow, Strings.T("battle.btn.cast"), () => OnCastPressed(def), Theme.Cta, Color.white, 17, new Vector2(76, 52));
+            // 2026-10-21 用户拍板:出字只靠拖动,「出」钮移除,动作行只剩「拆」「弃」。
+            // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性);动作名一律单字(2026-08-21)
             // 2026-09-01 二级拆解:去掉「必须在字库里」的前提 —— 部件池里带配方的部件
             // (烝 = 丞 + 灬)同样该给拆按钮,ForgeEngine.TryDismantle 认两种来源。
             if (!def.IsLeaf)
@@ -5492,7 +5487,7 @@ namespace Brushblade.Presentation
             if (flippable)
             {
                 _actionHintRow.gameObject.SetActive(true);
-                BenchHint(_actionHintRow, QuickCastSplit(def, _selectedIndex)   // 快速施法:再点不翻,改说「选目标」
+                BenchHint(_actionHintRow, QuickCastSplit(def, _selectedIndex)   // 快速施法:拖出那半句改说两侧各用哪面
                     ? Strings.T("battle.hint.flip_selected_quick")
                     : Strings.T("battle.hint.flip_selected"), BenchHintFontSize, Theme.TextDim);
             }
@@ -6768,10 +6763,6 @@ namespace Brushblade.Presentation
 
         private void OnLibraryCharClicked(string charId, int index)
         {
-            // 方向按钮已经画出来时(2026-09-02 审阅 Important),再点字牌本体不该绕过它们
-            // 静默出字——玩家全程靠「选中→再点即出」这个手势操作,方向按钮刚出现时很容易
-            // 沿用同一手势再点一次牌本体,若不挡在这里会跳过「攻」「护」两个可见按钮,
-            // 静默按 CastInDirection 的默认分支(护)出字。
             // 翻面动效(F9)还在播:点的是同一张 = 只跳到终态,不再翻一次;点别的牌先收掉动效再照常处理
             if (_handFlipAnim != null)
             {
@@ -6783,16 +6774,9 @@ namespace Brushblade.Presentation
             if (_selectedChar == charId && _selectedIndex == index
                 && !_targeting && !_allyTargeting)
             {
-                // 两面字(Plan E1,spec §2.1):再点一次 = 翻面,不出字;出字走「出」钮或拖出。
-                // 单面字维持原手势:再点一次 = 直接出字。
-                // 教程 CastDemo 锁住剿的面(Plan E4 D-QT1):再点不翻面,按攻击面直接出字(同单面字手势)
-                // 快速施法两侧分面(spec 2026-10-20):再点不翻面,进敌我同时点亮的选目标态(OnCastPressed 里)
-                if (twoFaces && LockedFace(charId) == null && !QuickCastSplit(_graph.Get(charId), index))
-                {
-                    FlipHandFace(index);
-                    return;
-                }
-                OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
+                // 两面字(Plan E1,spec §2.1):再点一次 = 翻面(快速施法开着也一样)。
+                // 2026-10-21 用户拍板:出字只靠拖动 —— 单面字 / 教程锁面的字再点什么也不做。
+                if (twoFaces && LockedFace(charId) == null) FlipHandFace(index);
                 return;
             }
             _selectedChar = charId;
@@ -6812,14 +6796,10 @@ namespace Brushblade.Presentation
 
         private void OnPoolCharClicked(string charId)
         {
-            // 方向按钮已经画出来时(2026-09-02 审阅 Important),再点部件本体不该绕过它们
-            // 静默出字,理由同 OnLibraryCharClicked。
+            // 2026-10-21 用户拍板:出字只靠拖动,再点选中的部件不再直出
             if (_selectedChar == charId && _selectedIndex < 0
                 && !_targeting && !_allyTargeting)
-            {
-                OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
-            }
             _selectedChar = charId;
             _selectedIndex = -1;
             _targeting = false;
@@ -7014,98 +6994,6 @@ namespace Brushblade.Presentation
             }
         }
 
-        private void OnCastPressed(CharDef def)
-        {
-            // 双方向字(2026-09-02 用户拍板改版):**不再先问方向,直接把敌我两边一起点亮** ——
-            // 玩家点谁,谁就定了方向:点敌人 = 攻击面,点自己/召唤物 = 治疗·加盾面。
-            //
-            // 改版前是「双击 → 拆合台弹「攻」「护」两个钮 → 选完再选目标」,两步。
-            // 现在一步:目标本身携带方向信息,不需要玩家先在抽象的「方向」上做一次选择,
-            // 再在具体的「谁」上做第二次。与拖拽路径的语义也就此对齐 ——
-            // 拖到敌人 = 攻击、拖到我方 = 护,本来就是「落点决定方向」。
-            //
-            // 实现上不新增状态:_targeting 与 _allyTargeting **同时**为真即是双向态。
-            // 两条既有的点击回调各自在进入时把 _pendingAttackMode 定死,互不干扰。
-            // 木系双面(2026-09-27):护面是**召唤**,友方那一侧点亮的不是「治谁」而是「落哪格」——
-            // 敌人与召唤位同时点亮(_targeting + _slotPicking),点敌人 = 攻、点位置 = 召唤。
-            // AP 不够时不进这一态,走下面的通用双向态,由引擎当场报「AP 不够」(同 BeginCast 的守卫)。
-            //
-            // 两面字(Plan E1 F5,2026-10-07):手牌有了「朝上的面」,出字按那一面走单向,
-            // 不再进双向态 / 攻召双向态。CastInDirection 已按这一面需要进选敌 / 选友方 / 选位。
-            // 部件池的牌(_selectedIndex < 0)没有面,仍走下面的原路径。
-            // 快速施法两侧分面(spec 2026-10-20):不走单向,落到下面与部件池同一套双向态 ——
-            // 敌方侧恒为攻击面、我方侧恒为五行面(两侧面不同只可能是这一种分法),正是双向态的口径。
-            if (_selectedIndex >= 0 && CardFaceRules.HasTwoFaces(def) && !QuickCastSplit(def, _selectedIndex))
-            {
-                CastInDirection(def, attackMode: GetFace(_selectedIndex) == CardFace.Attack);
-                return;
-            }
-            if (IsSummonDual(def) && Battle.Ap >= def.ApCost)
-            {
-                EnterSummonDual(def, _selectedIndex);
-                _message = Strings.T("battle.hint.pick_dual_summon", ("charId", def.Id));
-                Refresh();
-                return;
-            }
-            if (def.AttackEffects.Count > 0)
-            {
-                _targeting = true;
-                _allyTargeting = true;
-                _pendingAllyEnemyTarget = -1;
-                _pendingAttackMode = true;   // 敌方侧的置灰判据要按攻击面算(点友方时会就地改回 false)
-                _message = Strings.T("battle.hint.pick_dual_target", ("charId", def.Id));
-                Refresh();
-                return;
-            }
-            CastInDirection(def, attackMode: false);
-        }
-
-        /// <summary>选定方向后的出字流程(2026-09-02)。<paramref name="attackMode"/>
-        /// true = 攻击面(走 AttackEffects),false = 治疗/加盾面(走 Effects)。
-        ///
-        /// 这就是原来 OnCastPressed 的整个函数体,只是把写死的 attackMode: false
-        /// 变成参数 —— 免选判据、友方目标判据、最终 BeginCast 三处全部跟着这个参数走,
-        /// 否则会出现「选了攻击方向,却按治疗面判断要不要选目标」这种错位。
-        ///
-        /// 2026-09-02 改版后它只服务**单方向字**(AttackEffects 为空,恒走 attackMode: false)
-        /// 与拖拽路径;双方向字的双击走 OnCastPressed 里的双向目标态,不经过这里。
-        /// Plan E1(2026-10-07)起两面字的「出」也走这里,attackMode = 手牌朝上的面。</summary>
-        private void CastInDirection(CharDef def, bool attackMode)
-        {
-            // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
-            // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
-            // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
-            // E3:读 Core 实例读口 —— 带印记的「山」不要目标,点「出」/ 再点直出不能还进选目标态(Core 不要、UI 要)
-            if (Battle.NeedsTargetNow(def.Id, attackMode) && LegalTargetCount(def, attackMode) > 1)
-            {
-                _targeting = true;
-                _pendingAttackMode = attackMode;
-                _message = Strings.T("battle.hint.cast_pick_enemy_target", ("charId", def.Id));
-                Refresh();
-                return;
-            }
-            // 友方目标(2026-08-22):场上有存活召唤物才进选目标态——没有的话引擎会自动锁玩家
-            // (Cast 里 AliveSummons() == 0 那条免选口径),UI 弹一次没得选的选择纯属白点一下,
-            // 与上面「单敌免选」同一条纪律。
-            if (BattleEngine.NeedsAllyTarget(def, attackMode) && Battle.AliveSummonCount > 0)
-            {
-                EnterAllyTargeting(def, enemyTarget: -1, attackMode: attackMode);
-                Refresh();
-                return;
-            }
-            BeginCast(def.Id, -1, attackMode: attackMode, libraryIndex: _selectedIndex);
-        }
-
-        /// <summary>这张字现在有几只敌人点得动(2026-08-20)。判据走 <c>Battle.CanTarget</c>,
-        /// 与置灰、与引擎的自动锁定三处同源。</summary>
-        private int LegalTargetCount(CharDef def, bool attackMode)
-        {
-            int count = 0;
-            for (int i = 0; i < Battle.Enemies.Count; i++)
-                if (Battle.CanTarget(def, i, attackMode)) count++;
-            return count;
-        }
-
         /// <summary>攻/召双面字(2026-09-27,木系):攻面单体伤害、护面召唤。
         /// 判据走 Core 的 <c>SummonCountOf</c>,不在表现层按元素写死 —— 哪天别的系也有召唤护面,
         /// 这里自动跟上。</summary>
@@ -7262,12 +7150,11 @@ namespace Brushblade.Presentation
             ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, summonSlots: slots);
         }
 
-        /// <summary>当前落位态点活木灵算不算嫁接(Plan E1):两面字的生面经点击「出」进来的落位态,
-        /// 以及快速施法的「攻/召」双向态(手牌两面字,spec 2026-10-20 —— 与拖拽同样能嫁接)。
-        /// 排除攻击面落位(_pendingSummonAttackMode)。部件池的牌(卡位 −1)没有面,不算 —— 部件池的
-        /// 「攻/召」双向态点有人的格仍是顶替。</summary>
+        /// <summary>当前落位态点活木灵算不算嫁接(Plan E1):两面字的生面经点击「出」进来的落位态。
+        /// 排除 _targeting(「攻/召」双向态,点有人的格仍是顶替,不走嫁接口径)
+        /// 与攻击面落位(_pendingSummonAttackMode)。部件池的牌(卡位 −1)没有面,也不算。</summary>
         private bool PendingSlotPickGrafts =>
-            _slotPicking && !_pendingSummonAttackMode && _pendingSummonLibraryIndex >= 0
+            _slotPicking && !_targeting && !_pendingSummonAttackMode && _pendingSummonLibraryIndex >= 0
             && _pendingSummonChar != null && _graph.TryGet(_pendingSummonChar, out var graftDef)
             && CardFaceRules.HasTwoFaces(graftDef)
             && (CardFaceRules.Landing(graftDef, CardFace.Feature, _run.CardLevel(graftDef.Id)) & FaceLanding.Graft) != 0;
@@ -7298,8 +7185,8 @@ namespace Brushblade.Presentation
                 // 「攻/召」双向态(2026-09-27,木系):点了敌人 = 走攻面,落位那一侧作废。
                 // 不清的话 _slotPicking 残留,出完字召唤两排还挂着落位层。
                 if (_slotPicking) ResetSlotPicking();
-                // 还要选友方就转第二段,别在这里就出字(2026-08-26)。免选口径与 OnCastPressed
-                // 那条同源:场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
+                // 还要选友方就转第二段,别在这里就出字(2026-08-26)。免选口径:
+                // 场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
                 if (BattleEngine.NeedsAllyTarget(picked, _pendingAttackMode) && Battle.AliveSummonCount > 0)
                 {
                     // 攻击面还要选友方落点(澡/杜/壁)。EnterAllyTargeting 会把 _targeting 关掉,

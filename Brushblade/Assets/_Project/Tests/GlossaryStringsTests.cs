@@ -212,7 +212,7 @@ namespace Brushblade.Core.Tests
             Assert.That(sprout, Is.Empty, "「苗」不再作单位名:\n" + string.Join("\n", sprout));
             Assert.That(Strings.T("status.curse.name"), Is.EqualTo("慑"));
             Assert.That(Strings.T("charsheet.stat.weaken"), Is.EqualTo("慑"));
-            Assert.That(Strings.T("battle.hint.pick_dual_target").Contains("点自己/木灵=护"), Is.True);
+            Assert.That(Strings.T("battle.hint.targeting_dual").Contains("点自己/木灵=护"), Is.True);
         }
     }
 }
