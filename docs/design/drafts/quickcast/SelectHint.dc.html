@@ -11,9 +11,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="./qc.css">
   <style>
-    /* 选中两面字的提示:底部提示行后缀 + 拆合台提示两行。快速施法开启后「再点」不翻面,改进敌我双向点选态
-       (沿用现状:可点格整格压墨 7%,空召唤位翠玉 10% +「召唤到这里」,提示 pick_dual_target / pick_dual_summon)。
-       金描框 = 本稿改了文案的地方。 */
+    /* 选中字的提示:底部提示行后缀 + 拆合台提示。2026-10-21 回填:出字只靠拖动(不论快速施法开关)——
+       再点两面字 = 翻面,再点单面字 / 部件不再直出,拆合台去掉「出」,点选目标的双向态入口取消。
+       快速施法只改拖拽(两侧分面 + 跟手翻面),选中时只换提示文案。金描框 = 本稿改了文案的地方;虚线框 = 建议、可不做。 */
+    .ptile.sel { background: var(--el); color: #fff; }
+    .bhint.opt { outline: 1px dashed var(--gold); outline-offset: 1.5px; border-radius: 2px; }
     .keys { padding: 0 12px 8px; display: grid; grid-template-columns: 210px 1fr 118px; gap: 2px 8px; font-size: 8.3px; color: var(--text-dim); }
     .keys .k { font-family: ui-monospace, Menlo, monospace; font-size: 7.6px; color: var(--ink-soft); }
     .keys .v { color: var(--text-main); white-space: pre; }
@@ -68,20 +70,20 @@
           </div>
           <div class="hrow" style="{{ m.rowStyle }}">
             <span class="hl">部件池 4/10</span>
-            <span class="ptile e-Fire">火</span><span class="ptile e-Wood">木</span><span class="ptile e-Water">氵</span><span class="ptile e-Metal">刂</span>
+            <span class="{{ huoCls }}">火</span><span class="ptile e-Wood">木</span><span class="ptile e-Water">氵</span><span class="ptile e-Metal">刂</span>
           </div>
         </div>
         <div class="bench">
           <div class="bt">拆 合 台</div>
           <div class="{{ selCls }}">
             <div class="bhead">
-              <div class="{{ mtCls }}"><span class="g">{{ c.id }}</span><span class="{{ upSealCls }}">{{ upSeal }}</span></div>
+              <div class="{{ mtCls }}"><span class="g">{{ c.id }}</span><sc-if value="{{ two }}" hint-placeholder-val="{{ true }}"><span class="{{ upSealCls }}">{{ upSeal }}</span></sc-if></div>
               <div class="bname"><b>{{ c.id }}</b><span>{{ meta }}</span></div>
             </div>
-            <div class="flipsw">
+            <sc-if value="{{ two }}" hint-placeholder-val="{{ true }}"><div class="flipsw">
               <sc-for list="{{ faces }}" as="f"><div class="{{ f.cls }}"><span class="{{ f.sealCls }}">{{ f.s }}</span>{{ f.role }}<span class="r">{{ f.pr }}</span></div></sc-for>
-            </div>
-            <div class="acts"><span class="a1">出</span><span class="a2">拆</span><span class="a3">弃</span></div>
+            </div></sc-if>
+            <div class="acts"><sc-if value="{{ two }}" hint-placeholder-val="{{ true }}"><span class="a2">拆</span></sc-if><span class="a3">弃</span></div>
             <div class="{{ bhintCls }}">{{ bhint }}</div>
           </div>
           <div class="bt" style="margin-top: 2px;">可 合 成</div>
@@ -103,7 +105,7 @@
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"$preview": {"width": 932, "height": 535}}'>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 580}}'>
 var Q = window.QC;
 class Component extends DCLogic {
   constructor(props) {
@@ -112,32 +114,37 @@ class Component extends DCLogic {
   }
   renderVals() {
     var self = this, s = this.state;
-    var quick = s.st !== 'off', pick = s.st === 'pick';
-    var m = Q.battle({ w: s.w, ch: s.ch, up: 0, quick: quick, mode: pick ? 'pick' : 'idle', sel: true });
+    var quick = s.st === 'sel';
+    var c = Q.CHARS[s.ch], two = !c.part;
+    var m = Q.battle({ w: s.w, ch: two ? s.ch : 'lin', up: 0, quick: quick, mode: 'idle', sel: two });
+    if (!two) m.hand.forEach(function (h) { h.cls = h.cls.replace(' sel', ''); });
     m.units.forEach(function (u) { u.isAlly = !u.foe; });
-    var c = Q.CHARS[s.ch];
-    var summonFace = c.faces[1].land.indexOf('O') >= 0;
-    var msg, bhint, newMsg = false, newB = false;
-    if (s.st === 'off') { msg = c.brief + Q.T('battle.hint.suffix_tap_again_flip'); bhint = Q.T('battle.hint.flip_selected'); }
-    else if (s.st === 'sel') { msg = c.brief + Q.T('battle.hint.suffix_tap_again_quick'); bhint = Q.T('battle.hint.flip_selected_quick'); newMsg = newB = true; }
-    else { msg = Q.T(summonFace ? 'battle.hint.pick_dual_summon' : 'battle.hint.pick_dual_target', { charId: c.id }); bhint = Q.T('battle.hint.flip_selected_quick'); newB = true; }
+    var msg, bhint, newMsg = true, newB = two, bCls = 'bhint';
+    if (!two) { msg = c.brief + Q.T('battle.hint.suffix_direct_cast'); bhint = Q.T('battle.hint.drag_to_cast'); bCls += ' opt'; }
+    else if (!quick) { msg = c.brief + Q.T('battle.hint.suffix_tap_again_flip'); bhint = Q.T('battle.hint.flip_selected'); newB = false; }
+    else { msg = c.brief + Q.T('battle.hint.suffix_tap_again_quick'); bhint = Q.T('battle.hint.flip_selected_quick'); }
+    if (newB) bCls += ' new';
     var bandL = Math.round(m.W.msgW * 0.96 * Q.K), msgL = Math.round(Q.textW(msg, 19));
     function w(t, f) { return Math.round(Q.textW(t, f)); }
     var keys = [
-      { k: 'battle.hint.suffix_tap_again_quick ★', v: Q.T('battle.hint.suffix_tap_again_quick'), w: w(Q.T('battle.hint.suffix_tap_again_quick'), 19) + ' 逻辑' },
-      { k: 'battle.hint.flip_selected_quick ★', v: Q.T('battle.hint.flip_selected_quick').replace('\n', ' ⏎ '), w: '行宽 ' + w('拖出：敌方用攻击面，我方用五行面', 13) + ' / 246' },
-      { k: 'battle.hint.pick_dual_* (沿用)', v: Q.T('battle.hint.pick_dual_target', { charId: c.id }) + ' · ' + Q.T('battle.hint.pick_dual_summon', { charId: c.id }), w: '' },
+      { k: 'battle.hint.suffix_tap_again_flip (改)', v: Q.T('battle.hint.suffix_tap_again_flip'), w: w(Q.T('battle.hint.suffix_tap_again_flip'), 19) + ' 逻辑' },
+      { k: 'battle.hint.suffix_tap_again_quick (改)', v: Q.T('battle.hint.suffix_tap_again_quick'), w: w(Q.T('battle.hint.suffix_tap_again_quick'), 19) + ' 逻辑' },
+      { k: 'battle.hint.flip_selected_quick (改)', v: Q.T('battle.hint.flip_selected_quick').replace('\n', ' ⏎ '), w: '行宽 ' + w('拖出：敌方用攻击面，我方用五行面', 13) + ' / 246' },
+      { k: 'battle.hint.suffix_tap_again_cast (改)', v: Q.T('battle.hint.suffix_tap_again_cast') + '   ← 单面字选中', w: w(Q.T('battle.hint.suffix_tap_again_cast'), 19) + ' 逻辑' },
+      { k: 'battle.hint.suffix_direct_cast (改)', v: Q.T('battle.hint.suffix_direct_cast') + '   ← 部件选中', w: w(Q.T('battle.hint.suffix_direct_cast'), 19) + ' 逻辑' },
+      { k: 'battle.hint.drag_to_cast (建议新增)', v: Q.T('battle.hint.drag_to_cast') + '   ← 拆合台,单面字 / 部件', w: '行宽 ' + w(Q.T('battle.hint.drag_to_cast'), 13) + ' / 246' },
       { k: '本帧提示行', v: msg, w: msgL + ' / 带宽 ' + bandL }
     ];
     return {
-      m: m, c: c, g0: m.guide[0], g1: m.guide[1], tag: m.W.label,
-      selCls: 'sel e-' + c.el, mtCls: 'mt e-' + c.el, upSeal: '攻', upSealCls: Q.sealCls(0),
-      meta: { Gold: '金', Blue: '蓝' }[c.rar] + ' · ' + Q.EL[c.el] + ' · Lv.' + c.lv,
+      m: m, c: c, two: two, g0: m.guide[0], g1: m.guide[1], tag: m.W.label,
+      huoCls: 'ptile e-Fire' + (two ? '' : ' sel'),
+      selCls: 'sel e-' + c.el, mtCls: 'mt e-' + c.el + (two ? '' : ' r-White'), upSeal: '攻', upSealCls: Q.sealCls(0),
+      meta: two ? { Gold: '金', Blue: '蓝' }[c.rar] + ' · ' + Q.EL[c.el] + ' · Lv.' + c.lv : '部件 · ' + Q.EL[c.el],
       faces: [0, 1].map(function (fi) { return { s: c.faces[fi].s, role: fi ? '五行面' : '攻击', pr: fi ? '背' : '正', sealCls: Q.sealCls(fi), cls: 'fsw e-' + c.el + (fi === 0 ? ' on' : ' back') }; }),
-      bhint: bhint, bhintCls: 'bhint' + (newB ? ' new' : ''),
+      bhint: bhint, bhintCls: bCls,
       msg: msg, msgCls: newMsg ? 'new' : '',
-      stBtns: [['off', '关 · 选中(现状)'], ['sel', '开 · 选中'], ['pick', '开 · 再点 / 点「出」后']].map(function (x) { return { t: x[1], cls: s.st === x[0] ? 'on' : '', go: function () { self.setState({ st: x[0] }); } }; }),
-      chBtns: [['lin', '林 · 木(召唤)'], ['jian', '剑 · 金(护)']].map(function (x) { return { t: x[1], cls: s.ch === x[0] ? 'on' : '', go: function () { self.setState({ ch: x[0] }); } }; }),
+      stBtns: [['off', '快速施法 关'], ['sel', '快速施法 开']].map(function (x) { return { t: x[1], cls: s.st === x[0] ? 'on' : '', go: function () { self.setState({ st: x[0] }); } }; }),
+      chBtns: [['lin', '林 · 木(两面)'], ['jian', '剑 · 金(两面)'], ['huo', '部件「火」']].map(function (x) { return { t: x[1], cls: s.ch === x[0] ? 'on' : '', go: function () { self.setState({ ch: x[0] }); } }; }),
       wBtns: [['base', '基准机 932'], ['narrow', '16:9 · 764']].map(function (x) { return { t: x[1], cls: s.w === x[0] ? 'on' : '', go: function () { self.setState({ w: x[0] }); } }; }),
       keys: keys
     };
