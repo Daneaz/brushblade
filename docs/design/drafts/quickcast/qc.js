@@ -35,7 +35,11 @@ window.QC = (function () {
       faces: [{ s: '攻', role: '攻击', land: 'E', all: true, est: function (f) { var m = mul('Water', f.el); return '全体 伤 ' + Math.round(56 * m) + (m === 1 ? '' : ' ×' + m) + ' · 引泉'; } },
               // Lv5 溃围:五行面也能落敌方(spec §1 唯一一张「某一侧两面都能落」的字)
               { s: '润', role: '五行面', land: 'EPS', all: true, est: function (f) { return f ? '全体减速 · 我方治疗 56' : '全体治疗 56'; } }],
-      brief: '「溃」攻:全体伤害 56、引泉 / 护:全体治疗 56、溃围' }
+      brief: '「溃」攻:全体伤害 56、引泉 / 护:全体治疗 56、溃围' },
+    // 部件(单面,没有面):选中后 suffix_direct_cast;拆合台不出翻面钮
+    huo: { id: '火', el: 'Fire', rar: 'White', lv: 1, py: 'huǒ', part: true,
+      faces: [{ s: '', role: '', land: 'E', all: false, est: function () { return ''; } }, { s: '', role: '', land: '', all: false, est: function () { return ''; } }],
+      brief: '「火」伤害 30(示意)' }
   };
 
   var FOES = {
@@ -171,12 +175,13 @@ window.QC = (function () {
     'settings.quick_cast.desc': '两面字不用先翻面：对敌方出攻击面，对我方出五行面',
     'battle.hint.drag_release': '松手出手 · 拖回手牌行取消',
     'battle.hint.drag_release_quick': '松手出手 · 敌方用攻击面，我方用五行面 · 拖回手牌行取消',
-    'battle.hint.suffix_tap_again_flip': '|再点翻面|拖出或点「出」按朝上的面出手',
-    'battle.hint.suffix_tap_again_quick': '|再点选目标|拖出：敌方用攻击面，我方用五行面',
+    'battle.hint.suffix_tap_again_flip': '|再点翻面|拖出按朝上的面出手',
+    'battle.hint.suffix_tap_again_quick': '|再点翻面|拖出：敌方用攻击面，我方用五行面',
+    'battle.hint.suffix_tap_again_cast': '|拖到目标上出手',
+    'battle.hint.suffix_direct_cast': '|直出:部件不入库直接打出|拖到目标上出手',
     'battle.hint.flip_selected': '再点这张牌：翻面\n拖出：按朝上的那一面出手',
-    'battle.hint.flip_selected_quick': '再点这张牌：选目标\n拖出：敌方用攻击面，我方用五行面',
-    'battle.hint.pick_dual_target': '「{charId}」点敌人=攻,点自己/木灵=护',
-    'battle.hint.pick_dual_summon': '「{charId}」点敌人=攻,点位置=召唤',
+    'battle.hint.flip_selected_quick': '再点这张牌：翻面\n拖出：敌方用攻击面，我方用五行面',
+    'battle.hint.drag_to_cast': '拖到目标上出手',
     'charsheet.foot.battle': '长按看详情，不耗 AP · 点已选中的牌翻面，拖出时用朝上的那一面',
     'charsheet.foot.battle_quick': '长按看详情，不耗 AP · 快速施法：对敌方用攻击面，对我方用五行面'
   };
