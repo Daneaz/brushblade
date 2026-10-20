@@ -2028,11 +2028,18 @@ namespace Brushblade.Presentation
             _settingsOverlay = Ui.Panel(transform, "SettingsOverlay");
             _settingsOverlay.AddComponent<Image>().color = Theme.Scrim; // raycastTarget 缺省为真:拦截层
             var host = _settingsOverlay;
+            bool quickBefore = GameSettings.Current.QuickCast;
             _settingsOverlay.AddComponent<SettingsView>().Init(_meta, _onProgress, () =>
             {
                 Object.Destroy(host);
                 _settingsOverlay = null;
                 UpdateSpeedToggle();
+                // 改了快速施法:手上选着的字、提示与待选态都是旧口径,撤掉重来(drafts/quickcast 实现提醒)
+                if (GameSettings.Current.QuickCast != quickBefore && _selectedChar != null)
+                {
+                    _message = Strings.T("battle.hint.initial");
+                    CancelSelection();
+                }
             });
         }
 
@@ -2420,7 +2427,7 @@ namespace Brushblade.Presentation
                 if ((_faceDragLanding & FaceLanding.Self) != 0 && Battle.CanHealSlot(Targeting.PlayerTarget))
                 {
                     // 预估签(Plan E4 T4):与松手时 DropFaceDrag 的 Player 分支同参试算
-                    var est = EstimateSafe(_faceDragDef.Id, -1, _faceDragFace == CardFace.Attack, _faceDragIndex,
+                    var est = EstimateSafe(_faceDragDef.Id, -1, _faceDragAllyFace == CardFace.Attack, _faceDragIndex,
                         Targeting.PlayerTarget);
                     var text = EstimateText.ForAlly(est);
                     AddFaceMark(_bottomRow, _playerAllyRect, FaceMarkKind.Player, Targeting.PlayerTarget,
@@ -2752,7 +2759,7 @@ namespace Brushblade.Presentation
         {
             bool revivePick = CanPickCorpse(slot);
             bool reviveDrag = FaceDragging && (_faceDragLanding & FaceLanding.Summons) != 0
-                && BattleEngine.HasRevive(_faceDragDef, _faceDragFace == CardFace.Attack) && Battle.CanReviveSlot(slot);
+                && BattleEngine.HasRevive(_faceDragDef, _faceDragAllyFace == CardFace.Attack) && Battle.CanReviveSlot(slot);
             bool summonPick = _slotPicking;
             bool summonDrag = !reviveDrag && FaceDragging && (_faceDragLanding & FaceLanding.EmptySlot) != 0;
             bool full = revivePick || reviveDrag || summonPick || summonDrag;
@@ -2823,7 +2830,7 @@ namespace Brushblade.Presentation
             int reviveHp = 0, reviveCount = 0;
             if (revivePick || reviveDrag)
             {
-                bool attackMode = reviveDrag ? _faceDragFace == CardFace.Attack : AllyFaceAttackMode;
+                bool attackMode = reviveDrag ? _faceDragAllyFace == CardFace.Attack : AllyFaceAttackMode;
                 string charId = reviveDrag ? _faceDragDef.Id : _selectedChar;
                 int libraryIndex = reviveDrag ? _faceDragIndex : _selectedIndex;
                 var est = EstimateSafe(charId, -1, attackMode, libraryIndex, slot);
@@ -4290,7 +4297,14 @@ namespace Brushblade.Presentation
         // 正在拖的两面字:起拖时定下面与落点,松手 / 全量重画时清。null = 没在拖两面字
         private CharDef _faceDragDef;
         private int _faceDragIndex = -1;
-        private CardFace _faceDragFace;
+        // 敌侧 / 友侧各用哪一面(快速施法 spec 2026-10-20)。未开快速施法时两者都 = 朝上的面,行为与改前逐字节相同。
+        // ⚠ 读的时候要分清自己在哪一侧:敌人格 / 溅射 / 打全体读敌侧;玩家条 / 木灵 / 空位 / 嫁接 / 尸体读友侧
+        private CardFace _faceDragEnemyFace;
+        private CardFace _faceDragAllyFace;
+        private CardFace _faceDragUpFace;       // 朝上的面:跟手牌离开落点时回到它
+        private bool _faceDragSplit;            // 快速施法且两侧面不同、都有落点:换提示文案、跟手牌随悬停侧翻面
+        private CardFace _faceDragGhostFace;    // 跟手牌当下画的是哪一面
+        private DragToAttack _faceDragGesture;
         private FaceLanding _faceDragLanding;
         private bool _faceDragHitsAll;     // 这一面打全体:悬停任一敌人,全部敌人一起加深
         private readonly List<FaceMark> _faceMarks = new();
@@ -4329,14 +4343,14 @@ namespace Brushblade.Presentation
                     if (!FaceDragging) { CancelSelection(); return; } // 拖拽中途被全量重画打断过
                     DropFaceDrag(screenPos);
                 },
-                onBeginDrag: () => BeginFaceDrag(def, libraryIndex),
+                onBeginDrag: () => BeginFaceDrag(def, libraryIndex, tile.GetComponent<DragToAttack>()),
                 onDragMove: OnFaceDragHover);
         }
 
         /// <summary>起拖:定面、算落点、重画敌人排 / 召唤排 / 玩家条(与原路径同样只重画这三块,
         /// **绝不重绘字库行** —— 那会销毁正被拖的字牌)。AP 不够也照样点亮:松手后由引擎当场报
         /// 「AP 不够」,不扣 AP(BeginCast / ExecuteCast 的同一条守卫)。</summary>
-        private void BeginFaceDrag(CharDef def, int libraryIndex)
+        private void BeginFaceDrag(CharDef def, int libraryIndex, DragToAttack gesture)
         {
             // 上一张字留下的选目标态 / 落位态全部作废:落点只由这一面决定
             _selectedChar = def.Id;
@@ -4348,16 +4362,67 @@ namespace Brushblade.Presentation
 
             _faceDragDef = def;
             _faceDragIndex = libraryIndex;
-            _faceDragFace = GetFace(libraryIndex);
-            _pendingAttackMode = _faceDragFace == CardFace.Attack;
+            _faceDragUpFace = GetFace(libraryIndex);
+            QuickCastFaces(def, libraryIndex, out _faceDragEnemyFace, out _faceDragAllyFace);
+            _pendingAttackMode = _faceDragEnemyFace == CardFace.Attack;   // 敌方侧置灰口径
             int level = _run.CardLevel(def.Id);
-            _faceDragLanding = CardFaceRules.Landing(def, _faceDragFace, level);
-            _faceDragHitsAll = Battle.HitsAllEnemiesNow(def.Id, attackMode: _faceDragFace == CardFace.Attack);   // 与 Core 同一份判据(E3)
+            // 敌侧取敌侧面的 Enemy 位,友侧取友侧面的其余位;两侧同面时就是这一面的完整落点(同改前)
+            _faceDragLanding = (CardFaceRules.Landing(def, _faceDragEnemyFace, level) & FaceLanding.Enemy)
+                | (CardFaceRules.Landing(def, _faceDragAllyFace, level) & ~FaceLanding.Enemy);
+            _faceDragSplit = _faceDragEnemyFace != _faceDragAllyFace
+                && (_faceDragLanding & FaceLanding.Enemy) != 0 && (_faceDragLanding & ~FaceLanding.Enemy) != 0;
+            _faceDragHitsAll = Battle.HitsAllEnemiesNow(def.Id, attackMode: _faceDragEnemyFace == CardFace.Attack);   // 与 Core 同一份判据(E3)
             _faceMarks.Clear();
             _faceHover = null;
+            _faceDragGesture = gesture;
+            _faceDragGhostFace = _faceDragUpFace;
+            if (_faceDragSplit) gesture?.SetGhostFace(layer => BuildGhostFace(layer, def, _faceDragUpFace));
 
             RedrawDualTargets(); // 敌人两排 + 召唤两排 + 玩家条,三块各自按落点挂标记
-            _messageLabel.text = Strings.T("battle.hint.drag_release"); // 只改这一行的字,不动 _message:取消后原样回来
+            // 只改这一行的字,不动 _message:取消后原样回来
+            _messageLabel.text = _faceDragSplit
+                ? Strings.T("battle.hint.drag_release_quick")
+                : Strings.T("battle.hint.drag_release");
+        }
+
+        /// <summary>快速施法:这张手牌落敌侧 / 友侧各用哪一面(<see cref="CardFaceRules.QuickCastFace"/>)。
+        /// 未开 / 部件池 / 单面字 / 教程锁面 → 两侧都是朝上的面(与改前一致),返回 false。
+        /// 某侧一面都落不了 → 那侧记朝上的面(落点位随后按侧屏蔽掉),也返回 false:只有一侧可落就不算分面。</summary>
+        private bool QuickCastFaces(CharDef def, int libraryIndex, out CardFace enemyFace, out CardFace allyFace)
+        {
+            var up = GetFace(libraryIndex);
+            enemyFace = allyFace = up;
+            if (!GameSettings.Current.QuickCast || libraryIndex < 0 || !CardFaceRules.HasTwoFaces(def)
+                || LockedFace(def.Id) != null)
+                return false;
+            int level = _run.CardLevel(def.Id);
+            var enemy = CardFaceRules.QuickCastFace(def, FaceSide.Enemy, up, level);
+            var ally = CardFaceRules.QuickCastFace(def, FaceSide.Ally, up, level);
+            enemyFace = enemy ?? up;
+            allyFace = ally ?? up;
+            return enemy != null && ally != null;
+        }
+
+        /// <summary>选中这张手牌时走快速施法的两侧分面:开了快速施法、两侧都可落且面不同。</summary>
+        private bool QuickCastSplit(CharDef def, int libraryIndex) =>
+            QuickCastFaces(def, libraryIndex, out var enemyFace, out var allyFace) && enemyFace != allyFace;
+
+        // 跟手牌(drafts/quickcast ③):72×72 字影底下垫一张淡底 + 右下角面印。淡底同手牌:攻击面卡白、五行面本系淡底
+        private const int GhostFaceRadius = 14;
+        private const float GhostFaceAlpha = 0.92f;
+        private const float GhostSealInset = 3f;
+
+        private static void BuildGhostFace(RectTransform layer, CharDef def, CardFace face)
+        {
+            var fill = face == CardFace.Feature ? Theme.ElementSoft(def.Element) : Theme.CardWhite;
+            var back = Ui.CardPanel(layer, "Back", new Color(fill.r, fill.g, fill.b, GhostFaceAlpha), GhostFaceRadius);
+            back.raycastTarget = false;
+            Ui.Stretch((RectTransform)back.transform);
+            var sealSlot = Ui.Panel(layer, "SealSlot");
+            Ui.Anchor((RectTransform)sealSlot.transform, new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-GhostSealInset - Ui.FaceSealXs, GhostSealInset),
+                new Vector2(-GhostSealInset, GhostSealInset + Ui.FaceSealXs));
+            Ui.FaceSeal(sealSlot.transform, def, face, Ui.FaceSealXs);
         }
 
         private void EndFaceDrag()
@@ -4366,18 +4431,21 @@ namespace Brushblade.Presentation
             _faceDragIndex = -1;
             _faceDragLanding = FaceLanding.None;
             _faceDragHitsAll = false;
+            _faceDragSplit = false;
+            _faceDragGesture = null;
             _faceMarks.Clear();
             _faceHover = null;
         }
 
         /// <summary>松手派发(Review Focus 2:方向不能判反,不可落处不扣 AP)。
-        /// attackMode 一律取朝上的面:攻击面 true,五行面 false。</summary>
+        /// attackMode 取命中那一侧的面(快速施法 spec 2026-10-20;未开时两侧都是朝上的面):攻击面 true,五行面 false。</summary>
         private void DropFaceDrag(Vector2 screenPos)
         {
             var def = _faceDragDef;
             int libraryIndex = _faceDragIndex;
-            bool attackMode = _faceDragFace == CardFace.Attack;
             var hit = FaceMarkAt(screenPos);
+            bool attackMode = (hit != null && hit.Kind == FaceMarkKind.Enemy ? _faceDragEnemyFace : _faceDragAllyFace)
+                == CardFace.Attack;
             EndFaceDrag(); // 标记随后由 Refresh 整排重画带走
             if (hit == null)
             {
@@ -4434,10 +4502,22 @@ namespace Brushblade.Presentation
             if (!FaceDragging) return;
             // 敌人那一侧照旧出溅射预览(只改 _enemyHitAreas 的颜色,与原路径同一套)
             if ((_faceDragLanding & FaceLanding.Enemy) != 0)
-                OnDragHover(screenPos, _faceDragDef, _faceDragFace == CardFace.Attack);
+                OnDragHover(screenPos, _faceDragDef, _faceDragEnemyFace == CardFace.Attack);
             var hit = FaceMarkAt(screenPos);
             if (hit == _faceHover) return;
             _faceHover = hit;
+            // 跟手牌随悬停侧翻面(drafts/quickcast ③):落点上 = 那一侧的面,离开落点 = 朝上的面
+            if (_faceDragSplit)
+            {
+                var ghostFace = hit == null ? _faceDragUpFace
+                    : hit.Kind == FaceMarkKind.Enemy ? _faceDragEnemyFace : _faceDragAllyFace;
+                if (ghostFace != _faceDragGhostFace)
+                {
+                    _faceDragGhostFace = ghostFace;
+                    var def = _faceDragDef;
+                    _faceDragGesture?.SetGhostFace(layer => BuildGhostFace(layer, def, ghostFace));
+                }
+            }
             bool allEnemies = hit != null && hit.Kind == FaceMarkKind.Enemy && _faceDragHitsAll;
             bool allCorpses = hit != null && hit.ReviveAll;
             // R1:全体面悬停任一只 → 全排描环加深,但签只亮悬停那只(FlipSpec「预估签只挂悬停那只」);复活全部同理(尸体标识稿)
@@ -4484,9 +4564,10 @@ namespace Brushblade.Presentation
                 Ui.Stretch(ghost.rectTransform);
             }
 
-            // 描环色 = 朝上那面的字形色;攻击面是墨(F7)
+            // 描环色 = 这一侧那面的字形色;攻击面是墨(F7;快速施法两侧各取各的面,drafts/quickcast ②)
+            var ringFace = kind == FaceMarkKind.Enemy ? _faceDragEnemyFace : _faceDragAllyFace;
             mark.Ring = AddLandingRing(host,
-                _faceDragFace == CardFace.Attack ? Theme.Ink : Theme.GlyphColor(_faceDragDef.Element), FaceMarkRadius);
+                ringFace == CardFace.Attack ? Theme.Ink : Theme.GlyphColor(_faceDragDef.Element), FaceMarkRadius);
 
             if (hoverLabel != null || dimLabel != null)
                 mark.Label = BuildEstimateLabel(host, hoverLabel, dimLabel);
@@ -4575,7 +4656,7 @@ namespace Brushblade.Presentation
         /// 否则压暗。挂在点击区那一层(跨排 Boss 是向下溢出的那块),松手判定与 EnemyIndexAt 同一块。</summary>
         private void MarkEnemiesForFaceDrag()
         {
-            bool attackMode = _faceDragFace == CardFace.Attack;
+            bool attackMode = _faceDragEnemyFace == CardFace.Attack;
             bool enemyFace = (_faceDragLanding & FaceLanding.Enemy) != 0;
             // 预估签(Plan E4 T4):每个可落格各试算一次(与松手 DropFaceDrag 的 Enemy 分支同参);
             // 全体面且**不需要主目标**时一次试算就读得出全部目标,只算一次;全体但带 Primary 效果(燚五行面火海 + 灼·强化)
@@ -4604,8 +4685,8 @@ namespace Brushblade.Presentation
         {
             var rect = (RectTransform)cell.transform;
             // 生面落活木灵:可嫁接或可替换都点亮(2026-10-13),签按可选项写;判据与松手 DropOntoLiveSummon 同源
-            bool graft = _faceDragFace == CardFace.Feature && Battle.CanGraftAt(_faceDragDef.Id, false, slot);
-            bool replace = _faceDragFace == CardFace.Feature && Battle.CanReplaceAt(_faceDragDef.Id, false, slot);
+            bool graft = _faceDragAllyFace == CardFace.Feature && Battle.CanGraftAt(_faceDragDef.Id, false, slot);
+            bool replace = _faceDragAllyFace == CardFace.Feature && Battle.CanReplaceAt(_faceDragDef.Id, false, slot);
             if (graft || replace)
                 AddFaceMark(cell.transform, rect, FaceMarkKind.Graft, slot,
                     graft && replace ? Strings.T("battle.landing.graft_or_replace")
@@ -4614,7 +4695,7 @@ namespace Brushblade.Presentation
             {
                 // 结果签不改(A-Q11),本面有本场用尽的限次特性时追加压浅的「X已用」段;与松手 Summon 分支同参试算
                 string result = SummonLandingLabel();
-                var est = EstimateSafe(_faceDragDef.Id, -1, _faceDragFace == CardFace.Attack, _faceDragIndex, slot);
+                var est = EstimateSafe(_faceDragDef.Id, -1, _faceDragAllyFace == CardFace.Attack, _faceDragIndex, slot);
                 AddFaceMark(cell.transform, rect, FaceMarkKind.Summon, slot, result,
                     EstimateText.SpentOnly(est, afterMain: result != null));
             }
@@ -4625,7 +4706,7 @@ namespace Brushblade.Presentation
         /// <summary>落木灵的结果签(designer 2026-10-07:只写结果)。攻击面落不到木灵,这里只有五行面。</summary>
         private string SummonLandingLabel()
         {
-            if (_faceDragFace != CardFace.Feature) return null;
+            if (_faceDragAllyFace != CardFace.Feature) return null;
             var cast = TraitRules.CastEffects(_faceDragDef, CardFace.Feature, _run.CardLevel(_faceDragDef.Id));
             var parts = new List<string>();
             if (_faceDragDef.Element == Element.Metal)
@@ -5411,7 +5492,9 @@ namespace Brushblade.Presentation
             if (flippable)
             {
                 _actionHintRow.gameObject.SetActive(true);
-                BenchHint(_actionHintRow, Strings.T("battle.hint.flip_selected"), BenchHintFontSize, Theme.TextDim);
+                BenchHint(_actionHintRow, QuickCastSplit(def, _selectedIndex)   // 快速施法:再点不翻,改说「选目标」
+                    ? Strings.T("battle.hint.flip_selected_quick")
+                    : Strings.T("battle.hint.flip_selected"), BenchHintFontSize, Theme.TextDim);
             }
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
             // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
@@ -6703,7 +6786,12 @@ namespace Brushblade.Presentation
                 // 两面字(Plan E1,spec §2.1):再点一次 = 翻面,不出字;出字走「出」钮或拖出。
                 // 单面字维持原手势:再点一次 = 直接出字。
                 // 教程 CastDemo 锁住剿的面(Plan E4 D-QT1):再点不翻面,按攻击面直接出字(同单面字手势)
-                if (twoFaces && LockedFace(charId) == null) { FlipHandFace(index); return; }
+                // 快速施法两侧分面(spec 2026-10-20):再点不翻面,进敌我同时点亮的选目标态(OnCastPressed 里)
+                if (twoFaces && LockedFace(charId) == null && !QuickCastSplit(_graph.Get(charId), index))
+                {
+                    FlipHandFace(index);
+                    return;
+                }
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
             }
@@ -6715,7 +6803,9 @@ namespace Brushblade.Presentation
             _pendingAttackMode = false; // 改点了另一张字:上一张待定的方向作废
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + (twoFaces && LockedFace(charId) == null   // 锁面时不教「再点翻面」
-                ? Strings.T("battle.hint.suffix_tap_again_flip")
+                ? QuickCastSplit(_graph.Get(charId), index)
+                    ? Strings.T("battle.hint.suffix_tap_again_quick")
+                    : Strings.T("battle.hint.suffix_tap_again_flip")
                 : Strings.T("battle.hint.suffix_tap_again_cast"));
             Refresh();
         }
@@ -6943,7 +7033,9 @@ namespace Brushblade.Presentation
             // 两面字(Plan E1 F5,2026-10-07):手牌有了「朝上的面」,出字按那一面走单向,
             // 不再进双向态 / 攻召双向态。CastInDirection 已按这一面需要进选敌 / 选友方 / 选位。
             // 部件池的牌(_selectedIndex < 0)没有面,仍走下面的原路径。
-            if (_selectedIndex >= 0 && CardFaceRules.HasTwoFaces(def))
+            // 快速施法两侧分面(spec 2026-10-20):不走单向,落到下面与部件池同一套双向态 ——
+            // 敌方侧恒为攻击面、我方侧恒为五行面(两侧面不同只可能是这一种分法),正是双向态的口径。
+            if (_selectedIndex >= 0 && CardFaceRules.HasTwoFaces(def) && !QuickCastSplit(def, _selectedIndex))
             {
                 CastInDirection(def, attackMode: GetFace(_selectedIndex) == CardFace.Attack);
                 return;
@@ -7170,11 +7262,12 @@ namespace Brushblade.Presentation
             ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, summonSlots: slots);
         }
 
-        /// <summary>当前落位态点活木灵算不算嫁接(Plan E1):两面字的生面经点击「出」进来的落位态。
-        /// 排除 _targeting(「攻/召」双向态,点有人的格仍是顶替,不走嫁接口径)
-        /// 与攻击面落位(_pendingSummonAttackMode)。部件池的牌(卡位 −1)没有面,也不算。</summary>
+        /// <summary>当前落位态点活木灵算不算嫁接(Plan E1):两面字的生面经点击「出」进来的落位态,
+        /// 以及快速施法的「攻/召」双向态(手牌两面字,spec 2026-10-20 —— 与拖拽同样能嫁接)。
+        /// 排除攻击面落位(_pendingSummonAttackMode)。部件池的牌(卡位 −1)没有面,不算 —— 部件池的
+        /// 「攻/召」双向态点有人的格仍是顶替。</summary>
         private bool PendingSlotPickGrafts =>
-            _slotPicking && !_targeting && !_pendingSummonAttackMode && _pendingSummonLibraryIndex >= 0
+            _slotPicking && !_pendingSummonAttackMode && _pendingSummonLibraryIndex >= 0
             && _pendingSummonChar != null && _graph.TryGet(_pendingSummonChar, out var graftDef)
             && CardFaceRules.HasTwoFaces(graftDef)
             && (CardFaceRules.Landing(graftDef, CardFace.Feature, _run.CardLevel(graftDef.Id)) & FaceLanding.Graft) != 0;

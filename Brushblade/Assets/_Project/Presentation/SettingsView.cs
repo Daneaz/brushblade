@@ -77,6 +77,10 @@ namespace Brushblade.Presentation
             ToggleRow(Strings.T("settings.music"), null,
                 s.MusicEnabled, () => s.MusicEnabled = !s.MusicEnabled);
 
+            // 快速施法(2026-10-20,drafts/quickcast ①):落点阵营决定两面字用哪一面,不用先翻
+            ToggleRow(Strings.T("settings.quick_cast"), Strings.T("settings.quick_cast.desc"),
+                s.QuickCast, () => s.QuickCast = !s.QuickCast);
+
             // 返回钮钉在面板底部(2026-09-30 用户要求):中间塞一段弹性占位吃掉剩余高度。
             // 此前它紧跟开关行,设置项变少后悬在面板半中间
             var spacer = Ui.Panel(_list, "Spacer");

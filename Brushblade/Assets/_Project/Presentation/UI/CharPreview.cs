@@ -330,7 +330,10 @@ namespace Brushblade.Presentation
             }
             else
             {
-                var foot = Ui.ThemedLabel(content, Strings.T("charsheet.foot.battle"), 18, Theme.TextWarm);
+                // 快速施法(drafts/quickcast):原文教「点了翻面」,开启后就说错了
+                var foot = Ui.ThemedLabel(content, GameSettings.Current.QuickCast
+                    ? Strings.T("charsheet.foot.battle_quick")
+                    : Strings.T("charsheet.foot.battle"), 18, Theme.TextWarm);
                 foot.alignment = TextAnchor.MiddleLeft;
                 Ui.Sized(foot.gameObject, flexWidth: 1, height: 27);
             }
