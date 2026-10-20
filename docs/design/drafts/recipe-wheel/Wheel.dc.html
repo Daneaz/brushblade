@@ -115,7 +115,6 @@
                 <div class="mt"><img src="{{ l.frame }}" alt=""><b style="{{ l.gs }}">{{ l.g }}</b></div>
                 <span class="nm">{{ l.g }}<small>{{ l.meta }}</small></span>
                 <span class="rc">{{ l.rc }}</span>
-                <span class="pc">{{ l.pc }}</span>
               </div>
             </sc-for>
             <div class="note">转出的那张配方记入本局,拆合台从此能合;合出的字为 <i class="shu">疏</i><b>生疏</b>:效果 ×70%,按 Lv1 计。</div>
@@ -180,7 +179,7 @@ class Component extends DCLogic {
     var legend = G.map(function (g) {
       var c = g.s.c;
       return { cls: 'lg' + (g.s.hi ? ' hi' : '') + (landed ? (g.i === s.win ? ' win' : ' dim') : ''), frame: FR[g.s.rar], g: c[0], gs: 'color:' + GLY[c[1]],
-        meta: RW.RAR[g.s.rar] + ' · ' + RW.EL[c[1]], rc: c[2][0] + ' + ' + c[2][1], pc: g.s.hi ? '稀有 10%' : '22.5%' };
+        meta: RW.RAR[g.s.rar] + ' · ' + RW.EL[c[1]], rc: c[2][0] + ' + ' + c[2][1] };
     });
     var rot = s.phase === 'idle' ? s.rot : s.phase === 'spin' && !s.anim ? s.rot : s.rot;
     var W = s.w === 'narrow' ? { dev: 764, label: '16:9 无刘海 · 764pt(弹窗 600pt ≤ 净宽 647pt)' } : { dev: 932, label: '基准机 · 932pt' };
