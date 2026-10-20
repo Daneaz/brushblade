@@ -699,9 +699,7 @@ namespace Brushblade.Core
             // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
-            // 调息(2026-10-02):胜利后按本关生效上限回血,夹上限
-            _carriedHp = Math.Min(EffectiveMaxHp,
-                Battle.PlayerHp + EffectiveMaxHp * _battleConfig.VictoryHealPercent / 100);
+            _carriedHp = Battle.PlayerHp;   // 回血在下一场开打前(调息,见 PreBattleHeal),胜利后不回
             // 护盾战斗结束按 ShieldCarryPercent 保留(2026-10-02;缺省 50 = 2026-09-05 的衰减 50%):护盾此前只加不减、整场爬塔通吃,
             // 是第二条血条而不是临时保护 —— 玩家一旦有一回合「获得 > 承伤」,那份盾
             // 就永久留在身上,战斗不会输也打不死怪(中层刮痧)。整数除、向下取整。
@@ -1052,7 +1050,7 @@ namespace Brushblade.Core
             return config;
         }
 
-        /// <summary>吐纳(2026-10-20):开新战前按生效上限回血,夹上限。只在新开一场时调用 ——
+        /// <summary>调息(2026-10-20):开新战前按生效上限回血,夹上限。只在新开一场时调用 ——
         /// 续爬复原走 BattleEngine.Restore,不会重复回血。</summary>
         private int PreBattleHeal(int hp) =>
             Math.Min(EffectiveMaxHp, hp + EffectiveMaxHp * _battleConfig.PreBattleHealPercent / 100);

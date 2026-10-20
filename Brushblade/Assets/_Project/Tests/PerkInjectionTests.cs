@@ -72,29 +72,26 @@ namespace Brushblade.Core.Tests
             Assert.That(Build(meta).PlayerDefense, Is.EqualTo(baseline + 25));
         }
 
-        /// <summary>一气(AP)2026-10-02 起改为调息(胜利回血),qi 枝不再动 AP。</summary>
+        /// <summary>一气(AP)2026-10-02 起改为调息(回血),qi 枝不再动 AP。</summary>
         [Test]
         public void QiBranch_NoLongerRaisesApPerTurn()
         {
             var meta = new MetaState { CharacterXp = 0 };
-            meta.UnlockedPerks.Add("qi_1");
-            meta.UnlockedPerks.Add("qi_2");
+            meta.UnlockedPerks.Add("qi_1_s1");
+            meta.UnlockedPerks.Add("qi_1_s2");
             Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn));
         }
 
         [Test]
-        public void QiBranch_VictoryHealThenPreBattleHeal()
+        public void QiBranch_PreBattleHeal_5Then10()
         {
-            // 调息 = 胜利回血 5%;吐纳(2026-10-20)= 战斗前回血 5%,不再叠胜利回血
+            // 调息(2026-10-20 与吐纳合并):一个两段节点,每段战斗前回血 +5%
             var meta = new MetaState { CharacterXp = 0 };
-            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(0));
             Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(0));
-            meta.UnlockedPerks.Add("qi_1");
-            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(5));
-            Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(0));
-            meta.UnlockedPerks.Add("qi_2");
-            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(5));
+            meta.UnlockedPerks.Add("qi_1_s1");
             Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(5));
+            meta.UnlockedPerks.Add("qi_1_s2");
+            Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(10));
         }
 
         /// <summary>金汤已废止:表里不许再有产出护盾的节点。</summary>

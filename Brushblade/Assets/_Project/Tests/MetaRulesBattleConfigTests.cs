@@ -118,8 +118,8 @@ namespace Brushblade.Core.Tests
         {
             // 一气(AP)2026-10-02 取消,qi 枝改为调息 —— AP 恒为基础值
             var meta = LevelElevenWithPerks();
-            meta.UnlockedPerks.Add("qi_1");
-            meta.UnlockedPerks.Add("qi_2");
+            meta.UnlockedPerks.Add("qi_1_s1");
+            meta.UnlockedPerks.Add("qi_1_s2");
             Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn));
         }
 

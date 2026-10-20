@@ -301,9 +301,9 @@ namespace Brushblade.Core.Tests
                 Assert.That(face.Stage, Is.EqualTo(1));
                 Assert.That(keys.Add(face.NodeKey), Is.True, $"重复 {face.NodeKey}");
             }
-            // 五行 5×4 + 被动 4×1 + 机制 4×2 + 跨树 3(相济、博采、斩获;斩获两段只占一个节点,2026-10-19;
+            // 五行 5×4 + 被动 4×1 + 机制 3×2 + 1(调息两段,2026-10-20) + 跨树 3(相济、博采、斩获;斩获两段只占一个节点,2026-10-19;
             // 被动四枝 2026-10-20 各合为一个三段节点)
-            Assert.That(PerkRules.Faces.Count, Is.EqualTo(35));
+            Assert.That(PerkRules.Faces.Count, Is.EqualTo(34));
         }
 
         // ---- 被动树:每枝一个三段节点(2026-10-20 用户:参照「深根」),段值是增量、累计 = 原各档 ----
@@ -391,15 +391,17 @@ namespace Brushblade.Core.Tests
                 ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.LowLibraryDraws, 1),
                 ("ult_killdraw_s1", PerkEffect.KillDraw, 1), ("ult_killdraw_s2", PerkEffect.KillDraw, 2),
                 ("insight_1", PerkEffect.RewardOptions, 1), ("insight_2", PerkEffect.RewardRerolls, 1),
-                ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.PreBattleHealPercent, 5),
+                ("qi_1_s1", PerkEffect.PreBattleHealPercent, 5), ("qi_1_s2", PerkEffect.PreBattleHealPercent, 5),
             };
             foreach (var (id, effect, value) in rows)
             {
                 Assert.That(PerkRules.Get(id).Effect, Is.EqualTo(effect), id);
                 Assert.That(PerkRules.Get(id).Value, Is.EqualTo(value), id);
             }
-            Assert.That(PerkRules.Get("qi_1").InkCost, Is.EqualTo(800));
-            Assert.That(PerkRules.Get("qi_2").InkCost, Is.EqualTo(1600));
+            Assert.That(PerkRules.Get("qi_1_s1").InkCost, Is.EqualTo(800));
+            Assert.That(PerkRules.Get("qi_1_s2").InkCost, Is.EqualTo(1600));
+            Assert.That(PerkRules.Get("qi_1_s2").UnlockLevel, Is.EqualTo(12));
+            Assert.That(PerkRules.StagesOf("qi_1").Count, Is.EqualTo(2), "调息与吐纳 2026-10-20 合为一个两段节点");
         }
 
         /// <summary>2026-10-18 终极技 §1:斩获移出广纳枝,广纳枝回到 2 层(广纳 → 集腋)。</summary>

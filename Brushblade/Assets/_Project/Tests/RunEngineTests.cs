@@ -43,48 +43,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
         }
 
-        [Test]
-        public void VictoryHeal_RestoresPercentOfMaxHp()
-        {
-            var run = new RunEngine(Graph(), TwoBattles(),
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
-                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
-                cardLevels: null, startingInk: 0, startingHp: 500);
-            WinCurrentBattle(run);
-            run.AdvanceAfterBattle();
-            run.SkipReward();
-            Assert.That(run.Battle.PlayerHp, Is.EqualTo(600), "500 + 1000 × 10%");
-        }
-
-        [Test]
-        public void VictoryHeal_ClampsAtMaxHp()
-        {
-            var run = new RunEngine(Graph(), TwoBattles(),
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
-                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
-                cardLevels: null, startingInk: 0, startingHp: 980);
-            WinCurrentBattle(run);
-            run.AdvanceAfterBattle();
-            run.SkipReward();
-            Assert.That(run.Battle.PlayerHp, Is.EqualTo(1000));
-        }
-
-        [Test]
-        public void VictoryHeal_AppliesOnFinalBattle_CarriedHp()
-        {
-            var run = new RunEngine(Graph(),
-                new RunConfig { Encounters = new[] { new[] { Weak() } }, RewardPool = new[] { "灯", "焚", "林" } },
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
-                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
-                cardLevels: null, startingInk: 0, startingHp: 500);
-            WinCurrentBattle(run);
-            run.AdvanceAfterBattle();
-            if (run.Phase == RunPhase.Reward) run.SkipReward();
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon));
-            Assert.That(run.CarriedHp, Is.EqualTo(600));
-        }
-
-        // ---- 吐纳(2026-10-20):每场战斗开打前回复最大生命 N%,夹上限 ----
+        // ---- 调息(2026-10-20 与吐纳合并):每场战斗开打前回复最大生命 N%,夹上限;胜利后不再回血 ----
 
         [Test]
         public void PreBattleHeal_AppliesToTheFirstBattle()
@@ -98,19 +57,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PreBattleHeal_AppliesToEachLaterBattle_AfterVictoryHeal()
+        public void PreBattleHeal_AppliesToEachLaterBattle_NotAfterVictory()
         {
             var run = new RunEngine(Graph(), TwoBattles(),
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 5, PreBattleHealPercent = 5 },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, PreBattleHealPercent = 5 },
                 startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
                 cardLevels: null, startingInk: 0, startingHp: 500);
-            int before = run.Battle.PlayerHp;   // 550
             WinCurrentBattle(run);
             int afterFight = run.Battle.PlayerHp;
             run.AdvanceAfterBattle();
+            Assert.That(run.CarriedHp, Is.EqualTo(afterFight), "胜利后不回血");
             run.SkipReward();
-            Assert.That(before, Is.EqualTo(550));
-            Assert.That(run.Battle.PlayerHp, Is.EqualTo(Math.Min(1000, afterFight + 50 + 50)), "胜利 5% + 战前 5%");
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(Math.Min(1000, afterFight + 50)), "下一场开打前 +5%");
         }
 
         [Test]

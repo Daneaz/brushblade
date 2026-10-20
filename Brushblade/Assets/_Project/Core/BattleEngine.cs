@@ -286,10 +286,7 @@ namespace Brushblade.Core
         /// 土脉 L3「固本」在其上 +25。整数除向下取整,50 时与旧的 /2 逐值相同。</summary>
         public int ShieldCarryPercent { get; set; } = 50;
 
-        /// <summary>调息(2026-10-02):每场战斗胜利后回复 EffectiveMaxHp × N%(夹上限)。缺省 0 = 关。</summary>
-        public int VictoryHealPercent { get; set; }
-
-        /// <summary>吐纳(2026-10-20):每场战斗开打前回复 EffectiveMaxHp × N%(夹上限),由 RunEngine 在开新战前结算。缺省 0 = 关。</summary>
+        /// <summary>调息(2026-10-20 与吐纳合并,取代胜利回血):每场战斗开打前回复 EffectiveMaxHp × N%(夹上限),由 RunEngine 在开新战前结算。缺省 0 = 关。</summary>
         public int PreBattleHealPercent { get; set; }
 
         /// <summary>战后/补给选字的候选数(慧眼 +1)。缺省 5 = 改前常量。</summary>

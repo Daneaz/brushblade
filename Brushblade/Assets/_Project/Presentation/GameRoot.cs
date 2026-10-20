@@ -424,7 +424,7 @@ namespace Brushblade.Presentation
         /// <summary>写入战斗之间的携带态(战利品已并入其中)。净额入账由调用方负责。</summary>
         private static void WriteCarriedSnapshot(RunEngine run, EndlessSaveState snapshot, int earnedSoFar)
         {
-            snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:含调息/吐纳胜利回血(2026-10-02),此时 Battle 是刚打完的那场(回血前)
+            snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:携带态是跨场血量的唯一口径(调息回血 2026-10-20 起在开新战前结算)
             snapshot.MaxHpBonus = run.MaxHpBonus;
             snapshot.MaxHpEventCount = run.MaxHpEventCount;
             snapshot.RunRecipes = new System.Collections.Generic.List<string>(run.RunRecipes);       // 配方集 / 生疏(2026-10-19)
@@ -480,7 +480,7 @@ namespace Brushblade.Presentation
             var snapshot = _meta.EndlessV2;
             snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;
-            snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:含调息/吐纳胜利回血(2026-10-02),此时 Battle 是刚打完的那场(回血前)
+            snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:携带态是跨场血量的唯一口径(调息回血 2026-10-20 起在开新战前结算)
             snapshot.MaxHpBonus = run.MaxHpBonus; // 奇遇上限加成跨段延续(本次登塔生效,2026-09-18)
             snapshot.MaxHpEventCount = run.MaxHpEventCount; // 改上限次数同进同出(2026-10-19)
             snapshot.RunRecipes = new System.Collections.Generic.List<string>(run.RunRecipes);       // 配方集 / 生疏(2026-10-19)

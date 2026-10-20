@@ -30,7 +30,6 @@ namespace Brushblade.Core
         EmptyLibraryDraws,          // 广纳:回合开始掉字时字库 ≤ 1 张,本回合掉字 +N(2026-10-18 由「为空」放宽)
         RewardOptions,              // 慧眼:战利品候选 +N
         RewardRerolls,              // 明察:每轮选字可整组重抽 N 次
-        VictoryHealPercent,         // 调息:每场战斗胜利后回复最大生命 N%
         // 五行树 L2(三段):本系字效果值 +N%
         ElementEffectPercent,
         // 五行树 L1(三段,2026-10-02):只对打出那张字的元素 = 本系生效
@@ -54,7 +53,7 @@ namespace Brushblade.Core
         // 机制树(2026-10-18 追加,枚举只在末尾追加)
         KillDraw,                   // 斩获终极技:击杀敌人时按概率掉 N 张字进字库(概率见 PerkRules.KillDrawChancePercent,每回合上限见 BattleEngine.KillDrawPerTurnCap)
         LowLibraryDraws,            // 集腋(2026-10-18 收尾 §7):回合开始掉字时字库不足 3 张,本回合掉字 +N(与广纳叠加)
-        PreBattleHealPercent,       // 吐纳(2026-10-20):每场战斗开打前回复最大生命 N%
+        PreBattleHealPercent,       // 调息(2026-10-20 与吐纳合并,取代胜利回血):每场战斗开打前回复最大生命 N%
     }
 
     /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 60 个普通段)。
@@ -221,11 +220,13 @@ namespace Brushblade.Core
                 1, MechanicGates[0], MechanicCosts[0], PerkEffect.RewardOptions, 1));
             list.Add(new PerkNodeDef("insight_2", PerkTree.Mechanic, "insight", null,
                 2, MechanicGates[1], MechanicCosts[1], PerkEffect.RewardRerolls, 1));
-            // 调息:胜利后回血 5%;吐纳(2026-10-20 用户):战斗前回血 5% —— 两层是**不同**效果
-            list.Add(new PerkNodeDef("qi_1", PerkTree.Mechanic, "qi", null,
-                1, MechanicGates[0], MechanicCosts[0], PerkEffect.VictoryHealPercent, 5));
-            list.Add(new PerkNodeDef("qi_2", PerkTree.Mechanic, "qi", null,
-                2, MechanicGates[1], MechanicCosts[1], PerkEffect.PreBattleHealPercent, 5));
+            // 调息:一个两段节点(2026-10-20 用户:战前 / 战后回血是同一个概念,调息与吐纳合并),
+            // 每段战斗前回血 +5%,累计 10%;门槛 / 墨价沿用原两层。
+            for (int s = 0; s < 2; s++)
+                list.Add(new PerkNodeDef($"qi_1_s{s + 1}", PerkTree.Mechanic, "qi", null,
+                    1, MechanicGates[s], MechanicCosts[s], PerkEffect.PreBattleHealPercent, 5,
+                    baseValue: 0, scaling: PerkScaling.None, prereq: null,
+                    stage: s + 1, stageCount: 2, nodeKey: "qi_1"));
 
             // 机制树节点总数:终极技一级的前置「机制树全部节点已解锁」按它计数(表变了自动跟着变)
             int mechanicNodes = 0;
