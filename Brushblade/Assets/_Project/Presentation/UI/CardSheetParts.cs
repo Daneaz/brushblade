@@ -322,12 +322,15 @@ namespace Brushblade.Presentation
 
         /// <summary>全平铺的一格(spec B §1.2):Lv1 印本体关键词效果(木五行面印本命),Lv3 印本体差,其余同 <see cref="FaceRow"/>。
         /// <paramref name="cell"/> = null → 待补占位。字形特性的「拆 / 合」xs 印搬进各面的行(执行期决定 D14)。</summary>
-        public static RowModel LevelCell(CharDef def, TraitSlot slot, CardFace face, SheetTrait cell, int level, RowState state)
+        /// <param name="valueLevel">Lv1 行正文的缩放等级;null = 按 max(1, level)。生疏字传 Lv0(×70%,spec 2026-10-19 §3)——
+        /// 解锁仍按 <paramref name="level"/>,缩放按它,与 BattleEngine 出字同一口径。</param>
+        public static RowModel LevelCell(CharDef def, TraitSlot slot, CardFace face, SheetTrait cell, int level, RowState state,
+            int? valueLevel = null)
         {
             if (cell == null) return new RowModel { Level = (int)slot, Name = "", Kind = "", State = RowState.Missing };
             var model = slot switch
             {
-                TraitSlot.Lv1 => Lv1Row(def, face, cell, level, state),
+                TraitSlot.Lv1 => Lv1Row(def, face, cell, level, state, valueLevel ?? Math.Max(1, level)),
                 TraitSlot.Lv3 => Lv3Row(def, face, cell, level, state),
                 _ => FaceRow(def, cell, level, state, face),
             };
@@ -336,7 +339,7 @@ namespace Brushblade.Presentation
             return model;
         }
 
-        private static RowModel Lv1Row(CharDef def, CardFace face, SheetTrait cell, int level, RowState state)
+        private static RowModel Lv1Row(CharDef def, CardFace face, SheetTrait cell, int level, RowState state, int valueLevel)
         {
             var trait = cell.Defs[0];
             int lv = Math.Max(1, level);
@@ -355,7 +358,7 @@ namespace Brushblade.Presentation
                     : FormText(trait.Form),
             };
             string text = summon != null ? CharInfo.NatureText(summon.Passive)
-                : effects.Count > 0 ? CharInfo.SideEffectsText(effects, def, lv) : null;
+                : effects.Count > 0 ? CharInfo.SideEffectsText(effects, def, valueLevel) : null;
             if (!string.IsNullOrEmpty(text)) model.Lines.Add((null, text));
             var lead = new List<GlossaryTerm>();
             if (summon != null) lead.Add(GlossaryTerm.Nature);   // 本命行的气泡固定带「本命」(稿 extra)

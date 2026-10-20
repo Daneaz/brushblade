@@ -1084,6 +1084,41 @@ namespace Brushblade.Presentation
             Stretch(label.rectTransform);
         }
 
+        // ---- 「疏」签(生疏手牌标记,稿 drafts/recipe-wheel Shu.dc.html)----
+        public const float ShuBadgeRatio = 0.27f;   // 见方 = 牌宽 × 0.27(字库牌 96 → 26)
+        public const float ShuBadgeMin = 20f;       // 最小 20(9.6pt);拆合台可合成行的小签也是 20
+        private const float ShuBadgeOverhang = 4f;  // 左上角向外骑出 4(2pt)
+        private const float ShuBadgeRim = 1.5f;     // 外描 1.5 panel-paper,把签从牌框上分出来
+
+        /// <summary>「疏」签本体:<c>ink-soft</c> 实底白字宋体粗,圆角 5,外描 1.5 <c>panel-paper</c>(描边画在
+        /// <paramref name="size"/> 之外)。带 LayoutElement,可直接排进行里(拆合台可合成行);贴牌角用 <see cref="ShuBadgeOnTile"/>。</summary>
+        public static GameObject ShuBadge(Transform parent, float size)
+        {
+            var outer = OutlinedPanel(parent, "ShuBadge", Theme.InkSoft, Theme.PanelPaper, 5, ShuBadgeRim, out var face);
+            outer.raycastTarget = false;
+            Sized(outer.gameObject, size + 2f * ShuBadgeRim, size + 2f * ShuBadgeRim);
+            var label = ThemedLabel(face.transform, Strings.T("char.shu.badge"),
+                Mathf.RoundToInt(size * 0.62f), Color.white, Theme.TitleFont);
+            label.fontStyle = FontStyle.Bold;
+            label.raycastTarget = false;
+            Stretch(label.rectTransform);
+            return outer.gameObject;
+        }
+
+        /// <summary>把「疏」签贴到字牌左上角:见方 = max(牌宽 × 0.27, 20),向外骑出 4,不进布局。
+        /// 签是牌根的末位子物体 —— 在字之上;AP 不足的去饱和只染牌面那张图(CardFrameView),签不跟着灰。</summary>
+        public static GameObject ShuBadgeOnTile(GameObject tile, float tileWidth)
+        {
+            float size = Mathf.Max(tileWidth * ShuBadgeRatio, ShuBadgeMin);
+            var badge = ShuBadge(tile.transform, size);
+            badge.GetComponent<LayoutElement>().ignoreLayout = true;
+            float o = ShuBadgeOverhang + ShuBadgeRim;
+            float full = size + 2f * ShuBadgeRim;
+            Anchor((RectTransform)badge.transform, new Vector2(0, 1), new Vector2(0, 1),
+                new Vector2(-o, o - full), new Vector2(full - o, o));
+            return badge;
+        }
+
         /// <summary>弹窗抬头「— 升 级 —」:宋体小字两侧各一条短横线(稿 .kick::before/::after:
         /// 34×1pt `panel-border`、间距 10pt → 71×2 / 21 逻辑单位)。返回整行,调用方自己定高。</summary>
         public static GameObject KickerRow(Transform parent, string text, int fontSize, Color color)

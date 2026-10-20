@@ -263,6 +263,10 @@ namespace Brushblade.Presentation
         // _modal 永远盖在 _sheet 上面,谁也不会误杀谁。
         private GameObject _modal;
         private GameObject _sheet;
+        // 配方转盘弹窗(spec 2026-10-19 §2):战后、选字 / 奇遇之前弹出。开着的时候 Refresh 整个不画
+        // (见 Refresh 开头),关掉(点「继续 · 选字」)再 Refresh 进下一步。只在 AdvanceAfterSettle 弹 ——
+        // 续爬读档停在选字页时新视图从不经过那里,结果早已入账,不会重转。
+        private GameObject _wheelSheet;
         // 单位详情弹窗开着时(_modal 是 UnitSheet 建的那个),Refresh 靠它重新取一份 UnitDetail
         // 整体重建——稿上写着「数值随战斗实时刷新,不暂停」,事件驱动而不是每帧。
         // 返回 null = 那个单位没了(比如召唤物被打死),Refresh 顺手关掉详情而不是抱着空数据崩。
@@ -1432,6 +1436,10 @@ namespace Brushblade.Presentation
 
         private void Refresh()
         {
+            // 配方转盘开着:底下的选字页 / 奇遇页等它关了再画 —— 否则新建的 BattleSheet 会叠到转盘上面。
+            // 落盘、层记账也一并顺延到关转盘那次 Refresh(转盘结果按 (塔种子, 层) 定死,中途杀进程重进也是同一格)。
+            if (_wheelSheet != null) return;
+
             // 战利品阶段结束(不论选完、跳过还是引擎自动开拔)→ 本层记账落盘,挂起不丢收益
             if (_lastPhase == RunPhase.Reward && _run.Phase != RunPhase.Reward)
                 _onFloorCleared?.Invoke();
@@ -4058,6 +4066,8 @@ namespace Brushblade.Presentation
                 _tileRects[charId] = (RectTransform)tile.transform;
                 _libraryTileRects.Add((RectTransform)tile.transform); // 卡位→牌面,飞字起点按位取
                 ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
+                // 生疏字左上角「疏」签(稿 Shu.dc.html):最后挂,压在字之上;AP 不足去饱和时不跟着灰
+                if (_run.IsUnfamiliar(charId)) Ui.ShuBadgeOnTile(tile.gameObject, tileSize.x);
             }
             DrawHandAdSlot();
             DrawRestockAdSlot();
@@ -4857,14 +4867,9 @@ namespace Brushblade.Presentation
             // 引擎(下一场才 NewBattle),读到的是上一场的次数表,而这一页展示的正是下一场的字库。
             // Reviving 是同一场里看广告补给(不走 NewBattle),照常查。
             bool live = _run.Phase == RunPhase.InBattle || _run.Phase == RunPhase.Reviving;
-            // 生疏(spec 2026-10-19 §3):卡面标记与详情行等 designer 稿;落地前先按 Lv1 显示、底部提示行补一句
-            bool unfamiliar = battle.IsUnfamiliar(charId);
-            if (unfamiliar)
-            {
-                _message = Strings.T("battle.msg.unfamiliar_note", ("charId", charId), ("percent", MetaRules.UnfamiliarPercent));
-                if (_messageLabel != null) _messageLabel.text = _message;
-            }
-            _modal = CharPreview.Show(transform, def, _graph, unfamiliar ? 1 : _run.CardLevel(charId),
+            // 生疏(spec 2026-10-19 §3,稿 Shu.dc.html):CardLevel 对生疏字返回 Lv0(×70%、按 Lv1 解锁特性),
+            // 与引擎出字同一口径;详情头写「Lv1(局外 LvN)」并加一行说明,所以把局外等级一并传过去
+            _modal = CharPreview.Show(transform, def, _graph, _run.CardLevel(charId),
                 new CharPreview.BattleContext
                 {
                     Pool = battle.Pool,
@@ -4875,6 +4880,7 @@ namespace Brushblade.Presentation
                     // 部件印记(E3):只在本场还在打时查,同上一条的理由;印记本回合有效,回合初 Core 清空
                     PartMarks = live && def.IsComponent ? battle.PartMarksOf(charId) : null,
                     CardLevelOf = _run.CardLevel,
+                    UnfamiliarOuterLevel = _run.IsUnfamiliar(charId) ? _run.OuterCardLevel(charId) : (int?)null,
                 });
         }
 
@@ -5183,6 +5189,8 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(inner.transform, string.Join("+", def.Recipe), 15, Theme.TextDim, Theme.TitleFont);
                 Ui.ThemedLabel(inner.transform, "→", 13, Theme.TextDim);
                 Ui.ThemedLabel(inner.transform, charId, 22, Theme.GlyphColor(def.Element), Theme.TitleFont);
+                // 合出来就是生疏字的配方:出字后挂同一枚小签(稿 Shu.dc.html ④,20 → 9.6pt),合之前就知道
+                if (_run.IsUnfamiliar(charId)) Ui.ShuBadge(inner.transform, Ui.ShuBadgeMin);
             }
         }
 
@@ -5295,6 +5303,8 @@ namespace Brushblade.Presentation
                 // 字形让出牌底那一截,别压在面印上
                 pickedGlyph.rectTransform.offsetMin = new Vector2(0f, PickedSealBottom + Ui.FaceSealXs);
             }
+            // 拆合台选中的生疏字:牌角同一枚「疏」签(元信息行仍写 Lv1,长按详情里有完整说明)
+            if (_run.IsUnfamiliar(_selectedChar)) Ui.ShuBadgeOnTile(pickedOuter.gameObject, PickedTileW);
             var pickedInfo = Ui.VStack(picked, "Info", 2);
             var pickedInfoLayout = pickedInfo.GetComponent<VerticalLayoutGroup>();
             pickedInfoLayout.childAlignment = TextAnchor.UpperLeft;
@@ -5306,10 +5316,10 @@ namespace Brushblade.Presentation
             // 不换行的整句宽度,行永远处在超预算态,flex 从来轮不上。直接把剩余宽度算给它,
             // preferredWidth 就等于实际宽度,effectLabel 的 Wrap 也拿到了正确的换行依据。
             Ui.Sized(pickedInfo, width: BenchInnerW - PickedTileW - PickedRowGap);
-            int cardLevel = _run.CardLevel(_selectedChar);
+            int cardLevel = _run.CardLevel(_selectedChar);   // 生疏 = Lv0:效果按 ×70% 印
             string elementName = def.Element is { } elem ? CharInfo.ElementName(elem) : Strings.T("char.element.neutral");
             Ui.ThemedLabel(pickedInfo.transform, Strings.T("battle.label.picked_meta",
-                ("rarity", CharInfo.RarityName(def.Rarity)), ("element", elementName), ("level", cardLevel)),
+                ("rarity", CharInfo.RarityName(def.Rarity)), ("element", elementName), ("level", Mathf.Max(1, cardLevel))),
                 12, Theme.TextDim, align: TextAnchor.UpperLeft);
             var effectLabel = Ui.ThemedLabel(pickedInfo.transform, CharInfo.EffectsText(def, cardLevel),
                 13, Theme.TextMain, align: TextAnchor.UpperLeft);
@@ -5693,14 +5703,24 @@ namespace Brushblade.Presentation
                 ? Strings.T("battle.msg.shield_decay",
                     ("from", shieldBefore), ("to", _run.CarriedNormalShield))
                 : "";
-            // 配方转盘(spec 2026-10-19 §2):转盘 UI 等 designer 稿,落地前先用提示行报结果
+            // 配方转盘(spec 2026-10-19 §2):结果已在 AdvanceAfterBattle 同一步入账,先转盘、再进选字 / 奇遇
             if (_run.LastRecipeWheel != null)
             {
-                string got = Strings.T("battle.msg.recipe_wheel_got", ("charId", _run.LastRecipeWheel.Target));
-                _message = _message.Length > 0 ? got + "  " + _message : got;
+                int depth = _run.CurrentDepth;   // 选字阶段 BattleIndex 还没走,仍是刚打完的这一层
+                _wheelSheet = RecipeWheelSheet.Show(transform, _run.LastRecipeWheel, _graph, depth,
+                    themeBoss: depth % (2 * WheelBossEvery) == 0, () =>
+                    {
+                        _wheelSheet = null;
+                        Refresh();
+                    });
+                return;
             }
             Refresh();
         }
+
+        /// <summary>Boss 层间隔(EndlessConfig.BossEvery 的默认 5):第 5/15… 层精英、10/20… 层主题 Boss
+        /// (同 <see cref="EndlessRules.IsThemeBossDepth"/>)。只给转盘副标「精英 / Boss 战后」用。</summary>
+        private const int WheelBossEvery = 5;
 
         /// <summary>战利品 / 复活补给的共用版面(2026-09-01,轮三 Task 3,稿 Reward.dc.html)。
         /// 两页只差标题与回调,版面一模一样。

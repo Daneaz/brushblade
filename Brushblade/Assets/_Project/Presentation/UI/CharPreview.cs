@@ -50,6 +50,10 @@ namespace Brushblade.Presentation
             public IReadOnlyList<PartMarkView> PartMarks;
             /// <summary>印记来源字的本场卡等级(印记效果按来源字等级印);PartMarks 非空时必给。</summary>
             public System.Func<string, int> CardLevelOf;
+            /// <summary>本局生疏(spec 2026-10-19 §3)时 = 局外卡等级;null = 不生疏。给了的话 cardLevel 应是
+            /// <see cref="MetaRules.UnfamiliarCardLevel"/>:数值按它缩放(×70%),特性按 Lv1 解锁,
+            /// 头上写「Lv1(局外 LvN)」、其下加一行「疏」说明(稿 drafts/recipe-wheel/Shu.dc.html ③)。</summary>
+            public int? UnfamiliarOuterLevel;
         }
 
         // ---- 稿上的骨架尺寸(pt → 逻辑单位,1pt = 2.093) ----
@@ -284,10 +288,13 @@ namespace Brushblade.Presentation
 
             // 未拥有(Q8):等级条全空、成本位换成「怎么获得」、特性行全部按未解锁画;数值格仍按 1 级本体
             bool owned = meta == null || meta.OwnedCards.Contains(def.Id);
-            int level = Mathf.Max(1, cardLevel);
-            int traitLevel = owned ? level : 0;
+            // 生疏:数值格 / 面头 / Lv1 行按 Lv0 缩放(与 BattleEngine.CardLevelOf 同一口径),特性按 Lv1 解锁
+            bool unfamiliar = battle?.UnfamiliarOuterLevel != null;
+            int level = unfamiliar ? cardLevel : Mathf.Max(1, cardLevel);
+            int traitLevel = owned ? Mathf.Max(1, level) : 0;
 
-            BuildSheetHeader(content, def, battle, meta, overlay, contentW, owned, level, z);
+            BuildSheetHeader(content, def, battle, meta, overlay, contentW, owned, Mathf.Max(1, level), z);
+            if (unfamiliar) ShuRow(content, contentW);
 
             var body = Ui.Row(content, "Body", BodyGap);
             var bodyLayout = body.GetComponent<HorizontalLayoutGroup>();
@@ -302,7 +309,7 @@ namespace Brushblade.Presentation
             var host = (RectTransform)overlay.transform;
             CardSheetParts.TermsTap onTerms = (target, radius, title, terms) =>
                 GlossaryBubble.Show(host, target, radius, title, terms, def.Element);
-            BuildFaces(faces, def, level, traitLevel, battle, facesW, z, onTerms);
+            BuildFaces(faces, def, level, traitLevel, battle, facesW, z, onTerms, unfamiliar ? level : (int?)null);
 
             var side = Ui.ScrollList(body.transform, "Side", tall ? 12.6f : 8.4f, out var sideContent);
             Ui.Sized(side, SideW, flexHeight: 1);
@@ -327,6 +334,36 @@ namespace Brushblade.Presentation
                 foot.alignment = TextAnchor.MiddleLeft;
                 Ui.Sized(foot.gameObject, flexWidth: 1, height: 27);
             }
+        }
+
+        /// <summary>「疏」说明行(稿 Shu.dc.html ③ .shurow):<c>panel-inset</c> 底条 22pt → 46,签 13pt → 27 +
+        /// 「<b>生疏</b>:效果 ×70%,按 Lv1 计」10pt → 21(冒号前加粗,text-main;其余 text-quiet)。</summary>
+        private static void ShuRow(Transform parent, float width)
+        {
+            var bar = Ui.CardPanel(parent, "Unfamiliar", Theme.PanelInset, 13);   // 圆角 6pt
+            Ui.Sized(bar.gameObject, width, 46f);
+            bar.raycastTarget = false;
+            var row = Ui.Row(bar.transform, "Row", 13);
+            Ui.Stretch((RectTransform)row.transform);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.padding = new RectOffset(17, 17, 0, 0);
+            Ui.ShuBadge(row.transform, 27f);
+            string line = Strings.T("char.shu.line", ("percent", MetaRules.UnfamiliarPercent));
+            int cut = line.IndexOfAny(new[] { ':', '：' });
+            var label = Ui.ThemedLabel(row.transform, cut > 0
+                ? $"<b><color=#{ColorUtility.ToHtmlStringRGB(Theme.TextMain)}>{line.Substring(0, cut)}</color></b>{line.Substring(cut)}"
+                : line, 21, Theme.TextQuiet);
+            label.supportRichText = true;
+        }
+
+        /// <summary>「Lv1(局外 LvN)」括号那半句改 text-faint(<see cref="Theme.LockGray"/>)。找不到括号就原样。</summary>
+        private static string FaintParen(string text)
+        {
+            int cut = text.IndexOfAny(new[] { '(', '（' });
+            return cut > 0
+                ? $"{text.Substring(0, cut)}<color=#{ColorUtility.ToHtmlStringRGB(Theme.LockGray)}>{text.Substring(cut)}</color>"
+                : text;
         }
 
         /// <summary>场上活着的敌人;奖励阶段 / 非战斗为空表 → 右栏退回静态生克(Q16)。</summary>
@@ -381,8 +418,12 @@ namespace Brushblade.Presentation
 
             if (!tall)
             {
-                // 战斗版:「本场等级 Lv.N」+ 等级条,不印成本(局内不能升级)
-                Ui.ThemedLabel(lvRow.transform, Strings.T("charsheet.lv.current", ("level", level)), 19, Theme.TextDim);
+                // 战斗版:「本场等级 Lv.N」+ 等级条,不印成本(局内不能升级)。
+                // 生疏:写「Lv1(局外 LvN)」,括号那半句压浅(稿 .lv s:text-faint)
+                var lvLabel = Ui.ThemedLabel(lvRow.transform, battle?.UnfamiliarOuterLevel is { } outer
+                    ? FaintParen(Strings.T("char.shu.level", ("level", outer)))
+                    : Strings.T("charsheet.lv.current", ("level", level)), 19, Theme.TextDim);
+                lvLabel.supportRichText = true;
                 CardSheetParts.LevelLadder(lvRow.transform, def, level, false, z);
                 return;
             }
@@ -473,8 +514,10 @@ namespace Brushblade.Presentation
         /// <summary>两面按级全平铺(spec B §1.2,稿 drafts/abilitytext):每一级两面各一行、同级并排、行高取两面较大值;
         /// 两面效果相同也各写一遍;某面缺该级画待补。战斗版只列已解锁的级,未解锁的每面收成一行贴底;
         /// 每场限次且本场已用尽的行走 spent 态。</summary>
+        /// <param name="valueLevel">Lv1 行正文的缩放等级;null = 照旧按 traitLevel(生疏时传 Lv0)。</param>
         private static void BuildFaces(Transform parent, CharDef def, int level, int traitLevel,
-            BattleContext battle, float facesW, CardSheetParts.Sizes z, CardSheetParts.TermsTap onTerms)
+            BattleContext battle, float facesW, CardSheetParts.Sizes z, CardSheetParts.TermsTap onTerms,
+            int? valueLevel = null)
         {
             float faceW = (facesW - PairGap) / 2f;
             // 正左背右:CardFace 的枚举值是 Feature = 0、Attack = 1,不能按枚举排序,这里写死顺序
@@ -490,8 +533,8 @@ namespace Brushblade.Presentation
                     AddLocked(lockedF, row.Feature);
                     continue;
                 }
-                attack.Rows.Add(CardSheetParts.LevelCell(def, row.Slot, CardFace.Attack, row.Attack, traitLevel, StateOf(row.Attack, battle)));
-                feature.Rows.Add(CardSheetParts.LevelCell(def, row.Slot, CardFace.Feature, row.Feature, traitLevel, StateOf(row.Feature, battle)));
+                attack.Rows.Add(CardSheetParts.LevelCell(def, row.Slot, CardFace.Attack, row.Attack, traitLevel, StateOf(row.Attack, battle), valueLevel));
+                feature.Rows.Add(CardSheetParts.LevelCell(def, row.Slot, CardFace.Feature, row.Feature, traitLevel, StateOf(row.Feature, battle), valueLevel));
             }
             attack.LockedLine = LockedLine(lockedA);
             feature.LockedLine = LockedLine(lockedF);
