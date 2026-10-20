@@ -8,7 +8,8 @@ namespace Brushblade.Presentation
     /// <summary>拖字打人(2026-07-26):把字牌拖到敌人身上松手 = 出字攻击该敌人。
     /// 拖动中显示跟随指针的字影;松手把屏幕坐标交给外层判定落在哪个敌人上
     /// (本组件不认识敌人,只管手势与反馈)。
-    /// 与"点选 → 点敌人"并存:uGUI 一旦进入拖拽就清掉 eligibleForClick,不会重复触发点击。</summary>
+    /// 与"点选 → 点敌人"并存:起拖时本组件自己清掉 eligibleForClick,不会重复触发点击
+    /// (uGUI 不替同一物体上的 Button 清,见 OnBeginDrag)。</summary>
     public sealed class DragToAttack : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         private string _glyph;
@@ -47,6 +48,10 @@ namespace Brushblade.Presentation
         public void OnBeginDrag(PointerEventData eventData)
         {
             if (_canDrag != null && !_canDrag()) return;
+            // 起拖即作废这次点击(2026-10-20):StandaloneInputModule 只在按下对象 ≠ 拖拽对象时清
+            // eligibleForClick,而字牌的 Button 与本组件同在一个物体上 —— 拖回原位松手会先派发
+            // click 再派发 EndDrag:click 把刚选中的两面字翻面并全量重画,字牌被销毁,EndDrag 再也不来
+            eventData.eligibleForClick = false;
             var hold = GetComponent<HoldToPreview>();
             if (hold != null) hold.Cancel(); // 拖动中不弹长按详情
 
