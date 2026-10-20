@@ -60,7 +60,7 @@
 
 <div class="board">
   <h2>「生疏」手牌标记</h2>
-  <div class="lead">生疏字 = 由配方转盘得来、在本局合出的字:效果 ×70%,按 Lv1 计。只在局内出现(卡组 / 开箱的 CardBadges 用不到它)。<br>
+  <div class="lead">生疏字 = 本局未收集、由配方转盘或奇遇得来的字:效果 ×70%,按 Lv1 计。只在局内出现(卡组 / 开箱的 CardBadges 用不到它)。<br>
     标记 = 左上角一枚「疏」方印(浓墨 ink-soft 实底白字):左上角在战斗字牌上是空的(面印在底部正中,新到手光晕绕整张牌,AP 不够时整牌去饱和但「疏」印不跟着灰)。</div>
 
   <div class="row">
@@ -84,7 +84,7 @@
       <h3>③ 字卡详情(长按 / 拆合台)多一行</h3>
       <div class="sheetmock">
         <div class="hdr"><span class="nm">沐</span><span class="meta">金档 · 水 · <span class="lv">Lv1 <s>(局外 Lv5)</s></span></span></div>
-        <div class="shurow"><i class="s">疏</i><b>生疏</b>:效果 ×70%,按 Lv1 计 · 本局由配方转盘得来</div>
+        <div class="shurow"><i class="s">疏</i><b>生疏</b>:效果 ×70%,按 Lv1 计</div>
         <div style="font-size:9px;color:var(--text-faint)">(下面照常是两面技能说明;数值已按 ×70%、Lv1 显示)</div>
       </div>
     </div>
@@ -100,7 +100,7 @@
     <li>签:见方 = 牌宽 × 0.27(战斗字库牌 96 宽 → 26 逻辑 / 12.4pt;牌按张数缩时同比缩,最小不低于 20 / 9.6pt);圆角 5;<code>ink-soft</code> 实底、白字宋体粗,字号 = 签宽 × 0.62;外描 1.5 <code>panel-paper</code> 细边让它从牌框上分出来;对比度白 / ink-soft 8.4:1。</li>
     <li>位置:锚牌的左上角,向外骑出 4 逻辑(2pt);层级在字之上、选中描边之下;AP 不够去饱和时签不去色(它说的是「这张弱」,不是「用不了」)。</li>
     <li>选色理由:ink-soft 在规范里就是「中性信息」;不用灰(会读成禁用)、不用朱砂(会读成危险 / 负面状态)、不用金(赭金是增益)。</li>
-    <li>详情行:<code>panel-inset</code> 底条,签 + 「生疏」粗 + 说明;Lv 行写「Lv1(局外 LvN 压浅)」。新文案:<code>char.shu.badge</code>「疏」、<code>char.shu.line</code>「生疏:效果 ×70%,按 Lv1 计」、<code>char.shu.source</code>「本局由配方转盘得来」(重跑字体子集)。</li>
+    <li>详情行:<code>panel-inset</code> 底条,签 + 「生疏」粗 + 说明;Lv 行写「Lv1(局外 LvN 压浅)」。新文案:<code>char.shu.badge</code>「疏」、<code>char.shu.line</code>「生疏:效果 ×70%,按 Lv1 计」(重跑字体子集)。</li>
   </ul>
 </div>
 </x-dc>
