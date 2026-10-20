@@ -1074,6 +1074,27 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(0), "第二场从零开始");
         }
 
+        /// <summary>战意跨战斗携带(2026-10-20 用户):战斗结束不清零,只有锋刃回鞘清空。</summary>
+        [Test]
+        public void Morale_CarriesToNextBattle()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: null,
+                startingStatuses: new[] { new StatusEffect
+                {
+                    Kind = StatusKind.Morale, Polarity = StatusPolarity.Buff, Magnitude = 3, TurnsLeft = -1,
+                } });
+            Assert.That(run.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3), "前提:本场有 3 层");
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.CarriedStatuses.Where(s => s.Kind == StatusKind.Morale).Sum(s => s.Magnitude), Is.EqualTo(3));
+            run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3), "第二场带着 3 层开打");
+        }
+
         // ---- 召唤物跨战斗保留(2026-08-03 拍板):与普通盾同口径全程延续,直到死亡 ----
 
         /// <summary>召唤专用字表:「林」召 2 只 1 血木偶(好打死),「森」召 4 只(打满上限),

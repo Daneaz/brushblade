@@ -725,9 +725,12 @@ namespace Brushblade.Core
             //
             // D2-土 E34(2026-10-11):DefenseBuff 从名单里删掉。圭臬「本字护甲持续到战斗结束」落成 TurnsLeft −1,
             // 留着这一项它就会变成整段永久护甲(违反 spec §5.1);删之前名单里已没有 −1 的玩家护甲,删后逐位恒等。
+            //
+            // 战意(2026-10-20 用户):跨战斗携带、不清零,直到锋刃回鞘清空。同为层数(恒 -1)。
             _carriedStatuses = Battle.PlayerStatuses.All
                 .Where(s => (s.Kind == StatusKind.Heft
-                        || s.Kind == StatusKind.Wellspring)
+                        || s.Kind == StatusKind.Wellspring
+                        || s.Kind == StatusKind.Morale)
                     && s.TurnsLeft < 0)
                 .Select(s => s.Clone())
                 .ToList();

@@ -3374,10 +3374,9 @@ namespace Brushblade.Core
             _playerStatuses.TickTurns();
             if (empowered) RefreshSummonAura();   // 到期后木灵攻击即时回落;没有光环时不刷(恒等)
 
-            // 战意(2026-09-30 用户拍板):**本场战斗保留、不衰减,战斗结束清零**。
-            // 推翻 2026-08-15「每回合末消减一层」与 2026-08-18「从 0 起手首回合宽限」。
-            // 它是计数器式状态(TurnsLeft = -1、层数记在 Magnitude 上),上面的 TickTurns 碰不到它;
-            // 清零靠的是 RunEngine 的跨战斗携带态不收它(_carriedStatuses 只收护甲/厚/泉)。
+            // 战意(2026-09-30 用户拍板):不衰减。2026-10-20 起**跨战斗携带**,只在锋刃回鞘时清空
+            // (RunEngine._carriedStatuses 收厚/泉/战意)。
+            // 它是计数器式状态(TurnsLeft = -1、层数记在 Magnitude 上),上面的 TickTurns 碰不到它。
         }
 
         private void StartTurn()

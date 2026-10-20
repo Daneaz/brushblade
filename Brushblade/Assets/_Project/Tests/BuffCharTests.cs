@@ -168,9 +168,9 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void Morale_ClearsWhenTheBattleEnds()
+        public void Morale_CarriesAcrossBattles()
         {
-            // 「战斗结束清零」:战意不进 RunEngine 的跨战斗携带态,下一场从 0 层开
+            // 2026-10-20 用户:战意跨战斗携带、不清零(只有锋刃回鞘清空),下一场带着 3 层开
             var weak = new[] { new EnemyDef("怔", Element.Heart, 1, 0) };
             var run = new RunEngine(Graph(),
                 new RunConfig { Encounters = new[] { weak, weak }, RewardPool = new[] { "甲" } },
@@ -183,8 +183,8 @@ namespace Brushblade.CoreTests
 
             run.AdvanceAfterBattle();
             run.SkipReward();
-            Assert.That(run.Battle.PlayerStatuses.Has(StatusKind.Morale), Is.False, "新一场从 0 层开");
-            Assert.That(run.Battle.EffectiveAttack, Is.EqualTo(BattleConfig.AttackBaseline));
+            Assert.That(run.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3), "新一场带着 3 层开");
+            Assert.That(run.Battle.EffectiveAttack, Is.GreaterThan(BattleConfig.AttackBaseline), "战意攻击加成随之保留");
         }
 
         [Test]

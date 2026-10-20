@@ -217,9 +217,10 @@ namespace Brushblade.Core.Tests
 
             Assert.That(run.Battle.Cast("鍂", 0, attackMode: true), Is.EqualTo(BattleError.None));
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            int carried = Morale(run.Battle);   // 战意跨战斗携带(2026-10-20),开局 +2 叠在携带值上
             run.AdvanceAfterBattle();
             while (run.Phase == RunPhase.Reward) run.SkipReward();
-            Assert.That(Morale(run.Battle), Is.EqualTo(2), "第 2 场开局战意 +2");
+            Assert.That(Morale(run.Battle), Is.EqualTo(Math.Min(BattleConfig.BaseMoraleCap, carried + 2)), "第 2 场开局战意 +2");
         }
 
         // ================= 双金合璧:格挡次数 = 出字后战意(Q21 / Ruling 11) =================
