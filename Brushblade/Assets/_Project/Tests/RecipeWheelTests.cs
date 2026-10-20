@@ -140,6 +140,9 @@ namespace Brushblade.Core.Tests
                 Assert.That(lows.Contains("蓝甲") && lows.Contains("蓝乙"), Is.True, "未收集的优先");
                 Assert.That(lows.Distinct().Count(), Is.EqualTo(4));
                 Assert.That(wheel.HighIndex, Is.EqualTo(4));
+                Assert.That(wheel.CollectedSlots.OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+                    Is.EqualTo(lows.Where(id => owned.Contains(id)).OrderBy(x => x, StringComparer.Ordinal).ToArray()),
+                    "补进来的已收集字记在 CollectedSlots");
             }
         }
 
@@ -259,6 +262,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.LastRecipeWheel, Is.Not.Null, "全收集也照转(同档补足 5 格)");
             Assert.That(run.LastRecipeWheel.Slots.Count, Is.EqualTo(5));
             Assert.That(run.RunRecipes, Is.Empty, "已收集的字本来就能合,不记配方");
+            Assert.That(run.LastRecipeWheel.TargetCollected, Is.True, "结果卡据此改写「已收集」");
             Assert.That(run.UnfamiliarChars, Is.Empty, "已收集的字永不生疏");
         }
 

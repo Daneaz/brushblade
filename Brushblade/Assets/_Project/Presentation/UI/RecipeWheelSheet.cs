@@ -389,7 +389,7 @@ namespace Brushblade.Presentation
                 icon.raycastTarget = false;
                 icon.rectTransform.sizeDelta = new Vector2(17f, 17f);
             }
-            var gotLabel = Ui.ThemedLabel(got.transform, Strings.T("wheel.recorded"), 21, Theme.UpgradeText);
+            var gotLabel = Ui.ThemedLabel(got.transform, (_wheel.TargetCollected ? Strings.T("wheel.collected") : Strings.T("wheel.recorded")), 21, Theme.UpgradeText);
             gotLabel.fontStyle = FontStyle.Bold;
 
             // 「继续 · 选字」cta(稿 26pt 高、左右 22pt)
