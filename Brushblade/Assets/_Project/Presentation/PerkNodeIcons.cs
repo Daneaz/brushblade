@@ -54,7 +54,7 @@ namespace Brushblade.Presentation
                     },
                 };
 
-            // 被动树与机制树:一枝一枚,层间共用
+            // 被动树(每枝一个三段节点)与机制树:一枝一枚,层间共用
             return def.Branch switch
             {
                 "vigor" => "perk_hp",
@@ -64,7 +64,7 @@ namespace Brushblade.Presentation
                 "lore" => "perk_library",
                 "wide" => "perk_hand",
                 "insight" => "perk_loot",   // 慧眼/明察:战后选字(2026-10-02)
-                "qi" => "heal",             // 调息/吐纳:胜利回血(2026-10-02,原一气 AP)
+                "qi" => "heal",             // 调息/吐纳:胜利回血 / 战前回血(2026-10-02 原一气 AP;2026-10-20 吐纳改战前)
                 _ => "perk_amplify",
             };
         }

@@ -580,10 +580,10 @@ namespace Brushblade.Core.Tests
         public void Save_RoundTrips_UnlockedPerks()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("vigor_1");
+            meta.UnlockedPerks.Add("vigor_1_s1");
             meta.UnlockedPerks.Add("qi_1");
             var restored = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
-            Assert.That(PerkRules.IsUnlocked(restored, "vigor_1"), Is.True);
+            Assert.That(PerkRules.IsUnlocked(restored, "vigor_1_s1"), Is.True);
             Assert.That(PerkRules.IsUnlocked(restored, "qi_1"), Is.True);
         }
 

@@ -22,7 +22,7 @@ namespace Brushblade.Core
     /// WellspringCap / BurnPerStack / HeftCap / ShieldReflectPercent。</summary>
     public enum PerkEffect
     {
-        // 被动树:落在既有 BattleConfig 字段(2026-10-02 起每枝不叠加,取最高档)
+        // 被动树:落在既有 BattleConfig 字段(2026-10-20 起每枝一个三段节点,段值增量累计)
         MaxHp, AttackPercent, CritChance, Defense,
         // 机制树(全局)
         LibraryCapacity,            // 博闻:字库容量 +N
@@ -30,7 +30,7 @@ namespace Brushblade.Core
         EmptyLibraryDraws,          // 广纳:回合开始掉字时字库 ≤ 1 张,本回合掉字 +N(2026-10-18 由「为空」放宽)
         RewardOptions,              // 慧眼:战利品候选 +N
         RewardRerolls,              // 明察:每轮选字可整组重抽 N 次
-        VictoryHealPercent,         // 调息/吐纳:每场战斗胜利后回复最大生命 N%
+        VictoryHealPercent,         // 调息:每场战斗胜利后回复最大生命 N%
         // 五行树 L2(三段):本系字效果值 +N%
         ElementEffectPercent,
         // 五行树 L1(三段,2026-10-02):只对打出那张字的元素 = 本系生效
@@ -54,6 +54,7 @@ namespace Brushblade.Core
         // 机制树(2026-10-18 追加,枚举只在末尾追加)
         KillDraw,                   // 斩获终极技:击杀敌人时按概率掉 N 张字进字库(概率见 PerkRules.KillDrawChancePercent,每回合上限见 BattleEngine.KillDrawPerTurnCap)
         LowLibraryDraws,            // 集腋(2026-10-18 收尾 §7):回合开始掉字时字库不足 3 张,本回合掉字 +N(与广纳叠加)
+        PreBattleHealPercent,       // 吐纳(2026-10-20):每场战斗开打前回复最大生命 N%
     }
 
     /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 60 个普通段)。
@@ -199,14 +200,13 @@ namespace Brushblade.Core
                 PerkEffect.ShieldCarryPercent, 25,         // 固本:战后护盾保留 50% → 75%
                 PerkEffect.HeftSpendPercent, 150);         // 积土:释放威力 +150%,返还所耗层数 50%
 
-            // ---- 被动树:4 枝 × 3 层 ----
-            // 2026-10-02 用户拍板:被动树**不叠加**,每枝取已点亮的最高一档(见 Bonus)。
-            // 元枝点满 +1000 超出旧「不压过等级曲线 +500」锚点 —— 同日用户拍板放开,锚点作废;
-            // 力/锋/御的点满值因不叠加而减半,是有意的削弱。
-            AddPassive(list, "vigor", PerkEffect.MaxHp,         300, 500, 1000); // 不叠加,取最高档 1000 HP
-            AddPassive(list, "power", PerkEffect.AttackPercent,   5,  10,  15); // 不叠加,取最高档 15%
-            AddPassive(list, "edge",  PerkEffect.CritChance,      5,  10,  15); // 不叠加,取最高档 15 百分点
-            AddPassive(list, "guard", PerkEffect.Defense,        10,  15,  25); // 不叠加,取最高档 25 点
+            // ---- 被动树:4 枝 × 1 个三段节点 ----
+            // 2026-10-20 用户:每枝三层合为同一个图标的三段(参照「深根」)。段值存增量,累计 = 原各档
+            // (300/500/1000、5/10/15、5/10/15、10/15/25),与 2026-10-02「不叠加取最高档」的生效值逐档相同。
+            AddPassive(list, "vigor", PerkEffect.MaxHp,         300, 200, 500); // 累计 1000 HP
+            AddPassive(list, "power", PerkEffect.AttackPercent,   5,   5,   5); // 累计 15%
+            AddPassive(list, "edge",  PerkEffect.CritChance,      5,   5,   5); // 累计 15 百分点
+            AddPassive(list, "guard", PerkEffect.Defense,        10,   5,  10); // 累计 25 点
 
             // ---- 机制树:4 枝 × 2 层 ----
             AddMechanic(list, "lore",    PerkEffect.LibraryCapacity,   1, 1); // 容量 7→9
@@ -221,7 +221,11 @@ namespace Brushblade.Core
                 1, MechanicGates[0], MechanicCosts[0], PerkEffect.RewardOptions, 1));
             list.Add(new PerkNodeDef("insight_2", PerkTree.Mechanic, "insight", null,
                 2, MechanicGates[1], MechanicCosts[1], PerkEffect.RewardRerolls, 1));
-            AddMechanic(list, "qi",      PerkEffect.VictoryHealPercent, 5, 5); // 调息/吐纳:胜利回血 5%/10%
+            // 调息:胜利后回血 5%;吐纳(2026-10-20 用户):战斗前回血 5% —— 两层是**不同**效果
+            list.Add(new PerkNodeDef("qi_1", PerkTree.Mechanic, "qi", null,
+                1, MechanicGates[0], MechanicCosts[0], PerkEffect.VictoryHealPercent, 5));
+            list.Add(new PerkNodeDef("qi_2", PerkTree.Mechanic, "qi", null,
+                2, MechanicGates[1], MechanicCosts[1], PerkEffect.PreBattleHealPercent, 5));
 
             // 机制树节点总数:终极技一级的前置「机制树全部节点已解锁」按它计数(表变了自动跟着变)
             int mechanicNodes = 0;
@@ -242,7 +246,8 @@ namespace Brushblade.Core
                 prereq: new[]
                 {
                     new PerkRequirement(PerkTree.Wuxing, minDepth: 3),
-                    new PerkRequirement(PerkTree.Passive, minDepth: 2),
+                    // 被动树累计点亮 2 段(2026-10-20 被动枝合为三段节点前是「任一枝到 L2」,同样是 2 次点亮)
+                    new PerkRequirement(PerkTree.Passive, minDepth: 1, count: 2),
                 }));
             // ⚠ 前置只要五行 L2,缩放却数 L3 —— 这个错位是刻意的(spec §3.4):
             // L2 口径下 1,800 墨就能吃满 +3 起手抽取,会变成预算内的标配;
@@ -309,13 +314,17 @@ namespace Brushblade.Core
                     stage: s + 1, stageCount: 3, nodeKey: $"{branch}_{depth}"));
         }
 
+        /// <summary>一条被动枝 = 一个三段节点:id <c>{branch}_1_s{k}</c>,NodeKey <c>{branch}_1</c>,
+        /// 门槛/定价沿用原三层的 <see cref="PassiveGates"/>/<see cref="PassiveCosts"/>。</summary>
         private static void AddPassive(List<PerkNodeDef> list, string branch, PerkEffect effect,
             int v1, int v2, int v3)
         {
             var values = new[] { v1, v2, v3 };
-            for (int i = 0; i < 3; i++)
-                list.Add(new PerkNodeDef($"{branch}_{i + 1}", PerkTree.Passive, branch, null,
-                    i + 1, PassiveGates[i], PassiveCosts[i], effect, values[i]));
+            for (int s = 0; s < 3; s++)
+                list.Add(new PerkNodeDef($"{branch}_1_s{s + 1}", PerkTree.Passive, branch, null,
+                    1, PassiveGates[s], PassiveCosts[s], effect, values[s],
+                    baseValue: 0, scaling: PerkScaling.None, prereq: null,
+                    stage: s + 1, stageCount: 3, nodeKey: $"{branch}_1"));
         }
 
         private static void AddMechanic(List<PerkNodeDef> list, string branch, PerkEffect effect,
@@ -489,30 +498,18 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>已点节点里该效果的值之和(不分元素)。
-        ///
-        /// 被动树不叠加(2026-10-02 用户拍板):每枝只取已点亮的最高一档,再与其余节点
-        /// (含跨树相济)之和相加。⚠ 斩获终极技两级不叠加,不走这里,读 <see cref="KillDrawTier"/>。其余节点 Scaling == None 那一支仍是 sum += def.Value。</summary>
+        /// <summary>已点节点里该效果的值之和(不分元素)。三段节点(含被动枝)每段存增量,求和即累计值。
+        /// ⚠ 斩获终极技两级不叠加,不走这里,读 <see cref="KillDrawTier"/>。</summary>
         public static int Bonus(MetaState meta, PerkEffect effect)
         {
             int sum = 0;
-            Dictionary<string, int> passiveBest = null;
             foreach (var id in meta.UnlockedPerks)
             {
                 if (!ById.TryGetValue(id, out var def) || def.Effect != effect) continue;
-                if (def.Tree == PerkTree.Passive)
-                {
-                    // 被动树不叠加(2026-10-02):每枝取已点亮的最高一档
-                    passiveBest ??= new Dictionary<string, int>();
-                    passiveBest[def.Branch] = passiveBest.TryGetValue(def.Branch, out var cur)
-                        ? System.Math.Max(cur, def.Value) : def.Value;
-                    continue;
-                }
                 sum += def.Scaling == PerkScaling.None
                     ? def.Value
                     : def.BaseValue + def.Value * ScaleCountOf(meta, def);
             }
-            if (passiveBest != null) foreach (var v in passiveBest.Values) sum += v;
             return sum;
         }
 

@@ -372,7 +372,8 @@ namespace Brushblade.Presentation
             // 斩获终极技一级:机制树全部节点(Count 恰为该树总段数时才印「全部」,别的谓词仍是「任一枝」)
             PerkTree.Mechanic when req.Count == PerkRules.TreeNodeCount(PerkTree.Mechanic, req.MinDepth) =>
                 Strings.T("perk.detail.cross_req.mechanic_all"),
-            PerkTree.Passive => Strings.T("perk.detail.cross_req.passive", ("depth", req.MinDepth)),
+            // 被动树 2026-10-20 起每枝一个三段节点,前置按累计点亮段数说
+            PerkTree.Passive => Strings.T("perk.detail.cross_req.passive", ("count", req.Count)),
             PerkTree.Mechanic => Strings.T("perk.detail.cross_req.mechanic", ("depth", req.MinDepth)),
             _ => Strings.T("perk.detail.cross_req.wuxing", ("depth", req.MinDepth)),
         };

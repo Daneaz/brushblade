@@ -33,18 +33,11 @@ namespace Brushblade.Presentation
             "earth_2" => Strings.T("perk.node.earth_2.name"),
             "earth_3" => Strings.T("perk.node.earth_3.name"),
             "earth_4" => Strings.T("perk.node.earth_4.name"),
+            // 被动四枝(2026-10-20 起各为一个三段节点,沿用原 L1 的名字)
             "vigor_1" => Strings.T("perk.node.vigor_1.name"),
-            "vigor_2" => Strings.T("perk.node.vigor_2.name"),
-            "vigor_3" => Strings.T("perk.node.vigor_3.name"),
             "power_1" => Strings.T("perk.node.power_1.name"),
-            "power_2" => Strings.T("perk.node.power_2.name"),
-            "power_3" => Strings.T("perk.node.power_3.name"),
             "edge_1" => Strings.T("perk.node.edge_1.name"),
-            "edge_2" => Strings.T("perk.node.edge_2.name"),
-            "edge_3" => Strings.T("perk.node.edge_3.name"),
             "guard_1" => Strings.T("perk.node.guard_1.name"),
-            "guard_2" => Strings.T("perk.node.guard_2.name"),
-            "guard_3" => Strings.T("perk.node.guard_3.name"),
             "lore_1" => Strings.T("perk.node.lore_1.name"),
             "lore_2" => Strings.T("perk.node.lore_2.name"),
             "wide_1" => Strings.T("perk.node.wide_1.name"),
@@ -99,16 +92,12 @@ namespace Brushblade.Presentation
             "water_4" => Strings.T("perk.node.water_4.desc", ("value", def.Value)),
             "fire_4" => Strings.T("perk.node.fire_4.desc"),
             "earth_4" => Strings.T("perk.node.earth_4.desc", ("value", def.Value)),
-            // 被动树:同枝三层共用一条模板(2026-10-02 起不叠加,取已点最高档)
-            "vigor_1" or "vigor_2" or "vigor_3" =>
-                Strings.T("perk.node.vigor.desc", ("value", def.Value)),
-            "power_1" or "power_2" or "power_3" =>
-                Strings.T("perk.node.power.desc", ("value", def.Value)),
-            "edge_1" or "edge_2" or "edge_3" =>
-                Strings.T("perk.node.edge.desc", ("value", def.Value)),
-            "guard_1" or "guard_2" or "guard_3" =>
-                Strings.T("perk.node.guard.desc", ("value", def.Value),
-                    ("percent", StatusText.DefenseToReductionPercent(def.Value))),
+            // 被动树:每枝一个三段节点(2026-10-20),印累计到本段的值
+            "vigor_1" => Strings.T("perk.node.vigor.desc", ("value", ShownValue(def))),
+            "power_1" => Strings.T("perk.node.power.desc", ("value", ShownValue(def))),
+            "edge_1" => Strings.T("perk.node.edge.desc", ("value", ShownValue(def))),
+            "guard_1" => Strings.T("perk.node.guard.desc", ("value", ShownValue(def)),
+                ("percent", StatusText.DefenseToReductionPercent(ShownValue(def)))),
             // 机制树:博闻同枝两层同构共用模板;广纳/慧眼/调息两层措辞不同,各写各的
             "lore_1" or "lore_2" =>
                 Strings.T("perk.info.effect.library", ("value", def.Value)),
@@ -166,8 +155,8 @@ namespace Brushblade.Presentation
             PerkEffect.MaxHp => Strings.T("perk.detail.max_hp"),
             PerkEffect.AttackPercent => Strings.T("perk.detail.attack_percent"),
             PerkEffect.CritChance => Strings.T("perk.detail.crit_chance"),
-            PerkEffect.Defense => Strings.T("perk.detail.defense", ("value", def.Value),
-                ("percent", StatusText.DefenseToReductionPercent(def.Value))),
+            PerkEffect.Defense => Strings.T("perk.detail.defense", ("value", ShownValue(def)),
+                ("percent", StatusText.DefenseToReductionPercent(ShownValue(def)))),
             PerkEffect.LibraryCapacity => Strings.T("perk.detail.library_capacity"),
             PerkEffect.ElementEffectPercent => Strings.T("perk.detail.element_effect_percent",
                 ("element", ElementNameOf(def)), ("value", ShownValue(def))),
@@ -214,6 +203,8 @@ namespace Brushblade.Presentation
                 Strings.T("perk.detail.reward_rerolls", ("value", def.Value)),
             PerkEffect.VictoryHealPercent =>
                 Strings.T("perk.detail.victory_heal", ("value", def.Value)),
+            PerkEffect.PreBattleHealPercent =>   // 吐纳(2026-10-20)
+                Strings.T("perk.detail.pre_battle_heal", ("value", def.Value)),
             // DrawRolls 只剩跨树博采在用、KillDraw 只有斩获终极技在用,都走 CrossDetailText,到不了这里
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
         };

@@ -31,8 +31,8 @@ namespace Brushblade.Core.Tests
         private static MetaState LevelElevenWithPerks()
         {
             var meta = new MetaState { CharacterXp = XpForLevel(11) };
-            meta.UnlockedPerks.Add("vigor_1"); // 元 L1:300 HP
-            meta.UnlockedPerks.Add("vigor_2"); // 元 L2:500 HP(不叠加,取最高档 +500)
+            meta.UnlockedPerks.Add("vigor_1_s1"); // 元第 1 段:300 HP
+            meta.UnlockedPerks.Add("vigor_1_s2"); // 元第 2 段:+200,累计 +500
             meta.UnlockedPerks.Add("lore_1");  // 博闻 L1:+1 字库格
             meta.UnlockedPerks.Add("lore_2");  // 博闻 L2:+1 字库格(合计 +2)
             return meta;
