@@ -19,6 +19,9 @@ namespace Brushblade.Presentation
         private Action<Vector2> _onDrop;
         private Action<Vector2> _onDragMove;
         private RectTransform _ghost;
+        private RectTransform _faceLayer;
+        private Coroutine _ghostFlip;
+        private const float GhostSize = 72f;
 
         /// <param name="canDrag">此刻能否拖(结算动画中/非玩家回合返回 false)。</param>
         /// <param name="onDrop">松手时回调,参数为松手处的屏幕坐标。</param>
@@ -61,9 +64,16 @@ namespace Brushblade.Presentation
             go.transform.SetParent(canvas.transform, false);
             go.transform.SetAsLastSibling(); // 压在所有 UI 之上,跟手不被遮
             _ghost = (RectTransform)go.transform;
-            _ghost.sizeDelta = new Vector2(72, 72);
+            _ghost.sizeDelta = new Vector2(GhostSize, GhostSize);
 
-            var label = go.AddComponent<Text>();
+            // 面层垫在字底下(快速施法跟手翻面才画东西,平时是空的):字移到子物体,面层排在它前面
+            _faceLayer = (RectTransform)new GameObject("Face", typeof(RectTransform)).transform;
+            _faceLayer.SetParent(_ghost, false);
+            Ui.Stretch(_faceLayer);
+            var glyphGo = new GameObject("Glyph", typeof(RectTransform));
+            glyphGo.transform.SetParent(_ghost, false);
+            Ui.Stretch((RectTransform)glyphGo.transform);
+            var label = glyphGo.AddComponent<Text>();
             // 必须用子集字体:四叠字是 PUA 码位(U+E625/E626),字形由部件 2×2 拼合而来,
             // 只存在于我们自己生成的子集里 —— 走系统字体会拖出一个空白(与字牌、飞牌同源)
             label.font = Theme.TitleFont;
@@ -112,6 +122,49 @@ namespace Brushblade.Presentation
             if (_ghost != null) _ghost.localScale = Vector3.one;
         }
 
+        // 跟手翻面(drafts/quickcast ③):现成手牌翻面动效的缩短版,整段 0.14s,压扁 / 展开各一半
+        private const float GhostFlipHalf = 0.07f;
+        private const float GhostFlipSquash = 0.04f;
+
+        /// <summary>快速施法的跟手牌(drafts/quickcast ③):字底下的面层由调用方画(淡底 + 面印)。
+        /// 首次调用直接铺上;之后每调一次 = 压扁 → 换面 → 展开。没在拖时什么也不做。
+        /// <paramref name="build"/> 拿到的是清空后的面层(撑满 72×72 字影)。</summary>
+        public void SetGhostFace(Action<RectTransform> build)
+        {
+            if (_ghost == null || _faceLayer == null) return;
+            if (_faceLayer.childCount == 0)
+            {
+                build(_faceLayer);
+                return;
+            }
+            if (_ghostFlip != null) StopCoroutine(_ghostFlip);
+            _ghostFlip = StartCoroutine(GhostFlipRoutine(build));
+        }
+
+        private System.Collections.IEnumerator GhostFlipRoutine(Action<RectTransform> build)
+        {
+            yield return ScaleGhostX(1f, GhostFlipSquash);
+            if (_ghost == null) yield break;
+            for (int i = _faceLayer.childCount - 1; i >= 0; i--) Destroy(_faceLayer.GetChild(i).gameObject);
+            build(_faceLayer);
+            yield return ScaleGhostX(GhostFlipSquash, 1f);
+            _ghostFlip = null;
+        }
+
+        private System.Collections.IEnumerator ScaleGhostX(float from, float to)
+        {
+            float t = 0f;
+            while (t < GhostFlipHalf && _ghost != null)
+            {
+                t += Time.unscaledDeltaTime;
+                float p = Mathf.Clamp01(t / GhostFlipHalf);
+                var s = _ghost.localScale;
+                _ghost.localScale = new Vector3(Mathf.Lerp(from, to, p * p * (3f - 2f * p)) * s.y, s.y, 1f);
+                yield return null;
+            }
+            if (_ghost != null) _ghost.localScale = new Vector3(to * _ghost.localScale.y, _ghost.localScale.y, 1f);
+        }
+
         public void OnDrag(PointerEventData eventData)
         {
             // ⚠ 守卫必须包住这两行:起拖被 _canDrag() 拒掉时 _ghost 保持 null,但 uGUI 的
@@ -138,6 +191,9 @@ namespace Brushblade.Presentation
             // 字牌一起销毁,挂在这边的协程会当场断掉,字影就永远留在屏幕上了
             var releasing = _ghost;
             _ghost = null;
+            if (_ghostFlip != null) { StopCoroutine(_ghostFlip); _ghostFlip = null; }
+            var held = releasing.localScale;
+            releasing.localScale = new Vector3(held.y, held.y, 1f);   // 翻到一半松手:先展平再淡出
             var fader = releasing.gameObject.AddComponent<GhostRelease>();
             fader.Begin();
             _onDrop?.Invoke(eventData.position);
@@ -165,8 +221,9 @@ namespace Brushblade.Presentation
         private System.Collections.IEnumerator Fade()
         {
             var rect = (RectTransform)transform;
-            var label = GetComponent<Text>();
-            Color from = label != null ? label.color : Color.white;
+            // 整个字影一起淡(字 + 快速施法的面层):字在子物体上,走 CanvasGroup
+            var group = gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
             float t = 0f;
             while (t < Duration)
             {
@@ -174,7 +231,7 @@ namespace Brushblade.Presentation
                 float k = t / Duration;
                 float scale = 1f - 0.25f * k;
                 rect.localScale = new Vector3(scale, scale, 1f);
-                if (label != null) label.color = new Color(from.r, from.g, from.b, from.a * (1f - k));
+                group.alpha = 1f - k;
                 yield return null;
             }
             Destroy(gameObject);

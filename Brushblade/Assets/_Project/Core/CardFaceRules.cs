@@ -16,9 +16,33 @@ namespace Brushblade.Core
         Graft = 16,
     }
 
+    /// <summary>落点所在阵营(快速施法用)。Ally = 玩家 / 木灵 / 空召唤位 / 嫁接 / 尸体。</summary>
+    public enum FaceSide
+    {
+        Enemy,
+        Ally,
+    }
+
     /// <summary>两面字的静态规则(spec v7 §2.1/§2.2)。纯查询,不看场面、不改结算,对仿真恒等。</summary>
     public static class CardFaceRules
     {
+        private const FaceLanding AllyLandings =
+            FaceLanding.Self | FaceLanding.Summons | FaceLanding.EmptySlot | FaceLanding.Graft;
+
+        /// <summary>快速施法(spec 2026-10-20):落到这一侧用哪一面。只有一面能落这一侧 → 那一面;
+        /// 两面都能 → <paramref name="faceUp"/>;都不能,或单面字 → null。</summary>
+        public static CardFace? QuickCastFace(CharDef def, FaceSide side, CardFace faceUp, int cardLevel)
+        {
+            if (!HasTwoFaces(def)) return null;
+            var mask = side == FaceSide.Enemy ? FaceLanding.Enemy : AllyLandings;
+            bool attack = (Landing(def, CardFace.Attack, cardLevel) & mask) != 0;
+            bool feature = (Landing(def, CardFace.Feature, cardLevel) & mask) != 0;
+            if (attack && feature) return faceUp;
+            if (attack) return CardFace.Attack;
+            if (feature) return CardFace.Feature;
+            return null;
+        }
+
         /// <summary>两面字:攻击面与五行面都有本体效果。单面字不能翻。</summary>
         public static bool HasTwoFaces(CharDef def) =>
             def.AttackEffects.Count > 0 && def.Effects.Count > 0;
