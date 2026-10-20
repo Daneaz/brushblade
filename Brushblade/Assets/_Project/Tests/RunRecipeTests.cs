@@ -205,7 +205,7 @@ namespace Brushblade.Core.Tests
         };
 
         [Test]
-        public void EventGift_UncollectedChar_IsAccepted_AndEntersRecipes_NotUnfamiliar()
+        public void EventGift_UncollectedChar_IsAccepted_AndEntersRecipes_Unfamiliar()   // 用户 10-20:奇遇送的未收集字也生疏
         {
             var run = Run(TwoFloors(Gift("炎")));
             WinFloor(run);
@@ -213,19 +213,19 @@ namespace Brushblade.Core.Tests
             Assert.That(run.ChooseEventOption(0), Is.True, "配方集兜底后,送未收集字不再拒收");
             Assert.That(run.CarriedLibrary.Contains("炎"), Is.True);
             Assert.That(run.RunRecipes.Contains("炎"), Is.True);
-            Assert.That(run.UnfamiliarChars.Contains("炎"), Is.False);
+            Assert.That(run.UnfamiliarChars.Contains("炎"), Is.True);
             run.SkipReward();
             Assert.That(run.Battle.ComposableChars.Contains("炎"), Is.True, "拆了能合回来");
-            Assert.That(run.Battle.IsUnfamiliar("炎"), Is.False);
+            Assert.That(run.Battle.IsUnfamiliar("炎"), Is.True);
         }
 
         [Test]
-        public void EventGift_ClearsUnfamiliarFromWheel() // Review Focus 2:后来经奇遇送 → 不生疏
+        public void EventGift_AfterWheel_StaysUnfamiliar_NoDuplicate() // 用户 10-20:奇遇送的未收集字也生疏,不再撤销
         {
             var run = Run(TwoFloors(Gift("炎")), recipes: new[] { "炎" }, unfamiliar: new[] { "炎" });
             WinFloor(run);
             Assert.That(run.ChooseEventOption(0), Is.True);
-            Assert.That(run.UnfamiliarChars.Contains("炎"), Is.False);
+            Assert.That(run.UnfamiliarChars.Count(r => r == "炎"), Is.EqualTo(1));
             Assert.That(run.RunRecipes.Count(r => r == "炎"), Is.EqualTo(1), "不重复记入");
         }
 
@@ -236,6 +236,7 @@ namespace Brushblade.Core.Tests
             WinFloor(run);
             Assert.That(run.ChooseEventOption(0), Is.True);
             Assert.That(run.RunRecipes, Is.Empty);
+            Assert.That(run.UnfamiliarChars, Is.Empty, "已收集的字永不生疏");
         }
     }
 }

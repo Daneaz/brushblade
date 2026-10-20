@@ -481,12 +481,12 @@ namespace Brushblade.Core
         private bool IsCollected(string charId) =>
             _battleConfig.UnlockedChars == null || _battleConfig.UnlockedChars.Contains(charId);
 
-        /// <summary>奇遇送字:未收集的记进配方集;奇遇送的字维持原强度 —— 先前转盘记下的生疏一并撤销。</summary>
+        /// <summary>奇遇送字:未收集的记进配方集,并同转盘一样记为生疏(用户 2026-10-20:防前期拿到橙字跃迁)。</summary>
         private void RecordGiftRecipe(string charId)
         {
             if (IsCollected(charId)) return;
             if (!_runRecipes.Contains(charId)) _runRecipes.Add(charId);
-            _unfamiliar.Remove(charId);
+            if (!_unfamiliar.Contains(charId)) _unfamiliar.Add(charId);
         }
 
         /// <summary>奇遇部件溢出待决议项(队首为当前项;EventOverflow 阶段有效,2026-07-24)。</summary>
