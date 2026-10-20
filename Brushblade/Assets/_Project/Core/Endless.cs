@@ -99,6 +99,7 @@ namespace Brushblade.Core
                 RewardPool = config.BandFor(fromDepth).RewardPool,
                 EventPool = events ?? Array.Empty<EventDef>(),
                 EventChancePercent = eventChancePercent,
+                EventPity = true,        // 每段保底(2026-10-21):无尽的段才开,手写夹具默认关
                 FromDepth = fromDepth,   // 召唤槽位按当前层解锁,RunEngine 靠它换算绝对层号
                 KillInkDrops = true,
                 // 配方转盘(spec 2026-10-19 §2):11 层起的 Boss / 精英层;同 (塔种子, 层) 同结果,续爬重建一致

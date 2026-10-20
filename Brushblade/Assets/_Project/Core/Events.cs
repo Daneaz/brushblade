@@ -40,8 +40,26 @@ namespace Brushblade.Core
         // 出现的层数范围(2026-10-20,字摊按层拆两档):按刚打完那一层判,两端都含,0 = 不设限
         public int MinDepth { get; set; }
         public int MaxDepth { get; set; }
+        // 等级(2026-10-21):1~4,决定抽取权重(EventRules.WeightOf:1 级最常见)。
+        // 0 = 未分级,只给手写测试夹具用;配置文件里必须写 1~4(ConfigLoader 校验)。
+        public int Tier { get; set; }
 
         public bool AppliesAt(int depth) =>
             (MinDepth == 0 || depth >= MinDepth) && (MaxDepth == 0 || depth <= MaxDepth);
+    }
+
+    /// <summary>奇遇抽取规则(2026-10-21)。</summary>
+    public static class EventRules
+    {
+        /// <summary>等级 → 抽取权重:1→4, 2→3, 3→2, 4→1;0(未分级)按 1。其余越界抛异常。</summary>
+        public static int WeightOf(int tier) => tier switch
+        {
+            0 => 1,
+            1 => 4,
+            2 => 3,
+            3 => 2,
+            4 => 1,
+            _ => throw new ArgumentOutOfRangeException(nameof(tier), tier, "奇遇等级须为 0~4"),
+        };
     }
 }

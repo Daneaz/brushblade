@@ -194,6 +194,7 @@ namespace Brushblade.Data
             public List<EventOptionDto> Options { get; set; }
             public int MinDepth { get; set; }
             public int MaxDepth { get; set; }
+            public int Tier { get; set; }
         }
 
         private sealed class EventOptionDto
@@ -307,6 +308,8 @@ namespace Brushblade.Data
             var events = new List<EventDef>();
             foreach (var eventDto in file.Events ?? new List<EventDto>())
             {
+                if (eventDto.Tier < 1 || eventDto.Tier > 4)
+                    throw new ConfigException($"奇遇「{eventDto.Id}」的 tier 须为 1~4");
                 var options = new List<EventOption>();
                 foreach (var optionDto in eventDto.Options ?? new List<EventOptionDto>())
                 {
@@ -338,7 +341,7 @@ namespace Brushblade.Data
                 events.Add(new EventDef
                 {
                     Id = eventDto.Id, Text = eventDto.Text, Options = options,
-                    MinDepth = eventDto.MinDepth, MaxDepth = eventDto.MaxDepth,
+                    MinDepth = eventDto.MinDepth, MaxDepth = eventDto.MaxDepth, Tier = eventDto.Tier,
                 });
             }
 

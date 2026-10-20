@@ -595,7 +595,7 @@ namespace Brushblade.Core.Tests
                 ""dropTable"": [],
                 ""eventChance"": 40,
                 ""events"": [
-                    { ""id"": ""测字先生"", ""text"": ""先生请你抽一字。"",
+                    { ""id"": ""测字先生"", ""text"": ""先生请你抽一字。"", ""tier"": 2,
                       ""options"": [
                         { ""label"": ""求字"", ""gainChar"": ""灯"" },
                         { ""label"": ""求财"", ""ink"": 40, ""hpDelta"": -3, ""gainComponents"": [ ""火"" ], ""inkCost"": 15, ""componentCost"": 2 }
@@ -626,7 +626,7 @@ namespace Brushblade.Core.Tests
             var campaign = ConfigLoader.LoadCampaign(@"{
                 ""enemies"": [], ""dropTable"": [],
                 ""events"": [
-                    { ""id"": ""x"", ""text"": ""t"",
+                    { ""id"": ""x"", ""text"": ""t"", ""tier"": 1,
                       ""options"": [
                         { ""label"": ""求墨"", ""randomComponents"": 2 },
                         { ""label"": ""换字"", ""componentCost"": 2, ""gainCharChoices"": [ ""灯"", ""火"" ] },

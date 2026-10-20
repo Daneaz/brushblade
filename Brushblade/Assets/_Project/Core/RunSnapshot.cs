@@ -159,6 +159,7 @@ namespace Brushblade.Core
         public int CarriedHp { get; set; }
         public int MaxHpBonus { get; set; } // 局内血量上限加成(奇遇累加,2026-08-04)
         public int MaxHpEventCount { get; set; } // 本局已用掉的改上限次数(上限 10,2026-10-19)
+        public bool EventSeenThisSegment { get; set; } // 本段是否已出过奇遇(每段保底判据,2026-10-21)
         public int CarriedNormalShield { get; set; }
         public int CarriedShieldAccum { get; set; }
         public int CarriedHealAccum { get; set; }

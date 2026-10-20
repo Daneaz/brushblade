@@ -43,6 +43,12 @@ namespace Brushblade.Core
         /// <summary>两场战斗之间触发奇遇的概率(百分比,0~100)。</summary>
         public int EventChancePercent { get; set; }
 
+        /// <summary>每段保底开关(2026-10-21):true 时,段内最后一个非 Boss 层若本段还没出过奇遇,
+        /// 不掷骰必出(池里没有当层可出的奇遇则照旧进选字)。缺省 false —— 手写的两层夹具里
+        /// 第 1 层恰好就是「最后一个非 Boss 层」,默认开会改写它们的概率语义与 RNG 序列;
+        /// 只有 <c>EndlessGenerator.BuildSegment</c> 置 true。</summary>
+        public bool EventPity { get; set; }
+
         /// <summary>本段起始层的**绝对层号**(1-based,2026-08-27)。
         /// <c>FromDepth + BattleIndex</c> 就是当前层 —— 召唤槽位的解锁曲线按它逐场算。
         ///
@@ -92,6 +98,8 @@ namespace Brushblade.Core
         // 本局已用掉的改上限次数(2026-10-19 用户拍板):复利保留,但一局最多 MaxHpEventCap 次。
         // 掷空反向扣的那次也算;跨段经构造参数带入、段内经 RunSnapshot 续爬。
         private int _maxHpEventCount;
+        // 本段是否已出过奇遇(2026-10-21,保底用):新段默认 false,断点快照往返
+        private bool _eventSeenThisSegment;
 
         /// <summary>一局(一次登塔)里带 MaxHpPercent 的奇遇选项最多成交几次(2026-10-19)。</summary>
         public const int MaxHpEventCap = 10;
@@ -187,6 +195,7 @@ namespace Brushblade.Core
                 CarriedHp = _carriedHp,
                 MaxHpBonus = _maxHpBonus,
                 MaxHpEventCount = _maxHpEventCount,
+                EventSeenThisSegment = _eventSeenThisSegment,
                 CarriedNormalShield = _carriedNormalShield,
                 CarriedShieldAccum = _carriedShieldAccum,
                 CarriedHealAccum = _carriedHealAccum,
@@ -233,6 +242,7 @@ namespace Brushblade.Core
                 _carriedHp = snapshot.CarriedHp,
                 _maxHpBonus = snapshot.MaxHpBonus,
                 _maxHpEventCount = snapshot.MaxHpEventCount,
+                _eventSeenThisSegment = snapshot.EventSeenThisSegment,
                 _carriedNormalShield = snapshot.CarriedNormalShield,
                 _carriedShieldAccum = snapshot.CarriedShieldAccum,
                 _carriedHealAccum = snapshot.CarriedHealAccum,
@@ -771,12 +781,27 @@ namespace Brushblade.Core
         {
             bool finalBattle = BattleIndex >= _runConfig.Encounters.Count - 1;
             var eligible = _runConfig.EventPool.Where(e => e.AppliesAt(CurrentDepth)).ToList();
-            if (!finalBattle && eligible.Count > 0
-                && _random.Next(100) < _runConfig.EventChancePercent)
+            if (!finalBattle && eligible.Count > 0)
             {
-                CurrentEvent = eligible[_random.Next(eligible.Count)];
-                Phase = RunPhase.Event;
-                return;
+                // 保底(2026-10-21):段内最后一个非 Boss 层且本段没出过 → 不掷骰必中
+                bool pity = _runConfig.EventPity
+                    && BattleIndex == _runConfig.Encounters.Count - 2 && !_eventSeenThisSegment;
+                if (pity || _random.Next(100) < _runConfig.EventChancePercent)
+                {
+                    // 按等级加权抽(权重 EventRules.WeightOf),顺序累加落区间
+                    int total = eligible.Sum(e => EventRules.WeightOf(e.Tier));
+                    int roll = _random.Next(total);
+                    EventDef picked = eligible[eligible.Count - 1];
+                    foreach (var candidate in eligible)
+                    {
+                        roll -= EventRules.WeightOf(candidate.Tier);
+                        if (roll < 0) { picked = candidate; break; }
+                    }
+                    CurrentEvent = picked;
+                    _eventSeenThisSegment = true;
+                    Phase = RunPhase.Event;
+                    return;
+                }
             }
             EnterReward();
         }
@@ -1025,6 +1050,9 @@ namespace Brushblade.Core
 
         /// <summary>本局已用掉的改上限次数(上限 <see cref="MaxHpEventCap"/>);跨段时写进 EndlessSaveState 再经构造参数传回。</summary>
         public int MaxHpEventCount => _maxHpEventCount;
+
+        /// <summary>本段是否已出过奇遇(保底判据,2026-10-21;供测试)。</summary>
+        public bool EventSeenThisSegment => _eventSeenThisSegment;
 
         /// <summary>该奇遇选项因次数上限而不可选(2026-10-19):带 MaxHpPercent 且本局已满 <see cref="MaxHpEventCap"/> 次。
         /// 与 ComponentCost 不足同一套「不可选」—— 表现层据此置灰。</summary>
