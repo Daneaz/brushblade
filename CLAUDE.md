@@ -121,10 +121,12 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - **先设计、后实现**:任何玩家可见的 UI 界面(新增或改版)都必须先经 Claude Design 出稿,
   用户确认通过后才能动 Presentation 代码。设计稿未通过 = 不开工。
 - **本项目全流程不发布 artifact**(`.claude/settings.json` 已设 `enableArtifact: false`)。
-- **设计统一由常驻 session `designer` 完成**,本 session 不自己出稿:
-  1. 先 `ListAgents` 查找名为 `designer` 的 session;
-  2. 存在 → 用 `SendMessage` 把需求(界面、场景、约束、要落库的路径)发给它,等它交稿;
-  3. 不存在 → **停下**,提示用户开启或恢复 `designer` session,不要自己代为设计。
+- **设计统一由 sub-agent `designer` 完成**(定义见 `.claude/agents/designer.md`),本 session 不自己出稿:
+  1. 用 `Agent` 工具派 `subagent_type: "designer"`,prompt 里写清需求:界面、场景、约束(含两档屏宽)、
+     依据的 spec 小节、要落库的 `drafts/<功能>/` 路径;它出稿、自检、提交 `main` 后回报提交号;
+  2. 改稿:同一会话内用 `SendMessage` 续派给刚才那个 agent(保留上下文);跨会话就新派一个,
+     prompt 里点名要改的 `drafts/<功能>/`,让它先读该目录的 `README.md` 回填记录;
+  3. 它的回报不会直接显示给用户 —— 由本 session 转述要点、需拍板的取舍与提交号。
 - **一个界面从设计到上线走六步**,每步的产物落在下表对应目录:
   1. **出稿**:`designer` 出稿,落 `drafts/<功能>/`,在 `drafts/README.md` 登记一行,状态 `待审`。
   2. **拍板**:用户确认 → 状态改 `已拍板 · 待实现`。未拍板不开工。
