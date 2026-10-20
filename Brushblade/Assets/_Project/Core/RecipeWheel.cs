@@ -19,6 +19,12 @@ namespace Brushblade.Core
 
         /// <summary>落中的配方目标字。</summary>
         public string Target => Slots[Landed];
+
+        /// <summary>同档补位补进来的**已收集**字(用户 2026-10-21);落在这些格上不记配方、不生疏,结果卡写「已收集」。</summary>
+        public List<string> CollectedSlots { get; set; } = new();
+
+        /// <summary>落中的字转盘当时已收集。</summary>
+        public bool TargetCollected => CollectedSlots.Contains(Target);
     }
 
     /// <summary>配方转盘(spec 2026-10-19 §2):5 层起 Boss / 精英层战后转一次,4 低档 + 1 高档,
@@ -74,6 +80,7 @@ namespace Brushblade.Core
             if (lows.Count + highs.Count == 0) return null;
 
             var result = new RecipeWheelResult { Slots = lows.Concat(highs).ToList() };
+            result.CollectedSlots = result.Slots.Where(owned.Contains).ToList();
             result.HighIndex = highs.Count > 0 ? lows.Count : -1;
             if (result.HighIndex < 0) result.Landed = random.Next(lows.Count);
             else if (lows.Count == 0) result.Landed = result.HighIndex;
