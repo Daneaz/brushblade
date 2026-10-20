@@ -423,8 +423,14 @@ namespace Brushblade.Core.Tests
             Assert.That(byId["养气"].Options[0].MaxHpPercent, Is.EqualTo(30));
             Assert.That(byId["养气"].Options[0].MaxHpChancePercent, Is.EqualTo(0)); // 必得
 
-            Assert.That(byId["淬骨"].Options[0].MaxHpPercent, Is.EqualTo(30));
-            Assert.That(byId["淬骨"].Options[0].MaxHpChancePercent, Is.EqualTo(80)); // 两成反噬
+            // 2026-10-20:猛火 七成 ±50% / 文火 八成 ±30%,两档都是赌
+            Assert.That(byId["淬骨"].Options[0].MaxHpPercent, Is.EqualTo(50));
+            Assert.That(byId["淬骨"].Options[0].MaxHpChancePercent, Is.EqualTo(70)); // 三成反噬
+            Assert.That(byId["淬骨"].Options[1].MaxHpPercent, Is.EqualTo(30));
+            Assert.That(byId["淬骨"].Options[1].MaxHpChancePercent, Is.EqualTo(80)); // 两成反噬
+            Assert.That(byId["淬骨"].Options[1].HpDelta, Is.EqualTo(0));
+
+            Assert.That(byId["赌书"].Options[1].HpDelta, Is.EqualTo(300)); // 2026-10-20:观战回血与押注对等
 
             Assert.That(byId["换气"].Options[0].MaxHpPercent, Is.EqualTo(30));
             Assert.That(byId["换气"].Options[0].ComponentCost, Is.EqualTo(1));
