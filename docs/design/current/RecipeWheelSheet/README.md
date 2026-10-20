@@ -1,4 +1,4 @@
-配方转盘(叠在战斗屏之上):11 层起 Boss / 精英层打赢后、选字(或奇遇)之前弹出,转一次 5 选 1 的局内配方。
+配方转盘(叠在战斗屏之上):5 层起 Boss / 精英层打赢后、选字(或奇遇)之前弹出,转一次 5 选 1 的局内配方。
 对应实现 `RecipeWheelSheet.Show`(`Presentation/UI/RecipeWheelSheet.cs`),由 `BattleView.AdvanceAfterSettle` 在 `RunEngine.LastRecipeWheel` 非空时打开;
 点「继续 · 选字」后弹窗销毁、`BattleView.Refresh` 照常进选字 / 奇遇。拍板稿 `drafts/recipe-wheel/Wheel.dc.html`。
 本页 pt = 代码常量 ÷ 2.093,文案 = `strings.zh-CN.json` 的 `wheel.*`。`preview.html` 画的是**结果卡**那一拍(落在高档格「沐」)。

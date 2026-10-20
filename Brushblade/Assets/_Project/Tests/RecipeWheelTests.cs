@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>配方转盘(spec 2026-10-19 §2):11 层起 Boss / 精英层战后,4 低档 + 1 高档,高档 10%。</summary>
+    /// <summary>配方转盘(spec 2026-10-19 §2):5 层起 Boss / 精英层战后,4 低档 + 1 高档,高档 10%。</summary>
     public class RecipeWheelTests
     {
         // 部件:五行偏旁 + 两个声旁
@@ -46,11 +46,11 @@ namespace Brushblade.Core.Tests
         // ---- 时机 ----
 
         [Test]
-        public void AppliesAt_OnlyBossDepthsFromEleven()
+        public void AppliesAt_OnlyBossDepthsFromFive()
         {
             var config = new EndlessConfig(); // BossEvery = 5
             var hits = Enumerable.Range(1, 45).Where(d => RecipeWheel.AppliesAt(config, d)).ToArray();
-            Assert.That(hits, Is.EqualTo(new[] { 15, 20, 25, 30, 35, 40, 45 }), "5 / 10 层不出,普通层不出;精英(15/25…)与主题 Boss(20/30…)都出");
+            Assert.That(hits, Is.EqualTo(new[] { 5, 10, 15, 20, 25, 30, 35, 40, 45 }), "用户 10-20 改 5 层起;普通层不出;精英与主题 Boss 都出");
         }
 
         [Test]
@@ -65,7 +65,7 @@ namespace Brushblade.Core.Tests
                         BossPool = new[] { new EnemyDef("排山倒海", Element.Water, 12, 6) } },
                 },
             };
-            Assert.That(EndlessGenerator.BuildSegment(config, 6, 42).RecipeWheelDepths, Is.Empty, "第 10 层 Boss 不出");
+            Assert.That(EndlessGenerator.BuildSegment(config, 6, 42).RecipeWheelDepths.ToArray(), Is.EqualTo(new[] { 10 }), "5 层起(用户 10-20):第 10 层 Boss 也出");
             var segment = EndlessGenerator.BuildSegment(config, 11, 42);
             Assert.That(segment.RecipeWheelDepths.ToArray(), Is.EqualTo(new[] { 15 }));
             Assert.That(segment.RecipeWheelSeed, Is.EqualTo(42));
@@ -75,6 +75,7 @@ namespace Brushblade.Core.Tests
 
         // ---- 分档表 ----
 
+        [TestCase(5, CardRarity.Blue, CardRarity.Purple)]
         [TestCase(11, CardRarity.Blue, CardRarity.Purple)]
         [TestCase(20, CardRarity.Blue, CardRarity.Purple)]
         [TestCase(21, CardRarity.Purple, CardRarity.Gold)]

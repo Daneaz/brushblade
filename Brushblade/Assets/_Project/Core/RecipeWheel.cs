@@ -21,20 +21,20 @@ namespace Brushblade.Core
         public string Target => Slots[Landed];
     }
 
-    /// <summary>配方转盘(spec 2026-10-19 §2):11 层起 Boss / 精英层战后转一次,4 低档 + 1 高档,
+    /// <summary>配方转盘(spec 2026-10-19 §2):5 层起 Boss / 精英层战后转一次,4 低档 + 1 高档,
     /// 高档格 10%、低档格平分其余;落中的字进本局配方集并记为生疏(§3)。纯函数,随机只吃传进来的流。</summary>
     public static class RecipeWheel
     {
-        public const int FromDepth = 11;
+        public const int FromDepth = 5;   // 用户 10-20:11 → 5,分档不变(5–20 蓝 / 紫)
         public const int LowSlots = 4;
         public const int HighChancePercent = 10;
 
-        /// <summary>这一层战后转不转:depth ≥ 11 且是 Boss 层(精英 15/25… 与主题 Boss 20/30… 都算,
+        /// <summary>这一层战后转不转:depth ≥ 5 且是 Boss 层(精英 5/15/25… 与主题 Boss 10/20/30… 都算,
         /// 判定沿用 <see cref="EndlessConfig.IsBossDepth"/>)。</summary>
         public static bool AppliesAt(EndlessConfig config, int depth) =>
             depth >= FromDepth && config.IsBossDepth(depth);
 
-        /// <summary>分档表:11–20 蓝 / 紫,21–30 紫 / 金,31–40 金 / 橙,41 起 橙 / 红。</summary>
+        /// <summary>分档表:5–20 蓝 / 紫,21–30 紫 / 金,31–40 金 / 橙,41 起 橙 / 红。</summary>
         public static (CardRarity Low, CardRarity High) TiersFor(int depth) => depth switch
         {
             <= 20 => (CardRarity.Blue, CardRarity.Purple),
