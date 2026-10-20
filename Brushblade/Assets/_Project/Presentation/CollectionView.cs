@@ -177,6 +177,7 @@ namespace Brushblade.Presentation
             int unseen = MetaRules.UnseenCount(_meta);
 
             Ui.ThemedLabel(top.transform, Strings.T("collection.header.title"), 40, Theme.TextMain, Theme.TitleFont);
+            HelpButton(top.transform);
             Ui.ThemedLabel(top.transform,
                 Strings.T("collection.header.stats", ("owned", owned), ("total", _all.Count)),
                 23, Theme.TextDim);
@@ -192,6 +193,19 @@ namespace Brushblade.Presentation
             Ui.InkCounter(top.transform, _meta.Ink, 25);
             Ui.PillButton(top.transform, Strings.T("common.back_to_map"), () => _onBack(),
                 Theme.Info, Color.white, 25, new Vector2(130, 63)); // 返回地图 = Info 浓墨(2026-10-04 五色语义)
+        }
+
+        /// <summary>标题右侧的「?」(稿 drafts/upgrade-cost-help,2026-10-20 拍板方案 A):视觉照抄主界面
+        /// 宝箱栏那颗(直径 40、panel-inset 底、text-dim 字);透明 Hit 子节点把命中区撑到 tap-min 44pt = 92,
+        /// 点击由子节点冒泡给父级 Button。子节点不挂 LayoutElement,不撑高 80 的顶栏。</summary>
+        private void HelpButton(Transform parent)
+        {
+            var button = Ui.RoundButton(parent, Strings.T("collection.help_button"), () => ShowUpgradeHelp(false),
+                Theme.PanelInset, Theme.TextDim, 20, new Vector2(HelpBadge, HelpBadge), (int)(HelpBadge / 2f));
+            var hit = Ui.Panel(button.transform, "Hit");
+            hit.AddComponent<Image>().color = new Color(0, 0, 0, 0);
+            Ui.Anchor((RectTransform)hit.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-HelpTap / 2f, -HelpTap / 2f), new Vector2(HelpTap / 2f, HelpTap / 2f));
         }
 
         /// <summary>已拥有的可收集字数:逐条遍历 <see cref="_all"/> 算,顶栏「收集 N/总数」与
@@ -660,6 +674,130 @@ namespace Brushblade.Presentation
         // ---- 右栏 · 选中:字牌详情 ----
 
         // ================= 动作 =================
+
+        // ---- 升级成本说明(稿 drafts/upgrade-cost-help 方案 A,pt × 2.093) ----
+
+        private const float HelpBadge = 40f;     // 「?」直径
+        private const float HelpTap = 92f;       // 命中区 tap-min 44pt
+        private const float HelpW = 984f, HelpH = 620f;
+        private const float HelpHeadColW = 72f, HelpLevelColW = 84f, HelpTotalColW = 104f; // 72 + 9×84 + 104 = 932
+        private const float HelpTableW = HelpHeadColW + 9 * HelpLevelColW + HelpTotalColW;
+        private const float HelpHeadRowH = 36f, HelpRowH = 42f;
+
+        /// <summary>升级成本说明弹窗:「重复卡 / 墨锭」页签二选一,每页 7 档 × 9 次升级 + 升满累计。
+        /// 数字一格都不手抄,全从 <see cref="MetaRules.CopiesRequired"/> / <see cref="MetaRules.InkRequired"/> 读。
+        /// 切页签 = 整张重建(同名替换),两页列宽相同,表格不跳。</summary>
+        private void ShowUpgradeHelp(bool ink)
+        {
+            if (_modal != null) Destroy(_modal);
+            var overlay = Ui.Sheet(transform, "UpgradeHelp", HelpW, HelpH,
+                dismissable: true, replaceSameName: true, Theme.Scrim, out var stack);
+            _modal = overlay;
+            var stackLayout = stack.GetComponent<VerticalLayoutGroup>();
+            stackLayout.childAlignment = TextAnchor.UpperCenter;
+            stackLayout.childForceExpandWidth = true;
+
+            var head = Ui.Row(stack, "Head", 8);
+            head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Sized(head, 0, 46, flexWidth: 1);
+            Ui.ThemedLabel(head.transform, Strings.T("collection.help.title"), 34, Theme.TextMain, Theme.TitleFont);
+            var spring = Ui.Panel(head.transform, "Spring");
+            spring.AddComponent<LayoutElement>().flexibleWidth = 1;
+            Toggle(head.transform, Strings.T("collection.help.tab_copies"), !ink,
+                Theme.InkSoft, Theme.PanelInset, Theme.TextDim, () => { if (ink) ShowUpgradeHelp(false); });
+            Toggle(head.transform, Strings.T("collection.help.tab_ink"), ink,
+                Theme.InkSoft, Theme.PanelInset, Theme.TextDim, () => { if (!ink) ShowUpgradeHelp(true); });
+
+            var caption = Ui.ThemedLabel(stack, Strings.T("collection.help.caption"), 19, Theme.TextDim,
+                align: TextAnchor.MiddleLeft);
+            Ui.Sized(caption.gameObject, 0, 27, flexWidth: 1);
+
+            BuildHelpTable(stack, ink);
+
+            var rule = Ui.ThemedLabel(stack,
+                Strings.T(ink ? "collection.help.rule_ink" : "collection.help.rule_copies"), 17, Theme.LockGray,
+                align: TextAnchor.MiddleLeft);
+            Ui.Sized(rule.gameObject, 0, 24, flexWidth: 1);
+
+            var foot = Ui.Row(stack, "Foot", 0);
+            Ui.Sized(foot, 0, 50, flexWidth: 1);
+            Ui.PillButton(foot.transform, Strings.T("common.ok"), () => Destroy(overlay),
+                Theme.Cta, Color.white, 20, new Vector2(180, 50));
+        }
+
+        private static void BuildHelpTable(Transform parent, bool ink)
+        {
+            var table = Ui.VStack(parent, "Table", 0);
+            table.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Ui.Sized(table, HelpTableW);
+
+            var head = Ui.Row(table.transform, "Head", 0);
+            Ui.Sized(head, HelpTableW, HelpHeadRowH);
+            HelpCell(head.transform, Strings.T("collection.help.corner"), HelpHeadColW, HelpHeadRowH,
+                17, Theme.LockGray, TextAnchor.MiddleLeft);
+            for (int level = 1; level < MetaRules.MaxCardLevel; level++)
+                HelpCell(head.transform, Strings.T("collection.help.col", ("from", level), ("to", level + 1)),
+                    HelpLevelColW, HelpHeadRowH, 17, Theme.LockGray, TextAnchor.MiddleRight);
+            HelpCell(head.transform, Strings.T("collection.help.total"), HelpTotalColW, HelpHeadRowH,
+                17, Theme.TextDim, TextAnchor.MiddleRight);
+            HelpRule(table.transform, 2f);
+
+            foreach (var rarity in MetaRules.RarityOrder)
+            {
+                var row = Ui.Row(table.transform, $"Rarity{(int)rarity}", 0);
+                Ui.Sized(row, HelpTableW, HelpRowH);
+
+                var name = Ui.Row(row.transform, "Name", 8);
+                name.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                Ui.Sized(name, HelpHeadColW, HelpRowH);
+                var dot = Ui.Panel(name.transform, "Dot");
+                var dotImage = dot.AddComponent<Image>();
+                dotImage.sprite = Theme.Rounded(6);
+                dotImage.type = Image.Type.Sliced;
+                dotImage.color = Theme.RarityColor(rarity);
+                Ui.Sized(dot, 12, 12);
+                Ui.ThemedLabel(name.transform, CharInfo.RarityName(rarity), 22, Theme.TextMain, Theme.TitleFont);
+
+                int total = 0;
+                for (int level = 1; level < MetaRules.MaxCardLevel; level++)
+                {
+                    int cost = ink ? MetaRules.InkRequired(level, rarity) : MetaRules.CopiesRequired(level, rarity);
+                    total += cost;
+                    HelpCell(row.transform, HelpNumber(cost, ink), HelpLevelColW, HelpRowH,
+                        20, Theme.TextMain, TextAnchor.MiddleRight);
+                }
+                // 「升满累计」铺 panel-inset 底、数字加粗:玩家最常问的就是这一格
+                var totalCell = HelpCell(row.transform, HelpNumber(total, ink), HelpTotalColW, HelpRowH,
+                    20, Theme.TextMain, TextAnchor.MiddleRight);
+                totalCell.fontStyle = FontStyle.Bold;
+                var totalBg = totalCell.transform.parent.gameObject.AddComponent<Image>();
+                totalBg.color = Theme.PanelInset;
+
+                if (rarity != CardRarity.Red) HelpRule(table.transform, 1f);
+            }
+        }
+
+        /// <summary>墨锭千分位(同 InkCounter),张数不加(规范「文案」)。</summary>
+        private static string HelpNumber(int value, bool ink) => ink ? Ui.InkText(value) : value.ToString();
+
+        /// <summary>一格:定宽容器 + 右内距 10 的文字(稿 td padding-right)。返回文字以便调样式。</summary>
+        private static Text HelpCell(Transform row, string text, float width, float height,
+            int size, Color color, TextAnchor align)
+        {
+            var cell = Ui.Panel(row, "Cell");
+            Ui.Sized(cell, width, height);
+            var label = Ui.ThemedLabel(cell.transform, text, size, color, align: align);
+            Ui.Anchor(label.rectTransform, Vector2.zero, Vector2.one,
+                Vector2.zero, new Vector2(align == TextAnchor.MiddleRight ? -10f : 0f, 0f));
+            return label;
+        }
+
+        private static void HelpRule(Transform parent, float thickness)
+        {
+            var line = Ui.Panel(parent, "Rule");
+            line.AddComponent<Image>().color = Theme.PanelBorder;
+            Ui.Sized(line, HelpTableW, thickness);
+        }
 
         /// <summary>升级确认弹窗(2026-09-04 重写;Plan E2 改版,稿 <c>docs/design/drafts/traits/UpgradePreview.dc.html</c>,
         /// 组件卡 <c>component/UpgradeDialog</c>)。
