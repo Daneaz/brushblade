@@ -84,6 +84,55 @@ namespace Brushblade.Core.Tests
             Assert.That(run.CarriedHp, Is.EqualTo(600));
         }
 
+        // ---- 吐纳(2026-10-20):每场战斗开打前回复最大生命 N%,夹上限 ----
+
+        [Test]
+        public void PreBattleHeal_AppliesToTheFirstBattle()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, PreBattleHealPercent = 5 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(550), "500 + 1000 × 5%");
+            Assert.That(run.CarriedHp, Is.EqualTo(550));
+        }
+
+        [Test]
+        public void PreBattleHeal_AppliesToEachLaterBattle_AfterVictoryHeal()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 5, PreBattleHealPercent = 5 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            int before = run.Battle.PlayerHp;   // 550
+            WinCurrentBattle(run);
+            int afterFight = run.Battle.PlayerHp;
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(before, Is.EqualTo(550));
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(Math.Min(1000, afterFight + 50 + 50)), "胜利 5% + 战前 5%");
+        }
+
+        [Test]
+        public void PreBattleHeal_ClampsAtMaxHp()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, PreBattleHealPercent = 5 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 980);
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(1000));
+        }
+
+        [Test]
+        public void PreBattleHeal_OffByDefault()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(500));
+        }
+
         [Test]
         public void Run_StartsInFirstBattle()
         {

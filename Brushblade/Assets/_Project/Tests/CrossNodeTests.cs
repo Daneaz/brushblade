@@ -68,19 +68,28 @@ namespace Brushblade.Core.Tests
             var onlyWuxing = MetaWith("metal_1_s1", "metal_2_s1", "metal_3");
             Assert.That(PerkRules.PrereqMet(onlyWuxing, def), Is.False, "缺被动侧");
 
-            var onlyPassive = MetaWith("power_1", "power_2");
+            var onlyPassive = MetaWith("power_1_s1", "power_1_s2");
             Assert.That(PerkRules.PrereqMet(onlyPassive, def), Is.False, "缺五行侧");
 
-            var both = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1", "power_2");
+            var both = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1_s1", "power_1_s2");
             Assert.That(PerkRules.PrereqMet(both, def), Is.True, "两侧齐了");
+        }
+
+        /// <summary>被动侧 = 被动树累计点亮 2 段(2026-10-20 被动枝合为三段节点,原「任一枝到第 2 层」)。</summary>
+        [Test]
+        public void Xvigor_PassiveSideNeedsTwoStages()
+        {
+            var def = PerkRules.Get("cross_vigor");
+            Assert.That(PerkRules.PrereqMet(MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1_s1"), def),
+                Is.False, "只点 1 段");
         }
 
         [Test]
         public void Xvigor_PrereqIsAPredicateNotASpecificBranch()
         {
             var def = PerkRules.Get("cross_vigor");
-            var viaMetal = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1", "power_2");
-            var viaFire = MetaWith("fire_1_s1", "fire_2_s1", "fire_3", "guard_1", "guard_2");
+            var viaMetal = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1_s1", "power_1_s2");
+            var viaFire = MetaWith("fire_1_s1", "fire_2_s1", "fire_3", "guard_1_s1", "guard_1_s2");
             Assert.That(PerkRules.PrereqMet(viaMetal, def), Is.True);
             Assert.That(PerkRules.PrereqMet(viaFire, def), Is.True,
                 "「五行任一 L3」不是「金脉 L3」;被动侧同理");
@@ -101,8 +110,8 @@ namespace Brushblade.Core.Tests
         public void PrereqMet_IsIndifferentToUnlockOrder()
         {
             var def = PerkRules.Get("cross_vigor");
-            var forward = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1", "power_2");
-            var backward = MetaWith("power_2", "power_1", "metal_3", "metal_2_s1", "metal_1_s1");
+            var forward = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1_s1", "power_1_s2");
+            var backward = MetaWith("power_1_s2", "power_1_s1", "metal_3", "metal_2_s1", "metal_1_s1");
             Assert.That(PerkRules.PrereqMet(backward, def),
                 Is.EqualTo(PerkRules.PrereqMet(forward, def)));
         }
@@ -124,7 +133,7 @@ namespace Brushblade.Core.Tests
         {
             var meta = MetaWith(
                 "metal_1_s1", "metal_2_s1", "metal_3", "metal_4",   // 深层 ×2
-                "power_1", "power_2",
+                "power_1_s1", "power_1_s2",
                 "cross_vigor");
             Assert.That(PerkRules.ScaleCountOf(meta, PerkRules.Get("cross_vigor")), Is.EqualTo(2));
             // 力 L1+L2 不叠加取最高档 = 10(2026-10-02);相济 = 8 + 3×2 = 14
@@ -155,7 +164,7 @@ namespace Brushblade.Core.Tests
         {
             var meta = MetaWith(
                 "metal_1_s1", "metal_2_s1", "metal_3",
-                "power_1", "power_2",
+                "power_1_s1", "power_1_s2",
                 "lore_1",
                 "water_1_s1", "water_2_s1");
             Assert.That(PerkRules.CanUnlock(meta, "cross_vigor"), Is.True);

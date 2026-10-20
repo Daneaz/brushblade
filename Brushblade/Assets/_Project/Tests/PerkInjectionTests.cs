@@ -32,20 +32,20 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerMaxHp;
-            meta.UnlockedPerks.Add("vigor_1"); // 300
-            meta.UnlockedPerks.Add("vigor_2"); // 500(不叠加,取最高档)
+            meta.UnlockedPerks.Add("vigor_1_s1"); // 300
+            meta.UnlockedPerks.Add("vigor_1_s2"); // +200,累计 500
             Assert.That(Build(meta).PlayerMaxHp, Is.EqualTo(baseline + 500));
         }
 
-        /// <summary>被动树不叠加(2026-10-02 用户拍板):满点三层 = 最高档 +1000,不是三层之和。</summary>
+        /// <summary>元枝三段(2026-10-20 合为一个三段节点):段值是增量,点满累计 +1000。</summary>
         [Test]
         public void VigorBranch_FullyOwnedTakesTheTopTier()
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerMaxHp;
-            meta.UnlockedPerks.Add("vigor_1");
-            meta.UnlockedPerks.Add("vigor_2");
-            meta.UnlockedPerks.Add("vigor_3");
+            meta.UnlockedPerks.Add("vigor_1_s1");
+            meta.UnlockedPerks.Add("vigor_1_s2");
+            meta.UnlockedPerks.Add("vigor_1_s3");
             Assert.That(Build(meta).PlayerMaxHp, Is.EqualTo(baseline + 1000));
         }
 
@@ -55,10 +55,10 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 100000 }; // 高等级也不该自带暴击
             Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(0));
-            meta.UnlockedPerks.Add("edge_1");
-            meta.UnlockedPerks.Add("edge_2");
-            meta.UnlockedPerks.Add("edge_3");
-            Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(15), "不叠加,取最高档");
+            meta.UnlockedPerks.Add("edge_1_s1");
+            meta.UnlockedPerks.Add("edge_1_s2");
+            meta.UnlockedPerks.Add("edge_1_s3");
+            Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(15), "三段累计 15");
         }
 
         [Test]
@@ -66,9 +66,9 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerDefense;
-            meta.UnlockedPerks.Add("guard_1"); // 10
-            meta.UnlockedPerks.Add("guard_2"); // 15
-            meta.UnlockedPerks.Add("guard_3"); // 25(不叠加,取最高档)
+            meta.UnlockedPerks.Add("guard_1_s1"); // 10
+            meta.UnlockedPerks.Add("guard_1_s2"); // +5,累计 15
+            meta.UnlockedPerks.Add("guard_1_s3"); // +10,累计 25
             Assert.That(Build(meta).PlayerDefense, Is.EqualTo(baseline + 25));
         }
 
@@ -83,14 +83,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void QiBranch_VictoryHealPercent_5Then10()
+        public void QiBranch_VictoryHealThenPreBattleHeal()
         {
+            // 调息 = 胜利回血 5%;吐纳(2026-10-20)= 战斗前回血 5%,不再叠胜利回血
             var meta = new MetaState { CharacterXp = 0 };
             Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(0));
+            Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(0));
             meta.UnlockedPerks.Add("qi_1");
             Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(5));
+            Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(0));
             meta.UnlockedPerks.Add("qi_2");
-            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(10));
+            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(5));
+            Assert.That(Build(meta).PreBattleHealPercent, Is.EqualTo(5));
         }
 
         /// <summary>金汤已废止:表里不许再有产出护盾的节点。</summary>
@@ -166,11 +170,11 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0 };   // Lv.1,AttackFor(1) = 100
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(100), "夹具自检");
-            meta.UnlockedPerks.Add("power_1"); // +5%
+            meta.UnlockedPerks.Add("power_1_s1"); // +5%
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(105));
-            meta.UnlockedPerks.Add("power_2"); // 不叠加:取最高档 +10%
+            meta.UnlockedPerks.Add("power_1_s2"); // +5%,累计 +10%
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(110));
-            meta.UnlockedPerks.Add("power_3"); // +15%
+            meta.UnlockedPerks.Add("power_1_s3"); // +5%,累计 +15%
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(115));
         }
 

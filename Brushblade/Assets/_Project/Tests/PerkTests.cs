@@ -40,7 +40,7 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0, Ink = 100000 }; // Lv.1
             Assert.That(PerkRules.CanUnlock(meta, "metal_1_s1"), Is.False, "金脉 L1 需 Lv.4");
-            Assert.That(PerkRules.CanUnlock(meta, "vigor_1"), Is.False, "元 L1 需 Lv.2");
+            Assert.That(PerkRules.CanUnlock(meta, "vigor_1_s1"), Is.False, "元 L1 需 Lv.2");
         }
 
         /// <summary>门槛表本身:步长 6、三树错开 2 级(全开层见 AllNodes_UnlockByLevel24)。
@@ -48,13 +48,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void UnlockLevels_FollowTheStaggeredSchedule()
         {
-            Assert.That(PerkRules.Get("vigor_1").UnlockLevel, Is.EqualTo(2));
+            Assert.That(PerkRules.Get("vigor_1_s1").UnlockLevel, Is.EqualTo(2));
             Assert.That(PerkRules.Get("metal_1_s1").UnlockLevel, Is.EqualTo(4));
             Assert.That(PerkRules.Get("lore_1").UnlockLevel, Is.EqualTo(6));
-            Assert.That(PerkRules.Get("vigor_2").UnlockLevel, Is.EqualTo(8));
+            Assert.That(PerkRules.Get("vigor_1_s2").UnlockLevel, Is.EqualTo(8));
             Assert.That(PerkRules.Get("metal_2_s1").UnlockLevel, Is.EqualTo(10));
             Assert.That(PerkRules.Get("lore_2").UnlockLevel, Is.EqualTo(12));
-            Assert.That(PerkRules.Get("vigor_3").UnlockLevel, Is.EqualTo(14));
+            Assert.That(PerkRules.Get("vigor_1_s3").UnlockLevel, Is.EqualTo(14));
             Assert.That(PerkRules.Get("metal_3").UnlockLevel, Is.EqualTo(16));
             Assert.That(PerkRules.Get("metal_4").UnlockLevel, Is.EqualTo(22));
         }
@@ -301,37 +301,63 @@ namespace Brushblade.Core.Tests
                 Assert.That(face.Stage, Is.EqualTo(1));
                 Assert.That(keys.Add(face.NodeKey), Is.True, $"重复 {face.NodeKey}");
             }
-            // 五行 5×4 + 被动 4×3 + 机制 4×2 + 跨树 3(相济、博采、斩获;斩获两段只占一个节点,2026-10-19)
-            Assert.That(PerkRules.Faces.Count, Is.EqualTo(43));
+            // 五行 5×4 + 被动 4×1 + 机制 4×2 + 跨树 3(相济、博采、斩获;斩获两段只占一个节点,2026-10-19;
+            // 被动四枝 2026-10-20 各合为一个三段节点)
+            Assert.That(PerkRules.Faces.Count, Is.EqualTo(35));
         }
 
-        // ---- 被动树不叠加(2026-10-02 用户拍板)----
+        // ---- 被动树:每枝一个三段节点(2026-10-20 用户:参照「深根」),段值是增量、累计 = 原各档 ----
 
         [Test]
-        public void PassiveTree_DoesNotStack_TakesHighestTierPerBranch()
+        public void PassiveBranches_AreOneThreeStageNodeEach()
+        {
+            foreach (var branch in new[] { "vigor", "power", "edge", "guard" })
+            {
+                var stages = PerkRules.StagesOf($"{branch}_1");
+                Assert.That(stages.Count, Is.EqualTo(3), branch);
+                for (int k = 0; k < 3; k++)
+                {
+                    Assert.That(stages[k].Id, Is.EqualTo($"{branch}_1_s{k + 1}"), branch);
+                    Assert.That(stages[k].Depth, Is.EqualTo(1), branch);
+                    Assert.That(stages[k].StageCount, Is.EqualTo(3), branch);
+                }
+            }
+        }
+
+        [Test]
+        public void PassiveStage_NeedsThePreviousStage()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 100000 };
+            Assert.That(PerkRules.CanUnlock(meta, "vigor_1_s2"), Is.False, "第 2 段要第 1 段");
+            meta.UnlockedPerks.Add("vigor_1_s1");
+            Assert.That(PerkRules.CanUnlock(meta, "vigor_1_s2"), Is.True);
+        }
+
+        [Test]
+        public void PassiveStages_AccumulateToTheOldTopTier()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("vigor_1");
-            meta.UnlockedPerks.Add("vigor_2");
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.MaxHp), Is.EqualTo(500), "取最高档,不是 800");
-            meta.UnlockedPerks.Add("vigor_3");
+            meta.UnlockedPerks.Add("vigor_1_s1");
+            meta.UnlockedPerks.Add("vigor_1_s2");
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.MaxHp), Is.EqualTo(500), "300 + 200");
+            meta.UnlockedPerks.Add("vigor_1_s3");
             Assert.That(PerkRules.Bonus(meta, PerkEffect.MaxHp), Is.EqualTo(1000));
-            meta.UnlockedPerks.Add("power_1");
-            meta.UnlockedPerks.Add("power_2");
-            meta.UnlockedPerks.Add("power_3");
+            meta.UnlockedPerks.Add("power_1_s1");
+            meta.UnlockedPerks.Add("power_1_s2");
+            meta.UnlockedPerks.Add("power_1_s3");
             Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(15));
-            meta.UnlockedPerks.Add("guard_1");
-            meta.UnlockedPerks.Add("guard_2");
+            meta.UnlockedPerks.Add("guard_1_s1");
+            meta.UnlockedPerks.Add("guard_1_s2");
             Assert.That(PerkRules.Bonus(meta, PerkEffect.Defense), Is.EqualTo(15));
         }
 
         [Test]
         public void PassiveMax_StillAddsCrossNodeOnTop()
         {
-            // 相济(cross_vigor)给攻击,不属于被动树 → 与力枝最高档相加
+            // 相济(cross_vigor)给攻击,不属于被动树 → 与力枝累计值相加
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("power_1");
-            meta.UnlockedPerks.Add("power_2");
+            meta.UnlockedPerks.Add("power_1_s1");
+            meta.UnlockedPerks.Add("power_1_s2");
             meta.UnlockedPerks.Add("metal_3");          // 相济按五行深层节点数缩放:1 个
             meta.UnlockedPerks.Add("cross_vigor");      // 8 + 3×1 = 11
             Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(10 + 11));
@@ -358,13 +384,14 @@ namespace Brushblade.Core.Tests
                 ("water_4", PerkEffect.WellspringSpendPercent, 150),
                 ("fire_4", PerkEffect.BurnSpreadAdjacent, 1),
                 ("earth_4", PerkEffect.HeftSpendPercent, 150),
-                ("vigor_1", PerkEffect.MaxHp, 300), ("vigor_2", PerkEffect.MaxHp, 500), ("vigor_3", PerkEffect.MaxHp, 1000),
-                ("power_3", PerkEffect.AttackPercent, 15), ("edge_3", PerkEffect.CritChance, 15),
-                ("guard_3", PerkEffect.Defense, 25),
+                // 被动三段存本段增量:累计 300/500/1000、5/10/15、10/15/25
+                ("vigor_1_s1", PerkEffect.MaxHp, 300), ("vigor_1_s2", PerkEffect.MaxHp, 200), ("vigor_1_s3", PerkEffect.MaxHp, 500),
+                ("power_1_s3", PerkEffect.AttackPercent, 5), ("edge_1_s3", PerkEffect.CritChance, 5),
+                ("guard_1_s2", PerkEffect.Defense, 5), ("guard_1_s3", PerkEffect.Defense, 10),
                 ("wide_1", PerkEffect.EmptyLibraryDraws, 1), ("wide_2", PerkEffect.LowLibraryDraws, 1),
                 ("ult_killdraw_s1", PerkEffect.KillDraw, 1), ("ult_killdraw_s2", PerkEffect.KillDraw, 2),
                 ("insight_1", PerkEffect.RewardOptions, 1), ("insight_2", PerkEffect.RewardRerolls, 1),
-                ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.VictoryHealPercent, 5),
+                ("qi_1", PerkEffect.VictoryHealPercent, 5), ("qi_2", PerkEffect.PreBattleHealPercent, 5),
             };
             foreach (var (id, effect, value) in rows)
             {
@@ -380,7 +407,8 @@ namespace Brushblade.Core.Tests
         public void WideBranch_HasTwoLayers()
         {
             Assert.That((int)PerkEffect.LowLibraryDraws, Is.EqualTo((int)PerkEffect.KillDraw + 1), "枚举只在末尾追加");
-            Assert.That(Enum.GetValues(typeof(PerkEffect)).Cast<int>().Max(), Is.EqualTo((int)PerkEffect.LowLibraryDraws));
+            Assert.That((int)PerkEffect.PreBattleHealPercent, Is.EqualTo((int)PerkEffect.LowLibraryDraws + 1), "吐纳 2026-10-20 追加");
+            Assert.That(Enum.GetValues(typeof(PerkEffect)).Cast<int>().Max(), Is.EqualTo((int)PerkEffect.PreBattleHealPercent));
             Assert.That(PerkRules.StagesOf("wide_3").Count, Is.EqualTo(0), "wide_3 已删");
             var w2 = PerkRules.Get("wide_2");
             Assert.That((w2.Depth, w2.UnlockLevel, w2.InkCost), Is.EqualTo((2, 12, 1600)));
