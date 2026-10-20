@@ -715,7 +715,7 @@ namespace Brushblade.Presentation
             BuildHelpTable(stack, ink);
 
             var rule = Ui.ThemedLabel(stack,
-                Strings.T(ink ? "collection.help.rule_ink" : "collection.help.rule_copies"), 17, Theme.LockGray,
+                ink ? Strings.T("collection.help.rule_ink") : Strings.T("collection.help.rule_copies"), 17, Theme.LockGray,
                 align: TextAnchor.MiddleLeft);
             Ui.Sized(rule.gameObject, 0, 24, flexWidth: 1);
 
