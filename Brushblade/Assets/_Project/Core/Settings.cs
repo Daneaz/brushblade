@@ -10,6 +10,10 @@ namespace Brushblade.Core
 
         public bool SfxEnabled { get; set; } = true;
         public bool MusicEnabled { get; set; } = true;
+
+        /// <summary>快速施法(2026-10-20):两面字不必先翻,落敌方用攻击面、落我方用五行面
+        /// (<see cref="CardFaceRules.QuickCastFace"/>)。缺省关 —— 新玩家先学翻面。</summary>
+        public bool QuickCast { get; set; }
     }
 
     /// <summary>战斗演出速度(2026-09-24 用户拍板)。
