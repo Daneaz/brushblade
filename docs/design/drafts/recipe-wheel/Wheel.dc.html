@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="./rw.css">
   <style>
-    /* 配方转盘(5 选 1)。外壳同升级弹窗:Ui.Sheet 1256 × 745 → 600 × 356pt,屏幕正中,scrim 55%。
+    /* 配方转盘(5 选 1)。外壳 Ui.Sheet 879 × 670 → 420 × 320pt,屏幕正中,scrim 55%;转盘居中,结果卡出现时转盘缩到 0.72 靠左、结果卡在右。
        扇区角度 = 概率(低档 81° × 4、高档 36°):面积即概率。「转」在轮毂上。 */
     body { margin: 0; }
     sc-for, sc-if { display: contents; }
@@ -21,13 +21,15 @@
     .dev { position: relative; height: 430px; margin: 0 auto; overflow: hidden; background: color-mix(in srgb, var(--paper) 90%, var(--band-zilin)); }
     .under { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 240px; color: rgba(22,27,34,.05); }
     .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
-    .sheet { position: absolute; top: 37px; left: 50%; width: 600px; height: 356px; margin-left: -300px; box-sizing: border-box; background: var(--panel-paper); border: .72px solid var(--panel-border); border-radius: 8.6px;
+    .sheet { position: absolute; top: 55px; left: 50%; width: 420px; height: 320px; margin-left: -210px; box-sizing: border-box; background: var(--panel-paper); border: .72px solid var(--panel-border); border-radius: 8.6px;
       padding: 12px 18px 14px; display: flex; flex-direction: column; gap: 8px; }
     .kick { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: "Noto Serif SC", serif; font-size: 11.94px; font-weight: 600; color: var(--cta, #2E5E8C); letter-spacing: 2px; }
     .kick::before, .kick::after { content: ""; width: 34px; height: 1px; background: var(--panel-border); }
     .sub { text-align: center; font-size: 9.08px; color: var(--text-dim); margin-top: -4px; }
-    .body { flex: 1; min-height: 0; display: flex; gap: 16px; align-items: center; }
-    .wheelbox { position: relative; flex: none; width: 236px; height: 236px; }
+    .body { position: relative; flex: 1; min-height: 0; display: flex; gap: 0; align-items: center; justify-content: center; }
+    .body.res-on { justify-content: flex-start; }
+    .wheelbox { position: relative; flex: none; width: 236px; height: 236px; transition: transform .3s ease-out, margin .3s ease-out; transform-origin: left center; }
+    .res-on .wheelbox { transform: scale(.72); margin-right: -66px; }
     .wheel { position: absolute; left: 14px; top: 14px; width: 208px; height: 208px; transition: transform 3.6s cubic-bezier(.12,.62,.1,1); }
     .wheel.noanim { transition: none; }
     .wheel.blur { filter: blur(1.4px); }
@@ -58,7 +60,7 @@
     .note b { color: var(--text-quiet); font-weight: 600; }
     .shu { display: inline-flex; width: 11px; height: 11px; border-radius: 2.4px; background: var(--ink-soft); color: #fff; font-family: "Noto Serif SC", serif; font-size: 7.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: -2px; margin: 0 2px; }
     /* 结果卡 */
-    .res { flex: 1; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; animation: rin .25s ease-out; }
+    .res { flex: 1; min-width: 0; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; animation: rin .25s ease-out; }
     @keyframes rin { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
     .bt { position: relative; width: 66px; height: 82.5px; }
     .bt img { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -92,7 +94,7 @@
     <div class="sheet">
       <div class="kick">配 方 转 盘</div>
       <div class="sub">{{ sub }}</div>
-      <div class="body">
+      <div class="{{ bodyCls }}">
         <div class="wheelbox">
           <div class="{{ wheelCls }}" style="{{ wheelStyle }}">
             <svg width="208" height="208" viewBox="-104 -104 208 208">
@@ -108,25 +110,12 @@
           <div class="pointer"></div>
           <button class="{{ hubCls }}" onClick="{{ spin }}">{{ hubTxt }}</button>
         </div>
-        <sc-if value="{{ showSide }}" hint-placeholder-val="{{ true }}">
-          <div class="side">
-            <sc-for list="{{ legend }}" as="l">
-              <div class="{{ l.cls }}">
-                <div class="mt"><img src="{{ l.frame }}" alt=""><b style="{{ l.gs }}">{{ l.g }}</b></div>
-                <span class="nm">{{ l.g }}<small>{{ l.meta }}</small></span>
-                <span class="rc">{{ l.rc }}</span>
-              </div>
-            </sc-for>
-            <div class="note">转出的那张配方记入本局,拆合台从此能合;合出的字为 <i class="shu">疏</i><b>生疏</b>:效果 ×70%,按 Lv1 计。</div>
-          </div>
-        </sc-if>
         <sc-if value="{{ showRes }}" hint-placeholder-val="{{ false }}">
           <div class="res">
             <div class="bt"><img src="{{ r.frame }}" alt=""><b style="{{ r.gs }}">{{ r.g }}</b><span class="py">{{ r.py }}</span></div>
             <div class="rn"><b>{{ r.g }}</b>{{ r.meta }}</div>
             <div class="recipe"><i class="part" style="{{ r.ps }}">{{ r.p0 }}</i><span class="op">+</span><i class="part" style="{{ r.ps }}">{{ r.p1 }}</i><span class="op">→</span><i class="part" style="{{ r.os }}">{{ r.g }}</i></div>
             <div class="got"><i>✓</i>已记入本局配方</div>
-            <div class="note" style="text-align:center">合出的「{{ r.g }}」本局 <i class="shu">疏</i>生疏:效果 ×70%,按 Lv1 计</div>
             <button class="cont">继续 · 选字</button>
           </div>
         </sc-if>
@@ -176,13 +165,8 @@ class Component extends DCLogic {
         pt: hi ? '稀有 10%' : '22.5%', pc: hi ? '#8A6600' : '#676F7A', pw: hi ? 700 : 400 };
     });
     var hiG = G.filter(function (g) { return g.s.hi; })[0];
-    var legend = G.map(function (g) {
-      var c = g.s.c;
-      return { cls: 'lg' + (g.s.hi ? ' hi' : '') + (landed ? (g.i === s.win ? ' win' : ' dim') : ''), frame: FR[g.s.rar], g: c[0], gs: 'color:' + GLY[c[1]],
-        meta: RW.RAR[g.s.rar] + ' · ' + RW.EL[c[1]], rc: c[2][0] + ' + ' + c[2][1] };
-    });
     var rot = s.phase === 'idle' ? s.rot : s.phase === 'spin' && !s.anim ? s.rot : s.rot;
-    var W = s.w === 'narrow' ? { dev: 764, label: '16:9 无刘海 · 764pt(弹窗 600pt ≤ 净宽 647pt)' } : { dev: 932, label: '基准机 · 932pt' };
+    var W = s.w === 'narrow' ? { dev: 764, label: '16:9 无刘海 · 764pt(弹窗 420pt ≤ 净宽 647pt)' } : { dev: 932, label: '基准机 · 932pt' };
     var wc = G[s.win].s.c;
     var r = { frame: FR[G[s.win].s.rar], g: wc[0], gs: 'color:' + GLY[wc[1]], py: PY[wc[0]] || '', meta: RW.RAR[G[s.win].s.rar] + ' · ' + RW.EL[wc[1]] + (G[s.win].s.hi ? ' · 稀有格' : ''),
       p0: wc[2][0], p1: wc[2][1], ps: 'background:' + ESOFT[wc[1]] + ';color:' + EFG[wc[1]], os: 'background:#FFFDF7;color:' + GLY[wc[1]] + ';box-shadow:inset 0 0 0 1.2px ' + GLY[wc[1]] };
@@ -200,7 +184,7 @@ class Component extends DCLogic {
       secs: secs, hiRim: hiG ? [{ d: hiG.d }] : [], winRim: landed ? [{ d: G[s.win].d }] : [],
       hubCls: 'hub' + (s.phase === 'idle' ? '' : ' off'), hubTxt: s.phase === 'idle' ? '转' : s.phase === 'spin' ? '…' : '中',
       spin: function () { self.spin(); },
-      showSide: s.phase !== 'result', showRes: s.phase === 'result', legend: legend, r: r,
+      bodyCls: 'body' + (s.phase === 'result' ? ' res-on' : ''), showRes: s.phase === 'result', r: r,
       tBtns: Object.keys(RW.TIERS).map(function (k) { return { n: RW.TIERS[k].n, cls: k === s.t ? 'on' : '', pick: function () { self.setState({ t: k, phase: 'idle', rot: -12, anim: false }); } }; }),
       fBtns: [['idle', '待转'], ['spin', '转动中'], ['land', '落定'], ['result', '结果卡']].map(function (f) { return { n: f[1], cls: s.phase === f[0] ? 'on' : '', pick: function () { self.setState(frame(f[0])); } }; }),
       wBtns: [[0, '低档'], [2, '稀有格']].map(function (f) { return { n: f[1], cls: s.win === f[0] ? 'on' : '', pick: function () { var st = { win: f[0] }; if (s.phase !== 'idle') { var g = G[f[0]]; st.rot = -(g.mid); st.anim = false; } self.setState(st); } }; }),
