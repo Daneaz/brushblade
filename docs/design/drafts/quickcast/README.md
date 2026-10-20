@@ -75,7 +75,7 @@
 | `battle.hint.flip_selected_quick` | 再点这张牌：翻面⏎拖出：敌方用攻击面，我方用五行面 | 10-21 改(同上) |
 | `battle.hint.suffix_tap_again_cast` | \|拖到目标上出手 | 10-21 改(单面字选中;原「再点即出」) |
 | `battle.hint.suffix_direct_cast` | \|直出:部件不入库直接打出\|拖到目标上出手 | 10-21 改(部件选中;原尾段「再点即出」) |
-| `battle.hint.drag_to_cast` | 拖到目标上出手 | 10-21 建议新增(可选):拆合台选中单面字 / 部件时的提示行,补「出」钮撤掉后的空位 |
+| `battle.hint.drag_to_cast` | 拖到目标上出手 | ★ 新增(10-21 用户采纳):拆合台选中单面字 / 部件 / 教程锁面字时的提示行,补「出」钮撤掉后的空位 |
 | `charsheet.foot.battle_quick` | 长按看详情，不耗 AP · 快速施法：对敌方用攻击面，对我方用五行面 | 10-20 新增,保留 |
 | `battle.hint.drag_release` / `flip_selected` / `charsheet.foot.battle` | (原文) | 保留 |
 | `battle.hint.pick_dual_target` / `pick_dual_summon` | — | 10-21 删除(点选入口取消) |
@@ -117,3 +117,4 @@
   文案按协调方提议定稿 5 条(suffix_tap_again_flip / _quick / flip_selected_quick / suffix_tap_again_cast / suffix_direct_cast),
   删 pick_dual_target / pick_dual_summon;另建议可选新增 `battle.hint.drag_to_cast`(拆合台单面字 / 部件提示)。
   为什么:一套出字手势(拖)比「拖 + 再点 + 出钮 + 点选态」四条路径好学,也去掉了再点误出字的风险。
+- 2026-10-21 · 用户采纳 `battle.hint.drag_to_cast`「拖到目标上出手」:拆合台选中不可翻面的字(单面字、部件、教程锁面)时出在提示行(两面字那里仍是翻面提示)。

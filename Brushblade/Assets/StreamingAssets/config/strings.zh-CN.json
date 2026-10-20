@@ -119,6 +119,7 @@
   "battle.event.trade_success_label_msg": "成交!{optionLabel}",
   "battle.hint.cast_pick_ally_target": "「{charId}」:点击己方目标(玩家或木灵)",
   "battle.hint.craft_empty": "手上的部件\n还凑不出字",
+  "battle.hint.drag_to_cast": "拖到目标上出手",
   "battle.hint.drag_release": "松手出手 · 拖回手牌行取消",
   "battle.hint.drag_release_quick": "松手出手 · 敌方用攻击面，我方用五行面 · 拖回手牌行取消",
   "battle.hint.flip_selected": "再点这张牌：翻面\n拖出：按朝上的那一面出手",
