@@ -1,0 +1,33 @@
+/* 升级成本说明弹窗。:root 与 recipe-wheel / traits 同源(tokens.json 原值抄录),补 cta。
+   单位:稿面 pt(CSS px = pt);逻辑单位 = pt × 2.093 —— 本稿尺寸一律写成 calc(N * var(--u)),N 即 Unity 逻辑单位。 */
+:root {
+  --paper: #F6F1E7; --panel-paper: #FBF8F1; --panel-inset: #F1EBDE; --card-face: #FFFDF7;
+  --paper-card: rgba(255,254,249,0.62); --paper-dim: #DED7C9; --panel-border: #DED7C9; --quiet: #E4DDCE;
+  --ink-bar: #EFEADF; --locked-bg: #DAD7D0; --locked-paper: #EFEAE0; --locked-glyph: #8E8675;
+  --node-rail: #E0D9CB; --text-main: #161B22; --text-quiet: #2C333D; --text-dim: #5D646F;
+  --text-faint: #676F7A; --text-mute: #928B7B; --text-warm: #696151; --ink: #11161F;
+  --ink-soft: #3D4E69; --neutral-part: #4F5661; --ingot-dark: #1A1F2B; --cinnabar: #C53637;
+  --cinnabar-dark: #9B1E22; --warn-bg: #FBE3E2; --warn-text: #9B1E22; --jade: #34864B;
+  --done-green: #298646; --ad-green: #3B9555; --ad-green-bg: #E3F4E6; --ad-green-text: #0B5D2A;
+  --upgrade-text: #1B552C; --gold: #CA9D33; --gold-border: #8F6B09; --gold-text: #402900;
+  --gold-soft: #F6EDD5; --gold-deep: #8A6600; --ingot-gold: #9D7B2A; --silver: #A9AFB8;
+  --exit-pink: #7A3F5C; --shop-nav: #A05337; --split-blue: #194F81; --shield-blue: #19507F;
+  --scrim: rgba(22,27,34,0.55); --scrim-soft: rgba(22,27,34,0.42); --scrim-paper: rgba(246,241,231,0.72); --shadow-ink: rgba(22,27,34,0.08);
+  --metal: #B3A381; --metal-soft: #EEE3CF; --metal-fg: #64532C; --metal-glyph: #6B6449;
+  --wood: #348F4F; --wood-soft: #CCE6D0; --wood-fg: #195C2E; --wood-glyph: #1F6333;
+  --water: #0F74C5; --water-soft: #C8E1FB; --water-fg: #0E4F86; --water-glyph: #0A5E9E;
+  --fire: #C53637; --fire-soft: #FED2CE; --fire-fg: #862726; --fire-glyph: #B02D2E;
+  --earth: #8F7332; --earth-soft: #ECDCBD; --earth-fg: #634800; --earth-glyph: #82552A;
+  --heart: #9750A7; --heart-soft: #ECD5F1; --heart-fg: #673672; --heart-glyph: #7E4190;
+  --rarity-white: #A19E97; --rarity-white-soft: #EDEAE3; --rarity-green: #2E9E52; --rarity-green-soft: #E2F2E7;
+  --rarity-blue: #0F74C5; --rarity-blue-soft: #DEEAF7; --rarity-purple: #7945AB; --rarity-purple-soft: #EBE2F5;
+  --rarity-gold: #C9A94A; --rarity-gold-soft: #F6EDD5; --rarity-orange: #E1791B; --rarity-orange-soft: #FAE7D3;
+  --rarity-red: #CD272E; --rarity-red-soft: #F9DFDF; --tab-deck-bg: #E9F0F5; --tab-deck-border: #9FC1E2;
+  --tab-deck-fg: #0E4F86; --tab-bestiary-bg: #EBF2E6; --tab-bestiary-border: #A5C8AD; --tab-bestiary-fg: #195C2E;
+  --tab-perks-bg: #F6ECF1; --tab-perks-border: #CFB2D5; --tab-perks-fg: #673672; --tab-shop-bg: #F1E6DC;
+  --tab-shop-border: #D0AB9A; --tab-shop-fg: #A05337; --band-zilin: #6B9461; --band-ciyuan: #5C7AA3;
+  --band-wenshan: #A88557; --band-mohai: #47526B;
+  --radius-bar: 2px; --radius-mini: 5px; --radius-tile: 7px; --radius-box: 8px; --radius-card: 9px; --radius-panel: 10px; --radius-sheet: 12px;
+  --shadow-card: 0 2px 6px rgba(22,27,34,0.08); --shadow-cta: 0 3px 10px rgba(155,30,34,0.26); --shadow-cta-lg: 0 4px 12px rgba(155,30,34,0.28); --ring-selected: 0 0 0 2px rgba(22,27,34,0.18); --halo-new: 0 0 0 2px rgba(201,169,74,0.5), 0 0 12px 3px rgba(201,169,74,0.34); --ring-reddot: 0 0 0 1.5px #F6F1E7;
+}
+:root { --cta: #2E5E8C; --u: 0.47778px; --font-sans: "Noto Sans SC", "PingFang SC", sans-serif; --font-serif: "Noto Serif SC", "Songti SC", serif; }

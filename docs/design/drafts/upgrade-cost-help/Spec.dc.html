@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./uhc.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./uhc.css">
+  <style>
+    /* 规格:入口「?」实尺寸与 × 3、两档屏宽验算表、规则对账。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .board { width: 932px; height: 560px; box-sizing: border-box; padding: 20px 26px; background: var(--paper); color: var(--text-main); font-family: var(--font-sans); }
+    h2 { margin: 0 0 4px; font: 600 18px/1.2 var(--font-serif); letter-spacing: 2px; }
+    h3 { white-space: nowrap; margin: 14px 0 7px; font: 600 12.5px/1.2 var(--font-serif); color: var(--text-quiet); letter-spacing: 1px; }
+    .lead { font-size: 10px; color: var(--text-dim); line-height: 1.6; }
+    .row { display: flex; gap: 26px; align-items: flex-start; }
+    .bar { display: flex; align-items: center; gap: 10.03px; height: 38.22px; padding: 0 10px; border-radius: 8px; background: var(--paper); box-shadow: inset 0 0 0 .96px var(--panel-border); }
+    .bar h1 { white-space: nowrap; margin: 0; font: 600 19.11px/1 var(--font-serif); letter-spacing: 1px; }
+    .bar .sub { font-size: 10.99px; color: var(--text-dim); white-space: nowrap; }
+    .help { position: relative; flex: none; width: calc(40 * var(--u)); height: calc(40 * var(--u)); border-radius: 50%; background: var(--panel-inset); color: var(--text-dim);
+      font: 500 calc(20 * var(--u))/1 var(--font-sans); display: flex; align-items: center; justify-content: center; }
+    .tap { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 1px dashed var(--cinnabar); border-radius: 4px; box-sizing: border-box; }
+    .zoom { transform: scale(3); transform-origin: left top; }
+    .zbox { width: 150px; height: 130px; position: relative; }
+    .z1 { position: absolute; left: 30px; top: 30px; }
+    table { border-collapse: collapse; font-size: 9px; width: 880px; table-layout: auto; }
+    th, td { padding: 3px 6px; border-bottom: .5px solid var(--panel-border); text-align: left; white-space: nowrap; }
+    th { color: var(--text-faint); font-weight: 400; }
+    td.n { text-align: right; font-variant-numeric: tabular-nums; }
+    td:last-child { white-space: normal; }
+    td.ok { color: var(--upgrade-text); font-weight: 700; }
+    .rules { margin: 0; padding-left: 15px; font-size: 9.5px; line-height: 1.7; color: var(--text-quiet); max-width: 860px; }
+    code { font-size: 9px; background: var(--panel-inset); padding: 0 3px; border-radius: 3px; }
+  </style>
+</helmet>
+<div class="board">
+  <h2>规格 · 入口与两档屏宽</h2>
+  <div class="lead">「?」入口照抄主界面宝箱栏那颗(<code>MapView</code> 栏头 <code>Ui.RoundButton</code>,40 → 19.11pt、<code>panel-inset</code> 底、<code>text-dim</code> 黑体 20 → 9.56pt),不新造图标;放在顶栏标题「收集」右侧,与标题间距 = 顶栏间距 21。</div>
+  <div class="row">
+    <div>
+      <h3>① 顶栏实尺寸(虚线 = 44pt 命中区)</h3>
+      <div class="bar"><h1>收集</h1><div class="help">?<i class="tap"></i></div><div class="sub">收集 23/55</div></div>
+    </div>
+    <div>
+      <h3>② × 3</h3>
+      <div class="zbox"><div class="z1"><div class="zoom"><div class="help">?</div></div></div></div>
+    </div>
+    <div>
+      <h3>③ 规则对账(uhc.js 按规则重算 vs 抄录值)</h3>
+      <div class="lead">{{ verify }}</div>
+    </div>
+  </div>
+  <h3>④ 两档屏宽验算(逻辑单位;字宽按 Noto Sans SC 实测,弹窗定宽、与屏宽无关)</h3>
+  <table>
+    <tr><th>项</th><th>算式</th><th>宽</th><th>基准机 .safe 1705</th><th>16:9 .safe 1354</th><th>结论</th></tr>
+    <tr><td>A · 表格</td><td>行头 72 + 9 × 84 + 累计 104</td><td class="n">932</td><td class="n">—</td><td class="n">—</td><td>弹窗内宽 984 − 48 − 3 = 933,余 1</td></tr>
+    <tr><td>A · 弹窗</td><td>Ui.Sheet 定宽</td><td class="n">984</td><td class="n ok">余 721</td><td class="n ok">余 370</td><td>两档都放得下,不横滚、不缩字</td></tr>
+    <tr><td>A · 最宽数字格</td><td>「24,000」黑体 20</td><td class="n">61</td><td colspan="2">格内可用 84 − 右内距 10 = 74</td><td>余 13(到 6 位「100,000」约 72 仍装得下)</td></tr>
+    <tr><td>A · 累计格</td><td>「47,380」黑体粗 20</td><td class="n">65</td><td colspan="2">可用 104 − 10 = 94</td><td>余 29;表头「升满累计」17 号 68</td></tr>
+    <tr><td>A · 页签 + 标题行</td><td>标题 162 + 页签 98 + 80 + 间距 20</td><td class="n">360</td><td colspan="2">行宽 933</td><td>余 573</td></tr>
+    <tr><td>A · 规则注一行</td><td>黑体 17,最长那条</td><td class="n">567</td><td colspan="2">行宽 933</td><td>余 366</td></tr>
+    <tr><td>A · 竖向</td><td>内边距 48 + 标题行 46 + 说明 27 + 表 338 + 规则注 24 + 钮 50 + 行距 14 × 5</td><td class="n">603</td><td colspan="2">画布高恒 900,弹窗定高 620</td><td>上下各余 140</td></tr>
+    <tr><td>B · 弹窗</td><td>同宽,两表叠放</td><td class="n">984 × 830</td><td class="n ok">余 721</td><td class="n ok">余 370</td><td>宽没问题;高只余 70(上下各 35),行高压到 34、数字压到 17</td></tr>
+  </table>
+  <ul class="rules" style="margin-top:8px">
+    <li>16:9 净宽 = 画布 1600 − <code>SafeArea.MissingInset()</code> 2 × 123 = 1354;基准机 932pt × 2.093 ≈ 1951,扣刘海后 .safe ≈ 1705。弹窗挂 SafeAreaFitter 内居中,定宽 984 &lt; 1354,两档样子一模一样。</li>
+    <li>不需要 <code>Ui.HScrollFill</code>:7 行 × 11 列(行头 + 9 次 + 累计)在最窄档仍余 370。若以后加列(如「当前持有」),每列 84,最多还能加 4 列。</li>
+  </ul>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 560}}'>
+var U = window.UHC;
+class Component extends DCLogic {
+  renderVals() {
+    var bad = U.verify();
+    return { verify: bad.length ? ('不一致 ' + bad.length + ' 格:' + bad.join('、')) :
+      '126 格全部一致。重复卡 = ⌈倍率^(n−1)⌉(白 3 · 绿蓝 2.5 · 紫金 2 · 橙红 1.5);墨锭 = ⌊白档 × 系数⌋(1 / 1.5 / 2 / 2.5 / 3 / 3.5 / 4)。注意重复卡不是「逐级取整再乘」—— 那样绿档 3→4 会是 8 而不是 7。' };
+  }
+}
+</script>
+</body>
+</html>

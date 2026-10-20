@@ -175,29 +175,28 @@ namespace Brushblade.Core
             CardRarity.Purple, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
         };
 
-        /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。
-        ///
-        /// 2026-09-11(档位差距与升级替代,拍板第 6 条)前四项 {2,4,10,20} → {1,2,3,5}:
-        /// 白卡升到 5 级从 36 张降到 11 张。改前「升 5 级 = 跨一档」这条规则在低档
-        /// **物理上不成立** —— 36 张白卡在掉率下约等于 1200 只紫檀箱,而直取 1 张绿卡只要
-        /// 7.1 箱,倒挂 169×。5 级以后(索引 4 起)是长线,一字未改。
-        /// 紫及以上已被 <see cref="CopiesMultiplier"/> 压到下限 1,此改动实际只影响白/绿/蓝。
-        /// ⚠ <see cref="InkToUpgrade"/> 不动 —— 卡是掉率问题,墨锭不是。</summary>
-        public static readonly int[] CopiesToUpgrade = { 1, 2, 3, 5, 40, 80, 150, 300, 500 };
+        /// <summary>升级所需同名卡的逐级倍率(索引 = rarity−1,白→红;19.3.3)。
+        /// 2026-10-20 拍板改等比:1→2 级需 1 张,之后每级 × 本档倍率,逐级向上取整
+        /// (白升满 9841 张、红 80 张)。原「白卡基准表 × 稀有度系数」两张表同日退役。</summary>
+        private static readonly double[] CopiesGrowth = { 3.0, 2.5, 2.5, 2.0, 2.0, 1.5, 1.5 };
 
-        /// <summary>升级墨锭成本(白卡基准)。索引 = 当前等级 − 1。</summary>
-        public static readonly int[] InkToUpgrade = { 20, 50, 120, 300, 700, 1500, 3000, 6000, 12000 };
+        /// <summary>升级墨锭成本(白卡基准)。索引 = 当前等级 − 1。2026-10-20 全体砍半。</summary>
+        public static readonly int[] InkToUpgrade = { 10, 25, 60, 150, 350, 750, 1500, 3000, 6000 };
 
-        // 稀有度成本系数(索引 = rarity−1,白→红;19.3.3:越稀有需卡越少、墨锭越贵)
-        private static readonly double[] CopiesMultiplier = { 1.0, 0.7, 0.4, 0.25, 0.15, 0.1, 0.05 };
-        private static readonly double[] InkMultiplier = { 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0 };
+        // 墨锭稀有度系数(索引 = rarity−1,白→红;越稀有越贵,2026-10-20 改每档 +0.5)
+        private static readonly double[] InkMultiplier = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0 };
 
-        /// <summary>升到下一级所需同名卡(按稀有度分档:越稀有越少,向上取整,最少 1)。</summary>
+        /// <summary>升到下一级所需同名卡:⌈倍率^(当前级−1)⌉。倍率都是 2 的负幂可精确表示的数,
+        /// 连乘在 double 里无舍入,向上取整不会被噪声推高一级。</summary>
         public static int CopiesRequired(int currentLevel, CardRarity rarity)
-            => Math.Max(1, (int)Math.Ceiling(
-                CopiesToUpgrade[currentLevel - 1] * CopiesMultiplier[(int)rarity - 1]));
+        {
+            double growth = CopiesGrowth[(int)rarity - 1], need = 1;
+            for (int l = 1; l < currentLevel; l++)
+                need *= growth;
+            return (int)Math.Ceiling(need);
+        }
 
-        /// <summary>升到下一级所需墨锭(按稀有度分档:越稀有越贵)。</summary>
+        /// <summary>升到下一级所需墨锭(按稀有度分档:越稀有越贵,向下取整)。</summary>
         public static int InkRequired(int currentLevel, CardRarity rarity)
             => (int)(InkToUpgrade[currentLevel - 1] * InkMultiplier[(int)rarity - 1]);
 

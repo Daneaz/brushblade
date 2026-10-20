@@ -38,18 +38,32 @@ namespace Brushblade.Core.Tests
 
         // ---- 升级成本按稀有度分档(19.3.3:越稀有需卡更少、墨锭更贵) ----
 
-        [Test]
-        public void UpgradeCosts_ScaleByRarity()
+        /// <summary>2026-10-20 拍板:同名卡改等比(1→2 需 1 张,每级 × 档位倍率,逐级向上取整),
+        /// 墨锭基准砍半、档位系数改 1.0~4.0 每档 +0.5(向下取整)。整张表钉死,改值必须改这里。</summary>
+        [TestCase(CardRarity.White, new[] { 1, 3, 9, 27, 81, 243, 729, 2187, 6561 })]
+        [TestCase(CardRarity.Green, new[] { 1, 3, 7, 16, 40, 98, 245, 611, 1526 })]
+        [TestCase(CardRarity.Blue, new[] { 1, 3, 7, 16, 40, 98, 245, 611, 1526 })]
+        [TestCase(CardRarity.Purple, new[] { 1, 2, 4, 8, 16, 32, 64, 128, 256 })]
+        [TestCase(CardRarity.Gold, new[] { 1, 2, 4, 8, 16, 32, 64, 128, 256 })]
+        [TestCase(CardRarity.Orange, new[] { 1, 2, 3, 4, 6, 8, 12, 18, 26 })]
+        [TestCase(CardRarity.Red, new[] { 1, 2, 3, 4, 6, 8, 12, 18, 26 })]
+        public void CopiesRequired_FullTable(CardRarity rarity, int[] expected)
         {
-            // 白卡 1 级:1 卡 / 20 墨锭(基准;2026-09-11 前四档由 {2,4,10,20} 降到 {1,2,3,5},
-            // 白卡升到 5 级从 36 张降到 11 张 —— 墨锭成本不动)
-            Assert.That(MetaRules.CopiesRequired(1, CardRarity.White), Is.EqualTo(1));
-            Assert.That(MetaRules.InkRequired(1, CardRarity.White), Is.EqualTo(20));
-            // 红卡(最高档)需卡 ≈ 白的 1/20(向上取整,最少 1),墨锭 ×6
-            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Red), Is.EqualTo(1));
-            Assert.That(MetaRules.InkRequired(1, CardRarity.Red), Is.EqualTo(120));
-            // 高等级同样成立:白 9 级 500 卡 → 红 25 卡
-            Assert.That(MetaRules.CopiesRequired(9, CardRarity.Red), Is.EqualTo(25));
+            var actual = Enumerable.Range(1, 9).Select(l => MetaRules.CopiesRequired(l, rarity)).ToArray();
+            Assert.That(actual, Is.EqualTo(expected), rarity.ToString());
+        }
+
+        [TestCase(CardRarity.White, new[] { 10, 25, 60, 150, 350, 750, 1500, 3000, 6000 })]
+        [TestCase(CardRarity.Green, new[] { 15, 37, 90, 225, 525, 1125, 2250, 4500, 9000 })]
+        [TestCase(CardRarity.Blue, new[] { 20, 50, 120, 300, 700, 1500, 3000, 6000, 12000 })]
+        [TestCase(CardRarity.Purple, new[] { 25, 62, 150, 375, 875, 1875, 3750, 7500, 15000 })]
+        [TestCase(CardRarity.Gold, new[] { 30, 75, 180, 450, 1050, 2250, 4500, 9000, 18000 })]
+        [TestCase(CardRarity.Orange, new[] { 35, 87, 210, 525, 1225, 2625, 5250, 10500, 21000 })]
+        [TestCase(CardRarity.Red, new[] { 40, 100, 240, 600, 1400, 3000, 6000, 12000, 24000 })]
+        public void InkRequired_FullTable(CardRarity rarity, int[] expected)
+        {
+            var actual = Enumerable.Range(1, 9).Select(l => MetaRules.InkRequired(l, rarity)).ToArray();
+            Assert.That(actual, Is.EqualTo(expected), rarity.ToString());
         }
 
         [Test]
@@ -63,9 +77,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void TryUpgradeCard_UsesRarityScaledCosts()
         {
-            var meta = new MetaState { Ink = 120 };
+            var meta = new MetaState { Ink = 40 };
             MetaRules.AddCardCopies(meta, "燚", 1);
-            // 红卡升 2 级只需 1 张重复卡 + 120 墨锭
+            // 红卡升 2 级只需 1 张重复卡 + 40 墨锭
             Assert.That(MetaRules.TryUpgradeCard(meta, "燚", CardRarity.Red), Is.True);
             Assert.That(meta.Ink, Is.EqualTo(0));
             Assert.That(MetaRules.CardLevel(meta, "燚"), Is.EqualTo(2));

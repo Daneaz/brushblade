@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./uhc.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./uhc.css">
+  <style>
+    /* 方案 A(推荐):页签切换。外壳 Ui.Sheet 984 × 620(470 × 296pt),scrim 55%,点遮罩即关。
+       一次只看一张 7 × 11 表(行头 + 9 次升级 + 升满累计);两档屏宽同一个定宽,不横滚。
+       尺寸写成 calc(N * var(--u)),N = Unity 逻辑单位。 */
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    i { font-style: normal; }
+    .wrap { position: relative; width: 932px; height: 500px; background: #E9E3D6; font-family: var(--font-sans); color: var(--text-main); }
+    .dev { position: relative; height: 430px; margin: 0 auto; overflow: hidden; background: var(--paper); }
+    .safe { position: absolute; top: 0; bottom: 21px; }
+    .inset { position: absolute; top: 0; bottom: 0; width: 58.77px; background: repeating-linear-gradient(45deg, rgba(197,54,55,.10) 0 4px, transparent 4px 8px); z-index: 6; pointer-events: none; }
+    /* —— 底下的收集页(只画顶栏,其余是示意块) —— */
+    .top { position: absolute; left: 0; right: 0; top: 0; height: 38.22px; display: flex; align-items: center; gap: 10.03px; }
+    .top h1 { margin: 0; font: 600 19.11px/1 var(--font-serif); letter-spacing: 1px; white-space: nowrap; }
+    .top .sub { font-size: 10.99px; color: var(--text-dim); white-space: nowrap; }
+    .chip { display: inline-flex; align-items: center; height: 15.29px; padding: 0 4.3px; border-radius: 6.69px; font-size: 9.56px; white-space: nowrap; flex: none; }
+    .grow { flex: 1; }
+    .inkc { display: flex; align-items: center; gap: 2.87px; font-size: 11.94px; font-variant-numeric: tabular-nums; }
+    .back { display: inline-flex; align-items: center; justify-content: center; width: 62.11px; height: 30.1px; border-radius: 11.47px; background: var(--ink-soft); color: #fff; font-size: 11.94px; white-space: nowrap; flex: none; }
+    /* ★「?」入口 = 主界面宝箱栏同款 Ui.RoundButton:直径 40 → 19.11pt、panel-inset 底、text-dim 黑体 20 → 9.56pt;命中区透明扩到 tap-min 44pt */
+    .help { position: relative; flex: none; width: calc(40 * var(--u)); height: calc(40 * var(--u)); border-radius: 50%; background: var(--panel-inset); color: var(--text-dim);
+      font: 500 calc(20 * var(--u))/1 var(--font-sans); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .help::after { content: ""; position: absolute; left: -12.4px; right: -12.4px; top: -12.4px; bottom: -12.4px; }
+    .help.ping { box-shadow: 0 0 0 1.5px var(--cta); }
+    .ghost { position: absolute; left: 0; right: 0; top: 38.22px; bottom: 0; }
+    .ghost .fb { height: 26.76px; display: flex; gap: 4px; align-items: center; }
+    .ghost .fb i { height: 18px; width: 46px; border-radius: 5px; background: var(--panel-inset); }
+    .ghost .gr { position: absolute; left: 0; top: 33px; right: 262px; bottom: 0; display: grid; grid-template-columns: repeat(auto-fill, 103.2px); gap: 13.86px 8.12px; overflow: hidden; }
+    .ghost .gr i { height: 128px; border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 2px var(--paper-dim); }
+    .ghost .sd { position: absolute; right: 0; top: 33px; bottom: 0; width: 251.79px; border-radius: 10px; background: var(--panel-paper); box-shadow: inset 0 0 0 .96px var(--panel-border); }
+    .scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 4; }
+    /* —— 弹窗外壳:Ui.Sheet(圆角 18、描边 1.5 panel-border、内边距 24、行距 14) —— */
+    .sheet { position: absolute; left: 50%; top: 50%; z-index: 5; width: calc(984 * var(--u)); height: calc(620 * var(--u)); transform: translate(-50%, -50%); box-sizing: border-box;
+      background: var(--panel-paper); border: calc(1.5 * var(--u)) solid var(--panel-border); border-radius: calc(18 * var(--u));
+      padding: calc(24 * var(--u)); display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
+    .hd { height: calc(46 * var(--u)); display: flex; align-items: center; gap: calc(10 * var(--u)); flex: none; }
+    .hd .t { font: 600 calc(34 * var(--u))/1 var(--font-serif); white-space: nowrap; }
+    /* 页签 = 收集页筛选栏「全部 / 已拥有 / 未拥有」同款 Toggle:高 46、圆角 23、字 20;选中 ink-soft 白字,未选 panel-inset text-dim */
+    .tog { height: calc(46 * var(--u)); padding: 0 calc(19 * var(--u)); border-radius: calc(23 * var(--u)); font-size: calc(20 * var(--u)); display: flex; align-items: center; white-space: nowrap;
+      background: var(--panel-inset); color: var(--text-dim); cursor: pointer; }
+    .tog.on { background: var(--ink-soft); color: #fff; }
+    .cap { font-size: calc(19 * var(--u)); line-height: calc(27 * var(--u)); color: var(--text-dim); white-space: nowrap; flex: none; }
+    .tbl { flex: none; display: flex; flex-direction: column; }
+    .tr { display: flex; align-items: center; height: calc(42 * var(--u)); border-bottom: calc(1 * var(--u)) solid var(--panel-border); }
+    .tr.h { height: calc(36 * var(--u)); border-bottom: calc(2 * var(--u)) solid var(--panel-border); }
+    .tr:last-child { border-bottom: 0; }
+    .c { flex: none; width: calc(84 * var(--u)); height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: calc(10 * var(--u)); box-sizing: border-box;
+      font-size: calc(20 * var(--u)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .h .c { font-size: calc(17 * var(--u)); color: var(--text-faint); }
+    .c.rh { width: calc(72 * var(--u)); justify-content: flex-start; padding: 0 0 0 calc(4 * var(--u)); gap: calc(8 * var(--u)); }
+    .c.rh .dot { width: calc(12 * var(--u)); height: calc(12 * var(--u)); border-radius: 50%; flex: none; }
+    .c.rh b { font: 600 calc(22 * var(--u))/1 var(--font-serif); }
+    .c.sum { width: calc(104 * var(--u)); background: var(--panel-inset); font-weight: 700; }
+    .h .c.sum { font-weight: 400; color: var(--text-dim); }
+    .c.bad { color: var(--cinnabar); outline: 1px dashed var(--cinnabar); }
+    .rule { font-size: calc(17 * var(--u)); line-height: calc(24 * var(--u)); color: var(--text-faint); white-space: nowrap; flex: none; }
+    .fill { flex: 1; }
+    .ok { align-self: center; flex: none; width: calc(180 * var(--u)); height: calc(50 * var(--u)); border-radius: calc(24 * var(--u)); border: 0; background: var(--cta); color: #fff;
+      font: 500 calc(20 * var(--u))/1 var(--font-sans); cursor: pointer; }
+    .ctl { display: flex; align-items: center; gap: 5px; padding: 0 12px; height: 30px; font-size: 9px; color: var(--text-dim); }
+    .ctl .lb { color: var(--text-faint); } .ctl .sp { width: 8px; }
+    .ctl button { height: 20px; padding: 0 8px; border: none; border-radius: 10px; background: var(--locked-bg); color: var(--text-quiet); font-size: 9px; cursor: pointer; font-family: inherit; }
+    .ctl button.on { background: var(--ink-soft); color: #fff; }
+    .tag { position: absolute; right: 6px; bottom: 4px; z-index: 7; font-size: 8px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; }
+    .warn { position: absolute; left: 6px; bottom: 4px; z-index: 7; font-size: 8px; color: #fff; background: var(--cinnabar); padding: 1px 6px; border-radius: 4px; }
+  </style>
+</helmet>
+<div class="wrap">
+  <div class="dev" style="{{ devStyle }}">
+    <i class="inset" style="{{ insL }}"></i><i class="inset" style="{{ insR }}"></i>
+    <div class="safe" style="{{ safeStyle }}">
+      <div class="top">
+        <h1>收集</h1>
+        <div class="{{ helpCls }}" onClick="{{ open }}">?</div>
+        <div class="sub">收集 23/55</div>
+        <div class="chip" style="background:var(--panel-inset);color:var(--text-dim)">未拥有 32</div>
+        <div class="chip" style="background:var(--cinnabar);color:#fff">新字 2</div>
+        <div class="grow"></div>
+        <div class="inkc"><svg viewBox="0 0 56 34" style="width:16.72px;height:10.15px"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="var(--ingot-dark)"/></svg>2,480</div>
+        <div class="back">返回地图</div>
+      </div>
+      <div class="ghost"><div class="fb"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="gr"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="sd"></div></div>
+    </div>
+    <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ true }}">
+      <div class="scrim" onClick="{{ close }}"></div>
+      <div class="sheet">
+        <div class="hd">
+          <div class="t">升 级 所 需</div>
+          <div class="fill"></div>
+          <sc-for list="{{ tabs }}" as="b"><div class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</div></sc-for>
+        </div>
+        <div class="cap">升一级要同时交够重复卡与墨锭;下表是每一级各要多少。</div>
+        <div class="tbl">
+          <div class="tr h"><div class="c rh">升级</div><sc-for list="{{ cols }}" as="h"><div class="c">{{ h }}</div></sc-for><div class="c sum">升满累计</div></div>
+          <sc-for list="{{ rows }}" as="r">
+            <div class="tr"><div class="c rh"><i class="dot" style="{{ r.dot }}"></i><b>{{ r.n }}</b></div><sc-for list="{{ r.cells }}" as="x"><div class="{{ x.cls }}">{{ x.v }}</div></sc-for><div class="c sum">{{ r.sum }}</div></div>
+          </sc-for>
+        </div>
+        <div class="rule">{{ rule }}</div>
+        <div class="fill"></div>
+        <button class="ok" onClick="{{ close }}">知道了</button>
+      </div>
+    </sc-if>
+    <div class="tag">{{ wLabel }}</div>
+    <sc-if value="{{ hasBad }}" hint-placeholder-val="{{ false }}"><div class="warn">{{ badTxt }}</div></sc-if>
+  </div>
+  <div class="ctl">
+    <span class="lb">状态</span><sc-for list="{{ oBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">页签</span><sc-for list="{{ tBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">屏宽</span><sc-for list="{{ sBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 500}}'>
+var U = window.UHC;
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { open: true, tab: 'copies', w: 'base' }; }
+  renderVals() {
+    var self = this, s = this.state, isInk = s.tab === 'ink';
+    var T = isInk ? U.INK : U.COPIES, bad = U.verify();
+    var badSet = {}; bad.forEach(function (b) { badSet[b] = 1; });
+    var rows = U.RAR.map(function (r, i) {
+      return { n: r.n, dot: 'background:var(--rarity-' + r.k + ')',
+        cells: T[i].map(function (v, c) {
+          var key = (isInk ? 'ink ' : 'copies ') + r.n + ' ' + (c + 1) + '→' + (c + 2);
+          return { v: isInk ? U.ink(v) : String(v), cls: 'c' + (badSet[key] ? ' bad' : '') };
+        }),
+        sum: isInk ? U.ink(U.sum(T[i])) : String(U.sum(T[i])) };
+    });
+    var cols = []; for (var c = 1; c <= 9; c++) cols.push(c + '→' + (c + 1));
+    var narrow = s.w === 'narrow', dev = narrow ? 764.5 : 932;
+    return {
+      devStyle: 'width:' + dev + 'px',
+      insL: narrow ? 'left:0' : 'display:none', insR: narrow ? 'right:0' : 'display:none',
+      safeStyle: narrow ? 'left:58.77px;right:58.77px' : 'left:59px;right:59px',
+      wLabel: narrow ? '16:9 无刘海 · 画布 1600(764pt),.safe 净宽 1354(647pt) · 弹窗 984 余 370' : '基准机 · 932pt,内容区 1705(815pt) · 弹窗 984 余 721',
+      isOpen: s.open, helpCls: 'help' + (s.open ? '' : ' ping'),
+      open: function () { self.setState({ open: true }); }, close: function () { self.setState({ open: false }); },
+      tabs: [['copies', '重复卡'], ['ink', '墨锭']].map(function (t) { return { n: t[1], cls: 'tog' + (s.tab === t[0] ? ' on' : ''), pick: function () { self.setState({ tab: t[0] }); } }; }),
+      cols: cols, rows: rows,
+      rule: isInk ? '各档按白档 × 系数:绿 ×1.5 · 蓝 ×2 · 紫 ×2.5 · 金 ×3 · 橙 ×3.5 · 红 ×4'
+                  : '每升一级,张数约为上一级的:白 ×3 · 绿 蓝 ×2.5 · 紫 金 ×2 · 橙 红 ×1.5',
+      hasBad: bad.length > 0, badTxt: '规则重算与抄录值不一致 ' + bad.length + ' 格(红框)',
+      oBtns: [[false, '入口'], [true, '弹窗']].map(function (o) { return { n: o[1], cls: s.open === o[0] ? 'on' : '', pick: function () { self.setState({ open: o[0] }); } }; }),
+      tBtns: [['copies', '重复卡'], ['ink', '墨锭']].map(function (t) { return { n: t[1], cls: s.tab === t[0] ? 'on' : '', pick: function () { self.setState({ tab: t[0], open: true }); } }; }),
+      sBtns: [['base', '基准机'], ['narrow', '16:9']].map(function (f) { return { n: f[1], cls: s.w === f[0] ? 'on' : '', pick: function () { self.setState({ w: f[0] }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>
