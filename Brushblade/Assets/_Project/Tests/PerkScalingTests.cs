@@ -92,8 +92,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ScaleCountOf_IsOneForNonScalingNodes()
         {
-            var meta = MetaWith("power_1");
-            Assert.That(PerkRules.ScaleCountOf(meta, PerkRules.Get("power_1")), Is.EqualTo(1),
+            var meta = MetaWith("power_1_s1");
+            Assert.That(PerkRules.ScaleCountOf(meta, PerkRules.Get("power_1_s1")), Is.EqualTo(1),
                 "非缩放节点恒 1 —— 详情面板拿它算分量时不用分支");
         }
 

@@ -152,8 +152,8 @@ namespace Brushblade.Core
             // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
             _carriedLibrary = new List<string>(startingLibrary);
             _carriedPool = new List<string>(startingPool);
-            _carriedHp = startingHp ?? EffectiveMaxHp;
-            Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
+            _carriedHp = PreBattleHeal(startingHp ?? EffectiveMaxHp);
+            Battle = NewBattle(startingLibrary, startingPool, _carriedHp); // 断点续爬恢复血量(20.6)
         }
 
         /// <summary>跨场开局效果表(spec v7 §5.1):供无尽跨段写入 EndlessSaveState。返回深拷贝 —— run 内战后会原地递减 BattlesLeft。</summary>
@@ -699,7 +699,7 @@ namespace Brushblade.Core
             // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
-            // 调息/吐纳(2026-10-02):胜利后按本关生效上限回血,夹上限
+            // 调息(2026-10-02):胜利后按本关生效上限回血,夹上限
             _carriedHp = Math.Min(EffectiveMaxHp,
                 Battle.PlayerHp + EffectiveMaxHp * _battleConfig.VictoryHealPercent / 100);
             // 护盾战斗结束按 ShieldCarryPercent 保留(2026-10-02;缺省 50 = 2026-09-05 的衰减 50%):护盾此前只加不减、整场爬塔通吃,
@@ -964,6 +964,7 @@ namespace Brushblade.Core
             BattleIndex += 1;
             LastRecipeWheel = null;
             _carriedNormalShield += _perFloorNormalShield; // 金汤每关补盾,叠加上关剩余
+            _carriedHp = PreBattleHeal(_carriedHp);
             Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);
             _killInkCredited.Clear();
             Restocked = false; // 字库补给每场战斗一次(2026-10-02)
@@ -1050,6 +1051,11 @@ namespace Brushblade.Core
             config.UnfamiliarChars = _unfamiliar.Where(IsUnfamiliar).ToList();
             return config;
         }
+
+        /// <summary>吐纳(2026-10-20):开新战前按生效上限回血,夹上限。只在新开一场时调用 ——
+        /// 续爬复原走 BattleEngine.Restore,不会重复回血。</summary>
+        private int PreBattleHeal(int hp) =>
+            Math.Min(EffectiveMaxHp, hp + EffectiveMaxHp * _battleConfig.PreBattleHealPercent / 100);
 
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {

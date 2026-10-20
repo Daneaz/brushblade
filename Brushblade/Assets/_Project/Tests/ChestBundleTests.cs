@@ -173,8 +173,8 @@ namespace Brushblade.Core.Tests
         /// <summary>2026-10-20 用户拍板的整张权重表(千分比):竹简只出白~蓝、青瓷白~紫、紫檀白~金,
         /// 鎏金/朱漆/赤霄只动橙(10→5 / 20→10 / 30→20),金红不动;删掉与调低的份额按白~紫原比例摊回。
         /// 取代 10-02 的「白~紫期望 ≈ 成捆版」与「金橙红期望不变」两组对账 —— 这次就是有意改产出。</summary>
-        [TestCase(ChestTier.Bamboo, new[] { 427, 372, 201, 0, 0, 0, 0 })]
-        [TestCase(ChestTier.Celadon, new[] { 337, 297, 254, 112, 0, 0, 0 })]
+        [TestCase(ChestTier.Bamboo, new[] { 508, 442, 50, 0, 0, 0, 0 })]
+        [TestCase(ChestTier.Celadon, new[] { 360, 318, 272, 50, 0, 0, 0 })]
         [TestCase(ChestTier.Rosewood, new[] { 327, 207, 250, 196, 20, 0, 0 })]
         [TestCase(ChestTier.Gilded, new[] { 263, 185, 251, 245, 50, 5, 1 })]
         [TestCase(ChestTier.Vermilion, new[] { 243, 171, 242, 259, 70, 10, 5 })]
