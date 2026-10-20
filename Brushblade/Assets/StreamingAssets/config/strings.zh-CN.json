@@ -1683,8 +1683,6 @@
   "wheel.collected": "已收集 · 本来就能合成",
   "wheel.continue": "继续 · 选字",
   "wheel.hit": "中",
-  "wheel.odds": "{p}%",
-  "wheel.rare": "稀有 {p}%",
   "wheel.recorded": "已记入本局配方",
   "wheel.result_meta": "{rarity} · {element}",
   "wheel.result_meta_rare": "{rarity} · {element} · 稀有格",
