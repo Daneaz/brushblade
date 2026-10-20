@@ -192,6 +192,8 @@ namespace Brushblade.Data
             public string Id { get; set; }
             public string Text { get; set; }
             public List<EventOptionDto> Options { get; set; }
+            public int MinDepth { get; set; }
+            public int MaxDepth { get; set; }
         }
 
         private sealed class EventOptionDto
@@ -333,7 +335,11 @@ namespace Brushblade.Data
                         MaxHpChancePercent = optionDto.MaxHpChancePercent,
                     });
                 }
-                events.Add(new EventDef { Id = eventDto.Id, Text = eventDto.Text, Options = options });
+                events.Add(new EventDef
+                {
+                    Id = eventDto.Id, Text = eventDto.Text, Options = options,
+                    MinDepth = eventDto.MinDepth, MaxDepth = eventDto.MaxDepth,
+                });
             }
 
             return new CampaignConfig
