@@ -134,9 +134,15 @@ def kill_ink(d):
     return ((1 - p) * n + p * (2 + (n - 2))) * per
 
 
-# 奇遇墨锭期望(12 个奇遇均匀抽):宝库必取 +80(换 200 HP);书院抄书 +20、赌书押 30
-# 赢 100(EV +20)各按一半玩家会选。其余奇遇不产墨锭。
-EVENT_INK_EV = (80 + 0.5 * 20 + 0.5 * 20) / 12
+# 奇遇墨锭期望(2026-10-21 重平衡,spec §4.4):触发后按等级加权抽(1 级 4 / 2 级 3 / 3 级 2 / 4 级 1),
+# 1~24 层池总权重 56,25 层起多 3 个 4 级奇遇、总权重 59。产墨锭的奇遇:
+# 宝库(1 级)必取暗格 +80;赌书(1 级)押 30 赢 100 EV +20、当铺(1 级)+60,各按一半玩家会选;
+# 查禁(3 级)打点差役 −30,三选一按 1/3 计。其余奇遇不产墨锭。
+_EV_SUM = 4 * 80 + 4 * 0.5 * 20 + 4 * 0.5 * 60 + 2 * (-30 / 3)
+EVENT_INK_EV = _EV_SUM / 56          # 1~24 层
+EVENT_INK_EV_DEEP = _EV_SUM / 59     # 25 层起
+# 触发频率:每段 5 层只有 4 个非 Boss 层能掷,每段期望 1.44 次(3×0.3 + 保底,spec §4.3)均摊到 4 层
+EVENT_PER_FLOOR = 1.44 / 4
 
 
 def run_income(depth):
@@ -147,7 +153,7 @@ def run_income(depth):
         ink["层清算"] += floor_ink(d)
         ink["击杀"] += kill_ink(d)
         if not is_boss(d):
-            ink["奇遇"] += EVENT_CHANCE * EVENT_INK_EV
+            ink["奇遇"] += EVENT_PER_FLOOR * (EVENT_INK_EV_DEEP if d >= 25 else EVENT_INK_EV)
         xp += 50 if is_boss(d) else 10
     return ink, xp
 

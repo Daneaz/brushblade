@@ -97,19 +97,23 @@ namespace Brushblade.Core.Tests
             var low = events.Single(e => e.Id == "字摊");
             var high = events.Single(e => e.Id == "老字号");
 
-            Assert.That((low.MinDepth, low.MaxDepth), Is.EqualTo((0, 19)));
-            Assert.That((high.MinDepth, high.MaxDepth), Is.EqualTo((20, 0)));
+            Assert.That((low.MinDepth, low.MaxDepth), Is.EqualTo((0, 0)), "字摊 2026-10-21 起全程");
+            Assert.That((high.MinDepth, high.MaxDepth), Is.EqualTo((25, 0)));
 
-            // 低层:舍 1 部件换金字任选 / 白讨随机部件 —— 前期拿不到橙字
+            var gold = new[] { "鍂", "林", "冰", "炎", "圭" };
+            var orange = new[] { "鑫", "森", "淼", "焱", "垚" };
+
+            // 字摊:舍 1 部件 / HP −100,换同一批金字任选(同货不同价)
             Assert.That(low.Options[0].ComponentCost, Is.EqualTo(1));
-            Assert.That(low.Options[0].GainCharChoices, Is.EquivalentTo(new[] { "鍂", "林", "冰", "炎", "圭" }));
-            Assert.That(low.Options[1].RandomComponents, Is.EqualTo(1));
-            Assert.That(low.Options[1].GainCharChoices, Is.Empty);
+            Assert.That(low.Options[0].GainCharChoices, Is.EquivalentTo(gold));
+            Assert.That(low.Options[1].HpDelta, Is.EqualTo(-100));
+            Assert.That(low.Options[1].GainCharChoices, Is.EquivalentTo(gold));
 
-            // 高层:舍 1 部件换橙字任选 / 白讨金字任选
+            // 老字号:舍 1 部件 / HP −150,换同一批橙字任选
             Assert.That(high.Options[0].ComponentCost, Is.EqualTo(1));
-            Assert.That(high.Options[0].GainCharChoices, Is.EquivalentTo(new[] { "鑫", "森", "淼", "焱", "垚" }));
-            Assert.That(high.Options[1].GainCharChoices, Is.EquivalentTo(new[] { "鍂", "林", "冰", "炎", "圭" }));
+            Assert.That(high.Options[0].GainCharChoices, Is.EquivalentTo(orange));
+            Assert.That(high.Options[1].HpDelta, Is.EqualTo(-150));
+            Assert.That(high.Options[1].GainCharChoices, Is.EquivalentTo(orange));
 
             Assert.That(events.Select(e => e.Id).Distinct().Count(), Is.EqualTo(events.Count), "奇遇 id 唯一(续爬按 id 恢复)");
         }

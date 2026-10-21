@@ -463,7 +463,7 @@
       ]
     }
   ],
-  "eventChance": 40,
+  "eventChance": 30,
   "events": [
     {
       "id": "测字先生",
@@ -476,9 +476,9 @@
           "gainChar": "炎"
         },
         {
-          "label": "求墨",
-          "detail": "随机部件 ×2",
-          "randomComponents": 2
+          "label": "求签",
+          "detail": "得「圭」",
+          "gainChar": "圭"
         },
         {
           "label": "拱手离开"
@@ -497,9 +497,10 @@
           "gainChar": "冰"
         },
         {
-          "label": "取墨而归",
-          "detail": "随机部件 ×2",
-          "randomComponents": 2
+          "label": "洗笔",
+          "detail": "HP −60,上限 +15%",
+          "hpDelta": -60,
+          "maxHpPercent": 15
         },
         {
           "label": "绕道而行"
@@ -532,19 +533,19 @@
       "text": "山间书院灯火未熄,先生愿留你半日。",
       "options": [
         {
-          "label": "休整",
-          "detail": "HP +150",
-          "hpDelta": 150
-        },
-        {
           "label": "进修",
-          "detail": "得「林」",
+          "detail": "HP −80,得「林」",
+          "hpDelta": -80,
           "gainChar": "林"
         },
         {
-          "label": "帮抄书换钱",
-          "detail": "墨锭 +20",
-          "ink": 20
+          "label": "以物求学",
+          "detail": "舍 1 部件,得「林」",
+          "componentCost": 1,
+          "gainChar": "林"
+        },
+        {
+          "label": "告辞下山"
         }
       ]
     },
@@ -552,7 +553,6 @@
       "id": "字摊",
       "tier": 3,
       "text": "路旁小摊,摊主捻须:『以物易物,童叟无欺。』",
-      "maxDepth": 19,
       "options": [
         {
           "label": "以物易字",
@@ -567,36 +567,9 @@
           ]
         },
         {
-          "label": "白讨部件",
-          "detail": "随机部件 ×1",
-          "randomComponents": 1
-        },
-        {
-          "label": "只看不换"
-        }
-      ]
-    },
-    {
-      "id": "老字号",
-      "tier": 4,
-      "text": "百年老字号的掌柜拨着算盘:『好字不贱卖,拿料来换。』",
-      "minDepth": 20,
-      "options": [
-        {
-          "label": "以物易字",
-          "detail": "舍 1 部件,3 叠字任选一",
-          "componentCost": 1,
-          "gainCharChoices": [
-            "鑫",
-            "森",
-            "淼",
-            "焱",
-            "垚"
-          ]
-        },
-        {
-          "label": "白讨一字",
-          "detail": "2 叠字任选一",
+          "label": "以血易字",
+          "detail": "HP −100,2 叠字任选一",
+          "hpDelta": -100,
           "gainCharChoices": [
             "鍂",
             "林",
@@ -611,14 +584,49 @@
       ]
     },
     {
+      "id": "老字号",
+      "tier": 4,
+      "text": "百年老字号的掌柜拨着算盘:『好字不贱卖,拿料来换。』",
+      "minDepth": 25,
+      "options": [
+        {
+          "label": "以物易字",
+          "detail": "舍 1 部件,3 叠字任选一",
+          "componentCost": 1,
+          "gainCharChoices": [
+            "鑫",
+            "森",
+            "淼",
+            "焱",
+            "垚"
+          ]
+        },
+        {
+          "label": "以血易字",
+          "detail": "HP −150,3 叠字任选一",
+          "hpDelta": -150,
+          "gainCharChoices": [
+            "鑫",
+            "森",
+            "淼",
+            "焱",
+            "垚"
+          ]
+        },
+        {
+          "label": "只看不换"
+        }
+      ]
+    },
+    {
       "id": "篝火",
       "tier": 1,
       "text": "篝火正旺,暖意驱散了错字的阴气。",
       "options": [
         {
           "label": "休整",
-          "detail": "HP +200",
-          "hpDelta": 200
+          "detail": "HP +300",
+          "hpDelta": 300
         },
         {
           "label": "烤字取暖",
@@ -665,8 +673,9 @@
         },
         {
           "label": "描摹碑文",
-          "detail": "随机部件 ×2",
-          "randomComponents": 2
+          "detail": "舍 1 部件,得「鍂」",
+          "componentCost": 1,
+          "gainChar": "鍂"
         },
         {
           "label": "肃然离开"
@@ -680,8 +689,9 @@
       "options": [
         {
           "label": "取明面财",
-          "detail": "墨锭 +40",
-          "ink": 40
+          "detail": "墨锭 +40,随机部件 ×2",
+          "ink": 40,
+          "randomComponents": 2
         },
         {
           "label": "搜刮暗格",
@@ -706,8 +716,14 @@
         },
         {
           "label": "讨教笔法",
-          "detail": "随机部件 ×1",
-          "randomComponents": 1
+          "detail": "2 叠字任选一",
+          "gainCharChoices": [
+            "鍂",
+            "林",
+            "冰",
+            "炎",
+            "圭"
+          ]
         },
         {
           "label": "不扰清修"
@@ -748,12 +764,193 @@
           "componentCost": 1
         },
         {
-          "label": "讨碗凉茶",
-          "detail": "HP +50",
-          "hpDelta": 50
+          "label": "以血换气",
+          "detail": "HP −150,上限 +30%",
+          "hpDelta": -150,
+          "maxHpPercent": 30
         },
         {
           "label": "谢过离开"
+        }
+      ]
+    },
+    {
+      "id": "药铺",
+      "tier": 3,
+      "text": "药铺掌柜搭着脉:『药钱好说,只是这药劲上来,下一仗手脚要慢半拍。』",
+      "options": [
+        {
+          "label": "进补",
+          "detail": "上限 +20%,下一战首回合 AP −1",
+          "maxHpPercent": 20,
+          "nextBattleSeal": 1
+        },
+        {
+          "label": "换方",
+          "detail": "2 叠字任选一,下一战首回合 AP −1",
+          "gainCharChoices": [
+            "鍂",
+            "林",
+            "冰",
+            "炎",
+            "圭"
+          ],
+          "nextBattleSeal": 1
+        },
+        {
+          "label": "婉拒离开"
+        }
+      ]
+    },
+    {
+      "id": "炼字炉",
+      "tier": 4,
+      "text": "废弃的炼字炉余火未熄,投料进去,能炼出好字。",
+      "minDepth": 25,
+      "options": [
+        {
+          "label": "小炼",
+          "detail": "舍 2 部件,2 叠字任选一",
+          "componentCost": 2,
+          "gainCharChoices": [
+            "鍂",
+            "林",
+            "冰",
+            "炎",
+            "圭"
+          ]
+        },
+        {
+          "label": "大炼",
+          "detail": "舍 3 部件,3 叠字任选一",
+          "componentCost": 3,
+          "gainCharChoices": [
+            "鑫",
+            "森",
+            "淼",
+            "焱",
+            "垚"
+          ]
+        },
+        {
+          "label": "熄火离开"
+        }
+      ]
+    },
+    {
+      "id": "古战场",
+      "tier": 4,
+      "text": "荒原上残旗半倒,阵亡笔客的遗字还在土里发光。",
+      "minDepth": 25,
+      "options": [
+        {
+          "label": "拾遗字",
+          "detail": "HP −200,3 叠字任选一",
+          "hpDelta": -200,
+          "gainCharChoices": [
+            "鑫",
+            "森",
+            "淼",
+            "焱",
+            "垚"
+          ]
+        },
+        {
+          "label": "祭英魂",
+          "detail": "HP −200,上限 +30%",
+          "hpDelta": -200,
+          "maxHpPercent": 30
+        },
+        {
+          "label": "默哀离开"
+        }
+      ]
+    },
+    {
+      "id": "当铺",
+      "tier": 1,
+      "text": "当铺朝奉隔着高柜台:『当什么?死当活当,价钱不同。』",
+      "options": [
+        {
+          "label": "当部件",
+          "detail": "舍 2 部件,墨锭 +60",
+          "componentCost": 2,
+          "ink": 60
+        },
+        {
+          "label": "当气血",
+          "detail": "HP −150,墨锭 +60",
+          "hpDelta": -150,
+          "ink": 60
+        },
+        {
+          "label": "离开"
+        }
+      ]
+    },
+    {
+      "id": "拦路虎",
+      "tier": 1,
+      "text": "山贼横刀拦路:『此路是我开,留下买路财!』",
+      "options": [
+        {
+          "label": "交出部件",
+          "detail": "舍 2 部件",
+          "componentCost": 2
+        },
+        {
+          "label": "交出一字",
+          "detail": "舍 1 字",
+          "libraryCost": 1
+        },
+        {
+          "label": "硬闯",
+          "detail": "HP −150",
+          "hpDelta": -150
+        }
+      ]
+    },
+    {
+      "id": "瘴林",
+      "tier": 2,
+      "text": "林间瘴气弥漫,吸一口便头昏眼花。",
+      "options": [
+        {
+          "label": "焚药驱瘴",
+          "detail": "舍 1 部件",
+          "componentCost": 1
+        },
+        {
+          "label": "绕道而行",
+          "detail": "下一战首回合 AP −1",
+          "nextBattleSeal": 1
+        },
+        {
+          "label": "屏息硬穿",
+          "detail": "HP −150",
+          "hpDelta": -150
+        }
+      ]
+    },
+    {
+      "id": "查禁",
+      "tier": 3,
+      "text": "官差拦路搜书:『有禁字没有?交出来,或者打点打点。』",
+      "options": [
+        {
+          "label": "交出禁字",
+          "detail": "舍 1 字",
+          "libraryCost": 1
+        },
+        {
+          "label": "打点差役",
+          "detail": "付墨 30",
+          "inkCost": 30
+        },
+        {
+          "label": "挨板子",
+          "detail": "HP −150",
+          "hpDelta": -150
         }
       ]
     }
