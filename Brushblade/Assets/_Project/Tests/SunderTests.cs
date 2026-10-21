@@ -4,7 +4,7 @@ using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
 
-namespace Brushblade.CoreTests
+namespace Brushblade.Core.Tests
 {
     /// <summary>破甲 Sunder(2026-10-21 土系破甲归零):持续期间目标护甲归零,Boss 减半;
     /// 与旧 <see cref="EffectKind.ArmorBreak"/>(扣点,现改称「削甲」)互不干涉。
@@ -154,6 +154,53 @@ namespace Brushblade.CoreTests
             Assert.That(b.EffectivePlayerDefense, Is.EqualTo(50));
             Put(b.PlayerStatuses, StatusKind.Sunder, 0, 2, "sunder");
             Assert.That(b.EffectivePlayerDefense, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Sunder_OnPlayer_ExpiresAndArmorReturns()
+        {
+            var b = new BattleEngine(Graph(), new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = 30 },
+                Array.Empty<string>(), Array.Empty<string>(), new[] { Mob(0) }, seed: 1);
+            Put(b.PlayerStatuses, StatusKind.Sunder, 0, 2, "sunder");
+            Assert.That(b.EffectivePlayerDefense, Is.EqualTo(0));
+            b.EndTurn(); b.EndTurn();
+            Assert.That(b.EffectivePlayerDefense, Is.EqualTo(30), "到期后护甲恢复");
+        }
+
+        [Test]
+        public void ArmorBroken_Condition_AcceptsSunderOnly()
+        {
+            var amp = new CharDef("圭", Element.Heart, effects: new[] { new EffectDef(EffectKind.Shield, 10) },
+                attackEffects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 100),
+                    new EffectDef(EffectKind.Amplify, 20, onlyIf: DamageCondition.ArmorBroken),
+                });
+            int Dealt(bool sunder)
+            {
+                var b = new BattleEngine(new RecipeGraph(new[] { amp }), new BattleConfig { PlayerMaxHp = 1000, PlayerAttack = 100, ApPerTurn = 20 },
+                    new[] { "圭", "圭" }, Array.Empty<string>(), new[] { Mob(0) }, seed: 1);
+                if (sunder) Put(b.Enemies[0].Statuses, StatusKind.Sunder, 0, 2, "sunder");
+                Assert.That(b.Cast("圭", 0, attackMode: true), Is.EqualTo(BattleError.None));
+                return b.Enemies[0].MaxHp - b.Enemies[0].Hp;
+            }
+            Assert.That(Dealt(true), Is.GreaterThan(Dealt(false)), "只挂 Sunder 时 onlyIf ArmorBroken 的 Amplify 触发");
+        }
+
+        [Test]
+        public void Augment_Turns_ExtendsSunder()
+        {
+            var def = new CharDef("土", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Shield, 10) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10), new EffectDef(EffectKind.Sunder, 0, turns: 2) },
+                traits: new[]
+                {
+                    new TraitDef(TraitSlot.Lv4, TraitFace.Attack, TraitForm.Passive, null, "强化",
+                        new[] { new EffectDef(EffectKind.Augment, 2, augmentKind: EffectKind.Sunder, augmentField: AugmentField.Turns) }),
+                });
+            Assert.That(TraitRules.CastEffects(def, CardFace.Attack, 3).First(e => e.Kind == EffectKind.Sunder).Turns, Is.EqualTo(2));
+            Assert.That(TraitRules.CastEffects(def, CardFace.Attack, 4).First(e => e.Kind == EffectKind.Sunder).Turns, Is.EqualTo(4),
+                "Lv4 Augment Turns +2");
         }
 
         [Test]

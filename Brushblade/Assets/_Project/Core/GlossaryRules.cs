@@ -20,7 +20,7 @@ namespace Brushblade.Core
         Heft,          // 厚
         Shield,        // 护盾
         Armor,         // 护甲
-        ArmorBreak,    // 破甲
+        ArmorBreak,    // 削甲(扣点)
         Hot,           // 润泽
         Seed,          // 种
         Spirit,        // 木灵

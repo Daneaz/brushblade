@@ -1219,6 +1219,8 @@ namespace Brushblade.Core
         /// − 身上的破甲,下钳 0。与 <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> 同形:
         /// **基础值来自 config(战中不可变),变动量全在 <c>_playerStatuses</c> 里**。
         ///
+        /// 带 <see cref="StatusKind.Sunder"/>(破甲)时整个归零(护甲增益、富甲一并算 0)。
+        ///
         /// 敌人没有穿透通道(<see cref="EffectDef.Pierce"/> 是出字效果的字段),但破甲这条通道
         /// 本批就打通:第八章配「敌人破甲」时给玩家挂 <see cref="StatusKind.ArmorBreak"/> 即可,
         /// 引擎侧不需要再改(spec §4.5.4)。</summary>
@@ -5984,7 +5986,7 @@ namespace Brushblade.Core
             DamageCondition.Controlled => target.Statuses.Has(StatusKind.Freeze)
                 || target.Statuses.Has(StatusKind.IceStall)   // 冰滞 = Boss 的冻结(R1b)
                 || target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
-            DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak),
+            DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak) || target.Statuses.Has(StatusKind.Sunder),   // 削甲或破甲(2026-10-21)
             DamageCondition.Slowed => target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
             DamageCondition.Frozen => target.Statuses.Has(StatusKind.Freeze) || target.Statuses.Has(StatusKind.IceStall),
             DamageCondition.TargetHpAbove70 => target.Hp * 100L > target.MaxHp * 70L,

@@ -19,7 +19,7 @@ namespace Brushblade.Core
         Immunity,       // 免疫
         Slow,           // 减速
         Freeze,         // 冻结
-        ArmorBreak,     // 破甲
+        ArmorBreak,     // 削甲(扣点)
         Seed,           // 种
         Weaken,         // 减攻
         Vulnerable,     // 标记

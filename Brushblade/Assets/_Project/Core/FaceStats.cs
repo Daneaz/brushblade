@@ -26,7 +26,7 @@ namespace Brushblade.Core
         Seed,           // 种:回合
         Charm,          // 魅惑:回合
         HealOverTime,   // 润泽(持续治疗):回合
-        ArmorBreak,     // 破甲:回合
+        ArmorBreak,     // 削甲(扣点):回合
         Nature,         // 生面「本命」(Q7):Value 恒 0,数据在 FaceStat.Passive;图标与措辞归 Presentation
         // ---- 资源结算(final review Important 1)----
         SpendWellspring, // 涌泉相报:清空全部泉,全体伤害 = 层数 × Value。Value = 每层伤害(缩放,同引擎 SpendResource 的 value)
