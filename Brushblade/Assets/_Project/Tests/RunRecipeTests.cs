@@ -42,6 +42,29 @@ namespace Brushblade.Core.Tests
             return before - battle.Enemies[0].Hp;
         }
 
+        // ---- 生疏字进掉字牌组(用户 2026-10-21:抽到之后本局的战斗也能随机掉到它) ----
+
+        [Test]
+        public void TurnDrops_IncludeUnfamiliarChars()
+        {
+            var config = new BattleConfig
+            {
+                UnlockedChars = new[] { "灯" }, UnfamiliarChars = new[] { "炎" },
+                DropsPerTurn = 20, LibraryCapacity = 30,
+            };
+            var battle = Battle(config, Array.Empty<string>());
+            Assert.That(battle.Library.Contains("炎"), Is.True, "生疏字也在掉字牌组里");
+            Assert.That(battle.IsUnfamiliar("炎"), Is.True, "掉下来的照旧生疏");
+        }
+
+        [Test]
+        public void TurnDrops_WithoutUnfamiliar_OnlyUnlocked()
+        {
+            var config = new BattleConfig { UnlockedChars = new[] { "灯" }, DropsPerTurn = 20, LibraryCapacity = 30 };
+            var battle = Battle(config, Array.Empty<string>());
+            Assert.That(battle.Library.All(c => c == "灯"), Is.True);
+        }
+
         // ---- §1 可合成集 = 收集闭包 ∪ 配方集(只放开目标字本身) ----
 
         [Test]
