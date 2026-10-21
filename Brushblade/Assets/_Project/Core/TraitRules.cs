@@ -76,6 +76,7 @@ namespace Brushblade.Core
             [EffectKind.Slow] = true,
             [EffectKind.DefenseBuff] = false,
             [EffectKind.ArmorBreak] = false,
+            [EffectKind.Sunder] = false,
             [EffectKind.HealOverTime] = false,
             [EffectKind.Weaken] = false,
             [EffectKind.Seed] = false,

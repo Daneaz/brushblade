@@ -46,6 +46,7 @@ namespace Brushblade.Core
         SpendHeft,     // 厚积薄发(2026-10-15 用户:特殊词条,单独成条)
         SpendWellspring, // 涌泉相报(同上)
         Kindle,        // 燃意(spec C §5.3:火五行面)
+        Sunder,        // 破甲(2026-10-21:土系,护甲归零;旧「破甲」扣点改称削甲 = ArmorBreak)。插在关键词组末尾,Group() 依赖连续排列
         // ---- §3.2 范围 ----
         AreaSingle,    // 单体
         AreaAdjacent,  // 溅射
@@ -75,7 +76,7 @@ namespace Brushblade.Core
     {
         /// <summary>0 = 关键词、1 = 范围、2 = 存续(spec §3.1 / §3.2 / §3.3)。</summary>
         public static int Group(GlossaryTerm term) =>
-            term <= GlossaryTerm.Kindle ? 0 : term <= GlossaryTerm.AreaAll ? 1 : 2;
+            term <= GlossaryTerm.Sunder ? 0 : term <= GlossaryTerm.AreaAll ? 1 : 2;
 
         /// <summary>字卡详情数值格对应的术语;null = 这一格不带术语(伤害 / 治疗 / 召唤攻击 / 反击 / 持续),不开气泡。</summary>
         public static GlossaryTerm? TermOf(FaceStatKind kind) => kind switch
@@ -93,6 +94,7 @@ namespace Brushblade.Core
             FaceStatKind.Charm => GlossaryTerm.Charm,
             FaceStatKind.HealOverTime => GlossaryTerm.Hot,
             FaceStatKind.ArmorBreak => GlossaryTerm.ArmorBreak,
+            FaceStatKind.Sunder => GlossaryTerm.Sunder,
             FaceStatKind.Nature => GlossaryTerm.Nature,
             FaceStatKind.SpendWellspring => GlossaryTerm.SpendWellspring,
             FaceStatKind.SpendHeft => GlossaryTerm.SpendHeft,
@@ -151,7 +153,8 @@ namespace Brushblade.Core
             GlossaryTerm.Block => ("block", ChipTone.Guard),
             GlossaryTerm.Shield => ("shield", ChipTone.Guard),
             GlossaryTerm.Armor => ("defense", ChipTone.Guard),
-            GlossaryTerm.ArmorBreak => ("armorbreak", ChipTone.Control),
+            GlossaryTerm.ArmorBreak => ("armorshred", ChipTone.Control),   // 削甲(扣点)
+            GlossaryTerm.Sunder => ("armorbreak", ChipTone.Control),   // 破甲(归零)
             GlossaryTerm.Hot => ("heal", ChipTone.Guard),
             GlossaryTerm.Seed => ("seed", ChipTone.Guard),
             GlossaryTerm.Taunt => ("taunt", ChipTone.Control),

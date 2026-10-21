@@ -166,6 +166,7 @@ namespace Brushblade.Core.Tests
                 EffectKind.BurnAll, EffectKind.BurnSingle,
                 EffectKind.Freeze, EffectKind.Slow,
                 EffectKind.Silence, EffectKind.Charm,
+                EffectKind.Sunder,   // 破甲(2026-10-21):回合数
                 EffectKind.Immunity, EffectKind.Reflect,
                 EffectKind.Cleanse, EffectKind.Dispel, EffectKind.Revive,
                 EffectKind.Summon,

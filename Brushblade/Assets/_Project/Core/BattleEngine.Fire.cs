@@ -292,7 +292,7 @@ namespace Brushblade.Core
         public static bool RetaliateAllows(EffectKind kind) => kind switch
         {
             EffectKind.BurnSingle or EffectKind.Bleed or EffectKind.Weaken or EffectKind.Blind
-                or EffectKind.ArmorBreak or EffectKind.Vulnerable or EffectKind.Slow or EffectKind.Freeze => true,
+                or EffectKind.ArmorBreak or EffectKind.Sunder or EffectKind.Vulnerable or EffectKind.Slow or EffectKind.Freeze => true,
             _ => false,
         };
 

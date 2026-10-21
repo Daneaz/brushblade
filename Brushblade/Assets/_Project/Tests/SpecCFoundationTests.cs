@@ -13,9 +13,9 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(new[] { EffectKind.Kindle, EffectKind.Attune, EffectKind.SpendHeal, EffectKind.SpendShield }.Select(k => (int)k),
                 Is.EqualTo(Enumerable.Range((int)EffectKind.ReviveShield + 1, 4)));
-            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.SpendShield));
+            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.Sunder));   // 土系破甲归零(2026-10-21)在其后追加 Sunder
             Assert.That((int)StatusKind.Kindle, Is.EqualTo((int)StatusKind.ThornMark + 1));
-            Assert.That(Enum.GetValues(typeof(StatusKind)).Cast<int>().Max(), Is.EqualTo((int)StatusKind.Kindle));
+            Assert.That(Enum.GetValues(typeof(StatusKind)).Cast<int>().Max(), Is.EqualTo((int)StatusKind.Sunder));   // 同上追加 Sunder
             Assert.That((int)AmpScope.Spend, Is.EqualTo((int)AmpScope.Burn + 1));
             Assert.That((int)ScaleBasis.Spent, Is.EqualTo((int)ScaleBasis.SummonCount + 1));
         }

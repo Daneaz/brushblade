@@ -250,6 +250,8 @@ namespace Brushblade.Core
         Attune,      // 点金 / 化水 / 引火 / 培土:五行面落到活木灵时把它的属性改为本字所属系(永久、跨场);落玩家空转。Value 不用。非敌对。
         SpendHeal,   // 回澜:本次释放泉 / 厚的实际伤害合计(CastContext.SpentDamage)× Value% 治疗玩家与全部存活木灵;不吃泉放大、不攒泉。离散。非敌对。
         SpendShield, // 地动:玩家与全部存活木灵各得护盾 = 本次释放的每目标伤害(CastContext.SpentPerTarget)× Value%;不攒厚。离散。非敌对。
+        // ---- 土系破甲归零(2026-10-21)。⚠ 只在末尾追加 ----
+        Sunder,      // 破甲:Turns 回合内目标护甲按 0 算(Boss 一半)。ScaleBy Spent:回合 = Max(1,Turns) + 消耗层数 / Max(1,Value);旧 ArmorBreak 改称「削甲」(扣点)
     }
 
     /// <summary>计数缩放的计数口径(D2-火 Task 2,附录 N4,G2)。Amplify 读出字前快照(R3,条件类);HealSelf 读结算那一刻(产出量)。</summary>
@@ -270,7 +272,7 @@ namespace Brushblade.Core
         // ---- D2-木 Task 1(附录 E39)。⚠ 只在末尾追加 ----
         SummonCount,    // Amplify:出字前的存活木灵数(含幼苗;R3,同 PreCastConditions 一并取)。众木 / 林深
         // ---- spec C(2026-10-15)§6。⚠ 只在末尾追加 ----
-        Spent,          // 本次出字释放的泉 / 厚层数(CastContext.Spent,清空前);只给 ArmorBreak(崩裂 / 厚壤):Magnitude = Value × 层数
+        Spent,          // 本次出字释放的泉 / 厚层数(CastContext.Spent,清空前);只给 ArmorBreak / Sunder(崩裂 / 厚壤):ArmorBreak 的 Magnitude = Value × 层数;Sunder 的回合 += 层数 / Value
     }
 
     /// <summary><see cref="EffectKind.Augment"/> 加在目标效果的哪个字段。</summary>

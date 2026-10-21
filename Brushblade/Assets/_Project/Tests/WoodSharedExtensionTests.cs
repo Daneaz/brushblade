@@ -732,11 +732,11 @@ namespace Brushblade.Core.Tests
             Assert.That(((int)EffectKind.BlockGain, (int)EffectKind.ReviveShield),
                 Is.EqualTo(((int)EffectKind.OverhealShield + 1, (int)EffectKind.OverhealShield + 2)));
             // spec C 在其后追加 Kindle / Attune / SpendHeal / SpendShield
-            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.SpendShield));
+            Assert.That(Enum.GetValues(typeof(EffectKind)).Cast<int>().Max(), Is.EqualTo((int)EffectKind.Sunder));   // 土系破甲归零(2026-10-21)在其后追加 Sunder
             Assert.That(new[] { StatusKind.SummonEmpower, StatusKind.SummonThorns, StatusKind.SummonRanged, StatusKind.Bind,
                 StatusKind.ThornMark }.Select(k => (int)k), Is.EqualTo(Enumerable.Range((int)StatusKind.SkillCut + 1, 5)));
             // spec C 在其后追加 Kindle
-            Assert.That(Enum.GetValues(typeof(StatusKind)).Cast<int>().Max(), Is.EqualTo((int)StatusKind.Kindle));
+            Assert.That(Enum.GetValues(typeof(StatusKind)).Cast<int>().Max(), Is.EqualTo((int)StatusKind.Sunder));   // 同上追加 Sunder
             Assert.That(((int)EffectPick.OtherSummons, (int)EffectPick.StrongestSummon),
                 Is.EqualTo(((int)EffectPick.AllAllies + 1, (int)EffectPick.AllAllies + 2)));
             Assert.That(((int)EffectSource.DeathBlast, (int)EffectSource.ReturnFire),

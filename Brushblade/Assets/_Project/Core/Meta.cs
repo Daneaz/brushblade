@@ -831,6 +831,8 @@ namespace Brushblade.Core
             EffectKind.Amplify or EffectKind.Reshape => false,
             // Augment(D1 Task 4):Value 是「加几次 / 几回合 / 几跳」,离散量。
             EffectKind.Augment => false,
+            // 破甲 Sunder(2026-10-21):Turns 是回合、Value 是「每多少层 +1 回合」,都是离散量
+            EffectKind.Sunder => false,
             // 净化(D1 Task 7 起 Value = 清几个,0 = 全清):条数是离散量(Ruling 10)
             EffectKind.Cleanse => false,
             // D1 Task 7:减伤是写死的百分点(与 60% 非护甲减伤封顶直接相关)、反击增强是倍率、保命 Value 不用;

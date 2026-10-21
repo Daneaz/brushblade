@@ -27,6 +27,7 @@ namespace Brushblade.Core
         Silence,        // 封禁
         Charm,          // 魅惑
         Bleed,          // 流血
+        Sunder,         // 破甲(2026-10-21;旧 ArmorBreak 段改称削甲)
     }
 
     public readonly struct EstimateSeg
@@ -128,6 +129,7 @@ namespace Brushblade.Core
                 case EffectKind.Slow: return new EstimateSeg(EstimateSegKind.Slow);
                 case EffectKind.Freeze: return new EstimateSeg(EstimateSegKind.Freeze);
                 case EffectKind.ArmorBreak: return new EstimateSeg(EstimateSegKind.ArmorBreak);
+                case EffectKind.Sunder: return new EstimateSeg(EstimateSegKind.Sunder);
                 case EffectKind.Seed: return new EstimateSeg(EstimateSegKind.Seed);
                 case EffectKind.Weaken: return new EstimateSeg(EstimateSegKind.Weaken);
                 case EffectKind.Vulnerable: return new EstimateSeg(EstimateSegKind.Vulnerable);

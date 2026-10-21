@@ -86,7 +86,7 @@ namespace Brushblade.Core
         internal static readonly HashSet<EffectKind> HostileKinds = new()
         {
             EffectKind.DamageSingle, EffectKind.BurnSingle, EffectKind.BurnAll, EffectKind.Bleed,
-            EffectKind.Freeze, EffectKind.Slow, EffectKind.ArmorBreak, EffectKind.Dispel, EffectKind.Blind,
+            EffectKind.Freeze, EffectKind.Slow, EffectKind.ArmorBreak, EffectKind.Sunder, EffectKind.Dispel, EffectKind.Blind,
             EffectKind.Silence, EffectKind.BurnNoDecay, EffectKind.BurnSettleNow, EffectKind.Detonate,
             EffectKind.Charm, EffectKind.Quench, EffectKind.Weaken, EffectKind.Seed, EffectKind.Vulnerable,
             EffectKind.SpendHeft, EffectKind.SpendWellspring, EffectKind.SummonStrike,

@@ -295,7 +295,7 @@ namespace Brushblade.Core
         /// 被动也不给),所以完全来自玩家挂上去的增益 —— 无 buff 时恒 0、减法退化成不减。
         /// 破甲一并读进来:眼下没有「敌人破召唤物甲」的通道,但口径与玩家侧
         /// <c>EffectivePlayerDefense</c> 对齐,将来配了那种敌人不用再改。</summary>
-        public int EffectiveDefense => System.Math.Max(0,
+        public int EffectiveDefense => Statuses.Has(StatusKind.Sunder) ? 0 : System.Math.Max(0,
             Statuses.TotalMagnitude(StatusKind.DefenseBuff)
             - Statuses.TotalMagnitude(StatusKind.ArmorBreak));
 

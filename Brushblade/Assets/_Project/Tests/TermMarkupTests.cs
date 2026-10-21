@@ -163,19 +163,20 @@ namespace Brushblade.Core.Tests
         // ---------------- GlossaryTerm / GlossaryRules ----------------
 
         [Test]
-        public void GlossaryTerm_48_InSpecOrder_Groups()
+        public void GlossaryTerm_49_InSpecOrder_Groups()
         {
             // 2026-10-13:删去一条词条,关键词 32 → 31;2026-10-15 spec B:追加 涓 / 涌 / 苏 / 速度,31 → 35;
-            // 同日用户:厚积薄发 / 涌泉相报单独成词条,35 → 37;spec C:燃意 37 → 38
+            // 同日用户:厚积薄发 / 涌泉相报单独成词条,35 → 37;spec C:燃意 37 → 38;2026-10-21:破甲 Sunder 38 → 39
             var all = Enum.GetValues(typeof(GlossaryTerm)).Cast<GlossaryTerm>().ToList();
-            Assert.That(all.Count, Is.EqualTo(48));
-            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(38), "关键词");
+            Assert.That(all.Count, Is.EqualTo(49));
+            Assert.That(all.Count(t => GlossaryRules.Group(t) == 0), Is.EqualTo(39), "关键词");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 1), Is.EqualTo(7), "范围");
             Assert.That(all.Count(t => GlossaryRules.Group(t) == 2), Is.EqualTo(3), "存续");
             Assert.That(all.Select(GlossaryRules.Group), Is.Ordered, "组按 spec §3 顺序排");
             Assert.That((all[0], all[30], all[31], all[36], all[37]), Is.EqualTo(
                 (GlossaryTerm.Burn, GlossaryTerm.Crit, GlossaryTerm.Trickle, GlossaryTerm.SpendWellspring, GlossaryTerm.Kindle)));
-            Assert.That((all[38], all[44], all[45], all[47]), Is.EqualTo(
+            Assert.That(all[38], Is.EqualTo(GlossaryTerm.Sunder));
+            Assert.That((all[39], all[45], all[46], all[48]), Is.EqualTo(
                 (GlossaryTerm.AreaSingle, GlossaryTerm.AreaAll, GlossaryTerm.Battle, GlossaryTerm.Band)));
         }
 
@@ -198,7 +199,8 @@ namespace Brushblade.Core.Tests
                 [GlossaryTerm.Heft] = null,
                 [GlossaryTerm.Shield] = C("shield", ChipTone.Guard),
                 [GlossaryTerm.Armor] = C("defense", ChipTone.Guard),
-                [GlossaryTerm.ArmorBreak] = C("armorbreak", ChipTone.Control),
+                [GlossaryTerm.ArmorBreak] = C("armorshred", ChipTone.Control),
+                [GlossaryTerm.Sunder] = C("armorbreak", ChipTone.Control),
                 [GlossaryTerm.Hot] = C("heal", ChipTone.Guard),
                 [GlossaryTerm.Seed] = C("seed", ChipTone.Guard),
                 [GlossaryTerm.Spirit] = null,
@@ -268,6 +270,7 @@ namespace Brushblade.Core.Tests
                 [FaceStatKind.CounterPercent] = null,
                 [FaceStatKind.ReviveHp] = GlossaryTerm.Revive,
                 [FaceStatKind.Kindle] = GlossaryTerm.Kindle,
+                [FaceStatKind.Sunder] = GlossaryTerm.Sunder,
             };
             Assert.That(expected.Count, Is.EqualTo(Enum.GetValues(typeof(FaceStatKind)).Length), "每个 FaceStatKind 都列到");
             foreach (var kv in expected)

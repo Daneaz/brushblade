@@ -1095,13 +1095,13 @@ namespace Brushblade.Data
                     nameof(ScaleBasis.Wellspring) => kind == EffectKind.Amplify,   // D2-水 E22a 洪峰
                     nameof(ScaleBasis.Cleansed) => kind == EffectKind.HealSelf,    // D2-水 E22b 濯身
                     nameof(ScaleBasis.Shield) => kind == EffectKind.DamageSingle || kind == EffectKind.Reshape,   // D2-土 E36 地裂
-                    nameof(ScaleBasis.Spent) => kind == EffectKind.ArmorBreak,   // spec C §6 崩裂 / 厚壤
+                    nameof(ScaleBasis.Spent) => kind == EffectKind.ArmorBreak || kind == EffectKind.Sunder,   // spec C §6 崩裂 / 厚壤
                     _ => true,
                 };
                 if (!ok)
                     throw new ConfigException($"字「{id}」的 {kind} 效果不能写 scaleBy {e.ScaleBy}(BurnStack / BurningEnemy 给 Amplify / HealSelf;"
                         + "Morale 给 DamageSingle / Reshape / BlockMod / Amplify;ExtraHitTarget 给 Morale;Wellspring 给 Amplify;Cleansed 给 HealSelf;"
-                        + "Shield 给 DamageSingle / Reshape;Spent 给 ArmorBreak)");
+                        + "Shield 给 DamageSingle / Reshape;Spent 给 ArmorBreak / Sunder)");
             }
             // 补满:战意(D2-金 E9)与泉(D2-水 E21,WellspringFill)
             if (e.Fill && ((kind != EffectKind.Morale && kind != EffectKind.AddWellspring) || !string.IsNullOrEmpty(e.ScaleBy)))
@@ -1291,7 +1291,7 @@ namespace Brushblade.Data
         private static readonly HashSet<StatusKind> WardableKinds = new HashSet<StatusKind>
         {
             StatusKind.Burn, StatusKind.Bleed, StatusKind.Freeze, StatusKind.SpeedModifier, StatusKind.Curse,
-            StatusKind.Seal, StatusKind.Blind, StatusKind.Silence, StatusKind.ArmorBreak, StatusKind.Vulnerable,
+            StatusKind.Seal, StatusKind.Blind, StatusKind.Silence, StatusKind.ArmorBreak, StatusKind.Sunder, StatusKind.Vulnerable,
             StatusKind.Charm, StatusKind.HealBlock, StatusKind.Doom,
         };
 

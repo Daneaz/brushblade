@@ -145,6 +145,9 @@ namespace Brushblade.Core
         // ---- spec C(2026-10-15)。⚠ 只在末尾追加 ----
         Kindle,           // 燃意(玩家或木灵,Buff,可见 chip「burn」赭金):Magnitude = 攻击 +N%,TurnsLeft = 回合,Potency = 施加字的灼火力;
                           // 同一单位只留一条(取大 %、取长回合)。
+        // ---- 土系破甲归零(2026-10-21)。⚠ 只在末尾追加 ----
+        Sunder,           // 破甲:持续期间护甲按 0 算(Boss 一半,与封禁同纪律);Magnitude 不用,同一单位只留一条(取长回合)。
+                          // 可挂在敌人(SuppressArmorOf)或玩家(EffectivePlayerDefense)。
     }
 
     /// <summary>状态的分类规则。</summary>
