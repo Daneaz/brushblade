@@ -199,7 +199,7 @@ namespace Brushblade.Core.Tests
                 [GlossaryTerm.Heft] = null,
                 [GlossaryTerm.Shield] = C("shield", ChipTone.Guard),
                 [GlossaryTerm.Armor] = C("defense", ChipTone.Guard),
-                [GlossaryTerm.ArmorBreak] = C("armorbreak", ChipTone.Control),
+                [GlossaryTerm.ArmorBreak] = C("armorshred", ChipTone.Control),
                 [GlossaryTerm.Sunder] = C("armorbreak", ChipTone.Control),
                 [GlossaryTerm.Hot] = C("heal", ChipTone.Guard),
                 [GlossaryTerm.Seed] = C("seed", ChipTone.Guard),

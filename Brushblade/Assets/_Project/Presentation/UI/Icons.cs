@@ -54,6 +54,7 @@ namespace Brushblade.Presentation
             { "nav_shop", "市" },
             // 战斗稿补齐的 11 枚(2026-08-30)
             { "armorbreak", "破" },
+            { "armorshred", "薄" },
             { "bleed", "血" },
             { "scorch", "烫" },
             { "sear", "燎" },
