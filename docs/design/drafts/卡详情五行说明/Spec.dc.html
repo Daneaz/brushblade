@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./wx.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./wx.css">
+  <style>
+    .board { width: 932px; height: 600px; }
+    .row { display: flex; gap: 22px; align-items: flex-start; }
+    .nr { display: flex; align-items: center; gap: calc(15 * var(--u)); padding: 6px 8px; background: var(--panel-paper); border-radius: 6px; box-shadow: inset 0 0 0 .96px var(--panel-border); }
+    .nr .sp { width: 40px; }
+    .z3 { zoom: 3; }
+    .tap { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 1px dashed var(--cinnabar); border-radius: 4px; box-sizing: border-box; }
+    .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }
+    td:last-child { white-space: normal; }
+  </style>
+</helmet>
+<div class="board">
+  <h2>规格 · 入口、尺寸、两档屏宽、对比度</h2>
+  <div class="row">
+    <div>
+      <h3>① 入口「?」实尺寸(虚线 = 44pt 命中区)与 × 3</h3>
+      <div class="row" style="gap:14px;align-items:center">
+        <div class="nr"><i style="font:600 calc(40 * var(--u))/1 var(--font-serif)">垚</i><span class="sp"></span><div class="rb">?<i class="tap"></i></div><div class="rb">×</div></div>
+        <div class="z3"><div class="row" style="gap:calc(15 * var(--u))"><div class="rb">?</div><div class="rb">×</div></div></div>
+      </div>
+      <div class="lead" style="max-width:420px;margin-top:6px">与右侧关闭钮 <b>同款</b>:<code>Ui.RoundButton</code> 46 × 46(22pt)、圆角 23、<code>panel-inset</code> 底、<code>text-dim</code> 黑体 22,紧贴 × 左边、行距 15(名字行现有 spacing)。「?」是 ASCII,子集已有。</div>
+    </div>
+    <div style="flex:1;min-width:0">
+      <h3>② 对比度(WCAG,弹窗底 panel-paper)</h3>
+      <table>
+        <tr><th>系</th><th>标题 -glyph / panel-paper</th><th>标签 -fg / panel-paper</th><th>生克字 -fg / panel-inset</th></tr>
+        <sc-for list="{{ cr }}" as="r"><tr><td>{{ r.n }}</td><td class="n ok"><i class="sw" style="{{ r.s1 }}"></i>{{ r.a }}</td><td class="n ok"><i class="sw" style="{{ r.s2 }}"></i>{{ r.b }}</td><td class="n ok">{{ r.c }}</td></tr></sc-for>
+        <tr><td>正文 / 副题</td><td colspan="3">text-quiet {{ q }} · text-dim {{ d }}(都压 panel-paper)</td></tr>
+      </table>
+    </div>
+  </div>
+  <h3>③ 弹窗规格(逻辑单位;pt = ÷ 2.093)</h3>
+  <table>
+    <tr><th>段</th><th>规格</th><th>说明</th></tr>
+    <tr><td>外壳</td><td>Ui.Sheet 1120 定宽(536pt),高按内容;描边 1.5、圆角 18、内边距 24、行距 14;屏幕正中</td><td>遮罩 <code>scrim-soft</code> 42%(叠在卡详情的 55% 遮罩之上,再用 55% 底屏会黑成一片);<code>dismissable: true</code> 点遮罩即关</td></tr>
+    <tr><td>头行</td><td>高 46:标题宋体 34 <code>&lt;el&gt;-glyph</code>;右端 × 46(同卡详情关闭钮)</td><td>标题 = 文案原样「火 · 烈焰焚身」,最宽 226</td></tr>
+    <tr><td>副题</td><td>黑体 22 <code>text-dim</code>,行高 30,单行</td><td>最长「主攻系，靠叠灼压血，群攻字最多。」352</td></tr>
+    <tr><td>条目</td><td>条间 12;左 22 宽标记列放 10 × 10 圆角 3 的本系 <code>&lt;el&gt;</code> 色块(居首行中);正文黑体 23 <code>text-quiet</code>,行高 31,宽 1041</td><td>「:」前的标签加粗、<code>&lt;el&gt;-fg</code>;Wrap + <code>Ui.NoBreakSpaces</code>,高 = <code>Ui.WrappedTextHeight</code>(估算吃纯文本,别把富文本标签算进去)</td></tr>
+    <tr><td>动态值</td><td>金系「锋刃回鞘」的 +N% 加粗;已学断金后跟小注「（含断金）」黑体 19 <code>text-dim</code></td><td>N = 100 + <code>MoraleReleasePercent</code>(Core 现成的那个数,不在 Presentation 手算断金)</td></tr>
+    <tr><td>生克条</td><td>高 44、<code>panel-inset</code> 底、圆角 9、左右内距 16;黑体 22 <code>text-quiet</code>,被克 / 克的那一系字加粗配该系 <code>-fg</code></td><td>文案原样「克金，被水克。」154</td></tr>
+  </table>
+  <h3>④ 两档屏宽验算</h3>
+  <table>
+    <tr><th>项</th><th>宽</th><th>基准机 .safe ≈ 1705</th><th>16:9 .safe 1354</th><th>结论</th></tr>
+    <tr><td>弹窗</td><td class="n">1120</td><td class="n ok">余 585</td><td class="n ok">余 234</td><td>定宽,两档同一个样子;条目折行位置两档完全一致</td></tr>
+    <tr><td>名字行加「?」后(卡组版)</td><td class="n">≈ 560</td><td colspan="2">infoW = 卡详情内宽 − 牌 130 − 23:基准机 1377 / 16:9 1140</td><td>名 40 + 拼音 ≈ 49 + 三枚 chip ≈ 215 + ? 46 + × 46 + 间距;16:9 余 ≈ 580</td></tr>
+    <tr><td>竖向</td><td class="n">{{ hRange }}</td><td colspan="2">画布高恒 900</td><td>最高的是金系(三条),上下各余 ≥ 250</td></tr>
+  </table>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 600}}'>
+var W = window.WX;
+class Component extends DCLogic {
+  renderVals() {
+    var rows = W.ORDER.map(function (k) { return { n: W.CH[k], s1: 'background:var(--' + k + '-glyph)', s2: 'background:var(--' + k + '-fg)',
+      a: W.contrast(W.T[k + '-glyph'], W.T['panel-paper']).toFixed(2), b: W.contrast(W.T[k + '-fg'], W.T['panel-paper']).toFixed(2), c: W.contrast(W.T[k + '-fg'], W.T['panel-inset']).toFixed(2) }; });
+    var q = W.contrast(W.T['text-quiet'], W.T['panel-paper']).toFixed(2), d = W.contrast(W.T['text-dim'], W.T['panel-paper']).toFixed(2);
+    var hs = W.ORDER.map(function (k) { return W.metrics(k, k === 'metal' ? 300 : 0).H; });
+    return { cr: rows, q: q, d: d, hRange: Math.round(Math.min.apply(null, hs)) + '–' + Math.round(Math.max.apply(null, hs)) };
+  }
+}
+</script>
+</body>
+</html>

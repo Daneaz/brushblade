@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./wx.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./wx.css">
+  <style>
+    /* 卡详情(CharPreview)名字行右端加「?」,点开本系说明弹窗;点遮罩或 × 关。底下的卡详情只画头部,其余为示意块。 */
+    .wrap { position: relative; width: 932px; background: #E9E3D6; font-family: var(--font-sans); color: var(--text-main); }
+    .dev { position: relative; height: 430px; margin: 0 auto; overflow: hidden; background: var(--paper); }
+    .inset { position: absolute; top: 0; bottom: 0; width: 58.77px; background: repeating-linear-gradient(45deg, rgba(197,54,55,.10) 0 4px, transparent 4px 8px); z-index: 9; pointer-events: none; }
+    .scrim0 { position: absolute; inset: 0; background: var(--scrim); }
+    .hand { position: absolute; left: 0; right: 0; bottom: 6px; height: 46px; display: flex; gap: 6px; justify-content: center; }
+    .hand i { width: 37px; height: 46px; border-radius: 5px; background: var(--card-face); box-shadow: inset 0 0 0 1.5px var(--paper-dim); }
+    /* 卡详情外壳:宽 min(1591, FrameWidth) → 760 / 647pt;卡组高 818(391pt)、顶 30;战斗高 670(320pt)、上抬 90 */
+    .cs { position: absolute; left: 50%; transform: translateX(-50%); box-sizing: border-box; background: var(--panel-paper); border: calc(1.5 * var(--u)) solid var(--panel-border);
+      border-radius: calc(18 * var(--u)); padding: calc(23 * var(--u)) calc(29 * var(--u)); display: flex; flex-direction: column; gap: calc(17 * var(--u)); }
+    .cs .hd { display: flex; gap: calc(23 * var(--u)); }
+    .tile { flex: none; box-sizing: border-box; border-radius: calc(14 * var(--u)); background: var(--card-face); border: calc(4 * var(--u)) solid var(--rarity-orange); display: flex; align-items: center; justify-content: center;
+      font: 600 calc(56 * var(--u))/1 var(--font-serif); }
+    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(8 * var(--u)); }
+    .nr { display: flex; align-items: center; gap: calc(15 * var(--u)); }
+    .nr .nm { font: 600 calc(40 * var(--u))/1 var(--font-serif); white-space: nowrap; }
+    .nr .py { font-size: calc(22 * var(--u)); color: var(--text-dim); white-space: nowrap; }
+    .hc { flex: none; height: calc(32 * var(--u)); padding: 0 calc(9 * var(--u)); border-radius: calc(14 * var(--u)); display: flex; align-items: center; font-size: calc(20 * var(--u)); white-space: nowrap; }
+    .nr .sp { flex: 1; }
+    .rb.q.ping { box-shadow: 0 0 0 1.5px var(--cta); }
+    .rb.q::after { content: ""; position: absolute; inset: -1px; }
+    .gl { font-size: calc(21 * var(--u)); color: var(--text-warm); white-space: nowrap; }
+    .lvr { margin-top: auto; height: calc(54 * var(--u)); display: flex; align-items: flex-end; gap: calc(21 * var(--u)); }
+    .lvr b { font: 700 calc(36 * var(--u))/1 var(--font-serif); }
+    .lvr i { height: calc(18 * var(--u)); width: calc(300 * var(--u)); border-radius: 3px; background: var(--paper-dim); margin-bottom: 4px; }
+    .body { flex: 1; display: flex; gap: calc(21 * var(--u)); min-height: 0; }
+    .body i { border-radius: calc(14 * var(--u)); background: var(--panel-inset); }
+    .scrim { position: absolute; inset: 0; background: var(--scrim-soft); z-index: 4; }
+    .pop { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; }
+    .tag2 { position: absolute; right: 6px; bottom: 4px; z-index: 10; font-size: 8px; color: #fff; background: rgba(22,27,34,.55); padding: 1px 6px; border-radius: 4px; }
+  </style>
+</helmet>
+<div class="wrap">
+  <div class="dev" style="{{ devStyle }}">
+    <sc-if value="{{ battle }}" hint-placeholder-val="{{ false }}"><div class="hand"><i></i><i></i><i></i><i></i><i></i><i></i></div></sc-if>
+    <div class="scrim0"></div>
+    <div class="cs" style="{{ csStyle }}">
+      <div class="hd" style="{{ hdStyle }}">
+        <div class="tile" style="{{ tileStyle }}">{{ card.id }}</div>
+        <div class="info">
+          <div class="nr">
+            <div class="nm">{{ card.id }}</div><div class="py">{{ card.py }}</div>
+            <div class="hc" style="background:var(--rarity-orange);color:#fff">橙</div>
+            <div class="hc" style="{{ elChip }}">{{ elName }}</div>
+            <div class="hc" style="background:var(--panel-inset);color:var(--ink-soft)">AP 2</div>
+            <sc-if value="{{ battle }}" hint-placeholder-val="{{ false }}"><div class="hc" style="background:var(--panel-inset);color:var(--locked-glyph)">字库</div></sc-if>
+            <div class="sp"></div>
+            <div class="{{ qCls }}" onClick="{{ open }}">?</div>
+            <div class="rb">×</div>
+          </div>
+          <div class="gl">{{ card.gloss }}</div>
+          <div class="lvr"><b>Lv.5</b><i></i></div>
+        </div>
+      </div>
+      <div class="body"><i style="flex:1"></i><i style="flex:1"></i><i style="width:calc(306 * var(--u));flex:none"></i></div>
+    </div>
+    <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ true }}">
+      <div class="scrim" onClick="{{ close }}"></div>
+      <div class="pop">
+        <div class="{{ wxCls }}">
+          <div class="hd"><div class="t" style="{{ titleColor }}">{{ e.title }}</div><div class="fill"></div><div class="rb" onClick="{{ close }}">×</div></div>
+          <div class="tag">{{ e.tag }}</div>
+          <div class="items">
+            <sc-for list="{{ items }}" as="it">
+              <div class="it"><div class="mk"><b style="{{ markColor }}"></b></div>
+                <div class="tx"><sc-for list="{{ it }}" as="g"><i class="{{ g.cls }}" style="{{ g.st }}">{{ g.t }}</i></sc-for></div></div>
+            </sc-for>
+          </div>
+          <div class="rel">克<b style="{{ keSt }}">{{ keC }}</b>，被<b style="{{ bySt }}">{{ byC }}</b>克。</div>
+        </div>
+      </div>
+    </sc-if>
+    <i class="inset" style="{{ insL }}"></i><i class="inset" style="{{ insR }}"></i>
+    <div class="tag2">{{ wLabel }}</div>
+  </div>
+  <div class="ctl">
+    <span class="lb">状态</span><sc-for list="{{ oBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">五行</span><sc-for list="{{ eBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">断金</span><sc-for list="{{ pBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">入口</span><sc-for list="{{ iBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+    <span class="sp"></span><span class="lb">屏宽</span><sc-for list="{{ sBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 470}}'>
+var W = window.WX;
+var NAMES = { fire: '火', metal: '金', water: '水', earth: '土', wood: '木' };
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { open: true, el: 'earth', perk: 0, entry: 'deck', w: 'base' }; }
+  renderVals() {
+    var self = this, s = this.state, e = W.EL[s.el], narrow = s.w === 'narrow', battle = s.entry === 'battle';
+    var dev = narrow ? 764.5 : 932, csW = narrow ? 1354 : 1591;
+    var m = W.metrics(s.el, s.perk);
+    var u = 0.47778;
+    var csStyle = 'width:calc(' + csW + ' * var(--u));' + (battle
+      ? 'height:calc(670 * var(--u));top:calc(' + ((900 - 670) / 2 - 90) + ' * var(--u))'
+      : 'height:calc(818 * var(--u));top:calc(30 * var(--u))');
+    var tile = battle ? [100, 126] : [130, 163];
+    var items = e.items.map(function (l) { return W.segs(l, s.el === 'metal' ? s.perk : 0).map(function (g) {
+      return { t: g.t, cls: g.cls, st: g.cls === 'lb' ? 'color:var(--' + s.el + '-fg)' : '' }; }); });
+    return {
+      devStyle: 'width:' + dev + 'px', battle: battle, card: e.card,
+      insL: narrow ? 'left:0' : 'display:none', insR: narrow ? 'right:0' : 'display:none',
+      csStyle: csStyle, hdStyle: 'height:calc(' + tile[1] + ' * var(--u))',
+      tileStyle: 'width:calc(' + tile[0] + ' * var(--u));height:calc(' + tile[1] + ' * var(--u));color:var(--' + s.el + '-glyph)',
+      elChip: 'background:var(--' + s.el + '-soft);color:var(--' + s.el + '-fg)', elName: NAMES[s.el] + '系',
+      qCls: 'rb q' + (s.open ? '' : ' ping'),
+      isOpen: s.open, e: e, items: items, wxCls: 'wx' + (s.el === 'metal' ? ' mark' : ''),
+      titleColor: 'color:var(--' + s.el + '-glyph)', markColor: 'background:var(--' + s.el + ')',
+      keC: W.CH[e.ke], byC: W.CH[e.by], keSt: 'color:var(--' + e.ke + '-fg)', bySt: 'color:var(--' + e.by + '-fg)',
+      open: function () { self.setState({ open: true }); }, close: function () { self.setState({ open: false }); },
+      wLabel: (narrow ? '16:9 · 画布 1600(764pt),.safe 1354 · 卡详情 1354 · 弹窗 1120 余 234' : '基准机 · 932pt,.safe ≈ 1705 · 卡详情 1591 · 弹窗 1120 余 585') + ' · 弹窗高 ' + Math.round(m.H),
+      oBtns: [[false, '入口'], [true, '弹窗']].map(function (o) { return { n: o[1], cls: s.open === o[0] ? 'on' : '', pick: function () { self.setState({ open: o[0] }); } }; }),
+      eBtns: W.ORDER.map(function (k) { return { n: NAMES[k], cls: s.el === k ? 'on' : '', pick: function () { self.setState({ el: k, open: true }); } }; }),
+      pBtns: [[0, '未学 +100%'], [100, '已学 N=100(spec)'], [300, '已学 N=300(代码现值)']].map(function (o) { return { n: o[1], cls: s.perk === o[0] ? 'on' : '', pick: function () { self.setState({ perk: o[0], el: 'metal', open: true }); } }; }),
+      iBtns: [['deck', '卡组 / 开箱'], ['battle', '战斗长按']].map(function (o) { return { n: o[1], cls: s.entry === o[0] ? 'on' : '', pick: function () { self.setState({ entry: o[0] }); } }; }),
+      sBtns: [['base', '基准机'], ['narrow', '16:9']].map(function (o) { return { n: o[1], cls: s.w === o[0] ? 'on' : '', pick: function () { self.setState({ w: o[0] }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

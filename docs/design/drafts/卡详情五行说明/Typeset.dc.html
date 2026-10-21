@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./wx.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./wx.css">
+  <style>
+    /* 五系 + 金系已学断金,实尺寸排版检查。弹窗定宽 1120(536pt),两档屏宽同一个样子,所以这里不分屏宽。 */
+    .board { width: 1140px; height: 740px; }
+    .grid { display: grid; grid-template-columns: repeat(2, calc(1120 * var(--u))); gap: 12px 20px; align-items: start; }
+    .cap { font-size: 8.5px; color: var(--text-faint); margin-bottom: 3px; white-space: nowrap; }
+    .cap b { color: var(--text-main); }
+  </style>
+</helmet>
+<div class="board">
+  <h2>五系排版检查 · 实尺寸</h2>
+  <div class="lead">文案逐字照用户审定稿。正文 23 单位(11pt)、逐字折行(Unity Wrap + <code>Ui.NoBreakSpaces</code>,与卡详情释义同做法);每格上方是 <code>Ui.WrappedTextHeight</code> 口径的估算(每字按全角、每行 ⌊1041 / 23⌋ = 45 字),实现按这个数定高。蓝虚框 = 动态值。</div>
+  <div class="grid" style="margin-top:10px">
+    <sc-for list="{{ cards }}" as="c">
+      <div>
+        <div class="cap"><b>{{ c.name }}</b> · {{ c.info }}</div>
+        <div class="{{ c.cls }}">
+          <div class="hd"><div class="t" style="{{ c.tc }}">{{ c.e.title }}</div><div class="fill"></div><div class="rb">×</div></div>
+          <div class="tag">{{ c.e.tag }}</div>
+          <div class="items">
+            <sc-for list="{{ c.items }}" as="it">
+              <div class="it"><div class="mk"><b style="{{ c.mc }}"></b></div>
+                <div class="tx"><sc-for list="{{ it }}" as="g"><i class="{{ g.cls }}" style="{{ g.st }}">{{ g.t }}</i></sc-for></div></div>
+            </sc-for>
+          </div>
+          <div class="rel">克<b style="{{ c.keSt }}">{{ c.keC }}</b>，被<b style="{{ c.bySt }}">{{ c.byC }}</b>克。</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1140, "height": 740}}'>
+var W = window.WX;
+class Component extends DCLogic {
+  renderVals() {
+    var list = [['fire', 0, '火'], ['metal', 0, '金 · 未学断金'], ['water', 0, '水'], ['earth', 0, '土(最长)'], ['wood', 0, '木'], ['metal', 300, '金 · 已学断金 N=300']];
+    return { cards: list.map(function (x) {
+      var k = x[0], p = x[1], e = W.EL[k], m = W.metrics(k, p);
+      return { name: x[2], e: e, cls: 'wx' + (k === 'metal' ? ' mark' : ''),
+        info: '条目 ' + m.items.map(function (i) { return i.len + ' 字 / ' + i.lines + ' 行'; }).join(' · ') + ' · 弹窗高 ' + Math.round(m.H) + '(' + (m.H / 2.093).toFixed(0) + 'pt)',
+        tc: 'color:var(--' + k + '-glyph)', mc: 'background:var(--' + k + ')',
+        items: e.items.map(function (l) { return W.segs(l, p).map(function (g) { return { t: g.t, cls: g.cls, st: g.cls === 'lb' ? 'color:var(--' + k + '-fg)' : '' }; }); }),
+        keC: W.CH[e.ke], byC: W.CH[e.by], keSt: 'color:var(--' + e.ke + '-fg)', bySt: 'color:var(--' + e.by + '-fg)' };
+    }) };
+  }
+}
+</script>
+</body>
+</html>
