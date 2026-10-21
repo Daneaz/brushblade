@@ -1618,7 +1618,7 @@ namespace Brushblade.Presentation
                     DrawPlayerStats();
                     DrawLibrary(); // 携带字库:满库替换的操作对象
                     DrawPool();    // 携带部件池:随战利品页一并展示当前持有
-                    DrawReward();
+                    if (_run.WheelGrantPending) DrawWheelGrantStep(); else DrawReward();
                     break;
                 case RunPhase.Reviving:
                     DrawTopBar();
@@ -1630,7 +1630,7 @@ namespace Brushblade.Presentation
                 case RunPhase.Event:
                     DrawTopBar();    // 2026-08-27 用户拍板:奇遇不该把等级/墨锭那一栏整条吞掉
                     DrawPlayerStats();
-                    DrawEvent();
+                    if (_run.WheelGrantPending) DrawWheelGrantStep(); else DrawEvent();
                     break;
                 case RunPhase.EventOverflow:
                     DrawEventOverflowStep();
@@ -5786,7 +5786,9 @@ namespace Brushblade.Presentation
             // 护盾时才播报。
             bool won = Battle.Phase == BattlePhase.Won;
             int shieldBefore = won ? Battle.PlayerShield : 0;
+            var beforeHoldings = SnapshotHoldings();
             _run.AdvanceAfterBattle();
+            if (_run.LastRecipeWheel != null) MarkFreshSince(beforeHoldings); // 转盘落中的字已入库:标新
             _pendingRewardIndex = -1;
             _previewRewardIndex = -1;
             _message = (won && shieldBefore > 0)
@@ -5798,7 +5800,7 @@ namespace Brushblade.Presentation
             {
                 int depth = _run.CurrentDepth;   // 选字阶段 BattleIndex 还没走,仍是刚打完的这一层
                 _wheelSheet = RecipeWheelSheet.Show(transform, _run.LastRecipeWheel, _graph, depth,
-                    themeBoss: depth % (2 * WheelBossEvery) == 0, () =>
+                    themeBoss: depth % (2 * WheelBossEvery) == 0, libraryFull: _run.WheelGrantPending, () =>
                     {
                         _wheelSheet = null;
                         Refresh();
@@ -6443,6 +6445,35 @@ namespace Brushblade.Presentation
                     Refresh();
                 },
                 Strings.T("battle.btn.discard_cancel"));
+        }
+
+        /// <summary>转盘落中的字遇满库(用户 2026-10-21:抽中即得一张):换掉一张或放弃,决议完才进奇遇 / 选字。
+        /// Refresh 在 Reward / Event 两相都先查 <see cref="RunEngine.WheelGrantPending"/>,挂起再进也会回到这一步。</summary>
+        private void DrawWheelGrantStep()
+        {
+            string incoming = _run.LastRecipeWheel.Target;
+            DrawReplaceSheet(
+                Strings.T("battle.event.replace_title", ("charId", incoming)), incoming, _run.CarriedLibrary,
+                replaceIndex =>
+                {
+                    string dropped = _run.CarriedLibrary[replaceIndex];
+                    var beforeHoldings = SnapshotHoldings();
+                    if (_run.ResolveWheelGrant(replaceIndex))
+                    {
+                        _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
+                        MarkFreshSince(beforeHoldings);
+                        if (_sheet != null) Object.Destroy(_sheet);
+                    }
+                    Refresh();
+                },
+                () =>
+                {
+                    _run.SkipWheelGrant();
+                    if (_sheet != null) Object.Destroy(_sheet);
+                    _message = Strings.T("battle.wheel.skip_msg", ("charId", incoming));
+                    Refresh();
+                },
+                Strings.T("battle.btn.wheel_skip"));
         }
 
         /// <summary>字摊满库替换(2026-07-22):字与部件都已选定,只补一个替换目标即成交;

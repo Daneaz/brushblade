@@ -267,6 +267,71 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Run_WheelGrantsLandedChar_Uncollected_IsUnfamiliar() // 用户 10-21:抽中即得一张,未收集的生疏
+        {
+            var run = Run(BossFloor(15, wheel: true));
+            Win(run);
+            var target = run.LastRecipeWheel.Target;
+            Assert.That(run.CarriedLibrary, Is.EqualTo(new[] { "灯", target }), "落中的字进字库");
+            Assert.That(run.WheelGrantPending, Is.False);
+            Assert.That(run.IsUnfamiliar(target), Is.True);
+        }
+
+        [Test]
+        public void Run_WheelGrantsLandedChar_Collected_NotUnfamiliar() // 用户 10-21:已收集的也给,但不生疏
+        {
+            var all = Graph().All.Where(d => !d.IsComponent && !d.IsLeaf).Select(d => d.Id).ToArray();
+            var run = Run(BossFloor(15, wheel: true), unlocked: all);
+            int before = run.CarriedLibrary.Count;
+            Win(run);
+            var target = run.LastRecipeWheel.Target;
+            Assert.That(run.CarriedLibrary.Count, Is.EqualTo(before + 1));
+            Assert.That(run.CarriedLibrary[before], Is.EqualTo(target));
+            Assert.That(run.IsUnfamiliar(target), Is.False);
+        }
+
+        private static void WinAny(RunEngine run) // 满库夹具:开局掉字遇满库会先停在 DropChoice
+        {
+            if (run.Battle.Phase == BattlePhase.DropChoice) run.Battle.SkipDrop();
+            Assert.That(run.Battle.Cast("灯", -1), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+        }
+
+        // 多放一张:出手的那张「灯」打完这场会离库,战后正好满库
+        private static RunEngine FullLibraryRun() =>
+            new(Graph(), BossFloor(15, wheel: true), new BattleConfig { UnlockedChars = Owned },
+                Enumerable.Repeat("灯", new BattleConfig().LibraryCapacity + 1).ToArray(), Array.Empty<string>(), seed: 7);
+
+        [Test]
+        public void Run_WheelGrant_FullLibrary_WaitsForReplace()
+        {
+            var run = FullLibraryRun();
+            WinAny(run);
+            var target = run.LastRecipeWheel.Target;
+            Assert.That(run.WheelGrantPending, Is.True, $"库满:等玩家换一张或放弃");
+            Assert.That(run.CarriedLibrary.All(c => c == "灯"), Is.True, "库满不硬塞");
+            Assert.That(run.ResolveWheelGrant(99), Is.False, "越界");
+            Assert.That(run.ResolveWheelGrant(0), Is.True);
+            Assert.That(run.CarriedLibrary[0], Is.EqualTo(target));
+            Assert.That(run.WheelGrantPending, Is.False);
+            Assert.That(run.ResolveWheelGrant(0), Is.False, "只换一次");
+        }
+
+        [Test]
+        public void Run_WheelGrant_FullLibrary_SkipKeepsLibrary_AndSnapshotKeepsPending()
+        {
+            var run = FullLibraryRun();
+            WinAny(run);
+            var restored = RunEngine.Restore(run.Capture(), Graph(), BossFloor(15, wheel: true),
+                new BattleConfig { UnlockedChars = Owned }, null);
+            Assert.That(restored.WheelGrantPending, Is.True, "挂起再进仍要决议");
+            restored.SkipWheelGrant();
+            Assert.That(restored.WheelGrantPending, Is.False);
+            Assert.That(restored.CarriedLibrary.All(c => c == "灯"), Is.True);
+        }
+
+        [Test]
         public void Run_NonWheelDepth_NoSpin()
         {
             var run = Run(BossFloor(10, wheel: false));

@@ -187,6 +187,7 @@ namespace Brushblade.Core
         public List<string> RunRecipes { get; set; } = new();      // 本局配方集(spec 2026-10-19 §1)
         public List<string> UnfamiliarChars { get; set; } = new(); // 本局生疏字(spec §3)
         public RecipeWheelResult RecipeWheel { get; set; }         // 本层战后的配方转盘结果(§2);不转为 null
+        public bool WheelGrantPending { get; set; }                // 转盘落中的字因库满待换(用户 10-21)
         public BattleSnapshot Battle { get; set; }
     }
 }
