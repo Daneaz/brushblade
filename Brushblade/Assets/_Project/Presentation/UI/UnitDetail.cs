@@ -156,7 +156,7 @@ namespace Brushblade.Presentation
         {
             // ⚠ 2026-09-01 review 修:三个 kind 与 StatusGlossary.dc.html 的 chip 列不符
             // (那份稿子对 20 个 StatusKind 的 chip 文案是全覆盖的,核对时漏了三处):
-            // ArmorBreak 稿上是「20」不带符号(不是「−20」)、AttackBuff 稿上是「+50」不带 %
+            // (Sunder 破甲 Magnitude 恒 0,同走 _ => "")ArmorBreak 稿上是「20」不带符号(不是「−20」)、AttackBuff 稿上是「+50」不带 %
             // (不是「+50%」)、CritBuff 稿上是「20%」不带 +(不是「+20%」)。Seal 特例保留
             // UnitMe.dc.html 的「−1AP」而不是 glossary 的「−1」——具体屏稿优先于分类图鉴,
             // 这条不改。
@@ -194,6 +194,7 @@ namespace Brushblade.Presentation
                 Strings.T("detail.chip.positive_pct", ("value", magnitude)),
             StatusKind.ApBoost =>
                 Strings.T("detail.chip.positive_ap", ("value", magnitude)),
+            // Sunder(破甲)刻意落这里:Magnitude 恒 0,chip 不带数字,剩余回合在时长行
             _ => "",
         };
 

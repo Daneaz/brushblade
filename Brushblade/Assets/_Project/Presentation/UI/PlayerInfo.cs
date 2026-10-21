@@ -103,9 +103,20 @@ namespace Brushblade.Presentation
 
             int defenseBuff = statuses.TotalMagnitude(StatusKind.DefenseBuff);
             int armorBreak = statuses.TotalMagnitude(StatusKind.ArmorBreak);
-            string defenseNote = UnitDetailChip.BaseNote(MetaRules.DefenseFor(level),
+            // 破甲 Sunder(2026-10-21,spec §2.4):护甲归零,偏离项 = 削甲之后剩下的那部分
+            // (与 BattleEngine.EffectivePlayerDefense 同口径:Sunder 时整体为 0);削甲只计到不超过总量,免得两项相加超出。
+            int baseDefense = MetaRules.DefenseFor(level);
+            int sunderPts = 0;
+            if (statuses.Has(StatusKind.Sunder))
+            {
+                int total = baseDefense + defenseBuff;
+                armorBreak = Mathf.Min(armorBreak, total);
+                sunderPts = total - armorBreak;
+            }
+            string defenseNote = UnitDetailChip.BaseNote(baseDefense,
                 UnitDetailChip.DeltaBuffPts(Strings.T("status.defense.name"), defenseBuff),
-                UnitDetailChip.DeltaDebuffPts(Strings.T("status.armorbreak.name"), armorBreak));
+                UnitDetailChip.DeltaDebuffPts(Strings.T("status.armorbreak.name"), armorBreak),
+                UnitDetailChip.DeltaDebuffPts(Strings.T("status.sunder.name"), sunderPts));
 
             int speedMod = statuses.TotalMagnitude(StatusKind.SpeedModifier);
             string speedNote = speedMod == 0 ? null : UnitDetailChip.BaseNote(MetaRules.SpeedFor(level),
