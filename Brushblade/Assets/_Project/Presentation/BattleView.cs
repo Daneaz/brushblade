@@ -1439,9 +1439,14 @@ namespace Brushblade.Presentation
             // 配方转盘开着:底下的选字页 / 奇遇页等它关了再画 —— 否则新建的 BattleSheet 会叠到转盘上面。
             // 落盘、层记账也一并顺延到关转盘那次 Refresh(转盘结果按 (塔种子, 层) 定死,中途杀进程重进也是同一格)。
             if (_wheelSheet != null) return;
-            // 停在转盘结果、没点「继续」就挂起再进:转盘不重放,有空位直接收下(库满仍走换字面板)
-            if (_run.WheelGrantPending && !_wheelFlying && _run.ClaimWheelGrant())
-                MarkFresh(_run.LastRecipeWheel.Target);
+            // 转盘还没在本次进程里弹过就挂起再进(转前 / 转完没点「继续」退出,用户 2026-10-21 报转盘丢了):
+            // 这一轮照常画底层,但扣住选字 / 奇遇面板(_wheelFlying),下一帧补弹转盘 —— 结果按 (塔种子, 层) 定死,重转还是同一格。
+            // 已弹过(库满点了「继续」)就不重弹,往下走换字面板。
+            if (_run.WheelGrantPending && !_wheelFlying && _wheelShownFor != _run.LastRecipeWheel)
+            {
+                _wheelFlying = true;
+                StartCoroutine(ShowWheelNextFrame());
+            }
 
             // 战利品阶段结束(不论选完、跳过还是引擎自动开拔)→ 本层记账落盘,挂起不丢收益
             if (_lastPhase == RunPhase.Reward && _run.Phase != RunPhase.Reward)
@@ -5804,17 +5809,34 @@ namespace Brushblade.Presentation
             // 配方转盘(spec 2026-10-19 §2):结果已在 AdvanceAfterBattle 同一步定好,先转盘、再进选字 / 奇遇
             if (_run.LastRecipeWheel != null)
             {
-                int depth = _run.CurrentDepth;   // 选字阶段 BattleIndex 还没走,仍是刚打完的这一层
-                bool full = _run.CarriedLibrary.Count >= Battle.LibraryCapacity;
-                _wheelSheet = RecipeWheelSheet.Show(transform, _run.LastRecipeWheel, _graph, depth,
-                    themeBoss: depth % (2 * WheelBossEvery) == 0, libraryFull: full, from =>
-                    {
-                        _wheelSheet = null;
-                        ClaimWheelGrantWithFly(from);
-                    });
+                ShowWheel();
                 return;
             }
             Refresh();
+        }
+
+        /// <summary>本进程里已弹过的那次转盘结果(挂起再进时据此判断要不要补弹)。</summary>
+        private RecipeWheelResult _wheelShownFor;
+
+        private void ShowWheel()
+        {
+            _wheelShownFor = _run.LastRecipeWheel;
+            _wheelFlying = false;
+            int depth = _run.CurrentDepth;   // 选字阶段 BattleIndex 还没走,仍是刚打完的这一层
+            bool full = _run.CarriedLibrary.Count >= Battle.LibraryCapacity;
+            _wheelSheet = RecipeWheelSheet.Show(transform, _run.LastRecipeWheel, _graph, depth,
+                themeBoss: depth % (2 * WheelBossEvery) == 0, libraryFull: full, from =>
+                {
+                    _wheelSheet = null;
+                    ClaimWheelGrantWithFly(from);
+                });
+        }
+
+        private System.Collections.IEnumerator ShowWheelNextFrame()
+        {
+            yield return null;
+            if (_wheelSheet == null && _run.WheelGrantPending) ShowWheel();
+            else { _wheelFlying = false; Refresh(); }
         }
 
         /// <summary>转盘飞字期间:Reward / Event 两相只画字库,不弹选字 / 奇遇面板 —— 否则飞行的字会钻到新弹窗遮罩底下。</summary>
