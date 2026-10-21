@@ -1682,6 +1682,12 @@ def test_sunder_token(config, expected):
     assert _parse_effects(config, "垚") == expected
 
 
+def test_sunder_value_without_per_spent_errors():
+    with pytest.raises(ValueError) as err:
+        _parse_effects("`Sunder 3` `turns 2`", "垚")
+    assert "per Spent" in str(err.value)
+
+
 def test_sunder_requires_turns():
     with pytest.raises(ValueError) as err:
         _parse_effects("`Sunder`", "垚")

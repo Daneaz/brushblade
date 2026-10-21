@@ -556,6 +556,11 @@ def _attach_fire_ops(config, char, effects, consumed):
             raise ValueError(f"{char}:配置格「{config}」的 `per` 只认 {sorted(SCALE_BASES)},"
                              f"且只挂本格唯一的一条对应宿主 {SCALE_HOSTS}")
         hosts[0]["scaleBy"] = per[0]
+    # 破甲 `Sunder N` 的 N 只在 `per Spent` 下有意义(每 N 层 +1 回合);单独带数值会被静默忽略,直接报错
+    for e in effects:
+        if e["kind"] == "Sunder" and e.get("value", 0) != 0 and "scaleBy" not in e:
+            raise ValueError(f"{char}:配置格「{config}」的 `Sunder {e['value']}` 带了数值却没有 `per Spent`;"
+                             f"普通破甲写 `Sunder` `turns N`,数值只用于崩裂 / 厚壤的「每 K 层 +1 回合」")
     cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
     # 地裂 / 七级浮屠的 cap 归 _attach_earth_ops
     if cap and f"`{HITS_PER_SHIELD_TOKEN} " not in config and f"`{PER_SHIELD_TENTH_TOKEN}`" not in config:

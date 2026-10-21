@@ -173,7 +173,10 @@ namespace Brushblade.Presentation
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
                         ("value", shown), ("percent", StatusText.DefenseToReductionPercent(v)),
                         ("turns", Math.Max(1, e.Turns))),
-                    EffectKind.Sunder => Strings.T("char.effect.sunder", ("turns", Math.Max(1, e.Turns))),
+                    // 崩裂 / 厚壤:Value = 每 K 层厚 +1 回合(不吃卡等级),句内自带「每释放 K 层」,通用 per.spent 后缀在 ScaleSuffix 里跳过
+                    EffectKind.Sunder => e.ScaleBy == ScaleBasis.Spent
+                        ? Strings.T("char.effect.sunder.perspent", ("turns", Math.Max(1, e.Turns)), ("k", Math.Max(1, e.Value)))
+                        : Strings.T("char.effect.sunder", ("turns", Math.Max(1, e.Turns))),
                     EffectKind.ArmorBreak => Strings.T("char.effect.armorbreak",
                         ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
@@ -916,7 +919,7 @@ namespace Brushblade.Presentation
                 // D2-水 E22:洪峰(出字前泉层)/ 濯身(本次清掉的减益条数)
                 ScaleBasis.Wellspring => Strings.T("char.effect.per.wellspring"),
                 ScaleBasis.Cleansed => Strings.T("char.effect.per.cleansed"),
-                ScaleBasis.Spent => Strings.T("char.effect.per.spent"),
+                ScaleBasis.Spent => e.Kind == EffectKind.Sunder ? "" : Strings.T("char.effect.per.spent"),
                 // D2-木 E39(众木 / 林深):出字前的存活木灵数(含幼苗)
                 ScaleBasis.SummonCount => Strings.T("char.effect.per.summoncount"),
                 // D2-土 E36(地裂):出字前护盾每 ScaleDivisor 点 +1 击,上限写在同一句里(单位是击,不是百分点)

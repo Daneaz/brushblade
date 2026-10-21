@@ -3852,8 +3852,9 @@ namespace Brushblade.Presentation
                 // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
                 // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
                 // 它生没生效(EnumRenderCoverageTests 收紧判据范围后抓到的真实缺陷)。
+                // 2026-10-21(spec §3):削甲与破甲暂共用 armorbreak 图标,削甲 chip 带点数区分;破甲(归零)无数字
                 if (enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) > 0)
-                    chipSpecs.Add(new("", BattleChipColor(StatusKind.ArmorBreak), Color.white, "armorbreak"));
+                    chipSpecs.Add(new($"{enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)}", BattleChipColor(StatusKind.ArmorBreak), Color.white, "armorbreak"));
                 // 破甲 Sunder(2026-10-21):护甲归零,Magnitude 恒 0 → 按 Has 判
                 if (enemy.Statuses.Has(StatusKind.Sunder))
                     chipSpecs.Add(new("", BattleChipColor(StatusKind.Sunder), Color.white, "armorbreak"));

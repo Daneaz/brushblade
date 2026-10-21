@@ -335,7 +335,7 @@ def desc(e):
         # (2026-09-07 P2 Task 4d 修的是那两处,这里是同一个 bug 的第三个读取点)。
         'ArmorBreak': ("全体" if e.get('pick') == 'All' else "") + f"破甲 {v}(削目标护甲," + (f"{t} 回合" if t else "本场") + ")", 'Empower': f"攻击力 +{v},{t} 回合",
         # 土系破甲归零(2026-10-21):Sunder 不带点数,持续期间目标护甲归零
-        'Sunder': ("全体" if e.get('pick') == 'All' else "") + f"破甲(护甲归零,{t} 回合)",
+        'Sunder': ("全体" if e.get('pick') == 'All' else "") + f"破甲(护甲归零,{t} 回合" + (f",每释放 {v} 层厚 +1 回合)" if e.get('scaleBy') == 'Spent' else ")"),
         'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
         'Morale': f"战意 +{v} 层(每层 +10% 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
         'CritBuff': f"暴击率 +{v}%,{t} 回合",

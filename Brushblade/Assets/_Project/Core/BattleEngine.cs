@@ -1186,7 +1186,7 @@ namespace Brushblade.Core
             - enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)
             - (pierce + (attackerBag ?? _playerStatuses).TotalMagnitude(StatusKind.PierceBuff)));
 
-        /// <summary>封禁作用后的基础护甲(2026-09-05)。杂兵归零、Boss 减半、无封禁原值。
+        /// <summary>封禁（或破甲 Sunder）作用后的基础护甲(2026-09-05)。杂兵归零、Boss 减半、无封禁/破甲原值。
         ///
         /// Boss 降级而不是免疫:同斩杀对 Boss 从「直杀」降为「吃双倍」的纪律 ——
         /// 高价值控制不该在最关键的战斗里变成废牌,但也不能全效。

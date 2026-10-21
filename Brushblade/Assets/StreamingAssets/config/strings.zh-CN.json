@@ -290,6 +290,7 @@
   "char.effect.apboost": "本场每回合 AP 上限+{value}",
   "char.effect.armorbreak": "削甲 {value},{turns} 回合",
   "char.effect.sunder": "破甲 {turns} 回合",
+  "char.effect.sunder.perspent": "破甲 {turns} 回合，每释放 {k} 层厚 +1 回合",
   "char.effect.armorstrike": "(镇压:额外造成自身护甲 {percent}% 的伤害)",
   "char.effect.amplify.damage": "伤害+{value}%",
   "char.effect.amplify.heal": "治疗+{value}%",
