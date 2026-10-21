@@ -791,14 +791,24 @@ namespace Brushblade.Core
                 if (!_runRecipes.Contains(wheel.Target)) _runRecipes.Add(wheel.Target);
                 if (!_unfamiliar.Contains(wheel.Target)) _unfamiliar.Add(wheel.Target);
             }
-            // 落中即得一张(用户 2026-10-21):有空位直接入库;库满挂起,等玩家换一张或放弃
-            if (_carriedLibrary.Count < _battleConfig.LibraryCapacity) _carriedLibrary.Add(wheel.Target);
-            else WheelGrantPending = true;
+            // 落中即得一张(用户 2026-10-21),但要等玩家在结果卡点「继续」才入库(ClaimWheelGrant,配飞入动效)
+            WheelGrantPending = true;
         }
 
-        /// <summary>转盘落中的字因库满还没入库:表现层弹换字面板,<see cref="ResolveWheelGrant"/> 换入或
-        /// <see cref="SkipWheelGrant"/> 放弃。进 RunSnapshot,挂起再进仍要决议。</summary>
+        /// <summary>转盘落中的字还没入库:玩家点「继续」走 <see cref="ClaimWheelGrant"/>;库满收不下时
+        /// 表现层弹换字面板,<see cref="ResolveWheelGrant"/> 换入或 <see cref="SkipWheelGrant"/> 放弃。
+        /// 进 RunSnapshot,挂起再进仍要决议。</summary>
         public bool WheelGrantPending { get; private set; }
+
+        /// <summary>收下转盘落中的字:有空位即入库并返回 true;库满或无待收返回 false(仍挂起,走换字)。</summary>
+        public bool ClaimWheelGrant()
+        {
+            if (!WheelGrantPending || LastRecipeWheel == null) return false;
+            if (_carriedLibrary.Count >= _battleConfig.LibraryCapacity) return false;
+            _carriedLibrary.Add(LastRecipeWheel.Target);
+            WheelGrantPending = false;
+            return true;
+        }
 
         /// <summary>库满时用转盘落中的字换掉字库第 <paramref name="replaceIndex"/> 张(被换的永久移除)。</summary>
         public bool ResolveWheelGrant(int replaceIndex)

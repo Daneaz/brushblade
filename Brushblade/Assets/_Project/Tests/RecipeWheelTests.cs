@@ -272,8 +272,12 @@ namespace Brushblade.Core.Tests
             var run = Run(BossFloor(15, wheel: true));
             Win(run);
             var target = run.LastRecipeWheel.Target;
+            Assert.That(run.CarriedLibrary, Is.EqualTo(new[] { "灯" }), "点「继续」之前不入库");
+            Assert.That(run.WheelGrantPending, Is.True);
+            Assert.That(run.ClaimWheelGrant(), Is.True);
             Assert.That(run.CarriedLibrary, Is.EqualTo(new[] { "灯", target }), "落中的字进字库");
             Assert.That(run.WheelGrantPending, Is.False);
+            Assert.That(run.ClaimWheelGrant(), Is.False, "只收一次");
             Assert.That(run.IsUnfamiliar(target), Is.True);
         }
 
@@ -284,6 +288,7 @@ namespace Brushblade.Core.Tests
             var run = Run(BossFloor(15, wheel: true), unlocked: all);
             int before = run.CarriedLibrary.Count;
             Win(run);
+            Assert.That(run.ClaimWheelGrant(), Is.True);
             var target = run.LastRecipeWheel.Target;
             Assert.That(run.CarriedLibrary.Count, Is.EqualTo(before + 1));
             Assert.That(run.CarriedLibrary[before], Is.EqualTo(target));
@@ -310,6 +315,8 @@ namespace Brushblade.Core.Tests
             WinAny(run);
             var target = run.LastRecipeWheel.Target;
             Assert.That(run.WheelGrantPending, Is.True, $"库满:等玩家换一张或放弃");
+            Assert.That(run.ClaimWheelGrant(), Is.False, "库满收不下,仍挂起");
+            Assert.That(run.WheelGrantPending, Is.True);
             Assert.That(run.CarriedLibrary.All(c => c == "灯"), Is.True, "库满不硬塞");
             Assert.That(run.ResolveWheelGrant(99), Is.False, "越界");
             Assert.That(run.ResolveWheelGrant(0), Is.True);

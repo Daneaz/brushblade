@@ -1439,6 +1439,9 @@ namespace Brushblade.Presentation
             // 配方转盘开着:底下的选字页 / 奇遇页等它关了再画 —— 否则新建的 BattleSheet 会叠到转盘上面。
             // 落盘、层记账也一并顺延到关转盘那次 Refresh(转盘结果按 (塔种子, 层) 定死,中途杀进程重进也是同一格)。
             if (_wheelSheet != null) return;
+            // 停在转盘结果、没点「继续」就挂起再进:转盘不重放,有空位直接收下(库满仍走换字面板)
+            if (_run.WheelGrantPending && !_wheelFlying && _run.ClaimWheelGrant())
+                MarkFresh(_run.LastRecipeWheel.Target);
 
             // 战利品阶段结束(不论选完、跳过还是引擎自动开拔)→ 本层记账落盘,挂起不丢收益
             if (_lastPhase == RunPhase.Reward && _run.Phase != RunPhase.Reward)
@@ -1618,7 +1621,9 @@ namespace Brushblade.Presentation
                     DrawPlayerStats();
                     DrawLibrary(); // 携带字库:满库替换的操作对象
                     DrawPool();    // 携带部件池:随战利品页一并展示当前持有
-                    if (_run.WheelGrantPending) DrawWheelGrantStep(); else DrawReward();
+                    if (_wheelFlying) { }
+                    else if (_run.WheelGrantPending) DrawWheelGrantStep();
+                    else DrawReward();
                     break;
                 case RunPhase.Reviving:
                     DrawTopBar();
@@ -1630,7 +1635,9 @@ namespace Brushblade.Presentation
                 case RunPhase.Event:
                     DrawTopBar();    // 2026-08-27 用户拍板:奇遇不该把等级/墨锭那一栏整条吞掉
                     DrawPlayerStats();
-                    if (_run.WheelGrantPending) DrawWheelGrantStep(); else DrawEvent();
+                    if (_wheelFlying) DrawLibrary();
+                    else if (_run.WheelGrantPending) DrawWheelGrantStep();
+                    else DrawEvent();
                     break;
                 case RunPhase.EventOverflow:
                     DrawEventOverflowStep();
@@ -4025,7 +4032,8 @@ namespace Brushblade.Presentation
         {
             _libraryTileRects.Clear();
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
-            bool rewardPhase = _run.Phase == RunPhase.Reward;
+            // 转盘飞字期间(奇遇相本不画字库)也画携带字库,给飞入的字一个落点
+            bool rewardPhase = _run.Phase == RunPhase.Reward || _wheelFlying;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
             _libraryCountLabel = CountCaption(_libraryRow, Strings.T("battle.label.library_count",
                 ("count", library.Count), ("capacity", Battle.LibraryCapacity)), 14, Theme.TextDim);
@@ -5786,29 +5794,76 @@ namespace Brushblade.Presentation
             // 护盾时才播报。
             bool won = Battle.Phase == BattlePhase.Won;
             int shieldBefore = won ? Battle.PlayerShield : 0;
-            var beforeHoldings = SnapshotHoldings();
             _run.AdvanceAfterBattle();
-            if (_run.LastRecipeWheel != null) MarkFreshSince(beforeHoldings); // 转盘落中的字已入库:标新
             _pendingRewardIndex = -1;
             _previewRewardIndex = -1;
             _message = (won && shieldBefore > 0)
                 ? Strings.T("battle.msg.shield_decay",
                     ("from", shieldBefore), ("to", _run.CarriedNormalShield))
                 : "";
-            // 配方转盘(spec 2026-10-19 §2):结果已在 AdvanceAfterBattle 同一步入账,先转盘、再进选字 / 奇遇
+            // 配方转盘(spec 2026-10-19 §2):结果已在 AdvanceAfterBattle 同一步定好,先转盘、再进选字 / 奇遇
             if (_run.LastRecipeWheel != null)
             {
                 int depth = _run.CurrentDepth;   // 选字阶段 BattleIndex 还没走,仍是刚打完的这一层
+                bool full = _run.CarriedLibrary.Count >= Battle.LibraryCapacity;
                 _wheelSheet = RecipeWheelSheet.Show(transform, _run.LastRecipeWheel, _graph, depth,
-                    themeBoss: depth % (2 * WheelBossEvery) == 0, libraryFull: _run.WheelGrantPending, () =>
+                    themeBoss: depth % (2 * WheelBossEvery) == 0, libraryFull: full, from =>
                     {
                         _wheelSheet = null;
-                        Refresh();
+                        ClaimWheelGrantWithFly(from);
                     });
                 return;
             }
             Refresh();
         }
+
+        /// <summary>转盘飞字期间:Reward / Event 两相只画字库,不弹选字 / 奇遇面板 —— 否则飞行的字会钻到新弹窗遮罩底下。</summary>
+        private bool _wheelFlying;
+
+        private const float WheelFlyDuration = 0.55f;
+        private const float WheelFlyArc = 90f;
+
+        /// <summary>结果卡点「继续」(用户 2026-10-21:这一刻才入库):收下 → 重绘字库 → 字从结果大字牌沿弧线飞到字库新牌位,
+        /// 落位弹跳 + 新字光晕;落定后才弹选字 / 奇遇。库满收不下 → 直接重绘,Refresh 走换字面板。</summary>
+        private void ClaimWheelGrantWithFly(Vector3 from)
+        {
+            string glyph = _run.LastRecipeWheel.Target;
+            if (!_run.ClaimWheelGrant()) { Refresh(); return; }
+            MarkFresh(glyph);
+            _wheelFlying = true;
+            Refresh();
+            int last = _run.CarriedLibrary.Count - 1;   // 新字在字库队尾;按位取,同字多张时不会落到旧牌上
+            var tile = last >= 0 && last < _libraryTileRects.Count ? _libraryTileRects[last] : null;
+            if (tile == null)
+            {
+                _wheelFlying = false;
+                Refresh();
+                return;
+            }
+            // 落位前牌位透明(不 SetActive:不让布局组重排),字「飞进去」才显形
+            var veil = tile.GetComponent<CanvasGroup>();
+            if (veil == null) veil = tile.gameObject.AddComponent<CanvasGroup>();
+            veil.alpha = 0f;
+            _juice.FlyGlyph(glyph, Theme.ElementColor(_graph.Get(glyph).Element), from, tile.position, () =>
+            {
+                if (tile != null)
+                {
+                    veil.alpha = 1f;
+                    _juice.PopTile(tile);
+                }
+                StartCoroutine(AfterWheelLand());
+            }, WheelFlyDuration, easeOut: false, arc: WheelFlyArc);
+        }
+
+        /// <summary>落位弹跳演完再弹选字 / 奇遇:Refresh 会重建字库牌,当场重绘会把弹跳掐掉。</summary>
+        private System.Collections.IEnumerator AfterWheelLand()
+        {
+            yield return new WaitForSecondsRealtime(WheelLandHold);
+            _wheelFlying = false;
+            Refresh();
+        }
+
+        private const float WheelLandHold = 0.3f;
 
         /// <summary>Boss 层间隔(EndlessConfig.BossEvery 的默认 5):第 5/15… 层精英、10/20… 层主题 Boss
         /// (同 <see cref="EndlessRules.IsThemeBossDepth"/>)。只给转盘副标「精英 / Boss 战后」用。</summary>
