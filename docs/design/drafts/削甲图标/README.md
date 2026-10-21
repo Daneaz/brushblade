@@ -1,73 +1,95 @@
-# 削甲 · 状态图标
+# 破甲 / 削甲 · 图标与头行护甲格
 
 需求来源:session `card-detail-attribute-tips`(2026-10-21)转用户;依据 spec
-`docs/superpowers/specs/2026-10-21-土系破甲归零-design.md` §2.2(削甲 = 金 / 火原扣点破甲改名)与 §3(显示与文案)。
+`docs/superpowers/specs/2026-10-21-土系破甲归零-design.md` §2(破甲 = 土系专属,护甲归零 / Boss 减半;削甲 = 金 / 火扣点,可叠)与 §3。
 
-- **破甲**(土系专属,持续期间护甲归零、Boss 减半)沿用现有 `icon_armorbreak`(描边盾 + 闪电裂),不动。
-- **削甲**(金 / 火,护甲 −N 点、可叠加、各自计时)要一枚新图标:一眼和破甲分开,同属 `tools/icons/svg/` 那套
-  64 画布、纯白、STROKE 6 圆头圆角 / FILL 的家族;用在战斗状态 chip(墨蓝 `ink-soft` 减益组)。
-
-本稿**只出图与规格**,不改 `tools/icons` 管线、不写 Presentation、不动字符串表。
+Core 已落地(main):`StatusKind.Sunder` = 破甲,`StatusKind.ArmorBreak` = 削甲(旧枚举名保留,文案已改「削甲」)。
+本稿**只出图与规格**,不改 `tools/icons` 管线、不写 Presentation、不动字符串表。状态 `待审`(破甲图标是新画的,用户要看)。
 
 ## 画板
-- `Icons.dc.html`:三案比选 + 两枚现有参照;敌人格 chip 流(前排信息列,基准机 257 / 16:9 153,3 行)实尺寸与 × 4;
-  减益组并排 × 3。控制条:候选 A / B / C · 敌人身上(只有削甲 / 只有破甲 / 破甲 + 削甲 / Boss 破甲 + 削甲 / 挤满)·
-  削甲 chip 只图标 / 带点数 · PNG 缺失兜底(图标 /「薄」/「削」)。
-- `Spec.dc.html`:推荐案 C 的 ICONS 片段与生成 SVG、五档显示尺寸、实现清单、chip 宽验算、文案 key。
-- 数据 `xj.js`:现有图标从 `build_icons.ICONS` 原样抄出(2026-10-21)+ 三枚候选;`xj.css` 的 `:root` 从 `tokens.json` 原值抄录。
+- `Icons.dc.html`:两枚图标 + 护甲 / 旧破甲参照;头行护甲格七种局面 × 两档屏宽实尺寸 + 16:9 × 3。
+- `Detail.dc.html`:详情弹窗里怎么看回合(三个例子:Boss 破甲 + 削甲两层、杂兵削甲两层、杂兵破甲);玩家侧规则。
+- `Spec.dc.html`:两枚 ICONS 片段、显示尺寸、规则表、实现清单、两档屏宽。
+- 数据 `xj.js`:`CUR` = `build_icons.ICONS` 原样抄出(含将被替换的旧 `armorbreak`),`NEW` = 本稿两枚;`armorCell()` 是护甲格规则的可执行版。
+  `xj.css` 的 `:root` 从 `tokens.json` 原值抄录。
 
-## 三案
-| 案 | 意象 | 判断 |
-| --- | --- | --- |
-| A · 削角 | 实心盾右上一角被斜削下来、飞开 | 语义直,但碎角在 chip 实尺寸(18 单位 = 8.6pt,图形本体约 13.5 单位)下只剩两三像素,读出来像「缺角的甲」 |
-| B · 刀痕 | 描边盾缺一角 + 一道刀口 | 与破甲同为描边盾,远看两者都是「空心盾 + 一道线」,区分度最差 |
-| **C · 削层(推荐)** | 实心盾被削去顶上一层,那一层斜飞起 | 剪影独一份(盾牌家族里只有它中间有横向缺口);实心 = 护甲点数(与头行「甲」的 `defense` 同一轮廓),缺口 = 被削掉的点 —— 与破甲「描边盾裂开 = 归零」一实一空、一削一裂 |
+## 两枚图标(64 画布、纯白 FILL,同 `defense` 实心盾轮廓长出来)
+| key | 状态 | 意象 | 对应 Core |
+| --- | --- | --- | --- |
+| `armorshred` | 新增 | **A 削角**:实心盾右上一角被斜削下来、飞开 —— 少了几点,盾还在 | `StatusKind.ArmorBreak`(削甲) |
+| `armorbreak` | **替换** | 实心盾从中间锯齿裂成两半、两片向外倒 —— 护甲没了 | `StatusKind.Sunder`(破甲) |
 
-盾牌家族现有:`shield` 描边(护盾,翠玉)、`defense` 实心(护甲点数)、`armorbreak` 描边 + 闪电、`immunity` 描边 + 勾、`block` 描边 + 尖括号、
-`guard` / `hurtshield` 小实心盾 + 别的构件。C 是唯一「被切开的实心盾」,不撞。
+一眼区分:削甲是「一整块缺个角」,破甲是「对称的两片」;剪影一个偏一侧、一个左右对开。旧破甲「描边盾 + 闪电裂」作废。
 
-## 推荐案 C 规格
 ```python
-    # 削甲(2026-10-21,金 / 火扣点破甲改名):实心盾 = 护甲点数,
-    # 顶上一层被削起斜飞 —— 与 armorbreak 的「描边盾 + 闪电裂(归零)」一实一空
+    # 破甲(2026-10-21 重画,土系专属:护甲归零 / Boss 减半):实心盾从中间
+    # 锯齿裂成两半、两片向外倒。替换旧的「描边盾 + 闪电裂」
+    "armorbreak": (
+        f'<path {FILL} transform="translate(32 33) scale(.86) translate(-32 -33) '
+        f'translate(-4 2) rotate(-12 21 52)" d="M32 6L27 19 35 29 27 40 33 50 32 60'
+        f'c-11-4-22-14-22-27V14z"/>'
+        f'<path {FILL} transform="translate(32 33) scale(.86) translate(-32 -33) '
+        f'translate(4 2) rotate(12 43 52)" d="M32 6l22 8v19c0 13-11 23-22 27'
+        f'L33 50 27 40 35 29 27 19z"/>'
+    ),
+    # 削甲(2026-10-21 新增,金 / 火扣点):实心盾右上一角被斜削下来、飞开
     "armorshred": (
-        f'<path {FILL} d="M10 27H54v6c0 13-11 23-22 27-11-4-22-14-22-27z"/>'
-        f'<path {FILL} transform="rotate(-8 31 14)" d="M31 4l22 8v8H9v-8z"/>'
+        f'<path {FILL} d="M29 7l6 2.2L51 31v3c0 13-11 23-22 27-11-4-22-14-22-27V15z"/>'
+        f'<path {FILL} d="M40 5.6L56 11.4v16z"/>'
     ),
 ```
-- key 建议 `armorshred`(PNG `icon_armorshred.png`);斜飞那片用 `transform`,`guard` / `hurtshield` 已有先例,rsvg-convert 支持。
-- 尺寸:chip 内图标 `Icons.Size` 18 单位(8.6pt),chip 高 20(9.56pt)、字 15、padX 10、间距 4 —— 全是 `BattleView` 现值,本稿不改。
-- 底色:墨蓝 `ink-soft`(`BattleChipColor` 落 `_ => InkSoft`,与破甲同组),前景白。
+(片段已与稿里渲染用的数据逐字对过。只用 path + transform,`guard` / `hurtshield` 已有 transform 先例。)
 
-## 需要拍板的取舍
-1. **选哪一案**:推荐 C。
-2. **削甲 chip 带不带点数**:推荐**只图标**(28 宽)。理由:2026-09-02 拍板「数字只留给跟随回合消亡的 DoT / HoT」,削甲点数挂着期间恒定;
-   头行「甲」chip 读 `DisplayedEnemyDefense`,已经是扣完的值,再标点数是重复信息;带「12」的削甲 chip(47.5 宽)与「甲 18」同宽同色,
-   并排像两枚护甲。点数放详情弹窗(「削甲 12」)。spec §3 写的「过渡期同一枚图标 + 点数」在新图标落地后撤掉。
-3. **兜底字**:需求建议「削」,但 `Icons.Glyphs` 里 `skillcut`(大招削弱)已经用「削」,PNG 缺失时两枚徽章一模一样。
-   改荐**「薄」**(甲被削薄)—— 已在两支子集字体里,不用重跑子集。若坚持「削」,就要把 `skillcut` 的兜底字换掉。
+兜底字:`armorshred` →「薄」(用户拍板;「削」已被 `skillcut` 占用),`armorbreak` 仍是「破」。
+
+## 新显示规则:头行护甲格本身变形(用户 2026-10-21 拍板)
+敌人头行「射程 + 攻击」之后那枚护甲 chip(墨蓝 `ink-soft`、白图标,外形与尺寸不变)按下表换图标、换数;
+**状态 chip 区不再放破甲 / 削甲**;回合只在详情里看。数字一律读 Core `DisplayedEnemyDefense`(破甲先取 0 / Boss 取一半,再扣削甲,最低 0)。
+
+| 身上 | 图标 | 数字 |
+| --- | --- | --- |
+| 无 | `defense` | 护甲 |
+| 削甲 | `armorshred` | 剩余护甲(削到 0 也印「0」) |
+| 破甲 · 杂兵 | `armorbreak` | 不印(纯图标 chip) |
+| 破甲 · Boss | `armorbreak` | 剩余值(减半后) |
+| 破甲 + 削甲 | `armorbreak` | 杂兵不印;Boss 印「减半再扣削甲」 |
+| 原本无甲(基准 0) | 不出格 | 同现行 |
+
+- Boss / 精英 / 头领竖块:护甲 chip 在右栏,同规则。
+- 详情弹窗:「甲」数值格用同一枚图标 + 剩余值,注释沿用「基准 N · 破甲 −x · 削甲 −y」;状态列表里破甲一行「剩 N 回合」,削甲**每层一行**带点数。
+- 玩家侧(敌人对玩家施加,目前无配置):玩家栏护甲格同规则;破甲按杂兵口径不印数(`EffectivePlayerDefense` 归零);回合在玩家详情看。
 
 ## 两档屏宽验算(逻辑单位)
-| 项 | 基准机 | 16:9 | 结论 |
+| 位置 | 基准机 | 16:9 | 结论 |
 | --- | --- | --- | --- |
-| 敌前排信息列(battlegrid 稿) | 257 · 3 行 | 153 · 3 行 | — |
-| 第一行:攻「12」47.5 + 甲「18」47.5 + 一枚纯图标 28 + 间距 2 × 4 | 131 | 131 | 16:9 余 18(列宽 − 4 的边距后) |
-| 纯图标 chip 每行 | 8 枚 | 4 枚 | 挤满局面(破甲、削甲 + 六种减益)16:9 仍在 3 行内,不出「+N」 |
-| 削甲带点数「12」 | 47.5 | 47.5 | 16:9 第一行放不下第三枚,减益整体后挪一行 |
+| 敌前排信息列 | 257 | 153 | 最宽一行 攻「999」55.75 + 甲「999」55.75 + 4 = 115.5 ≤ 149,余 33.5 |
+| Boss 竖块右栏(≤ 2 行) | 211 | 107 | 两枚三位数 115.5 > 103 折两行(现行即如此) |
+| 杂兵破甲纯图标 chip | 28 | 28 | 比原「甲 30」47.5 还窄 |
+| 状态 chip 区 | — | — | 少了破甲 / 削甲两枚,挤满时少丢一枚 |
 
-图标是定宽件,与屏宽无关;屏宽只影响 chip 流排几行,上表是最窄档。
+chip 外形不变、只换图标,两档屏宽的排行与现行一致,不需要 `HScrollFill`。
 
-## 字符串表 key(本稿不写字符串表,实现阶段按 spec §3 定文案)
-| key | 状态 |
-| --- | --- |
-| `status.armorshred.name`「削甲」/ `status.armorshred.desc` | 新增 |
-| `term.armor_shred.name` / `.desc` | 新增 |
-| `char.effect.armorshred` / `char.effect.augment.target.armorshred` | 新增 |
-| `status.armorbreak.*` / `term.armor_break.*` / `char.effect.armorbreak` | 保留,改文案(spec §3) |
+## 仍需拍板
+1. **新破甲图标**(裂成两半)的样子 —— 本次改稿的重点。
+2. **削到 0 时**:削甲图标 +「0」照出(推荐,玩家能看到「被削光了」);还是像现在一样数到 0 就不出格。
+3. **原本无甲的敌人**被挂破甲 / 削甲:不出格(代拍,同现行;挂了也没有可破的甲)。
+4. **削甲时长**:Core 现行 `StatusKind.ArmorBreak` 是 `TurnsLeft = -1`(**本场持久**),而 spec §1 写的是 3 回合、各自计时。
+   稿里详情按 Core 写「本场持久」;要回到限时就是 Core 的事,同一位置换「剩 N 回合」即可。
+5. 封禁(Silence)也会让护甲归零 / 减半:本稿不改,头行仍是 `defense` 图标 + 剩余值,杂兵归零时不出格。
 
-## 实现时(不在本稿范围)
-- 图标三处对账:`build_icons.ICONS`、`test_icons.EXPECTED`、`Icons.Glyphs`;跑 `python3 tools/icons/build_icons.py`;`.meta` 复制换 guid。
-- 战斗状态三处接线:`StatusText.Of`、`BattleView` chip 列表(破甲之后紧跟;召唤物 `AddSummonStatusChips` 同口径)、`CharInfo.EffectsText`。
+## 实现清单(不在本稿范围)
+- ⚠ key 与 StatusKind 交叉:Sunder → `"armorbreak"`(新图)、ArmorBreak → `"armorshred"`。按玩家看到的名字对 key,别按枚举名。
+- 图标三处对账:`ICONS`(改 `armorbreak`、加 `armorshred`)、`test_icons.EXPECTED`、`Icons.Glyphs`;跑 `python3 tools/icons/build_icons.py`;新 PNG 的 `.meta` 复制换 guid。
+- `BattleView`:头行护甲 chip 按上表;删掉状态 chip 区里 Sunder / ArmorBreak 两枚(敌人格、玩家栏、召唤物)。
+- `StatusText.Of`:ArmorBreak 的图标 key 改 `"armorshred"`。
+
+## 字符串表
+无新增(护甲格不印字;`status.sunder.*` / `status.armorbreak.*` 已在字符串表里)。兜底字「薄」已在子集里。
 
 ## 回填记录
-- 2026-10-21 · 出稿(待审)。
+- 2026-10-21 · 出稿(待审):三案比选(A 削角 / B 刀痕 / C 削层,推荐 C),削甲 chip 只图标进状态区,兜底「薄」。
+- 2026-10-21 · 改稿(仍待审)· 改了什么:削甲定 **A 削角**、兜底「薄」;**破甲重画**为实心盾裂成两半,取代「描边盾 + 闪电裂」;
+  显示规则由「状态 chip 区加一枚」改为**头行护甲格本身换图标换数**(杂兵破甲不印数、Boss 印减半值),回合只在详情看;
+  画板改为 Icons(两图标 + 七种护甲格 × 两档)/ Detail(详情回合)/ Spec(两枚 ICONS 片段 + 规则 + 清单);删去 B / C 候选。
+  为什么:用户拍板 —— 破甲 / 削甲本质是「护甲变了」,放在护甲格上比在状态区多挂一枚更直接,也给挤的状态区腾位;
+  破甲旧图与削甲同为「盾 + 一道线」,裂成两半更能和「缺一角」一眼分开。

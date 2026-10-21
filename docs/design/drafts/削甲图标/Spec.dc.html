@@ -11,71 +11,81 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="./xj.css">
   <style>
-    .board { width: 932px; height: 560px; }
-    .row { display: flex; gap: 24px; align-items: flex-start; }
-    pre { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--ink); color: #E8E4DA; font: 8.5px/1.55 ui-monospace, Menlo, monospace; white-space: pre; }
-    .sizes { display: flex; gap: 16px; align-items: flex-end; }
+    .board { width: 932px; height: 640px; }
+    .row { display: flex; gap: 22px; align-items: flex-start; }
+    pre { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--ink); color: #E8E4DA; font: 7.4px/1.55 ui-monospace, Menlo, monospace; white-space: pre; }
+    .sizes { display: flex; gap: 12px; align-items: flex-end; }
     .sz { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
     .sq { background: var(--ink-soft); border-radius: 3px; display: flex; align-items: center; justify-content: center; }
+    ol { margin: 0; padding-left: 16px; font-size: 9px; line-height: 1.65; color: var(--text-quiet); }
     .rc h3 { white-space: normal; }
     .rc td:last-child { white-space: normal; }
-    pre { font-size: 7.6px; }
-    ol { margin: 0; padding-left: 16px; font-size: 9px; line-height: 1.7; color: var(--text-quiet); }
   </style>
 </helmet>
 <div class="board">
-  <h2>规格 · 推荐案 C「削层」</h2>
-  <div class="lead">实心盾(= 护甲点数,与 <code>defense</code> 同一轮廓)被削去顶上一层,那一层斜飞起 —— 少掉的是「点」。破甲是描边盾裂开(归零),两者一实一空、一削一裂。线宽家族同 ICONS:64 画布、纯白、只用 path;斜飞那片用 <code>transform</code>(<code>guard</code> / <code>hurtshield</code> 已有先例)。</div>
+  <h2>规格 · 两枚图标与护甲格规则</h2>
   <div class="row">
-    <div style="width:440px;flex:none">
+    <div style="width:470px;flex:none">
       <h3>① 进 build_icons.ICONS 的片段(实现阶段粘贴,本稿不改管线)</h3>
-<pre>    # 削甲(2026-10-21,金 / 火扣点破甲改名):实心盾 = 护甲点数,
-    # 顶上一层被削起斜飞 —— 与 armorbreak 的「描边盾 + 闪电裂(归零)」一实一空
+<pre>    # 破甲(2026-10-21 重画,土系专属:护甲归零 / Boss 减半):实心盾从中间
+    # 锯齿裂成两半、两片向外倒。替换旧的「描边盾 + 闪电裂」
+    "armorbreak": (
+        f'&lt;path {FILL} transform="translate(32 33) scale(.86) translate(-32 -33) '
+        f'translate(-4 2) rotate(-12 21 52)" d="M32 6L27 19 35 29 27 40 33 50 32 60'
+        f'c-11-4-22-14-22-27V14z"/&gt;'
+        f'&lt;path {FILL} transform="translate(32 33) scale(.86) translate(-32 -33) '
+        f'translate(4 2) rotate(12 43 52)" d="M32 6l22 8v19c0 13-11 23-22 27'
+        f'L33 50 27 40 35 29 27 19z"/&gt;'
+    ),
+    # 削甲(2026-10-21 新增,金 / 火扣点):实心盾右上一角被斜削下来、飞开
     "armorshred": (
-        f'&lt;path {FILL} d="M10 27H54v6c0 13-11 23-22 27-11-4-22-14-22-27z"/&gt;'
-        f'&lt;path {FILL} transform="rotate(-8 31 14)" d="M31 4l22 8v8H9v-8z"/&gt;'
+        f'&lt;path {FILL} d="M29 7l6 2.2L51 31v3c0 13-11 23-22 27-11-4-22-14-22-27V15z"/&gt;'
+        f'&lt;path {FILL} d="M40 5.6L56 11.4v16z"/&gt;'
     ),</pre>
-      <h3>② 生成的 svg/icon_armorshred.svg</h3>
-<pre>&lt;svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"&gt;
-  &lt;path fill="#fff" d="M10 27H54v6c0 13-11 23-22 27-11-4-22-14-22-27z"/&gt;
-  &lt;path fill="#fff" transform="rotate(-8 31 14)" d="M31 4l22 8v8H9v-8z"/&gt;
-&lt;/svg&gt;</pre>
-      <h3>③ 显示尺寸(墨蓝底)</h3>
+      <h3>② 显示尺寸(墨蓝底;每组左破甲、右削甲)</h3>
       <div class="sizes">
-        <sc-for list="{{ sizes }}" as="z"><div class="sz"><div class="sq" style="{{ z.box }}"><img src="{{ src }}" style="{{ z.img }}"></div>{{ z.n }}</div></sc-for>
+        <sc-for list="{{ sizes }}" as="z"><div class="sz"><div class="row" style="gap:4px"><div class="sq" style="{{ z.box }}"><img src="{{ brk }}" style="{{ z.img }}"></div><div class="sq" style="{{ z.box }}"><img src="{{ shred }}" style="{{ z.img }}"></div></div>{{ z.n }}</div></sc-for>
       </div>
+      <h3>③ 头行护甲格规则(数值 = Core DisplayedEnemyDefense,不在表现层另算)</h3>
+      <table>
+        <tr><th>身上</th><th>图标</th><th>数字</th></tr>
+        <tr><td>无</td><td>defense</td><td>护甲</td></tr>
+        <tr><td>削甲</td><td>armorshred</td><td>扣完的剩余值(削到 0 也印 0)</td></tr>
+        <tr><td>破甲 · 杂兵</td><td>armorbreak</td><td>不印(纯图标 chip)</td></tr>
+        <tr><td>破甲 · Boss</td><td>armorbreak</td><td>剩余值(减半后)</td></tr>
+        <tr><td>破甲 + 削甲</td><td>armorbreak</td><td>杂兵不印;Boss 印减半再扣削甲的值</td></tr>
+        <tr><td>原本无甲</td><td colspan="2">不出格(同现行;代拍)</td></tr>
+      </table>
     </div>
     <div class="rc" style="flex:1;min-width:0">
-      <h3>④ 实现时三处对账 + 战斗状态三处接线</h3>
+      <h3>④ 实现清单(⚠ key 与 StatusKind 交叉)</h3>
       <ol>
-        <li><code>build_icons.ICONS["armorshred"]</code>(上面 ①),跑 <code>python3 tools/icons/build_icons.py</code> 出 PNG 与 <code>svg/</code>;<code>.meta</code> 从同目录别的 <code>icon_*.png.meta</code> 复制换 guid</li>
-        <li><code>test_icons.EXPECTED</code> 加 <code>"armorshred"</code></li>
-        <li><code>Icons.Glyphs</code> 加 <code>{ "armorshred", "薄" }</code> —— 兜底字建议<b>「薄」</b>(甲被削薄):需求建议的「削」已被 <code>skillcut</code>(大招削弱)占用,同字会让两枚兜底徽章分不开。「薄」已在字体子集里,不用重跑子集</li>
-        <li><code>StatusText.Of</code>:削甲那条返回 <code>Info("armorshred", …)</code></li>
-        <li><code>BattleView</code> 敌人 chip 列表:破甲那枚之后紧跟削甲,<code>BattleChipColor</code> 落 <code>_ => InkSoft</code>(与破甲同组墨蓝),白图标、<b>不带数字</b>;召唤物 <code>AddSummonStatusChips</code> 的 <code>Flag</code> 同口径</li>
-        <li><code>CharInfo.EffectsText</code> / <code>EnemyInfo</code> / <code>PlayerInfo</code> / <code>UnitDetail</code>:削甲另起一行,点数在详情弹窗里写(「削甲 12」)</li>
+        <li>Core 现状:<code>StatusKind.Sunder</code> = 破甲(新)、<code>StatusKind.ArmorBreak</code> = 削甲(旧枚举名留着)。图标 key 按<b>玩家看到的名字</b>走:Sunder → <code>"armorbreak"</code>(新图),ArmorBreak → <code>"armorshred"</code>。别按枚举名对 key。</li>
+        <li>图标三处对账:<code>ICONS</code> 改 <code>armorbreak</code>、加 <code>armorshred</code>;<code>test_icons.EXPECTED</code> 加 <code>armorshred</code>;<code>Icons.Glyphs</code> 加 <code>{ "armorshred", "薄" }</code>(破甲兜底「破」不变)。跑 <code>build_icons.py</code>,新 PNG 的 <code>.meta</code> 复制换 guid。</li>
+        <li><code>BattleView</code> 敌人头行:原 <code>defense</code> 那枚改为按上表选图标与数字;<b>删掉</b>状态 chip 区里的 Sunder / ArmorBreak 两枚;Boss 竖块右栏同口径;召唤物 <code>AddSummonStatusChips</code> 若有这两枚同删(召唤物护甲格同规则)。</li>
+        <li>玩家栏护甲格同一规则(<code>EffectivePlayerDefense</code>;破甲按杂兵口径无数),玩家状态 chip 区里的 Sunder 那枚删掉。</li>
+        <li><code>StatusText.Of</code>:Sunder 图标保持 <code>"armorbreak"</code>,ArmorBreak 改 <code>"armorshred"</code>(详情状态列表与词条气泡吃这个)。</li>
+        <li>封禁(Silence)也会让护甲归零 / 减半:本稿不改它 —— 头行仍是 <code>defense</code> 图标 + 剩余值、杂兵归零时不出格(同现行)。</li>
       </ol>
-      <h3>⑤ chip 宽(逻辑单位,Ui.ChipWidth:半角 0.55 × 字号、带图标 + 18 + 3)</h3>
+      <h3>⑤ 两档屏宽(逻辑单位;chip 外形不变,只换图标)</h3>
       <table>
-        <tr><th>形态</th><th>算式</th><th>宽</th><th>16:9 前排 153 一行能放</th></tr>
-        <tr><td>只图标(推荐)</td><td>10 + 18</td><td class="n">28</td><td>攻 47.5 + 甲 47.5 + 1 枚;第二、三行各 4 枚</td></tr>
-        <tr><td>带点数「12」</td><td>10 + 18 + 3 + 16.5</td><td class="n">47.5</td><td>与「甲 18」同宽同色,并排像两枚护甲,易误读</td></tr>
-        <tr><td>带点数「−12」</td><td>+ U+2212 全角 15</td><td class="n">62.5</td><td>更宽,且挤掉别的减益</td></tr>
+        <tr><th>位置</th><th>基准机</th><th>16:9</th><th>最宽一行</th></tr>
+        <tr><td>敌前排信息列</td><td class="n">257</td><td class="n">153</td><td>攻「999」55.75 + 甲「999」55.75 + 4 = 115.5 ≤ 149,余 33.5</td></tr>
+        <tr><td>Boss 竖块右栏(≤ 2 行)</td><td class="n">211</td><td class="n">107</td><td>同上 115.5 &gt; 103 → 折两行(现行即如此,不变)</td></tr>
+        <tr><td>杂兵破甲 · 纯图标</td><td colspan="2">28,比原「甲 30」47.5 还窄</td><td>只会更松</td></tr>
+        <tr><td>状态 chip 区</td><td colspan="2">少两枚(破甲 / 削甲移进头行)</td><td>每格少 28–32,挤满时少丢一枚</td></tr>
       </table>
-      <div class="lead" style="margin-top:6px">只图标的理由:2026-09-02 拍板「数字只留给跟随回合消亡的 DoT / HoT」;削甲点数在挂着期间恒定,而头行「甲」chip 已经显示扣完之后的值,再标一次点数是重复信息。spec §3 写的「过渡期同一枚图标 + 点数」在新图标落地后撤掉。</div>
-      <h3>⑥ 文案(本稿不写字符串表;key 名供实现参考)</h3>
-      <div class="lead">新增 <code>status.armorshred.name</code>「削甲」、<code>.desc</code>、<code>term.armor_shred.*</code>、<code>char.effect.armorshred</code>、<code>char.effect.augment.target.armorshred</code>;文案由 spec §3 定(沿用原破甲的点数写法),图标稿不另拟。</div>
     </div>
   </div>
 </div>
 </x-dc>
-<script data-dc-script data-props='{"$preview": {"width": 932, "height": 560}}'>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 640}}'>
 var X = window.XJ;
 class Component extends DCLogic {
   renderVals() {
     return {
-      src: X.icon('armorshred', 'C'),
-      sizes: [[8.6, '实尺寸 18 单位 = 8.6pt'], [17.2, '× 2'], [34.4, '× 4'], [64, '源图 64'], [100, '源图 × 1.56']].map(function (z) {
+      brk: X.icon('armorbreak'), shred: X.icon('armorshred'),
+      sizes: [[8.6, '实尺寸 18 单位 = 8.6pt'], [17.2, '× 2'], [34.4, '× 4'], [64, '源图 64']].map(function (z) {
         var px = z[0];
         return { n: z[1], box: 'width:' + (px * 1.12) + 'px;height:' + (px * 1.12) + 'px', img: 'width:' + px + 'px;height:' + px + 'px' };
       })

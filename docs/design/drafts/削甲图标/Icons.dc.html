@@ -11,129 +11,81 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="./xj.css">
   <style>
-    /* 削甲图标:三案比选 + chip 实尺寸 / × 4 + 减益组并排。chip 规格照 BattleView 敌人格:字 15、padX 10、padY 5、图标 18、间距 4(逻辑单位)。 */
-    .board { width: 932px; height: 590px; position: relative; overflow: hidden; }
-    .cands { display: flex; gap: 14px; }
-    .cand { width: 158px; flex: none; }
-    .tile { width: 128px; height: 128px; border-radius: 12px; background: var(--ink-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .tile img { width: 128px; height: 128px; }
-    .cand.on .tile { box-shadow: 0 0 0 2.5px var(--gold); }
-    .cand b { display: block; margin-top: 5px; font: 600 11px/1.3 var(--font-serif); white-space: nowrap; }
-    .cand p { margin: 2px 0 0; font-size: 8.5px; line-height: 1.5; color: var(--text-dim); }
-    .cand.ref .tile { background: #5A6A84; cursor: default; }
-    .rec { display: inline-block; margin-left: 4px; padding: 0 4px; border-radius: 3px; background: var(--cta); color: #fff; font: 500 7.5px/13px var(--font-sans); vertical-align: 1px; }
-    .row { display: flex; gap: 22px; align-items: flex-start; }
-    /* 敌人格信息列(示意):宽 = 前排信息列 257(基准机)/ 153(16:9),3 行 */
-    .cell { box-sizing: border-box; border-radius: calc(16 * var(--u)); background: var(--panel-paper); box-shadow: inset 0 0 0 .96px var(--panel-border); padding: calc(10 * var(--u)); }
-    .cell .nm { font: 600 calc(26 * var(--u))/1 var(--font-serif); margin-bottom: calc(8 * var(--u)); white-space: nowrap; }
-    .cell .nm small { font: 400 calc(15 * var(--u))/1 var(--font-sans); color: var(--text-dim); margin-left: calc(6 * var(--u)); }
-    .flow { display: flex; flex-direction: column; gap: calc(3 * var(--u)); }
-    .ln { display: flex; gap: calc(4 * var(--u)); }
-    .z4 { zoom: 4; }
+    /* 2026-10-21 改稿:削甲 = A 削角(用户选定);破甲重画 = 实心盾裂成两半;显示规则改为「头行护甲格本身变形」,状态 chip 区不再放破甲 / 削甲。 */
+    .board { width: 932px; height: 640px; position: relative; overflow: hidden; }
+    .tiles { display: flex; gap: 18px; }
+    .tl { width: 150px; flex: none; }
+    .tile { width: 112px; height: 112px; border-radius: 12px; background: var(--ink-soft); display: flex; align-items: center; justify-content: center; }
+    .tile img { width: 112px; height: 112px; }
+    .tl.old .tile { background: #8A93A3; }
+    .tl.old b { text-decoration: line-through; color: var(--text-faint); }
+    .tl b { display: block; margin-top: 5px; font: 600 11px/1.3 var(--font-serif); white-space: nowrap; }
+    .tl p { margin: 2px 0 0; font-size: 8.5px; line-height: 1.5; color: var(--text-dim); }
+    .grid { border-collapse: collapse; }
+    .grid td, .grid th { padding: 4px 6px; vertical-align: middle; }
+    .grid td.st { font-size: 9px; color: var(--text-quiet); white-space: nowrap; }
+    .grid td.st small { display: block; font-size: 8px; color: var(--text-faint); }
+    .col { box-sizing: border-box; outline: 1px dashed rgba(61,78,105,.35); outline-offset: 1px; display: flex; flex-wrap: wrap; gap: calc(3 * var(--u)) calc(4 * var(--u)); }
     .z3 { zoom: 3; }
-    .cap { font-size: 8px; color: var(--text-faint); margin-top: 3px; white-space: nowrap; }
-    .grp { display: flex; flex-wrap: wrap; gap: 0 2px; align-items: flex-end; }
-    .grp .it { display: flex; flex-direction: column; align-items: center; width: 68px; }
-    .grp .it span { font-size: 8px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; }
-    .grp .it.me span { color: var(--text-main); font-weight: 700; }
+    .det { width: 380px; box-sizing: border-box; border-radius: 8px; background: var(--panel-paper); box-shadow: inset 0 0 0 .96px var(--panel-border); padding: 8px 10px; }
+    .fig { display: flex; align-items: baseline; gap: 6px; padding-bottom: 6px; border-bottom: .5px solid var(--panel-border); }
+    .fig .k { font-size: 9px; color: var(--text-dim); }
+    .fig .v { font: 700 15px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+    .fig .n { font-size: 8.5px; color: var(--text-faint); white-space: nowrap; }
+    .srow { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 6px; align-items: center; padding: 5px 0; border-bottom: .5px solid var(--panel-border); }
+    .srow:last-child { border-bottom: 0; }
+    .srow .nm { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
+    .srow .du { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
+    .srow .ds { grid-column: 2 / 4; font-size: 8.5px; color: var(--text-quiet); line-height: 1.5; }
+    .row { display: flex; gap: 20px; align-items: flex-start; }
   </style>
 </helmet>
-<div>
 <div class="board">
-  <h2>削甲 · 状态图标三案</h2>
-  <div class="lead">破甲(土系专属,护甲归零)沿用 <code>icon_armorbreak</code>「描边盾 + 闪电裂」;削甲(金 / 火,护甲 −N 可叠)要一眼分开、又同属盾牌家族。思路:<b>实心盾 = 护甲点数</b>(敌人头行「甲 30」那枚 <code>defense</code>),削甲 = 这块实心盾被削掉一部分 —— 和「裂开 / 归零」的描边盾走两条路。点候选切换下方所有 chip。</div>
-  <h3>① 64 源图 × 2(墨蓝 chip 底;浅框两枚是现有图标作参照)</h3>
-  <div class="cands">
-    <div class="cand ref"><div class="tile"><img src="{{ refAb }}"></div><b>破甲(现有)</b><p>描边盾 + 闪电裂:裂开 = 归零</p></div>
-    <div class="cand ref"><div class="tile"><img src="{{ refDef }}"></div><b>甲(现有 defense)</b><p>实心盾:护甲点数,敌人头行「甲 30」</p></div>
-    <sc-for list="{{ cands }}" as="c">
-      <div class="{{ c.cls }}" onClick="{{ c.pick }}"><div class="tile"><img src="{{ c.src }}"></div><b>{{ c.name }}</b><p>{{ c.note }}</p></div>
+  <h2>破甲 / 削甲 · 图标与头行护甲格</h2>
+  <div class="lead">用户拍板(2026-10-21):削甲用 <b>A 削角</b>;破甲<b>重画</b>为实心盾完全裂成两半,取代「描边盾 + 闪电裂」。两枚都从实心盾(护甲 <code>defense</code>)长出来:<b>缺一角 = 少了几点</b>,<b>碎成两半 = 没了</b>。破甲 / 削甲不再进状态 chip 区,改为<b>头行护甲格本身换图标、换数</b>;回合只在详情里看。</div>
+  <h3>① 两枚图标(墨蓝底 × 1.75;灰底那枚是将被替换的旧破甲)</h3>
+  <div class="tiles">
+    <div class="tl"><div class="tile"><img src="{{ iDef }}"></div><b>护甲(现有 defense)</b><p>正常:图标 + 护甲数</p></div>
+    <div class="tl"><div class="tile"><img src="{{ iShred }}"></div><b>削甲 · A 削角(新增)</b><p>右上一角被斜削下来、飞开:少了几点,盾还在</p></div>
+    <div class="tl"><div class="tile"><img src="{{ iBreak }}"></div><b>破甲 · 裂成两半(重画)</b><p>盾从中间锯齿裂开、两片向外倒:护甲没了</p></div>
+    <div class="tl old"><div class="tile"><img src="{{ iOld }}"></div><b>旧破甲 描边盾 + 闪电</b><p>被替换;svg 与 PNG 由管线重出</p></div>
+  </div>
+  <h3>② 头行护甲格 · 实尺寸(虚线 = 该列宽;第一枚是射程 + 攻击)与 16:9 × 3</h3>
+  <table class="grid">
+    <tr><th></th><th class="lead">基准机</th><th class="lead">16:9(最窄档)</th><th class="lead">16:9 × 3</th></tr>
+    <sc-for list="{{ rows }}" as="r">
+      <tr>
+        <td class="st">{{ r.n }}<small>{{ r.sub }}</small></td>
+        <td><div class="col" style="{{ r.wB }}"><sc-for list="{{ r.chips }}" as="x"><div class="{{ x.cls }}"><img src="{{ x.src }}">{{ x.t }}</div></sc-for></div></td>
+        <td><div class="col" style="{{ r.wN }}"><sc-for list="{{ r.chips }}" as="x"><div class="{{ x.cls }}"><img src="{{ x.src }}">{{ x.t }}</div></sc-for></div></td>
+        <td><div class="z3"><div class="col" style="{{ r.wN }}"><sc-for list="{{ r.chips }}" as="x"><div class="{{ x.cls }}"><img src="{{ x.src }}">{{ x.t }}</div></sc-for></div></div></td>
+      </tr>
     </sc-for>
-  </div>
-  <div class="row" style="margin-top:6px">
-    <div>
-      <h3>② 敌人格 chip 流 · 实尺寸(前排信息列,3 行)</h3>
-      <div class="row" style="gap:14px">
-        <div>
-          <div class="cell" style="{{ cellBase }}"><div class="nm">{{ foe }}<small>基准机 · 列宽 257</small></div>
-            <div class="flow"><sc-for list="{{ linesBase }}" as="l"><div class="ln"><sc-for list="{{ l }}" as="x"><div class="{{ x.cls }}"><sc-if value="{{ x.img }}" hint-placeholder-val="{{ true }}"><img src="{{ x.src }}"></sc-if><sc-if value="{{ x.fb }}" hint-placeholder-val="{{ false }}"><i class="fb">{{ x.fbc }}</i></sc-if>{{ x.t }}</div></sc-for></div></sc-for></div>
-          </div>
-        </div>
-        <div>
-          <div class="cell" style="{{ cellNarrow }}"><div class="nm">{{ foe }}<small>16:9 · 153</small></div>
-            <div class="flow"><sc-for list="{{ linesNarrow }}" as="l"><div class="ln"><sc-for list="{{ l }}" as="x"><div class="{{ x.cls }}"><sc-if value="{{ x.img }}" hint-placeholder-val="{{ true }}"><img src="{{ x.src }}"></sc-if><sc-if value="{{ x.fb }}" hint-placeholder-val="{{ false }}"><i class="fb">{{ x.fbc }}</i></sc-if>{{ x.t }}</div></sc-for></div></sc-for></div>
-          </div>
-        </div>
-      </div>
-      <div class="cap">{{ scNote }}</div>
-    </div>
-    <div>
-      <h3>③ 同一串 × 4(16:9 那格的第一、二行)</h3>
-      <div class="z4"><div class="flow"><sc-for list="{{ zoomLines }}" as="l"><div class="ln"><sc-for list="{{ l }}" as="x"><div class="{{ x.cls }}"><sc-if value="{{ x.img }}" hint-placeholder-val="{{ true }}"><img src="{{ x.src }}"></sc-if><sc-if value="{{ x.fb }}" hint-placeholder-val="{{ false }}"><i class="fb">{{ x.fbc }}</i></sc-if>{{ x.t }}</div></sc-for></div></sc-for></div></div>
-    </div>
-  </div>
-  <h3>④ 减益组并排 × 3(墨蓝 = 控制 / 削弱;朱砂两枚是 DoT 作参照)</h3>
-  <div class="grp"><sc-for list="{{ group }}" as="g"><div class="{{ g.cls }}"><div class="z3"><div class="{{ g.chip }}"><img src="{{ g.src }}"></div></div><span>{{ g.n }}</span></div></sc-for></div>
-</div>
-<div class="ctl">
-  <span class="lb">候选</span><sc-for list="{{ cBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
-  <span class="sp"></span><span class="lb">敌人身上</span><sc-for list="{{ sBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
-  <span class="sp"></span><span class="lb">削甲 chip</span><sc-for list="{{ nBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
-  <span class="sp"></span><span class="lb">PNG 缺失兜底</span><sc-for list="{{ fBtns }}" as="b"><button class="{{ b.cls }}" onClick="{{ b.pick }}">{{ b.n }}</button></sc-for>
-</div>
+  </table>
 </div>
 </x-dc>
 <script data-dc-script data-props='{"$preview": {"width": 932, "height": 640}}'>
 var X = window.XJ;
-var CANDS = [
-  ['A', 'A · 削角', '实心盾右上一角被斜削下来、飞开。语义最直,但碎角在 18 单位下只剩两三像素'],
-  ['B', 'B · 刀痕', '描边盾缺一角 + 一道刀口。和破甲同为描边盾,远看易混'],
-  ['C', 'C · 削层(推荐)', '实心盾被削去顶上一层、斜飞起。剪影独一份:实心 = 护甲点数,缺口 = 被削掉的点']
+var STATES = [
+  ['正常', '杂兵 甲 30', 30, false, false, 0],
+  ['削甲', '杂兵 甲 30 · 削甲 12 → 18', 30, false, false, 12],
+  ['破甲 · 杂兵', '甲 30 → 无甲,只剩图标', 30, false, true, 0],
+  ['破甲 + 削甲 · 杂兵', '仍是破甲图标、无数', 30, false, true, 12],
+  ['破甲 · Boss', 'Boss 甲 40 → 减半 20', 40, true, true, 0],
+  ['破甲 + 削甲 · Boss', '40 → 20 → 削 8 → 12', 40, true, true, 8],
+  ['削到 0 · 杂兵', '甲 10 · 削甲 12 → 0(仍出格)', 10, false, false, 12]
 ];
-var SCEN = {
-  shred: { n: '只有削甲', foe: '铁', note: '杂兵 甲 30 − 削甲 12 = 18:「甲」chip 读的是 DisplayedEnemyDefense,已经扣过;削甲 chip 只说「挂着」', atk: 12, def: 18, st: ['armorshred'] },
-  brk:   { n: '只有破甲', foe: '铁', note: '杂兵破甲 = 护甲按 0 算 → 甲 0 不出 chip(现行 shownDefense > 0 才画),只剩破甲那枚', atk: 12, def: 0, st: ['armorbreak'] },
-  both:  { n: '破甲 + 削甲', foe: '铁', note: '两者同在:先按破甲取 0,再扣削甲,仍是 0。两枚并排 —— 破甲在前、削甲紧跟(同属护甲类)', atk: 12, def: 0, st: ['armorbreak', 'armorshred'] },
-  boss:  { n: 'Boss 破甲 + 削甲', foe: '窑变', note: 'Boss 甲 40:破甲按一半 20,再削 8 → 12。甲 chip 显示 12', atk: 24, def: 12, st: ['armorbreak', 'armorshred'] },
-  crowd: { n: '挤满(溢出)', foe: '铁', note: '减益挤满:纯图标 chip 只有 28 宽,16:9 前排 153 宽 3 行仍装得下八枚;装不下才从尾部丢、补「+N」(Ui.ChipFlow 口径)', atk: 12, def: 18, st: ['armorbreak', 'armorshred', 'slow', 'blind', 'silence', 'curse', 'healblock', 'buffblock'] }
-};
-var ORDER = ['shred', 'brk', 'both', 'boss', 'crowd'];
-var FB = { armorbreak: '破', slow: '缓', blind: '盲', silence: '默', curse: '咒', healblock: '涸', buffblock: '禁', ranged: '远', defense: '甲' };
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { cand: 'C', sc: 'both', num: 'none', fb: 'icon' }; }
   renderVals() {
-    var self = this, s = this.state, sc = SCEN[s.sc];
-    var shredFb = s.fb === 'bo' ? '薄' : '削';
-    function spec(key, text, kind) {
-      var useFb = s.fb !== 'icon';
-      var fbc = key === 'armorshred' ? shredFb : (FB[key] || '?');
-      return { key: key, t: text, cls: 'chip ' + kind + (key === 'armorshred' ? ' hot' : ''), src: X.icon(key, s.cand), img: !useFb, fb: useFb, fbc: fbc,
-        w: X.chipW(text, true) };
-    }
-    var specs = [spec('ranged', String(sc.atk), 'k-atk')];
-    if (sc.def > 0) specs.push(spec('defense', String(sc.def), 'k-ctrl'));
-    sc.st.forEach(function (k) { specs.push(spec(k, k === 'armorshred' && s.num === 'pts' ? (s.sc === 'boss' ? '8' : '12') : '', 'k-ctrl')); });
-    function flow(width, maxLines) {
-      var W = width - 4, sp = X.CH.spacing;
-      function lay(list) { var lines = [[]], cur = 0; list.forEach(function (c) { var add = (lines[lines.length - 1].length ? sp : 0) + c.w; if (cur + add > W && lines[lines.length - 1].length) { lines.push([c]); cur = c.w; } else { lines[lines.length - 1].push(c); cur += add; } }); return lines; }
-      var list = specs.slice(), lines = lay(list), dropped = 0;
-      while (lines.length > maxLines) { list.pop(); dropped++; var cnt = { t: '+' + dropped, cls: 'chip k-ctrl', img: false, fb: false, w: X.textW('+' + dropped, 15) + 10 }; lines = lay(list.concat([cnt])); }
-      return lines;
-    }
-    var linesN = flow(153, 3);
     return {
-      refAb: X.icon('armorbreak'), refDef: X.icon('defense'),
-      cands: CANDS.map(function (c) { return { cls: 'cand' + (s.cand === c[0] ? ' on' : ''), src: X.icon('armorshred', c[0]), name: c[1], note: c[2], pick: function () { self.setState({ cand: c[0] }); } }; }),
-      foe: sc.foe, scNote: sc.note,
-      cellBase: 'width:calc(257 * var(--u))', cellNarrow: 'width:calc(153 * var(--u))',
-      linesBase: flow(257, 3), linesNarrow: linesN, zoomLines: linesN.slice(0, 2),
-      group: [['armorbreak', '破甲', 'k-ctrl'], ['armorshred', '削甲', 'k-ctrl'], ['defense', '甲(头行)', 'k-ctrl'], ['slow', '减速', 'k-ctrl'], ['blind', '致盲', 'k-ctrl'], ['silence', '沉默', 'k-ctrl'], ['curse', '减攻', 'k-ctrl'],
-              ['healblock', '干涸', 'k-ctrl'], ['buffblock', '禁增益', 'k-ctrl'], ['skillcut', '大招削弱', 'k-ctrl'], ['burn', '灼', 'k-dot'], ['bleed', '流血', 'k-dot']].map(function (g) {
-        return { cls: 'it' + (g[0] === 'armorshred' ? ' me' : ''), chip: 'chip ' + g[2], src: X.icon(g[0], s.cand), n: g[1] }; }),
-      cBtns: CANDS.map(function (c) { return { n: c[0], cls: s.cand === c[0] ? 'on' : '', pick: function () { self.setState({ cand: c[0] }); } }; }),
-      sBtns: ORDER.map(function (k) { return { n: SCEN[k].n, cls: s.sc === k ? 'on' : '', pick: function () { self.setState({ sc: k }); } }; }),
-      nBtns: [['none', '只图标(推荐)'], ['pts', '带点数']].map(function (o) { return { n: o[1], cls: s.num === o[0] ? 'on' : '', pick: function () { self.setState({ num: o[0] }); } }; }),
-      fBtns: [['icon', '图标'], ['bo', '兜底「薄」(推荐)'], ['xiao', '兜底「削」']].map(function (o) { return { n: o[1], cls: s.fb === o[0] ? 'on' : '', pick: function () { self.setState({ fb: o[0] }); } }; })
+      iDef: X.icon('defense'), iShred: X.icon('armorshred'), iBreak: X.icon('armorbreak'), iOld: X.icon('old:armorbreak'),
+      rows: STATES.map(function (s) {
+        var boss = s[3], cell = X.armorCell(s[2], boss, s[4], s[5]);
+        var chips = [{ cls: 'chip k-atk', src: X.icon('ranged'), t: boss ? '24' : '12' }];
+        if (cell) chips.push({ cls: 'chip k-ctrl', src: X.icon(cell.icon), t: cell.text });
+        return { n: s[0], sub: s[1] + (boss ? ' · Boss 竖块右栏' : ' · 前排信息列'), chips: chips,
+          wB: 'width:calc(' + ((boss ? 211 : 257) - 4) + ' * var(--u))', wN: 'width:calc(' + ((boss ? 107 : 153) - 4) + ' * var(--u))' };
+      })
     };
   }
 }

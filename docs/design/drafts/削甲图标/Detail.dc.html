@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./xj.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./xj.css">
+  <style>
+    /* 详情弹窗(UnitDetail / EnemyInfo)里怎么看回合:沿用现有「甲」数值格 + 状态列表,只换图标。示意按稿面比例缩画,不是实尺寸。 */
+    .board { width: 932px; height: 530px; }
+    .row { display: flex; gap: 12px; align-items: flex-start; }
+    .det { width: 280px; flex: none; box-sizing: border-box; border-radius: 8px; background: var(--panel-paper); box-shadow: inset 0 0 0 .96px var(--panel-border); padding: 8px 10px; }
+    .det h4 { margin: 0 0 6px; font: 600 12px/1.2 var(--font-serif); white-space: nowrap; }
+    .det h4 small { font: 400 8.5px var(--font-sans); color: var(--text-faint); margin-left: 6px; }
+    .fig { display: flex; align-items: center; gap: 6px; padding: 4px 0 6px; border-bottom: .5px solid var(--panel-border); }
+    .fig .k { font-size: 9px; color: var(--text-dim); width: 18px; }
+    .fig .v { font: 700 14px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+    .fig .n { font-size: 8.5px; color: var(--text-faint); white-space: nowrap; }
+    .srow { display: grid; grid-template-columns: 34px 1fr auto; gap: 2px 6px; align-items: center; padding: 5px 0; border-bottom: .5px solid var(--panel-border); }
+    .srow:last-child { border-bottom: 0; }
+    .srow .nm { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
+    .srow .du { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
+    .srow .du.hot { color: var(--cta); font-weight: 700; }
+    .srow .ds { grid-column: 2 / 4; font-size: 8.5px; color: var(--text-quiet); line-height: 1.5; }
+    .big { zoom: 1.6; }
+    ul { margin: 0; padding-left: 15px; font-size: 9px; line-height: 1.7; color: var(--text-quiet); }
+  </style>
+</helmet>
+<div class="board">
+  <h2>详情弹窗 · 回合在哪看</h2>
+  <div class="lead">战场上的护甲格只说「现在几点甲、被什么动了」;<b>回合与来源只在点开详情里看</b>。详情沿用现有结构(<code>EnemyInfo.BuildFigures</code> 的「甲」数值格 + <code>UnitDetail.BuildStatuses</code> 状态列表),只换图标、不加新组件。蓝字 = 回合所在。</div>
+  <div class="row" style="margin-top:10px">
+    <sc-for list="{{ dets }}" as="d">
+      <div class="det">
+        <h4>{{ d.title }}<small>{{ d.sub }}</small></h4>
+        <div class="fig"><span class="k">甲</span><div class="big"><div class="chip k-ctrl"><img src="{{ d.cellSrc }}">{{ d.cellT }}</div></div><span class="v">{{ d.v }}</span><span class="n">{{ d.note }}</span></div>
+        <sc-for list="{{ d.st }}" as="s">
+          <div class="srow"><div class="big"><div class="chip k-ctrl"><img src="{{ s.src }}">{{ s.t }}</div></div><span class="nm">{{ s.n }}</span><span class="{{ s.duCls }}">{{ s.du }}</span><span class="ds">{{ s.ds }}</span></div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <h3>规则</h3>
+  <ul>
+    <li>「甲」数值格:图标与战场头行同一枚(破甲 &gt; 削甲 &gt; 护甲),数字 = <code>DisplayedEnemyDefense</code>;注释沿用「基准 N · 破甲 −x · 削甲 −y」。</li>
+    <li>状态列表:破甲一行「剩 N 回合」;削甲<b>每层各一行</b>(各自来源、各自点数),时长按 Core 实际 —— 现行 <code>StatusKind.ArmorBreak</code> 是 <code>TurnsLeft = -1</code> 本场持久,所以写「本场持久」;若 Core 改回限时,同一位置换成「剩 N 回合」。</li>
+    <li>状态列表里的破甲 / 削甲 chip 保留(这里是说明处,不是战场 chip 流);战场状态 chip 区不再出这两枚。</li>
+    <li><b>玩家侧</b>(敌人对玩家施加破甲 / 削甲,目前无敌人配置):玩家栏护甲格同一规则 —— 破甲换破甲图标、玩家按杂兵口径无数(<code>EffectivePlayerDefense</code> 归零);削甲换削甲图标 + 剩余值;回合在玩家详情(<code>PlayerInfo</code>)看。</li>
+  </ul>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 530}}'>
+var X = window.XJ;
+var SUNDER = '护甲归零，Boss 护甲减半；持续结束后恢复。';
+function shredDesc(m) { return '目标护甲 −' + m + ' 点，可叠加——多张削甲接力削，实际减多少看叠了几层。'; }
+class Component extends DCLogic {
+  renderVals() {
+    function det(title, sub, base, boss, brk, shreds) {
+      var total = shreds.reduce(function (a, b) { return a + b; }, 0), cell = X.armorCell(base, boss, brk, total);
+      var notes = ['基准 ' + base]; if (brk) notes.push('破甲 −' + (boss ? base - Math.floor(base / 2) : base)); if (total) notes.push('削甲 −' + total);
+      var st = [];
+      if (brk) st.push({ src: X.icon('armorbreak'), t: '', n: '破甲', du: '剩 2 回合', duCls: 'du hot', ds: SUNDER });
+      shreds.forEach(function (m) { st.push({ src: X.icon('armorshred'), t: String(m), n: '削甲', du: '本场持久', duCls: 'du hot', ds: shredDesc(m) }); });
+      return { title: title, sub: sub, cellSrc: X.icon(cell.icon), cellT: '', v: cell.v, note: notes.join(' · '), st: st };
+    }
+    return { dets: [
+      det('窑变', 'Boss · 破甲 + 削甲两层', 40, true, true, [5, 3]),
+      det('铁', '杂兵 · 削甲两层', 30, false, false, [8, 4]),
+      det('铁', '杂兵 · 破甲', 30, false, true, [])
+    ] };
+  }
+}
+</script>
+</body>
+</html>
