@@ -139,6 +139,9 @@ VALUELESS_EFFECTS = {
     "SummonRanged": {"kind": "SummonRanged", "value": 0},
     "SummonMerge": {"kind": "SummonMerge", "value": 0},
     "SummonAct": {"kind": "SummonAct", "value": 0},
+    # 土系破甲归零(2026-10-21,EffectKind.Sunder):持续期间目标护甲归零,不带点数,必写 turns(DURATION_KINDS 查)。
+    # 崩裂 / 厚壤写 `Sunder K` `per Spent`(K = 每 K 层厚 +1 回合,存 value)走通用正则;整串带反引号匹配,互不吞。
+    "Sunder": {"kind": "Sunder", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -176,7 +179,7 @@ EXECUTE_SPLASH_TOKEN = "executeSplash"
 # 减攻(D1 Task 5,EffectKind.Weaken):Value = 百分点、Turns = 回合,漏写 turns 引擎兜成 1 回合 ——
 # 与 ArmorBreak 同型,必须强制要求写。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak", "Haste", "Weaken", "Seed",
+                  "DefenseBuff", "ArmorBreak", "Sunder", "Haste", "Weaken", "Seed",
                   "BuffBlock", "DebuffWard",   # D2-水 Task 3:拦截族,漏写 turns 引擎兜 1 回合(静默变短)
                   "HurtHeal", "TurnPulse",     # D2-水 Task 4:受击回复 / 回合脉冲,同上
                   "HurtShield",                # D2-土 Task 3:受击得盾(堡垒),同上
@@ -288,7 +291,7 @@ RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
 
 # D1 Task 5:效果目标选择器 `pick X`、条件门 `if X`(非 Amplify)、不减层 `keep`。
 # 与 Core 的 EffectPickRules.Supports 同一张名单;写在别的效果上引擎会静默忽略,所以管线拦下。
-ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Blind", "Weaken",
+ENEMY_PICK_KINDS = {"BurnSingle", "Bleed", "Freeze", "Slow", "ArmorBreak", "Sunder", "Blind", "Weaken",
                     "BurnSettleNow", "Detonate", "Seed", "Vulnerable",
                     "BurnScale",   # D2-火 N1
                     # D2-火 Task 3 灼附着族(写 pick BurnedByThisCast)
@@ -362,7 +365,7 @@ SCALE_HOSTS = {"BurnStack": {"Amplify", "HealSelf"}, "BurningEnemy": {"Amplify",
                "ExtraHitTarget": {"Morale"},
                "Wellspring": {"Amplify"}, "Cleansed": {"HealSelf"},   # D2-水 E22:洪峰 / 濯身
                "SummonCount": {"Amplify"},                             # D2-木 E39:众木 / 林深
-               "Spent": {"ArmorBreak"},   # spec C §6:崩裂 / 厚壤(每释放 1 层)
+               "Spent": {"ArmorBreak", "Sunder"},   # spec C §6:崩裂 / 厚壤(每释放 1 层)
                "Morale": {"Amplify"}}                              # spec A:鍂 每层战意 +N% 伤害
 SCALE_BASES = set(SCALE_HOSTS)
 # 每击附带(Q23 通用形态):`perHit [N]` 之后的全部 token 是每击附带的效果(目标 = 这一击的目标,从第 N 击起);
@@ -380,7 +383,7 @@ PER_HIT_BANNED = {"DamageSingle", "Reshape", "Amplify", "Augment", "SelfCost", "
 # Retaliate 上,落进 chars.json 的 perHit 字段(与每击附带同一个字段、同一种段式写法)。只收作用于攻击者的非伤害效果,
 # 名单与 BattleEngine.RetaliateAllows 一致;不能带条件门 / 选择器 / 附着(对象就是攻击者)。
 ON_HIT_TOKEN = "onHit"
-RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Vulnerable", "Slow", "Freeze"}
+RETALIATE_ALLOWED = {"BurnSingle", "Bleed", "Weaken", "Blind", "ArmorBreak", "Sunder", "Vulnerable", "Slow", "Freeze"}
 # 回合脉冲(D2-水 Task 4,W7):`onTurn` 之后的全部 token 是「之后每个玩家回合开始结算的效果」,挂到本格唯一的 TurnPulse 上,
 # 落进 chars.json 的 perHit 字段(同 onHit)。名单与 BattleEngine.TurnPulseAllows 一致(不收伤害);没有主目标,
 # 敌方效果必须写 `pick All` 之类不选主目标的选择器;不能带条件门 / 附着 / 本体百分比。
@@ -430,7 +433,7 @@ OF_HEAL_TOKEN = "ofHeal"
 # WARDABLE 与 ConfigLoader.WardableKinds 同一张表(会落在我方身上的减益)。
 WARD_OF_TOKEN = "wardOf"
 WARD_COUNT_TOKEN = "wardCount"
-WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak",
+WARDABLE = {"Burn", "Bleed", "Freeze", "SpeedModifier", "Curse", "Seal", "Blind", "Silence", "ArmorBreak", "Sunder",
             "Vulnerable", "Charm", "HealBlock", "Doom"}
 
 # ---- D2-土 Task 1(附录 E30 / E31 / E36)----
@@ -553,6 +556,11 @@ def _attach_fire_ops(config, char, effects, consumed):
             raise ValueError(f"{char}:配置格「{config}」的 `per` 只认 {sorted(SCALE_BASES)},"
                              f"且只挂本格唯一的一条对应宿主 {SCALE_HOSTS}")
         hosts[0]["scaleBy"] = per[0]
+    # 破甲 `Sunder N` 的 N 只在 `per Spent` 下有意义(每 N 层 +1 回合);单独带数值会被静默忽略,直接报错
+    for e in effects:
+        if e["kind"] == "Sunder" and e.get("value", 0) != 0 and "scaleBy" not in e:
+            raise ValueError(f"{char}:配置格「{config}」的 `Sunder {e['value']}` 带了数值却没有 `per Spent`;"
+                             f"普通破甲写 `Sunder` `turns N`,数值只用于崩裂 / 厚壤的「每 K 层 +1 回合」")
     cap = re.findall(rf"`{CAP_TOKEN} (\d+)`", config)
     # 地裂 / 七级浮屠的 cap 归 _attach_earth_ops
     if cap and f"`{HITS_PER_SHIELD_TOKEN} " not in config and f"`{PER_SHIELD_TENTH_TOKEN}`" not in config:

@@ -153,7 +153,7 @@ namespace Brushblade.Core.Tests
                     Assert.That(d.AttackEffects.Select(e => e.Kind).ToList(),
                         Is.EqualTo(new[] { EffectKind.DamageSingle, EffectKind.SpendHeft }), $"{d.Id} 攻 = 伤害 + 释放");
                 else
-                    Assert.That(Only(d.AttackEffects, EffectKind.ArmorBreak, d.Id).Turns, Is.EqualTo(2), $"{d.Id} 攻:破甲 2 回合");
+                    Assert.That(Only(d.AttackEffects, EffectKind.Sunder, d.Id).Turns, Is.EqualTo(2), $"{d.Id} 攻:破甲 2 回合");
                 // spec A §3:崩攻击面全体 ⇒ 五行面 ShieldAll;§4.4 护甲回合按档
                 var shield = d.Id == "崩" ? EffectKind.ShieldAll : EffectKind.Shield;
                 Assert.That(d.Effects.Select(e => e.Kind).ToList(),
@@ -269,11 +269,8 @@ namespace Brushblade.Core.Tests
         {
             // 破甲(攻击面附带)维持现状;护甲点按 spec A §4.4 梯度表(逐字列出,并与 ArmorByTier 对账)
             // spec C:崩 / 㙓 的破甲已拆出本体,不在表内
-            var armorBreak = new Dictionary<string, int>
-            {
-                ["碉"] = 10, ["垒"] = 15, ["壁"] = 15, ["堡"] = 20, ["碎"] = 20,
-                ["塔"] = 25, ["圭"] = 30, ["杜"] = 30, ["垚"] = 35,
-            };
+            // 2026-10-21 土系破甲归零:破甲改 Sunder,不带点数,不再有梯度表;只对账 9 字都带 2 回合 Sunder
+            var sunderChars = new[] { "碉", "垒", "壁", "堡", "碎", "塔", "圭", "杜", "垚" };
             var defense = new Dictionary<string, int>
             {
                 ["碉"] = 10, ["垒"] = 15, ["壁"] = 15, ["堡"] = 20, ["崩"] = 20, ["碎"] = 20,
@@ -281,8 +278,8 @@ namespace Brushblade.Core.Tests
             };
             foreach (var kv in defense)
                 Assert.That(kv.Value, Is.EqualTo(ArmorByTier[Tier(Char(kv.Key).Rarity)].Points), $"{kv.Key} 护甲表与梯度对账");
-            foreach (var kv in armorBreak)
-                Assert.That(Only(Char(kv.Key).AttackEffects, EffectKind.ArmorBreak, kv.Key).Value, Is.EqualTo(kv.Value), $"{kv.Key} 破甲");
+            foreach (var id in sunderChars)
+                Assert.That(Only(Char(id).AttackEffects, EffectKind.Sunder, id).Turns, Is.EqualTo(2), $"{id} 破甲(Sunder)");
             foreach (var kv in defense)
                 Assert.That(Only(Char(kv.Key).Effects, EffectKind.DefenseBuff, kv.Key).Value, Is.EqualTo(kv.Value), $"{kv.Key} 护甲");
         }

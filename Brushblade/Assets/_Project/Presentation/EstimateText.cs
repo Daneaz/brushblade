@@ -69,6 +69,7 @@ namespace Brushblade.Presentation
                 case EstimateSegKind.Slow: return Strings.T("status.slow.name");
                 case EstimateSegKind.Freeze: return Strings.T("status.freeze.name");
                 case EstimateSegKind.ArmorBreak: return Strings.T("status.armorbreak.name");
+                case EstimateSegKind.Sunder: return Strings.T("status.sunder.name");
                 case EstimateSegKind.Seed: return Strings.T("status.seed.name");
                 case EstimateSegKind.Weaken: return Strings.T("status.curse.name");
                 case EstimateSegKind.Vulnerable: return Strings.T("status.mark.name");

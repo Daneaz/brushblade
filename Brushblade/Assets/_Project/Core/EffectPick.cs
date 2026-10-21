@@ -38,7 +38,7 @@ namespace Brushblade.Core
         public static bool Supports(EffectKind kind) => kind switch
         {
             EffectKind.BurnSingle or EffectKind.Bleed or EffectKind.Freeze or EffectKind.Slow
-                or EffectKind.ArmorBreak or EffectKind.Blind or EffectKind.Weaken
+                or EffectKind.ArmorBreak or EffectKind.Sunder or EffectKind.Blind or EffectKind.Weaken
                 or EffectKind.Seed or EffectKind.Vulnerable
                 or EffectKind.BurnSettleNow or EffectKind.Detonate
                 or EffectKind.BurnScale   // D2-火 N1

@@ -760,7 +760,9 @@ namespace Brushblade.Core
 
         /// <summary>读本次释放层数的效果(spec C §6,Q7):门槛 MinSpent、按层 ScaleBasis.Spent、回澜、地动。</summary>
         private static bool ReadsSpent(EffectDef e) =>
-            e.MinSpent > 0 || e.ScaleBy == ScaleBasis.Spent || e.Kind == EffectKind.SpendHeal || e.Kind == EffectKind.SpendShield;
+            e.MinSpent > 0
+            || (e.ScaleBy == ScaleBasis.Spent && e.Kind != EffectKind.Sunder)   // 破甲按层只加回合,0 层仍按基础回合生效(2026-10-21 spec §2.3)
+            || e.Kind == EffectKind.SpendHeal || e.Kind == EffectKind.SpendShield;
 
         private static bool IsTargetIndependent(DamageCondition c) =>
             c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
@@ -1184,7 +1186,7 @@ namespace Brushblade.Core
             - enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)
             - (pierce + (attackerBag ?? _playerStatuses).TotalMagnitude(StatusKind.PierceBuff)));
 
-        /// <summary>封禁作用后的基础护甲(2026-09-05)。杂兵归零、Boss 减半、无封禁原值。
+        /// <summary>封禁（或破甲 Sunder）作用后的基础护甲(2026-09-05)。杂兵归零、Boss 减半、无封禁/破甲原值。
         ///
         /// Boss 降级而不是免疫:同斩杀对 Boss 从「直杀」降为「吃双倍」的纪律 ——
         /// 高价值控制不该在最关键的战斗里变成废牌,但也不能全效。
@@ -1195,7 +1197,7 @@ namespace Brushblade.Core
         /// SummonState.EffectiveAttack 的同款注释)。纯提升可见性,行为不变。</summary>
         public static int SuppressArmorOf(EnemyState enemy)
         {
-            if (!enemy.Statuses.Has(StatusKind.Silence)) return enemy.Defense;
+            if (!enemy.Statuses.Has(StatusKind.Silence) && !enemy.Statuses.Has(StatusKind.Sunder)) return enemy.Defense;
             return enemy.IsBoss ? enemy.Defense / 2 : 0;
         }
 
@@ -1217,10 +1219,12 @@ namespace Brushblade.Core
         /// − 身上的破甲,下钳 0。与 <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> 同形:
         /// **基础值来自 config(战中不可变),变动量全在 <c>_playerStatuses</c> 里**。
         ///
+        /// 带 <see cref="StatusKind.Sunder"/>(破甲)时整个归零(护甲增益、富甲一并算 0)。
+        ///
         /// 敌人没有穿透通道(<see cref="EffectDef.Pierce"/> 是出字效果的字段),但破甲这条通道
         /// 本批就打通:第八章配「敌人破甲」时给玩家挂 <see cref="StatusKind.ArmorBreak"/> 即可,
         /// 引擎侧不需要再改(spec §4.5.4)。</summary>
-        public int EffectivePlayerDefense => Math.Max(0,
+        public int EffectivePlayerDefense => _playerStatuses.Has(StatusKind.Sunder) ? 0 : Math.Max(0,
             _config.PlayerDefense
             + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)
             + MoraleArmorBonus   // 富甲(D2-金 J8a):没挂时恒 0
@@ -2245,7 +2249,7 @@ namespace Brushblade.Core
                         && effect.Shape != TargetArea.All)
                     || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
-                    || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
+                    || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak || effect.Kind == EffectKind.Sunder
                     || effect.Kind == EffectKind.Weaken
                     || effect.Kind == EffectKind.Seed || effect.Kind == EffectKind.Vulnerable
                     || effect.Kind == EffectKind.ThornMark   // 荆刺(D2-木 M6):主目标挂在选中的敌人身上
@@ -3895,6 +3899,27 @@ namespace Brushblade.Core
                                 Magnitude = effect.ScaleBy == ScaleBasis.Spent ? value * _cast.Spent : value,   // 崩裂 / 厚壤(spec C §6)
                                 TurnsLeft = Math.Max(1, effect.Turns),
                                 SourceId = $"{def.Id}#{_statusSerial++}",
+                            }, UnitRef.Enemy(ti), UnitRef.Player);
+                        }
+                        break;
+                    case EffectKind.Sunder:
+                        // 破甲(2026-10-21):Turns 回合内目标护甲按 0 算(Boss 一半)。回合数用 effect.Turns / effect.Value
+                        // 而不是缩放后的 value:回合与「每多少层 +1 回合」都是离散量,不吃卡等级(同 Charm)。
+                        // 固定 SourceId → 同一目标只留一条,重复施加取较长回合(StatusBag.Apply 对同源是覆盖,故手动取大)。
+                        foreach (int ti in PickTargets(effect, targetIndex))
+                        {
+                            if (!OnlyIfMet(effect, ti)) continue;
+                            int turns = Math.Max(1, effect.Turns);
+                            if (effect.ScaleBy == ScaleBasis.Spent) turns += _cast.Spent / Math.Max(1, effect.Value);
+                            var bag = _enemies[ti].Statuses;
+                            turns = Math.Max(turns, bag.Find(StatusKind.Sunder)?.TurnsLeft ?? 0);
+                            ApplyStatus(bag, new StatusEffect
+                            {
+                                Kind = StatusKind.Sunder,
+                                Polarity = StatusPolarity.Debuff,
+                                Magnitude = 0,
+                                TurnsLeft = turns,
+                                SourceId = "sunder",
                             }, UnitRef.Enemy(ti), UnitRef.Player);
                         }
                         break;
@@ -5961,7 +5986,7 @@ namespace Brushblade.Core
             DamageCondition.Controlled => target.Statuses.Has(StatusKind.Freeze)
                 || target.Statuses.Has(StatusKind.IceStall)   // 冰滞 = Boss 的冻结(R1b)
                 || target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
-            DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak),
+            DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak) || target.Statuses.Has(StatusKind.Sunder),   // 削甲或破甲(2026-10-21)
             DamageCondition.Slowed => target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
             DamageCondition.Frozen => target.Statuses.Has(StatusKind.Freeze) || target.Statuses.Has(StatusKind.IceStall),
             DamageCondition.TargetHpAbove70 => target.Hp * 100L > target.MaxHp * 70L,

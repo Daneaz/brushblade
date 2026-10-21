@@ -26,7 +26,7 @@ namespace Brushblade.Core
         Seed,           // 种:回合
         Charm,          // 魅惑:回合
         HealOverTime,   // 润泽(持续治疗):回合
-        ArmorBreak,     // 破甲:回合
+        ArmorBreak,     // 削甲(扣点):回合
         Nature,         // 生面「本命」(Q7):Value 恒 0,数据在 FaceStat.Passive;图标与措辞归 Presentation
         // ---- 资源结算(final review Important 1)----
         SpendWellspring, // 涌泉相报:清空全部泉,全体伤害 = 层数 × Value。Value = 每层伤害(缩放,同引擎 SpendResource 的 value)
@@ -35,6 +35,7 @@ namespace Brushblade.Core
         CounterPercent,  // 金:反击 %(每字携带,spec A §4.2;Lv3 折叠后;缺省 BattleConfig.BlockCounterPercent)
         ReviveHp,        // 水·苏:复活生命 %(Revive 的 ReviveHpPercent;0 = 半血 50)
         Kindle,          // 火·燃意:攻击 %(缩放);回合在紧跟的 Duration 格,灼层另起一格(spec C §5.3)
+        Sunder,          // 土·破甲(2026-10-21):回合(护甲归零,Boss 减半)
     }
 
     /// <summary>一格数值。</summary>
@@ -331,6 +332,9 @@ namespace Brushblade.Core
                     break;
                 case EffectKind.ArmorBreak:
                     rest.Add(new FaceStat(FaceStatKind.ArmorBreak, TraitRules.TurnsOf(e), e.Kind));
+                    break;
+                case EffectKind.Sunder:
+                    rest.Add(new FaceStat(FaceStatKind.Sunder, TraitRules.TurnsOf(e), e.Kind));
                     break;
                 case EffectKind.Revive:
                     rest.Add(ReviveCell(e));

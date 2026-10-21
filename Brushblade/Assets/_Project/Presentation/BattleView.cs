@@ -3323,6 +3323,8 @@ namespace Brushblade.Presentation
             Decaying(StatusKind.Bleed, "bleed");
             Flag(StatusKind.Curse, "curse");
             Flag(StatusKind.ArmorBreak, "armorbreak");
+            // 破甲 Sunder(2026-10-21):Magnitude 恒 0,Flag 的量判据不适用,直接按 Has
+            if (st.Has(StatusKind.Sunder)) chips.Add(new("", BattleChipColor(StatusKind.Sunder), Color.white, "armorbreak"));
             // 速度(负向这一支):与敌人格同口径,只画减速。
             // ⚠ 2026-09-16 前这句话曾是「正向的「疾」是被动不是状态,已由 SummonPassiveChip 出」——
             // 加速/急速(EffectKind.Haste)落地后正向 SpeedModifier 也是一条真实状态了,
@@ -3850,8 +3852,12 @@ namespace Brushblade.Presentation
                 // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
                 // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
                 // 它生没生效(EnumRenderCoverageTests 收紧判据范围后抓到的真实缺陷)。
+                // 2026-10-21(spec §3):削甲与破甲暂共用 armorbreak 图标,削甲 chip 带点数区分;破甲(归零)无数字
                 if (enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) > 0)
-                    chipSpecs.Add(new("", BattleChipColor(StatusKind.ArmorBreak), Color.white, "armorbreak"));
+                    chipSpecs.Add(new($"{enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)}", BattleChipColor(StatusKind.ArmorBreak), Color.white, "armorbreak"));
+                // 破甲 Sunder(2026-10-21):护甲归零,Magnitude 恒 0 → 按 Has 判
+                if (enemy.Statuses.Has(StatusKind.Sunder))
+                    chipSpecs.Add(new("", BattleChipColor(StatusKind.Sunder), Color.white, "armorbreak"));
                 // 魅惑(2026-09-05,花):无图标资产,暂时保留文字(与缺笔/标点/通假同处理)——
                 // 与冻结/减速当年零显示是同一个坑,这条不能漏。
                 if (enemy.Statuses.Has(StatusKind.Charm))

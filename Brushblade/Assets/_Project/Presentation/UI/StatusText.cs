@@ -151,6 +151,10 @@ namespace Brushblade.Presentation
                     return new Info("curse", Strings.T("status.curse.name"),
                         Duration(turnsLeft),
                         Strings.T("status.curse.desc", ("magnitude", magnitude)));
+                case StatusKind.Sunder:
+                    return new Info("armorbreak", Strings.T("status.sunder.name"),
+                        Duration(turnsLeft),
+                        Strings.T("status.sunder.desc"));
                 case StatusKind.ArmorBreak:
                     return new Info("armorbreak", Strings.T("status.armorbreak.name"),
                         Strings.T("status.duration.persistent"),

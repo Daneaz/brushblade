@@ -44,6 +44,8 @@ namespace Brushblade.Core.Tests
             EffectKind.Freeze, EffectKind.Slow, EffectKind.BurnSingle, EffectKind.BurnAll,
             EffectKind.Morale, EffectKind.Immunity, EffectKind.Revive, EffectKind.Block,
             EffectKind.Dispel, EffectKind.ApBoost, EffectKind.Charm,
+            // 破甲 Sunder(2026-10-21):回合 / 每几层加一回合,离散
+            EffectKind.Sunder,
             // 修饰器(D1 Task 3):百分点按池档位定值、不吃卡等级;出字前被 Fold 折叠,不进结算
             EffectKind.Amplify, EffectKind.Reshape,
             // Augment(D1 Task 4):Value 是加几次 / 几回合 / 几跳,离散量;出字前被 Fold 折叠,不进结算

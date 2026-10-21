@@ -334,7 +334,7 @@ namespace Brushblade.Presentation
             // 「实际减多少看那只怪的甲」,即穿透是执笔人那一屏的属性,这一屏只显示敌人自身的甲。
             // 两者混进同一个数会让「这只怪的甲」这个概念含糊掉。
             string defenseNote = UnitDetailChip.BaseNote(enemy.Defense,
-                UnitDetailChip.DeltaDebuffPts(Strings.T("status.silence.name"), enemy.Defense - suppressedDefense),
+                UnitDetailChip.DeltaDebuffPts(Strings.T(enemy.Statuses.Has(StatusKind.Sunder) ? "status.sunder.name" : "status.silence.name"), enemy.Defense - suppressedDefense),
                 UnitDetailChip.DeltaDebuffPts(Strings.T("status.armorbreak.name"), armorBreak));
             string speedNote = UnitDetailChip.BaseNote(enemy.Speed,
                 speedMod < 0

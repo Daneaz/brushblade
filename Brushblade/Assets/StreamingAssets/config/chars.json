@@ -6787,7 +6787,7 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "破甲",
+          "name": "削甲",
           "effects": [
             {
               "kind": "ArmorBreak",
@@ -7155,7 +7155,7 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "破甲",
+          "name": "削甲",
           "effects": [
             {
               "kind": "ArmorBreak",
@@ -7510,7 +7510,7 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "破甲",
+          "name": "削甲",
           "effects": [
             {
               "kind": "ArmorBreak",
@@ -7674,7 +7674,7 @@
         {
           "slot": "Lv5",
           "face": "Attack",
-          "name": "破甲",
+          "name": "削甲",
           "effects": [
             {
               "kind": "ArmorBreak",
@@ -8050,11 +8050,11 @@
           "name": "厚壤",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 3,
+              "kind": "Sunder",
+              "value": 2,
               "pick": "All",
               "scaleBy": "Spent",
-              "turns": 3
+              "turns": 1
             }
           ]
         },
@@ -8135,8 +8135,8 @@
           "value": 286
         },
         {
-          "kind": "ArmorBreak",
-          "value": 35,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -8160,8 +8160,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 35,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -8243,8 +8243,8 @@
               "turns": 4,
               "perHit": [
                 {
-                  "kind": "ArmorBreak",
-                  "value": 38,
+                  "kind": "Sunder",
+                  "value": 0,
                   "turns": 2
                 }
               ]
@@ -8313,8 +8313,8 @@
           "value": 195
         },
         {
-          "kind": "ArmorBreak",
-          "value": 30,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -8338,8 +8338,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 30,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -8439,8 +8439,8 @@
               "shieldStrikePercent": 40
             },
             {
-              "kind": "ArmorBreak",
-              "value": 32,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 2
             }
           ]
@@ -8485,8 +8485,8 @@
           "value": 133
         },
         {
-          "kind": "ArmorBreak",
-          "value": 25,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -8510,8 +8510,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 25,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -8670,8 +8670,8 @@
           "value": 42
         },
         {
-          "kind": "ArmorBreak",
-          "value": 10,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -8695,8 +8695,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 10,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -8831,8 +8831,8 @@
           "shape": "Row"
         },
         {
-          "kind": "ArmorBreak",
-          "value": 15,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -8856,8 +8856,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 15,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -8951,8 +8951,8 @@
               "shapePercent": 67
             },
             {
-              "kind": "ArmorBreak",
-              "value": 18,
+              "kind": "Sunder",
+              "value": 0,
               "pick": "HitTargets",
               "turns": 2
             }
@@ -9010,8 +9010,8 @@
           "value": 90
         },
         {
-          "kind": "ArmorBreak",
-          "value": 20,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -9035,8 +9035,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 20,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -9142,8 +9142,8 @@
               "shapePercent": 50
             },
             {
-              "kind": "ArmorBreak",
-              "value": 22,
+              "kind": "Sunder",
+              "value": 0,
               "pick": "HitTargets",
               "turns": 2
             }
@@ -9190,8 +9190,8 @@
           "value": 62
         },
         {
-          "kind": "ArmorBreak",
-          "value": 15,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -9215,8 +9215,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 15,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -9350,8 +9350,8 @@
           "value": 195
         },
         {
-          "kind": "ArmorBreak",
-          "value": 30,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -9375,8 +9375,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 30,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]
@@ -9621,11 +9621,11 @@
           "name": "崩裂",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 2,
+              "kind": "Sunder",
+              "value": 3,
               "pick": "All",
               "scaleBy": "Spent",
-              "turns": 2
+              "turns": 1
             }
           ]
         },
@@ -9696,8 +9696,8 @@
           "shape": "Adjacent"
         },
         {
-          "kind": "ArmorBreak",
-          "value": 20,
+          "kind": "Sunder",
+          "value": 0,
           "turns": 2
         }
       ],
@@ -9721,8 +9721,8 @@
           "name": "破甲·强化",
           "effects": [
             {
-              "kind": "ArmorBreak",
-              "value": 20,
+              "kind": "Sunder",
+              "value": 0,
               "turns": 4
             }
           ]

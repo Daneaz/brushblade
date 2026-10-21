@@ -334,6 +334,8 @@ def desc(e):
         # 所以不留「本场」那一支 —— 与 CharInfo.EffectsText / 字卡详情特性行(CardSheetParts + TraitDef)两处同口径
         # (2026-09-07 P2 Task 4d 修的是那两处,这里是同一个 bug 的第三个读取点)。
         'ArmorBreak': ("全体" if e.get('pick') == 'All' else "") + f"破甲 {v}(削目标护甲," + (f"{t} 回合" if t else "本场") + ")", 'Empower': f"攻击力 +{v},{t} 回合",
+        # 土系破甲归零(2026-10-21):Sunder 不带点数,持续期间目标护甲归零
+        'Sunder': ("全体" if e.get('pick') == 'All' else "") + f"破甲(护甲归零,{t} 回合" + (f",每释放 {v} 层厚 +1 回合)" if e.get('scaleBy') == 'Spent' else ")"),
         'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
         'Morale': f"战意 +{v} 层(每层 +10% 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
         'CritBuff': f"暴击率 +{v}%,{t} 回合",
@@ -405,6 +407,7 @@ TRAITS = {
     'Silence': lambda e, v: "沉默",
     'Charm': lambda e, v: "魅惑",
     'ArmorBreak': lambda e, v: f"破甲 {v}",
+    'Sunder': lambda e, v: "破甲",
     'Immunity': lambda e, v: f"免疫 {v}",
     'Reflect': lambda e, v: f"反伤 {v}%",
     'Morale': lambda e, v: f"战意 +{v}",
@@ -549,7 +552,7 @@ CATS = [
     ('流血', {'Bleed'}),
     ('治疗 / 复活', {'HealSelf', 'HealAll', 'HealOverTime', 'Revive'}),
     ('护盾 / 护甲 / 免疫 / 反弹', {'Shield', 'DefenseBuff', 'Immunity', 'Reflect'}),
-    ('破甲 / 穿透', {'ArmorBreak', 'PierceBuff'}),
+    ('破甲 / 穿透', {'ArmorBreak', 'Sunder', 'PierceBuff'}),
     ('状态操作(驱散 / 净化 / 致盲 / 沉默)', {'Dispel', 'Cleanse', 'Blind', 'Silence'}),
     ('自强增益(攻 / 暴击 / AP / 战意 / 闪避)', {'Empower', 'Morale', 'ApBoost', 'CritBuff', 'DodgeBuff'}),
     ('纯伤害', {'DamageSingle'}),
@@ -561,7 +564,7 @@ def cat_of(c):
     effects = all_effects(c)
     kinds = {e['kind'] for e in effects}
     if any(e.get('executeBelowPercent') for e in effects): return '斩杀'
-    if any(e.get('pierce') for e in effects) and 'ArmorBreak' not in kinds: return '破甲 / 穿透'
+    if any(e.get('pierce') for e in effects) and not kinds & {'ArmorBreak', 'Sunder'}: return '破甲 / 穿透'
     for nm, ks in CATS:
         if kinds & ks: return nm
     return '其他'

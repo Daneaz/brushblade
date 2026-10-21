@@ -96,12 +96,12 @@ namespace Brushblade.Core.Tests
             "爆 Lv4 Both 精进", "爆 Lv5 Attack 爆燃", "爆 Lv5 Feature 续火", "爆 Lv6 Attack 炽烈", "爆 Lv8 Feature 焦热",
             "炸 Lv4 Attack 克敌", "炸 Lv4 Feature 精进", "炸 Lv5 Attack 引燃","炸 Lv6 Feature 烟熏", "炸 Lv8 Feature 火雨", "烈 Lv5 Attack 爆燃",
             "烈 Lv6 Attack 炽烈", "燥 Lv5 Feature 引火", "燥 Lv6 Feature 烟熏", "蒸 Lv5 Feature 烟障", "蒸 Lv6 Attack 炽烈",
-            "炎 Lv5 Feature 续火", "灿 Lv5 Attack 引燃", "利 Lv4 Both 先声", "利 Lv5 Attack 破甲", "利 Lv5 Feature 点金",
+            "炎 Lv5 Feature 续火", "灿 Lv5 Attack 引燃", "利 Lv4 Both 先声", "利 Lv5 Attack 削甲", "利 Lv5 Feature 点金",
             "利 Lv6 Feature 回锋", "利 Lv8 Attack 重斩", "锋 Lv4 Both 精进", "锋 Lv5 Attack 连斩", "锋 Lv5 Feature 砥砺",
-            "锋 Lv6 Attack 迎刃", "锋 Lv8 Feature 金钟", "剑 Lv4 Attack 克敌", "剑 Lv4 Feature 精进", "剑 Lv5 Attack 破甲", "剑 Lv6 Attack 迎刃",
+            "锋 Lv6 Attack 迎刃", "锋 Lv8 Feature 金钟", "剑 Lv4 Attack 克敌", "剑 Lv4 Feature 精进", "剑 Lv5 Attack 削甲", "剑 Lv6 Attack 迎刃",
             "锥 Lv4 Attack 补刀", "锥 Lv4 Feature 精进", "锥 Lv5 Attack 连斩", "锥 Lv6 Feature 回锋", "锥 Lv8 Feature 金钟",
-            "剿 Lv4 Both 化险", "剿 Lv5 Attack 破甲", "剿 Lv6 Attack 迎刃", "剿 Lv8 Feature 反戈", "剁 Lv5 Attack 连斩",
-            "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 破甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Attack 克敌", "冷 Lv4 Feature 精进",
+            "剿 Lv4 Both 化险", "剿 Lv5 Attack 削甲", "剿 Lv6 Attack 迎刃", "剿 Lv8 Feature 反戈", "剁 Lv5 Attack 连斩",
+            "剁 Lv6 Attack 迎刃", "铡 Lv5 Attack 削甲", "铡 Lv6 Feature 回锋", "鍂 Lv5 Feature 蓄势", "冷 Lv4 Attack 克敌", "冷 Lv4 Feature 精进",
             "冷 Lv5 Attack 凝冰", "冷 Lv5 Feature 化水", "冷 Lv6 Feature 护持", "冷 Lv8 Feature 甘露", "冻 Lv4 Both 精进",
             "冻 Lv5 Attack 激流", "冻 Lv5 Feature 寒泉", "冻 Lv6 Attack 冰缚", "冻 Lv8 Feature 蓄泉", "海 Lv4 Both 化险",
             "海 Lv5 Feature 化水", "海 Lv6 Feature 护持", "海 Lv8 Attack 怒涛", "溃 Lv4 Both 先声",
@@ -439,11 +439,11 @@ namespace Brushblade.Core.Tests
                 }
                 else
                 {
-                    var ab = d.AttackEffects.Single(e => e.Kind == EffectKind.ArmorBreak);
-                    Assert.That(a[0].Kind, Is.EqualTo(EffectKind.ArmorBreak));
-                    Assert.That(a[0].Value, Is.EqualTo(ab.Value), $"{d.Id} 破甲点数照本体");
+                    // 2026-10-21 土系破甲归零:本体与强化都是 Sunder(不带点数),强化只拉长到 4 回合
+                    Assert.That(d.AttackEffects.Count(e => e.Kind == EffectKind.Sunder), Is.EqualTo(1), $"{d.Id} 本体 Sunder");
+                    Assert.That(a[0].Kind, Is.EqualTo(EffectKind.Sunder));
                     Assert.That(a[0].Turns, Is.EqualTo(4), $"{d.Id} 破甲 4 回合");
-                    Assert.That(a[0].Pick, Is.EqualTo(ab.Pick), $"{d.Id} 选择器随本体");
+                    Assert.That(a[0].Pick, Is.EqualTo(d.AttackEffects.Single(e => e.Kind == EffectKind.Sunder).Pick), $"{d.Id} 选择器随本体");
                 }
                 Assert.That(f.Count, Is.EqualTo(1), $"{d.Id} 固");
                 Assert.That(f[0].Kind, Is.EqualTo(EffectKind.DefenseBuff));
@@ -830,12 +830,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PoolValues_ScaleByRarity_BaseTimesMultiplier()
         {
-            // 白 1.0:利(白)Lv5 破甲 X=15 → 15;热(白)先声 X=15 → 15
-            Assert.That(PoolEffect("利", TraitSlot.Lv5, TraitFace.Attack, "破甲", EffectKind.ArmorBreak).Value, Is.EqualTo(15));
+            // 白 1.0:利(白)Lv5 削甲 X=15 → 15;热(白)先声 X=15 → 15
+            Assert.That(PoolEffect("利", TraitSlot.Lv5, TraitFace.Attack, "削甲", EffectKind.ArmorBreak).Value, Is.EqualTo(15));
             Assert.That(PoolEffect("热", TraitSlot.Lv4, TraitFace.Both, "先声", EffectKind.Amplify).Value, Is.EqualTo(15));
-            // 绿 1.2:冻(绿)精进 10 → 12;垒(绿)劈山 ArmorBreak 15 → 18;藤(绿)沃土 30 → 36
+            // 绿 1.2:冻(绿)精进 10 → 12;垒(绿)劈山 Sunder(土系破甲归零,不带点数);藤(绿)沃土 30 → 36
             Assert.That(PoolEffect("冻", TraitSlot.Lv4, TraitFace.Both, "精进", EffectKind.Amplify).Value, Is.EqualTo(12));
-            Assert.That(PoolEffect("垒", TraitSlot.Lv8, TraitFace.Attack, "劈山", EffectKind.ArmorBreak).Value, Is.EqualTo(18));
+            Assert.That(PoolEffect("垒", TraitSlot.Lv8, TraitFace.Attack, "劈山", EffectKind.Sunder).Turns, Is.EqualTo(2));
             Assert.That(PoolEffect("藤", TraitSlot.Lv5, TraitFace.Feature, "沃土", EffectKind.HealSummons).Value, Is.EqualTo(36));
             // 蓝 1.45:剿(蓝)化险 20 → 29;崩(蓝)破敌 15 → 22(21.75 入);堡(蓝)克敌 写死 15 不放大
             Assert.That(PoolEffect("剿", TraitSlot.Lv4, TraitFace.Both, "化险", EffectKind.Amplify).Value, Is.EqualTo(29));
@@ -855,7 +855,7 @@ namespace Brushblade.Core.Tests
             Assert.That(diao.Any(e => e.Kind == EffectKind.Weaken && e.Pick == EffectPick.HitTargets), Is.True,
                 "碉 Lv8 攻面应含余震(Weaken pick HitTargets)");
             Assert.That(TraitRules.CastEffects(Graph.Get("崩"), CardFace.Attack, 8)
-                .Any(e => e.Kind == EffectKind.ArmorBreak && e.ScaleBy == ScaleBasis.Spent), Is.True, "崩 Lv8 攻面应含崩裂(按释放层数破甲)");
+                .Any(e => e.Kind == EffectKind.Sunder && e.ScaleBy == ScaleBasis.Spent), Is.True, "崩 Lv8 攻面应含崩裂(按释放层数破甲)");
             Assert.That(TraitRules.CastEffects(Graph.Get("冷"), CardFace.Feature, 8)
                 .Any(e => e.Kind == EffectKind.ShieldFromHeal), Is.True, "冷 Lv8 润面应含护持(ShieldFromHeal)");
             Assert.That(TraitRules.CastEffects(Graph.Get("冻"), CardFace.Attack, 8)

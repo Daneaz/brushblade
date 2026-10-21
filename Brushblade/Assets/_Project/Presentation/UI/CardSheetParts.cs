@@ -192,6 +192,7 @@ namespace Brushblade.Presentation
             FaceStatKind.Charm => Strings.T("charsheet.stat.charm"),
             FaceStatKind.HealOverTime => Strings.T("charsheet.stat.hot"),
             FaceStatKind.ArmorBreak => Strings.T("charsheet.stat.armorbreak"),
+            FaceStatKind.Sunder => Strings.T("charsheet.stat.sunder"),
             FaceStatKind.Nature => Strings.T("charsheet.stat.nature"),
             FaceStatKind.SpendWellspring => Strings.T("charsheet.stat.spend_wellspring"),
             FaceStatKind.SpendHeft => Strings.T("charsheet.stat.spend_heft"),
@@ -207,7 +208,7 @@ namespace Brushblade.Presentation
             FaceStatKind.Burn or FaceStatKind.Morale => Strings.T("charsheet.unit.layer"),
             FaceStatKind.Block => Strings.T("charsheet.unit.count"),
             FaceStatKind.Duration or FaceStatKind.Freeze or FaceStatKind.Slow or FaceStatKind.Seed
-                or FaceStatKind.Charm or FaceStatKind.HealOverTime or FaceStatKind.ArmorBreak => Strings.T("charsheet.unit.turn"),
+                or FaceStatKind.Charm or FaceStatKind.HealOverTime or FaceStatKind.ArmorBreak or FaceStatKind.Sunder => Strings.T("charsheet.unit.turn"),
             _ => "",
         };
 
