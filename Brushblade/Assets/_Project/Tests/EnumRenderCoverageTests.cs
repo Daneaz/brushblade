@@ -321,6 +321,13 @@ namespace Brushblade.Core.Tests
             var summonChips = MethodBody(full, "private void AddSummonStatusChips(");
             Assert.That(summonChips.Contains("StatusKind.Sunder") || summonChips.Contains("StatusKind.ArmorBreak"), Is.False,
                 "木灵状态 chip 区不应再出破甲 / 削甲");
+            // ArmorChip 的 key 映射(按玩家看到的名字对:破甲 Sunder → armorbreak,削甲 Shred → armorshred);
+            // Source 已剥注释,方法体内的匹配不会被注释里的字样蒙混
+            var armorChip = MethodBody(full, "private static Ui.ChipSpec ArmorChip(");
+            Assert.That(Regex.IsMatch(armorChip, "ArmorCellKind\\.Sunder\\s*=>\\s*\"armorbreak\""), Is.True,
+                "ArmorChip 没把 ArmorCellKind.Sunder 映射到 \"armorbreak\"");
+            Assert.That(Regex.IsMatch(armorChip, "ArmorCellKind\\.Shred\\s*=>\\s*\"armorshred\""), Is.True,
+                "ArmorChip 没把 ArmorCellKind.Shred 映射到 \"armorshred\"");
         }
 
         /// <summary>玩家状态栏(DrawPlayerStats)与木灵格(AddSummonStatusChips)要画 E3 拍板的我方状态 chip。</summary>

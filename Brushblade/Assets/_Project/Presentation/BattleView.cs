@@ -3223,7 +3223,8 @@ namespace Brushblade.Presentation
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff or StatusKind.PierceBuff
                 or StatusKind.CounterBoost or StatusKind.SummonEmpower or StatusKind.Heft
                 or StatusKind.Kindle => Theme.Gold,
-            // Freeze / Blind / Silence / Curse / ArmorBreak / Seal / Taunt / HealBlock / BuffBlock / SkillCut / Charm
+            // Freeze / Blind / Silence / Curse / Seal / Taunt / HealBlock / BuffBlock / SkillCut / Charm
+            // (破甲 Sunder / 削甲 ArmorBreak 已不出状态 chip,改由头行护甲格 ArmorChip 表达)
             _ => Theme.InkSoft,
         };
 
