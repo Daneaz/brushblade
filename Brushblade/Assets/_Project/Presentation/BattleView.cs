@@ -5542,8 +5542,11 @@ namespace Brushblade.Presentation
                 dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
             Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
 
-            var warn = Ui.Chip(content, Strings.T("battle.reward.replace_hint",
-                ("count", library.Count), ("capacity", Battle.LibraryCapacity)),
+            // 舍字(incoming = null)不是满库换字:不报容量,只说「舍掉即失去」(2026-10-21)
+            var warn = Ui.Chip(content, incoming == null
+                    ? Strings.T("battle.event.discard_hint")
+                    : Strings.T("battle.reward.replace_hint",
+                        ("count", library.Count), ("capacity", Battle.LibraryCapacity)),
                 Theme.DangerBg, Theme.DangerText, 21, padX: 23, padY: 12);
             Ui.Sized(warn, height: 46);   // 稿 .warn 22pt
 
@@ -6436,10 +6439,10 @@ namespace Brushblade.Presentation
                 {
                     if (_sheet != null) Object.Destroy(_sheet);
                     ResetEventSelection();
-                    _message = Strings.T("battle.event.trade_cancel_msg");
+                    _message = Strings.T("battle.event.discard_cancel_msg");
                     Refresh();
                 },
-                Strings.T("battle.btn.replace_cancel"));
+                Strings.T("battle.btn.discard_cancel"));
         }
 
         /// <summary>字摊满库替换(2026-07-22):字与部件都已选定,只补一个替换目标即成交;
