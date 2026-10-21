@@ -220,6 +220,7 @@ namespace Brushblade.Core
                 RunRecipes = new List<string>(_runRecipes),
                 UnfamiliarChars = new List<string>(_unfamiliar),
                 RecipeWheel = LastRecipeWheel,
+                WheelGrantPending = WheelGrantPending,
                 Battle = Battle?.Capture(),
             };
             return snapshot;
@@ -260,6 +261,7 @@ namespace Brushblade.Core
                 ReviveCharPicksLeft = snapshot.ReviveCharPicksLeft,
                 ReviveRoundsLeft = snapshot.ReviveRoundsLeft,
                 LastRecipeWheel = snapshot.RecipeWheel,
+                WheelGrantPending = snapshot.WheelGrantPending,
             };
             run._rewardOptions.AddRange(snapshot.RewardOptions);
             run._componentOptions.AddRange(snapshot.ComponentOptions);
@@ -789,7 +791,27 @@ namespace Brushblade.Core
                 if (!_runRecipes.Contains(wheel.Target)) _runRecipes.Add(wheel.Target);
                 if (!_unfamiliar.Contains(wheel.Target)) _unfamiliar.Add(wheel.Target);
             }
+            // 落中即得一张(用户 2026-10-21):有空位直接入库;库满挂起,等玩家换一张或放弃
+            if (_carriedLibrary.Count < _battleConfig.LibraryCapacity) _carriedLibrary.Add(wheel.Target);
+            else WheelGrantPending = true;
         }
+
+        /// <summary>转盘落中的字因库满还没入库:表现层弹换字面板,<see cref="ResolveWheelGrant"/> 换入或
+        /// <see cref="SkipWheelGrant"/> 放弃。进 RunSnapshot,挂起再进仍要决议。</summary>
+        public bool WheelGrantPending { get; private set; }
+
+        /// <summary>库满时用转盘落中的字换掉字库第 <paramref name="replaceIndex"/> 张(被换的永久移除)。</summary>
+        public bool ResolveWheelGrant(int replaceIndex)
+        {
+            if (!WheelGrantPending || LastRecipeWheel == null) return false;
+            if (replaceIndex < 0 || replaceIndex >= _carriedLibrary.Count) return false;
+            _carriedLibrary[replaceIndex] = LastRecipeWheel.Target;
+            WheelGrantPending = false;
+            return true;
+        }
+
+        /// <summary>库满时放弃转盘落中的字(配方集与生疏照旧保留)。</summary>
+        public void SkipWheelGrant() => WheelGrantPending = false;
 
         /// <summary>打赢之后往哪走(2026-08-30 改序:**先奇遇,后选字**)。
         ///
@@ -1012,6 +1034,7 @@ namespace Brushblade.Core
         {
             BattleIndex += 1;
             LastRecipeWheel = null;
+            WheelGrantPending = false; // 没决议就开拔 = 放弃
             _carriedNormalShield += _perFloorNormalShield; // 金汤每关补盾,叠加上关剩余
             _carriedHp = PreBattleHeal(_carriedHp);
             Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);

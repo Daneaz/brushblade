@@ -10,6 +10,9 @@ namespace Brushblade.Presentation
 {
     /// <summary>配方转盘弹窗(spec 2026-10-19 §2,拍板稿 drafts/recipe-wheel/Wheel.dc.html)。
     ///
+    /// 2026-10-21 换装为「罗盘」(用户:原稿有点丑):墨漆盘面 + 赭金刻度外圈,扇区深浅漆色交替、
+    /// 外缘一道稀有度色带,字用宣纸色宋体;轮毂是铜钱 —— 金圆开朱砂方孔,写「转」。版面与动效时序不变。
+    ///
     /// **结果由 Core 先定好**(<see cref="RunEngine.LastRecipeWheel"/>,战后结算同一步已入账),
     /// 这里只负责把转盘转到那一格:点轮毂「转」→ 转 3.6s 落在目标扇区中段 ±30% → 中奖扇区高亮 0.7s →
     /// 转盘缩到 0.72 靠左、结果卡 0.3s 滑入 →「继续 · 选字」交回调用方。
@@ -28,16 +31,17 @@ namespace Brushblade.Presentation
         private const int PadBottom = 29;            // 14pt
         private const float BoxSize = 494f;          // .wheelbox 236pt
         private const float Radius = 217.5f;         // 转盘半径 104pt
-        private const float RingInner = 226f;        // .ring 外描:半径 108pt 起
-        private const float RingOuter = 232f;        // 3pt ink → 111pt
-        private const float DividerW = 2.5f;         // 扇区分界 1.2pt ink
-        private const float HighRimW = 6.3f;         // 高档格 gold 3pt 描边
-        private const float WinRimW = 6.7f;          // 落定 cta 3.2pt 描边
-        private const float HubD = 100f;             // 轮毂 48pt
-        private const float HubPaperD = 113f;        // + 3pt panel-paper 环
-        private const float HubInkD = 119f;          // + 1.5pt ink 环;命中区 ≥ 稿 56pt(117)
-        private const float PointerSize = 38f;       // 18pt 倒三角
-        private const float PointerDot = 12.6f;      // 6pt gold 小圆
+        private const float BezelOuter = 238f;       // 罗盘外圈:墨漆底带刻度,半径 R → 238
+        private const float TickInner = 223f;        // 刻度从 223 起(盖住扇区最外 ~4%)
+        private const float BandInner = 0.80f;       // 稀有度色带:半径 0.80R → 0.88R
+        private const float BandOuter = 0.88f;
+        private const float DividerW = 2f;           // 扇区分界:赭金细线
+        private const float WinRimW = 6f;            // 落定:金描边
+        private const float HubD = 119f;             // 铜钱外径;命中区 ≥ 稿 56pt(117)
+        private const float HubLipD = 105f;          // 铜钱内缘的墨线
+        private const float HubHole = 58f;           // 朱砂方孔
+        private const float PointerSize = 40f;       // 朱砂倒三角
+        private const float PointerDot = 12.6f;      // 金小圆
         private const float ResultScale = 0.72f;     // 结果卡出现时转盘缩到 0.72 靠左
         private const float ResultColW = BodyW - BoxSize * ResultScale;   // ≈ 447(稿 ≈ 200pt)
 
@@ -47,6 +51,13 @@ namespace Brushblade.Presentation
         private const int SpinTurns = 5;             // 顺时针 5 圈多
         private const float IdleAngle = -12f;        // 待转时略偏一点,不让任何一格正对指针
         private const float JitterSpan = 0.6f;       // 落点在扇区中段 ±30%
+
+        // 罗盘配色:墨漆两档交替,高档格偏金;刻度与分界用赭金
+        private static readonly Color Lacquer = Theme.Ink;
+        private static readonly Color LacquerLift = Color.Lerp(Theme.Ink, Theme.InkSoft, 0.38f);
+        private static readonly Color LacquerGold = Color.Lerp(Theme.Ink, Theme.GoldDeep, 0.42f);
+        private static readonly Color LacquerDim = Color.Lerp(Theme.Ink, Color.black, 0.35f);
+        private static readonly Color GlyphPaper = Theme.PanelPaper;
 
         private RecipeWheelResult _wheel;
         private Action _onContinue;
@@ -62,6 +73,7 @@ namespace Brushblade.Presentation
         private float _angle = IdleAngle;
         private bool _spun;
         private int _depth;
+        private bool _libraryFull;   // 落中的字因库满还没入库(RunEngine.WheelGrantPending):关转盘后换字
 
         private sealed class Slot
         {
@@ -71,15 +83,15 @@ namespace Brushblade.Presentation
             public float From, Span; // 顺时针角度(度)
             public float Mid => From + Span / 2f;
             public Image Fill;
+            public Image Band;
             public Text Glyph;
-            public Color GlyphColor;
             public GameObject WinRim;
         }
 
         /// <summary>弹出转盘。点遮罩无效(结果卡出来之前误关会丢掉「落在哪」这一拍);
         /// <paramref name="onContinue"/> 在点「继续 · 选字」后调用,弹窗随即销毁。</summary>
         public static GameObject Show(Transform root, RecipeWheelResult wheel, RecipeGraph graph,
-            int depth, bool themeBoss, Action onContinue)
+            int depth, bool themeBoss, bool libraryFull, Action onContinue)
         {
             var overlay = Ui.Sheet(root, "RecipeWheel", SheetW, SheetH, dismissable: false, replaceSameName: true,
                 Theme.Scrim, out var content);
@@ -91,13 +103,15 @@ namespace Brushblade.Presentation
             sheet._wheel = wheel;
             sheet._onContinue = onContinue;
             sheet._depth = depth;
+            sheet._libraryFull = libraryFull;
             sheet.Build(content, graph, depth, themeBoss);
             return overlay;
         }
 
         private void Build(Transform content, RecipeGraph graph, int depth, bool themeBoss)
         {
-            Ui.KickerRow(content, Strings.T("wheel.title"), 25, Theme.Cta);       // 稿 .kick 11.94pt
+            var title = Ui.ThemedLabel(content, Strings.T("wheel.title"), 33, Theme.TextMain, Theme.TitleFont);
+            title.fontStyle = FontStyle.Bold;
             var (low, high) = RecipeWheel.TiersFor(depth);
             Ui.ThemedLabel(content, Strings.T("wheel.sub", ("depth", depth),
                 ("kind", themeBoss ? Strings.T("enemy.tier.boss") : Strings.T("enemy.tier.elite")),
@@ -122,47 +136,50 @@ namespace Brushblade.Presentation
 
         private void BuildWheel(RecipeGraph graph)
         {
+            // 罗盘外圈:墨漆底盘(比扇区大一圈)→ 赭金刻度 → 最外一道金线
+            var bezel = Centered(_box, "Bezel", 2f * BezelOuter).gameObject.AddComponent<Image>();
+            bezel.sprite = Disc;
+            bezel.color = Lacquer;
+            bezel.raycastTarget = false;
+            var ticks = Centered(_box, "Ticks", 2f * BezelOuter).gameObject.AddComponent<Image>();
+            ticks.sprite = TickRing(TickInner / BezelOuter);
+            ticks.color = Theme.Gold;
+            ticks.raycastTarget = false;
+            var lip = Centered(_box, "Lip", 2f * BezelOuter).gameObject.AddComponent<Image>();
+            lip.sprite = Ring((BezelOuter - 3f) / BezelOuter);
+            lip.color = Theme.Gold;
+            lip.raycastTarget = false;
+
             _rotor = Centered(_box, "Rotor", 2f * Radius);
             Layout();
 
-            foreach (var s in _slots)
+            for (int n = 0; n < _slots.Count; n++)
             {
-                var fill = Centered(_rotor, $"Sector_{s.Index}", 2f * Radius).gameObject.AddComponent<Image>();
-                fill.sprite = Disc;
-                fill.type = Image.Type.Filled;
-                fill.fillMethod = Image.FillMethod.Radial360;
-                fill.fillOrigin = (int)Image.Origin360.Top;
-                fill.fillClockwise = true;
-                fill.fillAmount = s.Span / 360f;
-                fill.color = Theme.RaritySoft(graph.Get(_wheel.Slots[s.Index]).Rarity);
-                fill.raycastTarget = false;
-                fill.rectTransform.localEulerAngles = new Vector3(0, 0, -s.From);
-                s.Fill = fill;
+                var s = _slots[n];
+                var def = graph.Get(_wheel.Slots[s.Index]);
+                s.Fill = Sector(_rotor, $"Sector_{s.Index}", s, Disc, 2f * Radius,
+                    s.High ? LacquerGold : n % 2 == 0 ? Lacquer : LacquerLift);
+                s.Band = Sector(_rotor, "Band", s, Ring(BandInner / BandOuter), 2f * Radius * BandOuter,
+                    Theme.RarityColor(def.Rarity));
             }
             foreach (var s in _slots)
-                Spoke(_rotor, s.From, Radius, DividerW, Theme.Ink);
+                Spoke(_rotor, s.From, Radius, DividerW, Theme.Gold);
             foreach (var s in _slots)
             {
-                if (s.High) Rim(_rotor, s, HighRimW, Theme.Gold);
-                s.WinRim = Rim(_rotor, s, WinRimW, Theme.Cta, new Color(1f, 1f, 1f, 0.18f));   // 稿 rgba(255,255,255,.18) 提亮
+                s.WinRim = Rim(_rotor, s, WinRimW, Theme.Gold, new Color(1f, 0.93f, 0.7f, 0.16f));
                 s.WinRim.SetActive(false);
             }
             foreach (var s in _slots)
             {
                 var def = graph.Get(_wheel.Slots[s.Index]);
-                s.GlyphColor = Theme.GlyphColor(def.Element);
-                s.Glyph = Polar(_rotor, def.Id, s.Mid, Radius * 0.6f, s.High ? 38 : 46, s.GlyphColor, Theme.TitleFont, 63f);
+                // 字头朝外、贴色带内侧;高档格的字用金色,一眼认出那一格
+                s.Glyph = Polar(_rotor, def.Id, s.Mid, Radius * 0.6f, s.High ? 40 : 50,
+                    s.High ? Theme.Gold : GlyphPaper, Theme.TitleFont, 70f);
                 s.Glyph.fontStyle = FontStyle.Bold;
             }
             _rotor.localEulerAngles = new Vector3(0, 0, -_angle);
 
-            // 外圈 ink 环(稿 .ring:直径 216pt + 3pt 外描,与扇区之间留 4pt 纸色)
-            var ring = Centered(_box, "Ring", 2f * RingOuter).gameObject.AddComponent<Image>();
-            ring.sprite = Ring(RingInner / RingOuter);
-            ring.color = Theme.Ink;
-            ring.raycastTarget = false;
-
-            // 指针:正上方 ink 倒三角 + gold 小圆
+            // 指针:正上方朱砂倒三角 + 金小圆
             var pointer = (RectTransform)Ui.Panel(_box, "Pointer").transform;
             pointer.anchorMin = pointer.anchorMax = new Vector2(0.5f, 1f);
             pointer.pivot = new Vector2(0.5f, 1f);
@@ -170,7 +187,7 @@ namespace Brushblade.Presentation
             pointer.anchoredPosition = Vector2.zero;
             var tri = Ui.Panel(pointer, "Tri").AddComponent<Image>();
             tri.sprite = Theme.Triangle;         // 素材朝右,转 −90° 朝下
-            tri.color = Theme.Ink;
+            tri.color = Theme.Cinnabar;
             tri.raycastTarget = false;
             tri.rectTransform.sizeDelta = new Vector2(PointerSize, PointerSize);
             tri.rectTransform.localEulerAngles = new Vector3(0, 0, -90f);
@@ -180,29 +197,45 @@ namespace Brushblade.Presentation
             dot.raycastTarget = false;
             dot.rectTransform.anchorMin = dot.rectTransform.anchorMax = new Vector2(0.5f, 1f);
             dot.rectTransform.sizeDelta = new Vector2(PointerDot, PointerDot);
-            dot.rectTransform.anchoredPosition = new Vector2(0f, -10.5f);   // 圆心距盒顶 5pt
+            dot.rectTransform.anchoredPosition = new Vector2(0f, -10.5f);
 
-            // 轮毂 =「转」钮:ink 环 → paper 环 → cta 实底白字宋体
-            var hubRoot = Centered(_box, "Hub", HubInkD);
-            var inkRing = hubRoot.gameObject.AddComponent<Image>();
-            inkRing.sprite = Disc;
-            inkRing.color = Theme.Ink;
-            var paper = Centered(hubRoot, "Paper", HubPaperD).gameObject.AddComponent<Image>();
-            paper.sprite = Disc;
-            paper.color = Theme.PanelPaper;
-            paper.raycastTarget = false;
-            _hubFace = Centered(hubRoot, "Face", HubD).gameObject.AddComponent<Image>();
-            _hubFace.sprite = Disc;
-            _hubFace.color = Theme.Cta;
+            // 轮毂 =「转」钮:铜钱 —— 金圆 → 墨线内缘 → 金面 → 朱砂方孔白字
+            var hubRoot = Centered(_box, "Hub", HubD);
+            var coin = hubRoot.gameObject.AddComponent<Image>();
+            coin.sprite = Disc;
+            coin.color = Theme.Gold;
+            var coinLip = Centered(hubRoot, "Lip", HubLipD).gameObject.AddComponent<Image>();
+            coinLip.sprite = Ring((HubLipD - 4f) / HubLipD);
+            coinLip.color = Theme.GoldBorder;
+            coinLip.raycastTarget = false;
+            var hole = Centered(hubRoot, "Hole", HubHole).gameObject.AddComponent<Image>();
+            _hubFace = hole;
+            _hubFace.color = Theme.Cinnabar;
             _hubFace.raycastTarget = false;
-            _hubLabel = Ui.ThemedLabel(_hubFace.transform, Strings.T("wheel.spin"), 31, Color.white, Theme.TitleFont);
+            _hubLabel = Ui.ThemedLabel(_hubFace.transform, Strings.T("wheel.spin"), 34, Color.white, Theme.TitleFont);
             _hubLabel.fontStyle = FontStyle.Bold;
             _hubLabel.raycastTarget = false;
             Ui.Stretch(_hubLabel.rectTransform);
             _hub = hubRoot.gameObject.AddComponent<Button>();
             _hub.transition = Selectable.Transition.None;
-            _hub.targetGraphic = inkRing;
+            _hub.targetGraphic = coin;
             _hub.onClick.AddListener(OnSpin);
+        }
+
+        /// <summary>一格扇形(或扇环):径向填充到 <c>Span</c>,转到 <c>From</c>。</summary>
+        private static Image Sector(Transform parent, string name, Slot s, Sprite sprite, float size, Color color)
+        {
+            var image = Centered(parent, name, size).gameObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.type = Image.Type.Filled;
+            image.fillMethod = Image.FillMethod.Radial360;
+            image.fillOrigin = (int)Image.Origin360.Top;
+            image.fillClockwise = true;
+            image.fillAmount = s.Span / 360f;
+            image.color = color;
+            image.raycastTarget = false;
+            image.rectTransform.localEulerAngles = new Vector3(0, 0, -s.From);
+            return image;
         }
 
         /// <summary>扇区几何:高档格 10%(<see cref="RecipeWheel.HighChancePercent"/>),低档格平分其余;角度 = 概率 × 360°。
@@ -243,8 +276,7 @@ namespace Brushblade.Presentation
 
         private void SetHub(string text)
         {
-            _hubFace.color = Theme.LockedBg;          // 稿 .hub.off:locked-bg 底 + text-faint 字
-            _hubLabel.color = Theme.LockGray;
+            _hubFace.color = Theme.CinnabarDark;      // 转动中:方孔压暗,不可再点
             _hubLabel.text = text;
             _hub.interactable = false;
         }
@@ -269,13 +301,20 @@ namespace Brushblade.Presentation
             _angle = end;
             _rotor.localEulerAngles = new Vector3(0, 0, -_angle);
 
-            // 落定 0.7s:中奖扇区 cta 描边 + 提亮,其余压灰;轮毂显示「中」
+            // 落定 0.7s:中奖扇区金描边 + 提亮、字转金,其余压暗;方孔亮回朱砂写「中」
             _hubLabel.text = Strings.T("wheel.hit");
+            _hubFace.color = Theme.Cinnabar;
             foreach (var s in _slots)
             {
-                if (s == _win) { s.WinRim.SetActive(true); continue; }
-                s.Fill.color = Theme.PaperDim;
-                s.Glyph.color = Theme.TextMute;
+                if (s == _win)
+                {
+                    s.WinRim.SetActive(true);
+                    s.Glyph.color = Theme.Gold;
+                    continue;
+                }
+                s.Fill.color = LacquerDim;
+                s.Band.color = new Color(s.Band.color.r, s.Band.color.g, s.Band.color.b, 0.3f);
+                s.Glyph.color = new Color(GlyphPaper.r, GlyphPaper.g, GlyphPaper.b, 0.28f);
             }
             for (float t = 0f; t < LandSeconds; t += Time.unscaledDeltaTime) yield return null;
 
@@ -373,7 +412,7 @@ namespace Brushblade.Presentation
             var got = Ui.Row(col.transform, "Got", 10);
             var check = Ui.Panel(got.transform, "Check").AddComponent<Image>();
             check.sprite = Disc;
-            check.color = Theme.Jade;
+            check.color = _libraryFull ? Theme.Gold : Theme.Jade;
             check.raycastTarget = false;
             Ui.Sized(check.gameObject, 27f, 27f);      // 13pt
             if (Icons.Get("check") is { } tick)
@@ -385,7 +424,8 @@ namespace Brushblade.Presentation
                 icon.raycastTarget = false;
                 icon.rectTransform.sizeDelta = new Vector2(17f, 17f);
             }
-            var gotLabel = Ui.ThemedLabel(got.transform, (_wheel.TargetCollected ? Strings.T("wheel.collected") : Strings.T("wheel.recorded")), 21, Theme.UpgradeText);
+            var gotLabel = Ui.ThemedLabel(got.transform, _libraryFull ? Strings.T("wheel.full")
+                : _wheel.TargetCollected ? Strings.T("wheel.collected") : Strings.T("wheel.recorded"), 21, Theme.UpgradeText);
             gotLabel.fontStyle = FontStyle.Bold;
 
             // 「继续 · 选字」cta(稿 26pt 高、左右 22pt)
@@ -494,6 +534,44 @@ namespace Brushblade.Presentation
             var sprite = Annulus(key / 1000f);
             RingCache[key] = sprite;
             return sprite;
+        }
+
+        private static Sprite _ticks;
+        private static float _ticksInner;
+
+        /// <summary>罗盘刻度环:72 道(每 5° 一道),逢 6 道(30°)一道长刻。内径比按 <paramref name="innerRatio"/>,长刻伸到内径、短刻只占外半。</summary>
+        private static Sprite TickRing(float innerRatio)
+        {
+            if (_ticks != null && Mathf.Approximately(_ticksInner, innerRatio)) return _ticks;
+            var tex = new Texture2D(TexSize, TexSize, TextureFormat.RGBA32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.DontSave,
+            };
+            float c = TexSize / 2f, outer = c - 1f - 4f, inner = (c - 1f) * innerRatio;
+            float shortInner = (inner + outer) / 2f;
+            var pixels = new Color32[TexSize * TexSize];
+            for (int y = 0; y < TexSize; y++)
+                for (int x = 0; x < TexSize; x++)
+                {
+                    float dx = x + 0.5f - c, dy = y + 0.5f - c;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float deg = Mathf.Repeat(Mathf.Atan2(dx, dy) * Mathf.Rad2Deg, 360f);
+                    int index = Mathf.RoundToInt(deg / 5f);
+                    bool major = index % 6 == 0;
+                    float off = Mathf.Abs(deg - index * 5f) * Mathf.Deg2Rad * d;   // 到刻线的弧长(px)
+                    float half = major ? 1.6f : 0.9f;
+                    float a = Mathf.Clamp01(half - off + 0.5f)
+                        * Mathf.Clamp01(outer - d + 0.5f)
+                        * Mathf.Clamp01(d - (major ? inner : shortInner) + 0.5f);
+                    pixels[y * TexSize + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
+                }
+            tex.SetPixels32(pixels);
+            tex.Apply();
+            _ticksInner = innerRatio;
+            return _ticks = Sprite.Create(tex, new Rect(0, 0, TexSize, TexSize), new Vector2(0.5f, 0.5f), 100f,
+                0, SpriteMeshType.FullRect);
         }
 
         private static Sprite Annulus(float innerRatio)
