@@ -97,13 +97,13 @@ namespace Brushblade.Core.Tests
         {
             ("碉", L8, Ftr, "碉楼", "ShieldSummons 50 ofShield"),
             ("垒", L8, Ftr, "积土成山", "Amplify 30 scope Shield|TurnPulse 0 turns 3 perHit[Shield 16]"),
-            ("垒", L8, Atk, "劈山", "Reshape 0 shape All shapePct 67|ArmorBreak 18 turns 2 pick HitTargets"),   // 2026-10-18 群攻入口:池引用 → 专属全体 67
+            ("垒", L8, Atk, "劈山", "Reshape 0 shape All shapePct 67|Sunder 0 turns 2 pick HitTargets"),   // 2026-10-18 群攻入口:池引用 → 专属全体 67
             ("壁", L8, Ftr, "铜墙铁壁", "HitCap 10"),
             ("堡", L5, Atk, "据守反击", "Reshape 0 shieldStrike 30"),
             ("堡", L8, Ftr, "堡垒", "HurtShield 44 turns 2"),
             ("崩", L5, Ftr, "落石", "Weaken 20 turns 1 pick All"),
             ("崩", L5, Atk, "聚土", "AddHeft 3"),   // spec C §6:释放前先 +3 层
-            ("崩", L6, Atk, "崩裂", "ArmorBreak 2 turns 2 pick All per Spent"),
+            ("崩", L6, Atk, "崩裂", "Sunder 3 turns 1 pick All per Spent"),
             ("崩", L8, Atk, "山崩", "Amplify 100 scope Spend minSpent 8"),   // spec C §6:≥8 层翻倍
             ("碎", L5, Ftr, "碎玉", "ShieldShatter 50"),
             ("碎", L5, Atk, "碎石", "Reshape 0 shape All shapePct 67"),   // 2026-10-18 群攻入口:池引用 → 专属全体 67
@@ -123,20 +123,20 @@ namespace Brushblade.Core.Tests
             ("圭", L5, Atk, "重土", "TurnPulse 0 turns 1 perHit[Shield 63]"),
             ("圭", L6, Atk, "圭棱", "Amplify 20 if ArmorBroken scope Damage"),   // spec A D1 改名自「圭角」
             ("圭", L6, Ftr, "圭臬", "Augment 0 of DefenseBuff.Battle"),
-            ("圭", L8, Atk, "圭角", "Reshape 0 shieldStrike 40|ArmorBreak 32 turns 2"),
+            ("圭", L8, Atk, "圭角", "Reshape 0 shieldStrike 40|Sunder 0 turns 2"),
             ("圭", L8, Ftr, "土生金", "ShieldToMorale 30"),
             ("垚", L4, Both, "三土", "Shield 75"),
             ("垚", L5, Atk, "移山", "Reshape 0 shape Column shapePct 70 shieldStrike 30"),
             ("垚", L5, Ftr, "叠嶂", "DefenseBuff 38 turns 4"),
             ("垚", L6, Atk, "垚峙", "Reshape 0 armorStrike 200"),   // spec A:伤害 + 护甲 × 2
-            ("垚", L6, Ftr, "山岳", "Retaliate 1 turns 4 minArmor 50 perHit[ArmorBreak 38 turns 2]"),
+            ("垚", L6, Ftr, "山岳", "Retaliate 1 turns 4 minArmor 50 perHit[Sunder 0 turns 2]"),
             ("垚", L8, Atk, "三山", "Reshape 0 shape Scatter shots 3 armorStrike 300 armorStrikeEach"),
             ("垚", L8, Ftr, "对峙", "Taunt 1 pick Self|DefenseBuff 38 turns 4 battles 5"),
             ("㙓", L4, Atk, "深厚", "Amplify 30 scope Spend"),   // spec C:攻击面 深厚 = 厚积薄发伤害 +30%
             ("㙓", L4, Ftr, "深厚", "Augment 4 of DefenseBuff.Turns"),
             ("㙓", L5, Atk, "山积", "AddHeft 4"),
             ("㙓", L5, Ftr, "厚土", "Amplify 50 scope Shield|AddHeft 2"),
-            ("㙓", L6, Atk, "厚壤", "ArmorBreak 3 turns 3 pick All per Spent"),   // spec A D1 改名自「厚土」;spec C 改按释放层数破甲
+            ("㙓", L6, Atk, "厚壤", "Sunder 2 turns 1 pick All per Spent"),   // spec A D1 改名自「厚土」;spec C 改按释放层数破甲
             ("㙓", L6, Ftr, "载物", "ShieldSummons 50 ofShield"),
             ("㙓", L8, Atk, "地动", "SpendShield 50"),   // spec C:释放后全体护盾(地动不攒厚)
             ("㙓", L8, Ftr, "厚德载物", "Amplify 100 scope Shield|TurnPulse 0 turns -1 perHit[ShieldSummons 10 ofPlayerShield]"),
@@ -205,7 +205,7 @@ namespace Brushblade.Core.Tests
         // ================= 崩裂(spec C §6,真实数据冒烟):Lv6 攻面按释放层数破甲 =================
 
         /// <summary>崩 Lv6 攻面 = 厚积薄发(SpendHeft)+ 聚土(释放前 +3 层,折叠时排到 Spend 之前)+ 崩裂(每层破甲 2,随卡等级)。
-        /// 起手厚 2 + 聚土 3 = 释放 5 层 → 每个敌人破甲 = ScaleEffectValue(ArmorBreak, 2, 6) × 5;释放后厚清空。</summary>
+        /// 起手厚 2 + 聚土 3 = 释放 5 层 → 每个敌人 Sunder 回合 = 1 + 5 / 3 = 2;释放后厚清空。</summary>
         [Test]
         public void BengLie_Lv6_ArmorBreakPerSpentLayer_OnEveryEnemy()
         {
@@ -213,9 +213,9 @@ namespace Brushblade.Core.Tests
                 cardLevels: new Dictionary<string, int> { ["崩"] = 6 },
                 startingStatuses: new[] { new StatusEffect { Kind = StatusKind.Heft, Polarity = StatusPolarity.Buff, Magnitude = 2, TurnsLeft = -1 } });
             Cast(b, "崩", 0, attack: true);
-            int perLayer = MetaRules.ScaleEffectValue(EffectKind.ArmorBreak, 2, 6);
+            // 2026-10-21 土系破甲归零:崩裂 = Sunder K=3,回合 = 1 + 释放层数 / 3 = 1 + 5 / 3 = 2;K 不吃卡等级
             for (int i = 0; i < 2; i++)
-                Assert.That(b.Enemies[i].Statuses.TotalMagnitude(StatusKind.ArmorBreak), Is.EqualTo(perLayer * 5), $"敌 #{i}:每层 {perLayer} × 5 层");
+                Assert.That(b.Enemies[i].Statuses.Find(StatusKind.Sunder)?.TurnsLeft, Is.EqualTo(2), $"敌 #{i}:1 + 5 层 / 3");
             Assert.That(b.HeftStacks, Is.EqualTo(0), "释放清空厚");
         }
 
@@ -516,13 +516,13 @@ namespace Brushblade.Core.Tests
                 b.EndTurn();
                 charges = probe.Seen;
                 var e = b;
-                return Enumerable.Range(0, 2).Select(i => e.Enemies[i].Statuses.Has(StatusKind.ArmorBreak)).ToList();
+                return Enumerable.Range(0, 2).Select(i => e.Enemies[i].Statuses.Has(StatusKind.Sunder)).ToList();
             }
             Assert.That(Broken(lowArmor: true, out var low, out var lowCharges), Is.EqualTo(new[] { false, false }), "护甲 0 < 50:不回敬");
             Assert.That(lowCharges, Is.EqualTo(new int?[] { 1, 1 }), "门槛不满足不扣次数:两只敌人打完仍剩 1 次");
             Assert.That(Broken(lowArmor: false, out var high, out var highCharges), Is.EqualTo(new[] { true, false }), "只有第一个打中的被破甲");
             Assert.That(highCharges, Is.EqualTo(new int?[] { null, null }), "对照:过门槛时第一击就用掉本回合唯一一次(用尽返回 null)");
-            Assert.That(high.Enemies[0].Statuses.Find(StatusKind.ArmorBreak)?.Magnitude, Is.EqualTo(50), "钉值:破甲 38 按 Lv6");
+            Assert.That(high.Enemies[0].Statuses.Find(StatusKind.Sunder)?.TurnsLeft, Is.EqualTo(2), "钉值:破甲(归零)2 回合");
         }
 
         // ================= spec A:Lv6 新专属冒烟(真实 graph + cardLevels 6)=================

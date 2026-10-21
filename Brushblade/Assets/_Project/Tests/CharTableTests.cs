@@ -405,8 +405,8 @@ namespace Brushblade.Core.Tests
             // 破甲的蓝档载体因此只剩 碎 一张,这条测试跟着只钉它。
             Assert.That(graph.Get("溃").AttackEffects.Any(e => e.Kind == EffectKind.ArmorBreak),
                 Is.False, "「溃」不再带破甲");
-            var sui = graph.Get("碎").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
-            Assert.That(sui.Value, Is.EqualTo(20), "「碎」破甲削减点数");
+            // 2026-10-21(土系破甲归零):碎 是土系,破甲改 Sunder(护甲归零,不带点数)。
+            var sui = graph.Get("碎").AttackEffects.First(e => e.Kind == EffectKind.Sunder);
             // 破甲 2026-09-08 起限时(用户裁定「所有 buff 类必须附带回合数」;护甲那一边同批)
             // 2026-10-05(D1 Task 12,spec v7 §4):攻 = 伤害 + 破甲 2 回合,3 → 2。
             Assert.That(sui.Turns, Is.EqualTo(2), "破甲 2 回合");

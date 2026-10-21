@@ -1448,9 +1448,9 @@ def test_d2earth_shared_modifier_errors(config, needle):
     # 碉楼 / 载物(E28):护盾同时给全部木灵(每只 50%)
     ("`ShieldSummons 50` `ofShield`", [{"kind": "ShieldSummons", "value": 50, "ofShield": True}]),
     # 山岳(E32):护甲 ≥ 50 时,每回合第一次受击使攻击者破甲
-    ("`Retaliate 1` `turns 4` `minArmor 50` `onHit` `ArmorBreak 38` `turns 2`",
+    ("`Retaliate 1` `turns 4` `minArmor 50` `onHit` `Sunder` `turns 2`",
      [{"kind": "Retaliate", "value": 1, "turns": 4, "minArmor": 50,
-       "perHit": [{"kind": "ArmorBreak", "value": 38, "turns": 2}]}]),
+       "perHit": [{"kind": "Sunder", "value": 0, "turns": 2}]}]),
     # 杜塞(E33):封禁认条件门 / 选择器
     ("`Silence 0` `turns 2` `if NotBoss`", [{"kind": "Silence", "value": 0, "onlyIf": "NotBoss", "turns": 2}]),
 ])
@@ -1642,8 +1642,8 @@ def test_spec_a_per_morale_rejected_on_non_amplify():
     ("`Amplify 100` `scope Spend` `minSpent 8` + `Freeze 1` `pick All` `minSpent 8`", "㵘",
      [{"kind": "Amplify", "value": 100, "scope": "Spend", "minSpent": 8},
       {"kind": "Freeze", "value": 1, "pick": "All", "minSpent": 8}]),
-    ("`ArmorBreak 2` `turns 2` `pick All` `per Spent`", "崩",
-     [{"kind": "ArmorBreak", "value": 2, "turns": 2, "pick": "All", "scaleBy": "Spent"}]),
+    ("`Sunder 3` `turns 1` `pick All` `per Spent`", "崩",
+     [{"kind": "Sunder", "value": 3, "turns": 1, "pick": "All", "scaleBy": "Spent"}]),
     ("`SpendHeal 30`", "溃", [{"kind": "SpendHeal", "value": 30}]),
     ("`SpendShield 50`", "㙓", [{"kind": "SpendShield", "value": 50}]),
 ])
@@ -1666,3 +1666,23 @@ def test_spec_c_token_errors(config, needle):
     with pytest.raises(ValueError) as err:
         _parse_effects(config, "测")
     assert needle in str(err.value)
+
+
+# ---- 土系破甲归零(2026-10-21):Sunder = 持续期间护甲归零,不带点数 ----
+
+@pytest.mark.parametrize("config, expected", [
+    ("`Sunder` `turns 2`", [{"kind": "Sunder", "value": 0, "turns": 2}]),
+    ("`Sunder` `turns 4`", [{"kind": "Sunder", "value": 0, "turns": 4}]),
+    ("`Sunder` `turns 2` `pick HitTargets`", [{"kind": "Sunder", "value": 0, "turns": 2, "pick": "HitTargets"}]),
+    # 崩裂 / 厚壤:K 存在 value 里(每 K 层厚 +1 回合)
+    ("`Sunder 2` `turns 1` `pick All` `per Spent`",
+     [{"kind": "Sunder", "value": 2, "turns": 1, "pick": "All", "scaleBy": "Spent"}]),
+])
+def test_sunder_token(config, expected):
+    assert _parse_effects(config, "垚") == expected
+
+
+def test_sunder_requires_turns():
+    with pytest.raises(ValueError) as err:
+        _parse_effects("`Sunder`", "垚")
+    assert "turns" in str(err.value)
