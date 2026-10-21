@@ -54,6 +54,9 @@ namespace Brushblade.Presentation
             /// <see cref="MetaRules.UnfamiliarCardLevel"/>:数值按它缩放(×70%),特性按 Lv1 解锁,
             /// 头上写「Lv1(局外 LvN)」、其下加一行「疏」说明(稿 drafts/recipe-wheel/Shu.dc.html ③)。</summary>
             public int? UnfamiliarOuterLevel;
+            /// <summary>金系「锋刃回鞘」此刻的显示百分比(<see cref="BattleEngine.EdgeSheatheShownPercent"/>),
+            /// 给卡详情「?」五行说明用;0 = 没给,退回基础值。</summary>
+            public int EdgeSheatheShownPercent;
         }
 
         // ---- 稿上的骨架尺寸(pt → 逻辑单位,1pt = 2.093) ----
@@ -165,7 +168,7 @@ namespace Brushblade.Presentation
             Ui.Sized(info, flexWidth: 1, flexHeight: 1);
             float infoW = contentW - TileSize.x - 23;
 
-            NameRow(info.transform, def, battle, overlay, 46, 40, 22);
+            NameRow(info.transform, def, battle, overlay, 46, 40, 22, null);
 
             if (!string.IsNullOrEmpty(def.Gloss))
             {
@@ -184,7 +187,7 @@ namespace Brushblade.Presentation
 
         /// <summary>名字行:名 + 拼音 + chip(稀有度 / 属性 / AP / 战斗里的来源)+ 右上角关闭。两版与部件共用。</summary>
         private static void NameRow(Transform parent, CharDef def, BattleContext battle, GameObject overlay,
-            float height, int nameSize, int pinyinSize)
+            float height, int nameSize, int pinyinSize, int? edgeSheathePercent)
         {
             var nameRow = Ui.Row(parent, "Name", 15);
             nameRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
@@ -196,6 +199,12 @@ namespace Brushblade.Presentation
                 Ui.Chip(nameRow.transform, chip.text, chip.bg, chip.fg, 20);
             var spring = Ui.Panel(nameRow.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
+            // 「?」:本系五行说明(稿 drafts/卡详情五行说明)。部件(edgeSheathePercent 为 null)没有五系可讲
+            if (edgeSheathePercent is { } percent && def.Element is { } element && WuxingHelp.Supports(element))
+                Ui.RoundButton(nameRow.transform, Strings.T("charsheet.help_button"),
+                    () => WuxingHelp.Open(overlay.transform.parent, element, percent,
+                        percent > BattleEngine.EdgeSheathePercent),
+                    Theme.PanelInset, Theme.TextDim, 22, new Vector2(46, 46), 23);
             Ui.RoundButton(nameRow.transform, Strings.T("common.close"),
                 () => Object.Destroy(overlay), Theme.PanelInset, Theme.TextDim, 22, new Vector2(46, 46), 23);
         }
@@ -403,7 +412,10 @@ namespace Brushblade.Presentation
             Ui.Sized(info, flexWidth: 1, flexHeight: 1);
             float infoW = contentW - tileSize.x - gap;
 
-            NameRow(info.transform, def, battle, overlay, tall ? 46 : 40, tall ? 40 : 38, tall ? 22 : 21);
+            NameRow(info.transform, def, battle, overlay, tall ? 46 : 40, tall ? 40 : 38, tall ? 22 : 21,
+                battle != null && battle.EdgeSheatheShownPercent > 0 ? battle.EdgeSheatheShownPercent
+                : meta != null ? MetaRules.EdgeSheatheShownPercent(meta)
+                : BattleEngine.EdgeSheathePercent);
             if (!string.IsNullOrEmpty(def.Gloss))
             {
                 int glossSize = tall ? 21 : 20;

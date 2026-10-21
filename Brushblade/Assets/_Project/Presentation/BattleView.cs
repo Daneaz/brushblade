@@ -4988,6 +4988,7 @@ namespace Brushblade.Presentation
                     PartMarks = live && def.IsComponent ? battle.PartMarksOf(charId) : null,
                     CardLevelOf = _run.CardLevel,
                     UnfamiliarOuterLevel = _run.IsUnfamiliar(charId) ? _run.OuterCardLevel(charId) : (int?)null,
+                    EdgeSheatheShownPercent = battle.EdgeSheatheShownPercent,
                 });
         }
 
