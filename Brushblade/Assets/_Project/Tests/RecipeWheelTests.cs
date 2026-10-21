@@ -125,44 +125,62 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        // 用户 10-21:未收集的字不足时,从**同档**(已收集 / 已在配方集的字)随机补足,维持 5 格;不再往低一档补。
         [Test]
-        public void Spin_LowTierShort_FillsFromOneTierBelow()
+        public void Spin_LowTierShort_FillsFromSameTierCollected_KeepsFive()
         {
-            var graph = Graph(blue: 2);
-            var wheel = Spin(graph, 1);
-            var rarities = wheel.Slots.Take(4).Select(id => graph.Get(id).Rarity).ToArray();
-            Assert.That(rarities.Count(r => r == CardRarity.Blue), Is.EqualTo(2));
-            Assert.That(rarities.Count(r => r == CardRarity.Green), Is.EqualTo(2));
-            Assert.That(wheel.HighIndex, Is.EqualTo(4));
+            var graph = Graph(blue: 4);   // 蓝:灯 + 蓝甲..蓝丁
+            var owned = new[] { "灯", "蓝丙", "蓝丁" };
+            for (int seed = 0; seed < 30; seed++)
+            {
+                var wheel = Spin(graph, seed, owned: owned);
+                Assert.That(wheel.Slots.Count, Is.EqualTo(5));
+                var lows = wheel.Slots.Take(4).ToArray();
+                Assert.That(lows.All(id => graph.Get(id).Rarity == CardRarity.Blue), Is.True, "只用同档补,不掉到绿");
+                Assert.That(lows.Contains("蓝甲") && lows.Contains("蓝乙"), Is.True, "未收集的优先");
+                Assert.That(lows.Distinct().Count(), Is.EqualTo(4));
+                Assert.That(wheel.HighIndex, Is.EqualTo(4));
+                Assert.That(wheel.CollectedSlots.OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+                    Is.EqualTo(lows.Where(id => owned.Contains(id)).OrderBy(x => x, StringComparer.Ordinal).ToArray()),
+                    "补进来的已收集字记在 CollectedSlots");
+            }
         }
 
         [Test]
-        public void Spin_HighTierEmpty_FallsBackToLowTier()
+        public void Spin_HighTierAllCollected_FillsFromSameTier()
         {
-            var graph = Graph(purple: 0);
-            var wheel = Spin(graph, 1);
+            var graph = Graph();   // 紫0 / 紫1
+            var wheel = Spin(graph, 1, owned: new[] { "灯", "紫0", "紫1" });
             Assert.That(wheel.Slots.Count, Is.EqualTo(5));
-            Assert.That(graph.Get(wheel.Slots[wheel.HighIndex]).Rarity, Is.EqualTo(CardRarity.Blue),
-                "高档没有字时用相邻低一档(即低档)补");
+            Assert.That(graph.Get(wheel.Slots[wheel.HighIndex]).Rarity, Is.EqualTo(CardRarity.Purple), "高档格仍是紫");
         }
 
         [Test]
-        public void Spin_FillDoesNotReachTwoTiersBelow()
+        public void Spin_FillAlsoUsesRecipesAlreadyInRun()
         {
-            // 21–30 层:低档紫、高档金;紫全空时只补蓝,不往绿 / 白去
-            var graph = Graph(purple: 0, blue: 0);
+            var graph = Graph(blue: 4);
+            var wheel = Spin(graph, 3, owned: new[] { "灯", "蓝丙" }, recipes: new[] { "蓝丁" });
+            var lows = wheel.Slots.Take(4).ToList();
+            Assert.That(lows.Contains("蓝甲") && lows.Contains("蓝乙"), Is.True, "未收集且不在配方集的优先");
+            var fill = lows.Where(id => id != "蓝甲" && id != "蓝乙").ToList();
+            Assert.That(fill.Count, Is.EqualTo(2));
+            Assert.That(fill.All(id => id == "灯" || id == "蓝丙" || id == "蓝丁"), Is.True, "补位取同档已收集 / 已在配方集的字");
+            Assert.That(fill.Distinct().Count(), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Spin_TierHasNoCharsAtAll_DoesNotDropToLowerTier()
+        {
+            var graph = Graph(purple: 0, blue: 0);   // 21–30 层:低档紫(无此档字)、高档金
             var wheel = Spin(graph, 1, depth: 25);
-            Assert.That(wheel.Slots.Count, Is.EqualTo(1), "紫、蓝都空 → 只剩高档金 1 格");
-            Assert.That(wheel.Slots[0], Is.EqualTo("金0"));
-            Assert.That(wheel.HighIndex, Is.EqualTo(0));
-            Assert.That(wheel.Landed, Is.EqualTo(0));
+            Assert.That(wheel.Slots, Is.EqualTo(new[] { "金0" }), "该档整档无字时不往低档补");
         }
 
         [Test]
         public void Spin_NoCandidates_ReturnsNull()
         {
             var graph = Graph(purple: 0, blue: 0, green: 0);
-            Assert.That(Spin(graph, 1, depth: 15), Is.Null);
+            Assert.That(Spin(graph, 1, depth: 45), Is.Null, "橙 / 红两档整档无字(含已收集)才跳过");
         }
 
         [Test]
@@ -233,6 +251,19 @@ namespace Brushblade.Core.Tests
             var expected = RecipeWheel.Spin(15, Graph(), Owned, Array.Empty<string>(), RecipeWheel.StreamFor(42, 15));
             Assert.That(wheel.Slots, Is.EqualTo(expected.Slots), "候选与落点走 (塔种子, 层) 的独立流");
             Assert.That(wheel.Landed, Is.EqualTo(expected.Landed));
+        }
+
+        [Test]
+        public void Run_WheelLandsOnCollectedFill_NoRecipeNoUnfamiliar() // 用户 10-21:同档补位可能落在已收集的字上
+        {
+            var all = Graph().All.Where(d => !d.IsComponent && !d.IsLeaf).Select(d => d.Id).ToArray();
+            var run = Run(BossFloor(15, wheel: true), unlocked: all);
+            Win(run);
+            Assert.That(run.LastRecipeWheel, Is.Not.Null, "全收集也照转(同档补足 5 格)");
+            Assert.That(run.LastRecipeWheel.Slots.Count, Is.EqualTo(5));
+            Assert.That(run.RunRecipes, Is.Empty, "已收集的字本来就能合,不记配方");
+            Assert.That(run.LastRecipeWheel.TargetCollected, Is.True, "结果卡据此改写「已收集」");
+            Assert.That(run.UnfamiliarChars, Is.Empty, "已收集的字永不生疏");
         }
 
         [Test]

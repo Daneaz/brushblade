@@ -783,8 +783,12 @@ namespace Brushblade.Core
                 RecipeWheel.StreamFor(_runConfig.RecipeWheelSeed, depth));
             if (wheel == null) return; // 一格都凑不出:跳过
             LastRecipeWheel = wheel;
-            _runRecipes.Add(wheel.Target);
-            if (!_unfamiliar.Contains(wheel.Target)) _unfamiliar.Add(wheel.Target);
+            // 同档补位可能落在已收集 / 已在配方集的字上(用户 2026-10-21):已收集的不记配方、不生疏,配方集不重复
+            if (!IsCollected(wheel.Target))
+            {
+                if (!_runRecipes.Contains(wheel.Target)) _runRecipes.Add(wheel.Target);
+                if (!_unfamiliar.Contains(wheel.Target)) _unfamiliar.Add(wheel.Target);
+            }
         }
 
         /// <summary>打赢之后往哪走(2026-08-30 改序:**先奇遇,后选字**)。

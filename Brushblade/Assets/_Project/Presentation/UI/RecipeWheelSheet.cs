@@ -153,9 +153,6 @@ namespace Brushblade.Presentation
                 s.GlyphColor = Theme.GlyphColor(def.Element);
                 s.Glyph = Polar(_rotor, def.Id, s.Mid, Radius * 0.6f, s.High ? 38 : 46, s.GlyphColor, Theme.TitleFont, 63f);
                 s.Glyph.fontStyle = FontStyle.Bold;
-                string odds = s.High ? Strings.T("wheel.rare", ("p", Pct(s.Percent))) : Strings.T("wheel.odds", ("p", Pct(s.Percent)));
-                var label = Polar(_rotor, odds, s.Mid, Radius * 0.86f, 14, s.High ? Theme.GoldDeep : Theme.LockGray, Theme.BodyFont, 84f);
-                if (s.High) label.fontStyle = FontStyle.Bold;
             }
             _rotor.localEulerAngles = new Vector3(0, 0, -_angle);
 
@@ -233,7 +230,6 @@ namespace Brushblade.Presentation
             }
         }
 
-        private static string Pct(float p) => p.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
 
         // ---------------- 交互与动画 ----------------
 
@@ -389,7 +385,7 @@ namespace Brushblade.Presentation
                 icon.raycastTarget = false;
                 icon.rectTransform.sizeDelta = new Vector2(17f, 17f);
             }
-            var gotLabel = Ui.ThemedLabel(got.transform, Strings.T("wheel.recorded"), 21, Theme.UpgradeText);
+            var gotLabel = Ui.ThemedLabel(got.transform, (_wheel.TargetCollected ? Strings.T("wheel.collected") : Strings.T("wheel.recorded")), 21, Theme.UpgradeText);
             gotLabel.fontStyle = FontStyle.Bold;
 
             // 「继续 · 选字」cta(稿 26pt 高、左右 22pt)

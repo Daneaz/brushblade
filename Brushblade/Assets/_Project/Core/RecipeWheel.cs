@@ -19,6 +19,12 @@ namespace Brushblade.Core
 
         /// <summary>落中的配方目标字。</summary>
         public string Target => Slots[Landed];
+
+        /// <summary>同档补位补进来的**已收集**字(用户 2026-10-21);落在这些格上不记配方、不生疏,结果卡写「已收集」。</summary>
+        public List<string> CollectedSlots { get; set; } = new();
+
+        /// <summary>落中的字转盘当时已收集。</summary>
+        public bool TargetCollected => CollectedSlots.Contains(Target);
     }
 
     /// <summary>配方转盘(spec 2026-10-19 §2):5 层起 Boss / 精英层战后转一次,4 低档 + 1 高档,
@@ -52,7 +58,7 @@ namespace Brushblade.Core
         ///
         /// 候选 = 该档未收集、不在配方集、有配方的可出牌字;同档内「配方原料都在当前可合成集里
         /// (同系偏旁互替)」的排前面,各自洗牌。低档不足 4 格用低一档补;高档没有字用低档(其次低一档)剩下的补。
-        /// 只补相邻一档,不往下递归。</summary>
+        /// 未收集不足时从同档已收集 / 已在配方集的字补足(用户 2026-10-21),不往低档补;该档整档无字时格数才会少。</summary>
         public static RecipeWheelResult Spin(int depth, RecipeGraph graph, IReadOnlyCollection<string> owned,
             IReadOnlyCollection<string> runRecipes, GameRandom random)
         {
@@ -62,22 +68,19 @@ namespace Brushblade.Core
             obtainable.UnionWith(runRecipes);
 
             var (low, high) = TiersFor(depth);
-            var below = low > CardRarity.White ? (CardRarity?)(low - 1) : null;
             var taken = new HashSet<string>();
-
+            // 用户 10-21:每档先取未收集的,不足时从同档(已收集 / 已在配方集)随机补足,维持 4 + 1 = 5 格;不往低档补
             var lows = Take(Ordered(graph, low, owned, runRecipes, obtainable, random), LowSlots, taken);
-            if (lows.Count < LowSlots && below is { } b)
-                lows.AddRange(Take(Ordered(graph, b, owned, runRecipes, obtainable, random), LowSlots - lows.Count, taken));
-
+            if (lows.Count < LowSlots)
+                lows.AddRange(Take(Known(graph, low, owned, runRecipes, random), LowSlots - lows.Count, taken));
             var highs = Take(Ordered(graph, high, owned, runRecipes, obtainable, random), 1, taken);
             if (highs.Count == 0)
-                highs = Take(Ordered(graph, low, owned, runRecipes, obtainable, random), 1, taken);
-            if (highs.Count == 0 && below is { } b2)
-                highs = Take(Ordered(graph, b2, owned, runRecipes, obtainable, random), 1, taken);
+                highs = Take(Known(graph, high, owned, runRecipes, random), 1, taken);
 
             if (lows.Count + highs.Count == 0) return null;
 
             var result = new RecipeWheelResult { Slots = lows.Concat(highs).ToList() };
+            result.CollectedSlots = result.Slots.Where(owned.Contains).ToList();
             result.HighIndex = highs.Count > 0 ? lows.Count : -1;
             if (result.HighIndex < 0) result.Landed = random.Next(lows.Count);
             else if (lows.Count == 0) result.Landed = result.HighIndex;
@@ -110,6 +113,14 @@ namespace Brushblade.Core
             ready.AddRange(rest);
             return ready;
         }
+
+        /// <summary>同档补位池:已收集或已在配方集里的可出牌字(洗牌)。</summary>
+        private static List<string> Known(RecipeGraph graph, CardRarity rarity, IReadOnlyCollection<string> owned,
+            IReadOnlyCollection<string> runRecipes, GameRandom random) =>
+            Shuffle(graph.All
+                .Where(d => d.Rarity == rarity && !d.IsComponent && !d.IsLeaf
+                    && (owned.Contains(d.Id) || runRecipes.Contains(d.Id)))
+                .Select(d => d.Id).OrderBy(id => id, StringComparer.Ordinal).ToList(), random);
 
         private static bool Obtainable(string ingredient, HashSet<string> obtainable)
         {
