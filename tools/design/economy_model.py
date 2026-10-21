@@ -135,14 +135,16 @@ def kill_ink(d):
 
 
 # 奇遇墨锭期望(2026-10-21 重平衡,spec §4.4):触发后按等级加权抽(1 级 4 / 2 级 3 / 3 级 2 / 4 级 1),
-# 1~24 层池总权重 56,25 层起多 3 个 4 级奇遇、总权重 59。产墨锭的奇遇:
-# 宝库(1 级)必取暗格 +80;赌书(1 级)押 30 赢 100 EV +20、当铺(1 级)+60,各按一半玩家会选;
-# 查禁(3 级)打点差役 −30,三选一按 1/3 计。其余奇遇不产墨锭。
-_EV_SUM = 4 * 80 + 4 * 0.5 * 20 + 4 * 0.5 * 60 + 2 * (-30 / 3)
+# 1~24 层池总权重 56(= 8×4 + 6×3 + 3×2),25 层起多 3 个 4 级奇遇、总权重 59(+ 3×1)。产墨锭的奇遇:
+# 宝库(1 级)必取暗格 +80;赌书(1 级)押 30 赢 100 EV +20、当铺(1 级)+60,各按一半玩家会选(×0.5);
+# 查禁(3 级)打点差役 −30,三选一同样按一半计(×0.5,与当铺同口径)。其余奇遇不产墨锭。
+_EV_SUM = 4 * 80 + 4 * 0.5 * 20 + 4 * 0.5 * 60 + 2 * 0.5 * (-30)
 EVENT_INK_EV = _EV_SUM / 56          # 1~24 层
 EVENT_INK_EV_DEEP = _EV_SUM / 59     # 25 层起
-# 触发频率:每段 5 层只有 4 个非 Boss 层能掷,每段期望 1.44 次(3×0.3 + 保底,spec §4.3)均摊到 4 层
-EVENT_PER_FLOOR = 1.44 / 4
+# 触发频率(spec §4.3):每段 5 层只有 4 个非 Boss 层能掷。前 3 层各以 p 掷;若前 3 层都未触发,第 4 层必出(保底)。
+# 每段期望 = 3p + (1-p)^3 + (1-(1-p)^3)·p(p = 0.3 时为 1.44),均摊到 4 个非 Boss 层。
+_SEG_EV = 3 * EVENT_CHANCE + (1 - EVENT_CHANCE) ** 3 + (1 - (1 - EVENT_CHANCE) ** 3) * EVENT_CHANCE
+EVENT_PER_FLOOR = _SEG_EV / 4
 
 
 def run_income(depth):
@@ -296,7 +298,8 @@ def main():
     ap.add_argument("--runs", type=int, nargs="+", default=[1, 3, 5])
     args = ap.parse_args()
 
-    print(f"技能树全点满 {PERK_TOTAL:,} 墨锭;奇遇墨锭期望 {EVENT_INK_EV:.1f}/次,触发 {EVENT_CHANCE:.0%}(非 Boss 层)")
+    print(f"技能树全点满 {PERK_TOTAL:,} 墨锭;奇遇墨锭期望 {EVENT_INK_EV:.1f}/次,"
+          f"触发 {EVENT_CHANCE:.0%} + 每段保底(均摊 {EVENT_PER_FLOOR:.2f} 次/非 Boss 层)")
     print("卡数/稀有度:", dict(zip(RARITIES, CARDS_BY_RARITY)))
     print()
     for name, lv, depth in STAGES:
