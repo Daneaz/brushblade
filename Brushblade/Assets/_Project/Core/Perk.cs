@@ -181,7 +181,7 @@ namespace Brushblade.Core
             // 原 L1「该系起手格额外抽 1 次」已删除。
             AddWuxing(list, "metal", Element.Metal, PerkEffect.ElementCritChance, new[] { 5, 5, 5 },
                 PerkEffect.MoraleOnCrit, 1,                // 锋芒:暴击 +1 层战意
-                PerkEffect.MoraleRelease, 300);            // 断金:战意满 5 层,下一张金系字伤害 +300%
+                PerkEffect.MoraleRelease, 200);            // 断金:锋刃回鞘伤害再 +200%(合计 +300%,用户 2026-10-21)
             AddWuxing(list, "wood", Element.Wood, PerkEffect.SummonHpPercent, new[] { 10, 10, 10 },
                 PerkEffect.SummonDeathHealPercent, 30,     // 归根:召唤物阵亡回复其最大生命 30%
                 PerkEffect.CounterTargeting, 1);           // 择伐:召唤物优先打自己克得动的敌人

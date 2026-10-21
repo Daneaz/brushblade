@@ -853,7 +853,7 @@
   "perk.node.water_3.desc": "治疗溢出的部分 {value}% 转为伤害",
   "perk.node.fire_3.desc": "敌人死亡时灼烧层数转移给一名随机敌人",
   "perk.node.earth_3.desc": "战斗结束护盾保留 +{value}%(50%→75%)",
-  "perk.node.metal_4.desc": "锋刃回鞘的伤害加成提高到 {value}%",
+  "perk.node.metal_4.desc": "锋刃回鞘的伤害再 +{value}%",
   "perk.node.wood_4.desc": "木灵优先攻击自己克制的敌人",
   "perk.node.water_4.desc": "涌泉相报伤害 +{value}%,释放后返还一半层数",
   "perk.node.fire_4.desc": "灼烧结算后仍有层数,向上下左右相邻敌人各蔓延 1 层",
