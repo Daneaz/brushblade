@@ -2592,9 +2592,13 @@ namespace Brushblade.Presentation
                 // 护甲读 EffectiveDefense:眼下只由玩家挂的增益构成,平时 0 不出;字表将来给召唤物
                 // 配基础护甲时这一行不用改(2026-09-05 用户拍板「后续有些召唤物会直接带上护甲」)。
                 // 富甲(D2-金 Q15)挂在玩家身上、木灵受击同样吃:读引擎的 SummonDefense,与受击结算同源
+                // 破甲 / 削甲不再进状态 chip 区,改让这一格变形(ArmorCellRules,2026-10-21 拍板稿「削甲图标」)。
+                // 基准 = 玩家挂的护甲增益 + 富甲光环(SummonDefense 与 EffectiveDefense 之差),未被减益前的数
                 int summonDefense = Battle.SummonDefense(summon);
-                if (summonDefense > 0)
-                    chipSpecs.Add(new($"{summonDefense}", Theme.InkSoft, Color.white, "defense"));
+                int summonBaseDefense = summon.Statuses.TotalMagnitude(StatusKind.DefenseBuff)
+                    + (summonDefense - summon.EffectiveDefense);
+                var summonArmor = ArmorCellRules.ForUnit(summonBaseDefense, summonDefense, summon.Statuses, false);
+                if (summonArmor.Visible) chipSpecs.Add(ArmorChip(summonArmor));
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
                 // N-1(2026-09-16 复审):桤/森/藻/林(底速 150,SummonPassiveChip 恒出 "speed"
                 // 被动格)吃到 Haste 之后,AddSummonStatusChips 的正向 SpeedModifier 分支也会
@@ -3185,6 +3189,20 @@ namespace Brushblade.Presentation
         /// 敌人格与召唤物格共用这一条:「前排挡不挡得住」是同一个规则的两个方向。</summary>
         private static string RangeIcon(bool ranged) => ranged ? "ranged" : "melee";
 
+        /// <summary>头行护甲格(敌人 / 召唤物同用):图标随破甲 / 削甲变形,数字按 <see cref="ArmorCell.ShowValue"/>
+        /// 决定印不印(杂兵破甲为纯图标)。底色与外形不变。⚠ key 按玩家看到的名字对:
+        /// 破甲(Sunder)→ armorbreak,削甲(ArmorBreak)→ armorshred。</summary>
+        private static Ui.ChipSpec ArmorChip(ArmorCell cell)
+        {
+            string icon = cell.Kind switch
+            {
+                ArmorCellKind.Sunder => "armorbreak",
+                ArmorCellKind.Shred => "armorshred",
+                _ => "defense",
+            };
+            return new(cell.ShowValue ? $"{cell.Value}" : "", Theme.InkSoft, Color.white, icon);
+        }
+
         /// <summary>战场状态 chip 的底色 —— **唯一出处**(Plan E4 B-Qa9):玩家栏 / 木灵格 / 敌人格三处 chip 列表与
         /// TriggerFx 的状态名签共用,改色只改这里。按稿的六色分组:k-dot 朱砂(持续伤害与威胁)、k-ctrl 墨蓝(控制与「得不到」)、
         /// k-heal 翠玉(守御与回复)、k-gold 赭金(加伤害)、冰滞水字形色;减速 / 加速共用 SpeedModifier,按符号分。
@@ -3322,9 +3340,7 @@ namespace Brushblade.Presentation
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", BattleChipColor(StatusKind.Freeze), Color.white, "freeze"));
             Decaying(StatusKind.Bleed, "bleed");
             Flag(StatusKind.Curse, "curse");
-            Flag(StatusKind.ArmorBreak, "armorbreak");
-            // 破甲 Sunder(2026-10-21):Magnitude 恒 0,Flag 的量判据不适用,直接按 Has
-            if (st.Has(StatusKind.Sunder)) chips.Add(new("", BattleChipColor(StatusKind.Sunder), Color.white, "armorbreak"));
+            // 削甲 / 破甲不在这里出:改由头行护甲格变形(ArmorCellRules + ArmorChip,2026-10-21 拍板稿「削甲图标」)
             // 速度(负向这一支):与敌人格同口径,只画减速。
             // ⚠ 2026-09-16 前这句话曾是「正向的「疾」是被动不是状态,已由 SummonPassiveChip 出」——
             // 加速/急速(EffectKind.Haste)落地后正向 SpeedModifier 也是一条真实状态了,
@@ -3762,9 +3778,9 @@ namespace Brushblade.Presentation
                 // 当前实际护甲:同时响应封禁(杂兵归零/Boss 减半)与破甲,读 Core 的
                 // DisplayedEnemyDefense,与 EnemyInfo.BuildFigures 同一个数(2026-09-06 终审必修 7)。
                 // 0 甲不出。
-                int shownDefense = BattleEngine.DisplayedEnemyDefense(enemy);
-                if (shownDefense > 0)
-                    chipSpecs.Add(new($"{shownDefense}", Theme.InkSoft, Color.white, "defense"));
+                // 破甲 / 削甲让这一格换图标(ArmorCellRules,2026-10-21):状态 chip 区不再另出
+                var enemyArmor = ArmorCellRules.ForEnemy(enemy);
+                if (enemyArmor.Visible) chipSpecs.Add(ArmorChip(enemyArmor));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
@@ -3848,16 +3864,7 @@ namespace Brushblade.Presentation
                 // 紧跟干涸:两条都是「得不到什么」,只对会加增益的怪有用,溢出先丢
                 if (enemy.Statuses.Has(StatusKind.BuffBlock))
                     chipSpecs.Add(new("", BattleChipColor(StatusKind.BuffBlock), Color.white, "buffblock"));
-                // 破甲(2026-09-06 补,与 AddSummonStatusChips 的 Flag 同口径):量在挂着期间
-                // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
-                // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
-                // 它生没生效(EnumRenderCoverageTests 收紧判据范围后抓到的真实缺陷)。
-                // 2026-10-21(spec §3):削甲与破甲暂共用 armorbreak 图标,削甲 chip 带点数区分;破甲(归零)无数字
-                if (enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) > 0)
-                    chipSpecs.Add(new($"{enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)}", BattleChipColor(StatusKind.ArmorBreak), Color.white, "armorbreak"));
-                // 破甲 Sunder(2026-10-21):护甲归零,Magnitude 恒 0 → 按 Has 判
-                if (enemy.Statuses.Has(StatusKind.Sunder))
-                    chipSpecs.Add(new("", BattleChipColor(StatusKind.Sunder), Color.white, "armorbreak"));
+                // 破甲 / 削甲:已并入头行护甲格(见上 ArmorCellRules),状态 chip 区不再出
                 // 魅惑(2026-09-05,花):无图标资产,暂时保留文字(与缺笔/标点/通假同处理)——
                 // 与冻结/减速当年零显示是同一个坑,这条不能漏。
                 if (enemy.Statuses.Has(StatusKind.Charm))
@@ -3885,7 +3892,7 @@ namespace Brushblade.Presentation
                     // 竖块(battlegrid 稿 ③):攻 / 甲进右栏(≤2 行,16:9 右栏 107 放不下两枚三位数就折两行),
                     // 战况走底部全宽流 2 行(蓄力预警打头,两档都与削弱 / 致命同排)。
                     // 按跨排判断而不是 IsBoss —— 头领、精英同一套竖块。
-                    int lead = shownDefense > 0 ? 2 : 1;
+                    int lead = enemyArmor.Visible ? 2 : 1;
                     Ui.ChipFlow(info, "Chips", chipSpecs.GetRange(0, lead), infoWidth - 4f, UnitChipFontSize,
                         BossSideChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
                     Ui.Sized(Ui.Panel(info, "Push"), flexHeight: 1f);
