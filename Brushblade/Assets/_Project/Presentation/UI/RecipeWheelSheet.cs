@@ -62,7 +62,8 @@ namespace Brushblade.Presentation
         private static readonly Color GlyphPaper = Theme.PanelPaper;
 
         private RecipeWheelResult _wheel;
-        private Action _onContinue;
+        private Action<Vector3> _onContinue;   // 参数:结果大字牌的世界坐标(字从这里飞进字库)
+        private RectTransform _resultTile;
         private RectTransform _box;
         private RectTransform _rotor;
         private Button _hub;
@@ -95,7 +96,7 @@ namespace Brushblade.Presentation
         /// <summary>弹出转盘。点遮罩无效(结果卡出来之前误关会丢掉「落在哪」这一拍);
         /// <paramref name="onContinue"/> 在点「继续 · 选字」后调用,弹窗随即销毁。</summary>
         public static GameObject Show(Transform root, RecipeWheelResult wheel, RecipeGraph graph,
-            int depth, bool themeBoss, bool libraryFull, Action onContinue)
+            int depth, bool themeBoss, bool libraryFull, Action<Vector3> onContinue)
         {
             var overlay = Ui.Sheet(root, "RecipeWheel", SheetW, SheetH, dismissable: false, replaceSameName: true,
                 Theme.Scrim, out var content);
@@ -403,7 +404,7 @@ namespace Brushblade.Presentation
             _resultGroup.blocksRaycasts = false;
 
             // 大字牌:稀有度牌框 + 拼音(稿 .bt 66 × 82.5pt)
-            Ui.GlyphTile(col.transform, def, false, null, new Vector2(138f, 173f));
+            _resultTile = (RectTransform)Ui.GlyphTile(col.transform, def, false, null, new Vector2(138f, 173f)).transform;
 
             // 字 +「金 · 水 · 稀有格」
             var name = Ui.Row(col.transform, "Name", 13);
@@ -465,8 +466,9 @@ namespace Brushblade.Presentation
         {
             var callback = _onContinue;
             _onContinue = null;
+            var from = _resultTile.position;   // 先取坐标再销毁弹窗
             Destroy(gameObject);
-            callback?.Invoke();
+            callback?.Invoke(from);
         }
 
         // ---------------- 几何小件 ----------------
