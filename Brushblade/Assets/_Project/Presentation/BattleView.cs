@@ -5575,9 +5575,12 @@ namespace Brushblade.Presentation
 
             var row = Ui.Row(content, "Incoming", incomingGap);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.GlyphTile(row.transform, _graph.Get(incoming), true, null, tileSize);
-            var arrow = Ui.ThemedLabel(row.transform, "→", 40, Theme.LockGray);
-            Ui.Sized(arrow.gameObject, width: arrowW, height: 29);   // 稿 .arrow 22×14pt
+            if (incoming != null)   // 舍字(只出不进)传 null:不画「换进来」那张与箭头
+            {
+                Ui.GlyphTile(row.transform, _graph.Get(incoming), true, null, tileSize);
+                var arrow = Ui.ThemedLabel(row.transform, "→", 40, Theme.LockGray);
+                Ui.Sized(arrow.gameObject, width: arrowW, height: 29);   // 稿 .arrow 22×14pt
+            }
 
             var lib = Ui.Row(row.transform, "Library", TileGap);
             lib.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
@@ -6259,6 +6262,11 @@ namespace Brushblade.Presentation
                 // 若不在这里复核,弹窗依旧扣着「字库已满」要求换字,广告等于白看。
                 if (_eventReplacing && _run.CarriedLibrary.Count < Battle.LibraryCapacity)
                     _eventReplacing = false;
+                if (_eventDiscarding) // 舍 1 字:只点选要舍的那张,不涉及容量,与 _eventReplacing 互斥
+                {
+                    DrawEventDiscardStep(pending);
+                    return;
+                }
                 if (_eventReplacing) // 字与部件都备齐,只差「换掉哪一张」(2026-07-22)
                 {
                     DrawEventReplaceStep(pending);
@@ -6322,6 +6330,17 @@ namespace Brushblade.Presentation
                         return;
                     }
                     _previewEventOption = -1; // 确认了,这一格的预览态就地清掉
+                    if (option.LibraryCost > 0)
+                    {
+                        // 舍字代价:Core 的 IsEventOptionLocked 已保证字库张数 > LibraryCost 才可点
+                        _pendingEventOption = index;
+                        _pendingCharChoice = -1;
+                        _eventPicks.Clear();
+                        _eventDiscarding = true;
+                        _message = "";
+                        Refresh();
+                        return;
+                    }
                     if (option.ComponentCost > 0 || option.GainCharChoices.Count > 0)
                     {
                         _pendingEventOption = index; // 进入选件/选字模式
@@ -6384,6 +6403,38 @@ namespace Brushblade.Presentation
         }
 
         private bool _eventReplacing; // 字摊交易已备齐但字库满:等玩家选换掉哪一张
+        private bool _eventDiscarding; // 奇遇「舍 1 字」代价:等玩家选舍掉哪一张
+
+        /// <summary>奇遇舍字子步:复用换字面板(incoming = null,不画「换进来」),
+        /// 选中即成交;取消则什么都不损失。不画扩容徽章(舍字不涉及容量)。</summary>
+        private void DrawEventDiscardStep(EventOption option)
+        {
+            DrawReplaceSheet(
+                Strings.T("battle.event.discard_title", ("label", option.Label)), null, _run.CarriedLibrary,
+                dropIndex =>
+                {
+                    string dropped = _run.CarriedLibrary[dropIndex];
+                    var beforeHoldings = SnapshotHoldings();
+                    if (_run.ChooseEventOption(_pendingEventOption, null, -1, dropIndex))
+                    {
+                        _message = Strings.T("battle.event.discard_done_msg", ("dropped", dropped));
+                        MarkFreshSince(beforeHoldings);
+                        if (_sheet != null) Object.Destroy(_sheet);
+                        ResetEventSelection();
+                        CancelSelection();
+                        return;
+                    }
+                    Refresh();
+                },
+                () =>
+                {
+                    if (_sheet != null) Object.Destroy(_sheet);
+                    ResetEventSelection();
+                    _message = Strings.T("battle.event.trade_cancel_msg");
+                    Refresh();
+                },
+                Strings.T("battle.btn.replace_cancel"));
+        }
 
         /// <summary>字摊满库替换(2026-07-22):字与部件都已选定,只补一个替换目标即成交;
         /// 取消则部件不少。换字面板本体已四合一进 <see cref="DrawReplaceSheet"/>
@@ -6594,6 +6645,7 @@ namespace Brushblade.Presentation
             _pendingEventOption = -1;
             _pendingCharChoice = -1;
             _eventReplacing = false;
+            _eventDiscarding = false;
             _eventPicks.Clear();
         }
 
