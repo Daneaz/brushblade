@@ -131,7 +131,8 @@ namespace Brushblade.Presentation
                     {
                         Strings.T("wuxing_help.metal.attack"),
                         Strings.T("wuxing_help.metal.face"),
-                        Strings.T("wuxing_help.metal.sheathe", ("percent", $"<b>{percent}</b>"), ("note", note)),
+                        Strings.T("wuxing_help.metal.sheathe", ("percent", percent), ("note", note))
+                            .Replace($"+{percent}%", $"<b>+{percent}%</b>"),   // 稿:整个「+N%」加粗
                     };
                 }
                 case Element.Water:

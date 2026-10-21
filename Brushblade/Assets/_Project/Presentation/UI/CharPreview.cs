@@ -187,7 +187,8 @@ namespace Brushblade.Presentation
 
         /// <summary>名字行:名 + 拼音 + chip(稀有度 / 属性 / AP / 战斗里的来源)+ 右上角关闭。两版与部件共用。</summary>
         private static void NameRow(Transform parent, CharDef def, BattleContext battle, GameObject overlay,
-            float height, int nameSize, int pinyinSize, int? edgeSheathePercent)
+            float height, int nameSize, int pinyinSize,
+            int? edgeSheathePercent /* null = 部件,不出「?」 */)
         {
             var nameRow = Ui.Row(parent, "Name", 15);
             nameRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
