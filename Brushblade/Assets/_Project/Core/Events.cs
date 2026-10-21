@@ -29,6 +29,12 @@ namespace Brushblade.Core
         public int MaxHpPercent { get; set; }
         // >0 = MaxHpPercent 按此概率生效,**掷空则反向扣同样百分比**(不同于 InkChancePercent 的「不中即无」)
         public int MaxHpChancePercent { get; set; }
+        // 下一战首回合 AP 扣减量(2026-10-21,药铺类代价):走 _carriedStatuses 注入一枚 Seal,
+        // 只罚下一场的首回合,打完即被白名单滤掉
+        public int NextBattleSeal { get; set; }
+        // 舍几张字(2026-10-21;配置只用 1):舍哪张由 ChooseEventOption 的 replaceLibraryIndex 指定;
+        // 字库张数 ≤ LibraryCost 时不可选(至少留一张)
+        public int LibraryCost { get; set; }
     }
 
     /// <summary>奇遇事件(9.6:短情境 + 2~4 选择,run 内非战斗节点)。</summary>

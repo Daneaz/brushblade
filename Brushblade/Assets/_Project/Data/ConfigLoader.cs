@@ -212,6 +212,8 @@ namespace Brushblade.Data
             public int InkChancePercent { get; set; }
             public int MaxHpPercent { get; set; }
             public int MaxHpChancePercent { get; set; }
+            public int NextBattleSeal { get; set; }
+            public int LibraryCost { get; set; }
         }
 
         private sealed class ChapterDto
@@ -336,6 +338,8 @@ namespace Brushblade.Data
                         InkChancePercent = optionDto.InkChancePercent,
                         MaxHpPercent = optionDto.MaxHpPercent,
                         MaxHpChancePercent = optionDto.MaxHpChancePercent,
+                        NextBattleSeal = optionDto.NextBattleSeal,
+                        LibraryCost = optionDto.LibraryCost,
                     });
                 }
                 events.Add(new EventDef

@@ -420,6 +420,14 @@ namespace Brushblade.Core
             if (replacing && (replaceLibraryIndex < 0 || replaceLibraryIndex >= _carriedLibrary.Count))
                 return false;
 
+            // 舍字(2026-10-21):与「获得字」互斥;须指定舍哪张。先验后扣,扣在所有验证之后。
+            if (option.LibraryCost > 0)
+            {
+                if (gainChar != null) return false;
+                if (replaceLibraryIndex < 0 || replaceLibraryIndex >= _carriedLibrary.Count)
+                    return false;
+            }
+
             if (option.ComponentCost > 0)
             {
                 if (option.ComponentCost > _carriedPool.Count)
@@ -437,6 +445,16 @@ namespace Brushblade.Core
                     _carriedPool.RemoveAt(picks[i]);
             }
 
+            if (option.LibraryCost > 0)
+                _carriedLibrary.RemoveAt(replaceLibraryIndex); // 舍掉的字永久移除
+            if (option.NextBattleSeal > 0)
+                // TurnsLeft = 2:开战首回合前过一次 Tick 减到 1、StartTurn 仍扣 AP;第二回合前减到 0 移除。
+                // 战斗结束时 _carriedStatuses 按白名单重算,Seal 不会带过下一场。
+                _carriedStatuses.Add(new StatusEffect
+                {
+                    Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
+                    Magnitude = option.NextBattleSeal, TurnsLeft = 2, SourceId = CurrentEvent.Id,
+                });
             if (gainChar != null)
             {
                 if (replacing) _carriedLibrary[replaceLibraryIndex] = gainChar; // 被换的字永久移除
@@ -1057,7 +1075,8 @@ namespace Brushblade.Core
         /// <summary>该奇遇选项因次数上限而不可选(2026-10-19):带 MaxHpPercent 且本局已满 <see cref="MaxHpEventCap"/> 次。
         /// 与 ComponentCost 不足同一套「不可选」—— 表现层据此置灰。</summary>
         public bool IsEventOptionLocked(EventOption option) =>
-            option.MaxHpPercent != 0 && _maxHpEventCount >= MaxHpEventCap;
+            (option.MaxHpPercent != 0 && _maxHpEventCount >= MaxHpEventCap)
+            || (option.LibraryCost > 0 && _carriedLibrary.Count <= option.LibraryCost);
 
         /// <summary>携带态的当前血量(战斗之间由 run 保管,与 <see cref="EffectiveMaxHp"/> 配对读)。
         /// 2026-09-02 开放:奇遇结算改血/改上限后,表现层要把玩家血条**先更新到新值再起厚**,
