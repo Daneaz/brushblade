@@ -1690,12 +1690,10 @@
   "wheel.collected": "已放入字库",
   "wheel.continue": "继续 · 选字",
   "wheel.full": "字库已满 · 接着选一张换掉",
-  "wheel.hit": "中",
   "wheel.recorded": "已放入字库 · 生疏 · 本局可合成",
   "wheel.result_meta": "{rarity} · {element}",
   "wheel.result_meta_rare": "{rarity} · {element} · 稀有格",
   "wheel.spin": "转",
-  "wheel.spinning": "…",
   "wheel.sub": "第 {depth} 层 · {kind}战后 · {low} ×4 + {high} ×1",
   "wheel.title": "配方转盘"
 }

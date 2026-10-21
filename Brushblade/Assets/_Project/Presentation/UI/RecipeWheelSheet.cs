@@ -37,9 +37,11 @@ namespace Brushblade.Presentation
         private const float BandOuter = 0.88f;
         private const float DividerW = 2f;           // 扇区分界:赭金细线
         private const float WinRimW = 6f;            // 落定:金描边
-        private const float HubD = 119f;             // 铜钱外径;命中区 ≥ 稿 56pt(117)
-        private const float HubLipD = 105f;          // 铜钱内缘的墨线
-        private const float HubHole = 58f;           // 朱砂方孔
+        private const float HubD = 119f;             // 墨心外径;命中区 ≥ 稿 56pt(117)
+        private const float HubRingW = 2.5f;         // 金圈:待转 / 转动中
+        private const float HubRingWinW = 5f;        // 金圈:落定加粗
+        private const float HubInnerD = 97f;         // 内圈细金线
+        private const float HubPulseSeconds = 0.2f;  // 落定时中心字 1.15 → 1
         private const float PointerSize = 40f;       // 朱砂倒三角
         private const float PointerDot = 12.6f;      // 金小圆
         private const float ResultScale = 0.72f;     // 结果卡出现时转盘缩到 0.72 靠左
@@ -64,8 +66,10 @@ namespace Brushblade.Presentation
         private RectTransform _box;
         private RectTransform _rotor;
         private Button _hub;
-        private Image _hubFace;
+        private Image _hubFace;      // 墨心底
+        private Image _hubRing;      // 外金圈
         private Text _hubLabel;
+        private Slot _hubShowing;    // 转动中墨心当前映着哪一格
         private RectTransform _resultCol;
         private CanvasGroup _resultGroup;
         private readonly List<Slot> _slots = new();
@@ -199,26 +203,27 @@ namespace Brushblade.Presentation
             dot.rectTransform.sizeDelta = new Vector2(PointerDot, PointerDot);
             dot.rectTransform.anchoredPosition = new Vector2(0f, -10.5f);
 
-            // 轮毂 =「转」钮:铜钱 —— 金圆 → 墨线内缘 → 金面 → 朱砂方孔白字
+            // 轮毂 =「转」钮:墨心 —— 墨漆底 + 外金圈 + 内细金线,金色「转」(2026-10-21 方案 A)。
+            // 转动中墨心映出指针下那一格:底色、金圈(换成该格稀有度色)、字随扇区同步换;落定定格在中奖字。
             var hubRoot = Centered(_box, "Hub", HubD);
-            var coin = hubRoot.gameObject.AddComponent<Image>();
-            coin.sprite = Disc;
-            coin.color = Theme.Gold;
-            var coinLip = Centered(hubRoot, "Lip", HubLipD).gameObject.AddComponent<Image>();
-            coinLip.sprite = Ring((HubLipD - 4f) / HubLipD);
-            coinLip.color = Theme.GoldBorder;
-            coinLip.raycastTarget = false;
-            var hole = Centered(hubRoot, "Hole", HubHole).gameObject.AddComponent<Image>();
-            _hubFace = hole;
-            _hubFace.color = Theme.Cinnabar;
-            _hubFace.raycastTarget = false;
-            _hubLabel = Ui.ThemedLabel(_hubFace.transform, Strings.T("wheel.spin"), 34, Color.white, Theme.TitleFont);
+            _hubFace = hubRoot.gameObject.AddComponent<Image>();
+            _hubFace.sprite = Disc;
+            _hubFace.color = Lacquer;
+            var inner = Centered(hubRoot, "Inner", HubInnerD).gameObject.AddComponent<Image>();
+            inner.sprite = Ring((HubInnerD - 1.2f) / HubInnerD);
+            inner.color = new Color(Theme.Gold.r, Theme.Gold.g, Theme.Gold.b, 0.6f);
+            inner.raycastTarget = false;
+            _hubRing = Centered(hubRoot, "Ring", HubD).gameObject.AddComponent<Image>();
+            _hubRing.sprite = Ring((HubD - 2f * HubRingW) / HubD);
+            _hubRing.color = Theme.Gold;
+            _hubRing.raycastTarget = false;
+            _hubLabel = Ui.ThemedLabel(hubRoot, Strings.T("wheel.spin"), 40, Theme.Gold, Theme.TitleFont);
             _hubLabel.fontStyle = FontStyle.Bold;
             _hubLabel.raycastTarget = false;
             Ui.Stretch(_hubLabel.rectTransform);
             _hub = hubRoot.gameObject.AddComponent<Button>();
             _hub.transition = Selectable.Transition.None;
-            _hub.targetGraphic = coin;
+            _hub.targetGraphic = _hubFace;
             _hub.onClick.AddListener(OnSpin);
         }
 
@@ -270,15 +275,25 @@ namespace Brushblade.Presentation
         {
             if (_spun) return;
             _spun = true;
-            SetHub(Strings.T("wheel.spinning"));
+            _hub.interactable = false;
+            _hubLabel.fontSize = 50;
             StartCoroutine(Play());
         }
 
-        private void SetHub(string text)
+        /// <summary>墨心映出此刻指针下那一格(转盘顺时针转了 _angle,指针处的盘面角 = −_angle)。
+        /// 只在换格时改,不逐帧重设。</summary>
+        private void MirrorPointerSlot()
         {
-            _hubFace.color = Theme.CinnabarDark;      // 转动中:方孔压暗,不可再点
-            _hubLabel.text = text;
-            _hub.interactable = false;
+            float at = Mathf.Repeat(-_angle, 360f);
+            Slot under = _slots[_slots.Count - 1];
+            foreach (var s in _slots)
+                if (at >= s.From && at < s.From + s.Span) { under = s; break; }
+            if (under == _hubShowing) return;
+            _hubShowing = under;
+            _hubFace.color = under.Fill.color;
+            _hubRing.color = under.Band.color;
+            _hubLabel.text = under.Glyph.text;
+            _hubLabel.color = under.Glyph.color;
         }
 
         private IEnumerator Play()
@@ -296,14 +311,18 @@ namespace Brushblade.Presentation
             {
                 _angle = Mathf.LerpUnclamped(start, end, SpinEase(t / SpinSeconds));
                 _rotor.localEulerAngles = new Vector3(0, 0, -_angle);
+                MirrorPointerSlot();
                 yield return null;
             }
             _angle = end;
             _rotor.localEulerAngles = new Vector3(0, 0, -_angle);
 
-            // 落定 0.7s:中奖扇区金描边 + 提亮、字转金,其余压暗;方孔亮回朱砂写「中」
-            _hubLabel.text = Strings.T("wheel.hit");
-            _hubFace.color = Theme.Cinnabar;
+            // 落定 0.7s:中奖扇区金描边 + 提亮、字转金,其余压暗;墨心定格中奖字(宣纸色),底转暗金、金圈加粗
+            _hubFace.color = LacquerGold;
+            _hubRing.sprite = Ring((HubD - 2f * HubRingWinW) / HubD);
+            _hubRing.color = Theme.Gold;
+            _hubLabel.text = _win.Glyph.text;
+            _hubLabel.color = GlyphPaper;
             foreach (var s in _slots)
             {
                 if (s == _win)
@@ -316,7 +335,13 @@ namespace Brushblade.Presentation
                 s.Band.color = new Color(s.Band.color.r, s.Band.color.g, s.Band.color.b, 0.3f);
                 s.Glyph.color = new Color(GlyphPaper.r, GlyphPaper.g, GlyphPaper.b, 0.28f);
             }
-            for (float t = 0f; t < LandSeconds; t += Time.unscaledDeltaTime) yield return null;
+            for (float t = 0f; t < LandSeconds; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.Clamp01(t / HubPulseSeconds);
+                _hubLabel.rectTransform.localScale = Vector3.one * Mathf.Lerp(1.15f, 1f, k * (2f - k));
+                yield return null;
+            }
+            _hubLabel.rectTransform.localScale = Vector3.one;
 
             // 结果卡 0.3s:转盘缩到 0.72 靠左,右侧滑入
             _resultCol.gameObject.SetActive(true);
