@@ -43,7 +43,7 @@
   `ink-soft` 实底白字宋体粗(字号 = 边长 × 0.62)、圆角 5、外描 1.5 `panel-paper`(描在边长之外)、向外骑出 4;挂在牌根最后,压在字之上。
   AP 不足的去饱和只染牌面那张图(`CardFrameView`),签不去色。判据 `RunEngine.IsUnfamiliar`(生疏表里且未收集)。
 - **拆合台**:可合成行出字后挂 20 的小签(`Ui.ShuBadge`);选中详情的牌角同样挂签(元信息行写 `Lv.1`)。
-- **字卡详情**(长按,`CharPreview` 战斗版):头行「Lv1(局外 LvN)」,括号半句 `text-faint`;其下一条 `panel-inset` 底 46 高的说明行:
+- **字卡详情**(长按,`CharPreview` 战斗版):名字行右端 × 左侧有「?」圆钮(46,同 × 款;部件无),点开本系五行说明弹窗(`WuxingHelp`,见 `CollectionScreen` 交互);头行「Lv1(局外 LvN)」,括号半句 `text-faint`;其下一条 `panel-inset` 底 46 高的说明行:
   27 的「疏」签 +「**生疏**:效果 ×70%,按 Lv1 计」21(冒号前 `text-main` 粗,其余 `text-quiet`)。
   数值格、面头、Lv1 行正文按 Lv0(`MetaRules.UnfamiliarCardLevel`,×70%)缩放,特性按 Lv1 解锁 —— 与 `BattleEngine` 出字同一口径
   (`RunEngine.CardLevel` 对生疏字返回 Lv0;状态详情里来源字的载荷也不再夹到 ≥1)。

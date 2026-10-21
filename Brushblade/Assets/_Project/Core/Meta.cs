@@ -66,6 +66,11 @@ namespace Brushblade.Core
     public static class MetaRules
     {
         public const int MaxCardLevel = 10;
+
+        /// <summary>锋刃回鞘显示百分比 = 100 + 断金(与 BuildBattleConfig 注入的 MoraleReleasePercent 同源)。</summary>
+        public static int EdgeSheatheShownPercent(MetaState meta) =>
+            BattleEngine.EdgeSheathePercent + PerkRules.ElementBonus(meta, PerkEffect.MoraleRelease, Element.Metal);
+
         public const int StartingLibrarySize = 6; // 起手字库数量 = 五行各一 + 最高档保底一(2026-09-06)
         // 字库容量比起手多一格,留给回合掉字(2026-08-04):否则开局即满库,第一回合必弹 DropChoice
         public const int LibraryCapacitySlack = 1;

@@ -156,8 +156,8 @@ namespace Brushblade.Presentation
                         Duration(turnsLeft),
                         Strings.T("status.sunder.desc"));
                 case StatusKind.ArmorBreak:
-                    return new Info("armorbreak", Strings.T("status.armorbreak.name"),
-                        Strings.T("status.duration.persistent"),
+                    return new Info("armorshred", Strings.T("status.armorbreak.name"),
+                        Duration(turnsLeft),
                         Strings.T("status.armorbreak.desc", ("magnitude", magnitude)));
                 case StatusKind.Seal:
                     return new Info("seal", Strings.T("status.seal.name"),

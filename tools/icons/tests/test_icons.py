@@ -22,7 +22,7 @@ EXPECTED = {
     "nav_deck", "nav_bestiary", "nav_perks", "nav_shop",
     # 战斗稿 Battle.dc.html 的 icdefs 补齐到 29 枚(2026-08-30)。前 18 枚已有,这 11 枚新增:
     # 状态类 —— 破甲 / 流血
-    "armorbreak", "bleed",
+    "armorbreak", "armorshred", "bleed",
     # 敌人天生能力 —— 焦痕 / 灯花 / 叠字分裂 / 生僻(属性隐藏) / 反伤
     "scorch", "sear", "split", "obscure", "thorns",
     # 攻击模式 —— 远程 / 死盯玩家 / 横扫 / 贯穿

@@ -145,9 +145,20 @@ ICONS = {
     # 逐字抄自 docs/design/drafts/scenes/Battle.dc.html 的 <svg class="icdefs">,
     # 每枚是一个 <symbol id="ic-KEY">;坐标一个字不改 —— 与 nav_* 同一条戒律。
     # 状态类 —— 破甲 / 流血
+    # 破甲(2026-10-21 重画,土系专属:护甲归零 / Boss 减半):实心盾从中间
+    # 锯齿裂成两半、两片向外倒。替换旧的「描边盾 + 闪电裂」
     "armorbreak": (
-        f'<path {STROKE} d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/>'
-        f'<path {STROKE} d="M37 17l-10 15h11l-10 15"/>'
+        f'<path {FILL} transform="translate(32 33) scale(.86) translate(-32 -33) '
+        f'translate(-4 2) rotate(-12 21 52)" d="M32 6L27 19 35 29 27 40 33 50 32 60'
+        f'c-11-4-22-14-22-27V14z"/>'
+        f'<path {FILL} transform="translate(32 33) scale(.86) translate(-32 -33) '
+        f'translate(4 2) rotate(12 43 52)" d="M32 6l22 8v19c0 13-11 23-22 27'
+        f'L33 50 27 40 35 29 27 19z"/>'
+    ),
+    # 削甲(2026-10-21 新增,金 / 火扣点):实心盾右上一角被斜削下来、飞开
+    "armorshred": (
+        f'<path {FILL} d="M29 7l6 2.2L51 31v3c0 13-11 23-22 27-11-4-22-14-22-27V15z"/>'
+        f'<path {FILL} d="M40 5.6L56 11.4v16z"/>'
     ),
     "bleed": (
         f'<path {FILL} d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/>'

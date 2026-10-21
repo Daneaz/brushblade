@@ -96,7 +96,8 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.Blind),
             nameof(StatusKind.Silence),
             nameof(StatusKind.Curse),
-            nameof(StatusKind.ArmorBreak),
+            // 削甲(ArmorBreak)/ 破甲(Sunder)不在此列:2026-10-21 起不再出状态 chip,
+            // 改由头行护甲格变形(见 EnemyArmorCell_ComesFromArmorCellRules)
             nameof(StatusKind.BurnNoDecay),
             nameof(StatusKind.Charm),
             nameof(StatusKind.FrostResist),
@@ -304,6 +305,29 @@ namespace Brushblade.Core.Tests
             Assert.That(missing, Is.Empty,
                 "这些会挂在敌人身上的状态,战斗画面的敌人格没有任何提示:\n  "
                 + string.Join("\n  ", missing));
+        }
+
+        /// <summary>削甲 / 破甲不再是状态 chip,而是让头行护甲格换图标:敌人格与木灵格都必须走 ArmorCellRules,
+        /// 并且状态 chip 区不得再出现这两个 kind(否则同一件事画两遍)。</summary>
+        [Test]
+        public void ArmorCells_ComeFromArmorCellRules_NotStatusChips()
+        {
+            var full = Source("BattleView.cs");
+            var enemies = MethodBody(full, "private void DrawEnemies()");
+            Assert.That(enemies.Contains("ArmorCellRules.ForEnemy"), Is.True, "敌人头行护甲格没走 ArmorCellRules.ForEnemy");
+            Assert.That(full.Contains("ArmorCellRules.ForUnit"), Is.True, "木灵护甲格没走 ArmorCellRules.ForUnit");
+            Assert.That(enemies.Contains("StatusKind.Sunder") || enemies.Contains("StatusKind.ArmorBreak"), Is.False,
+                "敌人状态 chip 区不应再出破甲 / 削甲");
+            var summonChips = MethodBody(full, "private void AddSummonStatusChips(");
+            Assert.That(summonChips.Contains("StatusKind.Sunder") || summonChips.Contains("StatusKind.ArmorBreak"), Is.False,
+                "木灵状态 chip 区不应再出破甲 / 削甲");
+            // ArmorChip 的 key 映射(按玩家看到的名字对:破甲 Sunder → armorbreak,削甲 Shred → armorshred);
+            // Source 已剥注释,方法体内的匹配不会被注释里的字样蒙混
+            var armorChip = MethodBody(full, "private static Ui.ChipSpec ArmorChip(");
+            Assert.That(Regex.IsMatch(armorChip, "ArmorCellKind\\.Sunder\\s*=>\\s*\"armorbreak\""), Is.True,
+                "ArmorChip 没把 ArmorCellKind.Sunder 映射到 \"armorbreak\"");
+            Assert.That(Regex.IsMatch(armorChip, "ArmorCellKind\\.Shred\\s*=>\\s*\"armorshred\""), Is.True,
+                "ArmorChip 没把 ArmorCellKind.Shred 映射到 \"armorshred\"");
         }
 
         /// <summary>玩家状态栏(DrawPlayerStats)与木灵格(AddSummonStatusChips)要画 E3 拍板的我方状态 chip。</summary>

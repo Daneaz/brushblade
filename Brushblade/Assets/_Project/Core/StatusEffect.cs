@@ -26,7 +26,7 @@ namespace Brushblade.Core
                           // 「护甲 +20 点」而不是「减伤 20%」。删掉它则 6 以后全部前移,更糟。
         AttackBuff,       // 攻击加成:**百分点,敌我一致**(2026-08-12 统一;敌人 = BaseAttack 的百分比,
                           // 玩家 = 以 AttackBaseline 100 为基准的百分点)。量级 ×10 时它是比值,永不跟着乘
-        ArmorBreak,       // 削甲(扣点;旧称破甲,2026-10-21 起「破甲」是 Sunder):目标护甲 −Magnitude **点**,本场持久(TurnsLeft = -1)、**可叠加**
+        ArmorBreak,       // 削甲(扣点;旧称破甲,2026-10-21 起「破甲」是 Sunder):目标护甲 −Magnitude **点**,限时,各自计时(TurnsLeft = Math.Max(1, effect.Turns))、**可叠加**
                           // (2026-08-05 曾是「承伤 +25%,不叠层」的乘法代偿;2026-08-12 E-b4 T3 复原。
                           //  名字与序号 7 一动不动 —— 语义变了但载体是同一条,存档安全)
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)

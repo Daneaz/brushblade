@@ -1990,6 +1990,9 @@ namespace Brushblade.Core
         /// <summary>锋刃回鞘的伤害加成 %(断金另加,spec 2026-10-19 §1)。</summary>
         public const int EdgeSheathePercent = 100;
 
+        /// <summary>锋刃回鞘对外显示的伤害百分比 = 100 + 断金(2026-10-21,供五行说明弹窗读);与结算同一口径。</summary>
+        public int EdgeSheatheShownPercent => EdgeSheathePercent + (_config?.MoraleReleasePercent ?? 0);
+
         /// <summary>锋刃回鞘吸血 %:按本张对敌造成的实际 HP 损失合计(敌盾吸收不算)。</summary>
         public const int EdgeSheatheLifestealPercent = 35;
 
@@ -3474,7 +3477,7 @@ namespace Brushblade.Core
                 && def.Element == Element.Metal && !def.IsComponent && castFace == CardFace.Attack
                 && _playerStatuses.TotalMagnitude(StatusKind.Morale) >= _config.MoraleCap
                 && HasDamageEffect(def, attackMode);
-            int edgePercent = EdgeSheathePercent + (_config?.MoraleReleasePercent ?? 0);
+            int edgePercent = EdgeSheatheShownPercent;
             // 吸血 / 回库的依据:进门时每只敌人的生命(实际 HP 损失 = 敌盾吸收不算;斩杀抹掉的血算)
             int[] edgeHpBefore = null;
             if (edgeSheathe)
