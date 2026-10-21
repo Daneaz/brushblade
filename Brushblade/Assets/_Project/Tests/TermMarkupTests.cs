@@ -18,7 +18,7 @@ namespace Brushblade.Core.Tests
             new TermSurface("灼烧", GlossaryTerm.Burn),
             new TermSurface("护盾", GlossaryTerm.Shield),
             new TermSurface("护甲", GlossaryTerm.Armor),
-            new TermSurface("破甲", GlossaryTerm.ArmorBreak),
+            new TermSurface("削甲", GlossaryTerm.ArmorBreak),
             new TermSurface("减伤", GlossaryTerm.DamageCut, notBefore: "("),
             new TermSurface("全体", GlossaryTerm.AreaAll, notBefore: "我方", notAfter: "敌人)"),
             new TermSurface("连发", GlossaryTerm.AreaScatter),
@@ -39,8 +39,8 @@ namespace Brushblade.Core.Tests
             Assert.That(Spans("获得护盾,并灼烧"), Is.EqualTo(new[]
                 { ("护盾", GlossaryTerm.Shield), ("灼烧", GlossaryTerm.Burn) }), "灼烧先于灼");
             Assert.That(Spans("本字灼 3"), Is.EqualTo(new[] { ("灼", GlossaryTerm.Burn) }));
-            Assert.That(Spans("护甲与破甲"), Is.EqualTo(new[]
-                { ("护甲", GlossaryTerm.Armor), ("破甲", GlossaryTerm.ArmorBreak) }), "破甲不含护甲,不会误标");
+            Assert.That(Spans("护甲与削甲"), Is.EqualTo(new[]
+                { ("护甲", GlossaryTerm.Armor), ("削甲", GlossaryTerm.ArmorBreak) }), "削甲不含护甲,不会误标");
         }
 
         [Test]
@@ -199,7 +199,7 @@ namespace Brushblade.Core.Tests
                 [GlossaryTerm.Heft] = null,
                 [GlossaryTerm.Shield] = C("shield", ChipTone.Guard),
                 [GlossaryTerm.Armor] = C("defense", ChipTone.Guard),
-                [GlossaryTerm.ArmorBreak] = C("armorshred", ChipTone.Control),
+                [GlossaryTerm.ArmorBreak] = C("armorbreak", ChipTone.Control),
                 [GlossaryTerm.Sunder] = C("armorbreak", ChipTone.Control),
                 [GlossaryTerm.Hot] = C("heal", ChipTone.Guard),
                 [GlossaryTerm.Seed] = C("seed", ChipTone.Guard),

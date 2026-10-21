@@ -153,7 +153,7 @@ namespace Brushblade.Core
             GlossaryTerm.Block => ("block", ChipTone.Guard),
             GlossaryTerm.Shield => ("shield", ChipTone.Guard),
             GlossaryTerm.Armor => ("defense", ChipTone.Guard),
-            GlossaryTerm.ArmorBreak => ("armorshred", ChipTone.Control),   // 削甲(扣点)
+            GlossaryTerm.ArmorBreak => ("armorbreak", ChipTone.Control),   // 削甲(扣点)
             GlossaryTerm.Sunder => ("armorbreak", ChipTone.Control),   // 破甲(归零)
             GlossaryTerm.Hot => ("heal", ChipTone.Guard),
             GlossaryTerm.Seed => ("seed", ChipTone.Guard),

@@ -173,6 +173,7 @@ namespace Brushblade.Presentation
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
                         ("value", shown), ("percent", StatusText.DefenseToReductionPercent(v)),
                         ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.Sunder => Strings.T("char.effect.sunder", ("turns", Math.Max(1, e.Turns))),
                     EffectKind.ArmorBreak => Strings.T("char.effect.armorbreak",
                         ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
@@ -837,6 +838,7 @@ namespace Brushblade.Presentation
                 EffectKind.Slow => Strings.T("char.effect.augment.target.slow"),
                 EffectKind.DefenseBuff => Strings.T("char.effect.augment.target.defensebuff"),
                 EffectKind.ArmorBreak => Strings.T("char.effect.augment.target.armorbreak"),
+                EffectKind.Sunder => Strings.T("char.effect.augment.target.sunder"),
                 EffectKind.HealOverTime => Strings.T("char.effect.augment.target.healovertime"),
                 EffectKind.HealSelf => Strings.T("char.effect.augment.target.healself"),
                 _ => Strings.T("char.effect.augment.target.damage"),

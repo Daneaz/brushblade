@@ -118,7 +118,7 @@ namespace Brushblade.Presentation
                 or StatusKind.Bind or StatusKind.ThornMark   // 被缠 / 荆刺(StatusChipsWood 稿 k-dot 朱砂:效果是挨打)
                 or StatusKind.Doom => Theme.Cinnabar,   // 致命(traits StatusChips 稿 k-dot 朱砂)
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
-                or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
+                or StatusKind.ArmorBreak or StatusKind.Sunder or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall
                 or StatusKind.Taunt   // 嘲讽(D2-0 Task 2,稿 k-ctrl 墨蓝)
                 or StatusKind.HealBlock   // 干涸(StatusChipsFire 稿 k-ctrl 墨蓝,与减攻同组)
                 or StatusKind.BuffBlock or StatusKind.SkillCut => Control,   // 禁增益 / 大招削弱(StatusChipsWaterEarth 稿 k-ctrl 墨蓝)
