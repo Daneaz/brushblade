@@ -67,7 +67,7 @@ class Component extends DCLogic {
     var rows = W.ORDER.map(function (k) { return { n: W.CH[k], s1: 'background:var(--' + k + '-glyph)', s2: 'background:var(--' + k + '-fg)',
       a: W.contrast(W.T[k + '-glyph'], W.T['panel-paper']).toFixed(2), b: W.contrast(W.T[k + '-fg'], W.T['panel-paper']).toFixed(2), c: W.contrast(W.T[k + '-fg'], W.T['panel-inset']).toFixed(2) }; });
     var q = W.contrast(W.T['text-quiet'], W.T['panel-paper']).toFixed(2), d = W.contrast(W.T['text-dim'], W.T['panel-paper']).toFixed(2);
-    var hs = W.ORDER.map(function (k) { return W.metrics(k, k === 'metal' ? 300 : 0).H; });
+    var hs = W.ORDER.map(function (k) { return W.metrics(k, k === 'metal' ? 200 : 0).H; });
     return { cr: rows, q: q, d: d, hRange: Math.round(Math.min.apply(null, hs)) + '–' + Math.round(Math.max.apply(null, hs)) };
   }
 }

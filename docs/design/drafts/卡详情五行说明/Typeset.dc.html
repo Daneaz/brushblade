@@ -45,7 +45,7 @@
 var W = window.WX;
 class Component extends DCLogic {
   renderVals() {
-    var list = [['fire', 0, '火'], ['metal', 0, '金 · 未学断金'], ['water', 0, '水'], ['earth', 0, '土(最长)'], ['wood', 0, '木'], ['metal', 300, '金 · 已学断金 N=300']];
+    var list = [['fire', 0, '火'], ['metal', 0, '金 · 未学断金'], ['water', 0, '水'], ['earth', 0, '土(最长)'], ['wood', 0, '木'], ['metal', 200, '金 · 已学断金 N=200(+300%)']];
     return { cards: list.map(function (x) {
       var k = x[0], p = x[1], e = W.EL[k], m = W.metrics(k, p);
       return { name: x[2], e: e, cls: 'wx' + (k === 'metal' ? ' mark' : ''),

@@ -125,7 +125,7 @@ class Component extends DCLogic {
       wLabel: (narrow ? '16:9 · 画布 1600(764pt),.safe 1354 · 卡详情 1354 · 弹窗 1120 余 234' : '基准机 · 932pt,.safe ≈ 1705 · 卡详情 1591 · 弹窗 1120 余 585') + ' · 弹窗高 ' + Math.round(m.H),
       oBtns: [[false, '入口'], [true, '弹窗']].map(function (o) { return { n: o[1], cls: s.open === o[0] ? 'on' : '', pick: function () { self.setState({ open: o[0] }); } }; }),
       eBtns: W.ORDER.map(function (k) { return { n: NAMES[k], cls: s.el === k ? 'on' : '', pick: function () { self.setState({ el: k, open: true }); } }; }),
-      pBtns: [[0, '未学 +100%'], [100, '已学 N=100(spec)'], [300, '已学 N=300(代码现值)']].map(function (o) { return { n: o[1], cls: s.perk === o[0] ? 'on' : '', pick: function () { self.setState({ perk: o[0], el: 'metal', open: true }); } }; }),
+      pBtns: [[0, '未学 +100%'], [200, '已学 +300%(N=200)']].map(function (o) { return { n: o[1], cls: s.perk === o[0] ? 'on' : '', pick: function () { self.setState({ perk: o[0], el: 'metal', open: true }); } }; }),
       iBtns: [['deck', '卡组 / 开箱'], ['battle', '战斗长按']].map(function (o) { return { n: o[1], cls: s.entry === o[0] ? 'on' : '', pick: function () { self.setState({ entry: o[0] }); } }; }),
       sBtns: [['base', '基准机'], ['narrow', '16:9']].map(function (o) { return { n: o[1], cls: s.w === o[0] ? 'on' : '', pick: function () { self.setState({ w: o[0] }); } }; })
     };
