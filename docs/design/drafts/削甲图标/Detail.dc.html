@@ -48,7 +48,7 @@
   <h3>规则</h3>
   <ul>
     <li>「甲」数值格:图标与战场头行同一枚(破甲 &gt; 削甲 &gt; 护甲),数字 = <code>DisplayedEnemyDefense</code>;注释沿用「基准 N · 破甲 −x · 削甲 −y」。</li>
-    <li>状态列表:破甲一行「剩 N 回合」;削甲<b>每层各一行</b>(各自来源、各自点数),时长按 Core 实际 —— 现行 <code>StatusKind.ArmorBreak</code> 是 <code>TurnsLeft = -1</code> 本场持久,所以写「本场持久」;若 Core 改回限时,同一位置换成「剩 N 回合」。</li>
+    <li>状态列表:破甲一行「剩 N 回合」;削甲<b>每层各一行</b>(各自来源、各自点数、<b>各自计时</b>「剩 N 回合」—— Core <code>TurnsLeft = Math.Max(1, effect.Turns)</code>,2026-09-08 起限时)。现行 <code>StatusText.Of</code> 给削甲写的是「本场持久」,实现时改走 <code>Duration(turnsLeft)</code>。</li>
     <li>状态列表里的破甲 / 削甲 chip 保留(这里是说明处,不是战场 chip 流);战场状态 chip 区不再出这两枚。</li>
     <li><b>玩家侧</b>(敌人对玩家施加破甲 / 削甲,目前无敌人配置):玩家栏护甲格同一规则 —— 破甲换破甲图标、玩家按杂兵口径无数(<code>EffectivePlayerDefense</code> 归零);削甲换削甲图标 + 剩余值;回合在玩家详情(<code>PlayerInfo</code>)看。</li>
   </ul>
@@ -61,16 +61,16 @@ function shredDesc(m) { return '目标护甲 −' + m + ' 点，可叠加——�
 class Component extends DCLogic {
   renderVals() {
     function det(title, sub, base, boss, brk, shreds) {
-      var total = shreds.reduce(function (a, b) { return a + b; }, 0), cell = X.armorCell(base, boss, brk, total);
+      var total = shreds.reduce(function (a, b) { return a + b[0]; }, 0), cell = X.armorCell(base, boss, brk, total);
       var notes = ['基准 ' + base]; if (brk) notes.push('破甲 −' + (boss ? base - Math.floor(base / 2) : base)); if (total) notes.push('削甲 −' + total);
       var st = [];
       if (brk) st.push({ src: X.icon('armorbreak'), t: '', n: '破甲', du: '剩 2 回合', duCls: 'du hot', ds: SUNDER });
-      shreds.forEach(function (m) { st.push({ src: X.icon('armorshred'), t: String(m), n: '削甲', du: '本场持久', duCls: 'du hot', ds: shredDesc(m) }); });
+      shreds.forEach(function (p) { st.push({ src: X.icon('armorshred'), t: String(p[0]), n: '削甲', du: '剩 ' + p[1] + ' 回合', duCls: 'du hot', ds: shredDesc(p[0]) }); });
       return { title: title, sub: sub, cellSrc: X.icon(cell.icon), cellT: '', v: cell.v, note: notes.join(' · '), st: st };
     }
     return { dets: [
-      det('窑变', 'Boss · 破甲 + 削甲两层', 40, true, true, [5, 3]),
-      det('铁', '杂兵 · 削甲两层', 30, false, false, [8, 4]),
+      det('窑变', 'Boss · 破甲 + 削甲两层', 40, true, true, [[5, 3], [3, 1]]),
+      det('铁', '杂兵 · 削甲两层(各自计时)', 30, false, false, [[8, 2], [4, 3]]),
       det('铁', '杂兵 · 破甲', 30, false, true, [])
     ] };
   }

@@ -56,7 +56,7 @@ Core 已落地(main):`StatusKind.Sunder` = 破甲,`StatusKind.ArmorBreak` = 削�
 | 原本无甲(基准 0) | 不出格 | 同现行 |
 
 - Boss / 精英 / 头领竖块:护甲 chip 在右栏,同规则。
-- 详情弹窗:「甲」数值格用同一枚图标 + 剩余值,注释沿用「基准 N · 破甲 −x · 削甲 −y」;状态列表里破甲一行「剩 N 回合」,削甲**每层一行**带点数。
+- 详情弹窗:「甲」数值格用同一枚图标 + 剩余值,注释沿用「基准 N · 破甲 −x · 削甲 −y」;状态列表里破甲一行「剩 N 回合」,削甲**每层一行**带点数、各自「剩 N 回合」。
 - 玩家侧(敌人对玩家施加,目前无配置):玩家栏护甲格同规则;破甲按杂兵口径不印数(`EffectivePlayerDefense` 归零);回合在玩家详情看。
 
 ## 两档屏宽验算(逻辑单位)
@@ -73,15 +73,15 @@ chip 外形不变、只换图标,两档屏宽的排行与现行一致,不需要 
 1. **新破甲图标**(裂成两半)的样子 —— 本次改稿的重点。
 2. **削到 0 时**:削甲图标 +「0」照出(推荐,玩家能看到「被削光了」);还是像现在一样数到 0 就不出格。
 3. **原本无甲的敌人**被挂破甲 / 削甲:不出格(代拍,同现行;挂了也没有可破的甲)。
-4. **削甲时长**:Core 现行 `StatusKind.ArmorBreak` 是 `TurnsLeft = -1`(**本场持久**),而 spec §1 写的是 3 回合、各自计时。
-   稿里详情按 Core 写「本场持久」;要回到限时就是 Core 的事,同一位置换「剩 N 回合」即可。
+4. ~~削甲时长~~:已更正 —— Core 削甲是限时的(`BattleEngine` 的 ArmorBreak case:`TurnsLeft = Math.Max(1, effect.Turns)`,
+   2026-09-08 起,每层各自计时);`EffectDef` / `StatusEffect` 注释里的「本场持久」是过时注释,实现时一起改。不再需要拍板。
 5. 封禁(Silence)也会让护甲归零 / 减半:本稿不改,头行仍是 `defense` 图标 + 剩余值,杂兵归零时不出格。
 
 ## 实现清单(不在本稿范围)
 - ⚠ key 与 StatusKind 交叉:Sunder → `"armorbreak"`(新图)、ArmorBreak → `"armorshred"`。按玩家看到的名字对 key,别按枚举名。
 - 图标三处对账:`ICONS`(改 `armorbreak`、加 `armorshred`)、`test_icons.EXPECTED`、`Icons.Glyphs`;跑 `python3 tools/icons/build_icons.py`;新 PNG 的 `.meta` 复制换 guid。
 - `BattleView`:头行护甲 chip 按上表;删掉状态 chip 区里 Sunder / ArmorBreak 两枚(敌人格、玩家栏、召唤物)。
-- `StatusText.Of`:ArmorBreak 的图标 key 改 `"armorshred"`。
+- `StatusText.Of`:ArmorBreak 的图标 key 改 `"armorshred"`;时长由「本场持久」改走 `Duration(turnsLeft)`(「剩 N 回合」)。
 
 ## 字符串表
 无新增(护甲格不印字;`status.sunder.*` / `status.armorbreak.*` 已在字符串表里)。兜底字「薄」已在子集里。
@@ -93,3 +93,5 @@ chip 外形不变、只换图标,两档屏宽的排行与现行一致,不需要 
   画板改为 Icons(两图标 + 七种护甲格 × 两档)/ Detail(详情回合)/ Spec(两枚 ICONS 片段 + 规则 + 清单);删去 B / C 候选。
   为什么:用户拍板 —— 破甲 / 削甲本质是「护甲变了」,放在护甲格上比在状态区多挂一枚更直接,也给挤的状态区腾位;
   破甲旧图与削甲同为「盾 + 一道线」,裂成两半更能和「缺一角」一眼分开。
+- 2026-10-21 · 回填 · 改了什么:Detail 画板里削甲每层的时长由「本场持久」改为各自「剩 N 回合」;README 第 4 条拍板点撤销,实现清单补「StatusText 削甲时长改走 Duration」。
+  为什么:更正 —— Core 削甲 2026-09-08 起就是限时(`TurnsLeft = Math.Max(1, effect.Turns)`,每层各自计时),「本场持久」是过时注释与现行 StatusText 文案。
