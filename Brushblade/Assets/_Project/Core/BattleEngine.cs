@@ -1960,7 +1960,7 @@ namespace Brushblade.Core
             if (usedThisTurn >= KillDrawPerTurnCap) return;   // 上限到顶:规则,不提示(先于满库判)
             if (_forge.Library.Count >= _config.LibraryCapacity) { KillDrawBlocked(enemyIndex); return; }
             if (_traitRandom.Next(100) >= _config.KillDrawChancePercent) return;   // 未中:不掉、不发事件
-            var deck = new List<string>(_config.UnlockedChars);   // 同 StartTurn 的掉字口径
+            var deck = DropDeck();   // 同 StartTurn 的掉字口径
             for (int n = 0; n < _config.KillDraws; n++)
             {
                 if (_forge.Library.Count >= _config.LibraryCapacity) { KillDrawBlocked(enemyIndex); return; }
@@ -1970,6 +1970,17 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.CharGranted, enemyIndex, _forge.Library.Count - 1,
                     source: EffectSource.KillDraw));
             }
+        }
+
+        /// <summary>掉字牌组(回合掉字与斩获共用):已解锁字 + 本局生疏字(用户 2026-10-21:转盘 / 奇遇
+        /// 拿到的未收集字,本局之后的战斗也能随机掉到,掉下来照旧生疏)。没有生疏字时与原牌组逐位相同。</summary>
+        private List<string> DropDeck()
+        {
+            var deck = new List<string>(_config.UnlockedChars);
+            if (_config.UnfamiliarChars != null)
+                foreach (var id in _config.UnfamiliarChars)
+                    if (!deck.Contains(id)) deck.Add(id);
+            return deck;
         }
 
         /// <summary>锋刃回鞘的伤害加成 %(断金另加,spec 2026-10-19 §1)。</summary>
@@ -3397,7 +3408,7 @@ namespace Brushblade.Core
             // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
             if (_config.UnlockedChars != null && _config.UnlockedChars.Count > 0)
             {
-                var deck = new List<string>(_config.UnlockedChars);
+                var deck = DropDeck();
                 // 广纳(2026-10-18 改 ≤1)/ 集腋(≤2):判在掉字之前 —— 按回合开始时的字库张数,两者叠加
                 int drops = _config.DropsPerTurn
                     + (_forge.Library.Count <= 1 ? _config.EmptyLibraryExtraDraws : 0)
